@@ -1,0 +1,81 @@
+[gd_scene format=3 uid="uid://b8kiaiogthu1x"]
+
+[ext_resource type="Script" uid="uid://elj1t3nfegtf" path="res://Scripts/Tests/MercTest.gd" id="1_r3800"]
+
+[node name="Control" type="Control" unique_id=1310052693]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_r3800")
+
+[node name="ButtonBar" type="GridContainer" parent="." unique_id=1513937818]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+offset_bottom = 276.0
+columns = 4
+
+[node name="RerollMercs" type="Button" parent="ButtonBar" unique_id=672613550]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "REROLL MERCS"
+
+[node name="AddMerc" type="Button" parent="ButtonBar" unique_id=1885058079]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "ADD MERC"
+
+[node name="RemoveMerc" type="Button" parent="ButtonBar" unique_id=994257344]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "REMOVE MERC"
+
+[node name="RerollNames" type="Button" parent="ButtonBar" unique_id=626250663]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "REROLL NAMES"
+
+[node name="DefendCheck" type="Button" parent="ButtonBar" unique_id=1032239032]
+self_modulate = Color(0.050980393, 1, 1, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "DEFEND CHECK"
+
+[node name="UrbanCheck" type="Button" parent="ButtonBar" unique_id=1036298488]
+self_modulate = Color(1, 0, 1, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "URBAN CHECK"
+
+[node name="MonsterHuntCheck" type="Button" parent="ButtonBar" unique_id=1789690436]
+self_modulate = Color(1, 1, 0, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "MONSTER HUNT CHECK"
+
+[node name="SocialCheck" type="Button" parent="ButtonBar" unique_id=2020740088]
+self_modulate = Color(0.96479326, 0.30007732, 0.551497, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SOCIAL CHECK"
+
+[node name="PoisonCheck" type="Button" parent="ButtonBar" unique_id=1122334455]
+self_modulate = Color(0.3, 1, 0.3, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "POISON CHECK"
+
+[node name="PutOnAShowCheck" type="Button" parent="ButtonBar" unique_id=-2061521730]
+self_modulate = Color(1, 0.6, 0.1, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "PUT ON A SHOW CHECK"
+
+[node name="BatchAnalysis" type="Button" parent="ButtonBar" unique_id=555444333]
+self_modulate = Color(1, 0.3, 0.3, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "BATCH ANALYSIS"

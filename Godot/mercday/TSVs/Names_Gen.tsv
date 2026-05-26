@@ -1,0 +1,559 @@
+Region	Prefix 1	Middlefix 1	Suffix 1	Prefix 2	Middlefix 2	Suffix 2	Rules
+Buern	Wil	li	am	Wash	ing	ton	Consonant to consonant is okay in first name
+Buern	Dan	i	el	Jeff	er	son	Consonant to vowel is okay in first name and surname
+Buern	Jon	a	than	Ham	il	rald	Vowel to vowel is prohibited
+Buern	Chris	to	pher	And	in	ald	If skipping middlefix and combining consonant and vowel, ensure there are two consonants (adding an additional copy of the consonant if necessary) before the vowel
+Buern	El	iza	beth	Rob	p	her	50% chance to skip middlefix in First Name
+Buern	Kath	er	ine	Thom	ri	nor	25% chance to skip Suffix in First Name (if no Middlefix)
+Buern	Al	ex	ander	Har	ge	nathy	25% chance to skip Middlefix in Surname
+Buern	Ben	ja	min	Fitz	don	ham	If consonant to consonant would occur in surname, drop a consonant at random to make it consonant-to-vowel
+Buern	Sam	u	las	Mac	der	ery	
+Buern	Nich	o	thy	Hen	ard	wood	
+Buern	Tim	ga	ver	Rich	ven	ong	
+Buern	Ol	an	ret	Ste	liam	ter	
+Buern	Mar	tor	ry	Wil	lag	chael	
+Buern	Zach	h	iel	Gal	con	port	
+Buern	Nath	r	jah	O	ning	ston	
+Buern	Josh	e	a	Ab	ring	ford	
+Buern	Ab	ri	gail	Cun	gom	lain	
+Buern	Vic	el	tha	Mont	ter	zie	
+Buern	Matt	ea	ia	Pat	kin	thur	
+Buern	And	em	ew	Un	str	aves	
+Buern	Anth	ken	ny	Arm	nis	right	
+Buern	Ev	v	lyn	Ban	mi	eld	
+Buern	Gab	is	an	Car	en	ville	
+Buern	Jul	i	dore	Dav	ling		
+Buern	The	is	ope	El	sing		
+Buern	Pen	er	nor	Hunt	dle		
+Buern	Mad		son	Ken	ber		
+Buern	Cam		on	Liv	ple		
+Buern	Dom		nic	Pen	ken		
+Buern	Jer		iah	Ruth	ar		
+Buern	Car		line	Cham	gre		
+Buern	Har		zie	Ap	w		
+Buern	Mac		nah	Bel	ches		
+Buern	Sav		bella	Wain	fi		
+Buern	Is		as	Win	cas		
+Buern	Gid		ie	Brad	del		
+Buern	Phin		chi	Lan	king		
+Buern	Val		my	Cov			
+Buern	Luc		sa	Mid			
+Buern	Mal		an	Rem			
+Buern	Syl		sa	Tar			
+Buern	Gil			Wel			
+Buern	Dam			Hutch			
+Buern	Clar			Tem			
+Buern	Em			Som			
+Buern	Tob						
+Buern	Dam						
+Buern	Clar						
+Buern	Em						
+Buern	Tob						
+Cyfrolaef	Gwen	do	lyn	Grif	fith	s	Avoid repeating the same letter in both in the first name and last name. If this would happen, replace with a random letter of the same type (consonant=consonant, vowel=vowel)
+Cyfrolaef	Rhi	an	non	Wil	li	ams	Treat y as a vowel
+Cyfrolaef	Lly	wel	yn	Jen	kin	ll	When two or more consonants differing from each other would connect, put an apostrophe (') between them
+Cyfrolaef	Daf	y	dd	How	d	ox	After finishing the surname, 5% chance to continue it with an additional roll, combining 2 Surnames together instead of 1.
+Cyfrolaef	My	fan	wy	Mad	g	n	For each vowel, 5% chance to replace that vowel with the next or previous consonant appearing in the name.
+Cyfrolaef	Gar	e	th	Vaugh	i	es	If vowels would ever connect, drop one of the vowels at random.
+Cyfrolaef	Meg	a	n	Mor	a	ns	
+Cyfrolaef	Dyl	u	an	Dav	ot	ny	
+Cyfrolaef	Ie	s	ri	Ev	chaz	ka	
+Cyfrolaef	Gwyn	te	en	Thom	pi	sil	
+Cyfrolaef	Mac	dr	ch	Bow	in	ek	
+Cyfrolaef	Ow	st	ej	Pugh	ic	da	
+Cyfrolaef	Cer	is	of	Par	lac	ak	
+Cyfrolaef	Al	f	ka	Jon	bo	y	
+Cyfrolaef	Eir	ty	za	Lloy	r	a	
+Cyfrolaef	El	o	la	Hug	or	o	
+Cyfrolaef	Nery	p	lie	Owen	el	c	
+Cyfrolaef	Os	m	ie	Pric	n	r	
+Cyfrolaef	Si	l	na	Rob	er	u	
+Cyfrolaef	Teg	r	lina	Lew	v	th	
+Cyfrolaef	Aed	n	nika	Cla	k	l	
+Cyfrolaef	Ang	ri	b	Edw	m	d	
+Cyfrolaef	Bry	t	j	Har	u	t	
+Cyfrolaef	Car	ch	s	Wal	c	m	
+Cyfrolaef	Dil	v	is	Yeo	t	z	
+Cyfrolaef	Eur		k	Bev	z	v	
+Cyfrolaef	Ff		as	Cad	s	b	
+Cyfrolaef	Ger		ta	Nov		p	
+Cyfrolaef	Ior		ra	Pro		f	
+Cyfrolaef	Mab		a	Pos		j	
+Cyfrolaef	Voj		ce	Jel		k	
+Cyfrolaef	On		ek	Ruz		x	
+Cyfrolaef	Kry		on	Sed		w	
+Cyfrolaef	Ter		d	Svo		q	
+Cyfrolaef	Ad		m	Dvo		h	
+Cyfrolaef	Nat		g	Pok		ch	
+Cyfrolaef	So		r	Ves		sh	
+Cyfrolaef	Kris		t	Cer		ski	
+Cyfrolaef	Kar		w	Kuc		cky	
+Cyfrolaef	Ver		z	Hor		ov	
+Cyfrolaef	Jak		c	Nem		eva	
+Cyfrolaef	Mat		f	Mar		ova	
+Cyfrolaef	Tom		l	Haj		in	
+Cyfrolaef	Luk		p	Kra		on	
+Cyfrolaef	Ste		y	Ben		en	
+Cyfrolaef	Bar		x	Fia		an	
+Cyfrolaef	Jan		eth	Zeman		man	
+Cyfrolaef	Jir		ith	Kol		son	
+Cyfrolaef	Pet		iel	Krato		sen	
+Cyfrolaef	Rad		uel	Mach		i	
+Miliim	Ama	a	adi	Nda	de	wa	Prioritize the letters D and Z. If a name does not include one of these letters, 50% chance to replace a random consonant in the name with one of those letters.
+Miliim	Kof	e	ulu	Mbo	di	ya	If 'i' appears by itself surrounded by consonants, add an additional i (so riz becomes riiz).
+Miliim	Kwa	i	ofi	Kiu	do	za	If i is preceded by any of the following letters, add 'h' after that letter before the i: B, D, F, J, L, M, N P, V, X (so 'Miin' becomes 'Mhiin'
+Miliim	Nya	o	ame	Dlam	ge	ba	If a name does not contain the vowel 'i', 50% chance to replace an instance of a vowel surrounded by consonants with two 'ii's.
+Miliim	Zai	u	abe	Ojo	gi	ca	Treat 'Middlefixes' as a 'Suffix'. If you roll a 'Middlefix' successfully, then do not roll a Suffix for that part of the name. Middlefixes still have the same chance of appearing, though.
+Miliim	Jab	ba	imi	Oka	go	da	
+Miliim	Tar	be	ngo	Olu	re	fa	
+Miliim	Omo	bo	nna	Ade	ri	ga	
+Miliim	Nia	ma	ode	Bal	ro	ha	
+Miliim	Zal	me	ola	Ban	se	ja	
+Miliim	Fat	mi	ose	Chuk	si	la	
+Miliim	Ayo	mo	uka	Ekw	so	ma	
+Miliim	Bab	mu	use	Nwa	we	na	
+Miliim	Chi	na	wale	Oku	wi	pa	
+Miliim	Dik	ne	yemi	Ony	wo	sa	
+Miliim	Eze	ni	zika	Uba	ye	ta	
+Miliim	Fik	no	zini	Awo	yi	va	
+Miliim	Gbo	nu	bari	Bak	yo	mbo	
+Miliim	Ige	ka	dika	Diop	ze	ndi	
+Miliim	Jom	ke	fela	Fal	zi	ngo	
+Miliim	Kam	ki	gina	Fay	zo	nja	
+Miliim	Lum	ko	lara	Gey	ma	nyo	
+Miliim	Mak	ku	nika	Keit	me	nza	
+Miliim	Ndi	ta	soke	San	mi	sho	
+Miliim	Obi	te	titi	Sar	mo	tho	
+Miliim	Pen	ti	wande	Sec	mu	zho	
+Miliim	Ruf	to	yabo	Sy	da	kwo	
+Miliim	Sad	tu	zola	Tra	du	mwe	
+Miliim	Tof	la	met	Wad	ya	ndu	
+Miliim	Udo	le	ran	Yil	yu	ngu	
+Miliim	Wek	li	an	Kay		maz	
+Miliim	Yal	lo	in	Dem		kaya	
+Miliim	Zub	lu	un	Cel		mir	
+Miliim	Ahm		on	Sah		lik	
+Miliim	Meh		ak	Ozt		hin	
+Miliim	Mus		ek	Koc		urk	
+Miliim	Ali		ik	Ars		lan	
+Miliim	Hus		ok	Kil		ic	
+Miliim	Has		uk	Cet		tin	
+Miliim	Ibr		ar	Bul		ut	
+Miliim	Ism		er	Tek		er	
+Miliim	Osm		ir	Erd		an	
+Miliim	Hal		ur	Ozk		in	
+Miliim	Mur		as	Pol		lu	
+Miliim	Sul		es	Ozc		g	
+Miliim	Ays		is	Ak		p	
+Miliim	Bat		os	Bozk		y	
+Miliim	Can		us	Tur		k	
+Miliim	Den		at	Omo		l	
+Miliim	Eng		et	Igb		r	
+Vaernebo	Ahm	a	et	Yilm	ic	ov	Additional +25% chance to skip a middlefix on the first name.
+Vaernebo	Meh	e	ak	Kaya	ik	ev	
+Vaernebo	Mus	i	in	Dem	ec	ina	
+Vaernebo	Ali	o	an	Cel	ek	yn	
+Vaernebo	Hus	u	uk	Sah	al	yi	
+Vaernebo	Has	ya	or	Ozt	el	ya	
+Vaernebo	Ibr	ye	er	Koc	il	va	
+Vaernebo	Ism	yi	ir	Arsl	ol	aya	
+Vaernebo	Osm	yo	ur	Kili	ul	ova	
+Vaernebo	Hal	yu	as	Cet	am	eva	
+Vaernebo	Mur	k	es	Bul	em	yov	
+Vaernebo	Sul	t	is	Tek	im	iov	
+Vaernebo	Ays	s	os	Erd	om	skiy	
+Vaernebo	Bat	m	us	Ozk	um	skaya	
+Vaernebo	Can	n	at	Pol	ap	ovich	
+Vaernebo	Den	r	ot	Ozc	ep	evich	
+Vaernebo	Eng	l	ut	Ak	ip	ich	
+Vaernebo	Iva	d	can	Bozk	op	ych	
+Vaernebo	Dmi	b	han	Tur	up	nik	
+Vaernebo	Vla	z	man	Guls	ac	chik	
+Vaernebo	Ale	zh	din	Ivan	yk	chuk	
+Vaernebo	Mik	sh	iy	Smir	ar	enko	
+Vaernebo	Ser	ch	a1	Kuzn	er	ko	
+Vaernebo	Nik	v	ya1	Pop	ur	ak1	
+Vaernebo	Yek	g	ey	Sokol	yr	uk1	
+Vaernebo	Ana		yna	Lebe		yak	
+Vaernebo	Mar		ev1	Kozl		az	
+Vaernebo	Tat		yn1	Novik		ez	
+Vaernebo	Olg		sha	Moroz		iz	
+Vaernebo	Sve		cha	Volkov		oz	
+Vaernebo	Yel		ka	Alek		uz	
+Vaernebo	Kse		ta	Matv		maz	
+Vaernebo	Dar		ra	Vino		mez	
+Vaernebo	Pol		na	Zait		kan	
+Vaernebo	Ili		sa	Solov		ken	
+Vaernebo	And		va1	Taras		san	
+Vaernebo	Bor		la	Belov		sen	
+Vaernebo	Pyo		ma	Koma		tan	
+Vaernebo	Fed		nya	Maka		ten	
+Vaernebo	Val		lya	Orlov		dan	
+Vaernebo	Lev		gey	Kise		den	
+Vaernebo	Rom		mir	Ilin		man1	
+Vaernebo	Pav		slav	Step		men	
+Vaernebo	Geo		dym	Semen		yan	
+Vaernebo	Eka		zor	Egor		yen	
+Vaernebo	Vik		bor	Petro		soy	
+Vaernebo	Yur		fiy	Sidor		oglu	
+Vaernebo	Ker		kiy	Pavlo		dag	
+Vaernebo	Oza		tiy	Bogd		tas	
+Vaernebo	Yil		on	Taran		bas	
+Suorr	Ped	a	ro	Sil	ar	va	Weighing +25% on suffixes ending in a vowel.
+Suorr	Jo	e	ao	San	er	za	
+Suorr	Mar	i	a	Sou	ir	res	
+Suorr	Car	o	o	Oli	or	ira	
+Suorr	Luc	u	os	Rod	ur	ria	
+Suorr	Fern	r	as	Per	as	tes	
+Suorr	Gab	l	is	Gon	es	des	
+Suorr	Raf	d	es	Fer	is	nes	
+Suorr	Di	b	us	Cos	os	tos	
+Suorr	Ant	c	el	Gom	us	las	
+Suorr	Man	g	al	Mar	ad	les	
+Suorr	Fel	m	il	Lop	ed	lis	
+Suorr	Gui	n	ol	Marq	id	los	
+Suorr	Hen	p	ul	Alv	od	lus	
+Suorr	Edu	t	an	Dia	ud	mas	
+Suorr	Ric	v	en	Cas	af	mes	
+Suorr	Mig	z	in	Ram	ef	mis	
+Suorr	Al	ch	on	Tor	if	mos	
+Suorr	Bern	lh	un	Mac	of	mus	
+Suorr	Thi	nh	am	Gar	uf	nas	
+Suorr	Le		em	Men		nis	
+Suorr	Jul		im	Bar		nos	
+Suorr	Bru		om	Cor		nus	
+Suorr	Rob		um	Nune		pas	
+Suorr	Rod		ez	Pin		pes	
+Suorr	Dan		az	Tei		pis	
+Suorr	Iga		iz	Mor		pos	
+Suorr	Mat		oz	Rib		pus	
+Suorr	Ren		uz	Nas		ras	
+Suorr	Ser		lho	Cav		ris	
+Suorr	Vic		nha	Mel		ros	
+Suorr	Hug		inho	Fon		rus	
+Suorr	Ti		ina	Car		tas	
+Suorr	Pab		ita	Rei		tis	
+Suorr	Ale		ito	Ara		tus	
+Suorr	Jua		eta	Nov		vas	
+Suorr	Die		eto	Cam		ves	
+Suorr	Dav		uca	Vil		vis	
+Suorr	Est		uco	Del		vos	
+Suorr	Fran		ico	Val		vus	
+Suorr	Gon		ica	Bel		xas	
+Suorr	Iag		ela	Cru		xes	
+Suorr	Ign		elo	Sal		xis	
+Suorr	Jav		ola	Bla		xos	
+Suorr	Jor		olo	Pas		xus	
+Suorr	Jos		ula	Gui		zas	
+Suorr	Lui		ulo	Esp		zes	
+Suorr	Marq		ena	Ruz		zis	
+Suorr	Osc		eno	Veg		zos	
+Suorr	Ram		ria	Nav		zus	
+Kathaya	Muh	a	mad	Al	d	i	Each time a vowel appears in the name, 25% chance to replace that vowel with the letter 'r' or, if the vowel is next to the letter 'r', drop that vowel entirely.
+Kathaya	Ahm	am	med	Ibn	m	a	If the letter i appears surrounded by consonants, 50% chance to turn 'i' into 'ii'.
+Kathaya	Fat	em	ima	Bint	n	an	After choosing a Surname middlefix, 50% chance to add 'i' to the end instead of choosing a Surname suffix.
+Kathaya	Aish	im	sha	El	s	oud	Chance of a first name Middlefix is 5%.
+Kathaya	Zain	om	ija	Ab	r	aqi	Chance of a first name Suffix is 25%, or 5% if a Middlefix was chosen.
+Kathaya	Khad	um	id	Rah	l	ashi	If a first name only has a Prefix and it ends in a consonant, add a copy of that consonant to the end of the name.
+Kathaya	Tari	ar	ir	Say	b	id	If a first name only has a Prefix and it ends in a vowel, add a random Surname Middlefix to the end of the first name.
+Kathaya	Hass	er	min	Nas	c	im	
+Kathaya	Huss	ir	ah	Mans	g	ez	
+Kathaya	Ibra	or	in	Had	h	son	
+Kathaya	Ism	ur	ly	Hak	t	ton	
+Kathaya	Yusu	an	by	Mac	w	ford	
+Kathaya	Khal	en	dy	Mc	y	wood	
+Kathaya	Om	in	cy	Fitz	z	ley	
+Kathaya	Yasm	on	ey	Wash	sh	don	
+Kathaya	Lail	un	ie	Jeff	th	land	
+Kathaya	Beau	el	ia	Ham	ch	man	
+Kathaya	Bil	al	een	Bea	ph	ham	
+Kathaya	Bob	il	anne	Bou	gh	burn	
+Kathaya	Ray	ol	lynn	Cul	kh	by	
+Kathaya	Jim	ul	belle	Dix	dj	ville	
+Kathaya	Joe	l	mae	Thib	bj	brough	
+Kathaya	Clet	r	lou	Brea	sv	cox	
+Kathaya	Shir	m	ar	Thors		gins	
+Kathaya	Lu	n	or	Eriks		sen	
+Kathaya	Wil	th	ulf	Karls		dottir	
+Kathaya	Thor	d	orn	Lars		s	
+Kathaya	Bjorn	b	ild	Niel		ström	
+Kathaya	Sig	g	rid	Olof		berg	
+Kathaya	Ulf	v	ab	Far		dahl	
+Kathaya	Ivar	z	iq	Hus		ulf	
+Kathaya	Jeth		an	Mah		e	
+Kathaya	Way		a	Dar		y	
+Kathaya	Earl		am	Bak		o	
+Kathaya	Esm		ou	Jal		u	
+Kathaya	Far		o	Kha		er	
+Kathaya	Jam		e	Sal		ar	
+Kathaya	Sal		y	Zam		or	
+Kathaya	Ziy		ur	Tar		is	
+Kathaya	Nadi		if	Rad		in	
+Kathaya	Amin		r	O		en	
+Kathaya	Bubb		en	Bli		on	
+Kathaya	Dal		lene	Cleg		un	
+Kathaya	Ragn		is	Gof		al	
+Kathaya	Gud		ud	Hug		el	
+Kathaya	Hal		aq	Mer		il	
+Kathaya	Har		et	Pen		ol	
+Kathaya	Ver		al	Swa		at	
+Kathaya	Mae		line	Tol		et	
+Kathaya	Bea		ound	Vin		ut	
+Aerdis	Aed	b	a	O'	a	son	50% chance that, if a Middlefix for a surname is added, the middlefix will be from another random region. If so, Capitalize that Middlefix and precede it with an apostrophe ('), unless an Apostrophe already exists preceding it. That Middlefix must start with a consonant and must have at least 3 letters.
+Aerdis	Ail	c	an	Mac	e	sen	
+Aerdis	Aoi	d	ain	Mc	i	s	
+Aerdis	Art	f	in	Fitz	o	ton	
+Aerdis	Bea	g	en	Kil	u	don	
+Aerdis	Beo	m	on	Gil	y	ford	
+Aerdis	Bra	n	un	Mul	ae	wood	
+Aerdis	Cad	r	or	Mal	ai	ley	
+Aerdis	Cae	s	er	Dun	ao	land	
+Aerdis	Cai	t	ar	Bal	au	man	
+Aerdis	Cath	w	ir	Tre	ea	ham	
+Aerdis	Cia	th	ur	Pol	ee	burn	
+Aerdis	Col	bh	as	Pen	ei	by	
+Aerdis	Con	gh	es	Car	eo	ville	
+Aerdis	Cor	dh	is	Cor	eu	brough	
+Aerdis	Cuh	mh	os	Ros	ia	cox	
+Aerdis	Dae	ph	us	Pend	ie	gins	
+Aerdis	Der	sh	al	Ash	io	berg	
+Aerdis	Don	ch	el	Oak	iu	dahl	
+Aerdis	Dun	l	il	Thorn	oa	ulf	
+Aerdis	Ead	v	ol	Black	oe	well	
+Aerdis	Eal	fr	ul	White	oi	water	
+Aerdis	Ear	gl	aed	Red	oo	bridge	
+Aerdis	Ecg	gr	ael	Green	ou	brook	
+Aerdis	Eil	gw	ith	Fair	ua	field	
+Aerdis	Eog	mw	eth	Good	ue	hill	
+Aerdis	Eow	nw	ath	Beau	ui	dale	
+Aerdis	Eth	rh	uth	Bel	uo	mont	
+Aerdis	Fio	st	oth	Mont	wa	stone	
+Aerdis	Fra	tr	wyn	Font	we	rock	
+Aerdis	Fyn		wen	Saint		cliff	
+Aerdis	Gaw		ife	St		bank	
+Aerdis	God		iva	Glou		marsh	
+Aerdis	Gui		ifer	Wor		moor	
+Aerdis	Gwy		ulf	Lei		tree	
+Aerdis	Ham		aigh	Ches		croft	
+Aerdis	Ise		eigh	Win		garth	
+Aerdis	Ken		oigh	Lan		thwaite	
+Aerdis	Lach		agh	York		hope	
+Aerdis	Lan		egh	Somer		wick	
+Aerdis	Leof		igh	Corn		worth	
+Aerdis	Lor		ogh	North		cester	
+Aerdis	Mae		ugh	South		chester	
+Aerdis	Mal		aine	East		caster	
+Aerdis	Mer		eine	West		minster	
+Aerdis	Mor		oine	Mid		bury	
+Aerdis	Nia		iana	High		borough	
+Aerdis	Ois		iane	Low		port	
+Aerdis	Os		ien	Under		mouth	
+Aerdis	Pad		ion	Over		pool	
+Rossade	Ah	a	met	Yil	es	cu	Vowels cannot repeat in the First Name nor the Surname (separately)
+Rossade	Meh	e	an	Kay	is	scu	The longer the suffix, the higher its probability.
+Rossade	Ay	i	in	Dem	as	eanu	
+Rossade	Fat	o	un	Cel	os	oglu	
+Rossade	Ley	u	en	Sah	us	lu	
+Rossade	Mur	y	on	Ozt	el	ov	
+Rossade	Hal	r	l	Koc	il	ev	
+Rossade	Kem	l	m	Arsl	al	a	
+Rossade	Or	d	r	Kili	ol	e	
+Rossade	Oz	t	s	Cet	ul	u	
+Rossade	Il	m	a	Bul	er	i	
+Rossade	Can	n	e	Tek	ir	o	
+Rossade	Bar	v	u	Erd	ar	n	
+Rossade	Sev	z	ia	Ozk	or	r	
+Rossade	Gul	s	eia	Pol	ur	man	
+Rossade	Niy	sh	ina	Ozc	esc	yan	
+Rossade	Ome	c	ica	Ak	an	tz	
+Rossade	Zek	g	uta	Bozk	on	l	
+Rossade	Emi	b	ela	Tur	in	s	
+Rossade	Den	p	oare	Guls	en	t	
+Rossade	Kor	ch	can	Pop	ov	maz	
+Rossade	Bur	gh	han	Ion	ev	kan	
+Rossade	Tay	dr	man	Dum	iv	kaya	
+Rossade	Tol	tr	dan	Stan	av	mir	
+Rossade	Yil	br	mir	Gho	uv	lik	
+Rossade	Rad		iel	Vlad		hin	
+Rossade	Vlad		ius	Rad		urk	
+Rossade	Ios		is	Mih		lan	
+Rossade	Mir		os	Il		ic	
+Rossade	Drag		us	Mar		tin	
+Rossade	Sor		at	Con		ut	
+Rossade	Bog		et	Vas		as	
+Rossade	Luc		ut	Nic		es	
+Rossade	Flor		as	Sto		is	
+Rossade	Mar		es	Pet		os	
+Rossade	Ion		ak	Andr		us	
+Rossade	And		ek	Flor		g	
+Rossade	Dan		uk	Diac		y	
+Rossade	Gab		ay	Laz		k	
+Rossade	Mih		ey	Dav		m	
+Rossade	Nic		am	Mac		b	
+Rossade	Pet		em	Grig		d	
+Rossade	Ste		im	Tuc		v	
+Rossade	Vas		om	Bogd		z	
+Rossade	Ili		um	Cost		c	
+Rossade	Cos		ar	Lupu		an	
+Rossade	Tib		er	Munt		en	
+Rossade	Cat		ir	Bar		on	
+Rossade	Eca		or	Iord		in	
+Rossade	Geo		ur	Mold		stant	
+Aldurstein	Aan	a	itta	Sharm	es	wal	
+Aldurstein	Bhav	e	anja	Verm	is	ji	
+Aldurstein	Char	i	isha	Gupt	as	kar	
+Aldurstein	Div	o	vati	Sing	os	ni	
+Aldurstein	Ees	u	puri	Pat	us	ti	
+Aldurstein	Gitan	ya	mita	Desh	en	di	
+Aldurstein	Jyot	vi	devi	Josh	in	ova	
+Aldurstein	Kam	ri	ika	Kap	an	eva	
+Aldurstein	Lakh	ni	ina	Mah	on	ina	
+Aldurstein	Meen	mi	ini	Chaw	un	yna	
+Aldurstein	Nand	sh	itri	Bhat	ov	ski	
+Aldurstein	Pad	zh	asya	Datt	ev	ska	
+Aldurstein	Raj	k	inna	Nair	av	vich	
+Aldurstein	Sush	v	oriya	Men	iv	oglu	
+Aldurstein	Vand	dr	ovna	Sen	uv	lu	
+Aldurstein	Anas	tr	yeva	Ivan	al	cu	
+Aldurstein	Dary	ly	uba	Smirn	el	su	
+Aldurstein	Ek	st	osha	Kuz	il	son	
+Aldurstein	Kse	m	isya	Pop	ol	sen	
+Aldurstein	Laris	n	alya	Sok	ul	dahl	
+Aldurstein	Nata	th	ayla	Leb	ar	berg	
+Aldurstein	Oks	d	atun	Koz	er	strom	
+Aldurstein	Pol	b	nisa	Nov	ir	qvist	
+Aldurstein	Svet	g	sena	Mor	or	holm	
+Aldurstein	Taty	z	suya	Vol	ur	lund	
+Aldurstein	Yar	l	gul	Mac	at	sjo	
+Aldurstein	Zina		yel	Zai	et	lind	
+Aldurstein	Ag		hild	Sol	it	man	
+Aldurstein	Lud		run	Tar		yan	
+Aldurstein	Ays		vor	Bel		kan	
+Aldurstein	Def		gertha	Yil		dan	
+Aldurstein	El		lof	Kay		van	
+Aldurstein	Giz		dis	Dem		tan	
+Aldurstein	Hand		rida	Cel		san	
+Aldurstein	Irem		borg	Sah		ran	
+Aldurstein	Mel		trid	Ozt		pan	
+Aldurstein	Nur		frida	Koc		nan	
+Aldurstein	Peli		gund	Ars		lan	
+Aldurstein	San		vira	Kil		jan	
+Aldurstein	Tug		mira	Cet		han	
+Aldurstein	Yas		zara	Bul		gan	
+Aldurstein	Zehr		lara	Tek		fan	
+Aldurstein	Frey		shaa	Erd		ban	
+Aldurstein	Sig		tima	Ak		zen	
+Aldurstein	Astr		sira	And		ren	
+Aldurstein	Brun		nira	Joh		pen	
+Aldurstein	Gud		kyra	Karl		nen	
+Aldurstein	Hil		myra	Nils		men	
+Aldurstein	Ragn		tyra	Eri		len	
+Aldurstein	Valy		lyra	Lars		ken	
+Zukei	Yoshe	a	mitz	Ashe	a	cagga	Do not connect two of the same vowel.
+Zukei	Tack	e	massa	Hosso	i	cowa	15% chance to start with a Middlefix instead of a Prefix (capitalize it if so).
+Zukei	Mote	i	norry	Shibbe	u	ebba	
+Zukei	Nobbe	o	hissa	Hatte	e	yamma	
+Zukei	Kenne	u	tanne	Yamme	o	anna	
+Zukei	Shinne	ya	zumi	Kyoo	ka	gocku	
+Zukei	Masse	yo	harrow	Ack	kee	matsoo	
+Zukei	Hisse	yu	terrow	Isse	koo	shicky	
+Zukei	Kye	wa	acky	Ogg	kay	warra	
+Zukei	Terre	ko	ujy	Tack	ko	edda	
+Zukei	Ake	no	ackira	Imme	sa	gawa	
+Zukei	Iye	mee	narry	Uesse	shee	soogy	
+Zukei	Mitze	ma	nagga	Hojo	soo	joe	
+Zukei	Hidde	moo	shinn	Morre	say	orry	
+Zukei	Tome	may	genn	Ouchy	so	oochy	
+Zukei	Katze	mo	shiggy	Tock	ta	ee	
+Zukei	Nagge	roo	yassu	Matsu	chee	doe	
+Zukei	Uje	ray	moone	Iyed	tsoo	moora	
+Zukei	Sadde	ro	tsoone	Kicke	tay	chee	
+Zukei	Tsune	ree	kagge	Shonne	to	koochy	
+Zukei	Yashe	ra	hero	Dyte	na	gammy	
+Zukei	Yaso	soo	satto	Miyye	nee	zocky	
+Zukei	Hanne	say	torra	Chos	noo	bay	
+Zukei	Tako	so	katsow	Ryooz	nay	no	
+Zukei	Hoshe	sa	kazzoo	Shimme	no	toe	
+Zukei	Morre	shee	foomy	Datte	ha	dah	
+Zukei	Kanne	ta	sooky	Satte	hee	tah	
+Zukei	Tanne	tay	yoshy	Ota	foo	acky	
+Zukei	Zume	to	tommo	Asack	hay	occa	
+Zukei	Harre	tsoo	keeyo	Asye	ho	sheema	
+Zukei	Akye	chee	tadda	Rocke	ma	zawwa	
+Zukei	Norre	ka	toshy	Kyogg	mee	dyra	
+Zukei	Motche	kay	yorry	Ammag	moo	numm	
+Zukei	Tadde	kee	nacka	Ukkit	may	zacky	
+Zukei	Toshe	koo	heera	Miyosh	mo	coora	
+Zukei	Shigge		motto	Tsoots	ya	bashy	
+Zukei	Yorre		saddo	Itte	yoo	tsoo	
+Zukei	Munne		uwo	Sayer	yo	tanny	
+Zukei	Nacke		ryoo	Hattak	ra	way	
+Zukei	Fumme		rockoo	Yamok	ree	sheeta	
+Zukei	Sooke		shero	Ogas	roo	harra	
+Zukei	Kage		jero	Kaww	ray	sawwa	
+Zukei	Hirre		tarrow	Kicko	ro	keeta	
+Zukei	Kazze		marrow	Kobbe	wa	meena	
+Zukei	Torre		maroo	Tach	n	cawwa	
+Zukei	Koma		noffu	Nabbe		fujy	
+Zukei	Genne		mizoo	Arrim		bishy	
+Zukei	Ryoo		tockoo	Omur		goochy	
+Zukei	Danne		nobbu	Kamme		curo	
+Zukei	Jinne		heeko	Minne		satto	
+Copari	Vla	a	d	Pop	es	cu	Do not connect two of the same vowel.
+Copari	Rad	e	an	Dum	is	scu	
+Copari	Sor	i	in	Sta	as	eanu	
+Copari	Bog	o	on	Gho	os	oglu	
+Copari	Luc	u	un	Mih	us	lu	
+Copari	Flo	y	el	Ilo	el	a	
+Copari	Dra	ri	il	Mar	il	e	
+Copari	Mir	li	ol	Con	al	i	
+Copari	Ios	ni	ul	Vas	ol	o	
+Copari	Jea	ti	as	Nic	ul	u	
+Copari	Pie	mi	es	Sto	er	y	
+Copari	Jac	di	is	Pet	ir	s	
+Copari	Gui	vi	os	And	ar	t	
+Copari	Ant	si	us	Dia	or	z	
+Copari	Fra	an	ue	Laz	ur	x	
+Copari	Lou	en	aie	Mac	esc	ier	
+Copari	Mic	in	oie	Gri	en	iere	
+Copari	Ren	on	ean	Tuc	in	eau	
+Copari	Cha	un	aine	Cos	on	eaux	
+Copari	Gen	ar	oine	Lup	un	ard	
+Copari	Aur	er	ien	Mun	ov	art	
+Copari	Syl	ir	ienne	Bar	ev	aud	
+Copari	Emi	or	elle	Ior	iv	aut	
+Copari	Cla	ur	ette	Mol	av	ault	
+Copari	Gor	le	eaux	Tre	ba	ot	
+Copari	Dou	re	oux	Bou	be	et	
+Copari	Way	ne	ou	Bla	bi	at	
+Copari	Tre	de	ault	Leb	bo	out	
+Copari	Lor	me	ard	Lef	bu	eut	
+Copari	Bev	te	art	Leg	ca	ous	
+Copari	Shi	se	eille	Lem	ce	euf	
+Copari	Dar	ve	ence	Ler	ci	ois	
+Copari	Nor	la	anne	Les	co	ais	
+Copari	Alb	ro	orie	Lev	cu	eix	
+Copari	Bon	mu	arie	Mer	da	aix	
+Copari	Cal	ta	ute	Mon	de	eux	
+Copari	Cel	po	ique	Pel	di	ines	
+Copari	Dan	vu	onne	Per	do	anes	
+Copari	Del	zi	or	Poi	du	aines	
+Copari	Eli	xi	ur	Pou	fa	eilles	
+Copari	Fab	yo	er	Ric	fe	ailles	
+Copari	Gas	que	ar	Rob	fi	oules	
+Copari	Hen	qui	ir	Rou	fo	ont	
+Copari	Ile	qua	ly	Roy	fu	ent	
+Copari	Jul	quo	ry	Bel	ga	ant	
+Copari	Kar	pra	sy	Cot	ge	is	
+Copari	Lau	pre	my	Gan	gi	ic	
+Copari	Zan	pro	ny	Gir	go	oc	
+Copari	Marq	pru	ty	Gou	gu	ach	
+Copari	Vic	plo	vy	Bea	ha	ech	
+							GLOBAL RULES
+							Three vowels cannot be connected (Except Copari, Cyfrolaef)
+							Three consonants cannot be connected (except Kathaya, Cyfrolaef)
+							 Names cannot exceed 64 characters total; if they would, reroll the name.
+							After a first name is generated, it must be rerolled the next time it is rolled. After that, the next time it is rolled, it can be kept.
+							Prefix odds: 100%
+							Middlefix Odds: 25% (First Name), 50% (Surname)
+							Suffix Odds: 75% (First Name), 60% (Surname)

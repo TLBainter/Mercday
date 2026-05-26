@@ -1,0 +1,201 @@
+Event Type	Event Name	Description	Requirement Statement 1	Conj	Requirement Statement 2	Drawbacks	Perks	Rarity	All/Pair	Stat +5%
+Starting	Academic Research	This merc has taken to adventuring for research purposes.				Awkward	Studious	Common		Intellect
+Starting	Amnesiac	This merc has lost their memory and isn't sure why they're here at all.					Untapped Potential	Uncommon		Any
+Starting	Bored	This merc is only here because they were bored.				Careless	Just for Fun	Uncommon		Inner Peace
+Starting	Cosmic Call	This merc is here because they believe they were called to the life of a mercenary by a celestial being.					Celestial Guidance	Very Rare		Zealotry
+Starting	Cursed Existence	This merc has been subjected to a powerful curse.				Accursed	Curse Marked	Very Rare		Unsavory
+Starting	Derailed	Used to Be Someone					Used to Be Someone	Rare		Negotiate
+Starting	Drafted	This person was pushed into mercenary life against their will.					Beginner's Luck	Common		Speed
+Starting	Economy in Shambles	This person took up the life of a mercenary because it's really all that's left in this economy.				Not Built for This	Everyman	Common		Urban
+Starting	Exiled	This merc was exiled from their land of origin for some heinous crime they commited.					Done Worse	Rare		Unsavory
+Starting	Exposed	This merc was exposed to a substance that left them permanently changed.				Exposed Flesh	Exposed Immune System	Rare		Healthiness
+Starting	First Kill	This merc killed someone for the first time... an act that has had lasting impacts leading to their life as a mercenary.					Done This Before	Rare		Combat
+Starting	Guilty Conscience	This merc feels guilty for having survived something they perhaps shouldn't have.				Survivor's Guilt	Survivor's Instinct	Rare		Avoid
+Starting	Heartbroken	This merc had their heart broken so detrimentally they're ready to throw their life away.				Achy-Breaky	No Hurt Worse	Rare		Unsavory
+Starting	Holy Mission	This merc is on a divine mission from their chapel, temple, or divine order!				Devout	Divine Quest	Very Rare		Zealotry
+Starting	Honor and Glory	This merc sees no honor in death outside of battle, so that is what they are seeking, not wishing to die comfortably.				Seeing Red	Fearless	Common		Combat
+Starting	Indebted	This merc is in serious debt that only grueling, steady mercenary work could feasibly get them out of.					Talk My Way Out	Uncommon		Cheat Death
+Starting	Last of the Line	This merc is the last surviving member of a once-proud lineage.				Legacy's Weight	Legacy Bearer	Very Rare		Social
+Starting	Legendary Aspirations	This merc wants to make their name known in the history books. Whether this is the way to do it... well, that remains to be seen.					Legend in the Making	Common		Base Success Chance
+Starting	Lone Survivor	This merc is the sole survivor of a truly traumatic event.				Nightmares	Iron Will	Rare		Cheat Death
+Starting	Loss of a Loved One	This merc thinks they have nothing left to live for after losing someone they dearly loved.					No Tears Left	Rare		Unsavory
+Starting	Mad	Don't look into this merc's swirling eyes for too long or you may just get the same madness that plagues their own mind.				Madness	Already Mad	Rare		Unsavory
+Starting	Midlife Crisis	This merc is clearly going through something and you're not sure they're really cut out for this work.				Not What I Was	Homebody	Common		Rest Recovery
+Starting	Mistaken Identity	This merc may not be who they claim to be...				Unfamiliar Territory	Quick Thinking	Rare		Luck
+Starting	Nerve-Wracked	Something happened to this merc that left them permanently on-edge.				Awkward	Hypervigilance	Rare		Reroll
+Starting	Oath	This merc has sworn an oath, be that to a king, a demon, or even themselves. That oath guides them.					Oath	Rare		Zealotry
+Starting	Out of Retirement	This merc thought they left this life behind, but some situation has forced them back into the world of mercenary work.					Already Got It	Common		Rest Recovery
+Starting	Rags to Riches	This merc has never forgotten their roots and never will.					I Feel So Seen	Common		Urban
+Starting	Riding the Coattails	This merc knows the world doesn't revolve around them, and they're okay with that; they're happy riding along in the passenger seat of someone else's journey.					Less Than Important	Uncommon		Cheat Death
+Starting	Robbed	This merc was robbed of something quite valuable, and they're determined to get it back.					On the Lookout	Uncommon		Investigate
+Starting	Seeking a Cure	Someone loved by this merc has fallen gravely ill to an unknown disease. This merc is hoping to find a cure to the illness on their travels.				Sickly Trauma	Determined Healer	Rare		Healthiness
+Starting	Shipwrecked	This merc was once part of a crew, but is the sole survivor of a brutal shipwreck.					Naval Haggle	Uncommon		Negotiate
+Starting	Slumbering Power	This merc has some sort of power sleeping within them... a power they simply cannot control.				Shaky Hands	Awakening	Legendary		Any
+Starting	Uhm...	This merc isn't really sure why they're doing this. They never thought they needed a reason.					Down to Clown	Uncommon		Any
+Starting	Usurped	Once, this individual held a seat of significant power. That was taken from them and the thieving party now rules in their stead. They may hold a grudge.				Out of Touch	With Authority	Legendary		Social, Urban
+Starting	Visions	This merc claims to receive occasional visions of something vague. They're not sure what it means, but they're convinced the visions are prophetic.				Nightmares	As Foretold	Very Rare		Any
+Starting	Wish Fulfilled	This merc swears they have already been here and done that, having reached the peak of their adventuring career and foolishly made a wish to do it all over again. Pretty hard to believe.				Familiar Pain	Been Around the Defend	Very Rare		Luck
+Experienced	Advanced Academics	This merc didn't stop learning just becomes school's out!	Knowledge Count	IS >=	3	Awkward	Undergrad Studies	Common		Intellect
+Experienced	Alley Agreement	This merc has made an alliance with some sort of criminal underlord.	Contract Location	IS	Undercity		Underbelly	Rare		Unsavory
+Experienced	Artifact Encounter	This merc has encountered a previously-undiscovered magical artifact that has provided keen, unique insights.	Contract Event	IS	Discover Artifact	Echoes of Ruin	Gleaned Insight	Very Rare		Zealotry
+Experienced	Assassin of Kings	This merc has killed someone of significant station.	Contract Success	IS	TRUE AND	On the Run	Kingkiller	Very Rare		Assassinate
+			Contract Type	IS	Assassinate					
+Experienced	Back to Haunt Me	This merc made a terrible mistake that came back to haunt them in a truly dreadful way while on a contract.	Failed Check	IS >=	1 AND	Less Forgiving	Distrusting Atonement	Uncommon		Reroll
+			Contract Success	IS	false					
+Experienced	Bar Fight	This merc got into a bar fight, which... they may have started.	Contract Event	IS	Bar Fight	You Guys Wanna Start a Fight?	Improvised Weapons, Tavern Brawler	Common		Damage Melee
+Experienced	Betrayed	This merc was betrayed by someone they trusted.	Contract Event	IS	Betrayal AND	Closed Off	Untrusting	Uncommon		Intellect, Social
+			Merc Relationship	IS >=	3					
+Experienced	Bled Out	This merc has cast so many hemomancy spells that have taken a toll on their body that they're practically used to the blood loss, by now.	Blood Toll Count	IS >=	3		Fast Clotting	Rare		Cheat Death
+Experienced	Buddy	This merc has become great pals with another merc! That's great, as long as it doesn't get in the way of their responsibilities.	Merc Relationship	IS >=	5	Missing Your Pal	Companion Combo	Common	Pair	Social
+Experienced	Burn Victim	This merc was horribly burned, resulting in permanent scarring and a twisted obsession with the very thing that harmed them.	Damage Taken	IS	Fire	Fear the Flame	Playing with Fire	Rare		Explosives
+Experienced	Champion's Prodigy	This merc has spent considerable time under the rigorous training of a renowned champion.	External Event	IS	Champion Training		Trained by a Legend	Guaranteed		Combat, Defend
+Experienced	Sage's Prodigy	This merc has spent considerable time under the studious teachings of a wise individual.	External Event	IS	Sage Training		Trained by a Wise One	Guaranteed		Intellect, Maximum Magic Points
+Experienced	Coward's Way Out	 This merc took a cowardly way out of a dangerous situation. They may never live that down.	Contract Event	IS	Fled	Eager Exit	Cowardly Tricks	Rare		Cheat Death, Luck
+Experienced	Daredevil	This merc has pulled off a crazy acrobatic stunt during a contract! Everyone was so impressed that they'll likely keep pulling stunts like that.	Succeeded Check	IS	Dexterity AND		Stuntin'	Rare		Luck, Parkour
+			Success Count	IS >=	3					
+Experienced	Death Trauma	This merc witnessed the death of another mercenary, which has forced them to reckon with their own mortality... and the mortality of their companions.	Dead Mercs	IS >=	1	"No, Not Again"	Won't Let It Happen	Rare		Cheat Death
+Experienced	Demolitions Expert	This merc has thrown a grenade a time or two, to great effect! After so much time spent with grenades, they consider themselves a pro.	Used Item Type	IS	Explosive AND		Here Comes the Boom	Uncommon		Explosives
+			Success Count	IS >=	3					
+Experienced	Discourager	The words spoken by this merc really are like sticks and stones. They truly can hurt.	Succeeded Check	IS	Wile AND	Don't Heckle Me	Small Talk	Very Rare		Social
+			Target Failed Check	IS	Wile					
+Experienced	Dissection	This merc is well-experienced in the act of dissection, using it to procure valuable materials from kills, perform autopsies, and similar responsibilities.	Contract Event	IS	Get Creature Parts AND		Expert Dissector	Uncommon		Investigate
+			Has Knowledge	ONE OF	Thanatology OR					
+			Has Tool	ONE OF	Mortician's, Taxidermist's					
+Experienced	Disrespect Their Authority	This merc has no real respect for authority, which may get them into trouble now and then, but also makes them strong in their will and beliefs.	Failed Check	IS	Wile AND	Preconceptions	Bow to No One	Rare		Assassinate, Tolerance
+			Target Creature	HAS TAG	Authority					
+Experienced	Encourager	This merc has assumed a role that sees them giving words of affirmation and encouragement to their allies both in the field and back in the tavern.	Succeeded Check	IS	Wile	Just Trying to Help	"Enhance, Enhance"	Uncommon		Social
+			Target Creature	IS	Merc					
+Experienced	Environ Combatant	After a successful contract in [ENVIRON], this merc considers themselves an expert in locations of that type.	Contract Success	IS	TRUE AND		Climate Advantage	Very Rare		Speed, Parkour
+			Contract Location	IS	[ENVIRON]					
+Experienced	Faced the Monster	This merc has successfully taken down a [Type], learning a great deal about creatures of this type in the process.	Contract Success	IS	TRUE AND		Known Foe	Very Rare		Monster Hunt
+			Target Creature	HAS TAG	[Type]					
+Experienced	Field Medic	This merc has a great deal of practice with mundane healing items like gauze and skin sealant.	Used Item Type	IS	Healing AND Mundane		Combat Patch-Up, Medical Expertise	Very Rare		Support
+Experienced	Fumbled	When the team was depending on them, this merc let them down. They really dropped the ball, but they swear they'll never let it happen, again.	Failed Check	IS	TRUE AND	Ashamed	Shameful Reattempt	Rare		Reroll
+			Contract Success	IS	FALSE AND					
+			Surviving Mercs	IS >=	2					
+Experienced	Glass Cannon	This merc is incredibly fragile, but they pack a punch that more than makes up for that. So long as they can get the first hit in, they'll likely make it back home from a violent contract.	Damage Dealt	IS >=	self.maximum_hit_points AND	Fragile Cannon	Fearsome Cannonball	Rare		Damage Melee, Damage Ranged
+			Contract Success	IS	TRUE AND					
+			Max HP	IS >=	3					
+Experienced	Group Therapist	Others tend to come to this merc for therapy, even though they have no real professional training in that field.	CGN	IS >=	3 OR		Honorary Psych	Very Rare		Support
+			WIL	IS >=	3 AND					
+			Merc Relationship	IS	5 AND					
+			Succeeded Check	IS	wile OR cognition					
+Experienced	Heavy Lifting	This merc works out.	Succeeded Check	IS	Vigor AND		Power Lifter	Uncommon		Damage Melee
+			Success Count	IS >=	Vigor					
+Experienced	Hel and Back	This merc has really been through it with the rest of their party. All of them have seen the worst of the worst. While that has taken its toll, it has also made them stronger.	Surviving Mercs	IS	ALL AND	Let Myself Go	Steadfast	Uncommon	All	Any
+			Level	IS >=	20 AND					
+			Merc Relationship	IS >=	4 AND					
+			Contract Success	IS	true					
+Experienced	Imprisoned	After being held captive, trapped, or otherwise sealed off from the rest of the party during a contract, this merc has developed intense claustrophobia. They refuse to be confined, again.	Contract Event	ONE OF	Kidnapped, Cave-In, Imprisoned	Too Firmly Planted	Immovable	Uncommon		Rescue
+Experienced	Incredible Shot	Somehow, this merc has pulled off the shot of the century. Not only was the distance absurd, but the point hit on the target was impressive, too!	Damage Dealt	IS >=	Tolerance AND	Not a Melee Fighter	Incredible Marksmanship	Common		Damage Ranged
+			Used Item Type	IS	Ranged					
+Experienced	In Love	This merc has fallen in love with [Beau]. This could present an HR nightmare...	Merc Relationship	IS >=	3	"Longing, Yearning"	"Heart-Eyed, Bushy-Tailed"	Very Rare		Social
+Experienced	Hyper-Focused	This merc has continued to hone their skills in a particular field, ensuring they continue to get better at it.	Skill Count	IS >=	5 AND	Hyper-Focused	Journeyman's Knack	Uncommon		Intellect
+			Skill	HAS TAG	Same					
+Experienced	Kidnapped	This merc was taken against their will from the rest of the party during the contract. Their treatment was brutal and they're glad they made it out alive.	Contract Event	ONE OF	Kidnapped, Imprisoned	Threat of Capture	Eyes in the Back of My Head	Uncommon		Rescue
+Experienced	Lay in Wait	This merc has successfully laid an ambush for a party, even if it took quite a bit of patience to execute the ambush so effectively.	Contract Event	IS	Ambush AND	Other Side of the Ambush	End This Quickly	Common		Assassinate
+			Damage Taken	IS	0 AND					
+			Dead Mercs	IS	0 AND					
+			Contract Success	IS	true					
+Experienced	Leader's Aptitude	This merc has assumed a leadership position while on a contract and took quite a liking to the role.	Succeeded Check	IS	Wile AND		Inspire Follower	Uncommon		Social, Support
+			Success Count	IS >=	3 AND					
+			Contract Position	IS	Leader					
+Experienced	Master of Disguise	After successfully crafting and maintaining a disguise for themselves during a contract, this merc considers themselves a master of the craft.	Contract Event	IS	Infiltrate		Disguised	Common		Espionage
+			Has Knowledge	IS	Dramaturgy OR					
+			Has Tool	ONE OF	Infiltrator's, Painter's					
+Experienced	Miraculous Survivor	This merc was pulled back from the brink, successfully throwing off life-threatening injuries or conditions that should have been their end.	Succeeded Check	IS	Cheat Death		Another Miracle	Uncommon		Cheat Death
+Experienced	Narrow Escape	After barely escaping from an explosion, this merc still bears the scars from the encounter. Having seen such a blast reduce matter to ash, they're not keen let that happen to them, next time.	Succeeded Check	IS	Avoid AoE AND		Do a Barrel Roll	Uncommon		Cheat Death, Avoid
+			Damage Type	CONTAINS	Fire					
+Experienced	Not Today!	Things didn't go this merc's way at first, but they turned it around. It's a habit of theirs.	Failed Check	IS	Resist AND	A Tad Too Arrogant	Laugh in the Face of Danger	Uncommon		Luck
+			Reroll	IS	Success					
+Experienced	Outpaced	This merc thought they were the fastest out there, til they found someone or something even faster. Now they're determined to raise their speed so they're never outmatched again.	Speed	IS >=	20 AND	Gotta Go Fastest	Gotta Go Fast	Very Rare		Speed
+			Target Creature							
+			Speed	IS >=	Own Speed + 10					
+Experienced	Pact	This merc has made a pact with the [PACT BEING], gaining power in exchange for the promise of service to this being.	External Event	IS	Pact of the [PACT BEING]		Pact of the [PACT BEING]	Guaranteed		Social, Unsavory
+Experienced	Quick Escape	This merc evaded pursuers in an almost otherworldly fashion, impressively dancing out of danger.	Contract Event	IS	Foot Chase AND	Eager Exit	Evasive and Slippery	Uncommon		Cheat Death
+			Succeeded Check	IS	Dexterity AND					
+			State Immune	IS NOT	Terrified					
+Experienced	Reckless Driver	This merc drove reckless, maneuvering a vehicle in an unsafe way, but made it out safely.	Contract Position	IS	Driver AND		Expert Driver	Common		Luck
+			Contract Event	IS	Vehicle Chase					
+			Travel Type	CONTAINS	Captain, Drive, Pilot					
+Experienced	Roots	This merc returned to their home and may have regressed a bit as a result, yet simultaneously gleaned some family knowledge.	Contract Location	IS	[MERC HOME]	Regression	Family Ties	Common		Inner Peace
+Experienced	Sadhak	After much time spent meditating, this merc has achieved incredible peace in their mind and life.	External Event	IS	Meditate AND		Zen	Uncommon		Inner Peace
+			Event Count	IS >=	5					
+Experienced	Self-Harm	This merc has cast so many self-harming spells from Osteomancy, Hemomancy, or even Necromancy Spell Schools that their body is permanently scarred by the magic.	Lifetime			Visibly Marred	Creative Cutting	Rare		Maximum Hit Points
+			Blood Toll Count	IS >=	30					
+Experienced	Slimy Yet Satisfying	This merc has eaten some truly disgusting things. They must have a stomach of steel.	State Immune	IS NOT	Poisoned AND		I'll Eat Anything	Uncommon		Healthiness
+			Contract Event	IS	Poisonous Food AND					
+			Succeeded Check	IS	Vigor					
+Experienced	Solemn Vow	This merc has sworn a [VOW] to someone—be it a king, a loved one, or themselves—that now guides their life.	External Event	IS	Make [VOW]		[VOW]	Guaranteed		Zealotry
+Experienced	Snake Oil Salesman	This merc can sell just about anything... and they have. They just talked someone into buying something for way more than it was worth.	Contract Event	IS	Sell Item AND		Seller's High	Common		Negotiate
+			Succeeded Check	IS	Negotiate AND					
+			Success Count	IS >=	Wile					
+Experienced	Spectral-Touched	This merc spent a bit of time in Spectral, leading to them being permanently touched by its terrible, ghastly environment.	Contract Location	IS	Spectral		Sorrow's Witness	Very Rare		Inner Peace, Unsavory
+Experienced	Surprise Attack	This merc got the drop on an enemy through an excellent tactical maneuver. Now that they see how advantageous that can be, they're likely to keep trying that.	State Inflicted	IS	Surprised AND		Surprising Action	Uncommon		Assassinate
+			Target Creature							
+			Count	IS >=	3					
+Experienced	Tactical Success	This merc is quite tactical in battle, having executed some impressive tactics in the past using a variety of weapons.	Weapon Perk Count	IS >=	3		Experienced Tactician	Very Rare		Combat, Military
+Experienced	Tank the Hit	This merc has taken some hits that should have killed other mercenaries, yet has remained standing through it all.	Max HP	IS >=	Each	Swollen Vitals	Party Tank	Rare		Defend
+			Surviving Mercs		Maximum Hit Points AND					
+			Damage Taken	IS >=	Tolerance					
+Experienced	Temple of [TEMPLE]	This merc spent 90 days training at the Temple of [TEMPLE]. This time was grueling, yet enlightening and educational. Now, they're ready to get back into the fray with their newfound capabilities.	External Event	IS	Temple of [TEMPLE]		[TEMPLE TRAIT]	Guaranteed		Inner Peace
+Experienced	They Got Away	This merc allowed their quarry to get away. Since then, they've spent a great deal of time practicing to ensure they don't let that happen again, running through alleys, rooftops, and natural terrain to hone their skills.	Contract Event	IS	Pursuit AND	No One Escapes Me	Gotcha!	Uncommon		Accuracy
+			Failed Check	ONE OF	Dexterity, Vigor AND					Inner Peace
+			Contract Success	IS	false					
+Experienced	Unnoticed	This merc managed to get somewhere they weren't supposed to be... totally unnoticed.	Contract Event	IS	Infiltrate AND		In Plain Sight	Rare		Espionage
+			Contract Success	IS	true					
+Experienced	Vagary	This merc snapped while on a contract, likely due to significant trauma they experienced.	Failed Check	ONE OF	Cognition, Wile AND		Something Different	Rare		Any
+			Damage Taken	IS >=	1 AND					
+			Damage Type	IS	Will					
+Experienced	Victor	This merc won a contest of great renown, emerging victorious before a crowd of hundreds of cheering onlookers who now know their name. This notoriety could be good for business!	Contract Event	IS	Competition AND		Recognize Me?	Uncommon		Social, Urban
+			Success Count	IS >=	3 AND					
+			WIL	IS >=	3					
+Experienced	Violent Kill	Death is already gruesome enough without the need for violence, but this merc didn't care about that in the moment. They did something so brutal and grisly it shocked their fellow mercs... and themselves.	Damage Dealt	IS >=	3+	Shockingly Vicious and Vile	Expert in Violence	Common		Damage Melee, Damage Ranged
+			Target Creature							
+			Max HP							
+Experienced	Wed	This merc has married another merc in your tavern! How sweet. May they live happily ever after.	Lifepath	IS	In Love AND	Honeymoon Phase	Something to Hold Onto, Something to Live For, Something to Wake Up To	Guaranteed	Pair	Social, Cheat Death, Luck
+			External Event	IS	Wedding					
+Experienced	Weird-Touched	This merc has experienced the bizarre realm of the Weird and is forever tainted by it.	Contract Location	IS	Weird		Fable Mind	Very Rare		Luck
+Experienced	Well-Read ([STUDY TOPIC])	This merc has read an impressive number of books on a variety of topics, primarily focusing on fictional works. These books include mysteries, poetry, literary fiction, and more!	External Event	IS	Study [STUDY TOPIC] AND		[STUDY EXPERTISE]	Uncommon		Intellect
+			Event Count	IS >=	5					
+Experienced	X-Marked Spot	After toiling away in the sun, this merc unearthed significant treasure! Now, they've got a knack for finding such things.	Contract Event	IS	Buried Treasure AND		That Belongs in My Pockets	Rare		Treasure Hunt, Luck
+			Contract Success	IS	true					
+Experienced	Youthful and Spry	This merc swears they're not too old for this nonsense, and they seem to be capable despite their age.	Age	IS	Elder AND	Pulled Something	I Stretch Every Morning	Common		Cheat Death
+			Succeeded Check	ONE OF	Dexterity, Vigor AND					
+			Success Count	IS >=	3					
+Experienced	Zealot	This merc is staunch in their beliefs, absolutely determined that they are right in every belief they hold. It's kind of annoying.	External Event	IS	Conviction	Zealot's Charisma	Zealot's Conviction	Guaranteed		Zealotry
+Experienced	Zeppelin Ride	This merc took a ride on an airship and now believe they know everything there is to know about maintaining and operating one.	Travel Type	IS	Air		Airship Aficionado	Very Rare		Escort
+Curse	Curse of Aging									
+Curse	Curse of Bards									
+Curse	Curse of Blinding Lights									
+Curse	Curse of Certainty									
+Curse	Curse of Convincing									
+Curse	Curse of Fun Facts									
+Curse	Curse of Handshakes									
+Curse	Curse of Honesty									
+Curse	Curse of Inanimate Pal									
+Curse	Curse of Magnetism									
+Curse	Curse of Malformation, Ears									
+Curse	Curse of Malformation, Eyes									
+Curse	Curse of Malformation, Lesions									
+Curse	Curse of Malformation, Tongue									
+Curse	Curse of Missile Attraction									
+Curse	Curse of Munchies									
+Curse	Curse of Pen Pal									
+Curse	Curse of Ragdolls									
+Curse	Curse of Shorelung									
+Curse	Curse of Timebomb									
+Forced	Addicted to [SUBSTANCE]									
+Forced	Broken Vow									
+Forced	Buddy's Passing									
+Forced	Forever Yearning									
+Forced	Implanted Core									
+Forced	One-Eye									
+Forced	Pactless									
+Forced	Resurrected									
+Forced	Scarred									
+Forced	Severed Limb (Arm)									
+Forced	Severed Limb (Leg)									
+Forced	Severed Limb (Wing)									
+Forced	Uninstall Limbic									
+Forced	Unrequited									

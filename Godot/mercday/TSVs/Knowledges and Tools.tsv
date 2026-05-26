@@ -1,0 +1,121 @@
+Knowledges	Use	Knowledge Category	Rarity	Tools	Use	Tool Category	Rarity
+Aerdis	Knowledge of the kingdom of Aerdis.	Location	Common	Alchemist's	Tools for mixing concoctions.	Science	Uncommon
+Aerial	Knowledge of aerial travel.	Traveling	Common	Archaeologist's	Tools for unearthing lost artifacts and locales.	Study	Rare
+Aeromancy	Aeromancy-specific knowledge.	Arcana	Rare	Architect's	Tools for drafting blueprints.	Artisan	Uncommon
+Agriculture	Knowledge of farming techniques and crop cycles.	Artisan	Uncommon	Armorer's	Tools for maintaining and creating armor.	Artisan	Common
+Aldurstein	Knowledge of the queendom of Aldurstein.	Location	Common	Artist's	Tools to create art.	Creativity	Uncommon
+Architecture	Knowledge of structural design and urban planning.	Artisan	Uncommon	Assassin's	Tools for quick, quiet killings.	Combat	Very Rare
+Assembly	Assembly-type creatures.	Creature	Uncommon	Blacksmith's	Tools for maintaining weapons.	Artisan	Common
+Astromancy	Astromancy-specific knowledge.	Arcana	Rare	Book Binder's	Tools for binding and repairing books.	Artisan	Uncommon
+Biology	Knowledge of evolution and genetics.	Science	Rare	Brewer's	Tools for brewing alcohol.	Artisan	Uncommon
+Botany	Knowledge of non-sentient plants.	Science	Common	Calligrapher's	Tools for writing and copying.	Creativity	Uncommon
+Buern	Knowledge of the principality of Buern.	Location	Common	Carpenter's	Tools for woodworking.	Artisan	Common
+Cavern	Knowledge of cavernous environments.	Location	Uncommon	Cartographer's	Tools for mapping uncharted territories.	Study	Rare
+Chivalry	Knowledge of knightly values and honor.	Social	Very Rare	Cartomancer's	Tools for reading fortunes through cards.	Arcana	Very Rare
+Copari	Knowledge of the republic of Copari.	Location	Common	Chef's	Tools for cooking.	Artisan	Common
+Cosmos	Knowledge of the heavens and stars.	Location	Rare	Cipherist's	Tools for deciphering or crafting coded messages.	Espionage	Rare
+Creomancy	Creomancy-specific knowledge.	Arcana	Rare	Climber's	Tools for ascending mountains or structures.	Location	Common
+Cryptozoology	Non-beast, non-hominid creatures.	Creature	Very Rare	Cobbler's	Tools for maintaining and making footwear.	Artisan	Common
+Culinary	Knowledge of food preparation and nutrition.	Artisan	Common	Cooper's	Tools for making or repairing barrels.	Artisan	Common
+Cyfrolaef	Knowledge of the corrupted lands of Cyfrolaef.	Location	Legendary	Cutpurse's	Tools for quick robberies.	Espionage	Uncommon
+Daemon	Daemon-type creatures.	Creature	Rare	Dealer's	Tools for playing card games.	Social	Uncommon
+Dancing	Knowledge of dancing.	Creativity	Uncommon	Demolitionist's	Tools for creating or disarming explosives.	Combat	Rare
+Desert	Knowledge of desert environments.	Location	Uncommon	Diver's	Tools for underwater exploration.	Location	Uncommon
+Diplomacy	Knowledge of political relations and negotation.	Social	Rare	Exorcist's	Tools for expelling demons and spirits.	Arcana	Very Rare
+Disruptomancy	Disruptomancy-specific knowledge.	Arcana	Rare	Falconer's	Tools for handling birds of prey.	Creature	Uncommon
+Dramaturgy	Knowledge of acting and drama.	Creativity	Uncommon	Fisherman's	Tools for collecting fish.	Creature	Common
+Education	Knowledge of teaching and raising the next generation.	Study	Uncommon	Forger's	Tools for forging official materials.	Espionage	Rare
+Elemental	Elemental-type creatures.	Creature	Rare	Gardener's	Tools to maintain plants.	Artisan	Common
+Engineering	Knowledge of complex mechanical systems and structures.	Science	Rare	Godslayer's	Tools for hunting and killing all-powerful beings.	Power	Legendary
+Ethereal	Ethereal-type creatures.	Creature	Rare	Groomer's	Tools to take care of creatures.	Creature	Common
+Finance	Knowledge of accounting and investment.	Social	Rare	Gunsmith's	Tools to repair or customize guns.	Artisan	Uncommon
+First Aid	Non-magical medical knowledge.	Science	Common	Hacker's	Tools for hacking technology.	Espionage	Very Rare
+Forensics	Knowledge of crime scene investigation and analysis.	Espionage	Rare	Herbologist's	Tools for mixing herbs.	Science	Uncommon
+Forest	Knowledge of forest environments.	Location	Uncommon	Horologist's	Tools for maintaining clockwork devices.	Artisan	Rare
+Geology	Knowledge of minerals and terrain.	Science	Uncommon	Infiltrator's	Tools for sneaking into places.	Espionage	Rare
+Geomancy	Geomancy-specific knowledge.	Arcana	Rare	Interrogator's	Tools for interrogating in unsavory ways.	Espionage	Rare
+Gloria	Knowledge of the Gloria domain.	Domain	Uncommon	Investigator's	Tools for inspecting and examinging.	Espionage	Rare
+Hel	Knowledge of the Hel domain.	Domain	Uncommon	Jeweler's	Tools for identifying and crafting jewelry.	Artisan	Uncommon
+Hemomancy	Hemomancy-specific knowledge.	Arcana	Very Rare	Lapidary's	Tools for cutting and preparing precious gems.	Artisan	Rare
+High Society	Knowledge of upper class civilization.	Social	Rare	Leatherworker's	Tools for tanning hides and crafting leather goods.	Artisan	Common
+History	Historical events.	Study	Rare	Locksmith's	Tools for fixing or picking locks.	Espionage	Uncommon
+Hunting	Knowledge of tracking and pursuing.	Combat	Common	Mason's	Tools for stone masonry.	Artisan	Common
+Hydromancy	Hydromancy-specific knowledge.	Arcana	Rare	Mechanic's	Tools to repair or build machines.	Science	Uncommon
+Illustromancy	Illustromancy-specific knowledge.	Arcana	Rare	Miner's	Tools for excavation.	Artisan	Uncommon
+Immortal	Immortal-type creatures.	Creature	Very Rare	Mortician's	Tools for preparing and embalmbing the dead.	Science	Rare
+Kathaya	Knowledge of the kingdom of Kathaya.	Location	Common	Mount Tack	Tools for tending to mounts.	Creature	Uncommon
+Law	Knowledge of legal systems and civil rights.	Social	Very Rare	Musician's	Tools for performing music.	Creativity	Uncommon
+Linguistics	Knowledge of language origins and structures.	Study	Uncommon	Navigator's	Tools for finding one's way.	Location	Common
+Logistics	Knowledge of supply chains and resource management.	Study	Uncommon	Perfumer's	Tools for creating perfumes and oils.	Artisan	Uncommon
+Lowborn	Knowledge of lower class civilization.	Social	Uncommon	Poisoner's	Tools for creating poisons.	Espionage	Rare
+Magic	Broad magical knowledge.	Arcana	Very Rare	Potter's	Tools for shaping clay.	Artisan	Common
+Marsh	Knowledge of marsh environments.	Location	Uncommon	Riftmender's	Tools for tearing or closing rifts in reality.	Power	Legendary
+Mechanology	Knowledge of machinery.	Science	Uncommon	Scavenger's	Tools for collecting valuable scrap from junk piles.	Artisan	Rare
+Medicine	Knowledge of scientific medicinal techniques.	Science	Rare	Scout's	Tools for spying and surveying.	Espionage	Rare
+Meteorology	Knowledge of weather patterns and forecasting.	Science	Uncommon	Shipwright's	Tools for construction and repair of sea vessels.	Artisan	Uncommon
+Mire	Mire-type creatures.	Creature	Rare	Surgeon's	Tools for performing advanced medical work.	Science	Rare
+Mountain	Knowledge of mountainous environments.	Location	Uncommon	Survivalist's	Tools for surviving in the wilderness.	Location	Uncommon
+Music	Knowledge of music.	Creativity	Uncommon	Tailor's	Tools for making and mending textiles.	Artisan	Uncommon
+Mythozoology	Myth creatures.	Creature	Uncommon	Tattoo Artist's	Tools to add art to skin.	Creativity	Uncommon
+Nautical	Sailing and seafaring.	Traveling	Common	Taxidermist's	Tools for preserving and stuffing dead creatures.	Artisan	Uncommon
+Necromancy	Necromancy-specific knowledge.	Arcana	Very Rare	Tracker's	Tools for tracking quarry.	Combat	Common
+Oceanography	Knowledge of acquatic ecosystems and layouts.	Science	Rare	Transmuter's	Tools for altering matter.	Arcana	Legendary
+Oneiromancy	Oneiromancy-specific knowledge.	Arcana	Rare	Trapper's	Tools for trapping quarry.	Combat	Common
+Osteomancy	Osteomancy-specific knowledge.	Arcana	Very Rare	Weaver's	Tools for spinning thread.	Artisan	Common
+Philosophy	Knowledge of morality and logic.	Study	Very Rare	Woodcarver's	Tools for precisely and intricately carving wood.	Artisan	Rare
+Phonomancy	Phonomancy-specific knowledge.	Arcana	Rare	Missionary's	Tools for sharing and studying your gospel.	Social	Rare
+Plant	Plant-type creatures.	Creature	Uncommon	Cinematographer's	Tools for shooting film and photography.	Creativity	Very Rare
+Pre-Reckoning	Knowledge of a time pre-dating the Reckoning.	Study	Legendary	Land Vehicles	Vehicles that travel on land.	Vehicle	Uncommon
+Primeval	Knowledge of the lost age.	Study	Legendary	Water Vehicles	Vehicles that travel by sea.	Vehicle	Rare
+Psychology	Knowledge of behaviors and motivations.	Science	Rare	Air Vehicles	Vehicles that fly through the air.	Vehicle	Very Rare
+Pyromancy	Pyromancy-specific knowledge.	Arcana	Rare	Military Vehicles	Vehicles used for war.	Vehicle	Very Rare
+Reconnaissance	Knowledge of information-gathering and surveillance.	Espionage	Rare	Cosmic Vehicles	Vehicles sent into the stars.	Vehicle	Legendary
+Rossade	Knowledge of the principality of Rossade.	Location	Common	Engineer's	Tools for plotting out complex structures.	Science	Rare
+Salesmanship	Selling, haggling, and buying.	Social	Common				
+Sea	Knowledge of sea environments.	Location	Uncommon				
+Sky	Knowledge of sky environemts.	Location	Uncommon				
+Snowy	Knowledge of snowy environments.	Location	Uncommon				
+Spatiomancy	Spatiomancy-specific knowledge.	Arcana	Rare				
+Spectral	Knowledge of the Spectral domain.	Domain	Rare				
+Suorr	Knowledge of the free cities of Suorr.	Location	Common				
+Tactics	Combat tactics and ambushes.	Combat	Uncommon				
+Tasseomancy	Tasseomancy-specific knowledge.	Arcana	Rare				
+Technology	Modern tech knowledge.	Science	Uncommon				
+Theology	Knowledge of religion, pantheons, and rituals.	Study	Rare				
+Theomancy	Theomancy-specific knowledge.	Arcana	Rare				
+Toxicology	Knowledge of toxins and poisons.	Science	Uncommon				
+Travel	Traveling, camping, and lodging.	Traveling	Common				
+Tropical	Knowledge of tropical environments.	Location	Uncommon				
+Umbra	Knowledge of the Umbra domain.	Domain	Uncommon				
+Undead	Undead-type creatures.	Creature	Rare				
+Undercity	Knowledge of the seedy underbellies of cities.	Location	Common				
+Unknowables	Knowledge of the Unknowables.	Power	Legendary				
+Uppercity	Knowledge of the upper class, elegant areas of cities.	Location	Uncommon				
+Vaernebo	Knowledge of principality of Vaernebo.	Location	Common				
+Volcanic	Knowledge of volcanic environments.	Location	Rare				
+Weird	Knowledge of the Weird domain.	Domain	Rare				
+Zoology	Beast creatures.	Creature	Common				
+Zukei	Knowledge of the empire of Zukei.	Location	Uncommon				
+Domain Walking	Knowledge of the many domains of the world.	Traveling	Legendary				
+Dueling	Knowledge of one-on-one fights.	Combat	Uncommon				
+Colosseum	Knowledge of sports and violent games.	Social	Rare				
+Miliim	Knowledge of the Federation of Miliim.	Location	Common				
+Fainarr	Knowledge of the Kingdom of Fainarr and its many principalities.	Location	Rare				
+Forestry	Knowledge of cutting and handling lumber.	Artisan	Uncommon				
+Fey	Knowledge of fairies and other denizens of the Weird	Creature	Rare				
+Comedy	Knowledge used to convey ideas humorously.	Creativity	Rare				
+Plain	Knowledge of prairies, savanas, and tundras.	Location	Common				
+Cinematography	Knowledge of film and photography.	Creativity	Very Rare				
+Business Operations	Knowledge of owning and operating a business.	Corporate	Rare				
+Mixology	Knowledge of cocktail crafting.	Creativity	Uncommon				
+Occult	Knowledge of dark arts, vile rituals, and eldritch nightmares.	Arcana	Very Rare				
+Physics	Knowledge of motion, energy, and force.	Science	Very Rare				
+Fenwyn, Corp	A technology company rivaling Smit, Inc.	Corporate	Uncommon				
+Smit, Inc	One of the first technology corporations in Aen.	Corporate	Uncommon				
+Atalu, Co	A public technology company based in Copari.	Corporate	Uncommon				
+Terro Norte	A luxury car manufacturer.	Corporate	Rare				
+Rochfort Auto	A manufacturer of sturdy, largely-industrial vehicles.	Corporate	Uncommon				
+Puffin Publishing	The largest book publisher in Aen.	Corporate	Uncommon				
+GabeGames	The first video game and virtual reality developer.	Corporate	Rare				
+Tao Industries	A private Zukein corporation manufacturing electronics.	Corporate	Very Rare				
+Thanatology	Knowledge of the process of dying and grieving.	Study	Very Rare				

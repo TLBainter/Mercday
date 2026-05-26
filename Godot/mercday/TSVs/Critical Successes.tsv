@@ -1,0 +1,52 @@
+Stat	Option Effect	Selection Frequency	Success Formula Stat Required
+Dexterity	stat:dexterity:+1	Unlimited	
+Dexterity	stat:max_dexterity:+1	Once	
+Dexterity	grant:random:circumstance:dexterity_all:1	Once	Combat
+Dexterity	grant:random:circumstance:dexterity_all:1	Once	Combat
+Dexterity	grant:random:circumstance:dexterity_all:1	Once	Combat
+Dexterity	grant:random:circumstance:dexterity_all:1	Once	Combat
+Dexterity	grant:random:circumstance:dexterity_all:1	Once	
+Dexterity	grant:random:circumstance:dexterity_all:1	Once	
+Dexterity	stat:dodge:+2.5%	Unlimited	Dodge
+Dexterity	stat:avoid:+4.5%	Unlimited	Avoid
+Dexterity	stat:avoid_aoe:+7%	Unlimited	Avoid AoE
+Dexterity	stat:avoid_melee:+7%	Unlimited	Avoid Melee
+Dexterity	stat:avoid_ranged:+7%	Unlimited	Avoid Ranged
+Dexterity	stat:assassinate:+10%	Unlimited	Assassinate
+Dexterity	stat:parkour:+11%	Unlimited	Parkour
+Cognition	stat:cognition:+1	Unlimited	
+Cognition	stat:max_cognition:+1	Once	
+Cognition	grant:random:circumstance:cognition_all:1	Once	
+Cognition	grant:random:circumstance:cognition_all:1	Once	
+Cognition	stat:espionage:+10%	Unlimited	Espionage
+Cognition	stat:explosives:+2.5%	Unlimited	Explosives
+Cognition	stat:intellect:+4.5%	Unlimited	Intellect
+Cognition	stat:investigate:+7%	Unlimited	Investigate
+Cognition	stat:negotiate:+3.5%	Unlimited	Negotiate
+Cognition	stat:support:+4%	Unlimited	Support
+Wile	stat:wile:+1	Unlimited	
+Wile	stat:max_wile:+1	Once	
+Wile	grant:random:circumstance:wile_all:1	Once	
+Wile	grant:random:circumstance:wile_all:1	Once	
+Wile	stat:entertain:+10%	Unlimited	Entertain
+Wile	stat:escort:+7%	Unlimited	Escort
+Wile	stat:investigate:+2.8%	Unlimited	Investigate
+Wile	stat:luck:+1.2%	Unlimited	Luck
+Wile	stat:negotiate:+3.5%	Unlimited	Negotiate
+Wile	stat:social:+4.7%	Unlimited	Social
+Wile	stat:support:+5.2%	Unlimited	Support
+Vigor	stat:support:+4%	Unlimited	
+Vigor	stat:vigor:+1	Unlimited	
+Vigor	stat:max_vigor:+1	Once	
+Vigor	grant:random:circumstance:vigor_all:1	Once	
+Vigor	grant:random:circumstance:vigor_all:1	Once	
+Vigor	stat:avoid:+2.3%	Unlimited	Avoid
+Vigor	stat:cheat_death:+0.25%	Unlimited	Cheat Death
+Vigor	stat:combat:+3%	Unlimited	Combat
+Vigor	stat:defend:+6%	Unlimited	Defend
+Vigor	stat:escort:+4%	Unlimited	Escort
+Vigor	stat:healthiness:+9%	Unlimited	Healthiness
+Vigor	stat:melee_accuracy:+1.3%	Unlimited	Melee Accuracy
+Vigor	stat:parkour:+2.9%	Unlimited	Parkour
+Vigor	stat:rescue:+4%	Unlimited	Rescue
+Vigor	stat:tolerance:+1.15%	Unlimited	Tolerance

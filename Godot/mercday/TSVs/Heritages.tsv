@@ -1,0 +1,37 @@
+Heritage Name	Max CGN	Max WIL	Circumstance	Knowledge	Tool	Stat +5%
+Alumni	5	1	Clever (Cognition)	SCIENCE, STUDY, ARCANA		Intellect
+Artisan	4	2	Finesse (Dexterity)		ARTISAN	Negotiate
+Attorney	3	3	Finesse (Dexterity)	Law		Social, Intellect
+Bartender	2	4	Intuition (Cognition), Intuition (Wile), Speech (Wile)	Mixology	Brewer's	Social
+Butler	2	4	Clever (Cognition), Intuition (Cognition), Intuition (Wile)	Business Operations		Rescue
+Celebrity	1	5	Performance (Wile), Speech (Wile)	Cinematography, Comedy, Dancing, Dramaturgy, Music, Colosseum	Artist's, Cinematographer's, Musician's, Tattoo Artist's	Social
+Chosen	3	3	Any	Any		Any
+Cleric	2	4	Intuition (Cognition), Intuition (Wile), Performance (Wile), Speech (Wile)	Theology		Zealotry
+Cultist	1	5	Performance (Wile), Speech (Wile)	Occult		Unsavory
+Dancer	2	4	Grace (Dexterity), Performance (Dexterity)	Dancing		Avoid
+Deserter	2	4	Athletics (Vigor), Attack (Dexterity), Attack (Vigor)	Dueling, Tactics, Aerdis, Buern, Copari, Fainarr, Kathaya, Miliim, Rossade, Vaernebo		Unsavory, Military
+Detective	5	1	Clever (Cognition), Intuition (Cognition), Notice (Cognition)	Forensics	Investigator's	Espionage
+Driver	3	3	Finesse (Dexterity)		VEHICLE	Urban
+Engineer	5	1	Clever (Cognition), Finesse (Dexterity)	Physics	Architect's, Demolitionist's, Mechanic's	Intellect
+Executive	4	2	Clever (Cognition), Intuition (Cognition), Speech (Wile)	CORPORATE		Social, Urban
+Farmer	4	2	Athletics (Vigor), Clever (Cognition), Power (Vigor)	Agriculture		Treasure Hunt
+Gardener	3	3	Clever (Cognition), Finesse (Dexterity), Intuition (Cognition), Intuition (Wile)	Botany	Gardener's	Treasure Hunt
+Gladiator	1	5	Athletics (Vigor), Performance (Wile), Power (Vigor), Presence (Vigor), Presence (Wile), Speech (Wile)	Dramaturgy		Combat, Social
+Historian	5	1	Clever (Cognition)	History, Primeval, Education	Archaeologist's	Intellect, Treasure Hunt
+Hunter	4	2	Grace (Dexterity), Notice (Cognition)	Mythozoology, Zoology, Cryptozoology		Monster Hunt
+Kid	3	3	Finesse (Dexterity), Speech (Wile)	Comedy, Dramaturgy, Music, Reconnaissance, Cavern, Forest, Lowborn, Undercity		Avoid
+Merc	2	4	Athletics (Vigor), Attack (Dexterity), Attack (Vigor), Presence (Vigor), Presence (Wile), Grace (Dexterity)	Tactics, Hunting, Diplomacy, Salesmanship		Combat
+Minstrel	2	4	Finesse (Dexterity), Performance (Dexterity), Performance (Wile)	Music	Musician's	Social
+Monk	2	4	Intuition (Wile), Presence (Wile), Speech (Wile)	Magic, Occult, Theology, Chivalry, Domain Walking, Tasseomancy		Rest Recovery, Inner Peace
+Mortician	5	1	Clever (Cognition), Finesse (Dexterity), Notice (Cognition), Search (Cognition)	Thanatology	Mortician's	Unsavory
+Noble	3	3	Intuition (Cognition), Intuition (Wile), Presence (Vigor), Presence (Wile)	Aerdis, Aldurstein, Buern, Copari, Fainarr, Kathaya, Miliim, Rossade, Vaernebo, Zukei, Chivalry, Diplomacy, High Society		Social
+Pickpocket	2	4	Finesse (Dexterity)		ESPIONAGE	Espionage, Assassinate
+Rover	4	2	Athletics (Vigor), Intuition (Cognition), Search (Cognition)	Geology, Oceanography, Travel	Cartographer's	Urban, Treasure Hunt
+Sailor	2	4	Athletics (Vigor), Grace (Dexterity), Power (Vigor), Presence (Vigor), Presence (Wile)	Nautical, Sea	Shipwright's	Negotiate, Treasure Hunt
+Shamed	4	2	Clever (Cognition), Intuition (Cognition), Intuition (Wile), Speech (Wile)	SOCIAL		Unsavory
+Shepherd	3	3	Athletics (Vigor), Notice (Cognition), Presence (Wile), Search (Cognition)	Zoology		Monster Hunt
+Soldier	3	3	Athletics (Vigor), Attack (Dexterity), Attack (Vigor), Resist (Dexterity), Resist (Vigor)	Dueling, Tactics, Aerdis, Buern, Copari, Fainarr, Kathaya, Miliim, Rossade, Vaernebo		Combat, Military
+Spy	3	3	Grace (Dexterity), Performance (Wile), Search (Cognition), Speech (Wile)	Reconnaissance	Infiltrator's, Interrogator's, Investigator's, Scout's	Assassinate, Espionage, Escort, Investigate
+Trader	2	4	Intuition (Wile), Speech (Wile)	Salesmanship		Negotiate, Urban
+Watchman	3	3	Notice (Cognition), Search (Cognition)	Forensics, Reconnaissance	Investigator's	Escort, Rescue
+White Collar	4	2	Clever (Cognition), Intuition (Cognition)	CORPORATE		Unsavory, Urban

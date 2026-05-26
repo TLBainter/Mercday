@@ -1,0 +1,30 @@
+
+
+ *Changelog:
+
+	v1.0
+	First Version!
+	
+	v1.1
+	changed the folder at "/PNG/Modular parts/Hair from "4," to "4", since it was a typo.
+
+	v1.5
+	Added the archer character
+	New shields
+	New colors
+	new palette folder (useful for aseprite)
+
+	V2.0
+	Changed the whole size of the spritesheet and number of frames
+		-Now all the animations have an total of 49 frames
+		-360X288 final size spritesheet (before was 216x192)
+	Better special animations
+	Added aseprite files
+	Added bat files for special exportings
+	Added guides in PNG
+	Added guides in video
+	Added new itens for characters
+		-New shields
+		-New weapons
+		
+	

@@ -1,0 +1,13 @@
+CREATURES	ENVIRONMENTS	DAMAGES	DAMAGE CATEGORIES	DAMAGE EFFECT	MULTIPLIER NAME	AMT	VEHICLE	DRIVER	TERRAIN	POSITION	TEMPLE	TEMPLE TRAIT	STUDY TOPIC	STUDY EXPERTISE	PACT BEING	CONTRACT	TAGS	TARGET TYPES	SUBLOCATION TYPES
+Assembly	Cavern	Impale	Standard	BLOCK cannot reduce damage below 1.	Susceptible	2	Air	Pilot	All	Leader	Dead	Grave Insight	Literature	Literary Expert	Bleeding	Assassinate	Sight	Facility	Landmark
+Beast	Desert	Lacerate	Standard	DODGE cannot reduce damage below 1.	Protected	0.5	Land	Driver	Road	Driver	Dragon	Draconic Insight	Conflict	Polemologist	Brain	Escort	Melee	Leader	Region
+Daemon	Forest	Strike	Standard	BLOCK effectiveness is halved.	Immune	0	Water	Captain	Water	Support	the Drunkard	Drunken Insight	History	Historian	Buried	Investigate	Ranged	Group	Settlement
+Elemental	Marsh	Acid	Elemental	BLOCK cannot be used.						Everyman	Elements	Worldly Insight	Magic	Omnimancer	Celestial	Military	Social	Powerless	Country
+Ethereal	Mountain	Electric	Elemental	DIRECT vs metal.							Knowledge	Scholarly Insight	Tech	Technologist	Fey	Monster Hunt	Voice	Creature	Domain
+Fey	Plain	Fire	Elemental	First point of damage is DIRECT.							Life	Merciful One's Insight			Fiend	Rescue	Fire	Situation	
+Hominid	Sea	Frost	Elemental	Reduces Speed by 10, unless they ignore low temperature.							Shadows	Dark Knowledge			Lurker	Treasure Hunt	Water	Item	
+Immortal	Sky	Toxic	Elemental	Damage +1 against Poisoned targets.							Stars	Cosmic Insight			Rage	Entertain			
+Mire	Snowy	Holy	Esoteric	DODGE cannot be used.							War	Blade Master's Insight			Undead				
+Myth	Tropical	Rot	Esoteric	Reduces Maximum Hit Points by damage taken.											Unknowable				
+Plant	Urban	Sonic	Esoteric	Always direct. Deafened creatures are Protected.															
+Undead	Volcanic	Will	Esoteric	Always direct. Cannot reduce a creature's Hit Points below 1.															
