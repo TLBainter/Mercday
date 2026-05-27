@@ -99,7 +99,7 @@ static func _build_circumstance_pool(filter_key: String) -> Array[String]:
 	var parts: PackedStringArray = filter_key.split("_")
 	var pool: Array[String] = []
 	if parts.size() >= 2 and parts[-1].to_lower() == "all":
-		# e.g. "dexterity_all" → all circumstances where stat == "Dexterity"
+		# e.g. "dexterity_all" -> all circumstances where stat == "Dexterity"
 		var stat_name_parts: PackedStringArray = parts.slice(0, parts.size() - 1)
 		var stat_filter: String = " ".join(stat_name_parts).capitalize()
 		for d: String in ConstCircumstances.ALL:

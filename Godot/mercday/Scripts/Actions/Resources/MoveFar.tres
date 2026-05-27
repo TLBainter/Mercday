@@ -1,0 +1,52 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/MovementNotBlockedFacet.gd" id="MovementNotBlocked"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/EnemyDistanceFacet.gd" id="EnemyDistanceFacet"]
+
+[sub_resource type="Resource" id="facet_move"]
+script = ExtResource("MovementNotBlocked")
+is_required = true
+
+[sub_resource type="Resource" id="facet_grapple"]
+script = ExtResource("ActiveStateFacet")
+is_required = true
+state_name = "Grappled"
+present_is_high = false
+
+[sub_resource type="Resource" id="facet_ranged"]
+script = ExtResource("WeaponTypeFacet")
+is_required = true
+require_ranged = true
+require_drawn = false
+
+[sub_resource type="Resource" id="facet_hp"]
+script = ExtResource("HpRatioFacet")
+weight = 1.0
+threshold = 0.25
+below_is_high = true
+
+[sub_resource type="Resource" id="facet_dist"]
+script = ExtResource("EnemyDistanceFacet")
+weight = 1.0
+max_dist = 6.0
+close_is_high = true
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_ranged"), SubResource("facet_hp"), SubResource("facet_dist")]
+threshold = 0.3
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "Move Far"
+ap_cost = 2
+ap_cost_mode = "move_base"
+priority = 50
+execution_type = "move"
+target_mode = "nearest_enemy"
+decision = SubResource("decision")

@@ -1,0 +1,36 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/MovementNotBlockedFacet.gd" id="MovementNotBlocked"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/NoValidTargetsFacet.gd" id="NoValidTargetsFacet"]
+
+[sub_resource type="Resource" id="facet_move"]
+script = ExtResource("MovementNotBlocked")
+is_required = true
+
+[sub_resource type="Resource" id="facet_grapple"]
+script = ExtResource("ActiveStateFacet")
+is_required = true
+state_name = "Grappled"
+present_is_high = false
+
+[sub_resource type="Resource" id="facet_no_targets"]
+script = ExtResource("NoValidTargetsFacet")
+is_required = true
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_no_targets")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "Move Close"
+ap_cost = 2
+ap_cost_mode = "move_base"
+priority = 45
+execution_type = "move"
+target_mode = "strategic_advance"
+decision = SubResource("decision")

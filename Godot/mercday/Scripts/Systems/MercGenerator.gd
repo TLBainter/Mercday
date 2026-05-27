@@ -52,8 +52,10 @@ static func generate(_merc_index: int = 0) -> MercenaryData:
 	merc.current_ep = int(merc.stats.get("maximum_endurance_points", 1))
 	merc.current_mp = int(merc.stats.get("maximum_magic_points", 1))
 	merc.current_ap = int(merc.stats.get("action_points", 5))
+	merc.current_rep = int(floor(float(merc.stats.get("luck", 0.0)) / 10.0))
 	_step8_equip_weapon(merc)
 	_step9_equip_armor(merc)
+	merc.action_set = DefaultActionSet.create()
 	_update_rolling_penalties(merc)
 	return merc
 
@@ -441,7 +443,7 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 		elif t.begins_with("stat:min_"):
 			var parts: PackedStringArray = t.split(":")
 			if parts.size() == 3:
-				var floor_key: String = parts[1].substr("min_".length())  # "min_state_madness" → "state_madness"
+				var floor_key: String = parts[1].substr("min_".length())  # "min_state_madness" -> "state_madness"
 				var val: int = int(parts[2])
 				merc.min_stats[floor_key] = maxi(merc.min_stats.get(floor_key, 0) as int, val)
 		elif t.begins_with("grant:ability:"):
@@ -708,7 +710,7 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 				var chosen: String = core_keys[randi() % core_keys.size()]
 				merc.max_stats[chosen] = (merc.max_stats.get(chosen, 0) as int) + amount
 		elif t.begins_with("stat:random:"):
-			# stat:random:<key1>:<key2>:...:<val>  — pick one random key from the list
+			# stat:random:<key1>:<key2>:...:<val>; pick one random key from the list
 			var parts: PackedStringArray = t.split(":")
 			if parts.size() >= 4:
 				var val_str: String = parts[parts.size() - 1]
@@ -1174,13 +1176,27 @@ static func _update_rolling_penalties(merc: MercenaryData) -> void:
 
 static func _step8_equip_weapon(merc: MercenaryData) -> void:
 	var melee_pool: Array = DataManager.weapons_ordinary_melee
-	var ranged_pool: Array[WeaponData] = DataManager.weapons_ordinary_ranged
-	var use_ranged := not ranged_pool.is_empty() and randf() < 0.30
-	if use_ranged:
-		merc.equipped_weapon = ranged_pool[randi() % ranged_pool.size()]
+	var ranged_pool: Array[WeaponData] = []
+	ranged_pool.append_array(DataManager.weapons_ordinary_ranged)
+	ranged_pool.append_array(DataManager.weapons_common_ranged)
+
+	var melee_w: WeaponData = null
+	var ranged_w: WeaponData = null
+	if not melee_pool.is_empty():
+		melee_w = melee_pool[randi() % melee_pool.size()] as WeaponData
+	if not ranged_pool.is_empty():
+		ranged_w = ranged_pool[randi() % ranged_pool.size()] as WeaponData
+
+	# Set ranged as equipped first so _equip_starting_ammo can find compatible ammo
+	if ranged_w != null:
+		merc.equipped_weapon = ranged_w
 		_equip_starting_ammo(merc)
-	elif not melee_pool.is_empty():
-		merc.equipped_weapon = melee_pool[randi() % melee_pool.size()] as WeaponData
+	elif melee_w != null:
+		merc.equipped_weapon = melee_w
+
+	# Carry the other weapon in inventory; BattleState.create() randomizes which is drawn
+	if melee_w != null and ranged_w != null:
+		merc.inventory.append({"type": "weapon", "data": melee_w})
 
 
 static func _step9_equip_armor(merc: MercenaryData) -> void:
@@ -1207,4 +1223,4 @@ static func _equip_starting_ammo(merc: MercenaryData) -> void:
 	var chosen = compatible_ammo[randi() % compatible_ammo.size()]
 	merc.ammo_inventory[chosen.item_name] = chosen.amount
 	merc.ammo_loaded_type = chosen.item_name
-	merc.ammo_loaded = mini(weapon.chamber, chosen.amount)
+	merc.ammo_loaded = chosen.amount if weapon.chamber <= 0 else mini(weapon.chamber, chosen.amount)

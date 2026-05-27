@@ -1,0 +1,141 @@
+class_name EncounterLogger
+
+const MAX_LOGS := 10
+const LOG_DIR := "user://encounter_logs"
+
+static var _file: FileAccess = null
+static var _bbcode_rx: RegEx = null
+
+
+static func begin(encounter_type: String, state: BattleState) -> void:
+	_ensure_dir()
+	_rotate()
+	var dt := Time.get_datetime_dict_from_system()
+	var session := "%06x" % randi()
+	var date_str := "%04d-%02d-%02d" % [dt["year"], dt["month"], dt["day"]]
+	var time_str := "%02d-%02d-%02d" % [dt["hour"], dt["minute"], dt["second"]]
+	var safe_type := encounter_type.replace(" ", "-").to_lower()
+	var filename := "%s_log_%s_%s_%s.txt" % [safe_type, session, date_str, time_str]
+	_file = FileAccess.open(LOG_DIR + "/" + filename, FileAccess.WRITE)
+	if _file == null:
+		push_warning("EncounterLogger: could not open %s" % filename)
+		return
+	_file.store_line("=== MercManager Encounter Log ===")
+	_file.store_line("Type: %s   Session: %s   Date: %s %s" % [
+		encounter_type, session, date_str, time_str.replace("-", ":")])
+	if state != null:
+		for i in state.teams.size():
+			var names: Array[String] = []
+			for m: MercenaryData in state.teams[i]:
+				names.append(m.merc_name)
+			_file.store_line("Team %d: %s" % [i, ", ".join(names)])
+	_file.store_line("=================================")
+	_file.store_line("")
+
+
+static func end(result: Dictionary) -> void:
+	if _file == null:
+		return
+	_file.store_line("")
+	var winner: int = result.get("winner", -1)
+	var rounds: int = result.get("rounds", 0)
+	var winner_str := "Draw" if winner < 0 else ("Team %d wins" % winner)
+	_file.store_line("=== RESULT: %s in %d round(s) ===" % [winner_str, rounds])
+	_file.close()
+	_file = null
+
+
+static func is_active() -> bool:
+	return _file != null
+
+
+static func log_line(text: String) -> void:
+	if _file == null:
+		return
+	_file.store_line(_strip_bbcode(text))
+
+
+static func log_verbose(text: String) -> void:
+	if _file == null:
+		return
+	_file.store_line("  >> " + text)
+
+
+static func log_generation(field: BattlefieldArea) -> void:
+	if _file == null:
+		return
+	_file.store_line("--- Battlefield Generation ---")
+	_file.store_line("Dimensions: %dx%d (height %d)  Cover: %s" % [
+		field.width, field.length, field.height,
+		BattlefieldArea.COVER_AMOUNT_NAMES[field.cover_amount]])
+	var wall_count := 0
+	var door_count := 0
+	var passthrough_count := 0
+	var damaging_count := 0
+	var other_count := 0
+	for obs: Dictionary in field.obstacles:
+		var ct: String = obs.get("cell_type", "")
+		if ct == "wall":
+			wall_count += 1
+		elif ct == "door":
+			door_count += 1
+		else:
+			var d: ObstacleData = obs.get("data") as ObstacleData
+			if d != null and d.passthrough:
+				if d.passthrough_enter_harm > 0 or d.passthrough_exit_harm > 0:
+					damaging_count += 1
+				else:
+					passthrough_count += 1
+			else:
+				other_count += 1
+	_file.store_line("Obstacles: %d total  walls=%d  doors=%d  passthrough=%d  damaging=%d  solid=%d" % [
+		field.obstacles.size(), wall_count, door_count, passthrough_count, damaging_count, other_count])
+	if field.building_data.is_empty():
+		_file.store_line("Buildings: none")
+	else:
+		for i: int in range(field.building_data.size()):
+			var b: Dictionary = field.building_data[i]
+			var rect: Rect2i = b["rect"] as Rect2i
+			var door_positions: Array = b.get("door_positions", [])
+			var door_parts: Array[String] = []
+			for dp in door_positions:
+				var v: Vector2i = dp
+				door_parts.append("(%d,%d)" % [v.x, v.y])
+			_file.store_line("Building %d [%s]: pos=(%d,%d) size=%dx%d  doors=%d at %s" % [
+				i + 1, b.get("name", "?"),
+				rect.position.x, rect.position.y, rect.size.x, rect.size.y,
+				door_positions.size(), ", ".join(door_parts)])
+	_file.store_line("---")
+
+
+static func _ensure_dir() -> void:
+	if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(LOG_DIR)):
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(LOG_DIR))
+
+
+static func _rotate() -> void:
+	var dir := DirAccess.open(LOG_DIR)
+	if dir == null:
+		return
+	var entries: Array[Dictionary] = []
+	dir.list_dir_begin()
+	var name := dir.get_next()
+	while name != "":
+		if not dir.current_is_dir() and name.ends_with(".txt"):
+			var full := LOG_DIR + "/" + name
+			entries.append({"name": name, "mtime": FileAccess.get_modified_time(full)})
+		name = dir.get_next()
+	dir.list_dir_end()
+	if entries.size() < MAX_LOGS:
+		return
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["mtime"] < b["mtime"])
+	var to_delete := entries.size() - MAX_LOGS + 1
+	for i in to_delete:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOG_DIR + "/" + entries[i]["name"]))
+
+
+static func _strip_bbcode(text: String) -> String:
+	if _bbcode_rx == null:
+		_bbcode_rx = RegEx.new()
+		_bbcode_rx.compile("\\[[^\\]]*\\]")
+	return _bbcode_rx.sub(text, "", true)

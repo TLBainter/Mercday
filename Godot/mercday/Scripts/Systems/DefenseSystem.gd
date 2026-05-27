@@ -1,6 +1,6 @@
 class_name DefenseSystem
 
-static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, extra_enhancements: int = 0, free_defense: bool = false) -> Dictionary:
+static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, extra_enhancements: int = 0, free_defense: bool = false, skip_defense: bool = false) -> Dictionary:
 	var type_data: Dictionary = ConstDamageTypes.get_type(damage_type)
 	var type_lower: String = damage_type.to_lower()
 
@@ -29,7 +29,7 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 	if ConstStates.has_state(merc, ConstStates.VULNERABLE):
 		raw_damage += 1
 		out["raw_damage"] = raw_damage
-		# Force direct — overrides type_data below
+		# Force direct (overrides type_data below)
 		out["is_direct"] = true
 
 	for effect: String in merc.passive_effects:
@@ -78,7 +78,7 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 		merc.current_hp = maxi(0, merc.current_hp - int(out["final_damage"]))
 		return out
 
-	if merc.current_ep <= 0 and not free_defense:
+	if (merc.current_ep <= 0 and not free_defense) or skip_defense:
 		out["final_damage"] = modified_damage
 		merc.current_hp = maxi(0, merc.current_hp - modified_damage)
 		return out
@@ -101,8 +101,7 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 			"tools":        [],
 			"formula":      "defend",
 			"enhancements": extra_enhancements,
-			# Flanked state: defend threshold -15%
-			"flat_threshold_bonus": -15.0 if ConstStates.has_state(merc, ConstStates.FLANKED) else 0.0,
+			"flat_threshold_bonus": 0.0,
 		}
 		var def_result: Dictionary = CheckSystem.make_check(merc, def_check)
 		out["defend_result"] = def_result

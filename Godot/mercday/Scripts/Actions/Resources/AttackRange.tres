@@ -1,0 +1,42 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/AmmoStatusFacet.gd" id="AmmoStatusFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
+
+[sub_resource type="Resource" id="facet_weapon"]
+script = ExtResource("WeaponTypeFacet")
+is_required = true
+require_ranged = true
+require_drawn = true
+
+[sub_resource type="Resource" id="facet_ammo"]
+script = ExtResource("AmmoStatusFacet")
+is_required = true
+mode = "has"
+
+[sub_resource type="Resource" id="facet_targets"]
+script = ExtResource("ValidTargetsFacet")
+is_required = true
+
+[sub_resource type="Resource" id="facet_misfire"]
+script = ExtResource("NotMisfiredFacet")
+is_required = true
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_weapon"), SubResource("facet_ammo"), SubResource("facet_targets"), SubResource("facet_misfire")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "Attack"
+ap_cost = 3
+ap_cost_mode = "attack_base"
+priority = 70
+execution_type = "attack"
+target_mode = "current_or_best"
+decision = SubResource("decision")

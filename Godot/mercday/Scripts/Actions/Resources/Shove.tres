@@ -1,0 +1,36 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/EnemyDistanceFacet.gd" id="EnemyDistanceFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ShoveFeasibilityFacet.gd" id="ShoveFeasibilityFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ShoveOutcomeFacet.gd" id="ShoveOutcomeFacet"]
+
+[sub_resource type="Resource" id="facet_dist_req"]
+script = ExtResource("EnemyDistanceFacet")
+is_required = true
+max_dist = 1.0
+close_is_high = true
+
+[sub_resource type="Resource" id="facet_feasibility"]
+script = ExtResource("ShoveFeasibilityFacet")
+is_required = true
+
+[sub_resource type="Resource" id="facet_outcome"]
+script = ExtResource("ShoveOutcomeFacet")
+weight = 1.0
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_dist_req"), SubResource("facet_feasibility"), SubResource("facet_outcome")]
+threshold = 0.4
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "shove"
+ap_cost = 3
+ap_cost_mode = "fixed"
+priority = 65
+execution_type = "special"
+target_mode = "current_or_best"
+decision = SubResource("decision")

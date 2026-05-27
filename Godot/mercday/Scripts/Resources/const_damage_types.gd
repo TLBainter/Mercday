@@ -17,6 +17,7 @@ const DAMAGE_TYPES: Dictionary = {
 	"Rot":      {"category": ESOTERIC,  "block_min_1": false, "dodge_min_1": false, "defend_halved": false, "defend_blocked": false, "dodge_blocked": false, "is_direct": false, "fire_first_point": false, "will_hp_floor": false},
 	"Sonic":    {"category": ESOTERIC,  "block_min_1": false, "dodge_min_1": false, "defend_halved": false, "defend_blocked": false, "dodge_blocked": false, "is_direct": true,  "fire_first_point": false, "will_hp_floor": false},
 	"Will":     {"category": ESOTERIC,  "block_min_1": false, "dodge_min_1": false, "defend_halved": false, "defend_blocked": false, "dodge_blocked": false, "is_direct": true,  "fire_first_point": false, "will_hp_floor": true },
+	"Fall":     {"category": STANDARD,  "block_min_1": false, "dodge_min_1": false, "defend_halved": false, "defend_blocked": false, "dodge_blocked": false, "is_direct": true,  "fire_first_point": false, "will_hp_floor": false},
 }
 
 

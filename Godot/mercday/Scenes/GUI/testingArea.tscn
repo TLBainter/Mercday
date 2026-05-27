@@ -97,3 +97,9 @@ self_modulate = Color(0.2, 1, 0.4, 1)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "START BATTLE"
+
+[node name="DropMercs" type="Button" parent="ButtonBar" unique_id=432198765]
+self_modulate = Color(0.4, 0.7, 1.0, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "DROP MERCS"

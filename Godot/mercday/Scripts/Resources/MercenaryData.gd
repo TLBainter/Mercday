@@ -31,14 +31,22 @@ var items: Array  # Array[ItemData] once Godot imports ItemData.gd
 var equipped_weapon: WeaponData
 var equipped_armor: ArmorData
 var acquired_critical_successes: Array[String] = []
+var weapon_perks: Array[TraitData] = []
+var armor_perks: Array[TraitData] = []
 var current_hp: int = 0
 var current_ep: int = 0
 var current_mp: int = 0
 var current_ap: int = 0
+var current_rep: int = 0
 var excess_ap: int = 0
-var active_states: Dictionary = {}   # state_name → int or {count, source}
+var active_states: Dictionary = {}   # state_name -> int or {count, source}
 var death_test_hp_loss: int = 0      # accumulated max HP loss from failed death tests this combat
-var ammo_inventory: Dictionary = {}  # ammo_name → int (rounds remaining)
+var ammo_inventory: Dictionary = {}  # ammo_name -> int (rounds remaining)
 var ammo_loaded: int = 0
 var ammo_loaded_type: String = ""
-var weapon_misfired: bool = false    # cleared at start of each turn
+var weapon_misfired: bool = false
+var aim_active: bool = false    # cleared at start of each turn
+var weapon_drawn: bool = true        # true = weapon currently in hand; starts drawn
+var inventory: Array = []            # Array of {"type": String, "data": Resource}, e.g. {"type": "weapon", "data": WeaponData}
+var deferred_effects: Array = []  # Array of {target: MercenaryData, damage: int, type: String, timing: String}
+var action_set: MercActionSet

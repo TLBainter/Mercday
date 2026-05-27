@@ -5,13 +5,14 @@ var turn_queue: Array[MercenaryData] = []
 var escalation: Dictionary = {}
 var round_number: int = 0
 var battlefield: BattlefieldArea   # null = no positioning active
-var positions: Dictionary = {}     # MercenaryData → Vector2i
-var heights: Dictionary = {}       # MercenaryData → int  (0 = ground, >0 = flying altitude)
-# plain int/String fields only — no Vector2i to avoid Variant-inference warnings
+var positions: Dictionary = {}     # MercenaryData -> Vector2i
+var heights: Dictionary = {}       # MercenaryData -> int  (0 = ground, >0 = flying altitude)
+# plain int/String fields only; no Vector2i to avoid Variant-inference warnings
 var merc_cover: Dictionary = {}
-var last_attacked: Dictionary = {}            # attacker → last target attacked
-var damage_dealt_this_round: Dictionary = {}  # attacker → { target → total dealt }
+var last_attacked: Dictionary = {}            # attacker -> last target attacked
+var damage_dealt_this_round: Dictionary = {}  # attacker -> { target -> total dealt }
 var damage_dealt_last_round: Dictionary = {}  # same, snapshot from previous round
+var dropped_weapons: Dictionary = {}          # Vector2i -> Array[WeaponData]
 
 
 static func create(
@@ -25,16 +26,52 @@ static func create(
 	for merc: MercenaryData in all_mercs:
 		merc.current_hp = int(merc.stats.get("maximum_hit_points", 1))
 		merc.current_ep = int(merc.stats.get("maximum_endurance_points", 1))
+		# TODO: apply ArmorData.ep_cost penalty here once the mechanic is implemented.
+		# Guard with: if merc.equipped_armor and not WeaponArmorPerkLibrary.has_armor_perk_active(merc, "armor_ep_ignore:" + merc.equipped_armor.armor_class.to_lower()):
+		#     merc.current_ep -= merc.equipped_armor.ep_cost
+		# TODO: apply ArmorData.fatigue penalty here once the mechanic is implemented.
+		# Guard with: if merc.equipped_armor and not WeaponArmorPerkLibrary.has_armor_perk_active(merc, "armor_fatigue_zero:" + merc.equipped_armor.armor_class.to_lower()):
+		#     merc.current_ep -= merc.equipped_armor.fatigue
 		merc.current_mp = int(merc.stats.get("maximum_magic_points", 0))
 		merc.current_ap = 0
 		merc.excess_ap = 0
 		merc.active_states = {}
 		merc.death_test_hp_loss = 0
+		merc.aim_active = false
+		_randomize_starting_draw(merc)
 	state.turn_queue = TurnOrderSystem.sort_initiative(all_mercs)
 	state.battlefield = field
 	if field != null:
 		_assign_starting_positions(state, team_a, team_b)
 	return state
+
+
+static func _randomize_starting_draw(merc: MercenaryData) -> void:
+	var all_weapons: Array[WeaponData] = []
+	if merc.equipped_weapon != null:
+		all_weapons.append(merc.equipped_weapon)
+	for entry: Dictionary in merc.inventory:
+		if entry.get("type") == "weapon":
+			var w: WeaponData = entry.get("data")
+			if w != null and not all_weapons.has(w):
+				all_weapons.append(w)
+
+	if all_weapons.is_empty():
+		merc.weapon_drawn = false
+		merc.equipped_weapon = null
+		return
+
+	all_weapons.shuffle()
+	merc.equipped_weapon = all_weapons[0]
+	merc.weapon_drawn = true
+
+	var new_inventory: Array = []
+	for entry: Dictionary in merc.inventory:
+		if entry.get("type") != "weapon":
+			new_inventory.append(entry)
+	for i: int in range(1, all_weapons.size()):
+		new_inventory.append({"type": "weapon", "data": all_weapons[i]})
+	merc.inventory = new_inventory
 
 
 static func _assign_starting_positions(
@@ -204,8 +241,32 @@ func get_cover_info(merc: MercenaryData) -> Dictionary:
 	return merc_cover[merc]
 
 
+# Automatic cover from standing on higher terrain (no Seek Cover required).
+# Full cover if terrain_diff >= merc size; partial if terrain_diff >= 1 pace.
+func _check_terrain_cover(merc: MercenaryData, attacker: MercenaryData, cover_type: String) -> bool:
+	var def_pos := get_position(merc)
+	var atk_pos := get_position(attacker)
+	var terrain_diff := battlefield.get_terrain_height(def_pos) - battlefield.get_terrain_height(atk_pos)
+	if terrain_diff < 1.0:
+		return false
+	var atk_fly := get_height(attacker)
+	if atk_fly > 0:
+		var horiz_dist := maxi(abs(atk_pos.x - def_pos.x), abs(atk_pos.y - def_pos.y))
+		if atk_fly >= int(terrain_diff) + horiz_dist:
+			return false
+	var merc_size := maxi(1, int(merc.stats.get("size", 1)))
+	match cover_type:
+		ConstStates.COVERED_FULL:
+			return terrain_diff >= float(merc_size)
+		ConstStates.COVERED_PARTIAL:
+			return true
+	return false
+
+
 # Flying attackers bypass cover when their height >= obstacle_size + horizontal_distance_to_obstacle.
 func is_covered_from(merc: MercenaryData, attacker: MercenaryData, cover_type: String) -> bool:
+	if battlefield != null and _check_terrain_cover(merc, attacker, cover_type):
+		return true
 	if not ConstStates.has_state(merc, cover_type):
 		return false
 	if not merc_cover.has(merc):
@@ -261,6 +322,47 @@ func is_battle_over() -> bool:
 		if not any_capable:
 			return true
 	return false
+
+
+func drop_weapon(merc: MercenaryData) -> void:
+	var weapon := merc.equipped_weapon
+	if weapon == null:
+		return
+	var pos := get_position(merc)
+	if not dropped_weapons.has(pos):
+		dropped_weapons[pos] = []
+	(dropped_weapons[pos] as Array).append({
+		"weapon": weapon,
+		"ammo_loaded": merc.ammo_loaded,
+		"ammo_loaded_type": merc.ammo_loaded_type,
+	})
+	merc.equipped_weapon = null
+	merc.weapon_drawn = false
+	merc.ammo_loaded = 0
+	merc.ammo_loaded_type = ""
+
+
+func retrieve_dropped_weapons_for(merc: MercenaryData) -> void:
+	if dropped_weapons.is_empty():
+		return
+	var merc_pos := get_position(merc)
+	for pos: Vector2i in dropped_weapons.keys().duplicate():
+		if maxi(abs(pos.x - merc_pos.x), abs(pos.y - merc_pos.y)) <= 1:
+			for entry: Dictionary in dropped_weapons[pos]:
+				merc.inventory.append({"type": "weapon", "data": entry["weapon"]})
+			dropped_weapons.erase(pos)
+
+
+func get_dropped_weapons_at(pos: Vector2i) -> Array:
+	return dropped_weapons.get(pos, [])
+
+
+func remove_dropped_weapon(pos: Vector2i, entry: Dictionary) -> void:
+	if not dropped_weapons.has(pos):
+		return
+	(dropped_weapons[pos] as Array).erase(entry)
+	if (dropped_weapons[pos] as Array).is_empty():
+		dropped_weapons.erase(pos)
 
 
 func get_winner() -> int:

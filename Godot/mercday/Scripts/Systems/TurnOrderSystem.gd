@@ -1,6 +1,6 @@
 class_name TurnOrderSystem
 
-# Tiebreakers: Speed → Dexterity → Max Dexterity → Luck → 50/50 coin flip.
+# Tiebreakers: Speed -> Dexterity -> Max Dexterity -> Luck -> 50/50 coin flip.
 static func sort_initiative(mercs: Array[MercenaryData]) -> Array[MercenaryData]:
 	var result := mercs.duplicate()
 	result.sort_custom(_cmp)

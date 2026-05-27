@@ -1,0 +1,33 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/RangedEnemyFacet.gd" id="RangedEnemyFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/CoverNearbyFacet.gd" id="CoverNearbyFacet"]
+
+[sub_resource type="Resource" id="facet_hp"]
+script = ExtResource("HpRatioFacet")
+is_required = true
+threshold = 0.5
+below_is_high = true
+
+[sub_resource type="Resource" id="facet_ranged"]
+script = ExtResource("RangedEnemyFacet")
+is_required = true
+
+[sub_resource type="Resource" id="facet_cover"]
+script = ExtResource("CoverNearbyFacet")
+is_required = true
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_hp"), SubResource("facet_ranged"), SubResource("facet_cover")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "seek_cover"
+ap_cost = 2
+priority = 30
+decision = SubResource("decision")

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+threshold = 0.5
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "Use Item"
+priority = 80
+enabled = false
+decision = SubResource("decision")

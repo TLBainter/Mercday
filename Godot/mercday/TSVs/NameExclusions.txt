@@ -1,6 +1,7 @@
 #Excluded whole names; exact match and case-insensitive
 #A generated name part that exactly matches any entry here will be rerolled.
 [words]
+she
 can
 brenangus
 mold

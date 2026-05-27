@@ -1,0 +1,56 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/MovementNotBlockedFacet.gd" id="MovementNotBlocked"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/EnemyDistanceFacet.gd" id="EnemyDistanceFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/MeleePreferredFacet.gd" id="MeleePreferred"]
+
+[sub_resource type="Resource" id="facet_move"]
+script = ExtResource("MovementNotBlocked")
+is_required = true
+
+[sub_resource type="Resource" id="facet_grapple"]
+script = ExtResource("ActiveStateFacet")
+is_required = true
+state_name = "Grappled"
+present_is_high = false
+
+[sub_resource type="Resource" id="facet_terrified"]
+script = ExtResource("ActiveStateFacet")
+is_required = true
+state_name = "Terrified"
+present_is_high = false
+
+[sub_resource type="Resource" id="facet_melee"]
+script = ExtResource("WeaponTypeFacet")
+weight = 1.0
+require_ranged = false
+require_drawn = false
+
+[sub_resource type="Resource" id="facet_preferred"]
+script = ExtResource("MeleePreferred")
+weight = 1.0
+
+[sub_resource type="Resource" id="facet_dist"]
+script = ExtResource("EnemyDistanceFacet")
+weight = 1.0
+max_dist = 1.0
+close_is_high = false
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_melee"), SubResource("facet_preferred"), SubResource("facet_dist")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "Move Close"
+ap_cost = 2
+ap_cost_mode = "move_base"
+priority = 50
+execution_type = "move"
+target_mode = "nearest_enemy"
+decision = SubResource("decision")

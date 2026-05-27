@@ -297,129 +297,129 @@ Merc	Bloodline	Descriptor	Atalu	A small, simple, and fragile robot designed for 
 Merc	Bloodline	Descriptor	Fenwyn	A more advanced form of the Zelian steeljoint, designed by Fenwyn, Inc.		Uncommon	FALSE			
 Merc	Bloodline	Descriptor	Smit	A highly-advanced, near-biological machine crafted by Smit, Inc.		Uncommon	FALSE			
 Merc	Bloodline	Descriptor	Zelian	The first Steeljoint in recorded history; they're old, but were designed to help and somehow keep popping up in places.		Very Rare	FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
-							FALSE			
+Weapon	Basic	Action	Blowgun|Blowgun Pinpoint	When you hit a Surprised creature with a blowgun attack, use a Reactive Action to add 2 to the damage dealt.	reactive_action:on_hit:surprised:damage:+2	Common	FALSE			
+Weapon	Basic	Perk	Blowgun|Blowgun Professional	Attacks with blowguns are +1 Enhanced.	weapon_enhance:+1	Common	FALSE			
+Weapon	Basic	Perk	Blowgun|Blowgun Quick Reload	Spend 1 ReP to reload a blowgun after attacking with it, requiring no action.	spend:rep:1:reload_free	Common	FALSE			
+Weapon	Basic	Action	Club|Club Beatdown	When you hit a Deposed creature with a club attack, use a Reactive Action to add 1 to the damage dealt.	reactive_action:on_hit:deposed:damage:+1	Common	FALSE			
+Weapon	Basic	Action	Club|Club Uppercut	For 1 AP, make a club attack against a creature you have already damaged, this turn.	action:1:attack_already_damaged	Common	FALSE			
+Weapon	Basic	Perk	Club|Club Professional	Attacks with clubs are +1 Enhanced.	weapon_enhance:+1	Common	FALSE			
+Weapon	Basic	Action	Dagger|Dagger Toss	After attacking with a dagger, you may immediately use a Reactive Action to throw the dagger (regardless of whether the attack hit or missed), making an additional attack against the same creature or another within range.	reactive_action:after_attack:throw_attack	Common	FALSE			
+Weapon	Basic	Perk	Dagger|Dagger Assassin	When you hit a Surprised or Vulnerable creature with a dagger attack, use a Reactive Action to add the creature’s Pain Limit to the damage dealt.	reactive_action:on_hit:surprised,vulnerable:damage:pain_limit	Common	FALSE			
+Weapon	Basic	Perk	Dagger|Dagger Bleedout	If you trigger a Pain Response in a creature with a dagger attack, deal 1 direct damage to the creature again at the start of your next turn.	on_pain:direct:1:self_turn_start	Common	FALSE			
+Weapon	Basic	Action	Flail|Flail Snap	After using an action to draw your flail, you may use a Reactive Action to attack with it.	reactive_action:on_draw:attack	Common	FALSE			
+Weapon	Basic	Action	Flail|Flail Spin	For 3 AP, make a single attack with your flail. The attack targets all creatures within 1 Pace of you but damage dealt to each creature cannot exceed 1.	action:3:attack_all_adjacent_max_1	Common	FALSE			
+Weapon	Basic	Perk	Flail|Flail Grappled	When you would deal 1 or more damage to a Size 5 or smaller creature with a flail attack, you may choose to Grapple the target instead of dealing damage. Checks you make to maintain this grapple are +1 Enhanced.	on_hit:any:choose:grapple,damage|weapon_passive:grapple_check:+1_enhanced	Common	FALSE			
+Weapon	Basic	Action	Hand Axe|Hand Axe Toss	After attacking with a hand axe, you may immediately use a Reactive Action to throw the hand axe (regardless of whether the attack hit or missed), making an additional attack against the same creature or another within range.	reactive_action:after_attack:throw_attack	Common	FALSE			
+Weapon	Basic	Perk	Hand Axe|Hand Axe Heavy Launch	When you throw a hand axe you are holding with two hands, the attack deals an extra 1 damage.	weapon_two_handed:thrown_damage:+1	Common	FALSE			
+Weapon	Basic	Perk	Hand Axe|Hand Axe Professional	Attacks with hand axes are +1 Enhanced.	weapon_enhance:+1	Common	FALSE			
+Weapon	Basic	Action	Light Crossbow|Light Crossbow Shove-Shot	When you see a creature within your light crossbow’s Intended Range shoved 1 or more Paces, you may use a Reactive Action to make an Advantage Attack against it with your light crossbow.	reactive_action:on_shove_seen:intended_range:advantage_attack	Common	FALSE			
+Weapon	Basic	Perk	Light Crossbow|Light Crossbow Quick-Reload	When you would make a light crossbow attack, you may fully reload your light crossbow, instead.	weapon_passive:attack_as_reload	Common	FALSE			
+Weapon	Basic	Perk	Light Crossbow|Light Crossbow Quick-Shot	Your light crossbow attacks ignore the Threatened State.	weapon_passive:ignore_threatened	Common	FALSE			
+Weapon	Basic	Perk	Makeshift|Makeshift Weapon (Basic)	At the cost of 1 ReP, activate a Basic Weapon Perk you have access to when using a makeshift weapon.	spend:rep:1:activate_perk:Basic	Common	FALSE			
+Weapon	Basic	Perk	Makeshift|Makeshift Weapon (Great)	At the cost of 1 ReP, activate a Great Weapon Perk you have access to when using a makeshift weapon.	spend:rep:1:activate_perk:Great	Common	FALSE			
+Weapon	Basic	Perk	Makeshift|Makeshift Weapon (Specialized)	At the cost of 1 ReP, activate a Specialized Weapon Perk you have access to when using a makeshift weapon.	spend:rep:1:activate_perk:Specialized	Common	FALSE			
+Weapon	Basic	Action	Mallet|Mallet Called Shot (Atlas Vertebra)	For 3 AP, make a Called Shot (6) using a mallet against a creature with a neck facing away from you. On a success, deal damage to the creature equal to its Pain Limit. A creature reduced to 1 or fewer Hit Points by this damage becomes permanently Debilitated.	SPECIAL: action:3:called_shot:6:neck_facing_away:damage:pain_limit:debilitated_on_1hp	Common	FALSE			
+Weapon	Basic	Action	Mallet|Mallet Rebound	When you hit a creature within 2 Paces of you with a thrown mallet, you may use a Reactive Action to catch it. Otherwise, it will land at your feet.	reactive_action:on_hit:thrown:within_2:catch	Common	FALSE			
+Weapon	Basic	Perk	Mallet|Mallet Toss	After catching a mallet with a Reactive Action, you may throw the mallet as part of that same Reactive Action.	reactive_action:on_catch:throw	Common	FALSE			
+Weapon	Basic	Action	Short Sword|Short Sword Deflection	While holding a short sword, you may use a Reactive Action to impose +1 Flaw on an attack against you before the attack is rolled. At 20th level, this becomes +2 Flaws.	reactive_action:on_incoming_attack:flaw_on_attack:+1	Common	FALSE			
+Weapon	Basic	Action	Short Sword|Short Sword Parry	When an attack within melee range misses you while you are holding a Short Sword, you may use a Reactive Action to deal 1 direct damage to the attacker. You may deal this damage without spending an EP if you have already used Short Sword Deflection against the triggering attack.	reactive_action:on_miss_vs_self:melee:direct:1:ep_free_if_deflection_used	Common	FALSE			
+Weapon	Basic	Action	Short Sword|Short Sword Shift	After dealing 1 or more damage to a Size 5 or smaller creature with a short sword attack, you may use a Reactive Action to swap places with the target.	reactive_action:on_damage:size_5_or_less:swap_places	Common	FALSE			
+Weapon	Basic	Perk	Spear|Spear Launcher	Spend 1 EP to increase the Extended Range of all spears you throw by 10 until the end of the current turn.	spend:ep:1:weapon_stat:thrown_extended_range:+10:until_turn_end	Common	FALSE			
+Weapon	Basic	Perk	Spear|Spear Professional	All spear attacks are +1 Enhanced.	weapon_enhance:+1	Common	FALSE			
+Weapon	Basic	Perk	Spear|Spear Tosser	Your thrown spear attacks deal an additional 1 damage to creatures hit within the spear’s Extended Range.	weapon_passive:thrown_extended_bonus_damage:+1	Common	FALSE			
+Weapon	Basic	Action	Staff|Staff Spin	For 4 AP, make a single attack roll with your staff. The attack targets all creatures within 1 Pace of you, but damage cannot exceed 1 on each target.	action:4:attack_all_adjacent_max_1	Common	FALSE			
+Weapon	Basic	Perk	Staff|Staff Propulsion	While wielding a staff, your Pace increases by 1.	weapon_passive:pace:+1	Common	FALSE			
+Weapon	Basic	Perk	Staff|Staff Trip	When you would deal 1 or more damage to a Size 5 or smaller creature with a staff attack, you may choose to trip the target instead of dealing damage. A creature tripped in this manner falls Deposed.	on_hit:any:choose:trip_deposed,damage	Common	FALSE			
+Weapon	Specialized	Perk	Battleaxe|Battleaxe Focus	Your battleaxe attacks deal an additional 1 damage for each Enhancement on the attack, to a maximum of an additional 3 damage.	weapon_passive:damage_per_enhancement:1:max:3	Common	FALSE			
+Weapon	Specialized	Perk	Battleaxe|Battleaxe Heavy Swing	While wielding a battleaxe with two hands, the weapon deals an additional 1 damage.	weapon_two_handed:damage:+1	Common	FALSE			
+Weapon	Specialized	Perk	Battleaxe|Battleaxe Shove	When you would deal 1 or more damage to a Size 5 or smaller creature with a battleaxe attack, you may choose to Shove the creature 1 Pace away from you instead of dealing damage. At 20th level, the creature is shoved 2 Paces, instead.	SPECIAL: on_hit:any:choose:shove_1,damage	Common	FALSE			
+Weapon	Specialized	Action	Glaive|Glaive Redirect	When you hit a Size 5 or smaller creature with a glaive attack, you may use a Reactive Action to move the creature 2 Paces to the left or right.	reactive_action:on_hit:size_5_or_less:move_target:2	Common	FALSE			
+Weapon	Specialized	Action	Glaive|Glaive Rend	After dealing damage to a creature with a glaive attack, you may use a Reactive Action to reduce the creature’s Maximum Hit Points by an amount equal to the damage dealt. This reduction lasts until the creature completes a Furlough.	reactive_action:on_damage:reduce_max_hp:damage_dealt:until_furlough	Common	FALSE			
+Weapon	Specialized	Perk	Glaive|Glaive Vault	While holding a glaive, your Jump increases by 1. At 20th level, it increases by 2, instead.	weapon_passive:jump:+1	Common	FALSE			
+Weapon	Specialized	Action	Halberd|Halberd Called Shot (Skull Splitter)	For 3 AP and 1 EP, make a Called Shot (7) using a halberd you are wielding with two hands targeting the head of a creature within 1 Pace. On a success, deal damage as normal. If the damage triggers a Pain Response, the creature dies instantly if it cannot survive without a head.	SPECIAL: action:3:ep:1:called_shot:7:two_handed:head:instant_kill_on_pain	Common	FALSE			
+Weapon	Specialized	Action	Halberd|Halberd Thrust	After you hit a creature with a halberd attack while wielding that halberd with two hands, you may use a Reactive Action to make an additional attack against the target. The attack deals Impale.	reactive_action:on_hit:two_handed:attack:impale	Common	FALSE			
+Weapon	Specialized	Perk	Halberd|Halberd Extension	Spend 1 EP to increase the Reach of all halberds you wield by 1 Pace until the end of the current turn.	spend:ep:1:weapon_stat:melee_range:+1:until_turn_end	Common	FALSE			
+Weapon	Specialized	Action	Heavy Crossbow|Heavy Crossbow Reloading Shot	Immediately after reloading a heavy crossbow, you may use a Reactive Action to make an attack with it.	reactive_action:after_reload:attack	Common	FALSE			
+Weapon	Specialized	Perk	Heavy Crossbow|Heavy Crossbow Armor Break	When a creature wearing heavy or bulky armor suffers a Pain Response as a result of damage you dealt with a heavy crossbow, the armor’s bonus is reduced by 1 until the armor is repaired.	SPECIAL: on_pain:heavy,bulky_armor:reduce_armor_bonus:1:until_repaired	Common	FALSE			
+Weapon	Specialized	Perk	Heavy Crossbow|Heavy Crossbow Armor Pierce	When using a heavy crossbow to attack a creature wearing heavy or bulky armor, the target’s Defense (Armored and Unarmored) is reduced by 1 for the attack.	weapon_passive:pierce_heavy_armor:defense:-1	Common	FALSE			
+Weapon	Specialized	Action	Katana|Katana Blur	When you draw your katana, you may use a Reactive Action to make a melee attack using the katana against a creature within its Reach. Each point of damage dealt by this attack above 1 is Sonic Damage.	reactive_action:on_draw:attack:sonic_above_1	Common	FALSE			
+Weapon	Specialized	Action	Katana|Katana Chain	When you reduce a creature to 0 Hit Points with a katana you are wielding with two hands, you may use a Reactive Action to make another katana attack against a different creature you can see within 2 Paces.	reactive_action:on_kill:two_handed:attack_new_target:within_2	Common	FALSE			
+Weapon	Specialized	Perk	Katana|Katana Severance	During combat, when you reduce a Size 1 or larger creature to 0 Hit Points with a katana you are wielding with two hands, decapitate it and gain 1 ReP.	on_kill:two_handed:size_1_plus:gain_rep:1	Common	FALSE			
+Weapon	Specialized	Action	Longbow|Longbow Rapid-Shot	After you attack with a longbow, you may use a Reactive Action to attack the same target an additional time with your longbow.	reactive_action:after_attack:attack_same_target	Common	FALSE			
+Weapon	Specialized	Perk	Longbow|Longbow Long-Shot	When you attack with a longbow and the attack is Enhanced by the Aim action, the Intended and Extended Ranges of the longbow are doubled.	SPECIAL: weapon_passive:aimed_doubled_range	Common	FALSE			
+Weapon	Specialized	Perk	Longbow|Longbow Quick-Shot	Spend 1 EP to reduce the AP cost of attacks you make with a longbow by 1 until the end of the current turn. At 20th level, this reduces the cost by 2, instead.	spend:ep:1:ap_cost_attack:-1:until_turn_end	Common	FALSE			
+Weapon	Specialized	Action	Longsword|Longsword Impale	For 1 AP while wielding a longsword with two hands, you may spend 1 EP to attack a creature within the longsword’s Reach. The attack deals an additional 2 damage, then 1 direct damage to a creature 1 Pace behind the original target.	action:1:ep:1:two_handed:attack_plus_2:direct_1_behind	Common	FALSE			
+Weapon	Specialized	Action	Longsword|Longsword Pommel	After dealing damage to a creature with a longsword, you may use a Reactive Action to make an additional attack against it. The attack is +1 Enhanced for each attack you have made against the target, this turn (regardless of whether they hit). Damage dealt cannot exceed 1 and is always Strike.	reactive_action:on_damage:attack:+1_enhanced_per_attack_this_turn:max_1:strike	Common	FALSE			
+Weapon	Specialized	Perk	Longsword|Longsword Draw	Drawing or sheathing any longsword has an action cost of 0.	weapon_stat:draw:0	Common	FALSE			
+Weapon	Specialized	Action	Pike|Pike Manipulation	After using a pike to deal damage to a Size 5 or smaller creature, you may use a Reactive Action to push it 1 Pace away from you. At 20th level, this becomes 2 Paces.	reactive_action:on_damage:size_5_or_less:push_target:1	Common	FALSE			
+Weapon	Specialized	Action	Pike|Pike Rapidity	For 2 AP and 1 EP, use a pike to attack a creature within 1 Pace. The attack is +1 Enhanced and deals an additional 2 damage on a hit.	action:2:ep:1:attack_within_1:+1_enhanced:+2_damage	Common	FALSE			
+Weapon	Specialized	Perk	Pike|Pike Multigrip	All pikes you wield have the Protean property.	weapon_passive:protean	Common	FALSE			
+Weapon	Specialized	Action	Rapier|Rapier Suave	For 1 AP and 1 EP, make a Dexterity Check while wielding a rapier. For each success, gain 1 ReP. Any unspent ReP gained in this manner is lost at the end of the current turn.	action:1:ep:1:dex_check:rep_per_success:rep_expires_turn_end	Common	FALSE			
+Weapon	Specialized	Perk	Rapier|Rapier Disarm	When you would deal damage to a creature with a rapier attack, you may choose to force the creature to drop one item it is holding (your choice of which item) instead of dealing damage.	on_hit:any:choose:disarm,damage	Common	FALSE			
+Weapon	Specialized	Perk	Rapier|Rapier Expertise	Rapier attacks you make deal an additional 1 damage for each Enhancement on the attack, to a maximum of an additional 3 damage.	weapon_passive:damage_per_enhancement:1:max:3	Common	FALSE			
+Weapon	Specialized	Action	Recurve Bow|Recurve Bow Over-Extend	For 2 AP, use a recurve bow to attack a creature within the bow’s Extended Range. If you deal at least 1 damage, the damage becomes equal to the target’s Pain Limit. If you fail to deal 1 or more damage, the bowstring snaps and 4 AP must be used to repair it before it can be used again.	SPECIAL: action:2:attack_extended:damage_pain_limit_on_hit:break_on_miss	Common	FALSE			
+Weapon	Specialized	Perk	Recurve Bow|Recurve Long-Shot	You do not gain Flaws for firing recurve bows within their Extended Range.	weapon_passive:ignore_flaw_extended_range	Common	FALSE			
+Weapon	Specialized	Perk	Recurve Bow|Recurve Sky-Shot	Attacks you make against targets who are currently flying are +1 Enhanced.	weapon_passive:flying_target:+1_enhanced	Common	FALSE			
+Weapon	Specialized	Action	Saber|Saber Oppress	For 1 AP, choose a creature you can see. Your saber attacks against the creature are +1 Enhanced until the start of your next turn.	action:1:enhance_attacks_vs_target:+1:until_self_turn_start	Common	FALSE			
+Weapon	Specialized	Action	Saber|Saber Sweep	After you deal damage to a creature with a saber, you may make an attack against it for 1 AP. This attack is +1 Flawed for each attack you have made with a saber, this turn.	action:1:after_damage:attack:+1_flawed_per_saber_attack_this_turn	Common	FALSE			
+Weapon	Specialized	Perk	Saber|Saber Flank	When you are holding a saber and are not Flanked, all creatures of your choice within 1 Pace of you are Flanked.	weapon_passive:adjacent_flank_if_not_flanked	Common	FALSE			
+Weapon	Specialized	Action	Scythe|Scythe Mow	For 1 AP, grant scythes you wield the Extend property until the start of your next turn.	action:1:weapon_stat:extend:true:until_self_turn_start	Common	FALSE			
+Weapon	Specialized	Perk	Scythe|Scythe Professional	Attacks you make with scythes are +1 Enhanced.	weapon_enhance:+1	Common	FALSE			
+Weapon	Specialized	Perk	Scythe|Scythe Sweep	When you roll 4 or more successes with a scythe attack, you may spend 3 successes to damage additional targets. Spend remaining successes dealing 1 direct damage to targets within the scythe’s Reach. You may not deal more than 1 direct damage to a single target when activating this perk.	on_hit:4_successes:spend_3_successes:direct_1_each_in_reach	Common	FALSE			
+Weapon	Specialized	Perk	Whip|Whip Choke	When you Grapple a Size 5 or smaller creature while holding your whip, you may use your whip to perform the grapple. A creature grappled in this way takes 1 direct damage each time it fails to escape the grapple and you may spend 1 AP to deal an additional 1 direct damage to it on your turn.	on_grapple:size_5_or_less:use_whip:direct_1_on_escape_fail|spend:ap:1:direct:1:grappled_target	Common	FALSE			
+Weapon	Specialized	Perk	Whip|Whip Lunge	When you hit a creature or object with a Size equal to or greater than your own, you may use a Reactive Action to pull yourself 1 Pace toward it.	reactive_action:on_hit:size_gte_self:pull_self:1	Common	FALSE			
+Weapon	Specialized	Perk	Whip|Whip Pull	When you hit a creature or object with a Size equal to or less than your own, you may use a Reactive Action to pull the target 1 Pace toward you.	reactive_action:on_hit:size_lte_self:pull_target:1	Common	FALSE			
+Weapon	Great	Action	Colossal Sword|Colossal Sword Arc	For 3 AP, swing your colossal sword in an arc targeting 2-3 creatures within the colossal sword’s Reach who are each adjacent to each other. The attack requires no Attack Check and deals 1 direct damage to each creature. At 20th level, this becomes 2 direct damage.	action:3:direct_1_all:2_to_3_adjacent:no_check	Common	FALSE			
+Weapon	Great	Action	Colossal Sword|Colossal Sword Drag	After missing with a melee attack using a colossal sword, you may use a Reactive Action to deal 1 direct damage to the target. At 20th level, this becomes 2 direct damage.	reactive_action:on_miss:direct:1	Common	FALSE			
+Weapon	Great	Action	Colossal Sword|Colossal Sword Shadow	After hitting with a melee attack using a colossal sword, you may use a Reactive Action to move to an unoccupied space you choose within 1 Pace of the target without provoking Advantage Attacks. At 20th level, this becomes 2 Paces.	reactive_action:on_hit:any:move_self:within_1_of_target:no_advantage_attacks	Common	FALSE			
+Weapon	Great	Action	Great Axe|Great Axe Overextension	For 1 AP, increase the Reach of great axes you wield by 1 until the start of your next turn.	action:1:weapon_stat:melee_range:+1:until_self_turn_start	Common	FALSE			
+Weapon	Great	Action	Great Axe|Great Axe Rampage	For 1 AP, expend up to 3 EP. For each EP spent, your next great axe attack before the start of your next turn deals an additional 1 damage.	action:1:spend_ep:up_to_3:damage_per_ep_spent:+1:until_self_turn_start	Common	FALSE			
+Weapon	Great	Action	Great Axe|Great Axe Stampede	For 3 AP, while wielding a great axe, choose a creature within 3 Paces and move to the nearest unoccupied space adjacent to the creature, then make a great axe attack against it. The attack is +1 Enhanced for each Pace you moved as part of this action.	action:3:move_to_target:3:attack:+1_enhanced_per_pace_moved	Common	FALSE			
+Weapon	Great	Action	Greatbow|Greatbow Overdraw	For 3 AP, make an Attack Check against a target using a greatbow. If you deal at least 1 damage to the creature, you may spend any remaining successes pushing the target 1 Pace away from you per success spent.	action:3:attack:push_per_excess_success:1	Common	FALSE			
+Weapon	Great	Action	Greatbow|Greatbow Quickdraw	Immediately after attacking with a greatbow, you may use a Reactive Action to attack the same target again. The attack is +1 Enhanced but deals 1 less damage.	reactive_action:after_attack:attack_same_target:+1_enhanced:-1_damage	Common	FALSE			
+Weapon	Great	Perk	Greatbow|Greatbow Long-Shot	When you attack with a greatbow and the attack is Enhanced by the Aim action, the Intended and Extended Ranges of the greatbow are doubled.	SPECIAL: weapon_passive:aimed_doubled_range	Common	FALSE			
+Weapon	Great	Action	Great Club|Great Club Obliteration	When you reduce a creature to 1 or fewer Hit Points with a great club attack, you may use a Reactive Action to destroy its body, instantly killing it preventing its physical body from regenerating. This feature does not work against Ethereals.	reactive_action:on_kill:1hp:destroy_body	Common	FALSE			
+Weapon	Great	Action	Great Club|Great Club Pain	After triggering a Pain Response in a creature with a great club attack, you may use a Reactive Action to trigger that Pain Response an additional time.	reactive_action:on_pain:repeat_pain_response	Common	FALSE			
+Weapon	Great	Action	Great Club|Great Club Terrorize	Once per combat encounter, spend 2 AP and 1 ReP to draw a great club and force all creatures of your choice within 5 Paces to make a Wile Check (3). On a failure, a creature is Terrified of you until the start of your next turn. At 20th level, the difficulty of the Wile Check increases by 1.	action:2:rep:1:once_per_combat:on_draw:wile_check:3:terrified:until_self_turn_start	Common	FALSE			
+Weapon	Great	Action	Great Sword|Great Sword Whirl	After attacking with a great sword, you may use a Reactive Action to make an additional great sword attack. The additional attack must be against a creature you have not yet attacked, this turn.	reactive_action:after_attack:attack_new_target	Common	FALSE			
+Weapon	Great	Perk	Great Sword|Great Sword Break	When you would deal 1 or more damage with a great sword attack, you may turn the attack into a guard break instead of dealing damage as normal. If you do, the attack deals 1 direct Strike and the target becomes Slowed until it ends its turn. At 20th level, the target is Slowed until the end of your next turn, instead.	on_hit:any:choose:direct_1_strike_slowed_until_turn_end,damage	Common	FALSE			
+Weapon	Great	Perk	Great Sword|Great Sword Reach	The Reach of all great swords you wield increases by 1.	weapon_stat:melee_range:+1	Common	FALSE			
+Weapon	Great	Action	Hand Ballista|Hand Ballista Reload	After firing the last piece of ammunition in a hand ballista, you may use a Reactive Action to fully reload the hand ballista.	reactive_action:on_last_shot:reload	Common	FALSE			
+Weapon	Great	Action	Hand Ballista|Hand Ballista Threat Elimination	When you deal 1 or more damage to a creature within 2 Paces using a hand ballista, you may use a Reactive Action to turn the attack into a Critical Hit.	reactive_action:on_damage:within_2:convert_to_crit	Common	FALSE			
+Weapon	Great	Perk	Hand Ballista|Hand Ballista Critical	When you land a Critical Hit using a hand ballista, the creature must make a Vigor Check (3) or be Shoved 2 Paces away and fall Deposed. A creature who succeeds on the check is shoved 1 Pace away and does not fall Deposed.	SPECIAL: on_crit:vigor_check:3:shove_2_deposed_on_fail:shove_1_on_success	Common	FALSE			
+Weapon	Great	Action	Maul|Maul Impact	When you would deal 2 or more damage to a creature using a maul, you may use a Reactive Action and spend 3 ReP to change the damage dealt to a value equal to your Vigor Attribute, then deal 1 direct damage to a creature you choose within 1 Pace of the initial target.	reactive_action:on_damage_2_plus:spend_rep:3:damage_equals_vigor:direct_1_adjacent	Common	FALSE			
+Weapon	Great	Perk	Maul|Maul Armor Break	When a creature wearing heavy or bulky armor suffers a Pain Response as a result of damage you dealt with a maul, the armor’s bonus is reduced by 1 until it is repaired.	SPECIAL: on_pain:heavy,bulky_armor:reduce_armor_bonus:1:until_repaired	Common	FALSE			
+Weapon	Great	Perk	Maul|Maul Swift Strike	Once per combat encounter, when you draw a maul, the Attack action costs 1 less AP for you until the end of your turn.	reactive_action:on_draw:once_per_combat:ap_cost_attack:-1:until_turn_end	Common	FALSE			
+Weapon	Firearm	Action	Artillery|Artillery Burst	For 4 AP and 2 ReP, instead of attacking a single target with artillery, make a single attack targeting up to 3 creatures you can see, all of whom must be within 5 Paces of one another. Consume ammunition from your chamber as though you had attacked each creature individually.	action:4:rep:2:attack_up_to_3:within_5_of_each_other:consume_ammo_per_target	Common	FALSE			
+Weapon	Firearm	Perk	Artillery|Artillery Support	For 3 ReP, after attacking with artillery, you may designate up to 2 allies you can see. Those allies may move up to their Pace toward the attack’s target without provoking Advantage Attacks or spending AP/EP.	spend:rep:3:after_attack:ally_move_pace:2:no_ap_no_advantage	Common	FALSE			
+Weapon	Firearm	Perk	Artillery|Artillery Suppress	Before attacking with artillery, spend 2 ReP. After the initial attack is resolved, creatures within 5 Paces of the attack target (including the target) must either take 1 damage of the ammunition’s type or fall Deposed.	SPECIAL: spend:rep:2:before_attack:suppress_aoe:5	Common	FALSE			
+Weapon	Firearm	Action	Auto-Pistol|Auto-Pistol Rapid-Fire	When you deal damage to a creature using an auto-pistol, you may make an additional attack against the same target as a Reactive Action. The attack is +1 Flawed for each auto-pistol attack you have made, this turn.	reactive_action:on_damage:attack_same_target:+1_flawed_per_attack_this_turn	Common	FALSE			
+Weapon	Firearm	Perk	Auto-Pistol|Auto-Pistol Burst	When you score a Critical Hit against a creature with an auto-pistol, you may expend as many bullets as desired from the auto-pistol’s chamber in increments of 5. For every 5 additional bullets expended, add 1 to the damage dealt.	on_crit:spend_ammo_5s:damage_per_5:+1	Common	FALSE			
+Weapon	Firearm	Perk	Auto-Pistol|Auto-Pistol Spray	Before making an attack with an auto-pistol, you may spend 1 EP to expend as many additional bullets as desired from your chamber. For each bullet expended beyond the first (required) bullet, the attack is +1 Enhanced.	spend:ep:1:before_attack:spend_ammo:+1_enhanced_per_bullet	Common	FALSE			
+Weapon	Firearm	Action	Auto-Rifle|Auto-Rifle Bully	For 2 AP while wielding an auto-rifle, expend as many bullets as desired from your auto-rifle in increments of 5, targeting no creatures or objects. All enemies within 300 Paces who can hear the gunshots must make a Wile Check (3). Checks are +1 Flawed for every 5 bullets you expended. On a failure, a creature is Terrified of you until the end of your next turn.	action:2:spend_ammo_5s:wile_check:3:+1_flawed_per_5:terrified:until_self_turn_end	Common	FALSE			
+Weapon	Firearm	Action	Auto-Rifle|Auto-Rifle Mag-Dump	For 4 AP while wielding an auto-rifle with at least 15 bullets loaded into it, expend 1 EP to empty your auto-rifle’s current magazine into a target you can see within the weapon’s Intended Range. All bullets are expended from the auto-rifle. The attack deals 1 direct damage to the target for every 5 bullets expended.	action:4:ep:1:15_bullets_min:dump_mag:direct_1_per_5_bullets	Common	FALSE			
+Weapon	Firearm	Action	Auto-Rifle|Auto-Rifle Wild-Shot	For 3 AP while wielding an auto-rifle, expend as many bullets as desired and make an Attack Check against a creature within the auto-rifle’s Intended Range. The attack is +1 Enhanced for each additional bullet expended beyond the first (required) bullet, but damage dealt cannot exceed the number of Enhancements rolled.	action:3:spend_ammo:attack:+1_enhanced_per_extra_bullet:damage_max_enhancements	Common	FALSE			
+Weapon	Firearm	Action	Handgun|Handgun Headshot	When you deal 1 or more damage to a creature you can see within 2 Paces of you with a bullet fired from a handgun, you may use a Reactive Action to add your Dexterity Attribute to the damage dealt. If the attack triggers a Pain Response, the target creature must make a Vigor Check against its own Pain Limit or die instantly if it cannot survive without a head.	reactive_action:on_damage:within_2:damage_plus_dex|on_pain:vigor_check:pain_limit:instant_kill	Common	FALSE			
+Weapon	Firearm	Action	Handgun|Handgun Rapid-Fire	For 1 AP, attack with a fully-loaded handgun.	action:1:attack_fully_loaded	Common	FALSE			
+Weapon	Firearm	Action	Handgun|Handgun Reactive Fire	When you draw a handgun, you may use a Reactive Action to make an attack with it. The attack is +1 Enhanced.	reactive_action:on_draw:attack:+1_enhanced	Common	FALSE			
+Weapon	Firearm	Perk	Rifle|Rifle Crook-Shot	You can wield two-handed rifles with one hand. Wielding a rifle in this way imposes +1 Flaw on attacks made with the rifle and prevents the rifle from firing beyond its Intended Range.	weapon_passive:one_handed:allowed|weapon_passive:one_handed:flaw:+1|weapon_passive:one_handed:no_extended_range	Common	FALSE			
+Weapon	Firearm	Perk	Rifle|Rifle Infallible	2s you roll on the core die for Attack Checks made with a rifle are treated as successes.	weapon_passive:twos_as_successes	Common	FALSE			
+Weapon	Firearm	Perk	Rifle|Rifle Long-Shot	When you attack with a rifle and the attack is Enhanced by the Aim action, the Intended and Extended Ranges of the rifle are doubled.	SPECIAL: weapon_passive:aimed_doubled_range	Common	FALSE			
+Weapon	Firearm	Perk	Shotgun|Shotgun Bludgeon	You may treat your shotgun as a makeshift melee weapon. When wielded in this way, it always deals 2 Strike when damaging a creature.	weapon_passive:melee_makeshift:strike:2	Common	FALSE			
+Weapon	Firearm	Perk	Shotgun|Shotgun Overcharge	When you load your shotgun, you can choose to overcharge it. The next attack made with an overcharged shotgun has an additional 4d4 weapon die but cannot hit creatures outside of its Intended Range. If an overcharged shotgun Misfires, the gun explodes, dealing 2 direct Fire to you and (if it is non-magical) destroying the gun.	SPECIAL: on_load:overcharge_option:4d4_bonus:intended_only:misfire_explodes	Common	FALSE			
+Weapon	Firearm	Perk	Shotgun|Shotgun Peppering	Creatures within 2 Paces of you damaged by a shell from your shotgun always suffer a Pain Response regardless of the amount of damage taken. At 20th level, the range for this effect becomes 4 Paces.	weapon_passive:force_pain_response_within:2	Common	FALSE			
+Armor	Light	Perk	Lightweight Adept	Speed +3.	stat:speed:+3	Common	FALSE			
+Armor	Light	Perk	Nimble Armor	Choose a Dexterity Circumstance.	grant:random:circumstance:dexterity:1	Common	FALSE			
+Armor	Light	Perk	Weight Adjusted (Light)	Ignore Light Armor weight while wearing it.	armor_weight_ignore:light	Common	FALSE			
+Armor	Medium	Perk	Moderate Snooze	The Fatigue value for all Medium Armor you wear is 0.	armor_fatigue_zero:medium	Common	FALSE			
+Armor	Medium	Perk	Vigorous Armor (Medium)	Choose a Vigor Circumstance.	grant:random:circumstance:vigor:1	Common	FALSE			
+Armor	Medium	Perk	Weight Adjusted (Medium)	Ignore Medium Armor weight while wearing it.	armor_weight_ignore:medium	Common	FALSE			
+Armor	Heavy	Perk	Heft	Choose a Vigor Circumstance.	grant:random:circumstance:vigor:1	Common	FALSE			
+Armor	Heavy	Perk	Vigorous Armor (Heavy)	Vigor +1	stat:vigor:+1	Common	FALSE			
+Armor	Heavy	Perk	Weight Adjusted (Heavy)	Ignore the EP cost increases associated with Heavy armor.	armor_ep_ignore:heavy	Common	FALSE			
+Armor	Bulky	Perk	Bulk	Choose a Vigor Circumstance.	grant:random:circumstance:vigor:1	Common	FALSE			
+Armor	Bulky	Perk	Vigorous Armor (Bulky)	Vigor +1; Maximum Vigor +1	stat:vigor:+1|stat:max_vigor:+1	Common	FALSE			
+Armor	Bulky	Perk	Weight Adjusted (Bulky)	Ignore the EP cost increases associated with Bulky armor.	armor_ep_ignore:bulky	Common	FALSE			
 							FALSE			
 							FALSE			
 							FALSE			

@@ -29,9 +29,12 @@ static func execute_attack(
 	var total_enhancements := extra_enhancements
 	if target != null and ConstStates.has_state(target, ConstStates.INHIBITED):
 		total_enhancements += 1
+	if target != null and ConstStates.has_state(target, ConstStates.FLANKED):
+		total_enhancements += 1
 
 	var flat_threshold_bonus := 0.0
-	if is_ranged and ConstStates.has_state(attacker, ConstStates.THREATENED):
+	if is_ranged and ConstStates.has_state(attacker, ConstStates.THREATENED) \
+			and not WeaponArmorPerkLibrary.has_weapon_passive(attacker, "weapon_passive:ignore_threatened"):
 		flat_threshold_bonus -= 30.0
 
 	var accuracy_formula := "ranged_accuracy" if is_ranged else "melee_accuracy"
@@ -57,6 +60,10 @@ static func execute_attack(
 	if weapon != null:
 		dmg_formula = weapon.damage_formula_1
 		damage_type = _pick_damage_type(weapon.damage_types_1)
+		if is_ranged and damage_type == "Varies" and attacker.ammo_loaded_type != "":
+			var ammo_data: AmmoData = DataManager.ammo.get(attacker.ammo_loaded_type)
+			if ammo_data != null and not ammo_data.damage_types_1.is_empty():
+				damage_type = _pick_damage_type(ammo_data.damage_types_1)
 		var parsed := _parse_damage_formula(dmg_formula)
 		flat_bonus = parsed["flat_bonus"]
 		if not parsed["is_todo"]:
@@ -68,6 +75,12 @@ static func execute_attack(
 
 	if is_ranged:
 		attacker.ammo_loaded -= 1
+		if weapon.chamber <= 0 and attacker.ammo_loaded_type != "":
+			var _inv: int = attacker.ammo_inventory.get(attacker.ammo_loaded_type, 0)
+			if _inv > 0:
+				attacker.ammo_inventory[attacker.ammo_loaded_type] = _inv - 1
+				if attacker.ammo_inventory[attacker.ammo_loaded_type] <= 0:
+					attacker.ammo_inventory.erase(attacker.ammo_loaded_type)
 		if weapon.misfire > 0 and core_successes < weapon.misfire:
 			attacker.weapon_misfired = true
 			return {

@@ -14,3 +14,6 @@ End Burning		AP:2	Movement		Auto		Self	End Burning			Burning
 Get Up		AP:2	Movement		Auto		Self	End Deposed			Deposed
 Death Test			Passive	[Max HP]	{Cheat Death}		Self	End Dying	Current HP = {Success #}		Dying
 Seek Cover		AP:2	Movement				Self	Covered (Partial) OR	Covered (Full)		Adjacent to possible cover point
+Advantage Attack		EP:1	Offense	[Weapon Stat]	melee_accuracy	Attack (Dexterity), Attack (Vigor)	1 Enemy	Take Damage	{Damage}={Success #}	{Damage Type}=[Weapon Damage]	The enemy who is within your melee range attempts to leave that melee range.
+Aim		AP:2	Passive				Self	Next Ranged Attack +1 Enhanced			
+Draw		AP:0	Passive				Self Weapon	Draw a weapon			

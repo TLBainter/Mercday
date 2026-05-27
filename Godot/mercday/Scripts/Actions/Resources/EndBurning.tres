@@ -1,0 +1,23 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
+
+[sub_resource type="Resource" id="facet_1"]
+script = ExtResource("ActiveStateFacet")
+is_required = true
+state_name = "Burning"
+present_is_high = true
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_1")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "end_burning"
+ap_cost = 2
+priority = 20
+decision = SubResource("decision")

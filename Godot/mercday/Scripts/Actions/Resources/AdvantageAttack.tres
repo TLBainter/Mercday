@@ -1,0 +1,59 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/WasInMeleeRangeFacet.gd" id="WasInMeleeRange"]
+[ext_resource type="Script" path="res://Scripts/Decisions/KillLikelihoodFacet.gd" id="KillLikelihood"]
+[ext_resource type="Script" path="res://Scripts/Decisions/AllyThreatFacet.gd" id="AllyThreat"]
+[ext_resource type="Script" path="res://Scripts/Decisions/EpRatioFacet.gd" id="EpRatioFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/FocusFireFacet.gd" id="FocusFire"]
+[ext_resource type="Script" path="res://Scripts/Decisions/LastTargetFacet.gd" id="LastTarget"]
+
+[sub_resource type="Resource" id="facet_weapon"]
+script = ExtResource("WeaponTypeFacet")
+is_required = true
+require_ranged = false
+require_drawn = true
+
+[sub_resource type="Resource" id="facet_range"]
+script = ExtResource("WasInMeleeRange")
+is_required = true
+
+[sub_resource type="Resource" id="facet_kill"]
+script = ExtResource("KillLikelihood")
+weight = 0.3
+
+[sub_resource type="Resource" id="facet_ally"]
+script = ExtResource("AllyThreat")
+weight = 0.25
+
+[sub_resource type="Resource" id="facet_ep"]
+script = ExtResource("EpRatioFacet")
+weight = 0.2
+threshold = 0.5
+below_is_high = false
+
+[sub_resource type="Resource" id="facet_focus"]
+script = ExtResource("FocusFire")
+weight = 0.15
+
+[sub_resource type="Resource" id="facet_last"]
+script = ExtResource("LastTarget")
+weight = 0.1
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_weapon"), SubResource("facet_range"), SubResource("facet_kill"), SubResource("facet_ally"), SubResource("facet_ep"), SubResource("facet_focus"), SubResource("facet_last")]
+threshold = 0.8
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "Advantage Attack"
+ep_cost = 1
+priority = 70
+is_reactive = true
+trigger = "enemy_leaves_melee_range"
+execution_type = "attack"
+target_mode = "mover"
+decision = SubResource("decision")

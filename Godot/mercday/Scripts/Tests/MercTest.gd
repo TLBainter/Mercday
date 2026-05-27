@@ -2,6 +2,11 @@ extends Node
 
 var mercs: Array[MercenaryData] = []
 
+var _battle_state: BattleState = null
+var _battle_line_fn: Callable
+var _battle_team_a: Array[MercenaryData] = []
+var _battle_team_b: Array[MercenaryData] = []
+
 
 func _ready() -> void:
 	$ButtonBar/RerollMercs.pressed.connect(_on_reroll_mercs)
@@ -18,6 +23,7 @@ func _ready() -> void:
 	$ButtonBar/AttackCheck.pressed.connect(_on_attack_check)
 	$ButtonBar/DamageCheck.pressed.connect(_on_damage_check)
 	$ButtonBar/StartBattle.pressed.connect(_on_start_battle)
+	$ButtonBar/DropMercs.pressed.connect(_on_drop_mercs)
 	for i: int in range(3):
 		var merc := MercGenerator.generate(i)
 		mercs.append(merc)
@@ -238,7 +244,7 @@ func _on_batch_analysis() -> void:
 
 
 func _print_merc(merc: MercenaryData) -> void:
-	print(_merc_to_string(merc))
+	print_rich(_merc_to_string(merc))
 
 
 func _merc_to_string(merc: MercenaryData) -> String:
@@ -292,10 +298,7 @@ func _merc_to_string(merc: MercenaryData) -> String:
 		lp_names.append(lp.event_name)
 	lines.append("Lifepath:     %s" % (", ".join(lp_names) if lp_names.size() > 0 else "(none)"))
 
-	var weapon_str := "(none)"
-	if merc.equipped_weapon:
-		weapon_str = "%s  (%s)" % [merc.equipped_weapon.item_name, merc.equipped_weapon.weapon_type]
-	lines.append("Weapon:       %s" % weapon_str)
+	lines.append("====EQUIPMENT====")
 
 	var armor_str := "(none)"
 	if merc.equipped_armor:
@@ -305,6 +308,41 @@ func _merc_to_string(merc: MercenaryData) -> String:
 			merc.equipped_armor.armor_bonus
 		]
 	lines.append("Armor:        %s" % armor_str)
+
+	var weapon_lines: Array[String] = []
+	if merc.equipped_weapon != null:
+		var w := merc.equipped_weapon
+		weapon_lines.append("[color=cyan][E][/color] %s  (%s)  Draw:%d" % [w.item_name, w.weapon_type, w.draw])
+	for entry: Dictionary in merc.inventory:
+		if entry.get("type") == "weapon":
+			var w: WeaponData = entry.get("data")
+			if w != null:
+				weapon_lines.append("    %s  (%s)  Draw:%d" % [w.item_name, w.weapon_type, w.draw])
+	if weapon_lines.is_empty():
+		lines.append("Weapons:      (none)")
+	else:
+		lines.append("Weapons:      %s" % weapon_lines[0])
+		for i: int in range(1, weapon_lines.size()):
+			lines.append("              %s" % weapon_lines[i])
+
+	var ammo_parts: Array[String] = []
+	var shown_loaded := false
+	for ammo_name: String in merc.ammo_inventory:
+		var count: int = merc.ammo_inventory[ammo_name]
+		if ammo_name == merc.ammo_loaded_type and merc.ammo_loaded > 0:
+			ammo_parts.append("%s ×%d  (%d loaded)" % [ammo_name, count, merc.ammo_loaded])
+			shown_loaded = true
+		else:
+			ammo_parts.append("%s ×%d" % [ammo_name, count])
+	if merc.ammo_loaded > 0 and not shown_loaded:
+		ammo_parts.append("%s  (%d loaded, no reserve)" % [merc.ammo_loaded_type, merc.ammo_loaded])
+	lines.append("Ammo:         %s" % (", ".join(ammo_parts) if not ammo_parts.is_empty() else "(none)"))
+
+	var item_parts: Array[String] = []
+	for item in merc.items:
+		if item is Dictionary:
+			item_parts.append(item.get("item_name", "?") as String)
+	lines.append("Items:        %s" % (", ".join(item_parts) if not item_parts.is_empty() else "(none)"))
 
 	lines.append("Tradition:    %s" % (merc.tradition.tradition_name if merc.tradition else "(none)"))
 
@@ -505,40 +543,56 @@ func _run_attack_check(merc: MercenaryData) -> void:
 	])
 
 
+func _process(_delta: float) -> void:
+	if _battle_state == null:
+		return
+	var ongoing: bool = AutoBattle.step_round(_battle_state, _battle_line_fn)
+	if not ongoing:
+		_print_battle_result()
+		_battle_state = null
+
+
 func _on_start_battle() -> void:
 	if mercs.size() < 2:
 		print("Need at least 2 mercs to start a battle.")
 		return
+	if _battle_state != null:
+		print("Battle already in progress.")
+		return
 	print("\n====== AUTOBATTLE ======\n")
 	var mid: int = mercs.size() >> 1
-	var team_a: Array[MercenaryData] = []
-	var team_b: Array[MercenaryData] = []
-	team_a.assign(mercs.slice(0, mid))
-	team_b.assign(mercs.slice(mid))
+	_battle_team_a.clear()
+	_battle_team_b.clear()
+	_battle_team_a.assign(mercs.slice(0, mid))
+	_battle_team_b.assign(mercs.slice(mid))
 	var field := BattlefieldArea.generate_random()
-	var state: BattleState = BattleState.create(team_a, team_b, field)
-	var a_names := ", ".join(team_a.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
-	var b_names := ", ".join(team_b.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	_battle_state = BattleState.create(_battle_team_a, _battle_team_b, field)
+	_battle_line_fn = func(s: String) -> void: print_rich(s)
+	var a_names := ", ".join(_battle_team_a.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	var b_names := ", ".join(_battle_team_b.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
 	var order_parts: Array[String] = []
-	for i: int in range(state.turn_queue.size()):
-		var m: MercenaryData = state.turn_queue[i]
-		var color := "white" if team_a.has(m) else "yellow"
+	for i: int in range(_battle_state.turn_queue.size()):
+		var m: MercenaryData = _battle_state.turn_queue[i]
+		var color := "white" if _battle_team_a.has(m) else "yellow"
 		order_parts.append("[color=%s]%s[/color]" % [color, m.merc_name.get_slice(" ", 0)])
 	print_rich("[color=white]Team A:[/color] %s" % a_names)
 	print_rich("[color=yellow]Team B:[/color] %s" % b_names)
 	print_rich("Turn order: %s" % ", ".join(order_parts))
-	var result: Dictionary = AutoBattle.run_battle(state, func(s: String) -> void: print_rich(s))
-	var winner_idx: int = result["winner"]
+	AutoBattle.setup(_battle_state, _battle_line_fn)
+
+
+func _print_battle_result() -> void:
+	var winner_idx: int = _battle_state.get_winner()
 	if winner_idx >= 0:
-		var winning_team: Array = state.teams[winner_idx]
+		var winning_team: Array = _battle_state.teams[winner_idx]
 		var winner_names: Array[String] = []
 		for m: MercenaryData in winning_team:
 			winner_names.append(m.merc_name.get_slice(" ", 0))
 		var w_color := "white" if winner_idx == 0 else "yellow"
-		print_rich("[color=gray]=== Battle over in %d rounds ===[/color]" % result["rounds"])
+		print_rich("[color=gray]=== Battle over in %d rounds ===[/color]" % _battle_state.round_number)
 		print_rich("[color=%s]Team %s wins!  (%s)[/color]" % [w_color, "A" if winner_idx == 0 else "B", ", ".join(winner_names)])
 	else:
-		print_rich("[color=gray]=== Draw / timeout after %d rounds ===[/color]" % result["rounds"])
+		print_rich("[color=gray]=== Draw / timeout after %d rounds ===[/color]" % _battle_state.round_number)
 
 
 func _on_damage_check() -> void:
@@ -648,6 +702,22 @@ func _parse_damage_formula(formula: String) -> Dictionary:
 	result["num_dice"] = int(num_str)
 	result["die_sides"] = int(sides_str)
 	return result
+
+
+func _on_drop_mercs() -> void:
+	print("\n====== DROP MERCS ======\n")
+	var team_a: Array[MercenaryData] = []
+	team_a.assign(mercs)
+	var empty_team: Array[MercenaryData] = []
+	var state := BattleState.create(team_a, empty_team, null)
+	for merc: MercenaryData in mercs:
+		var fall_distance := randi_range(1, 6)
+		state.set_height(merc, fall_distance)
+		print_rich("  [color=cyan]%s dropped from height %d[/color]" % [merc.merc_name, fall_distance])
+		var lines := AutoBattle._resolve_fall(merc, fall_distance, state)
+		for line: String in lines:
+			print_rich(line)
+		state.set_height(merc, 0)
 
 
 func _fmt_weapon_dice(rolls: Array[int], die_threshold: int, die_sides: int) -> String:
