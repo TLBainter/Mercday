@@ -136,6 +136,7 @@ func _generate_cover() -> void:
 	_apply_obstacle_terrain_effects()
 	_place_stairs_at_transitions()
 	_ensure_pathability()
+	_ensure_spawn_connectivity()
 
 
 func _generate_buildings() -> void:
@@ -434,6 +435,134 @@ func _is_passable() -> bool:
 			visited[nxt] = true
 			queue.append(nxt)
 	return false
+
+
+# Check connectivity using Pathfinder-accurate blocking rules (closed doors are impassable).
+# Returns true if any Team-0 spawn cell can reach any Team-1 spawn cell.
+func _is_spawn_connected() -> bool:
+	var spawn_a := Vector2i(width >> 1, 2)
+	var spawn_b := Vector2i(width >> 1, length - 3)
+	var visited: Dictionary = {}
+	var queue: Array[Vector2i] = [spawn_a]
+	visited[spawn_a] = true
+	var dirs: Array[Vector2i] = [
+		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
+		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
+	]
+	while not queue.is_empty():
+		var curr: Vector2i = queue.pop_front()
+		if curr == spawn_b:
+			return true
+		for d: Vector2i in dirs:
+			var nxt: Vector2i = curr + d
+			if nxt.x < 0 or nxt.x >= width or nxt.y < 0 or nxt.y >= length:
+				continue
+			if visited.has(nxt):
+				continue
+			# Mirror Pathfinder.cell_pace_cost blocking rules exactly.
+			var obs: Dictionary = get_obstacle_at(nxt)
+			if not obs.is_empty():
+				var ct: String = obs.get("cell_type", "")
+				if ct == "wall":
+					continue
+				if ct == "door":
+					if not obs.get("door_open", false):
+						continue
+				else:
+					var d_data: ObstacleData = obs.get("data") as ObstacleData
+					if d_data != null and not d_data.passthrough and not d_data.is_stairs:
+						continue
+			var h_diff: float = get_terrain_height(nxt) - get_terrain_height(curr)
+			if h_diff > 0.5:
+				continue
+			if h_diff <= -1.0:
+				continue
+			if absf(h_diff) > 0.25 and not has_stairs_at(nxt):
+				continue
+			visited[nxt] = true
+			queue.append(nxt)
+	return false
+
+
+# Widen the barrier between spawn zones by carving the impassable tiles that lie
+# closest to the straight line between the two spawn centers.  One tile per call;
+# caller loops until connected.
+func _carve_spawn_corridor_step() -> void:
+	var spawn_a := Vector2i(width >> 1, 2)
+	var spawn_b := Vector2i(width >> 1, length - 3)
+
+	# Collect all impassable tiles and score them by distance to the line A->B.
+	var best_pos := Vector2i(-1, -1)
+	var best_score := INF
+
+	for y: int in range(length):
+		for x: int in range(width):
+			var pos := Vector2i(x, y)
+			var obs: Dictionary = get_obstacle_at(pos)
+			var is_blocking := false
+			if not obs.is_empty():
+				var ct: String = obs.get("cell_type", "")
+				if ct == "wall" or ct == "door":
+					is_blocking = true
+				elif ct != "furniture":
+					var d_data: ObstacleData = obs.get("data") as ObstacleData
+					if d_data != null and not d_data.passthrough and not d_data.is_stairs:
+						is_blocking = true
+			# Also treat steep terrain as blocking even with no obstacle.
+			if not is_blocking:
+				var blocked_by_terrain := false
+				var dirs_t: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
+				for d: Vector2i in dirs_t:
+					var nb: Vector2i = pos + d
+					if nb.x < 0 or nb.x >= width or nb.y < 0 or nb.y >= length:
+						continue
+					var h_diff: float = get_terrain_height(pos) - get_terrain_height(nb)
+					if h_diff > 0.5 or h_diff <= -1.0 or (absf(h_diff) > 0.25 and not has_stairs_at(pos)):
+						blocked_by_terrain = true
+						break
+				if not blocked_by_terrain:
+					continue  # already passable, skip
+
+			# Score: perpendicular distance to the segment A->B, with tiebreak on
+			# proximity to the midpoint (prefer the narrowest central choke).
+			var ax := float(spawn_a.x)
+			var ay := float(spawn_a.y)
+			var bx := float(spawn_b.x)
+			var by_ := float(spawn_b.y)
+			var px := float(x)
+			var py := float(y)
+			var seg_len := Vector2(bx - ax, by_ - ay).length()
+			var perp_dist: float
+			if seg_len < 0.001:
+				perp_dist = Vector2(px - ax, py - ay).length()
+			else:
+				perp_dist = absf((by_ - ay) * px - (bx - ax) * py + bx * ay - by_ * ax) / seg_len
+			var mid_x := (ax + bx) * 0.5
+			var mid_y := (ay + by_) * 0.5
+			var mid_dist := Vector2(px - mid_x, py - mid_y).length()
+			var score := perp_dist + mid_dist * 0.01  # perp distance primary, proximity to mid secondary
+			if score < best_score:
+				best_score = score
+				best_pos = pos
+
+	if best_pos == Vector2i(-1, -1):
+		return  # nothing to carve
+
+	# Remove all obstacle entries at this position and flatten terrain.
+	var i: int = obstacles.size() - 1
+	while i >= 0:
+		if (obstacles[i]["pos"] as Vector2i) == best_pos:
+			obstacles.remove_at(i)
+		i -= 1
+	terrain_heights[best_pos] = 0.0
+
+
+func _ensure_spawn_connectivity() -> void:
+	var max_carve := (width + length) * 2  # safety cap — never infinite loop
+	var passes := 0
+	while not _is_spawn_connected() and passes < max_carve:
+		_carve_spawn_corridor_step()
+		passes += 1
 
 
 func is_obstacle(pos: Vector2i) -> bool:

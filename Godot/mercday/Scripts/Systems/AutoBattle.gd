@@ -162,8 +162,13 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 		var current_target: MercenaryData = null
 		var movement_blocked := false
 		var weapon_action_taken := false
+		var _action_slot := 0
 
 		while true:
+			_action_slot += 1
+			if EncounterLogger.is_active():
+				EncounterLogger.log_verbose("-- ACTION SLOT %d (AP=%d ExAP=%d) --" % [
+					_action_slot, merc.current_ap, merc.excess_ap])
 			var enemies := state.get_enemies(merc)
 			if enemies.is_empty():
 				break
@@ -1083,6 +1088,7 @@ static func _resolve_fall(merc: MercenaryData, fall_distance: int, state: Battle
 	var lines: Array[String] = []
 	lines.append("  %s falls %d Pace%s!" % [_cn(merc, state), fall_distance, "s" if fall_distance != 1 else ""])
 	var damage := fall_distance
+	var break_fall_attempted := false
 	if merc.action_set != null:
 		for action: ActionData in merc.action_set.actions:
 			if action.is_reactive and action.trigger == "merc_falls":
@@ -1100,10 +1106,19 @@ static func _resolve_fall(merc: MercenaryData, fall_distance: int, state: Battle
 					if action.decision.evaluate(merc, ctx) >= action.decision.threshold:
 						merc.current_ep -= action.ep_cost
 						damage = _do_break_fall(merc, fall_distance, state, lines)
+						break_fall_attempted = true
 				break
 	if damage > 0:
+		if EncounterLogger.is_active() and not break_fall_attempted:
+			EncounterLogger.log_verbose("Fall damage: %d raw (no break fall attempt)" % fall_distance)
 		lines.append_array(_apply_damage(merc, merc, damage, "Fall", state))
-		if damage >= int(merc.stats.get("size", 1)):
+		var size := int(merc.stats.get("size", 1))
+		if EncounterLogger.is_active():
+			if damage >= size:
+				EncounterLogger.log_verbose("Deposed check: final_damage (%d) >= size (%d) -> Deposed" % [damage, size])
+			else:
+				EncounterLogger.log_verbose("Deposed check: final_damage (%d) < size (%d) -> no Deposed" % [damage, size])
+		if damage >= size:
 			if not ConstStates.has_state(merc, ConstStates.DEPOSED):
 				ConstStates.apply_state(merc, ConstStates.DEPOSED)
 				lines.append("  %s lands hard and is [b]Deposed[/b]!" % _cn(merc, state))
@@ -1130,9 +1145,17 @@ static func _do_break_fall(merc: MercenaryData, fall_distance: int, state: Battl
 	var result := CheckSystem.make_check(merc, chosen_def)
 	var successes: int = result["successes"]
 	var formula_label := "Parkour" if str(chosen_def["formula"]) == "parkour" else "Tolerance"
+	if EncounterLogger.is_active():
+		EncounterLogger.log_verbose("BREAK FALL (%s): rolls=%s vs %.0f%% -> %d success %d fail" % [
+			_cn(merc, state), str(result["roll2"]), result["threshold"],
+			successes, result["failures"]])
 	lines.append("  %s attempts to Break their Fall! [%s Check: %d success%s]" % [
 		_cn(merc, state), formula_label, successes, "es" if successes != 1 else ""])
-	return maxi(0, fall_distance - successes)
+	var final_damage := maxi(0, fall_distance - successes)
+	if EncounterLogger.is_active():
+		EncounterLogger.log_verbose("Fall damage: %d raw - %d reduced = %d final" % [
+			fall_distance, mini(successes, fall_distance), final_damage])
+	return final_damage
 
 
 static func _break_fall_expected(merc: MercenaryData, def: Dictionary) -> float:
