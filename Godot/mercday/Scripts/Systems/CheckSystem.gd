@@ -10,6 +10,8 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 		circ_names.append(str(c))
 
 	var success_chance := _evaluate_formula(str(check_def.get("formula", "0")), merc)
+	var flat_bonus: float = float(check_def.get("flat_threshold_bonus", 0.0))
+	flat_bonus += ConstStates.get_threshold_penalty(merc)
 
 	var k_bonus := 0
 	for kname in check_def.get("knowledges", []):
@@ -29,13 +31,13 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 		if t_bonus > 0:
 			break
 
-	var enhancements := k_bonus + t_bonus
+	var enhancements := k_bonus + t_bonus + int(check_def.get("enhancements", 0))
 	var flaws := int(check_def.get("flaws", 0))
 
 	var chosen_stat := _choose_stat(merc, success_chance, stat_keys, circ_names)
 	var circ_bonus := _circumstance_bonus_for_stat(merc, chosen_stat, circ_names)
 	var bsc := clampf(float(merc.stats.get("base_success_chance", 0.0)), 0.0, 100.0)
-	var threshold := clampf(success_chance + circ_bonus + bsc, 0.0, 100.0)
+	var threshold := clampf(success_chance + circ_bonus + bsc + flat_bonus, 0.0, 100.0)
 	var reroll_threshold := clampf(float(merc.stats.get("reroll", 0.0)), 0.0, 100.0)
 	var stat_value := int(merc.stats.get(chosen_stat, 0))
 

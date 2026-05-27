@@ -1,0 +1,169 @@
+Type (Category)	Weapon Name	Rarity	Weight	Cost	Damage Formula 1	Damage Type 1	Damage Formula 2	Damage Type 2	Draw	Load	Chamber	Ranged	Thrown	Misfire	Misc Properties	Versatile	Effect	Class	Resonance	Resonance Requirement	Symbiosis	Symbiosis Requirement	Fuel Type	Fuel Max
+Whip (Specialized)	Petal Whip	Ordinary	2	35	2d6	Lacerate			2						Extend, One-Handed		SPECIAL: Add 1d6 Weapon Die when attack an unarmored opponent.	Mundane						
+Whip (Specialized)	Chain Whip	Ordinary	2	10	2d6	Lacerate, Strike			2						Extend, One-Handed			Mndane						
+Artillery (Firearm)	Grenade Launcher	Uncommon	3	630	3d6	Strike			2	3	10	45/200		5	Two-Handed		SPECIAL: This weapon uses grenades as ammunition. | SPECIAL: When shooting this weapon, the grenade first deals Strike to the target as normal, then the grenade’s effects trigger in the space where it impacted.	Mundane						
+Artillery (Firearm)	Microgatling	Uncommon	5	1300	4d6	Varies			5	4	100	300/3000		6	Heavy, Two-Handed		SPECIAL: This weapon uses bullets as ammunition. | SPECIAL: Treat Covered (Full) as though it were Covered (Partial). | SPECIAL: Each attack with this weapon costs 5 rounds of ammunition.	Mundane						
+Artillery (Firearm)	Sonic Cannon	Common	1	130	3d4	Varies			4	3	3	20/75			Two-Handed		SPECIAL: This weapon uses shells as ammunition. | SPECIAL: Before attacking with this cannon, you may expend 1 Fuel to double the cannon’s Intended Range for the attack. | SPECIAL: Before attacking with this cannon, you may expend 1 Fuel to add +1 Sonic to the damage dealt.	Magical					Arcanum	5
+Artillery (Firearm)	Tower Cannon	Uncommon	4	630	3d4	Varies			4	4	6	15/125			Two-Handed		SPECIAL: This weapon uses shells as ammunition. | SPECIAL: While this weapon is held in one or more hands, it acts as a +3 Shield for its bearer.	Mundane						
+Auto-Pistol (Firearm)	Fenwyn C81	Common	1	300	4d6	Varies			2	2	10	35/100		2	One-Handed			Mundane						
+Auto-Pistol (Firearm)	Smit M285	Common	0	350	4d6	Varies			2	2	10	35/100		2	One-Handed, Light			Mundane						
+Auto-Pistol (Firearm)	Tao M289P	Common	0	350	4d6	Varies			2	2	5	35/75		2	One-Handed, Light			Mundane						
+Auto-Rifle (Firearm)	Fenwyn M300R	Common	2	600	4d6	Varies			2	2	30	25/135		2	Two-Handed			Mundane						
+Auto-Rifle (Firearm)	Tao M293R	Common	1	700	4d6	Varies			2	2	35	25/150		3	Two-Handed			Mundane						
+Battleaxe (Specialized)	Axe-ophone	Rare	2	1300	2d6	Lacerate			2						Protean, Heavy		SPECIAL: While holding resonating with this weapon, the difficulty to resist your spells increases by 1 and Magic Attack Checks you make are +1 Enhanced.	Mundane	1	Must follow the Performer Tradition.				
+Battleaxe (Specialized)	Bearded Battleaxe	Ordinary	2	35	2d6	Lacerate			2						Protean			Mundane						
+Battleaxe (Specialized)	Mace-Ax	Common	1	41	2d6	Lacerate			2						One-Handed, Heavy	Club (Basic)		Mundane						
+Battleaxe (Specialized)	Twin-Headed Battleaxe	Ordinary	2	20	2d6	Lacerate			2						Protean, Heavy			Mundane						
+Blowgun (Basic)	Pipe Blowgun	Ordinary	0	3	0	Varies			1	3	1	12/40			One-Handed, Light, Small			Mundane						
+Blowgun (Basic)	River Cane Blowgun	Ordinary	0	1	0	Varies			1	3	1	12/20			One-Handed, Light, Small			Mundane						
+Club (Basic)	Baton	Ordinary	0	1	1d20	Strike			2						One-Handed, Light			Mundane						
+Club (Basic)	Cudgel	Ordinary	0	2	1d12	Strike			2						One-Handed, Light			Mundane						
+Club (Basic)	Hook Cane	Unique	0	445	2d6	Varies			1						Flourish, One-Handed, Light	Short Sword (Basic), Staff (Basic)	SPECIAL: You may wield this weapon as two of its weapon types at once, instead of just one. | SPECIAL: While wielded as a Club, this weapon deals Strike and has the Protean Property. | SPECIAL: While wielded as a Stave, this weapon deals Strike and has the Extend Property. | SPECIAL: While wielded as a Short Sword, this weapon deals Lacerate.	Mundane						
+Club (Basic)	Mace	Ordinary	1	2	1d12	Strike			2						One-Handed			Mundane						
+Club (Basic)	Morning Star	Ordinary	0	4	1d12	Impale, Strike			2						One-Handed, Light			Mundane						
+Colossal Sword (Great)	Great Armblade	Uncommon	4	800	3d4	Lacerate			Special						Extend, One-Handed, Heavy, Attachment	Great Axe (Great)	SPECIAL: Draw this weapon by extending it from your body with a Stance action instead of a typical Draw action. | SPECIAL: Replaces Arm	Mundane			2			
+Colossal Sword (Great)	Pulpmaker	Ordinary	4	90	3d4	Strike			4						Extend, Two-Handed, Heavy			Mundane						
+Colossal Sword (Great)	Pridefall	Unique	2	980	4d4	Impale, Lacerate			4						Extend, Two-Handed, Heavy		SPECIAL: While wielded with two hands, this weapon counts as a +2 Shield for the bearer. | SPECIAL: After dealing damage to a creature with a Size no greater than your Vigor Stat, you may choose to move the creature 1d4 Paces away from you.	Mundane						
+Colossal Sword (Great)	Vanquisher	Ordinary	3	125	3d4	Impale, Lacerate			4						Extend, Two-Handed, Heavy			Mundane						
+Dagger (Basic)	Dirk	Ordinary	0	2	1d12	Impale, Lacerate			1				10/20		One-Handed, Light, Small			Mundane						
+Dagger (Basic)	Flashback Dagger	Uncommon	0	640	1d12	Impale, Lacerate			1				10/25		One-Handed, Light, Small		SPECIAL: For 1 MP, you may conjure this weapon into your hand, requiring no action. | SPECIAL: You must be able to see the weapon to do this.	Magical						
+Dagger (Basic)	Gambler’s Bodkin	Uncommon	0	785	1d12 + 2	Impale, Lacerate			1				2/5		One-Handed, Light, Small		SPECIAL: When you roll 1 or more successes on an Attack Check using this weapon, you may expend any number of successes to magically take 25n from the target creature for each successes expended (up to an amount the creature is carrying), adding it to your own person. | SPECIAL: Curse: When you roll no successes on an Attack Check with this weapon, 10n is magically taken from you and deposited into an inaccessible domain. | SPECIAL: If you cannot pay this amount, take 1 Rot, instead.	Magical			1			
+Dagger (Basic)	Knitting Needle	Common	0	8	1d12	Impale, Lacerate			1				5/12		One-Handed, Light, Small	Rapier (Specialized)	SPECIAL: Can only be wielded by a Size 0 creature.	Mundane						
+Dagger (Basic)	Matronfang	Unique	0	630	1d12	Impale, Lacerate	1	Toxic	1				10/20		One-Handed, Light, Small		SPECIAL: The maximum time a poison applied to this weapon remains potent is doubled.	Mundane						
+Dagger (Basic)	Parrying Dagger	Ordinary	0	3	1d12	Impale			1				10/20		One-Handed, Light, Small		SPECIAL: #ERROR!	Mundane						
+Dagger (Basic)	Plumbata	Common	0	7	1d12	Impale, Lacerate			1				20/55		One-Handed, Light	Spear (Specialized)		Mundane						
+Dagger (Basic)	Scorch Knife	Uncommon	0	300	1d12	Impale, Lacerate	1	Fire	1				5/12		One-Handed, Light, Small			Magical						
+Dagger (Basic)	Shuriken	Ordinary	0	2	1d12	Impale			1				10/20		One-Handed, Light, Small		SPECIAL: Melee Attack Checks with this weapon are +1 Flawed, but Thrown Attack Checks with this weapon are +1 Enhanced.	Mundane						
+Dagger (Basic)	Steel-Breaker Knife	Rare	0	1315	1d12	Impale, Lacerate			1				3/10		One-Handed, Light, Small		SPECIAL: Expend 1 Fuel to superheat this weapon until the end of your next turn. | SPECIAL: While superheated, the weapon deals an additional +1 Fire. | SPECIAL: Attacks with this weapon against Assembly-type creatures or creatures wearing Heavy or Bulky Armor are +1 Enhanced.	Mundane					Diesel	3
+Dagger (Basic)	Stiletto	Ordinary	0	1	1d12	Impale			1				5/20		One-Handed, Light, Small		SPECIAL: Initial Resistance Checks against poisons delivered by this weapon are +1 Flawed.	Mundane						
+Dagger (Basic)	Switchblade	Ordinary	0	5	1d12	Impale			1				10/20		One-Handed, Light, Small		SPECIAL: Thrown Attack Checks with this weapon are +1 Flawed, but Melee Attack Checks with this weapon are +1 Enhanced.	Mundane						
+Flail (Basic)	Axe Flail	Ordinary	1	5	1d12	Lacerate			2						One-Handed			Mundane						
+Flail (Basic)	Flinging Flail	Common	1	28	1d12	Lacerate			2				4/10		One-Handed, Heavy		SPECIAL: Called Shot (3): Flung Flail Falter. | SPECIAL: As part of this Called Shot, throw the flail. | SPECIAL: On a success, deal damage as normal. | SPECIAL: The target then becomes Grappled, Inhibited, and Deposed, entangled in this weapon. | SPECIAL: A Vigor Check (3) will remove the flail and end these states.	Mundane						
+Flail (Basic)	Pole Flail	Ordinary	2	4	1d12	Impale			2						Protean, Extend			Mundane						
+Flail (Basic)	Short Flail	Ordinary	1	3	1d12	Impale			2						One-Handed			Mundane						
+Flail (Basic)	Twin Flail	Ordinary	1	7	1d12	Impale			2						One-Handed		SPECIAL: On a Critical Hit, this weapon deals an extra 2 damage.	Mundane						
+Glaive (Specialized)	Aldurish Royal Axe	Common	2	122	2d6	Lacerate, Strike			2						Extend, Flourish, Protean	Staff (Basic)	SPECIAL: If this weapon is broken in half, it becomes two Hand Axes with the statistics of Tomahawks.	Mundane						
+Glaive (Specialized)	Danwoldo	Ordinary	2	35	2d6	Impale, Lacerate			2						Extend, Protean			Mundane						
+Glaive (Specialized)	Lobacher	Ordinary	2	30	2d6	Lacerate			2						Extend, Protean			Mundane						
+Glaive (Specialized)	Naginata	Ordinary	1	40	2d6	Lacerate			2						Extend, Protean			Mundane						
+Glaive (Specialized)	Partisan	Ordinary	1	25	2d6	Impale			2						Extend, Protean			Mundane						
+Glaive (Specialized)	Skyglaive	Uncommon	2	840	2d6	Impale, Lacerate			2						Extend, Flourish, Protean	Longsowrd (Specialized)	SPECIAL: By expending 1 Fuel, move 1d4+1 Paces in a direction of your choosing. | SPECIAL: You must choose the direction before rolling. | SPECIAL: If you impact a surface or creature, your movement stops and you and the impacted entity take Sonic equal to the number of Paces you failed to move.	Mundane					Diesel	3
+Great Axe (Great)	Bardiche	Ordinary	3	5	3d4	Lacerate			4						Extend, Two-Handed, Heavy			Mundane						
+Great Axe (Great)	War Axe	Ordinary	3	30	3d4	Lacerate			3						Two-Handed, Heavy			Mundane						
+Greatbow (Great)	Iron Greatbow	Ordinary	2	45	3d4	Varies			3			50/75			Two-Handed, Heavy			Mundane						
+Greatbow (Great)	Wooden Greatbow	Ordinary	2	60	3d4	Varies			3			50/75			Two-Handed			Mundane						
+Great Club (Great)	Gnarled Log	Ordinary	4	5	3d4	Strike			3						Two-Handed, Heavy			Mundane						
+Great Club (Great)	Kanabo	Ordinary	3	22	3d4	Strike			3						Two-Handed, Heavy		SPECIAL: If this weapon triggers a Pain Response in a creature using Armored Defense, their Armored Defense decreases by 1 until their armor is repaired.	Mundane						
+Great Club (Great)	Spiked Bludgeon	Ordinary	3	55	3d4	Impale, Lacerate, Strike			3						Two-Handed, Heavy			Mundane						
+Great Club (Great)	Tetsubo	Common	3	70	3d4	Strike			3						Two-Handed, Heavy		SPECIAL: Critical Hits with this weapon deal an additional 2 Strike.	Mundane						
+Great Club (Great)	Wyrm Rib	Common	2	35	3d4	Strike			3						Two-Handed, Heavy			Mundane						
+Great Sword (Great)	Bearing Sword	Ordinary	3	45	3d4	Impale, Lacerate			3						Two-Handed, Heavy			Mundane						
+Great Sword (Great)	Claymore	Ordinary	3	40	3d4	Lacerate			3						Two-Handed, Heavy			Mundane						
+Great Sword (Great)	Golem Blade	Common	2	275	2d12	Strike			3						Extend, Protean, Heavy	Maul (Great)		Mundane						
+Great Sword (Great)	Zweihander	Ordinary	2	45	3d4	Lacerate			3						Two-Handed, Heavy			Mundane						
+Halberd (Specialized)	Arbir	Ordinary	1	25	2d6	Impale, Lacerate			2						Extend, Protean			Mundane						
+Halberd (Specialized)	Kamayari	Ordinary	1	20	2d6	Impale			2						Extend, Protean			Mundane						
+Halberd (Specialized)	Lucerne Hammer	Ordinary	2	35	2d6	Impale, Strike			2						Extend, Protean			Mundane						
+Halberd (Specialized)	Overweight Halberd	Ordinary	3	670	2d6	Lacerate			4						Extend, Protean, Heavy	Battleaxe (Specialized)	SPECIAL: If this weapon triggers a Pain Response, you may choose to trigger the creature’s original Pain Response or move the creature a number of Paces away from you equal to the damage they took subtracted by their Size (minimum 1).	Mundane						
+Halberd (Specialized)	Poleaxe	Ordinary	2	25	2d6	Lacerate			2						Extend, Protean			Mundane						
+Hand Axe (Basic)	Hatchet	Ordinary	0	4	1d12	Lacerate			2				4/10		Protean, Light			Mundane						
+Hand Axe (Basic)	Lumber Axe	Ordinary	1	2	1d12	Lacerate			2				2/5		Protean			Mundane						
+Hand Axe (Basic)	Tomahawk	Ordinary	1	4	1d12	Lacerate			2				6/10		Protean			Mundane						
+Hand Ballista (Great)	Bolt Cannon	Ordinary	3	450	3d4	Varies			3	3	2	20/325			Two-Handed, Heavy			Mundane						
+Hand Ballista (Great)	Bolt Launcher	Ordinary	3	75	3d4	Varies			3	3	1	25/350			Two-Handed, Heavy			Mundane						
+Hand Ballista (Great)	Smit Gr-4PLr	Uncommon	4	780	3d4	Varies			4	4	1	75/600			One-Handed, Heavy		SPECIAL: This weapon can only be used while the wielder is Deposed, unless the wielder’s VGR is 5 or higher. | SPECIAL: A creature who takes 1 or more damage from ammunition fired by this weapon becomes Grappled. | SPECIAL: Reloading the weapon will release the grapple, as will a successful Vigor (4) check to break the grappling chain. | SPECIAL: If the chain is broken, the weapon must be repaired before its grappling effect can be used, again.	Mundane						
+Hand Ballista (Great)	Wooden Hand Ballistae	Ordinary	2	125	3d4	Varies			3	3	1	25/350			Two-Handed, Heavy			Mundane						
+Handgun (Firearm)	Atalu B14-D3	Uncommon	1	395	0	Varies			2	3	2	15/25		3	One-Handed		SPECIAL: This weapon uses daggers as ammunition. | SPECIAL: Daggers fired from this weapon deal their damage and apply their effects as normal.	Mundane						
+Handgun (Firearm)	Claw-Grip Revolver	Unique	1	820	2d12	Varies			2	2	6	45/100		3	One-Handed		SPECIAL: This weapon’s Misfire Property increases by 2 when wielded by someone who does not have 2 or more Handgun Weapon Perks. | SPECIAL: After rolling an attack with this weapon, you may remove up to 2 failed die, potentially turning the attack into a Critical Hit.	Mundane						
+Handgun (Firearm)	Flintlock Pistol	Common	0	50	2d12	Varies			2	2	1	45/100		2	One-Handed, Light			Mundane						
+Handgun (Firearm)	Pocket Pistol	Common	0	75	2d12	Varies			2	2	1	25/100		2	One-Handed, Light, Small			Mundane						
+Handgun (Firearm)	Renaissance Revolver	Common	0	150	2d12	Varies			2	2	5	45/100		2	One-Handed, Light			Mundane						
+Handgun (Firearm)	Stun Gun	Common	0	190	1d12	Impale	1	Electric	2	2	4	3/10		1	One-Handed, Light, Small		SPECIAL: Pain Responses triggered by bullets fired from this handgun inflict Shocked until the end of the target’s next turn, instead of the target’s usual Pain Response.	Mundane						
+Heavy Crossbow (Great)	Arbalest	Ordinary	3	75	2d6	Varies			2	2	1	25/350			Two-Handed, Heavy			Mundane						
+Heavy Crossbow (Great)	Gastraphetes	Ordinary	3	30	2d6	Varies			2	3	1	75/175			Two-Handed, Heavy			Mundane						
+Heavy Crossbow (Great)	Ram’s Head Crossbow	Ordinary	2	55	2d6	Varies			2	3	1	75/175			Two-Handed, Heavy			Mundane						
+Heavy Crossbow (Great)	Stoneshot	Common	2	225	2d6	Varies			2	3	1	45/125			Two-Handed, Heavy		SPECIAL: Instead of Bolts, you may use rocks or shotgun shells for ammunition. | SPECIAL: Rocks deal Strike.	Mundane						
+Katana (Specialized)	Folded Katana	Ordinary	1	25	2d6	Lacerate			2						Flourish, Protean			Mundane						
+Katana (Specialized)	Honsanmai	Ordinary	1	45	2d6	Impale, Lacerate			2						Flourish, Protean			Mundane						
+Light Crossbow (Basic)	Pistol Crossbow	Ordinary	0	30	1d12	Varies			2	2	1	30/100			One-Handed, Light			Mundane						
+Longbow (Specialized)	Camel-Tendon Bow	Common	0	44	2d6	Varies			2			175/250			Two-Handed, Light			Mundane						
+Longbow (Specialized)	Harp Bow	Common	1	320	2d6	Varies			1			125/275			Two-Handed		SPECIAL: While resonating with this bow, attacks with it deal an additional +1 Sonic.	Magical	1	Must know at least once spell from the Phonomancy Spell School.				
+Longbow (Specialized)	Hunter’s Bow	Ordinary	1	40	2d6	Varies			2			150/300			Two-Handed			Mundane						
+Longbow (Specialized)	War Bow	Ordinary	1	30	2d6	Varies			3			150/300			Two-Handed			Mundane						
+Longsowrd (Specialized)	Bastard Sword	Ordinary	2	25	2d6	Impale, Lacerate			2						Protean			Mundane						
+Longsowrd (Specialized)	Broadsword	Ordinary	2	40	2d6	Lacerate, Strike			2						Protean			Mundane						
+Longsowrd (Specialized)	Buernish Longsword	Ordinary	2	20	2d6	Lacerate			2						Protean			Mundane						
+Longsowrd (Specialized)	Estoc	Ordinary	1	35	2d6	Impale			2						Protean, Light			Mundane						
+Longsowrd (Specialized)	Fullered Edge	Ordinary	1	39	2d6	Impale, Lacerate			2						Protean, Light			Mundane						
+Longsowrd (Specialized)	Spatha	Ordinary	1	35	2d6	Impale			2						Protean			Mundane						
+Mallet (Basic)	Iron Mallet	Ordinary	1	8	1d12	Strike			2				10/30		One-Handed, Light			Mundane						
+Mallet (Basic)	Light Mace	Ordinary	1	25	1d12	Lacerate, Strike			2				10/20		One-Handed, Light			Mundane						
+Mallet (Basic)	Rubber Mallet	Ordinary	1	25	1d12	Strike			2				10/30		One-Handed, Light			Mundane						
+Mallet (Basic)	The Shocker	Uncommon	1	690	1d12	Strike			2				6/9		Protean, Heavy		SPECIAL: For 1 Fuel, before attacking with this weapon, add +1 Electric to the damage dealt by the attack. | SPECIAL: The Intended and Extended Range of this weapon are doubled when thrown while wielding it with two hands.	Mundane					Electricity	5
+Maul (Great)	Garbashator	Rare	3	1950	3d6	Strike			4						Extend, Two-Handed, Heavy		SPECIAL: Expend 1 Fuel to cause this weapon’s maw of blades to spin until the end of your next turn. | SPECIAL: While the blades spin, the weapon deals an additional +1 Lacerate. | SPECIAL: If you trigger a Pain Response while the blades of this weapon are spinning, the target must make a Vigor (3) Check. | SPECIAL: On a failure, the creature gains the Severed Limb (Arm) or Severed Limb (Leg) Forced Lifepath Event (its choice).	Mundane					Electricity	3
+Maul (Great)	Planson	Ordinary	3	60	3d4	Impale, Strike			3						Extend, Two-Handed, Heavy			Mundane						
+Maul (Great)	Siegemaker	Ordinary	3	65	3d4	Strike			3						Two-Handed, Heavy		SPECIAL: Damage dealt to structures and objects by this weapon is doubled.	Mundane						
+Maul (Great)	Sledgehammer	Ordinary	2	45	3d4	Strike			3						Two-Handed, Heavy			Mundane						
+Maul (Great)	Splitmaul	Ordinary	2	55	3d4	Lacerate, Strike			3						Two-Handed, Heavy			Mundane						
+Maul (Great)	Warhammer	Ordinary	2	65	3d4	Impale, Strike			3						Extend, Two-Handed, Heavy			Mundane						
+Pike (Specialized)	Cavalry Spear	Common	0	70	1d12	Impale, Lacerate			2				22/45		Protean	Short Sword (Basic)	SPECIAL: While mounted and wielding this weapon as a Spear, attacks are +1 Enhanced. | SPECIAL: While unmounted and wielding this weapon as a Short Sword, attacks are +1 Enhanced.	Mundane						
+Pike (Specialized)	Interlance	Uncommon	2	395	2d6	Impale, Lacerate			2						Extend, One-Handed	Whip (Specialized)	SPECIAL: When you use a weapon perk with this weapon, gain 1 ReP (combat only).	Mundane						
+Pike (Specialized)	Ji	Ordinary	1	20	2d6	Impale, Lacerate			3						Extend, Two-Handed			Mundane						
+Pike (Specialized)	Lance	Ordinary	1	25	2d6	Impale			3						Extend, Two-Handed		SPECIAL: While mounted, attacks with this weapon are +1 Enhanced.	Mundane						
+Pike (Specialized)	Sarissa	Ordinary	1	30	2d6	Impale			3						Extend, Two-Handed		SPECIAL: Once per turn while wielding this weapon with two hands, you may give yourself +1 Flaw to an attack to increase the weapon’s range by 1 Pace.	Mundane						
+Pike (Specialized)	Weighted Lance	Ordinary	2	30	2d6	Impale			3						Extend, Two-Handed		SPECIAL: Once per turn while wielding this weapon with two hands, grant yourself +1 Flaw to an attack to increase the attack’s range by 1 Pace.	Mundane						
+Rapier (Specialized)	Basket-Hilt Rapier	Ordinary	1	65	2d6	Impale, Lacerate			1						One-Handed, Flourish, Light		SPECIAL: You cannot be unwillingly disarmed of this rapier, except by magical effects.	Mundane						
+Rapier (Specialized)	Cup-Hilt Rapier	Ordinary	1	35	2d6	Impale			1						One-Handed, Flourish, Light		SPECIAL: When an opponent you can see attacks you with a melee weapon that would deal Impale, you may increase your Defense (Armored and Unarmored) by 1 before the attack is rolled.	Mundane						
+Rapier (Specialized)	Dish-Hilt Rapier	Ordinary	0	35	2d6	Impale			1						One-Handed, Flourish, Light			Mundane						
+Rapier (Specialized)	Lamalet Rapier	Uncommon	0	850	2d6	Impale			2						One-Handed, Flourish, Light, Silvered		SPECIAL: Checks made to maintain your grip on this rapier are +1 Enhanced. | SPECIAL: Note: There are 6 small diamonds worth 50n each set into this rapier’s hilt.	Mundane						
+Rapier (Specialized)	Swashblade	Common	0	75	2d6	Impale			1						One-Handed, Flourish, Light	Saber (Specialized)		Mundane						
+Rapier (Specialized)	Swept-Hilt Rapier	Ordinary	1	35	2d6	Lacerate			1						One-Handed, Flourish, Light		SPECIAL: Checks you make to maintain your grip on this weapon are +1 Enhanced.	Mundane						
+Recurve Bow (Specialized)	Arc Bow	Ordinary	1	25	2d6	Varies			2			20/60			Two-Handed, Light			Mundane						
+Recurve Bow (Specialized)	Assassin’s Bow	Ordinary	0	45	2d6	Varies			2			20/60			Two-Handed, Light, Small			Mundane						
+Recurve Bow (Specialized)	Shortbow	Ordinary	0	35	2d6	Varies			2			20/60			Two-Handed, Light, Small			Mundane						
+Rifle (Firearm)	Percussion Rifle	Common	1	125	4d6	Varies			2	3	1	75/200		3	Two-Handed			Mundane						
+Rifle (Firearm)	Ribcage Repeater	Uncommon	1	550	4d6	Varies			2	4	3	25/90		3	Two-Handed			Mundane						
+Rifle (Firearm)	Royal Rifle	Common	1	175	4d6	Varies			2	3	1	50/300		2	Two-Handed			Mundane						
+Rifle (Firearm)	Target Rifle	Common	1	100	4d6	Varies			2	3	1	50/175		2	Two-Handed			Mundane						
+Saber (Specialized)	Cutlass	Ordinary	1	20	2d6	Lacerate			2						One-Handed, Flourish			Mundane						
+Saber (Specialized)	Falchion	Ordinary	2	14	2d6	Lacerate			2						Two-Handed			Mundane						
+Saber (Specialized)	Khopesh	Common	0	34	2d6	Lacerate			2						Protean, Flourish, Light		SPECIAL: Shields may not be used to defend against two-handed attacks made with this weapon.	Mundane						
+Saber (Specialized)	Scimitar	Ordinary	1	22	2d6	Lacerate			2						One-Handed, Flourish, Light			Mundane						
+Saber (Specialized)	Shamshir	Common	0	49	1d12	Lacerate			1						One-Handed, Flourish, Light		SPECIAL: While holding this weapon in one hand and nothing in your other hand(s), attacks made using the Saber Sweep weapon perk are +1 Enhanced.	Mundane						
+Saber (Specialized)	Shashka	Common	0	38	2d6	Lacerate			2						One-Handed, Flourish, Light		SPECIAL: Action: Footwork Slash. | SPECIAL: For 1 EP, after rolling an Attack Check with this weapon but before dealing damage, reduce the value needed to succeed on each die by 1 for the attack.	Mundane						
+Saber (Specialized)	Shotel	Ordinary	0	30	2d6	Lacerate			2						One-Handed, Flourish, Light			Mundane						
+Saber (Specialized)	Talwar	Ordinary	1	17	2d6	Lacerate			2						One-Handed, Flourish, Light			Mundane						
+Scythe (Specialized)	Gravetender’s Edge	Uncommon	3	215	2d6	Lacerate			2						Extend, Two-Handed, Flourish		SPECIAL: Weapon Perks do not work with this weapon unless the wielder has 5 or more Vigor. | SPECIAL: The Extend Property increases this weapon’s reach by 2 instead of 1.	Mundane						
+Scythe (Specialized)	Heavy Scythe	Ordinary	2	30	2d6	Lacerate, Strike			2						Two-Handed, Heavy	Katana (Specialized)		Mundane						
+Scythe (Specialized)	Stemmed Scythe	Ordinary	1	15	2d6	Lacerate			2						Protean			Mundane						
+Scythe (Specialized)	War Scythe	Ordinary	0	30	2d6	Lacerate			2						Protean			Mundane						
+Short Sword (Basic)	Baselard	Ordinary	1	10	1d12	Impale, Lacerate			2						One-Handed			Mundane						
+Short Sword (Basic)	Gladius	Ordinary	0	25	1d12	Lacerate			2						One-Handed		SPECIAL: Attacks with this weapon are +1 Enhanced for Performers or those with the Gladiator Heritage.	Mundane						
+Short Sword (Basic)	Kathayan Saif	Common	1	49	2d6	Impale, Lacerate			2						One-Handed, Flourish			Mundane						
+Short Sword (Basic)	Seax	Ordinary	1	5	1d12	Lacerate			2						One-Handed, Light	Saber (Specialized)		Mundane						
+Short Sword (Basic)	Sickle	Ordinary	0	15	1d12	Lacerate			2						One-Handed, Light			Mundane						
+Short Sword (Basic)	Sparring Sword	Ordinary	0	1	0	Strike			2						One-Handed, Light			Mundane						
+Shotgun (Firearm)	Blunderbuss	Common	2	125	6d4	Varies			2	3	1	5/15		3	Two-Handed			Mundane						
+Shotgun (Firearm)	Coach Gun	Common	1	325	6d4	Varies			2	3	2	5/20		2	Two-Handed			Mundane						
+Shotgun (Firearm)	Musketoon	Common	1	220	6d4	Varies			2	3	1	5/20		3	Two-Handed			Mundane						
+Shotgun (Firearm)	Sawed-Off	Uncommon	1	310	6d4	Varies			1	3	2	4/12		3	Two-Handed			Mundane						
+Spear (Specialized)	Angon	Ordinary	1	10	1d12	Impale			2				40/100		One-Handed, Light	Handgun (Firearm)		Mundane						
+Spear (Specialized)	Cattle Staff	Common	1	55	1d12	Strike	1	Electric	2						Extend, Protean, Heavy		SPECIAL: Pain Responses triggered by this staff inflict Shocked until the end of the target’s next turn, instead of the target’s usual Pain Response.	Mundane						
+Spear (Specialized)	Cavalry Spear	Common	1	70	1d12	Impale, Lacerate			2				22/45		Protean, Light		SPECIAL: This weapon may be wielded as both a Short Sword and a Spear. | SPECIAL: While wielded as a spear, mounted attacks are +1 Enhanced. | SPECIAL: While wielded as a short sword, unmounted attacks are +1 Enhanced.	Mundane						
+Spear (Specialized)	Javelin	Ordinary	0	15	1d12	Impale			2				40/100		One-Handed, Light	Short Sword (Basic)		Mundane						
+Spear (Specialized)	Pilum	Ordinary	1	18	1d12	Impale			2				15/40		One-Handed		SPECIAL: When thrown within its Intended Range, this weapon deals an additional 1 damage. | SPECIAL: Otherwise, it deals 1 less damage.	Mundane						
+Spear (Specialized)	Trident	Ordinary	0	20	1d12	Impale			2				40/100		One-Handed, Light		SPECIAL: The Thrown range of this weapon is unaffected by water.	Mundane						
+Staff (Basic)	Bo Staff	Ordinary	1	10	1d12	Strike			2						Protean			Mundane						
+Staff (Basic)	Cattle Staff	Common	1	55	1d12	Strike	1	Electric	2						Protean, Heavy		SPECIAL: Pain Responses triggered by bullets fired from this handgun inflict Shocked until the end of the target’s next turn, instead of the target’s usual Pain Response.	Mundane						
+Staff (Basic)	Polepoint	Common	1	80	1d12	Impale, Lacerate, Strike			1								SPECIAL: You may change this weapon’s form for 1 AP. | SPECIAL: While wielded as a Staff, this weapon has the Extend Property. | SPECIAL: While wielded as a Dagger, it has the Flourish and Small Properties.	Mundane						
+Staff (Basic)	Quarterstaff	Ordinary	1	22	1d12	Strike			1						Protean	Dagger (Basic)		Mundane						
+Staff (Basic)	Wizard’s Staff, Amethyst	Uncommon	1	300	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Will while resonating with and holding this staff, deal an additional +1 Will.	Magical	1					
+Staff (Basic)	Wizard’s Staff, Citrine	Uncommon	1	300	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Sonic while resonating with and holding this staff, deal an additional +1 Sonic.	Magical	1					
+Staff (Basic)	Wizard’s Staff, Clear Quartz	Common	1	130	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Acid while resonating with and holding this staff, deal an additional +1 Acid.	Magical	1					
+Staff (Basic)	Wizard’s Staff, Fulgurite	Common	1	130	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Electric while resonating with and holding this staff, deal an additional +1 Electric.	Magical	1					
+Staff (Basic)	Wizard’s Staff, Kyanite	Common	1	130	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Toxic while resonating with and holding this staff, deal an additional +1 Toxic.	Magical	1					
+Staff (Basic)	Wizard’s Staff, Pearl	Uncommon	1	300	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Holy while resonating with and holding this staff, deal an additional +1 Holy.	Magical	1					
+Staff (Basic)	Wizard’s Staff, Pyrite	Common	1	130	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Fire while resonating with and holding this staff, deal an additional +1 Fire.	Magical	1					
+Staff (Basic)	Wizard’s Staff, Uranium	Uncommon	1	300	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Rot while resonating with and holding this staff, deal an additional +1 Rot.	Magical	1					
+Whip (Specialized)	Bull Whip	Ordinary	1	20	2d6	Lacerate			2						Extend, One-Handed			Mundane						
+Whip (Specialized)	Carnivine	Uncommon	1	395	2d6	Impale, Lacerate			2						Extend, One-Handed		SPECIAL: Checks you make to maintain your grip on this whip are +1 Enhanced. | SPECIAL: Checks you make to grapple or maintain a grapple with this whip are +1 Enhanced.	Magical						

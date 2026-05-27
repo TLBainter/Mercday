@@ -1,15 +1,16 @@
-Action Name	Speed Cost	Resource Cost	Type	Stat Rolled	Success Formula	Relevant Circumstances	Target	Effect 1	Effect 2	Effect 3	React To
-Attack Melee	1		Offense	[Weapon Stat]	{Melee Accuracy}+{Weapon Accuracy}+{Damage Melee}	Attack (Vigor), Attack (Dexterity)	1 Enemy	Take Damage	{Damage}={Success #}	{Damage Type}=[Weapon Damage]	Enemy Close
-Attack Range	1		Offense	[Weapon Stat]	{Ranged Accuracy}+{Weapon Accuracy}+{Damage Ranged}	Attack (Dexterity), Attack (Vigor)	1 Enemy	Take Damage	{Damage}={Success #}	{Damage Type}=[Weapon Damage]	Enemy Far
-Defend	1	EP:1	Defend	Vigor	{Defend}+[Armor Rating]		Self	Reduce Damage	{Damage}-{Success #}		Take Damage
-Dodge	1	EP:1	Defend	Dexterity	{Dodge}+[Armor Rating]		Self	Reduce Damage	{Damage}-{Success #}		Take Damage
-Use Item	1	[Item Resource Cost]	Use	[Item Stat]	[Item Success Formula]		[Item Target]	[Item Effect 1]	[Item Effect 2]	[Item Effect 3]	[Item React To]
-Assist	2	EP:1	Passive		Auto		1 Ally	{Reroll}={Reroll}+{25}	Reroll		Ally Fails
-Move Far	1		Movement		Auto		Self	Move Far			Enemy Close AND Weapon Melee
-Move Close	1		Movement		Auto		Self	Move Close			(Enemy Far AND Weapon Ranged) OR Flanked
-Evade	2		Movement	Dexterity, Vigor	{Parkour}+{Avoid/2}-{Enemy Dexterity*10}	Athletics (Vigor), Grace (Dexterity)	Self	Avoid Grabbed			Grabbed
-Break Free	2		Movement	Vigor, Dexterity	{Luck}+{Power Circumstance}-{Enemy Vigor*10}	Resist (Cognition), Resist (Dexterity), Resist (Vigor), Resist (Wile)	Self	End Grappled	End Inhibited	End Suffocating	Grappled OR Inhibited OR Suffocating
-Resist	1		Passive	[Effect Stat]	15		Self	Resist {Success #}			Resist Effect
-End Burning	2		Movement		Auto		Self	End Burning			Burning
-Get Up	2		Movement		Auto		Self	End Deposed			Deposed
-Death Test	0		Passive	[Max HP]	{Cheat Death}		Self	End Dying	Current HP = {Success #}		Dying
+Action Name		Resource Cost	Type	Stat Rolled	Success Formula	Relevant Circumstances	Target	Effect 1	Effect 2	Effect 3	React To
+Attack Melee		AP:3	Offense	[Weapon Stat]	melee_accuracy	Attack (Vigor), Attack (Dexterity)	1 Enemy	Take Damage	{Damage}={Success #}	{Damage Type}=[Weapon Damage]	Enemy Close
+Attack Range		AP:3	Offense	[Weapon Stat]	ranged_accuracy	Attack (Dexterity), Attack (Vigor)	1 Enemy	Take Damage	{Damage}={Success #}	{Damage Type}=[Weapon Damage]	Enemy Far
+Defend		EP:1	Defend	Vigor	defend		Self	Reduce Damage	{Damage}-{Success #}		Take Damage
+Dodge		EP:1	Defend	Dexterity	dodge		Self	Reduce Damage	{Damage}-{Success #}		Take Damage
+Use Item		[Item Resource Cost]	Use	[Item Stat]	[Item Success Formula]		[Item Target]	[Item Effect 1]	[Item Effect 2]	[Item Effect 3]	[Item React To]
+Assist		EP:1	Passive		Auto		1 Ally	{Reroll}={Reroll}+{25}	Reroll		Ally Fails
+Move Far		AP:2	Movement		Auto		Self	Move Away From Target			(Enemy Close AND Weapon Ranged) OR (Flanked)
+Move Close		AP:2	Movement		Auto		Self	Move Toward Target			(Enemy Far AND Weapon Melee)
+Evade		AP:2	Movement	Dexterity, Vigor	{Parkour}+{Avoid/2}-{Enemy Dexterity*10}	Athletics (Vigor), Grace (Dexterity)	Self	Avoid Grabbed			Grabbed
+Break Free		AP:2	Movement	Vigor, Dexterity	{Luck}+{Power Circumstance}-{Enemy Vigor*10}	Power (Vigor)	Self	End Grappled	End Inhibited	End Suffocating	Grappled OR Inhibited OR Suffocating
+Resist			Passive	[Effect Stat]	15	Resist (Cognition), Resist (Dexterity), Resist (Vigor), Resist (Wile)	Self	Resist {Success #}			Resist Effect
+End Burning		AP:2	Movement		Auto		Self	End Burning			Burning
+Get Up		AP:2	Movement		Auto		Self	End Deposed			Deposed
+Death Test			Passive	[Max HP]	{Cheat Death}		Self	End Dying	Current HP = {Success #}		Dying
+Seek Cover		AP:2	Movement				Self	Covered (Partial) OR	Covered (Full)		Adjacent to possible cover point

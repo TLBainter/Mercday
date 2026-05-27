@@ -11,6 +11,13 @@ var traditions: Dictionary = {}
 var traits: Dictionary = {}
 var knowledges: Dictionary = {}
 var tools: Dictionary = {}
+var weapons: Dictionary = {}
+var weapons_ordinary_melee: Array = []
+var weapons_ordinary_ranged: Array[WeaponData] = []
+var ammo: Dictionary = {}
+var ammo_ordinary_common: Array = []
+var armor: Dictionary = {}
+var armor_ordinary_common: Array = []
 var knowledge_categories: Dictionary = {}
 var tool_categories: Dictionary = {}
 var stat_definitions: Array[Dictionary] = []
@@ -36,6 +43,7 @@ const STAT_VAR_MAP: Dictionary = {
 
 func _ready() -> void:
 	ConstCircumstances.load_from_tsv("res://TSVs/Circumstances.tsv")
+	ConstStates.load_from_tsv("res://TSVs/States.tsv")
 	_load_knowledges_and_tools()
 	_load_stats()
 	_load_locations()
@@ -45,12 +53,14 @@ func _ready() -> void:
 	_load_traditions()
 	_load_traits()
 	_load_items()
+	_load_weapons()
+	_load_ammo()
+	_load_armor()
 	_load_types()
 	_load_critical_successes()
 	_resolve_location_parents()
 
 
-#CSV Readers
 func _csv_rows(path: String) -> Array[PackedStringArray]:
 	var rows: Array[PackedStringArray] = []
 	var file := FileAccess.open(path, FileAccess.READ)
@@ -78,7 +88,6 @@ func _row_get(row: PackedStringArray, idx: int) -> String:
 	return row[idx].strip_edges() if idx < row.size() else ""
 
 
-#CSV loading
 func _load_knowledges_and_tools() -> void:
 	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Knowledges and Tools.tsv")
 	if rows.size() < 2:
@@ -339,6 +348,162 @@ func _load_items() -> void:
 		}
 
 
+func _load_weapons() -> void:
+	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Weapons.tsv")
+	if rows.size() < 2:
+		return
+	for i: int in range(1, rows.size()):
+		var row: PackedStringArray = rows[i]
+		var weapon_name: String = _row_get(row, 1)
+		if weapon_name == "":
+			continue
+		var w := WeaponData.new()
+		w.item_name = weapon_name
+		w.item_rarity = _row_get(row, 2)
+		w.item_type = "Weapon"
+		w.weapon_type = _row_get(row, 0)
+		var weight_str: String = _row_get(row, 3)
+		w.weight = int(weight_str) if weight_str.is_valid_int() else 0
+		var cost_str: String = _row_get(row, 4)
+		w.cost = int(cost_str) if cost_str.is_valid_int() else 0
+		w.damage_formula_1 = _row_get(row, 5)
+		w.damage_types_1 = _split_field(_row_get(row, 6))
+		w.damage_formula_2 = _row_get(row, 7)
+		w.damage_types_2 = _split_field(_row_get(row, 8))
+		var draw_str: String = _row_get(row, 9)
+		w.draw = int(draw_str) if draw_str.is_valid_int() else 0
+		var load_str: String = _row_get(row, 10)
+		w.load_time = int(load_str) if load_str.is_valid_int() else 0
+		var chamber_str: String = _row_get(row, 11)
+		w.chamber = int(chamber_str) if chamber_str.is_valid_int() else 0
+		w.range_ranged = _row_get(row, 12)
+		w.range_thrown = _row_get(row, 13)
+		var misfire_str: String = _row_get(row, 14)
+		w.misfire = int(misfire_str) if misfire_str.is_valid_int() else 0
+		w.misc_properties = _split_field(_row_get(row, 15))
+		# col 16: Versatile — skip for now
+		# col 17: Effect — skip for now
+		w.weapon_class = _row_get(row, 18)
+		w.resonance = _row_get(row, 19)
+		w.resonance_requirement = _row_get(row, 20)
+		w.symbiosis = _row_get(row, 21)
+		w.symbiosis_requirement = _row_get(row, 22)
+		w.fuel_type = _row_get(row, 23)
+		var fuel_str: String = _row_get(row, 24)
+		w.fuel_max = int(fuel_str) if fuel_str.is_valid_int() else 0
+		w.is_ranged = w.range_ranged != ""
+		w.is_throwable = w.range_thrown != ""
+		w.has_heavy = w.misc_properties.has("Heavy")
+		w.has_light = w.misc_properties.has("Light")
+		w.has_extend = w.misc_properties.has("Extend")
+		w.melee_range = 2 if w.has_extend else 1
+		if w.range_ranged != "":
+			var rr := w.range_ranged.split("/")
+			w.ranged_intended_range = int(rr[0]) if rr.size() > 0 else 0
+			w.ranged_extended_range = int(rr[1]) if rr.size() > 1 else w.ranged_intended_range
+		if w.range_thrown != "":
+			var rt := w.range_thrown.split("/")
+			w.thrown_intended_range = int(rt[0]) if rt.size() > 0 else 0
+			w.thrown_extended_range = int(rt[1]) if rt.size() > 1 else w.thrown_intended_range
+		for dt: String in w.damage_types_1:
+			if dt != "Varies" and not ConstDamageTypes.DAMAGE_TYPES.has(dt):
+				push_warning("DataManager: unknown damage type '%s' on weapon '%s'" % [dt, weapon_name])
+		for dt: String in w.damage_types_2:
+			if dt != "Varies" and not ConstDamageTypes.DAMAGE_TYPES.has(dt):
+				push_warning("DataManager: unknown damage type '%s' on weapon '%s'" % [dt, weapon_name])
+		weapons[weapon_name] = w
+		if w.item_rarity == "Ordinary" and w.range_ranged == "":
+			weapons_ordinary_melee.append(w)
+		if w.item_rarity == "Ordinary" and w.is_ranged:
+			weapons_ordinary_ranged.append(w)
+
+
+func _load_ammo() -> void:
+	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Ammo.tsv")
+	if rows.size() < 2:
+		return
+	for i: int in range(1, rows.size()):
+		var row: PackedStringArray = rows[i]
+		var ammo_name: String = _row_get(row, 0)
+		if ammo_name == "":
+			continue
+		var a := AmmoData.new()
+		a.item_name = ammo_name
+		a.item_rarity = _row_get(row, 9)
+		a.item_type = "Ammo"
+		a.ammo_type = _row_get(row, 1)
+		a.damage_formula_1 = _row_get(row, 2)
+		a.damage_types_1 = _split_field(_row_get(row, 3))
+		a.damage_formula_2 = _row_get(row, 4)
+		a.damage_types_2 = _split_field(_row_get(row, 5))
+		var weight_str: String = _row_get(row, 6)
+		a.weight = int(weight_str) if weight_str.is_valid_int() else 0
+		var cost_str: String = _row_get(row, 7)
+		a.cost = int(cost_str) if cost_str.is_valid_int() else 0
+		a.compatible = _split_field(_row_get(row, 8))
+		var amount_str: String = _row_get(row, 10)
+		a.amount = int(amount_str) if amount_str.is_valid_int() else 1
+		a.ammo_class = _row_get(row, 11)
+		a.effect = _row_get(row, 12)
+		ammo[ammo_name] = a
+		if a.item_rarity == "Ordinary" or a.item_rarity == "Common":
+			ammo_ordinary_common.append(a)
+
+
+func _load_armor() -> void:
+	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Armor.tsv")
+	if rows.size() < 2:
+		return
+	for i: int in range(1, rows.size()):
+		var row: PackedStringArray = rows[i]
+		var armor_name: String = _row_get(row, 0)
+		if armor_name == "":
+			continue
+		var a := ArmorData.new()
+		a.item_name = armor_name
+		a.item_type = "Armor"
+		a.armor_type = _row_get(row, 1)
+		var weight_str: String = _row_get(row, 2)
+		a.weight = int(weight_str) if weight_str.is_valid_int() else 0
+		var cost_str: String = _row_get(row, 3)
+		a.cost = int(cost_str) if cost_str.is_valid_int() else 0
+		a.item_rarity = _row_get(row, 4)
+		var bonus_str: String = _row_get(row, 5)
+		a.armor_bonus = int(bonus_str) if bonus_str.is_valid_int() else 0
+		var ep_str: String = _row_get(row, 6)
+		a.ep_cost = int(ep_str) if ep_str.is_valid_int() else 0
+		var fatigue_str: String = _row_get(row, 7)
+		a.fatigue = int(fatigue_str) if fatigue_str.is_valid_int() else 0
+		a.protection = _split_field(_row_get(row, 8))
+		# col 9: Damage Formula — ignored for now
+		# col 10: Damage Type — ignored for now
+		var vigor_str: String = _row_get(row, 11)
+		a.vigor_requirement = int(vigor_str) if vigor_str.is_valid_int() else 0
+		a.armor_class = _row_get(row, 12)
+		var effect_raw: String = _row_get(row, 13)
+		for s: String in effect_raw.split("|", false):
+			a.special_effects.append(s)
+		a.resonance = _row_get(row, 14)
+		a.resonance_requirement = _row_get(row, 15)
+		a.symbiosis = _row_get(row, 16)
+		a.symbiosis_requirement = _row_get(row, 17)
+		a.fuel_type = _row_get(row, 18)
+		var fuel_str: String = _row_get(row, 19)
+		a.fuel_amount = int(fuel_str) if fuel_str.is_valid_int() else 0
+		match a.armor_type:
+			"Medium":
+				a.halve_swim = true
+			"Heavy":
+				a.halve_fly = true
+				a.cannot_swim = true
+			"Bulky":
+				a.cannot_fly = true
+				a.cannot_swim = true
+		armor[armor_name] = a
+		if a.item_rarity == "Ordinary" or a.item_rarity == "Common":
+			armor_ordinary_common.append(a)
+
+
 func _load_traits() -> void:
 	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Traits.tsv")
 	if rows.size() < 2:
@@ -366,7 +531,6 @@ func _load_traits() -> void:
 
 
 
-#Effect converter
 func _convert_legacy_effect(raw: String) -> String:
 	if raw == "" or raw == "No special effect.":
 		return ""
@@ -460,7 +624,6 @@ func _load_critical_successes() -> void:
 		})
 
 
-#Public Helpers, Getters
 func get_settlement_locations() -> Array:
 	var result: Array = []
 	for loc: LocationData in locations.values():

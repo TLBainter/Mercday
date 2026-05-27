@@ -16,7 +16,7 @@ Inner Peace	(wile * 2.5) + 1	none	derived	A creature's sense of inner calm.
 Social	cognition + wile * 5.0	none	derived	A creature's social skills.
 Intellect	(cognition * 5.0) + (wile * 1.5)	none	derived	A creature's ability to reason.
 Unsavory	wile / 10.0	none	derived	How likely this creature is to be okay with doing something vile.
-Luck	(wile * 10.0) + luck_roll	none	derived	The luck a creature has; affects many things.
+Luck	(wile * 1.25) + luck_roll	none	derived	The luck a creature has; affects many things.
 Dodge Reduction	(dexterity + (luck / 10)) - size	floor	derived	How much a creature reduces damage by when successfully dodging.
 Defend	size + combat + luck	none	derived	How likely a creature is to defend against a successful incoming attack.
 Dodge	(combat + luck) - size	none	derived	How likely a creature is to dodge an incoming attack.
@@ -50,6 +50,7 @@ Zealotry	inner_peace - (wile * 2.0)	none	derived	How firm a creature is in their
 Entertain	(social + (wile * 2.0)) / 2.0	none	derived	One's ability to entertain others.
 Military	(combat + unsavory) / 2.0	none	derived	A creature's familiarity with military tactics and functions.
 Escort	social + combat	none	derived	This merc's ability to excel on escort tasks.
+Royal	(social + military) / 2.0	none	derived	One's familiarity with royalty and matters of court or state.
 Walk	1	none	boolean	Allows a merc to walk around.
 Burrow	0	none	boolean	Allows a merc to dig through the earth.
 Climb	0	none	boolean	Allows a merc to scale vertical surfaces.
@@ -62,3 +63,5 @@ Sea Travel Cost Modifier	0	none	granted	Decreases all sea travel costs a merc pa
 Air Travel Cost Modifier	0	none	granted	Decreases all air travel costs a merc pays by this percentage.
 Item Cost Modifier	0	none	granted	Decreases all item costs a merc pays by this percentage.
 Services Cost Modifier	0	none	granted	Decreases the costs of all services this merc purchases by this percentage.
+Action Points	5	floor	granted	The Maximum Action Points a merc has.
+Pace	size + vigor + 1	floor	derived	How many Paces a merc can move with a single Move action

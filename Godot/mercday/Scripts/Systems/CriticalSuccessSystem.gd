@@ -106,13 +106,11 @@ static func _build_circumstance_pool(filter_key: String) -> Array[String]:
 			if (ConstCircumstances.DATA[d] as Dictionary).get("stat", "") == stat_filter:
 				pool.append(d)
 	elif CORE_STAT_KEYS.has(filter_key.to_lower()):
-		# plain stat name filter
 		var stat_filter: String = filter_key.capitalize()
 		for d: String in ConstCircumstances.ALL:
 			if (ConstCircumstances.DATA[d] as Dictionary).get("stat", "") == stat_filter:
 				pool.append(d)
 	else:
-		# circumstance name filter
 		for d: String in ConstCircumstances.ALL:
 			if (ConstCircumstances.DATA[d] as Dictionary).get("circumstance_name", "").to_lower() == filter_key.to_lower():
 				pool.append(d)

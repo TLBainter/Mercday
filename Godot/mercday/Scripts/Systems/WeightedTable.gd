@@ -8,8 +8,6 @@ const TIER_WEIGHTS: Dictionary = {
 	"Legendary": 1.0,
 }
 
-# Returns the name of the selected item.
-# items: Array[Dictionary], each dict must have "name": String and "rarity": String.
 static func roll(
 	items: Array[Dictionary],
 	flat_boosts: Dictionary = {},
@@ -43,13 +41,11 @@ static func _build_table(
 	multiplier_boosts: Dictionary,
 	pre_allocated: Dictionary
 ) -> Array[Dictionary]:
-	# Step 1: reserved pool
 	var reserved_pct: float = 0.0
 	for pct: float in pre_allocated.values():
 		reserved_pct += pct
 	var remaining_pool: float = 100.0 - reserved_pct
 
-	# Step 2: count items per tier and sum tier weights
 	var tier_counts: Dictionary = {}
 	for item: Dictionary in items:
 		var tier: String = str(item.get("rarity", "Common"))
@@ -59,7 +55,6 @@ static func _build_table(
 	for tier: String in tier_counts:
 		tier_total_weight += TIER_WEIGHTS.get(tier, 0.0) as float
 
-	# Step 3: assign base per-item weight
 	var working: Dictionary = {}
 	for item: Dictionary in items:
 		var tier: String = str(item.get("rarity", "Common"))
@@ -69,7 +64,6 @@ static func _build_table(
 			tier_pct = (TIER_WEIGHTS.get(tier, 0.0) as float / tier_total_weight) * remaining_pool
 		working[str(item.get("name", ""))] = tier_pct / count
 
-	# Step 4: apply flat_boosts within each tier
 	for item_name: String in flat_boosts:
 		if not working.has(item_name):
 			continue
@@ -89,7 +83,6 @@ static func _build_table(
 					var share: float = (old / total_others) * boost
 					working[other_name] = maxf(0.1, old - share)
 
-	# Step 5: apply multiplier_boosts
 	for item_name: String in multiplier_boosts:
 		if not working.has(item_name):
 			continue
@@ -112,11 +105,9 @@ static func _build_table(
 					var share: float = (old / total_others) * excess
 					working[other_name] = maxf(0.1, old - share)
 
-	# Step 6: insert pre_allocated at fixed percentages
 	for fixed_name: String in pre_allocated:
 		working[fixed_name] = pre_allocated[fixed_name] as float
 
-	# Step 7: normalize to 100%
 	var total: float = 0.0
 	for pct: float in working.values():
 		total += pct
@@ -124,7 +115,6 @@ static func _build_table(
 		for key: String in working:
 			working[key] = (working[key] as float) / total * 100.0
 
-	# Step 8: build sorted table
 	var table: Array[Dictionary] = []
 	for item: Dictionary in items:
 		var name: String = str(item.get("name", ""))

@@ -15,6 +15,9 @@ func _ready() -> void:
 	$ButtonBar/PoisonCheck.pressed.connect(_on_poison_check)
 	$ButtonBar/PutOnAShowCheck.pressed.connect(_on_put_on_a_show_check)
 	$ButtonBar/BatchAnalysis.pressed.connect(_on_batch_analysis)
+	$ButtonBar/AttackCheck.pressed.connect(_on_attack_check)
+	$ButtonBar/DamageCheck.pressed.connect(_on_damage_check)
+	$ButtonBar/StartBattle.pressed.connect(_on_start_battle)
 	for i: int in range(3):
 		var merc := MercGenerator.generate(i)
 		mercs.append(merc)
@@ -170,11 +173,27 @@ func _print_regional_names() -> void:
 func _on_batch_analysis() -> void:
 	print("Generating batch of 100 mercs...")
 	var tally: Dictionary = {}
+	var luck_buckets: Array[int] = [0, 0, 0, 0, 0, 0, 0]
 	var merc_blocks := ""
 	for i: int in range(100):
 		var merc := MercGenerator.generate(i)
 		var trad_name: String = merc.tradition.tradition_name if merc.tradition else "(none)"
 		tally[trad_name] = tally.get(trad_name, 0) + 1
+		var lr: float = merc.luck_roll
+		if lr < 5.0:
+			luck_buckets[0] += 1
+		elif lr < 10.0:
+			luck_buckets[1] += 1
+		elif lr < 20.0:
+			luck_buckets[2] += 1
+		elif lr < 30.0:
+			luck_buckets[3] += 1
+		elif lr < 40.0:
+			luck_buckets[4] += 1
+		elif lr < 50.0:
+			luck_buckets[5] += 1
+		else:
+			luck_buckets[6] += 1
 		merc_blocks += _merc_to_string(merc)
 
 	var sorted_keys: Array = tally.keys()
@@ -185,6 +204,15 @@ func _on_batch_analysis() -> void:
 	summary += "====== TRADITION TALLY ======\n"
 	for trad: String in sorted_keys:
 		summary += "  %-20s %d\n" % [trad + ":", tally[trad]]
+	summary += "\n"
+	summary += "====== LUCK ROLL DISTRIBUTION (expected) ======\n"
+	summary += "  0– 5:  %3d%%  (expected ~45%%)\n" % luck_buckets[0]
+	summary += "  5–10:  %3d%%  (expected ~20%%)\n" % luck_buckets[1]
+	summary += " 10–20:  %3d%%  (expected ~15%%)\n" % luck_buckets[2]
+	summary += " 20–30:  %3d%%  (expected ~10%%)\n" % luck_buckets[3]
+	summary += " 30–40:  %3d%%  (expected  ~9%%)\n" % luck_buckets[4]
+	summary += " 40–50:  %3d%%  (expected  ~1%%)\n" % luck_buckets[5]
+	summary += "    50:  %3d%%  (expected ~0%%)\n" % luck_buckets[6]
 	summary += "\n\n"
 
 	var path := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS) + "/merc_batch_analysis.txt"
@@ -199,6 +227,14 @@ func _on_batch_analysis() -> void:
 	print("Tradition tally:")
 	for trad: String in sorted_keys:
 		print("  %-20s %d" % [trad + ":", tally[trad]])
+	print("Luck roll distribution (expected):")
+	print("   0– 5:  %3d%%  (expected ~45%%)" % luck_buckets[0])
+	print("   5–10:  %3d%%  (expected ~20%%)" % luck_buckets[1])
+	print("  10–20:  %3d%%  (expected ~15%%)" % luck_buckets[2])
+	print("  20–30:  %3d%%  (expected ~10%%)" % luck_buckets[3])
+	print("  30–40:  %3d%%  (expected  ~9%%)" % luck_buckets[4])
+	print("  40–50:  %3d%%  (expected  ~1%%)" % luck_buckets[5])
+	print("     50:  %3d%%  (expected ~0%%)" % luck_buckets[6])
 
 
 func _print_merc(merc: MercenaryData) -> void:
@@ -256,6 +292,20 @@ func _merc_to_string(merc: MercenaryData) -> String:
 		lp_names.append(lp.event_name)
 	lines.append("Lifepath:     %s" % (", ".join(lp_names) if lp_names.size() > 0 else "(none)"))
 
+	var weapon_str := "(none)"
+	if merc.equipped_weapon:
+		weapon_str = "%s  (%s)" % [merc.equipped_weapon.item_name, merc.equipped_weapon.weapon_type]
+	lines.append("Weapon:       %s" % weapon_str)
+
+	var armor_str := "(none)"
+	if merc.equipped_armor:
+		armor_str = "%s  (%s, +%d DR)" % [
+			merc.equipped_armor.item_name,
+			merc.equipped_armor.armor_type,
+			merc.equipped_armor.armor_bonus
+		]
+	lines.append("Armor:        %s" % armor_str)
+
 	lines.append("Tradition:    %s" % (merc.tradition.tradition_name if merc.tradition else "(none)"))
 
 	var perk_names: Array[String] = []
@@ -275,6 +325,10 @@ func _merc_to_string(merc: MercenaryData) -> String:
 
 	lines.append("")
 	lines.append("======== STATS ===========================")
+	lines.append(("Current HP:").rpad(30) + " " + str(merc.current_hp).lpad(3, "0") + " / " + str(int(merc.stats.get("maximum_hit_points", 0))).lpad(3, "0"))
+	lines.append(("Current EP:").rpad(30) + " " + str(merc.current_ep).lpad(3, "0") + " / " + str(int(merc.stats.get("maximum_endurance_points", 0))).lpad(3, "0"))
+	lines.append(("Current MP:").rpad(30) + " " + str(merc.current_mp).lpad(3, "0") + " / " + str(int(merc.stats.get("maximum_magic_points", 0))).lpad(3, "0"))
+	lines.append(("Current AP:").rpad(30) + " " + str(merc.current_ap).lpad(3, "0") + " / " + str(int(merc.stats.get("action_points", 0))).lpad(3, "0"))
 
 	for stat_def: Dictionary in DataManager.stat_definitions:
 		var var_name: String = stat_def["var_name"]
@@ -347,3 +401,258 @@ func _fmt_val(val) -> String:
 	if val is int:
 		return str(maxi(0, val)).lpad(3, "0")
 	return _fmt(float(val))
+
+
+func _on_attack_check() -> void:
+	print("\n====== ATTACK CHECK ======\n")
+	for merc: MercenaryData in mercs:
+		_run_attack_check(merc)
+
+
+func _run_attack_check(merc: MercenaryData) -> void:
+	var weapon: WeaponData = merc.equipped_weapon
+
+	var stat_keys: Array[String] = []
+	var circumstances: Array[String] = []
+	if weapon != null and weapon.has_heavy and not weapon.has_light:
+		stat_keys = ["vigor"]
+		circumstances = ["Attack (Vigor)"]
+	elif weapon != null and weapon.has_light and not weapon.has_heavy:
+		stat_keys = ["dexterity"]
+		circumstances = ["Attack (Dexterity)"]
+	else:
+		stat_keys = ["dexterity", "vigor"]
+		circumstances = ["Attack (Dexterity)", "Attack (Vigor)"]
+
+	var accuracy_formula: String = "ranged_accuracy" if (weapon != null and weapon.is_ranged) else "melee_accuracy"
+
+	var check_def := {
+		"stat_keys": stat_keys,
+		"circumstances": circumstances,
+		"knowledges": [],
+		"tools": [],
+		"formula": accuracy_formula,
+	}
+
+	var core_result: Dictionary = CheckSystem.make_check(merc, check_def)
+	var core_successes: int = int(core_result["successes"])
+	var threshold: float = float(core_result["threshold"])
+	var stat_used: String = str(core_result["stat_used"])
+	var rerolls: int = int(core_result["rerolls"])
+	var k_bonus: int = int(core_result["k_bonus"])
+	var t_bonus: int = int(core_result["t_bonus"])
+
+	var weapon_die_successes: int = 0
+	var weapon_flat_bonus: int = 0
+	var weapon_die_label: String = "(no weapon)"
+	var dmg_formula: String = ""
+	var dmg_type: String = "(none)"
+
+	if weapon != null:
+		dmg_formula = weapon.damage_formula_1
+		if weapon.damage_types_1.size() > 1:
+			dmg_type = weapon.damage_types_1[randi() % weapon.damage_types_1.size()]
+		elif weapon.damage_types_1.size() == 1:
+			dmg_type = weapon.damage_types_1[0]
+		else:
+			dmg_type = "Unknown"
+
+		var parsed: Dictionary = _parse_damage_formula(dmg_formula)
+		var num_dice: int = parsed["num_dice"]
+		var die_sides: int = parsed["die_sides"]
+		weapon_flat_bonus = parsed["flat_bonus"]
+
+		if parsed["is_todo"]:
+			weapon_die_label = dmg_formula + "  [#TODO: ammunition]"
+		else:
+			var die_threshold: int = floori(threshold / 100.0 * float(die_sides))
+			var rolls: Array[int] = []
+			for _d: int in range(num_dice):
+				var roll_val: int = randi_range(1, die_sides)
+				rolls.append(roll_val)
+				if roll_val <= die_threshold:
+					weapon_die_successes += 1
+			weapon_die_label = _fmt_weapon_dice(rolls, die_threshold, die_sides)
+
+	var total_successes: int = core_successes + weapon_die_successes + weapon_flat_bonus
+
+	var weapon_name: String = weapon.item_name if weapon != null else "(unarmed)"
+	var weapon_type_str: String = weapon.weapon_type if weapon != null else ""
+	var bonus_parts: Array[String] = []
+	if k_bonus > 0:
+		bonus_parts.append("K+1")
+	if t_bonus > 0:
+		bonus_parts.append("T+1")
+	var bonus_str: String = (" [%s]" % ", ".join(bonus_parts)) if bonus_parts.size() > 0 else ""
+
+	print("%s" % merc.merc_name)
+	print("  Weapon:     %s  (%s)" % [weapon_name, weapon_type_str])
+	print("  Stat:       %-12s  Threshold: %.1f%%%s" % [stat_used, threshold, bonus_str])
+	print_rich("  Roll 1:     %s" % _fmt_rolls(core_result["roll1"] as Array, threshold))
+	if rerolls > 0:
+		print("  Rerolls:    %d" % rerolls)
+		print_rich("  Roll 2:     %s" % _fmt_rolls(core_result["roll2"] as Array, threshold))
+	var core_s_str: String = "[color=green]%d[/color]" % core_successes if core_successes > 0 else str(core_successes)
+	var core_f_str: String = "[color=red]%d[/color]" % int(core_result["failures"]) if int(core_result["failures"]) > 0 else str(int(core_result["failures"]))
+	print_rich("  Core:       %s successes / %s failures" % [core_s_str, core_f_str])
+	print_rich("  Weapon Die: %s  (formula: %s)" % [weapon_die_label, dmg_formula])
+	if weapon_flat_bonus > 0:
+		print("  Flat Bonus: +%d" % weapon_flat_bonus)
+	print("  Dmg Type:   %s" % dmg_type)
+	var total_color: String = "yellow" if total_successes > 0 else "white"
+	print_rich("  Total Dmg:  [color=%s]%d[/color]  (core: %d + weapon dice: %d + flat: %d)\n" % [
+		total_color, total_successes, core_successes, weapon_die_successes, weapon_flat_bonus
+	])
+
+
+func _on_start_battle() -> void:
+	if mercs.size() < 2:
+		print("Need at least 2 mercs to start a battle.")
+		return
+	print("\n====== AUTOBATTLE ======\n")
+	var mid: int = mercs.size() >> 1
+	var team_a: Array[MercenaryData] = []
+	var team_b: Array[MercenaryData] = []
+	team_a.assign(mercs.slice(0, mid))
+	team_b.assign(mercs.slice(mid))
+	var field := BattlefieldArea.generate_random()
+	var state: BattleState = BattleState.create(team_a, team_b, field)
+	var a_names := ", ".join(team_a.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	var b_names := ", ".join(team_b.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	var order_parts: Array[String] = []
+	for i: int in range(state.turn_queue.size()):
+		var m: MercenaryData = state.turn_queue[i]
+		var color := "white" if team_a.has(m) else "yellow"
+		order_parts.append("[color=%s]%s[/color]" % [color, m.merc_name.get_slice(" ", 0)])
+	print_rich("[color=white]Team A:[/color] %s" % a_names)
+	print_rich("[color=yellow]Team B:[/color] %s" % b_names)
+	print_rich("Turn order: %s" % ", ".join(order_parts))
+	var result: Dictionary = AutoBattle.run_battle(state, func(s: String) -> void: print_rich(s))
+	var winner_idx: int = result["winner"]
+	if winner_idx >= 0:
+		var winning_team: Array = state.teams[winner_idx]
+		var winner_names: Array[String] = []
+		for m: MercenaryData in winning_team:
+			winner_names.append(m.merc_name.get_slice(" ", 0))
+		var w_color := "white" if winner_idx == 0 else "yellow"
+		print_rich("[color=gray]=== Battle over in %d rounds ===[/color]" % result["rounds"])
+		print_rich("[color=%s]Team %s wins!  (%s)[/color]" % [w_color, "A" if winner_idx == 0 else "B", ", ".join(winner_names)])
+	else:
+		print_rich("[color=gray]=== Draw / timeout after %d rounds ===[/color]" % result["rounds"])
+
+
+func _on_damage_check() -> void:
+	var raw_damage: int = randi_range(1, 4)
+	var all_types: Array = ConstDamageTypes.all_type_names()
+	var damage_type: String = all_types[randi() % all_types.size()]
+	var type_data: Dictionary = ConstDamageTypes.get_type(damage_type)
+	print("\n====== DAMAGE CHECK — %d %s (%s) ======\n" % [raw_damage, damage_type, type_data.get("category", "?")])
+	for merc: MercenaryData in mercs:
+		_run_damage_check(merc, raw_damage, damage_type)
+
+
+func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type: String) -> void:
+	var max_hp: int = int(merc.stats.get("maximum_hit_points", 1))
+	var max_ep: int = int(merc.stats.get("maximum_endurance_points", 1))
+	var hp_before: int = merc.current_hp
+	var ep_before: int = merc.current_ep
+
+	var res: Dictionary = DefenseSystem.resolve(merc, raw_damage, damage_type)
+
+	print("%s   (HP: %d/%d  EP: %d/%d)" % [merc.merc_name, hp_before, max_hp, ep_before, max_ep])
+
+	if res["is_immune"]:
+		print_rich("  [color=cyan]IMMUNE — no damage taken.[/color]\n")
+		return
+
+	match str(res["modifier"]):
+		"susceptible":
+			print_rich("  Modifier:   [color=yellow]SUSCEPTIBLE[/color]  %d × 2 = %d" % [raw_damage, res["modified_damage"]])
+		"protected":
+			print_rich("  Modifier:   [color=cyan]PROTECTED[/color]  %d / 2 = %d" % [raw_damage, res["modified_damage"]])
+		_:
+			print("  Modifier:   none")
+
+	var is_direct: bool = res["is_direct"]
+	var fire_first: bool = res["direct_portion"] > 0 and not is_direct
+
+	if is_direct:
+		print_rich("  [color=orange]DIRECT (%s) — defense bypassed.[/color]" % damage_type)
+	elif fire_first:
+		print("  Fire split: 1 direct + %d reducible" % res["reducible"])
+
+	if not is_direct and res["reducible"] > 0:
+		if ep_before <= 0:
+			print_rich("  [color=red]No EP — cannot defend. Full damage taken.[/color]")
+		else:
+			print("  EP spent:   1  (%d → %d)" % [ep_before, merc.current_ep])
+
+			# Defend line
+			var def_result: Dictionary = res["defend_result"]
+			if def_result.is_empty():
+				print_rich("  Defend:     [color=gray]blocked (%s)[/color]" % damage_type)
+			else:
+				var def_threshold: float = float(def_result["threshold"])
+				var raw_suc: int = int(def_result["successes"])
+				var final_suc: int = res["defend_reduction"]
+				var halved_note: String = "  (halved → %d)" % final_suc if raw_suc != final_suc else ""
+				print_rich("  Defend:     %s  threshold: %.1f%%  → %d successes%s" % [
+					_fmt_rolls(def_result["roll1"] as Array, def_threshold), def_threshold, raw_suc, halved_note
+				])
+
+			# Dodge line
+			var dodge_result: Dictionary = res["dodge_result"]
+			if dodge_result.is_empty():
+				print_rich("  Dodge:      [color=gray]blocked (%s)[/color]" % damage_type)
+			else:
+				var dodge_threshold: float = float(dodge_result["threshold"])
+				print_rich("  Dodge:      %s  threshold: %.1f%%  → %d successes" % [
+					_fmt_rolls(dodge_result["roll1"] as Array, dodge_threshold), dodge_threshold, res["dodge_reduction"]
+				])
+
+			# Best
+			var src: String = res["reduction_source"]
+			print("  Best:       %s (%d reduction)" % [src, res["best_reduction"]])
+			print("  Reducible:  %d − %d = %d" % [res["reducible"], res["best_reduction"], res["final_reducible"]])
+
+	var final_dmg: int = res["final_damage"]
+	var dmg_color: String = "red" if final_dmg > 0 else "white"
+	print_rich("  Final Dmg:  [color=%s]%d[/color]" % [dmg_color, final_dmg])
+	print("  HP:         %d → %d   EP: %d → %d\n" % [hp_before, merc.current_hp, ep_before, merc.current_ep])
+
+	if merc.current_hp <= 0:
+		print_rich("[color=red]*** %s has been reduced to 0 HP! ***[/color]\n" % merc.merc_name)
+
+
+func _parse_damage_formula(formula: String) -> Dictionary:
+	var result := {"num_dice": 0, "die_sides": 0, "flat_bonus": 0, "is_todo": false}
+	var f: String = formula.strip_edges()
+	if f == "0" or f == "Varies" or f == "":
+		result["is_todo"] = true
+		return result
+	var flat: int = 0
+	var plus_idx: int = f.find(" + ")
+	if plus_idx != -1:
+		flat = int(f.substr(plus_idx + 3).strip_edges())
+		f = f.left(plus_idx).strip_edges()
+	result["flat_bonus"] = flat
+	var d_idx: int = f.find("d")
+	if d_idx == -1:
+		result["is_todo"] = true
+		return result
+	var num_str: String = f.left(d_idx)
+	var sides_str: String = f.substr(d_idx + 1)
+	if not num_str.is_valid_int() or not sides_str.is_valid_int():
+		result["is_todo"] = true
+		return result
+	result["num_dice"] = int(num_str)
+	result["die_sides"] = int(sides_str)
+	return result
+
+
+func _fmt_weapon_dice(rolls: Array[int], die_threshold: int, die_sides: int) -> String:
+	var parts: Array[String] = []
+	for val: int in rolls:
+		var color: String = "green" if val <= die_threshold else "red"
+		parts.append("[color=%s]%d[/color]" % [color, val])
+	return "[%s]  (hit on ≤%d/%d)" % [", ".join(parts), die_threshold, die_sides]

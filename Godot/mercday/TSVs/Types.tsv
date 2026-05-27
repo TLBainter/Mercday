@@ -1,13 +1,37 @@
-CREATURES	ENVIRONMENTS	DAMAGES	DAMAGE CATEGORIES	DAMAGE EFFECT	MULTIPLIER NAME	AMT	VEHICLE	DRIVER	TERRAIN	POSITION	TEMPLE	TEMPLE TRAIT	STUDY TOPIC	STUDY EXPERTISE	PACT BEING	CONTRACT	TAGS	TARGET TYPES	SUBLOCATION TYPES
-Assembly	Cavern	Impale	Standard	BLOCK cannot reduce damage below 1.	Susceptible	2	Air	Pilot	All	Leader	Dead	Grave Insight	Literature	Literary Expert	Bleeding	Assassinate	Sight	Facility	Landmark
-Beast	Desert	Lacerate	Standard	DODGE cannot reduce damage below 1.	Protected	0.5	Land	Driver	Road	Driver	Dragon	Draconic Insight	Conflict	Polemologist	Brain	Escort	Melee	Leader	Region
-Daemon	Forest	Strike	Standard	BLOCK effectiveness is halved.	Immune	0	Water	Captain	Water	Support	the Drunkard	Drunken Insight	History	Historian	Buried	Investigate	Ranged	Group	Settlement
-Elemental	Marsh	Acid	Elemental	BLOCK cannot be used.						Everyman	Elements	Worldly Insight	Magic	Omnimancer	Celestial	Military	Social	Powerless	Country
-Ethereal	Mountain	Electric	Elemental	DIRECT vs metal.							Knowledge	Scholarly Insight	Tech	Technologist	Fey	Monster Hunt	Voice	Creature	Domain
-Fey	Plain	Fire	Elemental	First point of damage is DIRECT.							Life	Merciful One's Insight			Fiend	Rescue	Fire	Situation	
-Hominid	Sea	Frost	Elemental	Reduces Speed by 10, unless they ignore low temperature.							Shadows	Dark Knowledge			Lurker	Treasure Hunt	Water	Item	
-Immortal	Sky	Toxic	Elemental	Damage +1 against Poisoned targets.							Stars	Cosmic Insight			Rage	Entertain			
-Mire	Snowy	Holy	Esoteric	DODGE cannot be used.							War	Blade Master's Insight			Undead				
-Myth	Tropical	Rot	Esoteric	Reduces Maximum Hit Points by damage taken.											Unknowable				
-Plant	Urban	Sonic	Esoteric	Always direct. Deafened creatures are Protected.															
-Undead	Volcanic	Will	Esoteric	Always direct. Cannot reduce a creature's Hit Points below 1.															
+CREATURES	CREATURE TYPES PLURAL	ENVIRONMENTS	DAMAGES	DAMAGE CATEGORIES	DAMAGE EFFECT	MULTIPLIER NAME	AMT	VEHICLE	DRIVER	TERRAIN	POSITION	TEMPLE	TEMPLE TRAIT	STUDY TOPIC	STUDY EXPERTISE	PACT BEING	CONTRACT	TAGS	TARGET TYPES	SUBLOCATION TYPES	WEAPON CATEGORIES	WEAPON TYPES	WEAPON TYPES PLURAL	WEAPON CATEGORY		ITEM RARITIES			AMMO TYPES	ARMOR TYPES	ARMOR QUALITIES
+Assembly	Assemblies	Cavern	Impale	Standard	BLOCK cannot reduce damage below 1.	Susceptible	2	Air	Pilot	All	Leader	Dead	Grave Insight	Literature	Literary Expert	Bleeding	Assassinate	Sight	Facility	Landmark	Basic	Artillery	Artilleries	Firearm		Ordinary			Arrows	Light	Peasant
+Beast	Beasts	Desert	Lacerate	Standard	DODGE cannot reduce damage below 1.	Protected	0.5	Land	Driver	Road	Driver	Dragon	Draconic Insight	Conflict	Polemologist	Brain	Escort	Melee	Leader	Region	Specialized	Auto-Pistol	Auto-Pistols	Firearm		Common			Bolts	Medium	Elegant
+Daemon	Daemons	Forest	Strike	Standard	BLOCK effectiveness is halved.	Immune	0	Water	Captain	Water	Support	the Drunkard	Drunken Insight	History	Historian	Buried	Investigate	Ranged	Group	Settlement	Great	Auto-Rifle	Auto-Rifles	Firearm		Uncommon			Bullets	Heavy	Grotesque
+Elemental	Elementals	Marsh	Acid	Elemental	BLOCK cannot be used.						Everyman	Elements	Worldly Insight	Magic	Omnimancer	Celestial	Military	Social	Powerless	Country	Firearm	Battleaxe	Battleaxes	Specialized		Rare			Darts	Bulky	
+Ethereal	Ethereals	Mountain	Electric	Elemental	DIRECT vs metal.							Knowledge	Scholarly Insight	Tech	Technologist	Fey	Monster Hunt	Voice	Creature	Domain		Blowgun	Blowguns	Basic		Very Rare			Great Arrows	Shield	
+Fey	Fey	Plain	Fire	Elemental	First point of damage is DIRECT.							Life	Merciful One's Insight			Fiend	Rescue	Fire	Situation			Club	Clubs	Basic		Epic			Great Bolts		
+Hominid	Hominids	Sea	Frost	Elemental	Reduces Speed by 10, unless they ignore low temperature.							Shadows	Dark Knowledge			Lurker	Treasure Hunt	Water	Item			Colossal Sword	Colossal Swords	Great		Legendary			Shells		
+Immortal	Immortals	Sky	Toxic	Elemental	Damage +1 against Poisoned targets.							Stars	Cosmic Insight			Rage	Entertain					Dagger	Daggers	Basic		Artifact					
+Mire	Mires	Snowy	Holy	Esoteric	DODGE cannot be used.							War	Blade Master's Insight			Undead						Flail	Flails	Basic		Heirloom					
+Myth	Myths	Tropical	Rot	Esoteric	Reduces Maximum Hit Points by damage taken.											Unknowable						Glaive	Glaives	Specialized		Unique					
+Plant	Plants	Urban	Sonic	Esoteric	Always direct. Deafened creatures are Protected.																	Great Axe	Great Axes	Great							
+Undead	Undead	Volcanic	Will	Esoteric	Always direct. Cannot reduce a creature's Hit Points below 1.																	Greatbow	Greatbows	Great							
+																						Great Club	Great Clubs	Great							
+																						Great Sword	Great Swords	Great							
+																						Halberd	Halberds	Specialized							
+																						Hand Axe	Hand Axes	Basic							
+																						Hand Ballista	Hand Ballistae	Great							
+																						Handgun	Handguns	Firearm							
+																						Heavy Crossbow	Heavy Crossbows	Great							
+																						Katana	Katanas	Specialized							
+																						Light Crossbow	Light Crossbows	Basic							
+																						Longbow	Longbows	Specialized							
+																						Longsowrd	Longswords	Specialized							
+																						Mallet	Mallets	Basic							
+																						Maul	Mauls	Great							
+																						Pike	Pikes	Specialized							
+																						Rapier	Rapiers	Specialized							
+																						Recurve Bow	Recurve Bows	Specialized							
+																						Rifle	Rifles	Firearm							
+																						Saber	Sabers	Specialized							
+																						Scythe	Scythes	Specialized							
+																						Short Sword	Short Swords	Basic							
+																						Shotgun	Shotguns	Firearm							
+																						Spear	Spears	Specialized							
+																						Staff	Staves	Basic							
+																						Whip	Whips	Specialized							

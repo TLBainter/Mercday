@@ -48,11 +48,15 @@ static func generate(_merc_index: int = 0) -> MercenaryData:
 	_apply_random_stat_boosts(merc)
 	_step5_tradition(merc)
 	merc.merc_name = NameGenerator.generate(merc.starting_location)
+	merc.current_hp = int(merc.stats.get("maximum_hit_points", 1))
+	merc.current_ep = int(merc.stats.get("maximum_endurance_points", 1))
+	merc.current_mp = int(merc.stats.get("maximum_magic_points", 1))
+	merc.current_ap = int(merc.stats.get("action_points", 5))
+	_step8_equip_weapon(merc)
+	_step9_equip_armor(merc)
 	_update_rolling_penalties(merc)
 	return merc
 
-
-# ── Step 1: Place of Origin ───────────────────────────────────────────────────
 
 static func _step1_origin(merc: MercenaryData) -> void:
 	var settlements: Array = DataManager.get_settlement_locations()
@@ -81,8 +85,6 @@ static func _seed_odds_from_location(merc: MercenaryData) -> void:
 	for key: String in loc.circumstance_buffs:
 		merc.odds_bonuses[key] = loc.circumstance_buffs[key]
 
-
-# ── Step 2: Ancestry + Bloodline ─────────────────────────────────────────────
 
 static func _step2_ancestry(merc: MercenaryData) -> void:
 	var loc: LocationData = merc.starting_location
@@ -186,8 +188,6 @@ static func _ancestries_to_items(ancestry_list: Array) -> Array[Dictionary]:
 		items.append({"name": a.ancestry_name, "rarity": a.rarity})
 	return items
 
-
-# ── Step 3: Heritage ──────────────────────────────────────────────────────────
 
 static func _step3_heritage(merc: MercenaryData) -> void:
 	var loc: LocationData = merc.starting_location
@@ -310,8 +310,6 @@ static func _build_kt_pool(heritage: HeritageData) -> Array[Dictionary]:
 	return items
 
 
-# ── Step 4: Starting Lifepath ─────────────────────────────────────────────────
-
 static func _step4_lifepath(merc: MercenaryData) -> void:
 	var items: Array[Dictionary] = []
 	for lp: LifepathData in DataManager.starting_lifepaths.values():
@@ -324,7 +322,7 @@ static func _step4_lifepath(merc: MercenaryData) -> void:
 		merc.lifepaths.append(lp)
 
 
-# ── Step 5: Tradition ─────────────────────────────────────────────────────────
+
 
 static func _step5_tradition(merc: MercenaryData) -> void:
 	var items: Array[Dictionary] = []
@@ -363,8 +361,6 @@ static func _step5_tradition(merc: MercenaryData) -> void:
 			if ConstCircumstances.DATA.has(extra_name):
 				merc.circumstance_flags[extra_name] = true
 
-
-# ── Step 6: Perks & Drawbacks ─────────────────────────────────────────────────
 
 static func _step6_traits(merc: MercenaryData) -> void:
 	var perk_names: Array[String] = []
@@ -744,6 +740,9 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 				for i: int in range(mini(count, candidates.size())):
 					merc.items.append(candidates[i])
 				# TODO: convert to typed ItemData once Godot imports ItemData.gd
+		elif t.begins_with("immune:") or t.begins_with("protected:") or t.begins_with("susceptible:"):
+			if not merc.passive_effects.has(t):
+				merc.passive_effects.append(t)
 		elif t.begins_with("cost:"):
 			# cost:<category>:<percent>  (negative = discount)
 			var parts: PackedStringArray = t.split(":")
@@ -797,8 +796,7 @@ static func _apply_flat_stat_traits(merc: MercenaryData) -> void:
 	var all_traits: Array[TraitData] = []
 	all_traits.append_array(merc.perks)
 	all_traits.append_array(merc.drawbacks)
-	# Percentage tokens apply first (to the StatCalculator base), flat tokens apply after.
-	# cost: tokens are flat-style (% is the game unit, not a multiplier) and run in the flat pass.
+	# cost: % is a flat game-unit value (not a multiplier) and runs in the flat pass
 	for pass_pct: bool in [true, false]:
 		for trait_data: TraitData in all_traits:
 			if trait_data.effect_dsl == "" or trait_data.effect_dsl.begins_with("SPECIAL:"):
@@ -859,8 +857,6 @@ static func _reapply_ability_grants(merc: MercenaryData) -> void:
 					"climbing_pace": merc.stats["climb"] = 0.0
 
 
-# ── Max Stats Setup ───────────────────────────────────────────────────────────
-
 static func _prepare_max_stats(merc: MercenaryData) -> void:
 	if merc.heritage:
 		merc.max_stats["max_cognition"] = (merc.max_stats.get("max_cognition", 0) as int) + merc.heritage.max_cognition
@@ -878,8 +874,6 @@ static func _prepare_max_stats(merc: MercenaryData) -> void:
 		var v: int = bl.size if bl and bl.size > 0 else (base.size if base else 0)
 		merc.max_stats["size"] = v
 
-
-# ── Tradition Weighting ───────────────────────────────────────────────────────
 
 static func _build_tradition_boosts(merc: MercenaryData) -> Dictionary:
 	const STAT_KEYS: Dictionary = {
@@ -920,8 +914,6 @@ static func _tradition_stat_threshold_weight(merc: MercenaryData, stat_name: Str
 		return penalty
 	return 0.0
 
-
-# ── Step 7: Stats ─────────────────────────────────────────────────────────────
 
 static func _step7_stats(merc: MercenaryData) -> void:
 	if merc.is_hybrid:
@@ -1074,8 +1066,6 @@ static func _roll_luck() -> float:
 	return 50.0
 
 
-# ── Rolling Penalties ─────────────────────────────────────────────────────────
-
 static func _get_penalty_boosts(category: String) -> Dictionary:
 	var boosts: Dictionary = {}
 	for name: String in _rolling_penalties.get(category, {}):
@@ -1180,3 +1170,41 @@ static func _update_rolling_penalties(merc: MercenaryData) -> void:
 			if not _rolling_stat_penalties[category].has(stat):
 				_rolling_stat_penalties[category][stat] = 5.0
 				_rolling_stat_penalty_age[category][stat] = 0
+
+
+static func _step8_equip_weapon(merc: MercenaryData) -> void:
+	var melee_pool: Array = DataManager.weapons_ordinary_melee
+	var ranged_pool: Array[WeaponData] = DataManager.weapons_ordinary_ranged
+	var use_ranged := not ranged_pool.is_empty() and randf() < 0.30
+	if use_ranged:
+		merc.equipped_weapon = ranged_pool[randi() % ranged_pool.size()]
+		_equip_starting_ammo(merc)
+	elif not melee_pool.is_empty():
+		merc.equipped_weapon = melee_pool[randi() % melee_pool.size()] as WeaponData
+
+
+static func _step9_equip_armor(merc: MercenaryData) -> void:
+	var merc_vigor: int = int(merc.stats.get("vigor", 0))
+	var pool: Array = []
+	for a in DataManager.armor_ordinary_common:
+		if a.vigor_requirement == 0 or merc_vigor >= a.vigor_requirement:
+			pool.append(a)
+	if pool.is_empty():
+		return
+	merc.equipped_armor = pool[randi() % pool.size()] as ArmorData
+
+
+static func _equip_starting_ammo(merc: MercenaryData) -> void:
+	var weapon := merc.equipped_weapon
+	if weapon == null:
+		return
+	var compatible_ammo: Array = []
+	for a in DataManager.ammo_ordinary_common:
+		if a.compatible.has(weapon.weapon_type):
+			compatible_ammo.append(a)
+	if compatible_ammo.is_empty():
+		return
+	var chosen = compatible_ammo[randi() % compatible_ammo.size()]
+	merc.ammo_inventory[chosen.item_name] = chosen.amount
+	merc.ammo_loaded_type = chosen.item_name
+	merc.ammo_loaded = mini(weapon.chamber, chosen.amount)

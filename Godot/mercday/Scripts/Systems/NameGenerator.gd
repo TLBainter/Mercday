@@ -35,7 +35,6 @@ static func get_regions() -> Array[String]:
 	return result
 
 
-#location determination
 static func _find_region(location: LocationData) -> String:
 	var cur: LocationData = location
 	while cur:
@@ -45,9 +44,6 @@ static func _find_region(location: LocationData) -> String:
 	return ""
 
 
-#full name assemblage
-#this is a mess and I'm sorry
-#I write code now good luck everyone else
 static func _make_full_name(region: String) -> String:
 	for _i: int in range(20):
 		if region == "Aldurstein" and randf() < 0.5:
@@ -175,11 +171,9 @@ static func _generate_part(region: String, is_surname: bool) -> String:
 	if prefixes.is_empty():
 		return ""
 
-	#base chances
 	var mid_chance: float = 0.50 if is_surname else 0.25
 	var suf_chance: float = 0.60 if is_surname else 0.75
 
-	#regional overrides
 	match region:
 		"Buern":
 			if not is_surname:
@@ -194,7 +188,6 @@ static func _generate_part(region: String, is_surname: bool) -> String:
 				mid_chance = 0.05
 				suf_chance = 0.25
 
-	#Zukei stuff
 	if region == "Zukei" and not is_surname and not mids.is_empty() and randf() < 0.15:
 		var mid_start: String = _strip_markers(_pick(mids))
 		mid_start = mid_start.substr(0, 1).to_upper() + mid_start.substr(1)
@@ -210,14 +203,12 @@ static func _generate_part(region: String, is_surname: bool) -> String:
 		mid = _strip_markers(_pick(mids))
 		has_mid = true
 
-	#Miliim chance for middlefix to replace suffix
 	if region == "Miliim":
 		var part: String = _join(prefix, mid, region, is_surname) if has_mid else prefix
 		if not has_mid and not sufs.is_empty() and randf() < suf_chance:
 			part = _join(part, _strip_markers(_pick(sufs)), region, is_surname)
 		return part
 
-	#Suffix
 	var suf: String = ""
 	if not sufs.is_empty():
 		var actual_suf: float = suf_chance
@@ -234,18 +225,15 @@ static func _generate_part(region: String, is_surname: bool) -> String:
 				suf = _strip_markers(_pick_target_ending_weighted(sufs, ["a", "y", "i"], 1.25))
 			else:
 				suf = _strip_markers(_pick(sufs))
-		#kathaya middlefix
 		if region == "Kathaya" and is_surname and has_mid:
 			suf = "i" if randf() < 0.5 else suf
 
-	#assembly
 	var assembled: String = prefix
 	if not mid.is_empty():
 		assembled = _join(assembled, mid, region, is_surname)
 	if not suf.is_empty():
 		assembled = _join(assembled, suf, region, is_surname)
 
-#Kathaya first name
 	if region == "Kathaya" and not is_surname and not has_mid and suf.is_empty():
 		var lc: String = assembled[assembled.length() - 1].to_lower()
 		if not _is_v(lc, false):
@@ -257,7 +245,6 @@ static func _generate_part(region: String, is_surname: bool) -> String:
 			if not sm_arr.is_empty():
 				assembled += _strip_markers(_pick(sm_arr))
 
-#aldurstein name generation; feminization
 	if region == "Aldurstein" and not is_surname and assembled.length() >= 4:
 		var lchar: String = assembled[assembled.length() - 1].to_lower()
 		if not _is_v(lchar, false) and lchar != "'":
@@ -274,7 +261,6 @@ static func _generate_part(region: String, is_surname: bool) -> String:
 	return assembled
 
 
-#joining
 static func _join(a: String, b: String, region: String, is_surname: bool) -> String:
 	if b.is_empty(): return a
 	if a.is_empty(): return b
@@ -311,7 +297,6 @@ static func _join(a: String, b: String, region: String, is_surname: bool) -> Str
 	return a + b
 
 
-#post process
 static func _post_process(name: String, region: String) -> String:
 	var r: String = name
 	match region:
@@ -359,7 +344,6 @@ static func _pp_miliim(name: String) -> String:
 		i2 += 1
 	result = buf
 
-	#Prioritize D/Z
 	if not result.to_lower().contains("d") and not result.to_lower().contains("z") and randf() < 0.5:
 		var cpos: Array[int] = []
 		for ci: int in range(result.length()):
@@ -454,7 +438,6 @@ static func _fix_triple_same_consonant(name: String) -> String:
 	return result
 
 
-#Weighted selection
 static func _pick(pool: Array) -> String:
 	return pool[randi() % pool.size()] as String if not pool.is_empty() else ""
 
@@ -553,7 +536,6 @@ static func _pick_prefab(region: String, is_surname: bool) -> String:
 	return _pick(arr) if not arr.is_empty() else ""
 
 
-#helpers, internal
 static func _is_v(c: String, use_y: bool) -> bool:
 	return (VOWELS_Y if use_y else VOWELS).contains(c)
 
@@ -596,14 +578,12 @@ static func _reverse_string(s: String) -> String:
 
 
 static func _fix_trailing_apos(name: String) -> String:
-#remove apostrophe
 	if name.length() >= 2 and name[name.length() - 2] == "'":
 		return name.substr(0, name.length() - 2) + name[name.length() - 1]
 	return name
 
 
 static func _collapse_doubles(s: String) -> String:
-	#collapse pairs in some cases
 	var result: String = ""
 	var i: int = 0
 	while i < s.length():
@@ -616,7 +596,6 @@ static func _collapse_doubles(s: String) -> String:
 
 
 static func _collapse_repeating(s: String) -> String:
-	#collapse repeated patterns
 	var result: String = s
 	var changed: bool = true
 	while changed:
@@ -636,7 +615,6 @@ static func _collapse_repeating(s: String) -> String:
 	return result
 
 
-#load relevant files
 static func _ensure_loaded() -> void:
 	if _loaded:
 		return
@@ -696,7 +674,7 @@ static func _load_names() -> void:
 	if not file:
 		push_error("NameGenerator: cannot open res://TSVs/Names.tsv")
 		return
-	file.get_csv_line("\t")  # skip header
+	file.get_csv_line("\t")
 	while not file.eof_reached():
 		var row: PackedStringArray = file.get_csv_line("\t")
 		if row.size() < 7:

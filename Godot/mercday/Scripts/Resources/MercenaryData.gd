@@ -28,4 +28,17 @@ var passive_effects: Array[String]
 var min_stats: Dictionary
 var cost_modifiers: Dictionary
 var items: Array  # Array[ItemData] once Godot imports ItemData.gd
+var equipped_weapon: WeaponData
+var equipped_armor: ArmorData
 var acquired_critical_successes: Array[String] = []
+var current_hp: int = 0
+var current_ep: int = 0
+var current_mp: int = 0
+var current_ap: int = 0
+var excess_ap: int = 0
+var active_states: Dictionary = {}   # state_name → int or {count, source}
+var death_test_hp_loss: int = 0      # accumulated max HP loss from failed death tests this combat
+var ammo_inventory: Dictionary = {}  # ammo_name → int (rounds remaining)
+var ammo_loaded: int = 0
+var ammo_loaded_type: String = ""
+var weapon_misfired: bool = false    # cleared at start of each turn

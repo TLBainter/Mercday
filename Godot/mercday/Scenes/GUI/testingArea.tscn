@@ -79,3 +79,21 @@ self_modulate = Color(1, 0.3, 0.3, 1)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "BATCH ANALYSIS"
+
+[node name="AttackCheck" type="Button" parent="ButtonBar" unique_id=999888777]
+self_modulate = Color(1, 0.4, 0.1, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "ATTACK CHECK"
+
+[node name="DamageCheck" type="Button" parent="ButtonBar" unique_id=111222333]
+self_modulate = Color(1, 0.2, 0.2, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "DAMAGE CHECK"
+
+[node name="StartBattle" type="Button" parent="ButtonBar" unique_id=777666555]
+self_modulate = Color(0.2, 1, 0.4, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "START BATTLE"

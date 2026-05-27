@@ -1,26 +1,28 @@
-State	Effect 1	Effect 2	Effect 3	Removal 1	Removal 2	Afflict Text	Remove Text
-Blinded	>Sight< -15% Success Chance	-15% on Ranged Attack Actions				[Target] is blinded! They can't see!	[Target] can see, again!
-Burning	1 direct Fire every 10 Speed Spent			>Water< Effect	End Burning Action	[Target] is on fire!	[Target] is no longer on fire.
-Charmed	>Social< -25% Success Chance against [Enemy]	Cannot target [Enemy]		1+ Damage		[Target] was Charmed by [Enemy]!	[Target] is no longer Charmed.
-Deafened	Blindsight=0	Protected from Sonic				[Target] can't hear anymore!	[Target] can hear, again!
-Debilitated	No 1+ Speed Actions	No 1+ EP Actions				[Target] can hardly move...	[Target] recovered from their debilitation!
-Deposed	Cannot Move Far			Get Up Action		[Target] is prone on the ground...	[Target] got up!
-Drenched	Dexterity -15% Success Chance	Protected from Fire		>Fire< Effect	1 Hour	[Target] is soaked!	[Target] dried up.
-Dying	Cheat Death Action					[Target] is dying!	[Target] made a miraculous recovery!
-Fatigued	-{[Fatigued Count]*5}% All Success Chance			Respite	Furlough	[Target] is exhausted...	[Target] is well-rested!
-Flanked	Avoid -15%	Defend -15%		Move Far Action	Kill 1 Enemy	[Target] is surrounded!	[Target] is no longer surrounded!
-Grappled	No Movement Actions			Break Free Action		[Target] has been grappled!	[Target] broke free of the grapple!
-Grounded	Cannot Fly					[Target] is forced to stay on the ground!	[Target] is no longer forced to the ground!
-Inhibited	Dexterity -7% Success Chance	Vigor -7% Success Chance	Avoid -15%	Break Free Action		[Target] is physically bound!	[Target] broke free!
-Invisible	Dexterity +15% Success Chance	[Enemy] >Sight< -15% Success Chance				[Target] can no longer be seen!	[Target] is visible, again!
-Madness	-{[Madness Count]*2.5}% All Success Chance	Wile -{[Madness Count]*2.5}% Success Chance				[Target] has a tinge of madness!	[Target] recovered some sanity.
-Mute	Cannot use >Voice<					[Target] cannot speak!	[Target] can speak, again!
-Poisoned	-5% All Success Chance	-1 All Healing				[Target] has been poisoned!	[Target] recovered from the poison!
-Shocked	No Actions except Defend and Dodge.	Resist Checks -100% Success Chance				[Target] is in shock!	[Target] snapped out of it!
-Slowed	Speed Costs *2	EP Costs *2				[Target] is moving sluggishly.	[Target]'s speed is back to normal!
-Suffocating	1 direct Damage every 10 Speed Spent.			Break Free Action		[Target] can't breathe!	[Target] can breathe, again.
-Surprised	Cannot Spend Speed	Cannot Spend EP		All Enemies Spend Speed		[Target] is surprised!	[Target] is ready to act.
-Terrified	Cannot Move Close to [Enemy]	Must Move Far from [Enemy] (if not already Far])				[Target] is terrified of [Enemy]!	[Target] is ready to face their fear!
-Threatened	-30% on Ranged Attack Actions			Move Far Action		[Target] is dangerously close to [Enemy]!	[Target] got to a safe distance!
-Unconscious	Debilitated, Deposed, Vulnerable	Deafened, Mute				[Target] is no longer conscious!	[Target] woke up!
-Vulnerable	All damage is direct	All damage take +1				[Target] is vulnerable!	[Target] is ready to defend themselves.
+State	Effect 1	Effect 2	Effect 3	Removal 1	Removal 2	Afflict Text	Remove Text	Special Application
+Blinded	>Sight< +1 Flaw	Ranged Attack Checks +1 Flaw				[Target] is blinded! They can't see!	[Target] can see, again!	
+Burning	1 direct Fire at start of turn.			>Water< Effect	End Burning Action	[Target] is on fire!	[Target] is no longer on fire.	
+Charmed	>Social< -25% Success Chance against [Enemy]	Cannot target [Enemy]		1+ Damage		[Target] was Charmed by [Enemy]!	[Target] is no longer Charmed.	
+Deafened	Blindsight=0	Protected from Sonic				[Target] can't hear anymore!	[Target] can hear, again!	
+Debilitated	Speed is 0	Cannot spend AP	Cannot spend EP, except to Defend.			[Target] can hardly move...	[Target] recovered from their debilitation!	
+Deposed	Cannot move more than 1 Pace.	Ranged Attack Checks against this merc have +1 Flaw	Melee Attack Checks against this merc have +1 Enhancement.	Get Up Action		[Target] is prone on the ground...	[Target] got up!	
+Drenched	Dexterity -15% Success Chance	Protected from Fire		>Fire< Effect	1 Hour	[Target] is soaked!	[Target] dried up.	
+Dying	Unconscious	Death Checks				[Target] is dying!	[Target] made a miraculous recovery!	
+Fatigued	-{[Fatigued Count]*5}% All Success Chance			Respite	Furlough	[Target] is exhausted...	[Target] is well-rested!	
+Flanked	Avoid -15%	Defend -15%		No longer surrounded by 2 or more enemies.		[Target] is surrounded!	[Target] is no longer surrounded!	Flanked is applied when 2 or more enemies are on either side of a creature. The mercs must be no less than 1 Size smaller than the merc to flank them (a Size 1 merc cannot flank a Size 3 merc, for example).
+Grappled	Cannot take Move Actions.			Break Free Action		[Target] has been grappled!	[Target] broke free of the grapple!	
+Grounded	Cannot Fly					[Target] is forced to stay on the ground!	[Target] is no longer forced to the ground!	
+Inhibited	All checks +1 Flaw	Attack and Spellcast Checks against this merc are +1 Enhanced.	Avoid -15%	Break Free Action		[Target] is physically bound!	[Target] broke free!	
+Invisible	Dexterity +15% Success Chance	[Enemy] >Sight< -15% Success Chance				[Target] can no longer be seen!	[Target] is visible, again!	
+Madness	-{[Madness Count]*2.5}% All Success Chance	Wile -{[Madness Count]*2.5}% Success Chance				[Target] has a tinge of madness!	[Target] recovered some sanity.	
+Mute	Cannot use >Voice<					[Target] cannot speak!	[Target] can speak, again!	
+Poisoned	-5% All Success Chance	-1 All Healing				[Target] has been poisoned!	[Target] recovered from the poison!	
+Shocked	Can only take Defend Action.	Auto-fail Dexterity and Vigor Checks.				[Target] is in shock!	[Target] snapped out of it!	
+Slowed	AP costs * 2	EP costs * 2				[Target] is moving sluggishly.	[Target]'s speed is back to normal!	
+Suffocating	1 direct damage at start of turn.			Break Free Action		[Target] can't breathe!	[Target] can breathe, again.	
+Surprised	Turn is skipped			First round passes		[Target] is surprised!	[Target] is ready to act.	
+Terrified	Cannot move toward [Enemy].	Must move at least 1 Pace away from [Enemy] on turn.				[Target] is terrified of [Enemy]!	[Target] is ready to face their fear!	
+Threatened	-30% ranged_accuracy			Move Far Action		[Target] is close to [Enemy]!	[Target] got to a safe distance!	The merc is within 2 Paces of an enemy.
+Unconscious	Debilitated, Deposed, Vulnerable	Deafened, Mute	No Actions			[Target] is no longer conscious!	[Target] woke up!	
+Vulnerable	All damage is direct	All damage taken +1	Unconscious, Debilitated			[Target] is vulnerable!	[Target] is ready to defend themselves.	
+Covered (Full)	Cannot be targeted by mercs from certain angles.					[Target] has found full cover!	[Target] is no longer in full cover!	The merc has positioned themselves in a manner that makes them difficult to target from a certain angle.
+Covered (Partial)	Dodge and Defend do not cost EP/AP against attacks from certain angles.					[Target] has found partial cover!	[Target] is no longer in partial cover!	This merc has positioned themselves in a manner that makes them somewhat difficult to target from some angles.

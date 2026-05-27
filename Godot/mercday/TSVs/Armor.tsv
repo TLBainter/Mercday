@@ -1,0 +1,38 @@
+Armor Name	Armor Type	Weight	Cost	Rarity	Armor Bonus	EP	Fatigue	Protection	Damage Formula	Damage Type	Vigor Requirement	Class	Effect	Resonance	Resonance Requirement	Symbiosis	Symbiosis Requirement	Fuel Type	Fuel Amount
+Dragon Mail	Bulky	4	2500	Uncommon	12	2	6	Impale, Lacerate			3	Mundane	SPECIAL: You are Protected from 1 Elemental or Esoteric Damage Type, depending on the dragon from which this armor was made.						
+Full Plate	Bulky	4	800	Ordinary	11	2	6	Impale, Lacerate			3	Mundane	SPECIAL: Military						
+Jousting Armor	Bulky	5	750	Ordinary	13	2	8	Impale, Lacerate			4	Mundane	SPECIAL: Elegant						
+Juggernaut Armor	Bulky	6	2200	Uncommon	15	1	10	Impale, Lacerate			4	Mundane	SPECIAL: Grotesque|SPECIAL: (Fuel): +2 Pace, +1 Size, you can see in the dark while you have fuel.|SPECIAL: (Fuel): Reduce damage taken by 1 by expending 1 Fuel.|SPECIAL: The Defend Reactive Action requires Fuel.|SPECIAL: All EP costs increase by 3 instead of 1 if you have no Fuel.|SPECIAL: A successful Called Shot (4) to your tank will reduce your fuel by 1d4.					Coal	6
+Plated Mail	Bulky	4	750	Ordinary	12	2	5	Impale, Lacerate			3	Mundane	SPECIAL: Military						
+Shell Armor	Bulky	3	525	Ordinary	10	2	4	Impale, Lacerate			4	Mundane	SPECIAL: Grotesque						
+Smit Power Suit	Bulky	5	3800	Ordinary	14	1	10	Impale, Lacerate			3	Mundane	SPECIAL: Military|SPECIAL: (Fuel): +2 Pace, +1 Size while you have fuel.|SPECIAL: (Fuel): Add 2 Successes to any Vigor Check by expending 1 Fuel.|SPECIAL: The Defend Reactive Action requires Fuel.|SPECIAL: All EP costs increase by 2 instead of 1 if you have no Fuel.|SPECIAL: A successful Called Shot (5) to your core will reduce your fuel by 1d4.					Diesel	8
+Banded Mail	Heavy	4	300	Ordinary	9		2	Impale, Lacerate				Mundane	SPECIAL: Military						
+Brass Cuirass	Heavy	4	150	Ordinary	6		2	Impale, Lacerate			3	Mundane	SPECIAL: Military|SPECIAL: Checks you make using the Performance (Wile) or Presence (Vigor) Circumstances are +1 Enhanced.						
+Chain Shirt	Heavy	2	150	Ordinary	6		1	Impale, Lacerate				Mundane	SPECIAL: Elegant						
+Croc Scale	Heavy	3	630	Common	11		2	Lacerate				Mundane	SPECIAL: Grotesque|SPECIAL: You suffer no negative effects from the Drenched State.						
+Half-Plate	Heavy	3	275	Ordinary	9	1	2	Impale, Lacerate			2	Mundane	SPECIAL: Military						
+Hauberk	Heavy	2	175	Ordinary	7		2	Impale, Lacerate				Mundane	SPECIAL: Military						
+Lamellar	Heavy	3	350	Ordinary	8		2	Impale, Lacerate				Mundane	SPECIAL: Military						
+Scale Mail	Heavy	2	575	Ordinary	8		2	Impale, Lacerate				Mundane	SPECIAL: Grotesque						
+Academic Dress	Light	0	15	Ordinary	0		0					Mundane	SPECIAL: Peasant						
+Cold Weather Gear	Light	1	35	Ordinary	1		0	Frost				Mundane	SPECIAL: Peasant|SPECIAL: You suffer no ill effects from being subjected to temperatures as low as -25°C.						
+Croc Skin	Light	1	235	Common	3		0					Mundane	SPECIAL: Grotesque|SPECIAL: You suffer no negative effects from the Drenched State.						
+Galawear	Light	1	150	Ordinary	2		0					Mundane	SPECIAL: Elegant						
+Gambeson	Light	1	25	Ordinary	1		0					Mundane	SPECIAL: Military						
+Nest-Dweller Armor	Light	0	790	Common	5		0					Mundane	SPECIAL: Peasant|SPECIAL: When you begin your turn while Burning, this armor’s Armor Bonus is reduced by 1. 75n and 3 Days of work must be spent to reverse this. If this armor’s Armor Bonus is ever 0, it is permanently destroyed.						
+Padded Cassock	Light	0	75	Ordinary	1		2					Mundane	SPECIAL: Peasant						
+Croc Leather	Medium	2	375	Common	6		1					Mundane	SPECIAL: Grotesque|SPECIAL: You suffer no negative effects from the Drenched State.						
+Full Leathers	Medium	2	100	Ordinary	5		1					Mundane	SPECIAL: Military						
+Full Suede	Medium	1	100	Ordinary	4		1					Mundane	SPECIAL: Elegant						
+Leather Brigandine	Medium	1	80	Ordinary	3		1					Mundane	SPECIAL: Military						
+Leather Coat	Medium	1	90	Ordinary	4		1					Mundane	SPECIAL: Peasant						
+Leather Cuirass	Medium	1	60	Ordinary	2		1					Mundane	SPECIAL: Military						
+Mammal Hide	Medium	1	50	Ordinary	2		1					Mundane	SPECIAL: Grotesque						
+Savage Armor	Medium	1	120	Ordinary	5		1				2	Mundane	SPECIAL: Grotesque						
+Slat Armor	Medium	1	40	Ordinary	3		1					Mundane	SPECIAL: Military|SPECIAL: You cannot use the Grace (Dexterity) Circumstance.						
+Surcoat	Medium	1	275	Common	4		1					Mundane	SPECIAL: Elegant						
+Billtower	Shield	3	3100	Uncommon	6						4	Mundane	SPECIAL: Grotesque|SPECIAL: If you suffer a Pain Response from Sonic or Strike, this shield’s Armor Bonus is reduced by 1. 75n and 3 Days of work must be spent to reverse this. If this shield’s Armor Bonus is ever 0, it is permanently destroyed.						
+Buckler	Shield	0	5	Ordinary	1						1	Mundane	SPECIAL: Military						
+Escutcheon	Shield	0	55	Common	2						2	Mundane	SPECIAL: Elegant						
+Kite	Shield	1	7	Ordinary	2						2	Mundane	SPECIAL: Military						
+Tower Shield	Shield	2	35	Ordinary	3						3	Mundane	SPECIAL: Military						
