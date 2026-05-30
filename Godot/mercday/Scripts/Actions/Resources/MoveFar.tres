@@ -6,7 +6,15 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/EnemyDistanceFacet.gd" id="EnemyDistanceFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/NotAtOptimalRangeFacet.gd" id="NotAtOptimalRangeFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/EnemyApproachingFacet.gd" id="EnemyApproachingFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/CombatReadinessFacet.gd" id="CombatReadinessFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/OpenExitsFacet.gd" id="OpenExitsFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
+
+[sub_resource type="Resource" id="facet_approaching"]
+script = ExtResource("EnemyApproachingFacet")
+is_required = true
 
 [sub_resource type="Resource" id="facet_move"]
 script = ExtResource("MovementNotBlocked")
@@ -27,19 +35,29 @@ require_drawn = false
 [sub_resource type="Resource" id="facet_hp"]
 script = ExtResource("HpRatioFacet")
 weight = 1.0
-threshold = 0.25
 below_is_high = true
 
-[sub_resource type="Resource" id="facet_dist"]
-script = ExtResource("EnemyDistanceFacet")
-weight = 1.0
-max_dist = 6.0
-close_is_high = true
+[sub_resource type="Resource" id="facet_range"]
+script = ExtResource("NotAtOptimalRangeFacet")
+weight = 2.0
+
+[sub_resource type="Resource" id="facet_readiness"]
+script = ExtResource("CombatReadinessFacet")
+weight = 1.5
+invert = false
+
+[sub_resource type="Resource" id="facet_exits"]
+script = ExtResource("OpenExitsFacet")
+weight = 0.5
+
+[sub_resource type="Resource" id="facet_not_aimed"]
+script = ExtResource("NotAimedFacet")
+weight = 0.75
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_ranged"), SubResource("facet_hp"), SubResource("facet_dist")]
-threshold = 0.3
+facets = [SubResource("facet_approaching"), SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_ranged"), SubResource("facet_hp"), SubResource("facet_range"), SubResource("facet_readiness"), SubResource("facet_exits"), SubResource("facet_not_aimed")]
+threshold = 0.4
 
 [resource]
 script = ExtResource("ActionData")

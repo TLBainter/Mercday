@@ -1,21 +1,28 @@
 [gd_resource type="Resource" format=3]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Actions/DrawAction.gd" id="DrawAction"]
 [ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 [ext_resource type="Script" path="res://Scripts/Decisions/WeaponDrawnFacet.gd" id="WeaponDrawnFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/DrawnWeaponUselessFacet.gd" id="DrawnWeaponUselessFacet"]
 
-[sub_resource type="Resource" id="facet_1"]
+[sub_resource type="Resource" id="facet_drawn"]
 script = ExtResource("WeaponDrawnFacet")
-is_required = true
+is_required = false
+weight = 1.0
 drawn_is_high = false
+
+[sub_resource type="Resource" id="facet_useless"]
+script = ExtResource("DrawnWeaponUselessFacet")
+is_required = false
+weight = 1.0
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_1")]
+facets = [SubResource("facet_drawn"), SubResource("facet_useless")]
 threshold = 0.5
 
 [resource]
-script = ExtResource("ActionData")
+script = ExtResource("DrawAction")
 action_name = "Draw"
 ap_cost = 0
 priority = 40

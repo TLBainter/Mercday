@@ -1,12 +1,28 @@
 [gd_resource type="Resource" format=3]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Actions/MoveCloseAction.gd" id="MoveCloseAction"]
 [ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 [ext_resource type="Script" path="res://Scripts/Decisions/MovementNotBlockedFacet.gd" id="MovementNotBlocked"]
 [ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/EnemyDistanceFacet.gd" id="EnemyDistanceFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/MeleePreferredFacet.gd" id="MeleePreferred"]
+[ext_resource type="Script" path="res://Scripts/Decisions/NoClearShotFacet.gd" id="NoClearShot"]
+[ext_resource type="Script" path="res://Scripts/Decisions/EnemiesExistFacet.gd" id="EnemiesExist"]
+[ext_resource type="Script" path="res://Scripts/Decisions/CombatReadinessFacet.gd" id="CombatReadinessFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/LastSeenAvailableFacet.gd" id="LastSeenAvailable"]
+[ext_resource type="Script" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/RangedThreatFacet.gd" id="RangedThreatFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/CombatIdleFacet.gd" id="CombatIdleFacet"]
+
+[sub_resource type="Resource" id="facet_enemies_exist"]
+script = ExtResource("EnemiesExist")
+is_required = true
+
+[sub_resource type="Resource" id="facet_no_targets"]
+script = ExtResource("NoClearShot")
+is_required = false
+weight = 1.0
 
 [sub_resource type="Resource" id="facet_move"]
 script = ExtResource("MovementNotBlocked")
@@ -24,12 +40,6 @@ is_required = true
 state_name = "Terrified"
 present_is_high = false
 
-[sub_resource type="Resource" id="facet_melee"]
-script = ExtResource("WeaponTypeFacet")
-weight = 1.0
-require_ranged = false
-require_drawn = false
-
 [sub_resource type="Resource" id="facet_preferred"]
 script = ExtResource("MeleePreferred")
 weight = 1.0
@@ -40,13 +50,42 @@ weight = 1.0
 max_dist = 1.0
 close_is_high = false
 
+[sub_resource type="Resource" id="facet_readiness"]
+script = ExtResource("CombatReadinessFacet")
+weight = 1.0
+invert = true
+
+[sub_resource type="Resource" id="facet_last_seen"]
+script = ExtResource("LastSeenAvailable")
+weight = 1.0
+
+[sub_resource type="Resource" id="facet_hp_risk"]
+script = ExtResource("HpRatioFacet")
+weight = 0.5
+below_is_high = false
+
+[sub_resource type="Resource" id="facet_threat_risk"]
+script = ExtResource("RangedThreatFacet")
+weight = 0.5
+invert = true
+
+[sub_resource type="Resource" id="facet_not_aimed"]
+script = ExtResource("NotAimedFacet")
+weight = 0.75
+
+[sub_resource type="Resource" id="facet_idle"]
+script = ExtResource("CombatIdleFacet")
+weight = 0.5
+idle_threshold = 3
+invert = true
+
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_melee"), SubResource("facet_preferred"), SubResource("facet_dist")]
+facets = [SubResource("facet_enemies_exist"), SubResource("facet_no_targets"), SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_preferred"), SubResource("facet_dist"), SubResource("facet_readiness"), SubResource("facet_last_seen"), SubResource("facet_hp_risk"), SubResource("facet_threat_risk"), SubResource("facet_not_aimed"), SubResource("facet_idle")]
 threshold = 0.5
 
 [resource]
-script = ExtResource("ActionData")
+script = ExtResource("MoveCloseAction")
 action_name = "Move Close"
 ap_cost = 2
 ap_cost_mode = "move_base"

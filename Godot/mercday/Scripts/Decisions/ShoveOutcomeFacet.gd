@@ -44,11 +44,13 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	elif terrain_drop >= 1.0:
 		score += 0.2
 
-	# Slam damage bonus — obstacle blocks before shover_size paces
+	# Slam damage bonus -- obstacle blocks before shover_size paces
 	if blocked_at < shover_size:
 		score += 0.2
 
-	# Cover removal bonus — target has cover from an ally that dest would break
+	# Cover removal bonus -- target has cover from an ally that dest would break.
+	# Only grant when dest is farther than target's pace from the cover obstacle;
+	# if they can walk back next turn the cover removal is illusory.
 	var cover_info := state.get_cover_info(target)
 	if not cover_info.is_empty():
 		var has_ally_cover := false
@@ -62,10 +64,11 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 			var obs_y := int(cover_info.get("obstacle_pos_y", -1))
 			if obs_x >= 0 and obs_y >= 0:
 				var obs_pos := Vector2i(obs_x, obs_y)
-				if maxi(abs(dest.x - obs_pos.x), abs(dest.y - obs_pos.y)) > 1:
+				var target_pace: int = maxi(1, int(target.stats.get("pace", 1)))
+				if maxi(abs(dest.x - obs_pos.x), abs(dest.y - obs_pos.y)) > target_pace:
 					score += 0.2
 
-	# Ally flanking opportunity — melee allies within 2 of destination
+	# Ally flanking opportunity -- melee allies within 2 of destination
 	var flank_bonus := 0.0
 	for ally: MercenaryData in ctx.get("allies", []):
 		var ally_pos := state.get_position(ally)
@@ -76,14 +79,14 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 
 	score += flank_bonus
 
-	# Enemy flanking ally bonus — shoving breaks flanking pressure on an ally
+	# Enemy flanking ally bonus -- shoving breaks flanking pressure on an ally
 	for ally: MercenaryData in ctx.get("allies", []):
 		if ConstStates.has_state(ally, ConstStates.FLANKED):
 			if state.distance_to(target, ally) <= 1:
 				score += 0.3
 				break
 
-	# Deposed setup bonus — shove likely causes Deposed and a melee ally is nearby
+	# Deposed setup bonus -- shove likely causes Deposed and a melee ally is nearby
 	if shover_size >= shoved_size:
 		for ally: MercenaryData in ctx.get("allies", []):
 			var ally_pos := state.get_position(ally)

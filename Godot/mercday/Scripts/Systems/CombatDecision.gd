@@ -2,6 +2,7 @@ class_name CombatDecision
 
 const DANGER_HP_RATIO := 0.25
 const HALF_HP_RATIO   := 0.50
+const SAFE_DISTANCE: int = 10  # cells -- beyond this, merc considers themselves safe from melee
 
 
 # TODO: when multiple attack types exist, choose based on target, range, AP budget, etc.
@@ -63,6 +64,26 @@ static func decide_target(
 		if state != null and _flank_ally_at_current_pos(attacker, enemy, allies, state) != null:
 			mult += 0.25
 
+		if state != null and state.battlefield != null:
+			var att_pos := state.get_position(attacker)
+			var emy_pos := state.get_position(enemy)
+			var to_enemy := Vector2(float(emy_pos.x - att_pos.x), float(emy_pos.y - att_pos.y))
+			var emy_dist := to_enemy.length()
+			for other: MercenaryData in enemies:
+				if other == enemy:
+					continue
+				var other_pos := state.get_position(other)
+				var to_other := Vector2(float(other_pos.x - att_pos.x), float(other_pos.y - att_pos.y))
+				var other_dist := to_other.length()
+				if emy_dist >= other_dist:
+					continue
+				if emy_dist < 0.5:
+					continue
+				var dot := to_enemy.normalized().dot(to_other.normalized())
+				if dot >= 0.7:
+					mult += 0.4
+					break
+
 		weights.append(maxi(1, int(base * mult)))
 
 	var total := 0
@@ -88,6 +109,18 @@ static func decide_move_action(
 	var is_ranged := mover.equipped_weapon != null and mover.equipped_weapon.is_ranged
 	var can_fly := int(mover.stats.get("fly", 0)) > 0 and not ConstStates.has_state(mover, ConstStates.GROUNDED)
 	var reach := _get_weapon_melee_range(mover)
+	var min_enemy_dist := _min_enemy_distance(mover, enemies, state)
+
+	# Regroup when already at safe distance -- suppress further retreat
+	if min_enemy_dist > SAFE_DISTANCE:
+		if _should_seek_cover(mover) and _has_ranged_enemy(enemies):
+			return {"action": "", "target": null}  # let decide_next_action handle seek_cover
+		var weapon := mover.equipped_weapon
+		if weapon != null and weapon.is_ranged and mover.ammo_loaded == 0:
+			return {"action": "", "target": null}  # let decide_next_action handle reload
+		if _is_safe_to_reengage(mover):
+			return {"action": "Move Close", "target": _closest_enemy(mover, enemies, state)}
+		return {"action": "", "target": null}  # too hurt to engage; pass
 
 	if is_ranged:
 		var close_threat := _closest_enemy_within(mover, enemies, 1, state)
@@ -103,6 +136,13 @@ static func decide_move_action(
 		for enemy: MercenaryData in enemies:
 			if state.is_covered_from(enemy, mover, ConstStates.COVERED_FULL):
 				return {"action": "Move Close", "target": enemy}
+
+	if not can_fly and is_ranged and state.battlefield != null:
+		for enemy: MercenaryData in enemies:
+			if state.is_covered_from(enemy, mover, ConstStates.COVERED_FULL):
+				var flank_cell: Vector2i = _find_flanking_cell(mover, enemy, state)
+				if flank_cell != Vector2i(-1, -1):
+					return {"action": "Move Close", "target": enemy}
 
 	if not is_ranged:
 		if _closest_enemy_within(mover, enemies, reach, state) == null:
@@ -200,7 +240,24 @@ static func decide_next_action(
 		if state.can_afford(merc, seek_cost):
 			var merc_pos := state.get_position(merc)
 			var adj_obs := state.battlefield.get_adjacent_obstacles(merc_pos)
-			if not adj_obs.is_empty():
+			var cover_useful := false
+			for _adj_o in adj_obs:
+				var _adj_data: ObstacleData = _adj_o.get("data") as ObstacleData
+				if _adj_data != null and not _adj_data.provides_cover:
+					continue
+				var _adj_delta: Vector2i = (_adj_o["pos"] as Vector2i) - merc_pos
+				var _to_cover := Vector2(float(_adj_delta.x), float(_adj_delta.y))
+				for _re: MercenaryData in enemies:
+					if _re.equipped_weapon == null or not _re.equipped_weapon.is_ranged:
+						continue
+					var _re_pos := state.get_position(_re)
+					var _to_enemy := Vector2(float(_re_pos.x - merc_pos.x), float(_re_pos.y - merc_pos.y))
+					if _to_cover.dot(_to_enemy) > 0.0:
+						cover_useful = true
+						break
+				if cover_useful:
+					break
+			if cover_useful:
 				return {"type": "special", "action_name": "seek_cover", "target": null}
 
 	if merc.ammo_loaded == 0 and _should_reload(merc, enemies, valid_attack_targets, state):
@@ -225,12 +282,33 @@ static func decide_next_action(
 				if state.can_afford(merc, move_cost):
 					return {"type": "move", "action_name": action_str, "target": move_decision["target"]}
 
+	# Goal B: when blocked with no valid targets, reroll to any enemy not in full cover
+	if movement_blocked and valid_attack_targets.is_empty() and state.battlefield != null \
+			and not ConstStates.has_state(merc, ConstStates.GRAPPLED):
+		var reroll_target: MercenaryData = null
+		for candidate: MercenaryData in enemies:
+			if not state.is_covered_from(candidate, merc, ConstStates.COVERED_FULL):
+				reroll_target = candidate
+				break
+		if reroll_target == null:
+			for candidate: MercenaryData in enemies:
+				var flank_cell: Vector2i = _find_flanking_cell(merc, candidate, state)
+				if flank_cell != Vector2i(-1, -1):
+					reroll_target = candidate
+					break
+		if reroll_target != null:
+			var move_cost := state.get_cost(merc, "Move Close", move_base_cost)
+			if state.can_afford(merc, move_cost):
+				return {"type": "move", "action_name": "Move Close", "target": reroll_target}
+
 	if merc.ammo_loaded > 0 and _should_reload(merc, enemies, valid_attack_targets, state):
 		return {"type": "reload", "action_name": "reload", "target": null}
 
 	var wp := merc.equipped_weapon
+	# Goal D: Aim only when the current target is actually attackable (has a clear shot)
+	var aim_target_valid := current_target != null and valid_attack_targets.has(current_target)
 	if wp != null and wp.is_ranged and merc.ammo_loaded > 0 and not merc.weapon_misfired \
-			and not valid_attack_targets.is_empty() and not merc.aim_active:
+			and aim_target_valid and not merc.aim_active:
 		var aim_cost := state.get_cost(merc, "Aim", 2)
 		var atk_cost_check := state.get_cost(merc, "Attack", attack_base_cost)
 		if state.can_afford(merc, aim_cost + atk_cost_check):
@@ -254,7 +332,7 @@ static func _should_seek_cover(merc: MercenaryData) -> bool:
 	if ConstStates.has_state(merc, ConstStates.COVERED_PARTIAL):
 		return false
 	var max_hp := int(merc.stats.get("maximum_hit_points", 1))
-	return float(merc.current_hp) / float(max_hp) < HALF_HP_RATIO
+	return float(merc.current_hp) / float(max_hp) < DANGER_HP_RATIO
 
 
 static func _is_in_danger(merc: MercenaryData) -> bool:
@@ -385,6 +463,20 @@ static func _closest_enemy(
 			best_dist = d
 			best = enemy
 	return best if best != null else enemies[0]
+
+
+static func _min_enemy_distance(mover: MercenaryData, enemies: Array[MercenaryData], state: BattleState) -> int:
+	var min_dist := 999999
+	for enemy: MercenaryData in enemies:
+		var d := state.distance_to(mover, enemy)
+		if d < min_dist:
+			min_dist = d
+	return min_dist
+
+
+static func _is_safe_to_reengage(merc: MercenaryData) -> bool:
+	var max_hp := float(merc.stats.get("maximum_hit_points", 1))
+	return float(merc.current_hp) / maxf(1.0, max_hp) >= 0.3 or merc.current_ep >= 1
 
 
 static func _has_ranged_enemy(enemies: Array[MercenaryData]) -> bool:
@@ -532,6 +624,9 @@ static func _get_available_weapons(merc: MercenaryData) -> Array[WeaponData]:
 			var w: WeaponData = entry.get("data")
 			if w != null:
 				result.append(w)
+	var fight: WeaponData = DataManager.fight_weapon
+	if fight != null and not result.has(fight):
+		result.append(fight)
 	return result
 
 
@@ -542,9 +637,9 @@ static func _score_weapon(
 		state: BattleState,
 		movement_blocked: bool = false) -> float:
 	if weapon.is_ranged:
-		var is_equipped_and_drawn := (merc.equipped_weapon == weapon and merc.weapon_drawn)
+		var is_equipped := merc.equipped_weapon == weapon
 		var has_ammo: bool = false
-		if is_equipped_and_drawn:
+		if is_equipped:
 			has_ammo = merc.ammo_loaded > 0 \
 					or merc.ammo_inventory.get(merc.ammo_loaded_type, 0) > 0
 		else:
@@ -582,28 +677,32 @@ static func _score_weapon(
 					in_range += 1
 				if weapon.ranged_intended_range <= 0 or d <= weapon.ranged_intended_range:
 					in_intended += 1
-			# Weight per-enemy score by weapon damage: "Varies"/0-dmg weapons (blowguns) get 0.1×
+			# Weight per-enemy score by weapon damage: "Varies"/0-dmg weapons (blowguns) get 0.1x
 			var ranged_avg_dmg := _parse_formula_for_avg(weapon.damage_formula_1)
 			var dmg_factor := clampf(ranged_avg_dmg / 7.0, 0.1, 2.0)
 			score += 1.5 * float(in_range) * dmg_factor
 			var melee_acc_r := maxf(1.0, float(merc.stats.get("melee_accuracy", 50.0)))
 			var ranged_acc_r := maxf(0.0, float(merc.stats.get("ranged_accuracy", 0.0)))
 			score *= clampf(ranged_acc_r / melee_acc_r, 0.1, 2.0)
-			# Extended-range penalty: each enemy only reachable in extended range adds 1 Flaw → -0.4
+			# Extended-range penalty: each enemy only reachable in extended range adds 1 Flaw -> -0.4
 			score -= 0.4 * float(in_range - in_intended)
+			if weapon.misfire > 0:
+				var misfire_risk: float = clampf(float(weapon.misfire) * 0.35, 0.0, 2.5)
+				var accuracy_factor: float = clampf(1.0 - ranged_acc_r / 100.0, 0.0, 1.0)
+				score -= misfire_risk * (0.3 + accuracy_factor * 0.7)
 		elif weapon.is_throwable:
 			for enemy: MercenaryData in enemies:
 				var d := state.distance_to(merc, enemy)
 				if weapon.thrown_extended_range <= 0 or d <= weapon.thrown_extended_range:
 					score += 0.5
 		else:
-			# melee at range — penalty scales with how long it takes to close the gap,
+			# melee at range -- penalty scales with how long it takes to close the gap,
 			# multiplied by how much better ranged would be for this merc
 			var pace := maxf(1.0, float(merc.stats.get("pace", 1)))
 			var turns_to_close := float(closest_dist) / pace
 			if movement_blocked:
 				turns_to_close *= 3.0  # proven blocked path: treat gap as effectively much larger
-			# dist_factor: 0 at ≤1 turn away, ~1.0 at 5 turns, capped at 2.0
+			# dist_factor: 0 at <=1 turn away, ~1.0 at 5 turns, capped at 2.0
 			var dist_factor := clampf((turns_to_close - 1.0) / 4.0, 0.0, 2.0)
 			# ranged_aptitude: 0 = no ranged skill (never switch), 1 = equal, 2+ = ranged specialist
 			var melee_acc := maxf(1.0, float(merc.stats.get("melee_accuracy", 50.0)))
@@ -923,3 +1022,166 @@ static func _find_flankable_target(
 				best_ally = ally
 			break  # First qualifying ally per enemy is enough
 	return {"target": best_enemy, "ally": best_ally}
+
+
+# Returns true if obstacle at obs_pos shields target_pos from attacker at att_pos.
+# obs_pos is between att_pos and target_pos when it is closer to att_pos than target_pos
+# and the dot product of (obs - att) onto (target - att) is positive (same half-plane).
+static func _obstacle_covers_target_from(att_pos: Vector2i, target_pos: Vector2i, obs_pos: Vector2i) -> bool:
+	var to_obs := Vector2(float(obs_pos.x - att_pos.x), float(obs_pos.y - att_pos.y))
+	var to_target := Vector2(float(target_pos.x - att_pos.x), float(target_pos.y - att_pos.y))
+	if to_obs.dot(to_target) <= 0.0:
+		return false
+	return to_obs.length_squared() < to_target.length_squared()
+
+
+# Searches cells within the mover's pace range for a position where the cover obstacle
+# no longer sits between the mover and the target.  Returns Vector2i(-1,-1) if none found.
+static func _find_flanking_cell(mover: MercenaryData, target: MercenaryData, state: BattleState) -> Vector2i:
+	if state.battlefield == null:
+		return Vector2i(-1, -1)
+	var cover_info := state.get_cover_info(target)
+	if cover_info.is_empty():
+		return Vector2i(-1, -1)
+	var obs_pos := Vector2i(
+		int(cover_info.get("obstacle_pos_x", -999)),
+		int(cover_info.get("obstacle_pos_y", -999)))
+	if obs_pos == Vector2i(-999, -999):
+		return Vector2i(-1, -1)
+
+	var mover_pos := state.get_position(mover)
+	var target_pos := state.get_position(target)
+	var pace := maxi(1, int(mover.stats.get("pace", 1)))
+	var field := state.battlefield
+
+	var ally_passable: Dictionary = {}
+	for key: MercenaryData in state.positions.keys():
+		if key != mover and BattleState._is_alive(key):
+			var kp: Vector2i = state.positions[key]
+			if state.get_allies(mover).has(key) and not ConstStates.has_state(key, ConstStates.DEPOSED):
+				ally_passable[kp] = true
+	ally_passable.merge(field.get_nav_passable_cells())
+
+	for dx: int in range(-pace, pace + 1):
+		for dy: int in range(-pace, pace + 1):
+			if maxi(abs(dx), abs(dy)) > pace:
+				continue
+			var candidate := Vector2i(mover_pos.x + dx, mover_pos.y + dy)
+			if candidate.x < 0 or candidate.x >= field.width or candidate.y < 0 or candidate.y >= field.length:
+				continue
+			if candidate == mover_pos:
+				continue
+			# Obstacle must no longer be between candidate and target
+			if _obstacle_covers_target_from(candidate, target_pos, obs_pos):
+				continue
+			# Candidate must be reachable
+			var path := Pathfinder.find_path(mover_pos, candidate, field, ally_passable)
+			if path.is_empty():
+				continue
+			return candidate
+	return Vector2i(-1, -1)
+
+
+# Guard + cost comparison for the attack_obstacle decision.
+# Returns either the original attack_obstacle dict, a Move Close toward a flank,
+# or a direct attack dict if an enemy is already within melee reach.
+static func decide_obstacle_or_flank(
+		merc: MercenaryData,
+		enemies: Array[MercenaryData],
+		valid_attack_targets: Array[MercenaryData],
+		state: BattleState,
+		movement_blocked: bool = false) -> Dictionary:
+	var attack_obs_result := {"type": "special", "action_name": "attack_obstacle", "target": null}
+
+	# Guard: enemy within melee reach -- attack them instead
+	if not valid_attack_targets.is_empty():
+		var wp := merc.equipped_weapon
+		var melee_reach := 1
+		if wp != null and not wp.is_ranged and not wp.is_throwable:
+			melee_reach = wp.melee_range
+		for vt: MercenaryData in valid_attack_targets:
+			if state.distance_to(merc, vt) <= melee_reach:
+				return {"type": "attack", "action_name": "Attack",
+						"target": decide_target(merc, valid_attack_targets, state)}
+
+	# Find the blocking obstacle at the merc's position (skip indestructible ones)
+	if state.battlefield == null:
+		return attack_obs_result
+	var merc_pos := state.get_position(merc)
+	var blocking_obs: Dictionary = {}
+	for obs: Dictionary in state.battlefield.get_adjacent_obstacles(merc_pos):
+		if obs.get("cell_type", "") == "wall":
+			continue
+		var d: ObstacleData = obs.get("data") as ObstacleData
+		if d == null or d.passthrough or d.is_stairs or d.indestructible:
+			continue
+		blocking_obs = obs
+		break
+	if blocking_obs.is_empty():
+		return {"type": "pass", "action_name": "", "target": null}
+
+	# Estimate rounds to destroy
+	var obs_data: ObstacleData = blocking_obs.get("data") as ObstacleData
+	var obs_hp: int
+	if obs_data != null and obs_data.health > 1:
+		obs_hp = obs_data.health
+	elif obs_data != null and (obs_data.is_building or obs_data.obstacle_type == "Structure"):
+		obs_hp = 20
+	elif obs_data != null:
+		match obs_data.obstacle_type:
+			"Vegetation", "Furniture":
+				obs_hp = maxi(2, obs_data.size)
+			"Terrain":
+				obs_hp = maxi(4, obs_data.size * 2)
+			_:
+				obs_hp = maxi(3, obs_data.size)
+	else:
+		obs_hp = 3
+	if blocking_obs.has("current_hp"):
+		obs_hp = maxi(1, int(blocking_obs["current_hp"]))
+	var wp2 := merc.equipped_weapon
+	var acc_stat := clampf(float(merc.stats.get("melee_accuracy", 50)) / 100.0, 0.05, 1.0)
+	if wp2 != null and wp2.is_ranged:
+		acc_stat = clampf(float(merc.stats.get("ranged_accuracy", 50)) / 100.0, 0.05, 1.0)
+	var dmg_avg := 1.0
+	if wp2 != null:
+		dmg_avg = maxf(1.0, _parse_formula_for_avg(wp2.damage_formula_1))
+	var expected_dmg := acc_stat * dmg_avg
+	var rounds_to_destroy := ceili(float(obs_hp) / maxf(1.0, expected_dmg))
+
+	# Find flanking cell and estimate rounds to flank
+	var nearest_enemy: MercenaryData = null
+	var nearest_dist := 999999
+	for e: MercenaryData in enemies:
+		var d := state.distance_to(merc, e)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest_enemy = e
+	var flank_cell := Vector2i(-1, -1)
+	if nearest_enemy != null:
+		flank_cell = _find_flanking_cell(merc, nearest_enemy, state)
+	if flank_cell == Vector2i(-1, -1):
+		# No flank available -- only destroy if it can be done quickly
+		if rounds_to_destroy <= 3:
+			EncounterLogger.log_verbose("  obstacle choice: destroy≈%d rounds, no flank → destroy (quick)" % rounds_to_destroy)
+			return attack_obs_result
+		EncounterLogger.log_verbose("  obstacle choice: destroy≈%d rounds, no flank, too slow → pass" % rounds_to_destroy)
+		return {"type": "pass", "action_name": "", "target": null}
+	var pace := maxi(1, int(merc.stats.get("pace", 1)))
+	var flank_dist := maxi(abs(flank_cell.x - merc_pos.x), abs(flank_cell.y - merc_pos.y))
+	var rounds_to_flank := ceili(float(flank_dist) / float(pace))
+
+	# Heavily prefer flanking -- only destroy if it is at least twice as fast as flanking.
+	if rounds_to_destroy * 2 < rounds_to_flank:
+		EncounterLogger.log_verbose("  obstacle choice: destroy≈%d rounds, flank≈%d rounds → destroy (much faster)" % [rounds_to_destroy, rounds_to_flank])
+		return attack_obs_result
+	# If movement is blocked, flanking is impossible this slot -- attack or pass rather than loop.
+	if movement_blocked:
+		if rounds_to_destroy <= 5:
+			EncounterLogger.log_verbose("  obstacle choice: destroy≈%d rounds, movement blocked → destroy" % rounds_to_destroy)
+			return attack_obs_result
+		EncounterLogger.log_verbose("  obstacle choice: destroy≈%d rounds, movement blocked, too slow → pass" % rounds_to_destroy)
+		return {"type": "pass", "action_name": "", "target": null}
+	EncounterLogger.log_verbose("  obstacle choice: destroy≈%d rounds, flank≈%d rounds → flank" % [rounds_to_destroy, rounds_to_flank])
+	return {"type": "move", "action_name": "Move Close",
+			"target": nearest_enemy, "flank_ally": null}

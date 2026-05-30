@@ -32,3 +32,4 @@ var ranged_intended_range: int # first number of range_ranged (e.g. 45 in "45/20
 var ranged_extended_range: int # second number; attacks here are +1 Flawed
 var thrown_intended_range: int
 var thrown_extended_range: int
+var is_virtual: bool = false   # always-available pseudo-weapon; never stored in inventory

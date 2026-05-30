@@ -1175,10 +1175,15 @@ static func _update_rolling_penalties(merc: MercenaryData) -> void:
 
 
 static func _step8_equip_weapon(merc: MercenaryData) -> void:
-	var melee_pool: Array = DataManager.weapons_ordinary_melee
+	var melee_pool: Array = DataManager.weapons_ordinary_melee.filter(
+		func(w: WeaponData) -> bool: return w.weapon_class != "Magical")
 	var ranged_pool: Array[WeaponData] = []
-	ranged_pool.append_array(DataManager.weapons_ordinary_ranged)
-	ranged_pool.append_array(DataManager.weapons_common_ranged)
+	for w: WeaponData in DataManager.weapons_ordinary_ranged:
+		if w.weapon_class != "Magical":
+			ranged_pool.append(w)
+	for w: WeaponData in DataManager.weapons_common_ranged:
+		if w.weapon_class != "Magical":
+			ranged_pool.append(w)
 
 	var melee_w: WeaponData = null
 	var ranged_w: WeaponData = null
@@ -1221,6 +1226,9 @@ static func _equip_starting_ammo(merc: MercenaryData) -> void:
 	if compatible_ammo.is_empty():
 		return
 	var chosen = compatible_ammo[randi() % compatible_ammo.size()]
-	merc.ammo_inventory[chosen.item_name] = chosen.amount
 	merc.ammo_loaded_type = chosen.item_name
 	merc.ammo_loaded = chosen.amount if weapon.chamber <= 0 else mini(weapon.chamber, chosen.amount)
+	# Reserve = total supply minus what's already in the chamber, so total shots == chosen.amount
+	var reserve: int = chosen.amount - merc.ammo_loaded
+	if reserve > 0:
+		merc.ammo_inventory[chosen.item_name] = reserve

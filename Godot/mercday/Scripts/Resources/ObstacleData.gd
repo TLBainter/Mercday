@@ -16,9 +16,12 @@ class_name ObstacleData extends Resource
 @export var passthrough_exit_harm: int = 0
 @export var passthrough_harm_type: String = ""
 @export var rugged: bool = false  # costs 1 extra Pace to exit this space
-@export var expansion_odds: int = 0  # 0–90%; each successful roll drops by 25% of current value
+@export var expansion_odds: int = 0  # 0-90%; each successful roll drops by 25% of current value
 @export var possible_locations: Array[String] = []  # reserved for future location filtering
 @export var is_building: bool = false  # if true, generates a multi-cell building footprint
 @export var is_stairs: bool = false
 @export var terrain_height_delta_min: float = 0.0  # negative = depression (pit/cliff bottom)
 @export var terrain_height_delta_max: float = 0.0
+@export var provides_cover: bool = true
+@export var moveable: bool = false
+@export var indestructible: bool = false

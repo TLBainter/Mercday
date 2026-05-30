@@ -5,6 +5,7 @@ const LOG_DIR := "user://encounter_logs"
 
 static var _file: FileAccess = null
 static var _bbcode_rx: RegEx = null
+static var _buffer: PackedStringArray = []
 
 
 static func begin(encounter_type: String, state: BattleState) -> void:
@@ -20,29 +21,38 @@ static func begin(encounter_type: String, state: BattleState) -> void:
 	if _file == null:
 		push_warning("EncounterLogger: could not open %s" % filename)
 		return
-	_file.store_line("=== MercManager Encounter Log ===")
-	_file.store_line("Type: %s   Session: %s   Date: %s %s" % [
+	_buffer.clear()
+	_buffer.append("=== MercManager Encounter Log ===")
+	_buffer.append("Type: %s   Session: %s   Date: %s %s" % [
 		encounter_type, session, date_str, time_str.replace("-", ":")])
 	if state != null:
 		for i in state.teams.size():
 			var names: Array[String] = []
 			for m: MercenaryData in state.teams[i]:
 				names.append(m.merc_name)
-			_file.store_line("Team %d: %s" % [i, ", ".join(names)])
-	_file.store_line("=================================")
-	_file.store_line("")
+			_buffer.append("Team %d: %s" % [i, ", ".join(names)])
+	_buffer.append("=================================")
+	_buffer.append("")
 
 
 static func end(result: Dictionary) -> void:
 	if _file == null:
 		return
-	_file.store_line("")
+	_buffer.append("")
 	var winner: int = result.get("winner", -1)
 	var rounds: int = result.get("rounds", 0)
 	var winner_str := "Draw" if winner < 0 else ("Team %d wins" % winner)
-	_file.store_line("=== RESULT: %s in %d round(s) ===" % [winner_str, rounds])
+	_buffer.append("=== RESULT: %s in %d round(s) ===" % [winner_str, rounds])
+	flush()
 	_file.close()
 	_file = null
+
+
+static func flush() -> void:
+	if _file == null or _buffer.is_empty():
+		return
+	_file.store_string("\n".join(_buffer) + "\n")
+	_buffer.clear()
 
 
 static func is_active() -> bool:
@@ -52,20 +62,48 @@ static func is_active() -> bool:
 static func log_line(text: String) -> void:
 	if _file == null:
 		return
-	_file.store_line(_strip_bbcode(text))
+	_buffer.append(_strip_bbcode(text))
 
 
 static func log_verbose(text: String) -> void:
 	if _file == null:
 		return
-	_file.store_line("  >> " + text)
+	_buffer.append("  >> " + text)
+
+
+static func log_cover_scan(merc_name: String, search_range: int, candidates: Array, best_score: float) -> void:
+	if _file == null:
+		return
+	if candidates.is_empty():
+		_buffer.append("  [cover-scan] %s  radius=%d  -> no candidates in range" % [merc_name, search_range])
+		return
+	var parts: Array[String] = []
+	for c: Dictionary in candidates:
+		var pos: Vector2i = c["pos"]
+		var dist: int = c["dist"]
+		var skip: String = c.get("skip", "")
+		if skip != "":
+			parts.append("(%d,%d) d=%d skipped:%s" % [pos.x, pos.y, dist, skip])
+		else:
+			parts.append("(%d,%d) d=%d score=%.2f" % [pos.x, pos.y, dist, c.get("score", 0.0)])
+	var result_str := "no usable cover" if best_score <= 0.0 else ("best=%.2f" % best_score)
+	_buffer.append("  [cover-scan] %s  radius=%d  %s  -> %s" % [
+		merc_name, search_range, " | ".join(parts), result_str])
+
+
+static func log_misfire_check(merc_name: String, weapon_name: String, threshold: int, roll: int, misfired: bool) -> void:
+	if _file == null:
+		return
+	var outcome := "MISFIRE" if misfired else "clear"
+	_buffer.append("  [misfire-check] %s / %s  threshold=%d  roll=%d  -> %s" % [
+		merc_name, weapon_name, threshold, roll, outcome])
 
 
 static func log_generation(field: BattlefieldArea) -> void:
 	if _file == null:
 		return
-	_file.store_line("--- Battlefield Generation ---")
-	_file.store_line("Dimensions: %dx%d (height %d)  Cover: %s" % [
+	_buffer.append("--- Battlefield Generation ---")
+	_buffer.append("Dimensions: %dx%d (height %d)  Cover: %s" % [
 		field.width, field.length, field.height,
 		BattlefieldArea.COVER_AMOUNT_NAMES[field.cover_amount]])
 	var wall_count := 0
@@ -88,10 +126,10 @@ static func log_generation(field: BattlefieldArea) -> void:
 					passthrough_count += 1
 			else:
 				other_count += 1
-	_file.store_line("Obstacles: %d total  walls=%d  doors=%d  passthrough=%d  damaging=%d  solid=%d" % [
+	_buffer.append("Obstacles: %d total  walls=%d  doors=%d  passthrough=%d  damaging=%d  solid=%d" % [
 		field.obstacles.size(), wall_count, door_count, passthrough_count, damaging_count, other_count])
 	if field.building_data.is_empty():
-		_file.store_line("Buildings: none")
+		_buffer.append("Buildings: none")
 	else:
 		for i: int in range(field.building_data.size()):
 			var b: Dictionary = field.building_data[i]
@@ -101,11 +139,13 @@ static func log_generation(field: BattlefieldArea) -> void:
 			for dp in door_positions:
 				var v: Vector2i = dp
 				door_parts.append("(%d,%d)" % [v.x, v.y])
-			_file.store_line("Building %d [%s]: pos=(%d,%d) size=%dx%d  doors=%d at %s" % [
+			_buffer.append("Building %d [%s]: pos=(%d,%d) size=%dx%d  doors=%d at %s" % [
 				i + 1, b.get("name", "?"),
 				rect.position.x, rect.position.y, rect.size.x, rect.size.y,
 				door_positions.size(), ", ".join(door_parts)])
-	_file.store_line("---")
+	_buffer.append("---")
+	for entry: String in field.generation_log:
+		log_verbose(entry)
 
 
 static func _ensure_dir() -> void:

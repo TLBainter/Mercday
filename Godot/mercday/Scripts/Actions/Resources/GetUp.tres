@@ -15,7 +15,6 @@ present_is_high = true
 [sub_resource type="Resource" id="facet_hp"]
 script = ExtResource("HpRatioFacet")
 weight = 1.0
-threshold = 0.25
 below_is_high = true
 
 [sub_resource type="Resource" id="facet_dist"]

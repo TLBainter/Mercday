@@ -1,0 +1,34 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/WeaponThrowableFacet.gd" id="WeaponThrowableFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
+
+[sub_resource type="Resource" id="facet_throwable"]
+script = ExtResource("WeaponThrowableFacet")
+is_required = true
+
+[sub_resource type="Resource" id="facet_targets"]
+script = ExtResource("ValidTargetsFacet")
+is_required = true
+
+[sub_resource type="Resource" id="facet_misfire"]
+script = ExtResource("NotMisfiredFacet")
+is_required = true
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_throwable"), SubResource("facet_targets"), SubResource("facet_misfire")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "AttackThrow"
+ap_cost = 3
+ap_cost_mode = "attack_base"
+priority = 71
+execution_type = "attack"
+target_mode = "current_or_best"
+decision = SubResource("decision")

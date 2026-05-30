@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/AmmoStatusFacet.gd" id="AmmoStatusFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/FirearmReliabilityFacet.gd" id="FirearmReliabilityFacet"]
 
 [sub_resource type="Resource" id="facet_weapon"]
 script = ExtResource("WeaponTypeFacet")
@@ -26,9 +27,13 @@ is_required = true
 script = ExtResource("NotMisfiredFacet")
 is_required = true
 
+[sub_resource type="Resource" id="facet_reliability"]
+script = ExtResource("FirearmReliabilityFacet")
+weight = 1.5
+
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_weapon"), SubResource("facet_ammo"), SubResource("facet_targets"), SubResource("facet_misfire")]
+facets = [SubResource("facet_weapon"), SubResource("facet_ammo"), SubResource("facet_targets"), SubResource("facet_misfire"), SubResource("facet_reliability")]
 threshold = 0.5
 
 [resource]

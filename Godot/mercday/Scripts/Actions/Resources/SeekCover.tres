@@ -5,11 +5,14 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/RangedEnemyFacet.gd" id="RangedEnemyFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/CoverNearbyFacet.gd" id="CoverNearbyFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/RangedThreatFacet.gd" id="RangedThreatFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/CoverOnPathFacet.gd" id="CoverOnPathFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/CombatIdleFacet.gd" id="CombatIdleFacet"]
 
 [sub_resource type="Resource" id="facet_hp"]
 script = ExtResource("HpRatioFacet")
-is_required = true
-threshold = 0.5
+weight = 0.7
 below_is_high = true
 
 [sub_resource type="Resource" id="facet_ranged"]
@@ -19,10 +22,28 @@ is_required = true
 [sub_resource type="Resource" id="facet_cover"]
 script = ExtResource("CoverNearbyFacet")
 is_required = true
+weight = 2.0
+
+[sub_resource type="Resource" id="facet_threat"]
+script = ExtResource("RangedThreatFacet")
+weight = 1.3
+
+[sub_resource type="Resource" id="facet_on_path"]
+script = ExtResource("CoverOnPathFacet")
+is_required = true
+
+[sub_resource type="Resource" id="facet_not_aimed"]
+script = ExtResource("NotAimedFacet")
+weight = 0.75
+
+[sub_resource type="Resource" id="facet_idle"]
+script = ExtResource("CombatIdleFacet")
+weight = 0.75
+idle_threshold = 3
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_hp"), SubResource("facet_ranged"), SubResource("facet_cover")]
+facets = [SubResource("facet_hp"), SubResource("facet_ranged"), SubResource("facet_cover"), SubResource("facet_threat"), SubResource("facet_on_path"), SubResource("facet_not_aimed"), SubResource("facet_idle")]
 threshold = 0.5
 
 [resource]

@@ -1,0 +1,48 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Actions/JumpAction.gd" id="JumpAction"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/EnemiesExistFacet.gd" id="EnemiesExistFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/NoValidAttackTargetsFacet.gd" id="NoValidAttackTargetsFacet"]
+
+[sub_resource type="Resource" id="facet_enemies"]
+script = ExtResource("EnemiesExistFacet")
+is_required = true
+
+[sub_resource type="Resource" id="facet_grapple"]
+script = ExtResource("ActiveStateFacet")
+is_required = true
+state_name = "Grappled"
+present_is_high = false
+
+[sub_resource type="Resource" id="facet_terrified"]
+script = ExtResource("ActiveStateFacet")
+is_required = true
+state_name = "Terrified"
+present_is_high = false
+
+[sub_resource type="Resource" id="facet_deposed"]
+script = ExtResource("ActiveStateFacet")
+is_required = true
+state_name = "Deposed"
+present_is_high = false
+
+[sub_resource type="Resource" id="facet_no_attack_target"]
+script = ExtResource("NoValidAttackTargetsFacet")
+is_required = true
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_enemies"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_deposed"), SubResource("facet_no_attack_target")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("JumpAction")
+action_name = "Jump"
+ap_cost = 2
+ap_cost_mode = "move_base"
+priority = 50
+execution_type = "jump"
+target_mode = "nearest_enemy"
+decision = SubResource("decision")

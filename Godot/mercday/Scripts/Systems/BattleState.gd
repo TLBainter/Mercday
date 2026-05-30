@@ -7,12 +7,18 @@ var round_number: int = 0
 var battlefield: BattlefieldArea   # null = no positioning active
 var positions: Dictionary = {}     # MercenaryData -> Vector2i
 var heights: Dictionary = {}       # MercenaryData -> int  (0 = ground, >0 = flying altitude)
+var climbing_data: Dictionary = {} # MercenaryData -> {wall_pos, current_h, target_h, top_pos}
 # plain int/String fields only; no Vector2i to avoid Variant-inference warnings
 var merc_cover: Dictionary = {}
 var last_attacked: Dictionary = {}            # attacker -> last target attacked
+var last_ranged_targeted_round: Dictionary = {}  # target -> round_number when last targeted by a ranged attacker
 var damage_dealt_this_round: Dictionary = {}  # attacker -> { target -> total dealt }
 var damage_dealt_last_round: Dictionary = {}  # same, snapshot from previous round
 var dropped_weapons: Dictionary = {}          # Vector2i -> Array[WeaponData]
+var no_target_turns: Dictionary = {}          # MercenaryData -> consecutive turns without a valid attack target
+var move_goals: Dictionary = {}              # MercenaryData -> Vector2i persistent move destination
+var position_history: Dictionary = {}        # MercenaryData -> Array[Vector2i] (last 3 end-of-turn positions)
+var _cached_winner: int = -2                  # set by AutoBattle._finalize() before merc reset
 
 
 static func create(
@@ -27,17 +33,21 @@ static func create(
 		merc.current_hp = int(merc.stats.get("maximum_hit_points", 1))
 		merc.current_ep = int(merc.stats.get("maximum_endurance_points", 1))
 		# TODO: apply ArmorData.ep_cost penalty here once the mechanic is implemented.
-		# Guard with: if merc.equipped_armor and not WeaponArmorPerkLibrary.has_armor_perk_active(merc, "armor_ep_ignore:" + merc.equipped_armor.armor_class.to_lower()):
-		#     merc.current_ep -= merc.equipped_armor.ep_cost
+		# Guard: if equipped_armor and not has_perk_active(merc, "armor_ep_ignore:" + armor_class):
+		# merc.current_ep -= merc.equipped_armor.ep_cost
 		# TODO: apply ArmorData.fatigue penalty here once the mechanic is implemented.
-		# Guard with: if merc.equipped_armor and not WeaponArmorPerkLibrary.has_armor_perk_active(merc, "armor_fatigue_zero:" + merc.equipped_armor.armor_class.to_lower()):
-		#     merc.current_ep -= merc.equipped_armor.fatigue
+		# Guard: if equipped_armor and not has_perk_active(merc, "armor_fatigue_zero:" + armor_class):
+		# merc.current_ep -= merc.equipped_armor.fatigue
 		merc.current_mp = int(merc.stats.get("maximum_magic_points", 0))
 		merc.current_ap = 0
 		merc.excess_ap = 0
 		merc.active_states = {}
 		merc.death_test_hp_loss = 0
 		merc.aim_active = false
+		merc.weapon_misfired = false
+		merc.last_known_enemy_positions = {}
+		merc.last_seen_position = Vector2i(-1, -1)
+		merc.combat_idle_rounds = 0
 		_randomize_starting_draw(merc)
 	state.turn_queue = TurnOrderSystem.sort_initiative(all_mercs)
 	state.battlefield = field
@@ -61,7 +71,17 @@ static func _randomize_starting_draw(merc: MercenaryData) -> void:
 		merc.equipped_weapon = null
 		return
 
-	all_weapons.shuffle()
+	var preferred: WeaponData = null
+	for w: WeaponData in all_weapons:
+		if w.is_ranged and merc.ammo_loaded > 0:
+			preferred = w
+			break
+	if preferred != null:
+		all_weapons.erase(preferred)
+		all_weapons.shuffle()
+		all_weapons.push_front(preferred)
+	else:
+		all_weapons.shuffle()
 	merc.equipped_weapon = all_weapons[0]
 	merc.weapon_drawn = true
 
@@ -74,47 +94,82 @@ static func _randomize_starting_draw(merc: MercenaryData) -> void:
 	merc.inventory = new_inventory
 
 
+static func _reset_starting_ammo(merc: MercenaryData) -> void:
+	var ranged_w: WeaponData = null
+	if merc.equipped_weapon != null and merc.equipped_weapon.is_ranged:
+		ranged_w = merc.equipped_weapon
+	if ranged_w == null:
+		for entry: Dictionary in merc.inventory:
+			if entry.get("type") == "weapon":
+				var w: WeaponData = entry.get("data")
+				if w != null and w.is_ranged:
+					ranged_w = w
+					break
+	merc.ammo_loaded = 0
+	merc.ammo_loaded_type = ""
+	merc.ammo_inventory = {}
+	if ranged_w == null:
+		return
+	var prev_equipped := merc.equipped_weapon
+	merc.equipped_weapon = ranged_w
+	MercGenerator._equip_starting_ammo(merc)
+	merc.equipped_weapon = prev_equipped
+
+
 static func _assign_starting_positions(
 		state: BattleState,
 		team_a: Array[MercenaryData],
 		team_b: Array[MercenaryData]) -> void:
 	var field := state.battlefield
+	var passable_cells: Dictionary = field.get_nav_passable_cells()
 	var center_a := Vector2i(field.width >> 1, 2)
 	var center_b := Vector2i(field.width >> 1, field.length - 3)
 	for merc: MercenaryData in team_a:
 		var offset := Vector2i(randi_range(-2, 2), randi_range(-2, 2))
 		var pos := field.clamp_position(center_a + offset)
-		pos = _find_free_cell(field, pos, center_a)
+		pos = _find_free_cell(field, passable_cells, pos, center_a)
 		state.positions[merc] = pos
 		state.heights[merc] = 0
 	for merc: MercenaryData in team_b:
 		var offset := Vector2i(randi_range(-2, 2), randi_range(-2, 2))
 		var pos := field.clamp_position(center_b + offset)
-		pos = _find_free_cell(field, pos, center_b)
+		pos = _find_free_cell(field, passable_cells, pos, center_b)
 		state.positions[merc] = pos
 		state.heights[merc] = 0
 
 
-static func _find_free_cell(field: BattlefieldArea, start: Vector2i, fallback: Vector2i) -> Vector2i:
-	if not field.is_obstacle(start):
+static func _find_free_cell(field: BattlefieldArea, passable_cells: Dictionary, start: Vector2i, fallback: Vector2i) -> Vector2i:
+	var dirs: Array[Vector2i] = [
+		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
+		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
+	]
+	if not field.is_obstacle(start) and Pathfinder._has_exit(start, field, passable_cells, 1.0, false, dirs):
 		return start
 	for radius: int in range(1, 5):
 		for dx: int in range(-radius, radius + 1):
 			for dy: int in range(-radius, radius + 1):
 				var candidate := field.clamp_position(start + Vector2i(dx, dy))
-				if not field.is_obstacle(candidate):
+				if not field.is_obstacle(candidate) and Pathfinder._has_exit(candidate, field, passable_cells, 1.0, false, dirs):
 					return candidate
 	return fallback
 
 
 func start_of_turn(merc: MercenaryData) -> void:
-	merc.current_ap = int(merc.stats.get("action_points", 5))
+	var max_ap := int(merc.stats.get("action_points", 5))
+	merc.current_ap = maxi(0, max_ap - merc.ap_debt)
+	merc.ap_debt = 0
+	merc.excess_ap = 0
 	escalation[merc] = {}
 
 
 func end_of_turn(merc: MercenaryData) -> void:
-	merc.excess_ap = merc.current_ap
+	merc.excess_ap = maxi(0, merc.current_ap)
 	merc.current_ap = 0
+	var hist: Array = position_history.get(merc, []) as Array
+	hist.append(get_position(merc))
+	if hist.size() > 1:
+		hist.pop_front()
+	position_history[merc] = hist
 
 
 func get_cost(merc: MercenaryData, action_name: String, base_cost: int) -> int:
@@ -134,9 +189,11 @@ func record_action(merc: MercenaryData, action_name: String) -> void:
 
 
 func spend_ap(merc: MercenaryData, amount: int) -> void:
-	var from_excess := mini(merc.excess_ap, amount)
+	var available := maxi(0, merc.excess_ap) + merc.current_ap
+	var actual := mini(amount, maxi(0, available))
+	var from_excess := mini(maxi(0, merc.excess_ap), actual)
 	merc.excess_ap -= from_excess
-	merc.current_ap -= (amount - from_excess)
+	merc.current_ap -= (actual - from_excess)
 
 
 func can_afford(merc: MercenaryData, cost: int) -> bool:
@@ -190,6 +247,18 @@ func get_height(merc: MercenaryData) -> int:
 func set_height(merc: MercenaryData, h: int) -> void:
 	var max_h := battlefield.height - 1 if battlefield != null else 0
 	heights[merc] = clamp(h, 0, max_h)
+
+
+func get_climbing_data(merc: MercenaryData) -> Dictionary:
+	return climbing_data.get(merc, {}) as Dictionary
+
+
+func set_climbing_data(merc: MercenaryData, data: Dictionary) -> void:
+	climbing_data[merc] = data
+
+
+func clear_climbing(merc: MercenaryData) -> void:
+	climbing_data.erase(merc)
 
 
 # 3D Chebyshev distance: max(|dx|, |dy|, |dz|). Returns 0 when no battlefield.
@@ -299,6 +368,31 @@ func is_covered_from(merc: MercenaryData, attacker: MercenaryData, cover_type: S
 	return true
 
 
+# Position-based cover check: would the target be fully covered from a hypothetical attacker at from_pos?
+func is_covered_from_pos(target: MercenaryData, from_pos: Vector2i) -> bool:
+	var def_pos := get_position(target)
+	if battlefield != null:
+		var terrain_diff := battlefield.get_terrain_height(def_pos) - battlefield.get_terrain_height(from_pos)
+		if terrain_diff >= float(maxi(1, int(target.stats.get("size", 1)))):
+			return true
+	if not ConstStates.has_state(target, ConstStates.COVERED_FULL):
+		return false
+	if not merc_cover.has(target):
+		return false
+	var dir_x: int = merc_cover[target].get("cover_dir_x", 0)
+	var dir_y: int = merc_cover[target].get("cover_dir_y", 0)
+	var to_atk := from_pos - def_pos
+	if dir_x != 0 and sign(to_atk.x) != dir_x:
+		return false
+	if dir_y != 0 and sign(to_atk.y) != dir_y:
+		return false
+	return true
+
+
+func record_ranged_targeted(target: MercenaryData) -> void:
+	last_ranged_targeted_round[target] = round_number
+
+
 func record_damage_dealt(attacker: MercenaryData, target: MercenaryData, amount: int) -> void:
 	if amount <= 0:
 		return
@@ -365,7 +459,18 @@ func remove_dropped_weapon(pos: Vector2i, entry: Dictionary) -> void:
 		dropped_weapons.erase(pos)
 
 
+func is_position_occupied(pos: Vector2i, exclude_merc: MercenaryData) -> bool:
+	for m: MercenaryData in positions.keys():
+		if m == exclude_merc:
+			continue
+		if _is_alive(m) and positions[m] == pos:
+			return true
+	return false
+
+
 func get_winner() -> int:
+	if _cached_winner != -2:
+		return _cached_winner
 	var winner := -1
 	for i: int in range(teams.size()):
 		for m: MercenaryData in teams[i]:

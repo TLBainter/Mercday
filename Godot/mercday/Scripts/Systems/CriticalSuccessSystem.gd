@@ -74,7 +74,7 @@ static func _apply_critical_effect(merc: MercenaryData, dsl: String) -> String:
 			return "+%g %s" % [amount, label]
 	elif dsl.begins_with("grant:random:circumstance:"):
 		# TODO: replace grant:weapon_perk:used_weapon:1 DSL entries with a proper
-		#       weapon perk grant once the weapon perk system is implemented.
+		# weapon perk grant once the weapon perk system is implemented.
 		var parts: PackedStringArray = dsl.split(":")
 		if parts.size() == 5:
 			var filter_key: String = parts[3]

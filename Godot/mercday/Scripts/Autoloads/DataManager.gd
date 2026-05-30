@@ -31,6 +31,7 @@ var environment_types: Array[String] = []
 var critical_success_options: Array = []
 var weapon_trait_library: Dictionary = {}   # weapon_name -> Array[TraitData]
 var armor_trait_library: Dictionary = {}    # armor_category -> Array[TraitData]
+var fight_weapon: WeaponData
 
 const EFFECT_PREFIXES: PackedStringArray = ["immune to ", "protected from ", "susceptible to "]
 const EFFECT_DSLS: PackedStringArray = ["immune:", "protected:", "susceptible:"]
@@ -427,6 +428,31 @@ func _load_weapons() -> void:
 			weapons_ordinary_ranged.append(w)
 		if w.item_rarity == "Common" and w.is_ranged:
 			weapons_common_ranged.append(w)
+	_create_fight_weapon()
+
+
+func _create_fight_weapon() -> void:
+	var w := WeaponData.new()
+	w.item_name = "Fight"
+	w.item_type = "Weapon"
+	w.weapon_type = "Unarmed"
+	w.damage_formula_1 = ""
+	w.damage_types_1.assign(["Strike"])
+	w.damage_formula_2 = ""
+	w.damage_types_2.assign([])
+	w.range_ranged = ""
+	w.range_thrown = ""
+	w.is_ranged = false
+	w.is_throwable = false
+	w.has_heavy = false
+	w.has_light = false
+	w.has_extend = false
+	w.melee_range = 1
+	w.draw = 0
+	w.misfire = 0
+	w.misc_properties.assign([])
+	w.is_virtual = true
+	fight_weapon = w
 
 
 func _load_ammo() -> void:
@@ -679,6 +705,11 @@ func _load_obstacles() -> void:
 		o.terrain_height_delta_min = float(tdmin) if tdmin.is_valid_float() else 0.0
 		var tdmax := _row_get(row, 20)
 		o.terrain_height_delta_max = float(tdmax) if tdmax.is_valid_float() else 0.0
+		o.provides_cover = (row[21].strip_edges().to_lower() != "false") if row.size() > 21 else true
+		var moveable_str: String = _row_get(row, 22)
+		o.moveable = moveable_str.to_upper() == "TRUE" or moveable_str == "1"
+		var indestructible_str: String = _row_get(row, 23)
+		o.indestructible = indestructible_str.to_upper() == "TRUE" or indestructible_str == "1"
 		obstacles_pool.append(o)
 		obstacles_by_name[o.obstacle_name] = o
 		if not obstacles_by_type.has(o.obstacle_type):

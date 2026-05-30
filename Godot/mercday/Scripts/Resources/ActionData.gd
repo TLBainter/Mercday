@@ -8,9 +8,9 @@ class_name ActionData extends Resource
 @export var priority: int = 99
 @export var is_reactive: bool = false
 @export var trigger: String = ""
-@export_enum("pass", "special", "attack", "move", "draw") var execution_type: String = "special"
+@export_enum("pass", "special", "attack", "move", "draw", "climb") var execution_type: String = "special"
 @export_enum("none", "current_or_best", "nearest_enemy", "nearest_ally", "mover", "strategic_advance") var target_mode: String = "none"
-@export var move_stop_dist: int = -1  ## -1 = auto (stops at weapon range); ≥0 overrides stop distance
+@export var move_stop_dist: int = -1  ## -1 = auto (stops at weapon range); >=0 overrides stop distance
 @export var draw_from_inventory: bool = false
 @export var decision: DecisionData
 
@@ -82,14 +82,14 @@ func _resolve_target(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
 			var state: BattleState = ctx["state"]
 			var enemies: Array = ctx.get("enemies", [])
 			var allies: Array = ctx.get("allies", [])
-			# 1. Ally in danger (≤30% HP) with an adjacent enemy — go rescue them
+			# 1. Ally in danger (<=30% HP) with an adjacent enemy -- go rescue them
 			for ally: MercenaryData in allies:
 				var max_hp := int(ally.stats.get("maximum_hit_points", 1))
 				if float(ally.current_hp) / float(max_hp) <= 0.30:
 					for enemy: MercenaryData in enemies:
 						if state.distance_to(ally, enemy) <= 1:
 							return ally
-			# 2. Nearest enemy — primary: advance to close the gap
+			# 2. Nearest enemy -- primary: advance to close the gap
 			var nearest: MercenaryData = null
 			var best_d := INF
 			for enemy: MercenaryData in enemies:
@@ -99,7 +99,7 @@ func _resolve_target(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
 					nearest = enemy
 			if nearest != null:
 				return nearest
-			# 3. Ally closest to any enemy — follow the frontline when no enemies reachable
+			# 3. Ally closest to any enemy -- follow the frontline when no enemies reachable
 			var best_ally: MercenaryData = null
 			var best_ally_d := INF
 			for ally: MercenaryData in allies:

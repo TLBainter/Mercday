@@ -37,7 +37,7 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 	var chosen_stat := _choose_stat(merc, success_chance, stat_keys, circ_names)
 	var circ_bonus := _circumstance_bonus_for_stat(merc, chosen_stat, circ_names)
 	var bsc := clampf(float(merc.stats.get("base_success_chance", 0.0)), 0.0, 100.0)
-	var threshold := clampf(success_chance + circ_bonus + bsc + flat_bonus, 0.0, 100.0)
+	var threshold := clampf(success_chance + circ_bonus + bsc + flat_bonus, 0.01, 100.0)
 	var reroll_threshold := clampf(float(merc.stats.get("reroll", 0.0)), 0.0, 100.0)
 	var stat_value := int(merc.stats.get(chosen_stat, 0))
 
@@ -102,19 +102,32 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 	}
 
 
+static var _expr_cache: Dictionary = {}  # formula -> {expr, var_names}
+
 static func _evaluate_formula(formula: String, merc: MercenaryData) -> float:
-	var expr := Expression.new()
-	var var_names: Array[String] = []
+	if not _expr_cache.has(formula):
+		var names: Array[String] = []
+		for key in merc.stats:
+			names.append(str(key))
+		names.append("rand_factor")
+		var new_expr := Expression.new()
+		var err := new_expr.parse(formula, names)
+		if err != OK:
+			push_warning("CheckSystem: formula parse error: " + formula)
+			return 0.0
+		_expr_cache[formula] = {"expr": new_expr, "var_names": names}
+
+	var cached: Dictionary = _expr_cache[formula]
+	var expr: Expression = cached["expr"]
+	var var_names: Array[String] = cached["var_names"]
+
 	var var_values: Array = []
-	for key in merc.stats:
-		var_names.append(str(key))
-		var_values.append(merc.stats[key])
-	var_names.append("rand_factor")
-	var_values.append(randf_range(0.1, 4.9))
-	var err := expr.parse(formula, var_names)
-	if err != OK:
-		push_warning("CheckSystem: formula parse error: " + formula)
-		return 0.0
+	for key: String in var_names:
+		if key == "rand_factor":
+			var_values.append(randf_range(0.1, 4.9))
+		else:
+			var_values.append(merc.stats.get(key, 0))
+
 	var result = expr.execute(var_values)
 	if expr.has_execute_failed():
 		push_warning("CheckSystem: formula execute error: " + formula)
@@ -136,7 +149,7 @@ static func _choose_stat(
 	var best_expected := -1.0
 	for sk: String in stat_keys:
 		var circ_bonus := _circumstance_bonus_for_stat(merc, sk, circumstance_display_names)
-		var threshold := clampf(success_chance + circ_bonus + bsc, 0.0, 100.0)
+		var threshold := clampf(success_chance + circ_bonus + bsc, 0.01, 100.0)
 		var stat_value := int(merc.stats.get(sk, 0))
 		var num_instances := maxi(1, stat_value)
 		var p_base: float

@@ -1,6 +1,6 @@
 class_name EnemyFlankingAllyFacet extends DecisionFacet
 
-## Scores 1.0 if the current target is adjacent to a flanked ally — shoving them could break the flanking.
+## Scores 1.0 if the current target is adjacent to a flanked ally -- shoving them could break the flanking.
 func evaluate(_merc: MercenaryData, ctx: Dictionary) -> float:
 	var target: MercenaryData = ctx.get("current_target")
 	if target == null:

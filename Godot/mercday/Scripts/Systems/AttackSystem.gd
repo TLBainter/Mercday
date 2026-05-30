@@ -4,15 +4,17 @@ static func execute_attack(
 		attacker: MercenaryData,
 		extra_enhancements: int = 0,
 		extra_flaws: int = 0,
-		target: MercenaryData = null) -> Dictionary:
+		target: MercenaryData = null,
+		is_throw: bool = false,
+		force_melee: bool = false) -> Dictionary:
 	var weapon := attacker.equipped_weapon
-	var is_ranged := weapon != null and weapon.is_ranged
+	var is_ranged := weapon != null and weapon.is_ranged and not force_melee
 
 	if is_ranged:
-		if attacker.weapon_misfired:
-			return _empty_attack_result(_pick_damage_type(weapon.damage_types_1), false, true)
 		if attacker.ammo_loaded <= 0:
 			return _empty_attack_result(_pick_damage_type(weapon.damage_types_1), true, false)
+		if attacker.weapon_misfired:
+			return _empty_attack_result(_pick_damage_type(weapon.damage_types_1), false, true)
 
 	var stat_keys: Array[String]
 	var circumstances: Array[String]
@@ -37,7 +39,7 @@ static func execute_attack(
 			and not WeaponArmorPerkLibrary.has_weapon_passive(attacker, "weapon_passive:ignore_threatened"):
 		flat_threshold_bonus -= 30.0
 
-	var accuracy_formula := "ranged_accuracy" if is_ranged else "melee_accuracy"
+	var accuracy_formula := "ranged_accuracy" if (is_ranged or is_throw) else "melee_accuracy"
 	var check_def := {
 		"stat_keys": stat_keys,
 		"circumstances": circumstances,
@@ -82,6 +84,7 @@ static func execute_attack(
 				if attacker.ammo_inventory[attacker.ammo_loaded_type] <= 0:
 					attacker.ammo_inventory.erase(attacker.ammo_loaded_type)
 		if weapon.misfire > 0 and core_successes < weapon.misfire:
+			EncounterLogger.log_misfire_check(attacker.merc_name, weapon.item_name, weapon.misfire, core_successes, true)
 			attacker.weapon_misfired = true
 			return {
 				"damage": 0,
@@ -96,6 +99,8 @@ static func execute_attack(
 				"misfired": true,
 				"no_ammo": false,
 			}
+		elif weapon.misfire > 0:
+			EncounterLogger.log_misfire_check(attacker.merc_name, weapon.item_name, weapon.misfire, core_successes, false)
 
 	return {
 		"damage": core_successes + weapon_die_successes + flat_bonus,

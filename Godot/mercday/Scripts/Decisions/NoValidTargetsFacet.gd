@@ -1,7 +1,7 @@
 class_name NoValidTargetsFacet extends DecisionFacet
 
 func evaluate(_merc: MercenaryData, ctx: Dictionary) -> float:
-	return 1.0 if ctx.get("valid_targets", []).is_empty() else 0.0
+	return 1.0 if ctx.get("enemies", []).is_empty() else 0.0
 
 static func create(p_weight: float = 1.0, p_required: bool = false) -> NoValidTargetsFacet:
 	var facet := NoValidTargetsFacet.new()

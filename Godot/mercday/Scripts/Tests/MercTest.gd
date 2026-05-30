@@ -543,13 +543,12 @@ func _run_attack_check(merc: MercenaryData) -> void:
 	])
 
 
-func _process(_delta: float) -> void:
-	if _battle_state == null:
-		return
-	var ongoing: bool = AutoBattle.step_round(_battle_state, _battle_line_fn)
-	if not ongoing:
-		_print_battle_result()
-		_battle_state = null
+func _run_battle_loop() -> void:
+	while _battle_state != null:
+		var ongoing: bool = await AutoBattle.step_round(_battle_state, _battle_line_fn)
+		if not ongoing:
+			_print_battle_result()
+			_battle_state = null
 
 
 func _on_start_battle() -> void:
@@ -579,6 +578,7 @@ func _on_start_battle() -> void:
 	print_rich("[color=yellow]Team B:[/color] %s" % b_names)
 	print_rich("Turn order: %s" % ", ".join(order_parts))
 	AutoBattle.setup(_battle_state, _battle_line_fn)
+	_run_battle_loop()
 
 
 func _print_battle_result() -> void:
@@ -641,7 +641,6 @@ func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type: String
 		else:
 			print("  EP spent:   1  (%d → %d)" % [ep_before, merc.current_ep])
 
-			# Defend line
 			var def_result: Dictionary = res["defend_result"]
 			if def_result.is_empty():
 				print_rich("  Defend:     [color=gray]blocked (%s)[/color]" % damage_type)
@@ -654,7 +653,6 @@ func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type: String
 					_fmt_rolls(def_result["roll1"] as Array, def_threshold), def_threshold, raw_suc, halved_note
 				])
 
-			# Dodge line
 			var dodge_result: Dictionary = res["dodge_result"]
 			if dodge_result.is_empty():
 				print_rich("  Dodge:      [color=gray]blocked (%s)[/color]" % damage_type)
@@ -664,7 +662,6 @@ func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type: String
 					_fmt_rolls(dodge_result["roll1"] as Array, dodge_threshold), dodge_threshold, res["dodge_reduction"]
 				])
 
-			# Best
 			var src: String = res["reduction_source"]
 			print("  Best:       %s (%d reduction)" % [src, res["best_reduction"]])
 			print("  Reducible:  %d − %d = %d" % [res["reducible"], res["best_reduction"], res["final_reducible"]])

@@ -1,0 +1,26 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Actions/ClimbAction.gd" id="ClimbAction"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
+
+[sub_resource type="Resource" id="facet_climbing"]
+script = ExtResource("ActiveStateFacet")
+is_required = true
+state_name = "Climbing"
+present_is_high = true
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_climbing")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("ClimbAction")
+action_name = "Climb"
+ap_cost = 2
+ap_cost_mode = "move_base"
+priority = 45
+execution_type = "climb"
+target_mode = "none"
+decision = SubResource("decision")

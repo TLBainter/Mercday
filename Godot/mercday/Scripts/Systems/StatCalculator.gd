@@ -27,6 +27,8 @@ static func calculate_all(merc: MercenaryData) -> Dictionary:
 		"performance_wile":    ConstCircumstances.PERFORMANCE_WILE,
 		"attack_dexterity":    ConstCircumstances.ATTACK_DEXTERITY,
 		"attack_vigor":        ConstCircumstances.ATTACK_VIGOR,
+		"athletics_vigor":     ConstCircumstances.ATHLETICS_VIGOR,
+		"power_vigor":         ConstCircumstances.POWER_VIGOR,
 		"search_cognition":    ConstCircumstances.SEARCH_COGNITION,
 		"notice_cognition":    ConstCircumstances.NOTICE_COGNITION,
 		"intuition_cognition": ConstCircumstances.INTUITION_COGNITION,
@@ -87,8 +89,8 @@ static func calculate_all(merc: MercenaryData) -> Dictionary:
 
 	# TODO: apply armor weight/encumbrance penalty here once the mechanic is implemented.
 	# The Weight Limit stat (vigor + size + 1) already exists; compare against equipped_armor.weight.
-	# Guard with: if merc.equipped_armor and not WeaponArmorPerkLibrary.has_armor_perk_active(merc, "armor_weight_ignore:" + merc.equipped_armor.armor_class.to_lower()):
-	#     # apply weight penalty (e.g. speed or pace reduction) based on equipped_armor.weight vs weight_limit
+	# Guard: if equipped_armor and not has_perk_active(merc, "armor_weight_ignore:" + armor_class):
+	# apply weight penalty (e.g. pace reduction) based on equipped_armor.weight vs weight_limit
 
 	# Core stats include stat_bonus_X in their formulas; skip them here.
 	for stat_name: String in merc.stat_bonuses:

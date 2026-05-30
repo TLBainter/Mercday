@@ -46,7 +46,11 @@ var ammo_loaded: int = 0
 var ammo_loaded_type: String = ""
 var weapon_misfired: bool = false
 var aim_active: bool = false    # cleared at start of each turn
-var weapon_drawn: bool = true        # true = weapon currently in hand; starts drawn
+var weapon_drawn: bool = false       # true = weapon in hand; toggled by _randomize_starting_draw and Draw action
 var inventory: Array = []            # Array of {"type": String, "data": Resource}, e.g. {"type": "weapon", "data": WeaponData}
 var deferred_effects: Array = []  # Array of {target: MercenaryData, damage: int, type: String, timing: String}
 var action_set: MercActionSet
+var last_known_enemy_positions: Dictionary = {}  # MercenaryData -> Vector2i
+var last_seen_position: Vector2i = Vector2i(-1, -1)  # last grid pos of current_target before they went into full cover
+var combat_idle_rounds: int = 0
+var ap_debt: int = 0
