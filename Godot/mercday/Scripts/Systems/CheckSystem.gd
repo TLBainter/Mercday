@@ -52,6 +52,8 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 	var to_remove := mini(flaws, instances.size())
 	if to_remove > 0:
 		instances = instances.slice(0, instances.size() - to_remove)
+	if instances.is_empty():
+		instances.append(true)  # net-zero core dice → disadvantage pair, take lowest
 
 	var successes := 0
 	var failures := 0

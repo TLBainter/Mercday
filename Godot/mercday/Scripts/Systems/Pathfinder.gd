@@ -11,7 +11,7 @@ static func find_path(from: Vector2i, to: Vector2i, field: BattlefieldArea,
 		var r: Array[Vector2i] = [from]
 		return r
 
-	# open: pos -> {g, f, parent}; heap: [[f, pos], ...] sorted ascending by f
+	# open: pos -> {g, f, parent}; heap: [[f, pos], ...] as binary min-heap
 	var open: Dictionary = {}
 	var heap: Array = []
 	var closed: Dictionary = {}
@@ -27,7 +27,7 @@ static func find_path(from: Vector2i, to: Vector2i, field: BattlefieldArea,
 	]
 
 	while not heap.is_empty():
-		var top: Array = heap.pop_front()
+		var top: Array = _heap_pop(heap)
 		var best: Vector2i = top[1]
 		if closed.has(best):
 			continue  # stale heap entry
@@ -166,7 +166,7 @@ static func find_path_toward(from: Vector2i, to: Vector2i, field: BattlefieldAre
 	var best_dist := _h(from, to)
 
 	while not heap.is_empty():
-		var top: Array = heap.pop_front()
+		var top: Array = _heap_pop(heap)
 		var curr: Vector2i = top[1]
 		if closed.has(curr):
 			continue  # stale heap entry
@@ -176,8 +176,15 @@ static func find_path_toward(from: Vector2i, to: Vector2i, field: BattlefieldAre
 
 		var dist := _h(curr, to)
 		if dist < best_dist:
-			best_dist = dist
-			best_reachable = curr
+			var _has_fwd := false
+			for _fd: Vector2i in dirs:
+				var _fn: Vector2i = curr + _fd
+				if _h(_fn, to) < dist and cell_pace_cost(curr, _fn, field, passable_cells, merc_fall_tolerance, is_flying, can_climb) >= 0:
+					_has_fwd = true
+					break
+			if _has_fwd:
+				best_dist = dist
+				best_reachable = curr
 
 		for d: Vector2i in dirs:
 			var nb: Vector2i = curr + d
@@ -247,16 +254,40 @@ static func _h(a: Vector2i, b: Vector2i) -> int:
 
 
 static func _heap_insert(heap: Array, entry: Array) -> void:
-	var f: int = entry[0]
-	var lo := 0
-	var hi := heap.size()
-	while lo < hi:
-		var mid := (lo + hi) >> 1
-		if (heap[mid] as Array)[0] <= f:
-			lo = mid + 1
-		else:
-			hi = mid
-	heap.insert(lo, entry)
+	heap.append(entry)
+	var i := heap.size() - 1
+	while i > 0:
+		var parent := (i - 1) >> 1
+		if (heap[parent] as Array)[0] <= (heap[i] as Array)[0]:
+			break
+		var tmp: Array = heap[parent]
+		heap[parent] = heap[i]
+		heap[i] = tmp
+		i = parent
+
+
+static func _heap_pop(heap: Array) -> Array:
+	var top: Array = heap[0]
+	var last_idx := heap.size() - 1
+	heap[0] = heap[last_idx]
+	heap.resize(last_idx)
+	var i := 0
+	var n := heap.size()
+	while true:
+		var left := 2 * i + 1
+		var right := 2 * i + 2
+		var smallest := i
+		if left < n and (heap[left] as Array)[0] < (heap[smallest] as Array)[0]:
+			smallest = left
+		if right < n and (heap[right] as Array)[0] < (heap[smallest] as Array)[0]:
+			smallest = right
+		if smallest == i:
+			break
+		var tmp: Array = heap[smallest]
+		heap[smallest] = heap[i]
+		heap[i] = tmp
+		i = smallest
+	return top
 
 
 # Returns true if a merc can land on this cell during a jump (not a wall or solid obstacle).

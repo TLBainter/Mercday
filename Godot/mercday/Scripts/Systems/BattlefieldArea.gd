@@ -32,6 +32,8 @@ var building_data: Array[Dictionary] = []  # [{rect, door_facing, door_positions
 var terrain_heights: Dictionary = {}    # Vector2i -> float; absent key = 0.0
 # Generation log lines collected during _generate_cover(); flushed by EncounterLogger.log_generation().
 var generation_log: Array[String] = []
+var _obs_map: Dictionary = {}               # Vector2i → obstacle dict; O(1) position lookup
+var cover_obstacles: Array[Dictionary] = [] # pre-filtered to provides_cover==true; rebuilt after generation
 
 # Path width: 1 (extreme/dense) -> 3 (gentle/sparse). Computed from unevenness + cover_amount.
 # Stored so _carve_spawn_corridor_step can match the width used during nav path generation.
@@ -124,6 +126,8 @@ func _generate_cover() -> void:
 	generation_log.clear()
 	var _gen_start := Time.get_ticks_msec()
 	obstacles.clear()
+	_obs_map.clear()
+	cover_obstacles.clear()
 	building_interiors.clear()
 	building_data.clear()
 	terrain_heights.clear()
@@ -157,7 +161,9 @@ func _generate_cover() -> void:
 		var template: ObstacleData = DataManager.get_random_obstacle()
 		if not _terrain_compatible(template, pos):
 			continue
-		obstacles.append({"pos": pos, "size": template.size, "data": template})
+		var _new_obs := {"pos": pos, "size": template.size, "data": template}
+		obstacles.append(_new_obs)
+		_obs_map[pos] = _new_obs
 		placed += 1
 		placed += _expand_obstacle(template, pos, target_count - placed)
 	_ms = Time.get_ticks_msec() - _t
@@ -231,6 +237,14 @@ func _generate_cover() -> void:
 	_ms = Time.get_ticks_msec() - _t
 	generation_log.append("[GEN] spawn_connectivity: %dms" % _ms)
 	print("[GEN] spawn_connectivity: %dms" % _ms)
+
+	_t = Time.get_ticks_msec()
+	_remove_isolated_pockets()
+	_ms = Time.get_ticks_msec() - _t
+	generation_log.append("[GEN] pocket_removal: %dms" % _ms)
+	print("[GEN] pocket_removal: %dms" % _ms)
+
+	_rebuild_cover_obstacles()
 
 	var _total_ms := Time.get_ticks_msec() - _gen_start
 	generation_log.append("[GEN] TOTAL: %dms — %s" % [_total_ms, to_header_string()])
@@ -321,6 +335,7 @@ func _place_building(template: ObstacleData) -> void:
 		# Snapshot mutable state before writing so we can undo if the building
 		# breaks spawn connectivity.
 		var snap_obstacles: Array[Dictionary] = obstacles.duplicate(false)
+		var snap_obs_map: Dictionary = _obs_map.duplicate(false)
 		var snap_interiors: Dictionary = building_interiors.duplicate(false)
 		var snap_terrain: Dictionary = terrain_heights.duplicate(false)
 
@@ -367,29 +382,27 @@ func _place_building(template: ObstacleData) -> void:
 				var is_perim: bool = (bx == 0 or bx == outer_w - 1 or by == 0 or by == outer_h - 1)
 				if is_perim:
 					if door_positions.has(cell):
-						obstacles.append({
-							"pos": cell, "size": 2,
-							"data": _get_door_template(),
-							"cell_type": "door", "door_open": false
-						})
+						var _door_obs := {"pos": cell, "size": 2,
+							"data": _get_door_template(), "cell_type": "door", "door_open": false}
+						obstacles.append(_door_obs)
+						_obs_map[cell] = _door_obs
 					elif window_positions.has(cell):
-						obstacles.append({
-							"pos": cell, "size": 2,
-							"data": window_data,
-							"cell_type": "window"
-						})
+						var _win_obs := {"pos": cell, "size": 2,
+							"data": window_data, "cell_type": "window"}
+						obstacles.append(_win_obs)
+						_obs_map[cell] = _win_obs
 					else:
-						obstacles.append({
-							"pos": cell, "size": wall_size,
-							"data": wall_data,
-							"cell_type": "wall"
-						})
+						var _wall_obs := {"pos": cell, "size": wall_size,
+							"data": wall_data, "cell_type": "wall"}
+						obstacles.append(_wall_obs)
+						_obs_map[cell] = _wall_obs
 				else:
 					building_interiors[cell] = true
 
 		# Rule 1: verify connectivity; roll back if the building breaks it.
 		if not _is_spawn_connected():
 			obstacles = snap_obstacles
+			_obs_map = snap_obs_map
 			building_interiors = snap_interiors
 			terrain_heights = snap_terrain
 			generation_log.append(
@@ -512,10 +525,10 @@ func _place_furniture_in_buildings() -> void:
 		free_cells.shuffle()
 		for i: int in range(mini(count, free_cells.size())):
 			var furn: ObstacleData = furn_pool[randi() % furn_pool.size()] as ObstacleData
-			obstacles.append({
-				"pos": free_cells[i], "size": furn.size,
-				"data": furn, "cell_type": "furniture"
-			})
+			var _furn_obs := {"pos": free_cells[i], "size": furn.size,
+				"data": furn, "cell_type": "furniture"}
+			obstacles.append(_furn_obs)
+			_obs_map[free_cells[i]] = _furn_obs
 
 
 func _expand_obstacle(template: ObstacleData, origin: Vector2i, budget: int) -> int:
@@ -551,7 +564,9 @@ func _expand_obstacle(template: ObstacleData, origin: Vector2i, budget: int) -> 
 				continue
 			if not _terrain_compatible(template, np):
 				continue
-			obstacles.append({"pos": np, "size": template.size, "data": template})
+			var _exp_obs := {"pos": np, "size": template.size, "data": template}
+			obstacles.append(_exp_obs)
+			_obs_map[np] = _exp_obs
 			frontier.append(np)
 			added += 1
 			placed = true
@@ -569,15 +584,15 @@ func _in_spawn_zone(pos: Vector2i) -> bool:
 # Returns true only for solid, impassable non-door obstacles.
 # Passthrough obstacles and doors are never "blocking" for path/spawn checks.
 func _is_obstacle_at(pos: Vector2i) -> bool:
-	for obs: Dictionary in obstacles:
-		if (obs["pos"] as Vector2i) == pos:
-			if obs.get("cell_type", "") == "door":
-				return false  # doors are navigable routes
-			var d: ObstacleData = obs.get("data") as ObstacleData
-			if d != null and (d.passthrough or d.is_stairs):
-				return false  # can be walked through or climbed
-			return true
-	return false
+	var obs: Dictionary = _obs_map.get(pos, {}) as Dictionary
+	if obs.is_empty():
+		return false
+	if obs.get("cell_type", "") == "door":
+		return false
+	var d: ObstacleData = obs.get("data") as ObstacleData
+	if d != null and (d.passthrough or d.is_stairs):
+		return false
+	return true
 
 
 func _ensure_pathability() -> void:
@@ -896,6 +911,7 @@ func _carve_spawn_corridor_step() -> Array[String]:
 			continue
 
 		# Remove all obstacle entries at this position.
+		_obs_map.erase(cp)
 		var idx: int = obstacles.size() - 1
 		while idx >= 0:
 			if (obstacles[idx]["pos"] as Vector2i) == cp:
@@ -943,6 +959,80 @@ func _ensure_spawn_connectivity() -> void:
 		"CONNECTED" if _is_spawn_connected() else "DISCONNECTED", passes])
 
 
+func _remove_isolated_pockets() -> void:
+	var dirs8: Array[Vector2i] = [
+		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
+		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
+	]
+	var reachable: Dictionary = {}
+	var queue: Array[Vector2i] = []
+	for seed_y: int in range(SPAWN_BUFFER + 2):
+		for seed_x: int in range(width):
+			var seed_cell := Vector2i(seed_x, seed_y)
+			if not _is_obstacle_at(seed_cell) and not reachable.has(seed_cell):
+				reachable[seed_cell] = true
+				queue.append(seed_cell)
+	while not queue.is_empty():
+		var curr: Vector2i = queue.pop_front()
+		for d: Vector2i in dirs8:
+			var nxt: Vector2i = curr + d
+			if nxt.x < 0 or nxt.x >= width or nxt.y < 0 or nxt.y >= length:
+				continue
+			if reachable.has(nxt):
+				continue
+			if not _spawn_step_ok(curr, nxt):
+				continue
+			reachable[nxt] = true
+			queue.append(nxt)
+
+	var pockets: Array[Vector2i] = []
+	for y: int in range(SPAWN_BUFFER, length - SPAWN_BUFFER):
+		for x: int in range(width):
+			var pos := Vector2i(x, y)
+			if not _is_obstacle_at(pos) and not reachable.has(pos):
+				pockets.append(pos)
+
+	if pockets.is_empty():
+		generation_log.append("Pocket check: no isolated walkable cells")
+		return
+
+	var carved := 0
+	for pc: Vector2i in pockets:
+		if reachable.has(pc):
+			continue
+		var best := Vector2i(-1, -1)
+		var best_d := 9999
+		for rc: Vector2i in reachable.keys():
+			var cheby: int = maxi(absi(pc.x - rc.x), absi(pc.y - rc.y))
+			if cheby < best_d:
+				best_d = cheby
+				best = rc
+		if best == Vector2i(-1, -1):
+			continue
+		var cx := best.x
+		var cy := best.y
+		while Vector2i(cx, cy) != pc:
+			if cx != pc.x:
+				cx += signi(pc.x - cx)
+			elif cy != pc.y:
+				cy += signi(pc.y - cy)
+			var step := Vector2i(cx, cy)
+			_obs_map.erase(step)
+			var idx: int = obstacles.size() - 1
+			while idx >= 0:
+				if (obstacles[idx]["pos"] as Vector2i) == step:
+					obstacles.remove_at(idx)
+				idx -= 1
+			building_interiors.erase(step)
+			terrain_heights[step] = 0.0
+			reserved_corridor_cells[step] = true
+			reachable[step] = true
+			carved += 1
+		reachable[pc] = true
+
+	generation_log.append("Pocket check: %d pocket cell(s) found, %d cell(s) carved to connect" % [pockets.size(), carved])
+
+
 # Hard-guarantee corridor: carve a straight-line path from `from` to `to`,
 # removing all obstacles and flattening terrain along the way.
 # Uses the same step logic as _generate_nav_paths (prefer X movement first).
@@ -976,6 +1066,7 @@ func _carve_direct_corridor(from: Vector2i, to: Vector2i) -> void:
 			if cell.x < 0 or cell.x >= width or cell.y < 0 or cell.y >= length:
 				continue
 			# Remove all obstacles at this cell.
+			_obs_map.erase(cell)
 			var idx: int = obstacles.size() - 1
 			while idx >= 0:
 				if (obstacles[idx]["pos"] as Vector2i) == cell:
@@ -1003,10 +1094,7 @@ func is_obstacle(pos: Vector2i) -> bool:
 
 
 func get_obstacle_at(pos: Vector2i) -> Dictionary:
-	for obs: Dictionary in obstacles:
-		if (obs["pos"] as Vector2i) == pos:
-			return obs
-	return {}
+	return _obs_map.get(pos, {}) as Dictionary
 
 
 func get_adjacent_obstacles(pos: Vector2i) -> Array[Dictionary]:
@@ -1256,4 +1344,14 @@ func _place_stairs_at_transitions() -> void:
 					qualifies = true
 					break
 			if qualifies and randf() < 0.4:
-				obstacles.append({"pos": pos, "size": stairs_template.size, "data": stairs_template})
+				var _stair_obs := {"pos": pos, "size": stairs_template.size, "data": stairs_template}
+				obstacles.append(_stair_obs)
+				_obs_map[pos] = _stair_obs
+
+
+func _rebuild_cover_obstacles() -> void:
+	cover_obstacles.clear()
+	for obs: Dictionary in obstacles:
+		var d: ObstacleData = obs.get("data") as ObstacleData
+		if d != null and d.provides_cover:
+			cover_obstacles.append(obs)

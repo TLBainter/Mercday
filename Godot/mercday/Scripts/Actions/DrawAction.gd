@@ -12,7 +12,10 @@ func can_execute(merc: MercenaryData, ctx: Dictionary) -> bool:
 
 func _resolve_draw_weapon(merc: MercenaryData) -> WeaponData:
 	var current := merc.equipped_weapon
-	var current_is_useless := current != null and current.is_ranged and merc.ammo_loaded == 0 and _has_no_ammo(merc)
+	var _too_unreliable := current != null and current.is_ranged and current.misfire > 0 \
+		and (FirearmReliabilityFacet.compute(merc) * 2.5 + 2.0) / 4.5 < 0.50
+	var current_is_useless := (current != null and current.is_ranged and merc.ammo_loaded == 0 and _has_no_ammo(merc)) \
+		or _too_unreliable
 	if not current_is_useless:
 		var result := super._resolve_draw_weapon(merc)
 		return result if result != null else DataManager.fight_weapon

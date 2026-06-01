@@ -310,8 +310,7 @@ static func decide_next_action(
 	if wp != null and wp.is_ranged and merc.ammo_loaded > 0 and not merc.weapon_misfired \
 			and aim_target_valid and not merc.aim_active:
 		var aim_cost := state.get_cost(merc, "Aim", 2)
-		var atk_cost_check := state.get_cost(merc, "Attack", attack_base_cost)
-		if state.can_afford(merc, aim_cost + atk_cost_check):
+		if state.can_afford(merc, aim_cost):
 			return {"type": "special", "action_name": "aim", "target": null}
 
 	var atk_cost := state.get_cost(merc, "Attack", attack_base_cost)
@@ -421,7 +420,12 @@ static func _should_reload(
 		var max_hp := float(merc.stats.get("maximum_hit_points", 1))
 		var hp_ratio := float(merc.current_hp) / max_hp
 		var chance := (hp_ratio / DANGER_HP_RATIO) * 0.25
-		return randf() < chance
+		if randf() < chance:
+			return true
+		if EncounterLogger.is_active():
+			EncounterLogger.log_verbose("RELOAD SKIPPED: %s in danger, hp_ratio=%.2f, chance=%.0f%%" % [
+				merc.merc_name, hp_ratio, chance * 100.0])
+		return false
 
 	if float(ammo_loaded) < float(weapon.chamber) * 0.5:
 		if in_danger:
@@ -643,8 +647,11 @@ static func _score_weapon(
 			has_ammo = merc.ammo_loaded > 0 \
 					or merc.ammo_inventory.get(merc.ammo_loaded_type, 0) > 0
 		else:
-			for count: int in merc.ammo_inventory.values():
-				if count > 0:
+			for ammo_type: String in merc.ammo_inventory:
+				if (merc.ammo_inventory[ammo_type] as int) <= 0:
+					continue
+				var _ammo_data: AmmoData = DataManager.ammo.get(ammo_type)
+				if _ammo_data != null and _ammo_data.compatible.has(weapon.weapon_type):
 					has_ammo = true
 					break
 		if not has_ammo:
@@ -663,7 +670,8 @@ static func _score_weapon(
 	if closest_dist <= 2:
 		# enemies are close; melee/thrown preferred
 		if not weapon.is_ranged:
-			score += 2.0
+			if float(merc.stats.get("melee_accuracy", 0.0)) >= 1.0:
+				score += 2.0
 		else:
 			score -= 0.5
 	else:
@@ -836,11 +844,24 @@ static func _decide_weapon_action(
 	if best == null or best == merc.equipped_weapon:
 		return no_action
 
+	var best_can_reach := false
+	for enemy: MercenaryData in enemies:
+		var d := state.distance_to(merc, enemy)
+		var in_reach: bool = best.is_ranged \
+				and (best.ranged_extended_range <= 0 or d <= best.ranged_extended_range)
+		if not in_reach:
+			in_reach = not best.is_ranged and d <= best.melee_range
+		if in_reach:
+			best_can_reach = true
+			break
+	if not best_can_reach:
+		return no_action
+
 	# Decide holster vs drop
 	if _should_holster_vs_drop(merc, merc.equipped_weapon, enemies):
 		var holster_cost := state.get_cost(merc, "Holster", merc.equipped_weapon.draw)
 		var total_ap := merc.current_ap + merc.excess_ap
-		if state.can_afford(merc, holster_cost) and total_ap - holster_cost - best.draw >= 0:
+		if state.can_afford(merc, holster_cost) and total_ap - holster_cost - best.draw >= attack_base_cost:
 			return {"type": "holster", "action_name": "Holster", "target": null, "weapon": null}
 		# Holster too expensive; drop to free hands for the better weapon
 		if state.can_afford(merc, best.draw):
@@ -986,8 +1007,18 @@ static func _decide_pickup_action(
 				best_wp_pos = pos
 
 	if not best_wp_entry.is_empty() and best_wp_score > 0.0:
-		return {"type": "move_to_pickup", "action_name": "Move Close", "target": null, "weapon": null,
-				"weapon_entry": best_wp_entry, "weapon_pos": best_wp_pos}
+		# Don't move away from all enemies to fetch a weapon — that creates oscillation loops.
+		var moving_toward_any_enemy := false
+		for enemy: MercenaryData in enemies:
+			var ep := state.get_position(enemy)
+			var dist_now := maxi(absi(merc_pos.x - ep.x), absi(merc_pos.y - ep.y))
+			var dist_after := maxi(absi(best_wp_pos.x - ep.x), absi(best_wp_pos.y - ep.y))
+			if dist_after <= dist_now:
+				moving_toward_any_enemy = true
+				break
+		if moving_toward_any_enemy:
+			return {"type": "move_to_pickup", "action_name": "Move Close", "target": null, "weapon": null,
+					"weapon_entry": best_wp_entry, "weapon_pos": best_wp_pos}
 
 	return no_action
 

@@ -6,9 +6,9 @@ static func execute_attack(
 		extra_flaws: int = 0,
 		target: MercenaryData = null,
 		is_throw: bool = false,
-		force_melee: bool = false) -> Dictionary:
+		state: BattleState = null) -> Dictionary:
 	var weapon := attacker.equipped_weapon
-	var is_ranged := weapon != null and weapon.is_ranged and not force_melee
+	var is_ranged := weapon != null and weapon.is_ranged
 
 	if is_ranged:
 		if attacker.ammo_loaded <= 0:
@@ -38,6 +38,9 @@ static func execute_attack(
 	if is_ranged and ConstStates.has_state(attacker, ConstStates.THREATENED) \
 			and not WeaponArmorPerkLibrary.has_weapon_passive(attacker, "weapon_passive:ignore_threatened"):
 		flat_threshold_bonus -= 30.0
+	if is_ranged and state != null and target != null \
+			and state.is_covered_from(target, attacker, ConstStates.COVERED_PARTIAL):
+		flat_threshold_bonus -= 15.0
 
 	var accuracy_formula := "ranged_accuracy" if (is_ranged or is_throw) else "melee_accuracy"
 	var check_def := {

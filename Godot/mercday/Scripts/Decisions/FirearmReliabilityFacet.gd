@@ -1,19 +1,20 @@
 class_name FirearmReliabilityFacet extends DecisionFacet
 
 func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
+	return compute(merc)
+
+
+static func compute(merc: MercenaryData) -> float:
 	var weapon := merc.equipped_weapon
 	if weapon == null or not weapon.is_ranged or weapon.misfire <= 0:
 		return 1.0
-
 	var p := clampf(float(merc.stats.get("ranged_accuracy", 0.0)) / 100.0, 0.0, 1.0)
 	var dex := maxf(0.0, float(merc.stats.get("dexterity", 0)))
 	var vig := maxf(0.0, float(merc.stats.get("vigor", 0)))
 	var num_dice := int(maxf(1.0, maxf(dex, vig)))
 	var k := int(weapon.misfire)
-
 	if num_dice < k:
 		return 0.0
-
 	return _prob_at_least_k(num_dice, k, p)
 
 

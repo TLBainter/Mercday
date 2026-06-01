@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/FirearmReliabilityFacet.gd" id="FirearmReliabilityFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/EffectiveHitChanceFacet.gd" id="EffectiveHitChanceFacet"]
 
 [sub_resource type="Resource" id="facet_weapon"]
 script = ExtResource("WeaponTypeFacet")
@@ -31,9 +32,13 @@ is_required = true
 script = ExtResource("FirearmReliabilityFacet")
 weight = 1.5
 
+[sub_resource type="Resource" id="facet_hit_chance"]
+script = ExtResource("EffectiveHitChanceFacet")
+is_required = true
+
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_weapon"), SubResource("facet_ammo"), SubResource("facet_targets"), SubResource("facet_misfire"), SubResource("facet_reliability")]
+facets = [SubResource("facet_weapon"), SubResource("facet_ammo"), SubResource("facet_targets"), SubResource("facet_misfire"), SubResource("facet_reliability"), SubResource("facet_hit_chance")]
 threshold = 0.5
 
 [resource]
@@ -44,4 +49,5 @@ ap_cost_mode = "attack_base"
 priority = 70
 execution_type = "attack"
 target_mode = "current_or_best"
+snap_require = {"weapon_is_ranged": true}
 decision = SubResource("decision")

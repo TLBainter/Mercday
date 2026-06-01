@@ -8,6 +8,10 @@ const MAX_ROUNDS := 100
 
 static var _stale_rounds: int = 0
 static var _no_target_rounds: int = 0
+static var _turn_path_cache: Dictionary = {}  # merc -> {goal, path, idx} — cleared each turn
+static var _blocked_path_goals: Dictionary = {}  # goal -> round_number; evicted when round changes
+static var _near_passable_cache: Dictionary = {}  # raw goal -> adjusted goal; terrain-static per encounter
+static var _last_move_heavy: bool = false  # true when oscillation flanking BFS ran; suppresses _skip_await
 
 
 static func run_battle(state: BattleState, line_fn: Callable = Callable(), encounter_type: String = "encounter") -> Dictionary:
@@ -23,6 +27,9 @@ static func setup(state: BattleState, line_fn: Callable = Callable(), encounter_
 	_stale_rounds = 0
 	_no_target_rounds = 0
 	CoverNearbyFacet._scan_cache.clear()
+	_turn_path_cache.clear()
+	_blocked_path_goals.clear()
+	_near_passable_cache.clear()
 	EncounterLogger.begin(encounter_type, state)
 	if state.battlefield != null:
 		_emit(line_fn, "[color=gray]%s[/color]" % state.battlefield.to_header_string())
@@ -75,13 +82,21 @@ static func step_round(state: BattleState, line_fn: Callable = Callable()) -> bo
 	else:
 		_no_target_rounds += 1
 		if _no_target_rounds >= 10:
-			_emit(line_fn, "[color=red]Stalemate: no merc found a target for 10 consecutive rounds.[/color]")
+			_emit(line_fn, "[color=red]Stalemate: no target found for 10 consecutive rounds.[/color]")
+			var _dw1: int = _stalemate_winner(state)
+			if _dw1 >= 0:
+				state._cached_winner = _dw1
+				_emit(line_fn, "[color=orange]Win by default: Team %d (HP/skill advantage).[/color]" % _dw1)
 			_finalize(state, line_fn)
 			return false
 	if not any_acted:
 		_stale_rounds += 1
 		if _stale_rounds >= 2:
-			_emit(line_fn, "[color=red]Error: no actions taken for 2 consecutive rounds — stalemate.[/color]")
+			_emit(line_fn, "[color=red]Stalemate: no actions for 2 consecutive rounds.[/color]")
+			var _dw2: int = _stalemate_winner(state)
+			if _dw2 >= 0:
+				state._cached_winner = _dw2
+				_emit(line_fn, "[color=orange]Win by default: Team %d (HP/skill advantage).[/color]" % _dw2)
 			_finalize(state, line_fn)
 			return false
 	else:
@@ -90,10 +105,15 @@ static func step_round(state: BattleState, line_fn: Callable = Callable()) -> bo
 
 
 static func _finalize(state: BattleState, _line_fn: Callable) -> void:
+	state.clear_encounter_cache()
 	if not state.dropped_weapons.is_empty():
 		for team in state.teams:
 			for merc: MercenaryData in team:
 				state.retrieve_dropped_weapons_for(merc)
+	if state.get_winner() < 0 and state._cached_winner == -2:
+		var _dw: int = _stalemate_winner(state)
+		if _dw >= 0:
+			state._cached_winner = _dw
 	var result := {"winner": state.get_winner(), "rounds": state.round_number}
 	state._cached_winner = result["winner"]
 	EncounterLogger.end(result)
@@ -102,6 +122,35 @@ static func _finalize(state: BattleState, _line_fn: Callable) -> void:
 		for merc: MercenaryData in team:
 			all_mercs.append(merc)
 	_reset_mercs_after_battle(all_mercs)
+
+
+static func _stalemate_winner(state: BattleState) -> int:
+	var team_hp: Array[int] = []
+	var team_accuracy: Array[float] = []
+	var team_pace: Array[float] = []
+	for i: int in range(state.teams.size()):
+		var hp := 0
+		var acc := 0.0
+		var spd := 0.0
+		var alive := 0
+		for m: MercenaryData in state.teams[i]:
+			if m.current_hp > 0:
+				hp += m.current_hp
+				acc += maxf(float(m.stats.get("melee_accuracy", 0)), float(m.stats.get("ranged_accuracy", 0)))
+				spd += float(m.stats.get("pace", 1))
+				alive += 1
+		team_hp.append(hp)
+		team_accuracy.append(acc / maxf(1.0, float(alive)))
+		team_pace.append(spd / maxf(1.0, float(alive)))
+	if state.teams.size() < 2:
+		return 0
+	if team_hp[0] != team_hp[1]:
+		return 0 if team_hp[0] > team_hp[1] else 1
+	if not is_equal_approx(team_accuracy[0], team_accuracy[1]):
+		return 0 if team_accuracy[0] > team_accuracy[1] else 1
+	if not is_equal_approx(team_pace[0], team_pace[1]):
+		return 0 if team_pace[0] > team_pace[1] else 1
+	return -1
 
 
 # TEMP: post-battle stat reset for testing
@@ -113,6 +162,7 @@ static func _reset_mercs_after_battle(mercs: Array) -> void:
 		var max_mp: int = int(merc.stats.get("maximum_magic_points", 0))
 		if max_mp > 0:
 			merc.current_mp = max_mp
+		merc.ap_debt = 0
 		BattleState._reset_starting_ammo(merc)
 
 
@@ -141,6 +191,8 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 	var lines: Array[String] = []
 	state.start_of_turn(merc)
 	merc.combat_idle_rounds += 1
+	if merc.combat_idle_rounds >= 3:
+		state.position_history.erase(merc)
 	# Drain deferred effects queued for this merc's turn start (e.g. Dagger Bleedout)
 	var _remaining_effects: Array = []
 	for _eff in merc.deferred_effects:
@@ -204,15 +256,27 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					lines.append("  %s activates Quick-Shot (-1 AP attacks)." % _cn(merc, state))
 				break
 
+	var weapon_action_taken := false
 	if not skip_actions:
 		var current_target: MercenaryData = null
 		var movement_blocked := false
-		var weapon_action_taken := false
 		var has_moved := false
 		var had_valid_targets := false
 		var seeking_failed := false
 		var blocked_targets: Dictionary = {}
 		var _action_slot := 0
+		var _skip_await := false
+
+		if state.battlefield != null:
+			var _ap_cache: Dictionary = {}
+			for _a: MercenaryData in state.get_allies(merc):
+				if BattleState._is_alive(_a) and not ConstStates.has_state(_a, ConstStates.DEPOSED):
+					var _apos: Vector2i = state.positions.get(_a, Vector2i(-1, -1))
+					if _apos != Vector2i(-1, -1):
+						_ap_cache[_apos] = true
+			_ap_cache.merge(state.battlefield.get_nav_passable_cells())
+			state.turn_ally_passable[merc] = _ap_cache
+			_turn_path_cache.erase(merc)
 
 		while true:
 			_action_slot += 1
@@ -222,7 +286,10 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 				break
 			if merc.current_ap <= 0 and merc.excess_ap <= 0:
 				break
-			await Engine.get_main_loop().process_frame
+			if not _skip_await:
+				await Engine.get_main_loop().process_frame
+			_skip_await = false
+			_last_move_heavy = false
 			if EncounterLogger.is_active():
 				EncounterLogger.log_verbose("-- ACTION SLOT %d (AP=%d ExAP=%d) --" % [
 					_action_slot, merc.current_ap, merc.excess_ap])
@@ -267,11 +334,11 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					elif _vt_weapon != null and _vt_weapon.is_ranged \
 							and _vt_weapon.ranged_extended_range > 0 \
 							and _vt_dist > _vt_weapon.ranged_extended_range:
-						_vt_reason = "out_of_range dist=%d range=%d" % [_vt_dist, _vt_weapon.ranged_extended_range]
+						_vt_reason = "out_of_range dist=%d intended=%d max=%d" % [_vt_dist, _vt_weapon.ranged_intended_range, _vt_weapon.ranged_extended_range]
 					elif _vt_weapon != null and _vt_weapon.is_throwable \
 							and _vt_weapon.thrown_extended_range > 0 \
 							and _vt_dist > _vt_weapon.thrown_extended_range:
-						_vt_reason = "out_of_throw_range dist=%d range=%d" % [_vt_dist, _vt_weapon.thrown_extended_range]
+						_vt_reason = "out_of_throw_range dist=%d intended=%d max=%d" % [_vt_dist, _vt_weapon.thrown_intended_range, _vt_weapon.thrown_extended_range]
 					else:
 						_vt_reason = "unknown"
 					EncounterLogger.log_verbose("NO_VALID_TARGET: %s rejected %s — %s" % [
@@ -280,8 +347,9 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 			var allies := state.get_allies(merc)
 
 			# All enemies proven unreachable this turn and nothing in attack range → end turn
-			if valid_targets.is_empty() and not blocked_targets.is_empty() \
-					and blocked_targets.size() >= enemies.size():
+			if valid_targets.is_empty() and (
+					(not blocked_targets.is_empty() and blocked_targets.size() >= enemies.size())
+					or movement_blocked):
 				break
 
 			var perk_action := _choose_perk_action(merc, current_target, state)
@@ -301,6 +369,9 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 						decision.get("flank_ally"), enhancements, decision.get("move_stop_dist", -1), _is_seeking)
 					if move_lines.is_empty():
 						movement_blocked = true
+						state.record_action(merc, decision["action_name"])
+						if not _last_move_heavy:
+							_skip_await = true
 						if _is_seeking:
 							seeking_failed = true
 							var _bt: MercenaryData = decision.get("target")
@@ -337,6 +408,8 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					lines.append_array(spec_lines)
 					if spec_lines.is_empty():
 						break
+					if decision["action_name"] == "aim":
+						weapon_action_taken = true
 				"reload":
 					var reload_lines := _execute_reload(merc, state, enhancements)
 					if reload_lines.is_empty():
@@ -364,9 +437,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					var aim_bonus := 1 if merc.aim_active else 0
 					var weapon_enh := _get_weapon_enhance_bonus(merc)
 					var _is_throw_action: bool = decision["action_name"] == "AttackThrow"
-					var _force_melee: bool = merc.equipped_weapon != null \
-						and merc.equipped_weapon.is_ranged and merc.ammo_loaded <= 0
-					var atk := AttackSystem.execute_attack(merc, enhancements + aim_bonus + weapon_enh, atk_flaws, current_target, _is_throw_action, _force_melee)
+					var atk := AttackSystem.execute_attack(merc, enhancements + aim_bonus + weapon_enh, atk_flaws, current_target, _is_throw_action, state)
 					merc.aim_active = false
 					if atk.get("no_ammo", false):
 						lines.append("  %s has no ammo loaded!" % _cn(merc, state))
@@ -374,6 +445,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					state.spend_ap(merc, atk_cost)
 					state.record_action(merc, "Attack")
 					merc.combat_idle_rounds = 0
+					weapon_action_taken = true
 					if EncounterLogger.is_active() and not atk.get("misfired", false):
 						var cr: Dictionary = atk["check_result"]
 						EncounterLogger.log_verbose("ATTACK ROLL: %s vs %.0f%% -> %d hit %d miss  dmg=%d %s" % [
@@ -502,7 +574,8 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 										if _rr_load > 0:
 											merc.ammo_loaded += _rr_load
 											merc.ammo_inventory[_rr_ammo] -= _rr_load
-											lines.append("  %s reloads for free (1 ReP)!" % _cn(merc, state))
+											var _rr_remaining: int = merc.ammo_inventory.get(_rr_ammo, 0)
+											lines.append("  %s reloads for free (1 ReP)! [%dc+%dr]" % [_cn(merc, state), merc.ammo_loaded, _rr_remaining])
 								break
 						# spend:rep:3:after_attack:ally_move_pace:2:no_ap_no_advantage (Artillery Support)
 						for _as_perk: TraitData in WeaponArmorPerkLibrary.get_weapon_passive_perks(merc):
@@ -531,7 +604,8 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 										if _rr_load > 0:
 											merc.ammo_loaded += _rr_load
 											merc.ammo_inventory[_rr_ammo] -= _rr_load
-											lines.append("  %s reloads for free (1 ReP)!" % _cn(merc, state))
+											var _rr_remaining: int = merc.ammo_inventory.get(_rr_ammo, 0)
+											lines.append("  %s reloads for free (1 ReP)! [%dc+%dr]" % [_cn(merc, state), merc.ammo_loaded, _rr_remaining])
 								break
 						lines.append_array(_fire_weapon_reactive(merc, "on_miss", current_target, atk, state, enhancements))
 					lines.append_array(_fire_weapon_reactive(merc, "after_attack", current_target, atk, state, enhancements))
@@ -582,7 +656,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 	# Whip Choke: spend:ap:1:direct:1:grappled_target -- spend 1 AP for 1 Direct damage to whip-grappled target
 	lines.append_array(_do_whip_choke_ap_spend(merc, state))
 
-	state.end_of_turn(merc)
+	state.end_of_turn(merc, weapon_action_taken)
 	if merc.excess_ap > 0:
 		lines.append("  %s +[color=purple]%d[/color] ExAP" % [_cn(merc, state), merc.excess_ap])
 	lines.append("")
@@ -1358,42 +1432,104 @@ static func _execute_move(
 		var fall_tolerance: float = clampf(_hp_ratio + _best_break_fall, 0.2, 2.0)
 		var can_climb: bool = int(merc.stats.get("size", 0)) > 0
 		var jump_stat: int = int(merc.stats.get("jump", 0))
-		goal = _nearest_passable_to(goal, field, fall_tolerance, can_climb)
-		var ally_passable: Dictionary = {}
-		for _ally: MercenaryData in state.get_allies(merc):
-			if BattleState._is_alive(_ally) and not ConstStates.has_state(_ally, ConstStates.DEPOSED):
-				var _ap: Vector2i = state.positions.get(_ally, Vector2i(-1, -1))
-				if _ap != Vector2i(-1, -1):
-					ally_passable[_ap] = true
-		ally_passable.merge(field.get_nav_passable_cells())
-		var path := Pathfinder.find_path(old_pos, goal, field, ally_passable, fall_tolerance, false, can_climb)
-		if path.is_empty():
-			if seeking:
-				var seek_path := Pathfinder.find_path_toward(old_pos, goal, field, ally_passable, fall_tolerance, false, can_climb, jump_stat)
-				if not seek_path.is_empty():
-					path = seek_path
-					if EncounterLogger.is_active():
-						EncounterLogger.log_verbose("SEEK MOVE: partial path (%d,%d)->(%d,%d) advancing to (%d,%d)" % [
-							old_pos.x, old_pos.y, goal.x, goal.y,
-							seek_path[-1].x, seek_path[-1].y])
-				else:
-					new_pos = old_pos
-					if EncounterLogger.is_active():
-						EncounterLogger.log_verbose("SEEK MOVE BLOCKED: no reachable cell toward (%d,%d)" % [goal.x, goal.y])
+		var _raw_goal := goal
+		var _npc_key: Array = [_raw_goal, int(fall_tolerance * 10), int(can_climb)]
+		if _near_passable_cache.has(_npc_key):
+			goal = _near_passable_cache[_npc_key] as Vector2i
+		else:
+			goal = _nearest_passable_to(_raw_goal, field, fall_tolerance, can_climb)
+			_near_passable_cache[_npc_key] = goal
+		if _blocked_path_goals.has(goal):
+			if (_blocked_path_goals[goal] as int) >= state.round_number:
+				if EncounterLogger.is_active():
+					EncounterLogger.log_verbose("MOVE BLOCKED: cached unreachable (%d,%d)" % [goal.x, goal.y])
+				return []
 			else:
-				var toward_path := Pathfinder.find_path_toward(old_pos, goal, field, ally_passable, fall_tolerance, false, can_climb, jump_stat)
-				if not toward_path.is_empty():
-					path = toward_path
-					if EncounterLogger.is_active():
-						EncounterLogger.log_verbose("MOVE PARTIAL: no exact path (%d,%d)->(%d,%d), advancing to (%d,%d)" % [
-							old_pos.x, old_pos.y, goal.x, goal.y,
-							toward_path[-1].x, toward_path[-1].y])
+				_blocked_path_goals.erase(goal)
+		var ally_passable: Dictionary
+		if state.turn_ally_passable.has(merc):
+			ally_passable = state.turn_ally_passable[merc] as Dictionary
+		else:
+			ally_passable = {}
+			for _ally: MercenaryData in state.get_allies(merc):
+				if BattleState._is_alive(_ally) and not ConstStates.has_state(_ally, ConstStates.DEPOSED):
+					var _ap: Vector2i = state.positions.get(_ally, Vector2i(-1, -1))
+					if _ap != Vector2i(-1, -1):
+						ally_passable[_ap] = true
+			ally_passable.merge(field.get_nav_passable_cells())
+		var path: Array[Vector2i] = []
+		var path_start_idx := 0
+		if not seeking:
+			var _cached_tp = _turn_path_cache.get(merc)
+			if _cached_tp != null:
+				var _ctp := _cached_tp as Dictionary
+				if (_ctp.get("goal") as Vector2i) == goal:
+					var _cpath: Array[Vector2i] = _ctp.get("path", []) as Array[Vector2i]
+					var _cidx: int = _ctp.get("idx", 0)
+					for _cj in range(_cidx, _cpath.size()):
+						if _cpath[_cj] == old_pos:
+							path = _cpath
+							path_start_idx = _cj
+							break
+		if path.is_empty():
+			path = Pathfinder.find_path(old_pos, goal, field, ally_passable, fall_tolerance, false, can_climb)
+			if path.is_empty():
+				if seeking:
+					var seek_path := Pathfinder.find_path_toward(old_pos, goal, field, ally_passable, fall_tolerance, false, can_climb, jump_stat)
+					if not seek_path.is_empty():
+						path = seek_path
+						if EncounterLogger.is_active():
+							EncounterLogger.log_verbose("SEEK MOVE: partial path (%d,%d)->(%d,%d) advancing to (%d,%d)" % [
+								old_pos.x, old_pos.y, goal.x, goal.y,
+								seek_path[-1].x, seek_path[-1].y])
+					else:
+						new_pos = old_pos
+						_blocked_path_goals[goal] = state.round_number
+						if EncounterLogger.is_active():
+							EncounterLogger.log_verbose("SEEK MOVE BLOCKED: no reachable cell toward (%d,%d)" % [goal.x, goal.y])
 				else:
-					new_pos = old_pos
-					if EncounterLogger.is_active():
-						EncounterLogger.log_verbose("MOVE BLOCKED: no path (%d,%d)->(%d,%d)" % [
-							old_pos.x, old_pos.y, goal.x, goal.y])
-		if not path.is_empty() and path.size() > 1:
+					var toward_path := Pathfinder.find_path_toward(old_pos, goal, field, ally_passable, fall_tolerance, false, can_climb, jump_stat)
+					if not toward_path.is_empty():
+						path = toward_path
+						if EncounterLogger.is_active():
+							EncounterLogger.log_verbose("MOVE PARTIAL: no exact path (%d,%d)->(%d,%d), advancing to (%d,%d)" % [
+								old_pos.x, old_pos.y, goal.x, goal.y,
+								toward_path[-1].x, toward_path[-1].y])
+					else:
+						var _alt_path: Array[Vector2i] = []
+						var _alt_best_dist := 999999
+						var _dirs8: Array[Vector2i] = [
+							Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
+							Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
+						for _ad: Vector2i in _dirs8:
+							var _ag: Vector2i = _raw_goal + _ad
+							if _ag.x < 0 or _ag.x >= field.width or _ag.y < 0 or _ag.y >= field.length:
+								continue
+							if _blocked_path_goals.has(_ag) and (_blocked_path_goals[_ag] as int) >= state.round_number:
+								continue
+							var _ap: Array[Vector2i] = Pathfinder.find_path_toward(old_pos, _ag, field, ally_passable, fall_tolerance, false, can_climb, jump_stat)
+							if not _ap.is_empty():
+								var _ad_dist := maxi(abs(_ap[-1].x - _raw_goal.x), abs(_ap[-1].y - _raw_goal.y))
+								if _ad_dist < _alt_best_dist:
+									_alt_best_dist = _ad_dist
+									_alt_path = _ap
+						if not _alt_path.is_empty():
+							path = _alt_path
+							if EncounterLogger.is_active():
+								EncounterLogger.log_verbose("MOVE REROUTED: (%d,%d)->(%d,%d) blocked, advancing via (%d,%d)" % [
+									old_pos.x, old_pos.y, goal.x, goal.y, _alt_path[-1].x, _alt_path[-1].y])
+						else:
+							new_pos = old_pos
+							var _static_path := Pathfinder.find_path_toward(
+								old_pos, _raw_goal, field, field.get_nav_passable_cells(),
+								fall_tolerance, false, can_climb, jump_stat)
+							_blocked_path_goals[goal] = state.round_number + (1000 if _static_path.is_empty() else 0)
+							if EncounterLogger.is_active():
+								EncounterLogger.log_verbose("MOVE BLOCKED: no path (%d,%d)->(%d,%d)" % [
+									old_pos.x, old_pos.y, goal.x, goal.y])
+			if not path.is_empty() and not seeking:
+				_turn_path_cache[merc] = {"goal": goal, "path": path, "idx": 0}
+		if not path.is_empty() and path.size() > path_start_idx + 1:
 			var pace := maxi(1, int(merc.stats.get("pace", 1)))
 			if ConstStates.has_state(merc, ConstStates.DEPOSED):
 				pace = mini(pace, 1)
@@ -1401,12 +1537,17 @@ static func _execute_move(
 			var last := old_pos
 			var traversed: Array[Vector2i] = [old_pos]
 			var merc_size := int(merc.stats.get("size", 1))
-			for i: int in range(1, path.size()):
+			for i: int in range(path_start_idx + 1, path.size()):
 				var from_cell: Vector2i = path[i - 1]
 				var cell: Vector2i = path[i]
 				var cost := Pathfinder.cell_pace_cost(from_cell, cell, field, {}, fall_tolerance, false, can_climb)
 				if cost < 0:
 					break
+				# Backward step (away from goal) costs 1 extra pace to discourage dead-end detours.
+				var _cell_d := maxi(abs(cell.x - goal.x), abs(cell.y - goal.y))
+				var _from_d := maxi(abs(from_cell.x - goal.x), abs(from_cell.y - goal.y))
+				if _cell_d > _from_d:
+					cost += 1
 				var dead_body := _get_dead_body_at(from_cell, state)
 				if dead_body != null and int(dead_body.stats.get("size", 1)) >= merc_size:
 					cost += 1
@@ -1435,6 +1576,13 @@ static func _execute_move(
 					last = traversed[k]
 					break
 			new_pos = last
+			if _turn_path_cache.has(merc):
+				var _cti: int = path_start_idx
+				for _ctj in range(path_start_idx, path.size()):
+					if path[_ctj] == new_pos:
+						_cti = _ctj
+						break
+				(_turn_path_cache[merc] as Dictionary)["idx"] = _cti
 			if EncounterLogger.is_active() and traversed.size() > 1:
 				var parts: Array[String] = []
 				for c: Vector2i in traversed:
@@ -1453,7 +1601,47 @@ static func _execute_move(
 			if EncounterLogger.is_active():
 				EncounterLogger.log_verbose("OSCILLATION BLOCKED: %s would return to recently visited (%d,%d)" % [
 					merc.merc_name, new_pos.x, new_pos.y])
-			return []
+			# Try flanking: offset goal 90° left then right and re-path
+			var _flank_ok := false
+			if field != null:
+				var _delta := Vector2i(goal.x - old_pos.x, goal.y - old_pos.y)
+				var _len_f := maxf(1.0, Vector2(float(_delta.x), float(_delta.y)).length())
+				var _perp := Vector2i(roundi(-float(_delta.y) / _len_f * 4.0), roundi(float(_delta.x) / _len_f * 4.0))
+				var _ally_pass: Dictionary = state.turn_ally_passable.get(merc, {}) as Dictionary
+				var _fall_tol: float = clampf(float(merc.current_hp) / float(maxi(1, int(merc.stats.get("maximum_hit_points", 1)))) + maxf(
+					clampf(float(merc.stats.get("parkour", 0.0)) / 100.0, 0.0, 1.0),
+					clampf(float(merc.stats.get("tolerance", 0.0)) / 100.0, 0.0, 1.0)), 0.2, 2.0)
+				var _can_cl: bool = int(merc.stats.get("size", 0)) > 0
+				var _jmp: int = int(merc.stats.get("jump", 0))
+				_last_move_heavy = true
+				for _side: int in [1, -1]:
+					var _fg := field.clamp_position(goal + _perp * _side)
+					var _fp := Pathfinder.find_path_toward(old_pos, _fg, field, _ally_pass, _fall_tol, false, _can_cl, _jmp)
+					if _fp.is_empty():
+						continue
+					var _fb := maxi(1, int(merc.stats.get("pace", 1)))
+					if ConstStates.has_state(merc, ConstStates.DEPOSED):
+						_fb = mini(_fb, 1)
+					var _fn := old_pos
+					var _ft: Array[Vector2i] = [old_pos]
+					for _fi: int in range(1, _fp.size()):
+						var _fc := Pathfinder.cell_pace_cost(_fp[_fi - 1], _fp[_fi], field, {}, _fall_tol, false, _can_cl)
+						if _fc < 0 or _fb - _fc < 0:
+							break
+						_fb -= _fc
+						_ft.append(_fp[_fi])
+						_fn = _fp[_fi]
+					if _fn == old_pos or _hist.has(_fn):
+						continue
+					new_pos = _fn
+					body_traverse_lines.clear()
+					_flank_ok = true
+					if EncounterLogger.is_active():
+						EncounterLogger.log_verbose("OSCILLATION FLANK: %s flanking to (%d,%d)" % [merc.merc_name, new_pos.x, new_pos.y])
+					break
+			if not _flank_ok:
+				_blocked_path_goals[goal] = state.round_number
+				return []
 
 	var move_cost := state.get_cost(merc, action_name, MOVE_BASE_AP)
 	state.spend_ap(merc, move_cost)
@@ -1929,13 +2117,17 @@ static func _compute_move_position(
 			clampf(float(merc.stats.get("parkour", 0.0)) / 100.0, 0.0, 1.0),
 			clampf(float(merc.stats.get("tolerance", 0.0)) / 100.0, 0.0, 1.0))
 		var fall_tolerance_mf: float = clampf(_hp_ratio_mf + _best_break_fall_mf, 0.2, 2.0)
-		var ally_passable_mf: Dictionary = {}
-		for _ally_mf: MercenaryData in allies_mf:
-			if BattleState._is_alive(_ally_mf) and not ConstStates.has_state(_ally_mf, ConstStates.DEPOSED):
-				var _ap_mf: Vector2i = state.positions.get(_ally_mf, Vector2i(-1, -1))
-				if _ap_mf != Vector2i(-1, -1):
-					ally_passable_mf[_ap_mf] = true
-		ally_passable_mf.merge(field.get_nav_passable_cells())
+		var ally_passable_mf: Dictionary
+		if state.turn_ally_passable.has(merc):
+			ally_passable_mf = state.turn_ally_passable[merc] as Dictionary
+		else:
+			ally_passable_mf = {}
+			for _ally_mf: MercenaryData in allies_mf:
+				if BattleState._is_alive(_ally_mf) and not ConstStates.has_state(_ally_mf, ConstStates.DEPOSED):
+					var _ap_mf: Vector2i = state.positions.get(_ally_mf, Vector2i(-1, -1))
+					if _ap_mf != Vector2i(-1, -1):
+						ally_passable_mf[_ap_mf] = true
+			ally_passable_mf.merge(field.get_nav_passable_cells())
 
 		var _chosen_mf := Vector2i(-1, -1)
 		for entry: Dictionary in _scored_mf:
@@ -1998,6 +2190,12 @@ static func _compute_move_position(
 	var actual_steps := mini(pace, max_steps)
 	if actual_steps == 0:
 		return from
+	if valid_targets.is_empty() and not enemies.is_empty() and field != null:
+		var _perp := Vector2i(-step.y, step.x)
+		for _fk_dir: Vector2i in [_perp, Vector2i(-_perp.x, -_perp.y)]:
+			var _fk := field.clamp_position(to + _fk_dir)
+			if _fk != from and _fk != to:
+				return _fk
 	var ranged_enemies: Array[MercenaryData] = []
 	for e: MercenaryData in state.get_enemies(merc):
 		if e.equipped_weapon != null and e.equipped_weapon.is_ranged:
@@ -2903,6 +3101,30 @@ static func _choose_from_action_set(
 		"blocked_targets": blocked_targets,
 		"attack_base_ap": ATTACK_BASE_AP, "move_base_ap": MOVE_BASE_AP
 	}
+	var snap := _build_decision_snapshot(merc, enemies, valid_targets)
+
+	# Reload before anything else when chamber is empty; _should_reload handles the in-danger case
+	if merc.ammo_loaded == 0 and CombatDecision._should_reload(merc, enemies, valid_targets, state):
+		if EncounterLogger.is_active():
+			EncounterLogger.log_verbose("INJECTED [reload]: %s (chamber empty)" % merc.merc_name)
+		return {"type": "reload", "action_name": "reload", "target": null}
+
+	var _stuck_rounds := (state.no_progress_rounds.get(merc, 0) as int)
+	var _fighting_alone := state.get_allies(merc).is_empty()
+	var _is_desperate := _stuck_rounds >= 2 or _fighting_alone
+	if _is_desperate and EncounterLogger.is_active():
+		var _esc_reason := ("stuck %d rounds" % _stuck_rounds) if _stuck_rounds >= 2 else "last remaining"
+		EncounterLogger.log_verbose("[escalation] %s — %s" % [merc.merc_name, _esc_reason])
+	if _is_desperate and movement_blocked:
+		var _obs_result := CombatDecision.decide_obstacle_or_flank(merc, enemies, valid_targets, state, movement_blocked)
+		if EncounterLogger.is_active():
+			var _obs_type: String = _obs_result.get("type", "pass")
+			if _obs_type != "pass":
+				EncounterLogger.log_verbose("    obstacle/flank: %s selected" % _obs_result.get("action_name", _obs_type))
+			else:
+				EncounterLogger.log_verbose("    obstacle/flank: no valid target found")
+		if _obs_result.get("type", "pass") != "pass":
+			return _obs_result
 
 	var sorted_actions: Array = merc.action_set.actions.duplicate()
 	sorted_actions.sort_custom(func(a: ActionData, b: ActionData) -> bool: return a.priority < b.priority)
@@ -2918,11 +3140,31 @@ static func _choose_from_action_set(
 	for action: ActionData in sorted_actions:
 		if action.is_reactive:
 			continue
+		if not action.snap_require.is_empty() and not _snap_passes(snap, action.snap_require):
+			continue
+		if _is_desperate and action.action_name == "seek_cover":
+			var _eq := merc.equipped_weapon
+			var _weapon_ok := true
+			if _eq != null and merc.weapon_drawn and _eq.is_ranged:
+				if merc.ammo_loaded <= 0:
+					_weapon_ok = false
+					for _sv in merc.ammo_inventory.values():
+						if int(_sv) > 0:
+							_weapon_ok = true
+							break
+				elif _eq.misfire > 0 and (FirearmReliabilityFacet.compute(merc) * 2.5 + 2.0) / 4.5 < 0.50:
+					_weapon_ok = false
+			if _weapon_ok:
+				if EncounterLogger.is_active():
+					EncounterLogger.log_verbose("    seek_cover suppressed by escalation")
+				continue
 
 		# Before priority 40: reload if empty, then weapon management (draw/holster/switch/pickup)
 		if not injected_pre_move and action.priority >= 40:
 			injected_pre_move = true
 			if merc.ammo_loaded == 0 and CombatDecision._should_reload(merc, enemies, valid_targets, state):
+				if EncounterLogger.is_active():
+					EncounterLogger.log_verbose("INJECTED [reload]: %s (chamber empty, pre-40)" % merc.merc_name)
 				return {"type": "reload", "action_name": "reload", "target": null}
 			if not weapon_action_taken:
 				var wp := CombatDecision._decide_weapon_action(merc, enemies, state, ATTACK_BASE_AP, movement_blocked)
@@ -2930,12 +3172,18 @@ static func _choose_from_action_set(
 					return wp
 				var pu := CombatDecision._decide_pickup_action(merc, enemies, state, ATTACK_BASE_AP, MOVE_BASE_AP)
 				if pu["type"] != "none":
+					if EncounterLogger.is_active():
+						EncounterLogger.log_verbose("INJECTED [%s]: %s -> %s" % [
+							pu["action_name"], merc.merc_name,
+							str(pu.get("weapon_pos", pu.get("weapon_entry", {}).get("weapon", "")))])
 					return pu
 
 		# Before priority 60: pre-attack reload (ranged strategy)
 		if not injected_pre_aim and action.priority >= 60:
 			injected_pre_aim = true
 			if merc.ammo_loaded > 0 and CombatDecision._should_reload(merc, enemies, valid_targets, state):
+				if EncounterLogger.is_active():
+					EncounterLogger.log_verbose("INJECTED [reload]: %s (pre-attack tactical)" % merc.merc_name)
 				return {"type": "reload", "action_name": "reload", "target": null}
 
 		if action.can_execute(merc, ctx):
@@ -2959,3 +3207,27 @@ static func _choose_from_action_set(
 					return action.to_decision_dict(merc, ctx)
 
 	return {"type": "pass", "action_name": "", "target": null}
+
+
+static func _build_decision_snapshot(merc: MercenaryData, enemies: Array[MercenaryData], valid_targets: Array) -> Dictionary:
+	var weapon := merc.equipped_weapon
+	var weapon_drawn := weapon != null and merc.weapon_drawn
+	var ranged_enemy := false
+	for e: MercenaryData in enemies:
+		if e.equipped_weapon != null and e.equipped_weapon.is_ranged:
+			ranged_enemy = true
+			break
+	return {
+		"weapon_drawn": weapon_drawn,
+		"weapon_is_ranged": weapon != null and merc.weapon_drawn and weapon.is_ranged,
+		"has_ammo": merc.ammo_loaded > 0,
+		"has_valid_target": not valid_targets.is_empty(),
+		"ranged_enemy_present": ranged_enemy,
+	}
+
+
+static func _snap_passes(snap: Dictionary, requirements: Dictionary) -> bool:
+	for key: String in requirements:
+		if snap.get(key) != requirements[key]:
+			return false
+	return true

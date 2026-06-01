@@ -65,6 +65,17 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		urgency_bonus += 2
 	var search_range: int = mini(base_range + urgency_bonus, mini(10, pace * 4))
 
+	# Cap search_range to what AP can actually reach so the BFS doesn't explore
+	# cells the merc could never afford to move to and then seek cover from.
+	if ap_after_two_moves >= seek_cover_cost:
+		pass  # full range is valid; two-move distances are reachable
+	elif ap_after_move >= seek_cover_cost:
+		search_range = mini(search_range, pace)   # one-move distance only
+	elif ap_available >= seek_cover_cost:
+		search_range = 1                          # adjacent cover only
+	else:
+		return 0.0                                # can't afford seek_cover at all
+
 	# Movement direction toward nearest ranged enemy -- used for alignment bonus.
 	var nearest_enemy_dir := Vector2.ZERO
 	var move_dir := Vector2.ZERO
@@ -81,9 +92,10 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 			move_dir = nearest_enemy_dir.normalized()
 
 	var has_moved: bool = ctx.get("has_moved", false)
-	var cache_key: String = "%s_%d_%d_%s" % [merc.merc_name, pos.x, pos.y, str(has_moved)]
+	var cache_key: String = "%s_%d_%d" % [merc.merc_name, pos.x, pos.y]
 	if _scan_cache.has(cache_key):
-		return _scan_cache[cache_key]
+		var _cached: float = _scan_cache[cache_key]
+		return minf(_cached + 0.05, 1.0) if (has_moved and _cached > 0.0) else _cached
 	var best_score := 0.0
 	var scan_candidates: Array = []
 
@@ -121,91 +133,99 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 			reachable[nb] = true
 			bfs.append(nb)
 
-	for obs in state.battlefield.obstacles:
-		if obs.get("cell_type", "") == "door" and obs.get("door_open", false):
-			continue
-		var obs_data: ObstacleData = obs.get("data") as ObstacleData
-		if obs_data != null and not obs_data.provides_cover:
-			continue
-		var obs_pos: Vector2i = obs["pos"] as Vector2i
-		var delta := obs_pos - pos
-		var dist: int = maxi(absi(delta.x), absi(delta.y))
-		if dist == 0 or dist > search_range:
-			continue
-
-		var can_reach: bool
-		if dist <= 1:
-			can_reach = ap_available >= seek_cover_cost
-		elif dist <= pace:
-			can_reach = ap_after_move >= seek_cover_cost
-		else:
-			# Extended range: needs two moves (injured/targeted mercs only)
-			can_reach = ap_after_two_moves >= seek_cover_cost
-		if not can_reach:
-			scan_candidates.append({"pos": obs_pos, "dist": dist, "skip": "no-ap"})
-			continue
-
-		var to_cover := Vector2(float(delta.x), float(delta.y))
-		var threat_covered: float = 0.0
-		for e: MercenaryData in ranged_enemies:
-			var epos := state.get_position(e)
-			var to_enemy := Vector2(float(epos.x - pos.x), float(epos.y - pos.y))
-			if to_cover.dot(to_enemy) > 0.0:
-				threat_covered += float(enemy_weights.get(e, 0.0))
-
-		if threat_covered <= 0.0:
-			scan_candidates.append({"pos": obs_pos, "dist": dist, "skip": "no-threat-coverage"})
-			continue
-
-		# Advancing mercs skip strictly-backward cover; lateral cover (dot=0) is allowed.
-		if not is_retreating and nearest_enemy_dir != Vector2.ZERO \
-				and to_cover.dot(nearest_enemy_dir) < 0.0:
-			scan_candidates.append({"pos": obs_pos, "dist": dist, "skip": "wrong-direction"})
-			continue
-
-		var any_reachable := false
-		for adj_d: Vector2i in adj_dirs:
-			var candidate := obs_pos + adj_d
-			if candidate.x < 0 or candidate.x >= field.width \
-					or candidate.y < 0 or candidate.y >= field.length:
+	# Iterate only cells in the bounding box and look up obstacles in O(1) via get_obstacle_at,
+	# replacing the O(total_cover_obstacles) linear scan of field.cover_obstacles.
+	for dx in range(-search_range, search_range + 1):
+		for dy in range(-search_range, search_range + 1):
+			var dist: int = maxi(absi(dx), absi(dy))
+			if dist == 0 or dist > search_range:
 				continue
-			if field.is_obstacle(candidate):
+			var obs_pos := Vector2i(pos.x + dx, pos.y + dy)
+			if obs_pos.x < 0 or obs_pos.x >= field.width \
+					or obs_pos.y < 0 or obs_pos.y >= field.length:
 				continue
-			if reachable.has(candidate):
-				any_reachable = true
-				break
-		if not any_reachable:
-			scan_candidates.append({"pos": obs_pos, "dist": dist, "skip": "unreachable"})
-			continue
+			var obs: Dictionary = field.get_obstacle_at(obs_pos)
+			if obs.is_empty():
+				continue
+			if obs.get("cell_type", "") == "door" and obs.get("door_open", false):
+				continue
+			var obs_data: ObstacleData = obs.get("data") as ObstacleData
+			if obs_data == null or not obs_data.provides_cover:
+				continue
 
-		var coverage_ratio: float = clampf(threat_covered / total_threat, 0.0, 1.0)
-		var is_narrow: bool = obs_data != null and obs_data.narrow
-		var obs_size: int = int(obs.get("size", 1))
-		var is_full_cover: bool = not is_narrow and obs_size > merc_size
+			var can_reach: bool
+			if dist <= 1:
+				can_reach = ap_available >= seek_cover_cost
+			elif dist <= pace:
+				can_reach = ap_after_move >= seek_cover_cost
+			else:
+				# Extended range: needs two moves (injured/targeted mercs only)
+				can_reach = ap_after_two_moves >= seek_cover_cost
+			if not can_reach:
+				scan_candidates.append({"pos": obs_pos, "dist": dist, "skip": "no-ap"})
+				continue
 
-		# Base score: 0.9 for full cover, 0.5 for partial (starts at 0.9 ceiling)
-		var base := coverage_ratio * (0.9 if is_full_cover else 0.5)
+			var to_cover := Vector2(float(dx), float(dy))
+			var threat_covered: float = 0.0
+			for e: MercenaryData in ranged_enemies:
+				var epos := state.get_position(e)
+				var to_enemy := Vector2(float(epos.x - pos.x), float(epos.y - pos.y))
+				if to_cover.dot(to_enemy) > 0.0:
+					threat_covered += float(enemy_weights.get(e, 0.0))
 
-		# Alignment bonus: cover on the path toward the enemy earns up to +0.1
-		var alignment_bonus := 0.0
-		if move_dir != Vector2.ZERO and to_cover.length_squared() > 0.0:
-			var alignment := clampf(to_cover.normalized().dot(move_dir), 0.0, 1.0)
-			alignment_bonus = alignment * 0.1
+			if threat_covered <= 0.0:
+				scan_candidates.append({"pos": obs_pos, "dist": dist, "skip": "no-threat-coverage"})
+				continue
 
-		var ap_cost_penalty := 0.0
-		if dist > pace:
-			ap_cost_penalty = 0.3
-		elif dist > 1:
-			ap_cost_penalty = 0.15
-		var seek_cost_penalty := 0.1 if is_full_cover else 0.0
-		var fall_penalty := 0.0
-		if obs_data != null and obs_data.passthrough:
-			var max_hp: int = maxi(1, int(merc.stats.get("maximum_hit_points", 1)))
-			fall_penalty = clampf(float(obs_data.passthrough_enter_harm) / float(max_hp), 0.0, 0.5)
-		var access_penalty := ap_cost_penalty + seek_cost_penalty + fall_penalty
-		var candidate_score := (base + alignment_bonus) * (1.0 - access_penalty)
-		scan_candidates.append({"pos": obs_pos, "dist": dist, "score": candidate_score})
-		best_score = maxf(best_score, candidate_score)
+			# Advancing mercs skip strictly-backward cover; lateral cover (dot=0) is allowed.
+			if not is_retreating and nearest_enemy_dir != Vector2.ZERO \
+					and to_cover.dot(nearest_enemy_dir) < 0.0:
+				scan_candidates.append({"pos": obs_pos, "dist": dist, "skip": "wrong-direction"})
+				continue
+
+			var any_reachable := false
+			for adj_d: Vector2i in adj_dirs:
+				var candidate := obs_pos + adj_d
+				if candidate.x < 0 or candidate.x >= field.width \
+						or candidate.y < 0 or candidate.y >= field.length:
+					continue
+				if field.is_obstacle(candidate):
+					continue
+				if reachable.has(candidate):
+					any_reachable = true
+					break
+			if not any_reachable:
+				scan_candidates.append({"pos": obs_pos, "dist": dist, "skip": "unreachable"})
+				continue
+
+			var coverage_ratio: float = clampf(threat_covered / total_threat, 0.0, 1.0)
+			var is_narrow: bool = obs_data != null and obs_data.narrow
+			var obs_size: int = int(obs.get("size", 1))
+			var is_full_cover: bool = not is_narrow and obs_size > merc_size
+
+			# Base score: 0.9 for full cover, 0.5 for partial (starts at 0.9 ceiling)
+			var base := coverage_ratio * (0.9 if is_full_cover else 0.5)
+
+			# Alignment bonus: cover on the path toward the enemy earns up to +0.1
+			var alignment_bonus := 0.0
+			if move_dir != Vector2.ZERO and to_cover.length_squared() > 0.0:
+				var alignment := clampf(to_cover.normalized().dot(move_dir), 0.0, 1.0)
+				alignment_bonus = alignment * 0.1
+
+			var ap_cost_penalty := 0.0
+			if dist > pace:
+				ap_cost_penalty = 0.3
+			elif dist > 1:
+				ap_cost_penalty = 0.15
+			var seek_cost_penalty := 0.1 if is_full_cover else 0.0
+			var fall_penalty := 0.0
+			if obs_data != null and obs_data.passthrough:
+				var max_hp: int = maxi(1, int(merc.stats.get("maximum_hit_points", 1)))
+				fall_penalty = clampf(float(obs_data.passthrough_enter_harm) / float(max_hp), 0.0, 0.5)
+			var access_penalty := ap_cost_penalty + seek_cost_penalty + fall_penalty
+			var candidate_score := (base + alignment_bonus) * (1.0 - access_penalty)
+			scan_candidates.append({"pos": obs_pos, "dist": dist, "score": candidate_score})
+			best_score = maxf(best_score, candidate_score)
 
 	if best_score <= 0.0:
 		EncounterLogger.log_cover_scan(merc.merc_name, search_range, scan_candidates, 0.0)
@@ -234,7 +254,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	EncounterLogger.log_cover_scan(merc.merc_name, search_range, scan_candidates, best_score)
 	var final_score: float = clampf(best_score, 0.0, 1.0)
 	_scan_cache[cache_key] = final_score
-	return final_score
+	return minf(final_score + 0.05, 1.0) if (has_moved and final_score > 0.0) else final_score
 
 
 static func create(p_weight: float = 1.0, p_required: bool = false) -> CoverNearbyFacet:

@@ -7,8 +7,8 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/CanAffordFollowupFacet.gd" id="CanAffordFollowupFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/FirearmReliabilityFacet.gd" id="FirearmReliabilityFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/EffectiveHitChanceFacet.gd" id="EffectiveHitChanceFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/AimPayoffFacet.gd" id="AimPayoffFacet"]
 
 [sub_resource type="Resource" id="facet_weapon"]
 script = ExtResource("WeaponTypeFacet")
@@ -33,23 +33,23 @@ is_required = true
 script = ExtResource("NotMisfiredFacet")
 is_required = true
 
-[sub_resource type="Resource" id="facet_can_afford"]
-script = ExtResource("CanAffordFollowupFacet")
+[sub_resource type="Resource" id="facet_hit_chance"]
+script = ExtResource("EffectiveHitChanceFacet")
 is_required = true
-min_total_ap = 5
 
-[sub_resource type="Resource" id="facet_reliability"]
-script = ExtResource("FirearmReliabilityFacet")
-weight = 1.0
+[sub_resource type="Resource" id="facet_payoff"]
+script = ExtResource("AimPayoffFacet")
+is_required = true
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_weapon"), SubResource("facet_ammo"), SubResource("facet_targets"), SubResource("facet_aimed"), SubResource("facet_misfire"), SubResource("facet_can_afford"), SubResource("facet_reliability")]
-threshold = 0.25
+facets = [SubResource("facet_weapon"), SubResource("facet_ammo"), SubResource("facet_targets"), SubResource("facet_aimed"), SubResource("facet_misfire"), SubResource("facet_hit_chance"), SubResource("facet_payoff")]
+threshold = 0.5
 
 [resource]
 script = ExtResource("ActionData")
 action_name = "aim"
 ap_cost = 2
 priority = 60
+snap_require = {"weapon_is_ranged": true}
 decision = SubResource("decision")

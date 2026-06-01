@@ -20,6 +20,7 @@ var ammo_ordinary_common: Array = []
 var armor: Dictionary = {}
 var armor_ordinary_common: Array = []
 var obstacles_pool: Array[ObstacleData] = []
+var obstacles_nonbuilding_pool: Array[ObstacleData] = []  # pre-filtered: not building, not stairs
 var obstacles_by_type: Dictionary = {}   # String -> Array[ObstacleData]
 var obstacles_by_name: Dictionary = {}   # String -> ObstacleData
 var building_pool: Array[ObstacleData] = []  # is_building == true
@@ -717,14 +718,12 @@ func _load_obstacles() -> void:
 		(obstacles_by_type[o.obstacle_type] as Array).append(o)
 		if o.is_building:
 			building_pool.append(o)
+		if not o.is_building and not o.is_stairs:
+			obstacles_nonbuilding_pool.append(o)
 
 
 func get_random_obstacle() -> ObstacleData:
-	var non_buildings: Array[ObstacleData] = []
-	for o: ObstacleData in obstacles_pool:
-		if not o.is_building and not o.is_stairs:
-			non_buildings.append(o)
-	return non_buildings[randi() % non_buildings.size()]
+	return obstacles_nonbuilding_pool[randi() % obstacles_nonbuilding_pool.size()]
 
 
 func get_obstacle_by_name(obs_name: String) -> ObstacleData:

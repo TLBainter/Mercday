@@ -20,7 +20,7 @@ present_is_high = false
 [sub_resource type="Resource" id="facet_has_stat"]
 script = ExtResource("HasClimbStatFacet")
 is_required = false
-weight = 3.0
+weight = 1.0
 
 [sub_resource type="Resource" id="facet_no_melee_enemy"]
 script = ExtResource("EnemyDistanceFacet")
@@ -32,7 +32,7 @@ close_is_high = false
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
 facets = [SubResource("facet_can_start"), SubResource("facet_not_climbing"), SubResource("facet_has_stat"), SubResource("facet_no_melee_enemy")]
-threshold = 0.85
+threshold = 0.50
 
 [resource]
 script = ExtResource("ClimbAction")

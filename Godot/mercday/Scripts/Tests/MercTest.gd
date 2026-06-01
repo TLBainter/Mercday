@@ -559,6 +559,7 @@ func _on_start_battle() -> void:
 		print("Battle already in progress.")
 		return
 	print("\n====== AUTOBATTLE ======\n")
+	mercs.shuffle()
 	var mid: int = mercs.size() >> 1
 	_battle_team_a.clear()
 	_battle_team_b.clear()

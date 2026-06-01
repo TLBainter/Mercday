@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/RangedThreatFacet.gd" id="RangedThreatFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/CombatIdleFacet.gd" id="CombatIdleFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/PoorShotQualityFacet.gd" id="PoorShotQuality"]
 
 [sub_resource type="Resource" id="facet_enemies_exist"]
 script = ExtResource("EnemiesExist")
@@ -79,9 +80,14 @@ weight = 0.5
 idle_threshold = 3
 invert = true
 
+[sub_resource type="Resource" id="facet_poor_shot"]
+script = ExtResource("PoorShotQuality")
+weight = 1.0
+accuracy_threshold = 30.0
+
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_enemies_exist"), SubResource("facet_no_targets"), SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_preferred"), SubResource("facet_dist"), SubResource("facet_readiness"), SubResource("facet_last_seen"), SubResource("facet_hp_risk"), SubResource("facet_threat_risk"), SubResource("facet_not_aimed"), SubResource("facet_idle")]
+facets = [SubResource("facet_enemies_exist"), SubResource("facet_no_targets"), SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_preferred"), SubResource("facet_dist"), SubResource("facet_readiness"), SubResource("facet_last_seen"), SubResource("facet_hp_risk"), SubResource("facet_threat_risk"), SubResource("facet_not_aimed"), SubResource("facet_idle"), SubResource("facet_poor_shot")]
 threshold = 0.5
 
 [resource]

@@ -18,7 +18,10 @@ var dropped_weapons: Dictionary = {}          # Vector2i -> Array[WeaponData]
 var no_target_turns: Dictionary = {}          # MercenaryData -> consecutive turns without a valid attack target
 var move_goals: Dictionary = {}              # MercenaryData -> Vector2i persistent move destination
 var position_history: Dictionary = {}        # MercenaryData -> Array[Vector2i] (last 3 end-of-turn positions)
+var no_progress_rounds: Dictionary = {}      # MercenaryData -> consecutive turns without position change
 var _cached_winner: int = -2                  # set by AutoBattle._finalize() before merc reset
+var _merc_team_index: Dictionary = {}         # MercenaryData -> int; populated in create()
+var turn_ally_passable: Dictionary = {}       # MercenaryData -> Dictionary{Vector2i->true}; rebuilt per turn
 
 
 static func create(
@@ -27,6 +30,9 @@ static func create(
 		field: BattlefieldArea = null) -> BattleState:
 	var state := BattleState.new()
 	state.teams = [team_a, team_b]
+	for _ti: int in range(state.teams.size()):
+		for _tm: MercenaryData in state.teams[_ti]:
+			state._merc_team_index[_tm] = _ti
 	var all_mercs: Array[MercenaryData] = []
 	all_mercs.assign(team_a + team_b)
 	for merc: MercenaryData in all_mercs:
@@ -48,6 +54,7 @@ static func create(
 		merc.last_known_enemy_positions = {}
 		merc.last_seen_position = Vector2i(-1, -1)
 		merc.combat_idle_rounds = 0
+		merc.ap_debt = 0
 		_randomize_starting_draw(merc)
 	state.turn_queue = TurnOrderSystem.sort_initiative(all_mercs)
 	state.battlefield = field
@@ -74,8 +81,18 @@ static func _randomize_starting_draw(merc: MercenaryData) -> void:
 	var preferred: WeaponData = null
 	for w: WeaponData in all_weapons:
 		if w.is_ranged and merc.ammo_loaded > 0:
-			preferred = w
-			break
+			var temp := merc.equipped_weapon
+			merc.equipped_weapon = w
+			var viable := (FirearmReliabilityFacet.compute(merc) * 2.5 + 2.0) / 4.5 >= 0.50
+			merc.equipped_weapon = temp
+			if viable:
+				preferred = w
+				break
+	if preferred == null:
+		for w: WeaponData in all_weapons:
+			if not w.is_ranged and not w.is_throwable:
+				preferred = w
+				break
 	if preferred != null:
 		all_weapons.erase(preferred)
 		all_weapons.shuffle()
@@ -162,14 +179,20 @@ func start_of_turn(merc: MercenaryData) -> void:
 	escalation[merc] = {}
 
 
-func end_of_turn(merc: MercenaryData) -> void:
+func end_of_turn(merc: MercenaryData, took_weapon_action: bool = false) -> void:
 	merc.excess_ap = maxi(0, merc.current_ap)
 	merc.current_ap = 0
 	var hist: Array = position_history.get(merc, []) as Array
+	var old_pos: Vector2i = hist[0] as Vector2i if not hist.is_empty() else Vector2i(-1, -1)
 	hist.append(get_position(merc))
 	if hist.size() > 1:
 		hist.pop_front()
 	position_history[merc] = hist
+	var new_pos: Vector2i = get_position(merc)
+	if not took_weapon_action and old_pos != Vector2i(-1, -1) and new_pos == old_pos:
+		no_progress_rounds[merc] = (no_progress_rounds.get(merc, 0) as int) + 1
+	else:
+		no_progress_rounds.erase(merc)
 
 
 func get_cost(merc: MercenaryData, action_name: String, base_cost: int) -> int:
@@ -201,27 +224,29 @@ func can_afford(merc: MercenaryData, cost: int) -> bool:
 
 
 func get_enemies(merc: MercenaryData) -> Array[MercenaryData]:
-	for i: int in range(teams.size()):
-		var team: Array = teams[i]
-		if team.has(merc):
-			var result: Array[MercenaryData] = []
-			for m: MercenaryData in teams[1 - i]:
-				if _is_alive(m):
-					result.append(m)
-			return result
-	return []
+	var i: int = _merc_team_index.get(merc, -1)
+	if i < 0:
+		return []
+	var result: Array[MercenaryData] = []
+	for m: MercenaryData in teams[1 - i]:
+		if _is_alive(m):
+			result.append(m)
+	return result
 
 
 func get_allies(merc: MercenaryData) -> Array[MercenaryData]:
-	for i: int in range(teams.size()):
-		var team: Array = teams[i]
-		if team.has(merc):
-			var result: Array[MercenaryData] = []
-			for m: MercenaryData in team:
-				if m != merc and _is_alive(m):
-					result.append(m)
-			return result
-	return []
+	var i: int = _merc_team_index.get(merc, -1)
+	if i < 0:
+		return []
+	var result: Array[MercenaryData] = []
+	for m: MercenaryData in teams[i]:
+		if m != merc and _is_alive(m):
+			result.append(m)
+	return result
+
+
+func clear_encounter_cache() -> void:
+	turn_ally_passable.clear()
 
 
 static func _is_alive(merc: MercenaryData) -> bool:

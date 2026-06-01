@@ -12,6 +12,7 @@ class_name ActionData extends Resource
 @export_enum("none", "current_or_best", "nearest_enemy", "nearest_ally", "mover", "strategic_advance") var target_mode: String = "none"
 @export var move_stop_dist: int = -1  ## -1 = auto (stops at weapon range); >=0 overrides stop distance
 @export var draw_from_inventory: bool = false
+@export var snap_require: Dictionary = {}
 @export var decision: DecisionData
 
 
