@@ -1,0 +1,208 @@
+Knowledge	K-Rarity	Tool	T-Rarity	Circumstance	Combined K&T	Combined Category	Combined Rarity	DD Knowledge	DD Tool	DD Combined	DD Stat Boost	DD Stat All	DD Tradition	DD Stat Core	DD Contract	DD Ancestry	DD Bloodline	DD Heritage	DD Stat Every	DD Weapon
+ARCANA	CATEGORY_HEADER	ARCANA	CATEGORY_HEADER	Athletics (Vigor)	ARCANA	Arcana	CATEGORY_HEADER	Aeromancy	Cartomancer's	Aeromancy	Accuracy	Accuracy	Brave	Cognition	Assassinate	Daemonborn	Amphibifolk	Alumni	Accuracy	Artillery (Firearm)
+Aeromancy	Rare	Cartomancer's	Very Rare	Attack (Dexterity)	Aeromancy	Arcana	Rare	Astromancy	Exorcist's	Astromancy	Action Points	Action Points	Chymist	Dexterity	Entertain	Dwarf	Angelic	Artisan	Action Points	Auto-Pistol (Firearm)
+Astromancy	Rare	Exorcist's	Very Rare	Attack (Vigor)	Astromancy	Arcana	Rare	Creomancy	Transmuter's	Cartomancer's	Air Travel Cost Modifier	Air Travel Cost Modifier	Divine	Vigor	Escort	Elf	Arachniir	Attorney	Air Travel Cost Modifier	Auto-Rifle (Firearm)
+Creomancy	Rare	Transmuter's	Legendary	Clever (Cognition)	Cartomancer's	Arcana	Very Rare	Disruptomancy	Architect's	Creomancy	Assassinate	Assassinate	Hellion	Wile	Investigate	Fairy	Arcane	Bartender	Assassinate	Battleaxe (Specialized)
+Disruptomancy	Rare	ARTISAN	CATEGORY_HEADER	Finesse (Dexterity)	Creomancy	Arcana	Rare	Geomancy	Armorer's	Disruptomancy	Avoid	Avoid	Honorable		Military	Gaian	Arctic	Butler	Avoid	Blowgun (Basic)
+Geomancy	Rare	Architect's	Uncommon	Grace (Dexterity)	Disruptomancy	Arcana	Rare	Hemomancy	Blacksmith's	Exorcist's	Avoid AoE	Avoid AoE	Mage		Monster Hunt	Gnome	Ashen	Celebrity	Avoid AoE	Club (Basic)
+Hemomancy	Very Rare	Armorer's	Common	Intuition (Cognition)	Exorcist's	Arcana	Very Rare	Hydromancy	Book Binder's	Geomancy	Avoid Melee	Avoid Melee	Mystech		Rescue	Hibridia	Atalu	Chosen	Avoid Melee	Colossal Sword (Great)
+Hydromancy	Rare	Blacksmith's	Common	Intuition (Wile)	Geomancy	Arcana	Rare	Illustromancy	Brewer's	Hemomancy	Avoid Ranged	Avoid Ranged	Performer		Treasure Hunt	Human	Bastard	Cleric	Avoid Ranged	Dagger (Basic)
+Illustromancy	Rare	Book Binder's	Uncommon	Notice (Cognition)	Hemomancy	Arcana	Very Rare	Magic	Carpenter's	Hydromancy	Base Success Chance	Base Success Chance	Sorcerer			Moet	Brimstone	Cultist	Base Success Chance	Flail (Basic)
+Magic	Very Rare	Brewer's	Uncommon	Performance (Dexterity)	Hydromancy	Arcana	Rare	Necromancy	Chef's	Illustromancy	Burrow	Burrow	Warrior			Orc	Conquest	Dancer	Burrow	Glaive (Specialized)
+Necromancy	Very Rare	Carpenter's	Common	Performance (Wile)	Illustromancy	Arcana	Rare	Occult	Cobbler's	Magic	Cheat Death	Cheat Death				Steeljoint	Djalaag	Deserter	Cheat Death	Great Axe (Great)
+Occult	Very Rare	Chef's	Common	Power (Vigor)	Magic	Arcana	Very Rare	Oneiromancy	Cooper's	Necromancy	Climb	Climb					Dracipava	Detective	Climb	Great Club (Great)
+Oneiromancy	Rare	Cobbler's	Common	Presence (Vigor)	Necromancy	Arcana	Very Rare	Osteomancy	Gardener's	Occult	Combat	Cognition					Dread	Driver	Cognition	Great Sword (Great)
+Osteomancy	Very Rare	Cooper's	Common	Presence (Wile)	Occult	Arcana	Very Rare	Phonomancy	Gunsmith's	Oneiromancy	Cost Modifier	Combat					Dryad	Engineer	Combat	Greatbow (Great)
+Phonomancy	Rare	Gardener's	Common	Resist (Cognition)	Oneiromancy	Arcana	Rare	Pyromancy	Horologist's	Osteomancy	Damage Melee	Cost Modifier					Eldritch	Executive	Cost Modifier	Halberd (Specialized)
+Pyromancy	Rare	Gunsmith's	Uncommon	Resist (Dexterity)	Osteomancy	Arcana	Very Rare	Spatiomancy	Jeweler's	Phonomancy	Damage Ranged	Damage Melee					Eygwon	Farmer	Damage Melee	Hand Axe (Basic)
+Spatiomancy	Rare	Horologist's	Rare	Resist (Vigor)	Phonomancy	Arcana	Rare	Tasseomancy	Lapidary's	Pyromancy	Defend	Damage Ranged					Fable	Gardener	Damage Ranged	Hand Ballista (Great)
+Tasseomancy	Rare	Jeweler's	Uncommon	Resist (Wile)	Pyromancy	Arcana	Rare	Theomancy	Leatherworker's	Spatiomancy	Defend Reduction	Defend					Fenwyn	Gladiator	Defend	Handgun (Firearm)
+Theomancy	Rare	Lapidary's	Rare	Search (Cognition)	Spatiomancy	Arcana	Rare	Agriculture	Mason's	Tasseomancy	Dodge	Defend Reduction					Ganyeg	Historian	Defend Reduction	Heavy Crossbow (Great)
+ARTISAN	CATEGORY_HEADER	Leatherworker's	Common	Speech (Wile)	Tasseomancy	Arcana	Rare	Architecture	Miner's	Theomancy	Dodge Reduction	Dexterity					Glade	Hunter	Dexterity	Katana (Specialized)
+Agriculture	Uncommon	Mason's	Common	Spellcast (Cognition)	Theomancy	Arcana	Rare	Culinary	Perfumer's	Transmuter's	Entertain	Dodge					Gremlin	Kid	Dodge	Light Crossbow (Basic)
+Architecture	Uncommon	Miner's	Uncommon	Spellcast (Dexterity)	Transmuter's	Arcana	Legendary	Forestry	Potter's	Agriculture	Escort	Dodge Reduction					Hel	Merc	Dodge Reduction	Longbow (Specialized)
+Culinary	Common	Perfumer's	Uncommon	Spellcast (Vigor)	ARTISAN	Artisan	CATEGORY_HEADER	Dueling	Scavenger's	Architect's	Espionage	Entertain					Immune	Minstrel	Entertain	Longsowrd (Specialized)
+Forestry	Uncommon	Potter's	Common	Spellcast (Wile)	Agriculture	Artisan	Uncommon	Hunting	Shipwright's	Architecture	Explosives	Escort					Leviathan	Monk	Escort	Mallet (Basic)
+COMBAT	CATEGORY_HEADER	Scavenger's	Rare		Architect's	Artisan	Uncommon	Tactics	Tailor's	Armorer's	Fly	Espionage					Megafolk	Mortician	Espionage	Maul (Great)
+Dueling	Uncommon	Shipwright's	Uncommon		Architecture	Artisan	Uncommon	Atalu Co	Taxidermist's	Blacksmith's	Healthiness	Explosives					Mire	Noble	Explosives	Pike (Specialized)
+Hunting	Common	Tailor's	Uncommon		Armorer's	Artisan	Common	Business Operations	Weaver's	Book Binder's	Inner Peace	Fly					Plunder	Pickpocket	Fly	Rapier (Specialized)
+Tactics	Uncommon	Taxidermist's	Uncommon		Blacksmith's	Artisan	Common	Fenwyn Corp	Woodcarver's	Brewer's	Intellect	Healthiness					Prairie	Rover	Healthiness	Recurve Bow (Specialized)
+CORPORATE	CATEGORY_HEADER	Weaver's	Common		Book Binder's	Artisan	Uncommon	GabeGames	Assassin's	Carpenter's	Investigate	Inner Peace					Sanguine	Sailor	Inner Peace	Rifle (Firearm)
+Atalu Co	Uncommon	Woodcarver's	Rare		Brewer's	Artisan	Uncommon	Puffin Publishing	Demolitionist's	Chef's	Item Cost Modifier	Intellect					Scalefolk	Shamed	Intellect	Saber (Specialized)
+Business Operations	Rare	COMBAT	CATEGORY_HEADER		Carpenter's	Artisan	Common	Rochfort Auto	Tracker's	Cobbler's	Land Travel Cost Modifier	Investigate					Skyfolk	Shepherd	Investigate	Scythe (Specialized)
+Fenwyn Corp	Uncommon	Assassin's	Very Rare		Chef's	Artisan	Common	Smit Inc	Trapper's	Cooper's	Luck	Item Cost Modifier					Smit	Soldier	Item Cost Modifier	Short Sword (Basic)
+GabeGames	Rare	Demolitionist's	Rare		Cobbler's	Artisan	Common	Tao Industries	Artist's	Culinary	Maximum Endurance Points	Land Travel Cost Modifier					Sprite	Spy	Land Travel Cost Modifier	Shotgun (Firearm)
+Puffin Publishing	Uncommon	Tracker's	Common		Cooper's	Artisan	Common	Terro Norte	Calligrapher's	Forestry	Maximum Hit Points	Luck					Stone	Trader	Level	Spear (Specialized)
+Rochfort Auto	Uncommon	Trapper's	Common		Culinary	Artisan	Common	Cinematography	Cinematographer's	Gardener's	Maximum Magic Points	Maximum Endurance Points					Sun	Watchman	Luck	Staff (Basic)
+Smit Inc	Uncommon	CREATIVITY	CATEGORY_HEADER		Forestry	Artisan	Uncommon	Comedy	Musician's	Gunsmith's	Melee Accuracy	Maximum Hit Points					Tempest	White Collar	Maximum Endurance Points	Whip (Specialized)
+Tao Industries	Very Rare	Artist's	Uncommon		Gardener's	Artisan	Common	Dancing	Tattoo Artist's	Horologist's	Military	Maximum Magic Points					Toadstool		Maximum Hit Points	
+Terro Norte	Rare	Calligrapher's	Uncommon		Gunsmith's	Artisan	Uncommon	Dramaturgy	Falconer's	Jeweler's	Monster Hunt	Melee Accuracy					Transient		Maximum Magic Points	
+CREATIVITY	CATEGORY_HEADER	Cinematographer's	Very Rare		Horologist's	Artisan	Rare	Mixology	Fisherman's	Lapidary's	Negotiate	Military					Tunneler		Melee Accuracy	
+Cinematography	Very Rare	Musician's	Uncommon		Jeweler's	Artisan	Uncommon	Music	Groomer's	Leatherworker's	Pace	Monster Hunt					Vaettir		Military	
+Comedy	Rare	Tattoo Artist's	Uncommon		Lapidary's	Artisan	Rare	Assembly	Mount Tack	Mason's	Parkour	Negotiate					Zelian		Monster Hunt	
+Dancing	Uncommon	CREATURE	CATEGORY_HEADER		Leatherworker's	Artisan	Common	Cryptozoology	Cipherist's	Miner's	Ranged Accuracy	Pace							Negotiate	
+Dramaturgy	Uncommon	Falconer's	Uncommon		Mason's	Artisan	Common	Daemon	Cutpurse's	Perfumer's	Reroll	Parkour							Pace	
+Mixology	Uncommon	Fisherman's	Common		Miner's	Artisan	Uncommon	Elemental	Forger's	Potter's	Rescue	Ranged Accuracy							Parkour	
+Music	Uncommon	Groomer's	Common		Perfumer's	Artisan	Uncommon	Ethereal	Hacker's	Scavenger's	Rest Recovery	Reroll							Ranged Accuracy	
+CREATURE	CATEGORY_HEADER	Mount Tack	Uncommon		Potter's	Artisan	Common	Fey	Infiltrator's	Shipwright's	Royal	Rescue							Reroll	
+Assembly	Uncommon	ESPIONAGE	CATEGORY_HEADER		Scavenger's	Artisan	Rare	Immortal	Interrogator's	Tailor's	Sea Travel Cost Modifier	Rest Recovery							Rescue	
+Cryptozoology	Very Rare	Cipherist's	Rare		Shipwright's	Artisan	Uncommon	Mire	Investigator's	Taxidermist's	Services Cost Modifier	Royal							Rest Recovery	
+Daemon	Rare	Cutpurse's	Uncommon		Tailor's	Artisan	Uncommon	Mythozoology	Locksmith's	Weaver's	Size	Sea Travel Cost Modifier							Royal	
+Elemental	Rare	Forger's	Rare		Taxidermist's	Artisan	Uncommon	Plant	Poisoner's	Woodcarver's	Social	Services Cost Modifier							Sea Travel Cost Modifier	
+Ethereal	Rare	Hacker's	Very Rare		Weaver's	Artisan	Common	Undead	Scout's	Assassin's	Speed	Size							Services Cost Modifier	
+Fey	Rare	Infiltrator's	Rare		Woodcarver's	Artisan	Rare	Zoology	Climber's	Demolitionist's	Support	Social							Size	
+Immortal	Very Rare	Interrogator's	Rare		COMBAT	Combat	CATEGORY_HEADER	Gloria	Diver's	Dueling	Swim	Speed							Social	
+Mire	Rare	Investigator's	Rare		Assassin's	Combat	Very Rare	Hel	Navigator's	Hunting	Tolerance	Support							Speed	
+Mythozoology	Uncommon	Locksmith's	Uncommon		Demolitionist's	Combat	Rare	Spectral	Survivalist's	Tactics	Travel Cost Modifier	Swim							Support	
+Plant	Uncommon	Poisoner's	Rare		Dueling	Combat	Uncommon	Umbra	Godslayer's	Tracker's	Treasure Hunt	Tolerance							Swim	
+Undead	Rare	Scout's	Rare		Hunting	Combat	Common	Weird	Riftmender's	Trapper's	Unsavory	Travel Cost Modifier							Tolerance	
+Zoology	Common	LOCATION	CATEGORY_HEADER		Tactics	Combat	Uncommon	Forensics	Alchemist's	Atalu Co	Urban	Treasure Hunt							Travel Cost Modifier	
+DOMAIN	CATEGORY_HEADER	Climber's	Common		Tracker's	Combat	Common	Reconnaissance	Engineer's	Business Operations	Walk	Unsavory							Treasure Hunt	
+Gloria	Uncommon	Diver's	Uncommon		Trapper's	Combat	Common	Aerdis	Herbologist's	Fenwyn Corp	Weight Limit	Urban							Unsavory	
+Hel	Uncommon	Navigator's	Common		CORPORATE	Corporate	CATEGORY_HEADER	Aldurstein	Mechanic's	GabeGames	Zealotry	Vigor							Urban	
+Spectral	Rare	Survivalist's	Uncommon		Atalu Co	Corporate	Uncommon	Buern	Mortician's	Puffin Publishing		Walk							Vigor	
+Umbra	Uncommon	POWER	CATEGORY_HEADER		Business Operations	Corporate	Rare	Cavern	Surgeon's	Rochfort Auto		Weight Limit							Walk	
+Weird	Rare	Godslayer's	Legendary		Fenwyn Corp	Corporate	Uncommon	Copari	Dealer's	Smit Inc		Wile							Weight Limit	
+ESPIONAGE	CATEGORY_HEADER	Riftmender's	Legendary		GabeGames	Corporate	Rare	Cosmos	Missionary's	Tao Industries		Zealotry							Wile	
+Forensics	Rare	SCIENCE	CATEGORY_HEADER		Puffin Publishing	Corporate	Uncommon	Cyfrolaef	Archaeologist's	Terro Norte									Zealotry	
+Reconnaissance	Rare	Alchemist's	Uncommon		Rochfort Auto	Corporate	Uncommon	Desert	Cartographer's	Artist's										
+LOCATION	CATEGORY_HEADER	Engineer's	Rare		Smit Inc	Corporate	Uncommon	Fainarr	Air Vehicles	Calligrapher's										
+Aerdis	Common	Herbologist's	Uncommon		Tao Industries	Corporate	Very Rare	Forest	Cosmic Vehicles	Cinematographer's										
+Aldurstein	Common	Mechanic's	Uncommon		Terro Norte	Corporate	Rare	Kathaya	Land Vehicles	Cinematography										
+Buern	Common	Mortician's	Rare		CREATIVITY	Creativity	CATEGORY_HEADER	Marsh	Military Vehicles	Comedy										
+Cavern	Uncommon	Surgeon's	Rare		Artist's	Creativity	Uncommon	Miliim	Water Vehicles	Dancing										
+Copari	Common	SOCIAL	CATEGORY_HEADER		Calligrapher's	Creativity	Uncommon	Mountain		Dramaturgy										
+Cosmos	Rare	Dealer's	Uncommon		Cinematographer's	Creativity	Very Rare	Plain		Mixology										
+Cyfrolaef	Legendary	Missionary's	Rare		Cinematography	Creativity	Very Rare	Rossade		Music										
+Desert	Uncommon	STUDY	CATEGORY_HEADER		Comedy	Creativity	Rare	Sea		Musician's										
+Fainarr	Rare	Archaeologist's	Rare		Dancing	Creativity	Uncommon	Sky		Tattoo Artist's										
+Forest	Uncommon	Cartographer's	Rare		Dramaturgy	Creativity	Uncommon	Snowy		Assembly										
+Kathaya	Common	VEHICLE	CATEGORY_HEADER		Mixology	Creativity	Uncommon	Suorr		Cryptozoology										
+Marsh	Uncommon	Air Vehicles	Very Rare		Music	Creativity	Uncommon	Tropical		Daemon										
+Miliim	Common	Cosmic Vehicles	Legendary		Musician's	Creativity	Uncommon	Undercity		Elemental										
+Mountain	Uncommon	Land Vehicles	Uncommon		Tattoo Artist's	Creativity	Uncommon	Uppercity		Ethereal										
+Plain	Common	Military Vehicles	Very Rare		CREATURE	Creature	CATEGORY_HEADER	Vaernebo		Falconer's										
+Rossade	Common	Water Vehicles	Rare		Assembly	Creature	Uncommon	Volcanic		Fey										
+Sea	Uncommon				Cryptozoology	Creature	Very Rare	Zukei		Fisherman's										
+Sky	Uncommon				Daemon	Creature	Rare	Unknowables		Groomer's										
+Snowy	Uncommon				Elemental	Creature	Rare	Biology		Immortal										
+Suorr	Common				Ethereal	Creature	Rare	Botany		Mire										
+Tropical	Uncommon				Falconer's	Creature	Uncommon	Engineering		Mount Tack										
+Undercity	Common				Fey	Creature	Rare	First Aid		Mythozoology										
+Uppercity	Uncommon				Fisherman's	Creature	Common	Geology		Plant										
+Vaernebo	Common				Groomer's	Creature	Common	Mechanology		Undead										
+Volcanic	Rare				Immortal	Creature	Very Rare	Medicine		Zoology										
+Zukei	Uncommon				Mire	Creature	Rare	Meteorology		Gloria										
+POWER	CATEGORY_HEADER				Mount Tack	Creature	Uncommon	Oceanography		Hel										
+Unknowables	Legendary				Mythozoology	Creature	Uncommon	Physics		Spectral										
+SCIENCE	CATEGORY_HEADER				Plant	Creature	Uncommon	Psychology		Umbra										
+Biology	Rare				Undead	Creature	Rare	Technology		Weird										
+Botany	Common				Zoology	Creature	Common	Toxicology		Cipherist's										
+Engineering	Rare				DOMAIN	Domain	CATEGORY_HEADER	Chivalry		Cutpurse's										
+First Aid	Common				Gloria	Domain	Uncommon	Colosseum		Forensics										
+Geology	Uncommon				Hel	Domain	Uncommon	Diplomacy		Forger's										
+Mechanology	Uncommon				Spectral	Domain	Rare	Finance		Hacker's										
+Medicine	Rare				Umbra	Domain	Uncommon	High Society		Infiltrator's										
+Meteorology	Uncommon				Weird	Domain	Rare	Law		Interrogator's										
+Oceanography	Rare				ESPIONAGE	Espionage	CATEGORY_HEADER	Lowborn		Investigator's										
+Physics	Very Rare				Cipherist's	Espionage	Rare	Salesmanship		Locksmith's										
+Psychology	Rare				Cutpurse's	Espionage	Uncommon	Education		Poisoner's										
+Technology	Uncommon				Forensics	Espionage	Rare	History		Reconnaissance										
+Toxicology	Uncommon				Forger's	Espionage	Rare	Linguistics		Scout's										
+SOCIAL	CATEGORY_HEADER				Hacker's	Espionage	Very Rare	Logistics		Aerdis										
+Chivalry	Very Rare				Infiltrator's	Espionage	Rare	Philosophy		Aldurstein										
+Colosseum	Rare				Interrogator's	Espionage	Rare	Pre-Reckoning		Buern										
+Diplomacy	Rare				Investigator's	Espionage	Rare	Primeval		Cavern										
+Finance	Rare				Locksmith's	Espionage	Uncommon	Thanatology		Climber's										
+High Society	Rare				Poisoner's	Espionage	Rare	Theology		Copari										
+Law	Very Rare				Reconnaissance	Espionage	Rare	Aerial		Cosmos										
+Lowborn	Uncommon				Scout's	Espionage	Rare	Domain Walking		Cyfrolaef										
+Salesmanship	Common				LOCATION	Location	CATEGORY_HEADER	Nautical		Desert										
+STUDY	CATEGORY_HEADER				Aerdis	Location	Common	Travel		Diver's										
+Education	Uncommon				Aldurstein	Location	Common			Fainarr										
+History	Rare				Buern	Location	Common			Forest										
+Linguistics	Uncommon				Cavern	Location	Uncommon			Kathaya										
+Logistics	Uncommon				Climber's	Location	Common			Marsh										
+Philosophy	Very Rare				Copari	Location	Common			Miliim										
+Pre-Reckoning	Legendary				Cosmos	Location	Rare			Mountain										
+Primeval	Legendary				Cyfrolaef	Location	Legendary			Navigator's										
+Thanatology	Very Rare				Desert	Location	Uncommon			Plain										
+Theology	Rare				Diver's	Location	Uncommon			Rossade										
+TRAVELING	CATEGORY_HEADER				Fainarr	Location	Rare			Sea										
+Aerial	Common				Forest	Location	Uncommon			Sky										
+Domain Walking	Legendary				Kathaya	Location	Common			Snowy										
+Nautical	Common				Marsh	Location	Uncommon			Suorr										
+Travel	Common				Miliim	Location	Common			Survivalist's										
+					Mountain	Location	Uncommon			Tropical										
+					Navigator's	Location	Common			Undercity										
+					Plain	Location	Common			Uppercity										
+					Rossade	Location	Common			Vaernebo										
+					Sea	Location	Uncommon			Volcanic										
+					Sky	Location	Uncommon			Zukei										
+					Snowy	Location	Uncommon			Godslayer's										
+					Suorr	Location	Common			Riftmender's										
+					Survivalist's	Location	Uncommon			Unknowables										
+					Tropical	Location	Uncommon			Alchemist's										
+					Undercity	Location	Common			Biology										
+					Uppercity	Location	Uncommon			Botany										
+					Vaernebo	Location	Common			Engineer's										
+					Volcanic	Location	Rare			Engineering										
+					Zukei	Location	Uncommon			First Aid										
+					POWER	Power	CATEGORY_HEADER			Geology										
+					Godslayer's	Power	Legendary			Herbologist's										
+					Riftmender's	Power	Legendary			Mechanic's										
+					Unknowables	Power	Legendary			Mechanology										
+					SCIENCE	Science	CATEGORY_HEADER			Medicine										
+					Alchemist's	Science	Uncommon			Meteorology										
+					Biology	Science	Rare			Mortician's										
+					Botany	Science	Common			Oceanography										
+					Engineer's	Science	Rare			Physics										
+					Engineering	Science	Rare			Psychology										
+					First Aid	Science	Common			Surgeon's										
+					Geology	Science	Uncommon			Technology										
+					Herbologist's	Science	Uncommon			Toxicology										
+					Mechanic's	Science	Uncommon			Chivalry										
+					Mechanology	Science	Uncommon			Colosseum										
+					Medicine	Science	Rare			Dealer's										
+					Meteorology	Science	Uncommon			Diplomacy										
+					Mortician's	Science	Rare			Finance										
+					Oceanography	Science	Rare			High Society										
+					Physics	Science	Very Rare			Law										
+					Psychology	Science	Rare			Lowborn										
+					Surgeon's	Science	Rare			Missionary's										
+					Technology	Science	Uncommon			Salesmanship										
+					Toxicology	Science	Uncommon			Archaeologist's										
+					SOCIAL	Social	CATEGORY_HEADER			Cartographer's										
+					Chivalry	Social	Very Rare			Education										
+					Colosseum	Social	Rare			History										
+					Dealer's	Social	Uncommon			Linguistics										
+					Diplomacy	Social	Rare			Logistics										
+					Finance	Social	Rare			Philosophy										
+					High Society	Social	Rare			Pre-Reckoning										
+					Law	Social	Very Rare			Primeval										
+					Lowborn	Social	Uncommon			Thanatology										
+					Missionary's	Social	Rare			Theology										
+					Salesmanship	Social	Common			Aerial										
+					STUDY	Study	CATEGORY_HEADER			Domain Walking										
+					Archaeologist's	Study	Rare			Nautical										
+					Cartographer's	Study	Rare			Travel										
+					Education	Study	Uncommon			Air Vehicles										
+					History	Study	Rare			Cosmic Vehicles										
+					Linguistics	Study	Uncommon			Land Vehicles										
+					Logistics	Study	Uncommon			Military Vehicles										
+					Philosophy	Study	Very Rare			Water Vehicles										
+					Pre-Reckoning	Study	Legendary													
+					Primeval	Study	Legendary													
+					Thanatology	Study	Very Rare													
+					Theology	Study	Rare													
+					TRAVELING	Traveling	CATEGORY_HEADER													
+					Aerial	Traveling	Common													
+					Domain Walking	Traveling	Legendary													
+					Nautical	Traveling	Common													
+					Travel	Traveling	Common													
+					VEHICLE	Vehicle	CATEGORY_HEADER													
+					Air Vehicles	Vehicle	Very Rare													
+					Cosmic Vehicles	Vehicle	Legendary													
+					Land Vehicles	Vehicle	Uncommon													
+					Military Vehicles	Vehicle	Very Rare													
+					Water Vehicles	Vehicle	Rare													

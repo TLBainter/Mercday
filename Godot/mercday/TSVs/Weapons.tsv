@@ -167,3 +167,6 @@ Staff (Basic)	Wizard’s Staff, Pyrite	Common	1	130	1d12	Strike			2						Protean
 Staff (Basic)	Wizard’s Staff, Uranium	Uncommon	1	300	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Rot while resonating with and holding this staff, deal an additional +1 Rot.	Magical	1					
 Whip (Specialized)	Bull Whip	Ordinary	1	20	2d6	Lacerate			2						Extend, One-Handed			Mundane						
 Whip (Specialized)	Carnivine	Uncommon	1	395	2d6	Impale, Lacerate			2						Extend, One-Handed		SPECIAL: Checks you make to maintain your grip on this whip are +1 Enhanced. | SPECIAL: Checks you make to grapple or maintain a grapple with this whip are +1 Enhanced.	Magical						
+Basic Makeshift (Basic)	Basic Makeshift	Ordinary	0	0	1d6	Varies			0				2/5		Light, One-Handed			Mundane						
+Specialized Makeshift (Specialized)	Specialized Makeshift	Ordinary	0	0	1d4	Varies			0				2/5		Protean			Mundane						
+Great Makeshift (Great)	Great Makeshift	Ordinary	0	0	2d4	Varies			0				2/4		Heavy, Two-Handed			Mundane						

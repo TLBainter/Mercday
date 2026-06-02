@@ -1,5 +1,6 @@
 class_name CheckSystem
 
+const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
 
 static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary:
 	var stat_keys: Array[String] = []
@@ -36,9 +37,9 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 
 	var chosen_stat := _choose_stat(merc, success_chance, stat_keys, circ_names)
 	var circ_bonus := _circumstance_bonus_for_stat(merc, chosen_stat, circ_names)
-	var bsc := clampf(float(merc.stats.get("base_success_chance", 0.0)), 0.0, 100.0)
+	var bsc := clampf(float(merc.stats.get(_CONFIG.base_success_chance_stat, 0.0)), 0.0, 100.0)
 	var threshold := clampf(success_chance + circ_bonus + bsc + flat_bonus, 0.01, 100.0)
-	var reroll_threshold := clampf(float(merc.stats.get("reroll", 0.0)), 0.0, 100.0)
+	var reroll_threshold := clampf(float(merc.stats.get(_CONFIG.reroll_stat, 0.0)), 0.0, 100.0)
 	var stat_value := int(merc.stats.get(chosen_stat, 0))
 
 	var instances: Array[bool] = []
@@ -53,7 +54,7 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 	if to_remove > 0:
 		instances = instances.slice(0, instances.size() - to_remove)
 	if instances.is_empty():
-		instances.append(true)  # net-zero core dice → disadvantage pair, take lowest
+		instances.append(true)  # net-zero core dice -> disadvantage pair, take lowest
 
 	var successes := 0
 	var failures := 0
@@ -126,7 +127,7 @@ static func _evaluate_formula(formula: String, merc: MercenaryData) -> float:
 	var var_values: Array = []
 	for key: String in var_names:
 		if key == "rand_factor":
-			var_values.append(randf_range(0.1, 4.9))
+			var_values.append(randf_range(_CONFIG.rand_factor_min, _CONFIG.rand_factor_max))
 		else:
 			var_values.append(merc.stats.get(key, 0))
 
@@ -145,8 +146,8 @@ static func _choose_stat(
 ) -> String:
 	if stat_keys.size() <= 1:
 		return stat_keys[0] if stat_keys.size() > 0 else ""
-	var p_reroll := clampf(float(merc.stats.get("reroll", 0.0)) / 100.0, 0.0, 1.0)
-	var bsc := clampf(float(merc.stats.get("base_success_chance", 0.0)), 0.0, 100.0)
+	var p_reroll := clampf(float(merc.stats.get(_CONFIG.reroll_stat, 0.0)) / 100.0, 0.0, 1.0)
+	var bsc := clampf(float(merc.stats.get(_CONFIG.base_success_chance_stat, 0.0)), 0.0, 100.0)
 	var best_stat := stat_keys[0]
 	var best_expected := -1.0
 	for sk: String in stat_keys:

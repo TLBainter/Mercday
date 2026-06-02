@@ -1,5 +1,25 @@
 extends Node
 
+const _ThrownWeaponsTest := preload("res://Scripts/Tests/ThrownWeaponsTest.gd")
+
+@export var reroll_mercs: NodePath
+@export var add_merc: NodePath
+@export var remove_merc: NodePath
+@export var reroll_names: NodePath
+@export var defend_check: NodePath
+@export var urban_check: NodePath
+@export var monster_hunt_check: NodePath
+@export var social_check: NodePath
+@export var poison_check: NodePath
+@export var put_on_a_show_check: NodePath
+@export var batch_analysis: NodePath
+@export var attack_check: NodePath
+@export var damage_check: NodePath
+@export var start_battle: NodePath
+@export var drop_mercs: NodePath
+@export var makeshift_test: NodePath
+@export var thrown_test: NodePath
+
 var mercs: Array[MercenaryData] = []
 
 var _battle_state: BattleState = null
@@ -9,21 +29,23 @@ var _battle_team_b: Array[MercenaryData] = []
 
 
 func _ready() -> void:
-	$ButtonBar/RerollMercs.pressed.connect(_on_reroll_mercs)
-	$ButtonBar/AddMerc.pressed.connect(_on_add_merc)
-	$ButtonBar/RemoveMerc.pressed.connect(_on_remove_merc)
-	$ButtonBar/RerollNames.pressed.connect(_on_reroll_names)
-	$ButtonBar/DefendCheck.pressed.connect(_on_defend_check)
-	$ButtonBar/UrbanCheck.pressed.connect(_on_urban_check)
-	$ButtonBar/MonsterHuntCheck.pressed.connect(_on_monster_hunt_check)
-	$ButtonBar/SocialCheck.pressed.connect(_on_social_check)
-	$ButtonBar/PoisonCheck.pressed.connect(_on_poison_check)
-	$ButtonBar/PutOnAShowCheck.pressed.connect(_on_put_on_a_show_check)
-	$ButtonBar/BatchAnalysis.pressed.connect(_on_batch_analysis)
-	$ButtonBar/AttackCheck.pressed.connect(_on_attack_check)
-	$ButtonBar/DamageCheck.pressed.connect(_on_damage_check)
-	$ButtonBar/StartBattle.pressed.connect(_on_start_battle)
-	$ButtonBar/DropMercs.pressed.connect(_on_drop_mercs)
+	(get_node(reroll_mercs) as Button).pressed.connect(_on_reroll_mercs)
+	(get_node(add_merc) as Button).pressed.connect(_on_add_merc)
+	(get_node(remove_merc) as Button).pressed.connect(_on_remove_merc)
+	(get_node(reroll_names) as Button).pressed.connect(_on_reroll_names)
+	(get_node(defend_check) as Button).pressed.connect(_on_defend_check)
+	(get_node(urban_check) as Button).pressed.connect(_on_urban_check)
+	(get_node(monster_hunt_check) as Button).pressed.connect(_on_monster_hunt_check)
+	(get_node(social_check) as Button).pressed.connect(_on_social_check)
+	(get_node(poison_check) as Button).pressed.connect(_on_poison_check)
+	(get_node(put_on_a_show_check) as Button).pressed.connect(_on_put_on_a_show_check)
+	(get_node(batch_analysis) as Button).pressed.connect(_on_batch_analysis)
+	(get_node(attack_check) as Button).pressed.connect(_on_attack_check)
+	(get_node(damage_check) as Button).pressed.connect(_on_damage_check)
+	(get_node(start_battle) as Button).pressed.connect(_on_start_battle)
+	(get_node(drop_mercs) as Button).pressed.connect(_on_drop_mercs)
+	(get_node(makeshift_test) as Button).pressed.connect(_on_makeshift_test)
+	(get_node(thrown_test) as Button).pressed.connect(_on_thrown_test)
 	for i: int in range(3):
 		var merc := MercGenerator.generate(i)
 		mercs.append(merc)
@@ -212,12 +234,12 @@ func _on_batch_analysis() -> void:
 		summary += "  %-20s %d\n" % [trad + ":", tally[trad]]
 	summary += "\n"
 	summary += "====== LUCK ROLL DISTRIBUTION (expected) ======\n"
-	summary += "  0– 5:  %3d%%  (expected ~45%%)\n" % luck_buckets[0]
-	summary += "  5–10:  %3d%%  (expected ~20%%)\n" % luck_buckets[1]
-	summary += " 10–20:  %3d%%  (expected ~15%%)\n" % luck_buckets[2]
-	summary += " 20–30:  %3d%%  (expected ~10%%)\n" % luck_buckets[3]
-	summary += " 30–40:  %3d%%  (expected  ~9%%)\n" % luck_buckets[4]
-	summary += " 40–50:  %3d%%  (expected  ~1%%)\n" % luck_buckets[5]
+	summary += "  0- 5:  %3d%%  (expected ~45%%)\n" % luck_buckets[0]
+	summary += "  5-10:  %3d%%  (expected ~20%%)\n" % luck_buckets[1]
+	summary += " 10-20:  %3d%%  (expected ~15%%)\n" % luck_buckets[2]
+	summary += " 20-30:  %3d%%  (expected ~10%%)\n" % luck_buckets[3]
+	summary += " 30-40:  %3d%%  (expected  ~9%%)\n" % luck_buckets[4]
+	summary += " 40-50:  %3d%%  (expected  ~1%%)\n" % luck_buckets[5]
 	summary += "    50:  %3d%%  (expected ~0%%)\n" % luck_buckets[6]
 	summary += "\n\n"
 
@@ -234,12 +256,12 @@ func _on_batch_analysis() -> void:
 	for trad: String in sorted_keys:
 		print("  %-20s %d" % [trad + ":", tally[trad]])
 	print("Luck roll distribution (expected):")
-	print("   0– 5:  %3d%%  (expected ~45%%)" % luck_buckets[0])
-	print("   5–10:  %3d%%  (expected ~20%%)" % luck_buckets[1])
-	print("  10–20:  %3d%%  (expected ~15%%)" % luck_buckets[2])
-	print("  20–30:  %3d%%  (expected ~10%%)" % luck_buckets[3])
-	print("  30–40:  %3d%%  (expected  ~9%%)" % luck_buckets[4])
-	print("  40–50:  %3d%%  (expected  ~1%%)" % luck_buckets[5])
+	print("   0- 5:  %3d%%  (expected ~45%%)" % luck_buckets[0])
+	print("   5-10:  %3d%%  (expected ~20%%)" % luck_buckets[1])
+	print("  10-20:  %3d%%  (expected ~15%%)" % luck_buckets[2])
+	print("  20-30:  %3d%%  (expected ~10%%)" % luck_buckets[3])
+	print("  30-40:  %3d%%  (expected  ~9%%)" % luck_buckets[4])
+	print("  40-50:  %3d%%  (expected  ~1%%)" % luck_buckets[5])
 	print("     50:  %3d%%  (expected ~0%%)" % luck_buckets[6])
 
 
@@ -330,10 +352,10 @@ func _merc_to_string(merc: MercenaryData) -> String:
 	for ammo_name: String in merc.ammo_inventory:
 		var count: int = merc.ammo_inventory[ammo_name]
 		if ammo_name == merc.ammo_loaded_type and merc.ammo_loaded > 0:
-			ammo_parts.append("%s ×%d  (%d loaded)" % [ammo_name, count, merc.ammo_loaded])
+			ammo_parts.append("%s x%d  (%d loaded)" % [ammo_name, count, merc.ammo_loaded])
 			shown_loaded = true
 		else:
-			ammo_parts.append("%s ×%d" % [ammo_name, count])
+			ammo_parts.append("%s x%d" % [ammo_name, count])
 	if merc.ammo_loaded > 0 and not shown_loaded:
 		ammo_parts.append("%s  (%d loaded, no reserve)" % [merc.ammo_loaded_type, merc.ammo_loaded])
 	lines.append("Ammo:         %s" % (", ".join(ammo_parts) if not ammo_parts.is_empty() else "(none)"))
@@ -601,7 +623,7 @@ func _on_damage_check() -> void:
 	var all_types: Array = ConstDamageTypes.all_type_names()
 	var damage_type: String = all_types[randi() % all_types.size()]
 	var type_data: Dictionary = ConstDamageTypes.get_type(damage_type)
-	print("\n====== DAMAGE CHECK — %d %s (%s) ======\n" % [raw_damage, damage_type, type_data.get("category", "?")])
+	print("\n====== DAMAGE CHECK  -  %d %s (%s) ======\n" % [raw_damage, damage_type, type_data.get("category", "?")])
 	for merc: MercenaryData in mercs:
 		_run_damage_check(merc, raw_damage, damage_type)
 
@@ -617,12 +639,12 @@ func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type: String
 	print("%s   (HP: %d/%d  EP: %d/%d)" % [merc.merc_name, hp_before, max_hp, ep_before, max_ep])
 
 	if res["is_immune"]:
-		print_rich("  [color=cyan]IMMUNE — no damage taken.[/color]\n")
+		print_rich("  [color=cyan]IMMUNE  -  no damage taken.[/color]\n")
 		return
 
 	match str(res["modifier"]):
 		"susceptible":
-			print_rich("  Modifier:   [color=yellow]SUSCEPTIBLE[/color]  %d × 2 = %d" % [raw_damage, res["modified_damage"]])
+			print_rich("  Modifier:   [color=yellow]SUSCEPTIBLE[/color]  %d x 2 = %d" % [raw_damage, res["modified_damage"]])
 		"protected":
 			print_rich("  Modifier:   [color=cyan]PROTECTED[/color]  %d / 2 = %d" % [raw_damage, res["modified_damage"]])
 		_:
@@ -632,15 +654,15 @@ func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type: String
 	var fire_first: bool = res["direct_portion"] > 0 and not is_direct
 
 	if is_direct:
-		print_rich("  [color=orange]DIRECT (%s) — defense bypassed.[/color]" % damage_type)
+		print_rich("  [color=orange]DIRECT (%s)  -  defense bypassed.[/color]" % damage_type)
 	elif fire_first:
 		print("  Fire split: 1 direct + %d reducible" % res["reducible"])
 
 	if not is_direct and res["reducible"] > 0:
 		if ep_before <= 0:
-			print_rich("  [color=red]No EP — cannot defend. Full damage taken.[/color]")
+			print_rich("  [color=red]No EP  -  cannot defend. Full damage taken.[/color]")
 		else:
-			print("  EP spent:   1  (%d → %d)" % [ep_before, merc.current_ep])
+			print("  EP spent:   1  (%d -> %d)" % [ep_before, merc.current_ep])
 
 			var def_result: Dictionary = res["defend_result"]
 			if def_result.is_empty():
@@ -649,8 +671,8 @@ func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type: String
 				var def_threshold: float = float(def_result["threshold"])
 				var raw_suc: int = int(def_result["successes"])
 				var final_suc: int = res["defend_reduction"]
-				var halved_note: String = "  (halved → %d)" % final_suc if raw_suc != final_suc else ""
-				print_rich("  Defend:     %s  threshold: %.1f%%  → %d successes%s" % [
+				var halved_note: String = "  (halved -> %d)" % final_suc if raw_suc != final_suc else ""
+				print_rich("  Defend:     %s  threshold: %.1f%%  -> %d successes%s" % [
 					_fmt_rolls(def_result["roll1"] as Array, def_threshold), def_threshold, raw_suc, halved_note
 				])
 
@@ -659,18 +681,18 @@ func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type: String
 				print_rich("  Dodge:      [color=gray]blocked (%s)[/color]" % damage_type)
 			else:
 				var dodge_threshold: float = float(dodge_result["threshold"])
-				print_rich("  Dodge:      %s  threshold: %.1f%%  → %d successes" % [
+				print_rich("  Dodge:      %s  threshold: %.1f%%  -> %d successes" % [
 					_fmt_rolls(dodge_result["roll1"] as Array, dodge_threshold), dodge_threshold, res["dodge_reduction"]
 				])
 
 			var src: String = res["reduction_source"]
 			print("  Best:       %s (%d reduction)" % [src, res["best_reduction"]])
-			print("  Reducible:  %d − %d = %d" % [res["reducible"], res["best_reduction"], res["final_reducible"]])
+			print("  Reducible:  %d ? %d = %d" % [res["reducible"], res["best_reduction"], res["final_reducible"]])
 
 	var final_dmg: int = res["final_damage"]
 	var dmg_color: String = "red" if final_dmg > 0 else "white"
 	print_rich("  Final Dmg:  [color=%s]%d[/color]" % [dmg_color, final_dmg])
-	print("  HP:         %d → %d   EP: %d → %d\n" % [hp_before, merc.current_hp, ep_before, merc.current_ep])
+	print("  HP:         %d -> %d   EP: %d -> %d\n" % [hp_before, merc.current_hp, ep_before, merc.current_ep])
 
 	if merc.current_hp <= 0:
 		print_rich("[color=red]*** %s has been reduced to 0 HP! ***[/color]\n" % merc.merc_name)
@@ -712,10 +734,58 @@ func _on_drop_mercs() -> void:
 		var fall_distance := randi_range(1, 6)
 		state.set_height(merc, fall_distance)
 		print_rich("  [color=cyan]%s dropped from height %d[/color]" % [merc.merc_name, fall_distance])
-		var lines := AutoBattle._resolve_fall(merc, fall_distance, state)
+		var lines := CombatApplicator.resolve_fall(merc, fall_distance, state)
 		for line: String in lines:
 			print_rich(line)
 		state.set_height(merc, 0)
+
+
+func _on_thrown_test() -> void:
+	if _battle_state != null:
+		print("Battle already in progress.")
+		return
+	print("\n====== THROWN WEAPONS TEST ======\n")
+	_battle_state = _ThrownWeaponsTest.create_state()
+	_battle_line_fn = func(s: String) -> void: print_rich(s)
+	_battle_team_a.clear()
+	_battle_team_b.clear()
+	_battle_team_a.assign(_battle_state.teams[0])
+	_battle_team_b.assign(_battle_state.teams[1])
+	var a_names := ", ".join(_battle_team_a.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	var b_names := ", ".join(_battle_team_b.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	print_rich("[color=white]Team A:[/color] %s  [color=gray](thrown wpns, +%d acc, +%d range)[/color]" % [a_names, _ThrownWeaponsTest.THROWN_ACCURACY_BONUS, _ThrownWeaponsTest.THROWN_RANGE_BONUS])
+	print_rich("[color=yellow]Team B:[/color] %s  [color=gray](thrown wpns, +%d acc, +%d range)[/color]" % [b_names, _ThrownWeaponsTest.THROWN_ACCURACY_BONUS, _ThrownWeaponsTest.THROWN_RANGE_BONUS])
+	var order_parts: Array[String] = []
+	for m: MercenaryData in _battle_state.turn_queue:
+		var color := "white" if _battle_team_a.has(m) else "yellow"
+		order_parts.append("[color=%s]%s[/color]" % [color, m.merc_name.get_slice(" ", 0)])
+	print_rich("Turn order: %s" % ", ".join(order_parts))
+	AutoBattle.setup(_battle_state, _battle_line_fn)
+	_run_battle_loop()
+
+
+func _on_makeshift_test() -> void:
+	if _battle_state != null:
+		print("Battle already in progress.")
+		return
+	print("\n====== MAKESHIFT WEAPONS TEST ======\n")
+	_battle_state = MakeshiftWeaponsTest.create_state()
+	_battle_line_fn = func(s: String) -> void: print_rich(s)
+	_battle_team_a.clear()
+	_battle_team_b.clear()
+	_battle_team_a.assign(_battle_state.teams[0])
+	_battle_team_b.assign(_battle_state.teams[1])
+	var a_names := ", ".join(_battle_team_a.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	var b_names := ", ".join(_battle_team_b.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	print_rich("[color=white]Team A:[/color] %s  [color=gray](disarmed)[/color]" % a_names)
+	print_rich("[color=yellow]Team B:[/color] %s  [color=gray](disarmed)[/color]" % b_names)
+	var order_parts: Array[String] = []
+	for m: MercenaryData in _battle_state.turn_queue:
+		var color := "white" if _battle_team_a.has(m) else "yellow"
+		order_parts.append("[color=%s]%s[/color]" % [color, m.merc_name.get_slice(" ", 0)])
+	print_rich("Turn order: %s" % ", ".join(order_parts))
+	AutoBattle.setup(_battle_state, _battle_line_fn)
+	_run_battle_loop()
 
 
 func _fmt_weapon_dice(rolls: Array[int], die_threshold: int, die_sides: int) -> String:
@@ -723,4 +793,4 @@ func _fmt_weapon_dice(rolls: Array[int], die_threshold: int, die_sides: int) -> 
 	for val: int in rolls:
 		var color: String = "green" if val <= die_threshold else "red"
 		parts.append("[color=%s]%d[/color]" % [color, val])
-	return "[%s]  (hit on ≤%d/%d)" % [", ".join(parts), die_threshold, die_sides]
+	return "[%s]  (hit on <=%d/%d)" % [", ".join(parts), die_threshold, die_sides]

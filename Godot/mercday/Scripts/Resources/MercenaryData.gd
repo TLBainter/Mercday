@@ -41,6 +41,7 @@ var current_rep: int = 0
 var excess_ap: int = 0
 var active_states: Dictionary = {}   # state_name -> int or {count, source}
 var death_test_hp_loss: int = 0      # accumulated max HP loss from failed death tests this combat
+var rot_hp_loss: int = 0             # accumulated max HP loss from Rot damage; recovered at end of battle
 var ammo_inventory: Dictionary = {}  # ammo_name -> int (rounds remaining)
 var ammo_loaded: int = 0
 var ammo_loaded_type: String = ""

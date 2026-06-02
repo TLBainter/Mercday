@@ -47,6 +47,9 @@ static func calculate_all(merc: MercenaryData) -> Dictionary:
 				wile_count += 1
 	vars["wile_circumstance_count"] = float(wile_count)
 
+	vars["object_size"] = 0.0
+	vars["object_weight"] = 0.0
+
 	var expr := Expression.new()
 	for stat_def: Dictionary in DataManager.stat_definitions:
 		var var_name: String = stat_def["var_name"]

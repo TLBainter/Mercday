@@ -33,7 +33,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		if obs.get("cell_type", "") == "door" and obs.get("door_open", false):
 			continue
 		var obs_data: ObstacleData = obs.get("data") as ObstacleData
-		if obs_data != null and not obs_data.provides_cover:
+		if obs_data != null and not obs_data.covers:
 			continue
 		var obs_pos: Vector2i = obs["pos"] as Vector2i
 		var delta := obs_pos - merc_pos

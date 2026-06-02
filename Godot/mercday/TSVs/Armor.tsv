@@ -15,11 +15,11 @@ Hauberk	Heavy	2	175	Ordinary	7		2	Impale, Lacerate				Mundane	SPECIAL: Military
 Lamellar	Heavy	3	350	Ordinary	8		2	Impale, Lacerate				Mundane	SPECIAL: Military						
 Scale Mail	Heavy	2	575	Ordinary	8		2	Impale, Lacerate				Mundane	SPECIAL: Grotesque						
 Academic Dress	Light	0	15	Ordinary	0		0					Mundane	SPECIAL: Peasant						
-Cold Weather Gear	Light	1	35	Ordinary	1		0	Frost				Mundane	SPECIAL: Peasant|SPECIAL: You suffer no ill effects from being subjected to temperatures as low as -25°C.						
+Cold Weather Gear	Light	1	35	Ordinary	1		0	Frost				Mundane	SPECIAL: Peasant|SPECIAL: You suffer no ill effects from being subjected to temperatures as low as -25 degC.						
 Croc Skin	Light	1	235	Common	3		0					Mundane	SPECIAL: Grotesque|SPECIAL: You suffer no negative effects from the Drenched State.						
 Galawear	Light	1	150	Ordinary	2		0					Mundane	SPECIAL: Elegant						
 Gambeson	Light	1	25	Ordinary	1		0					Mundane	SPECIAL: Military						
-Nest-Dweller Armor	Light	0	790	Common	5		0					Mundane	SPECIAL: Peasant|SPECIAL: When you begin your turn while Burning, this armor’s Armor Bonus is reduced by 1. 75n and 3 Days of work must be spent to reverse this. If this armor’s Armor Bonus is ever 0, it is permanently destroyed.						
+Nest-Dweller Armor	Light	0	790	Common	5		0					Mundane	SPECIAL: Peasant|SPECIAL: When you begin your turn while Burning, this armor's Armor Bonus is reduced by 1. 75n and 3 Days of work must be spent to reverse this. If this armor's Armor Bonus is ever 0, it is permanently destroyed.						
 Padded Cassock	Light	0	75	Ordinary	1		2					Mundane	SPECIAL: Peasant						
 Croc Leather	Medium	2	375	Common	6		1					Mundane	SPECIAL: Grotesque|SPECIAL: You suffer no negative effects from the Drenched State.						
 Full Leathers	Medium	2	100	Ordinary	5		1					Mundane	SPECIAL: Military						
@@ -31,7 +31,7 @@ Mammal Hide	Medium	1	50	Ordinary	2		1					Mundane	SPECIAL: Grotesque
 Savage Armor	Medium	1	120	Ordinary	5		1				2	Mundane	SPECIAL: Grotesque						
 Slat Armor	Medium	1	40	Ordinary	3		1					Mundane	SPECIAL: Military|SPECIAL: You cannot use the Grace (Dexterity) Circumstance.						
 Surcoat	Medium	1	275	Common	4		1					Mundane	SPECIAL: Elegant						
-Billtower	Shield	3	3100	Uncommon	6						4	Mundane	SPECIAL: Grotesque|SPECIAL: If you suffer a Pain Response from Sonic or Strike, this shield’s Armor Bonus is reduced by 1. 75n and 3 Days of work must be spent to reverse this. If this shield’s Armor Bonus is ever 0, it is permanently destroyed.						
+Billtower	Shield	3	3100	Uncommon	6						4	Mundane	SPECIAL: Grotesque|SPECIAL: If you suffer a Pain Response from Sonic or Strike, this shield's Armor Bonus is reduced by 1. 75n and 3 Days of work must be spent to reverse this. If this shield's Armor Bonus is ever 0, it is permanently destroyed.						
 Buckler	Shield	0	5	Ordinary	1						1	Mundane	SPECIAL: Military						
 Escutcheon	Shield	0	55	Common	2						2	Mundane	SPECIAL: Elegant						
 Kite	Shield	1	7	Ordinary	2						2	Mundane	SPECIAL: Military						

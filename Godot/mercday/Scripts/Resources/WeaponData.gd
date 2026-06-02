@@ -2,6 +2,7 @@ class_name WeaponData extends ItemData
 
 var weapon_type: String
 var weight: int
+var size: int = 0
 var cost: int
 var damage_formula_1: String
 var damage_types_1: Array[String]
@@ -33,3 +34,6 @@ var ranged_extended_range: int # second number; attacks here are +1 Flawed
 var thrown_intended_range: int
 var thrown_extended_range: int
 var is_virtual: bool = false   # always-available pseudo-weapon; never stored in inventory
+
+var fragility: int = 0           # 0 = indestructible; >0 = makeshift weapon, rolls fragility dice on each use
+var current_fragility: int = 0   # runtime counter; decrements on survival roll; 0 = broken (when fragility > 0)

@@ -126,7 +126,7 @@ Experienced	Self-Harm	This merc has cast so many self-harming spells from Osteom
 Experienced	Slimy Yet Satisfying	This merc has eaten some truly disgusting things. They must have a stomach of steel.	State Immune	IS NOT	Poisoned AND		I'll Eat Anything	Uncommon		Healthiness
 			Contract Event	IS	Poisonous Food AND					
 			Succeeded Check	IS	Vigor					
-Experienced	Solemn Vow	This merc has sworn a [VOW] to someone—be it a king, a loved one, or themselves—that now guides their life.	External Event	IS	Make [VOW]		[VOW]	Guaranteed		Zealotry
+Experienced	Solemn Vow	This merc has sworn a [VOW] to someone - be it a king, a loved one, or themselves - that now guides their life.	External Event	IS	Make [VOW]		[VOW]	Guaranteed		Zealotry
 Experienced	Snake Oil Salesman	This merc can sell just about anything... and they have. They just talked someone into buying something for way more than it was worth.	Contract Event	IS	Sell Item AND		Seller's High	Common		Negotiate
 			Succeeded Check	IS	Negotiate AND					
 			Success Count	IS >=	Wile					

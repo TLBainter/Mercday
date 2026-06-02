@@ -1,5 +1,7 @@
 class_name AttackSystem
 
+const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
+
 static func execute_attack(
 		attacker: MercenaryData,
 		extra_enhancements: int = 0,
@@ -16,6 +18,7 @@ static func execute_attack(
 		if attacker.weapon_misfired:
 			return _empty_attack_result(_pick_damage_type(weapon.damage_types_1), false, true)
 
+	# TODO: replace with WeaponEvaluator.select_attack_stat(weapon) once available
 	var stat_keys: Array[String]
 	var circumstances: Array[String]
 	if weapon != null and weapon.has_heavy and not weapon.has_light:
@@ -37,12 +40,20 @@ static func execute_attack(
 	var flat_threshold_bonus := 0.0
 	if is_ranged and ConstStates.has_state(attacker, ConstStates.THREATENED) \
 			and not WeaponArmorPerkLibrary.has_weapon_passive(attacker, "weapon_passive:ignore_threatened"):
-		flat_threshold_bonus -= 30.0
+		flat_threshold_bonus -= _CONFIG.penalty_threatened  # TODO: wire to BattleConfig
 	if is_ranged and state != null and target != null \
 			and state.is_covered_from(target, attacker, ConstStates.COVERED_PARTIAL):
-		flat_threshold_bonus -= 15.0
+		flat_threshold_bonus -= _CONFIG.penalty_partial_cover  # TODO: wire to BattleConfig
+	if is_throw and weapon != null:
+		flat_threshold_bonus += float(-weapon.size * 10)
 
-	var accuracy_formula := "ranged_accuracy" if (is_ranged or is_throw) else "melee_accuracy"
+	var accuracy_formula: String
+	if is_throw:
+		accuracy_formula = "thrown_accuracy"
+	elif is_ranged:
+		accuracy_formula = "ranged_accuracy"
+	else:
+		accuracy_formula = "melee_accuracy"
 	var check_def := {
 		"stat_keys": stat_keys,
 		"circumstances": circumstances,
@@ -101,9 +112,18 @@ static func execute_attack(
 				"threshold": check_result["threshold"],
 				"misfired": true,
 				"no_ammo": false,
+				"weapon_broke": false,
 			}
 		elif weapon.misfire > 0:
 			EncounterLogger.log_misfire_check(attacker.merc_name, weapon.item_name, weapon.misfire, core_successes, false)
+
+	var weapon_broke := false
+	if weapon != null and weapon.fragility > 0 and weapon.current_fragility > 0:
+		weapon_broke = _roll_fragility(weapon)
+		if EncounterLogger.is_active():
+			EncounterLogger.log_verbose("FRAGILITY: %s cf=%d/%d -> %s" % [
+				weapon.item_name, weapon.current_fragility, weapon.fragility,
+				"BROKE" if weapon_broke else "survived"])
 
 	return {
 		"damage": core_successes + weapon_die_successes + flat_bonus,
@@ -117,7 +137,20 @@ static func execute_attack(
 		"threshold": check_result["threshold"],
 		"misfired": false,
 		"no_ammo": false,
+		"weapon_broke": weapon_broke,
 	}
+
+
+static func _roll_fragility(weapon: WeaponData) -> bool:
+	var threshold: int = _CONFIG.fragility_success_threshold
+	var successes := 0
+	for _i: int in range(weapon.current_fragility):
+		if randi_range(1, 6) >= threshold:
+			successes += 1
+	if successes > 0:
+		weapon.current_fragility -= 1
+		return false
+	return true
 
 
 static func _empty_attack_result(damage_type: String, no_ammo: bool, misfired: bool) -> Dictionary:
@@ -133,6 +166,7 @@ static func _empty_attack_result(damage_type: String, no_ammo: bool, misfired: b
 		"threshold": 0.0,
 		"misfired": misfired,
 		"no_ammo": no_ammo,
+		"weapon_broke": false,
 	}
 
 

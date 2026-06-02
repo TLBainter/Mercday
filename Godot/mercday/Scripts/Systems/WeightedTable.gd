@@ -29,7 +29,7 @@ static func roll(
 		cumulative += entry.get("pct", 0.0) as float
 		if roll_value <= cumulative:
 			if debug:
-				print("→ ROLLED %.2f → SELECTED: %s (%.2f%%)" % [roll_value, entry.get("name", ""), entry.get("pct", 0.0)])
+				print("-> ROLLED %.2f -> SELECTED: %s (%.2f%%)" % [roll_value, entry.get("name", ""), entry.get("pct", 0.0)])
 			return entry.get("name", "") as String
 
 	return table[-1].get("name", "") as String

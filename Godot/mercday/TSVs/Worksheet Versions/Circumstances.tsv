@@ -1,0 +1,25 @@
+Stat	Circumstance	Description	Effect	Rarity
+Vigor	Athletics	Athletics is used to determine a merc's endurance and ability to perform constitution-related feats, testing their heart and lungs more than their raw strength.	Relevant check +15%.	Uncommon
+Dexterity	Attack	When the merc attempts to harm or otherwise attack someone or something, they'll use the Attack Circumstance. Dexterity Attacks are used for ranged or light-weight weapons, such as crossbows, handguns, and rapiers.	Relevant check +15%.	Common
+Vigor	Attack	Whn the merc attempts to harm or otherwise attack someone or something, they'll use the Attack Circumstance. Vigor Attacks are used for heavy weapons, such as greatbows or colossal swords.	Relevant check +15%.	Common
+Cognition	Clever	When a merc applies their wits and intellect, they'll use the Clever Circumstance, which applies their resourcefulness and intelligence.	Relevant check +15%.	Uncommon
+Dexterity	Finesse	Finesse is used when a merc wishes to utilize their dextrousness in a concentrated fashion with their fingers rather than their whole body. It reflects fine motor skills.	Relevant check +15%.	Uncommon
+Dexterity	Grace	Grace is the application of the dextrousness of one's body, allowing a mercenary to effectively perform acrobatic maneuvers or move without stepping on creaking wooden boards.	Relevant check +15%.	Uncommon
+Cognition	Intuition	Cognitive Intuition reflects a merc's ability to quickly apply their own knowledge in a given situation. It is a merc's ability to make an educated guess or come to a conclusion with minimal information.	Relevant check +15%.	Uncommon
+Wile	Intuition	Social Intuition is a merc's ability to determine what others are thinking and feeling, which informs a merc what they should or shouldn't say... or whether they should say anything at all.	Relevant check +15%.	Uncommon
+Cognition	Notice	When a merc scans a room, crowd or other space to pick out something out of the ordinary, they will use the Notice Circumstance. This is a broad search rather than a refined one.	Relevant check +15%.	Rare
+Dexterity	Performance	A dexterous performance is one's ability not just to be acrobatic, but to do so with flair. Performative Dexterity is used when a merc is dancing or pulling off stunts rather than mere graceful movement.	Relevant check +15%.	Uncommon
+Wile	Performance	A merc will apply the Performance Wile Circumstance when they are pretending to be someone else, putting on a show, or otherwise trying to distract, imitate, or impress.	Relevant check +15%.	Uncommon
+Vigor	Power	The Power Circumstance is used by a Merc to lift heavy object, break free of powerful bindings, or perform other impressive feats of strength.	Relevant check +15%.	Rare
+Vigor	Presence	The Vigor Presence Circumstance is used to intimidate and impose with a merc's mere stature and the space they take up in a room.	Relevant check +15%.	Uncommon
+Wile	Presence	A merc will use their Presence Wile Circumstance when they are utilizing the strength of their personality to accomplish a task.	Relevant check +15%.	Uncommon
+Cognition	Resist	The Resist Circumstance is used to avoid effects that target a particular attribute of a merc. This resistance protects a merc's mind.	Relevant check +15%.	Uncommon
+Dexterity	Resist	The Resist Circumstance is used to avoid effects that target a particular attribute of a merc. This resistance allows a merc to quickly dodge out of the way of danger.	Relevant check +15%.	Common
+Vigor	Resist	The Resist Circumstance is used to avoid effects that target a particular attribute of a merc. This resistance allows a merc to withstand powerful effects on their body.	Relevant check +15%.	Common
+Wile	Resist	The Resist Circumstance is used to avoid effects that target a particular attribute of a merc. This resistance guards a merc against effects that target their sense of self.	Relevant check +15%.	Uncommon
+Cognition	Search	The Search Circumstance allows a merc to sift through a small area looking for something specific. This may be used to find information in a book, locate a tripwire, or find a hidden passage.	Relevant check +15%.	Uncommon
+Wile	Speech	Whether trying to deceive or persuade, a merc will use Speech when trying to convince someone of something.	Relevant check +15%.	Uncommon
+Cognition	Spellcast	Spells require specific statistics to use; mercs with this Circumstance will have an easier time casting spells that use Cognition.	Relevant check +15%.	Common
+Dexterity	Spellcast	Spells require specific statistics to use; mercs with this Circumstance will have an easier time casting spells that use Dexterity.	Relevant check +15%.	Rare
+Vigor	Spellcast	Spells require specific statistics to use; mercs with this Circumstance will have an easier time casting spells that use Vigor.	Relevant check +15%.	Rare
+Wile	Spellcast	Spells require specific statistics to use; mercs with this Circumstance will have an easier time casting spells that use Wile.	Relevant check +15%.	Common

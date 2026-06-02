@@ -11,7 +11,7 @@ func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
 		return 0.0  # non-firearms have reliability=1.0; unaimed attack already passes
 	var reliability := FirearmReliabilityFacet.compute(merc)
 	if reliability >= 0.5:
-		return 0.0  # unaimed AttackRange already clears threshold — aim wastes AP
+		return 0.0  # unaimed AttackRange already clears threshold  -  aim wastes AP
 	if (reliability * 2.5 + 2.0) / 4.5 < 0.5:
-		return 0.0  # aimed score still below threshold — aim accomplishes nothing
+		return 0.0  # aimed score still below threshold  -  aim accomplishes nothing
 	return 1.0

@@ -1213,6 +1213,10 @@ static func _step9_equip_armor(merc: MercenaryData) -> void:
 	if pool.is_empty():
 		return
 	merc.equipped_armor = pool[randi() % pool.size()] as ArmorData
+	for prot_type: String in merc.equipped_armor.protection:
+		var eff := "protected:" + prot_type.to_lower()
+		if not merc.passive_effects.has(eff):
+			merc.passive_effects.append(eff)
 
 
 static func _equip_starting_ammo(merc: MercenaryData) -> void:

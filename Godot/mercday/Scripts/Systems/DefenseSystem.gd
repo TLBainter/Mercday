@@ -42,6 +42,10 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 			out["final_damage"] = 0
 			return out
 
+	if damage_type == "Toxic" and ConstStates.has_state(merc, ConstStates.POISONED):
+		raw_damage += 1
+		out["raw_damage"] = raw_damage
+
 	var modified_damage: int = raw_damage
 	for effect: String in merc.passive_effects:
 		if effect == "susceptible:" + type_lower:
@@ -52,9 +56,16 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 			modified_damage = floori(raw_damage / 2.0)
 			out["modifier"] = "protected"
 			break
+	if damage_type == "Sonic" and ConstStates.has_state(merc, ConstStates.DEAFENED) \
+			and out["modifier"] != "immune":
+		modified_damage = floori(modified_damage / 2.0)
+		if out["modifier"] == "none":
+			out["modifier"] = "protected"
+
 	out["modified_damage"] = modified_damage
 
 	# Vulnerable state may have set out["is_direct"] = true above; merge with type flags.
+	# TODO Electric: should be is_direct when target wears metal armor; waiting on 'metal' property on ArmorData.
 	var is_direct: bool = type_data.get("is_direct", false) or out.get("is_direct", false)
 	var fire_first: bool = type_data.get("fire_first_point", false)
 	var direct_portion: int = 0
@@ -136,9 +147,12 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 	out["best_reduction"] = best
 	out["reduction_source"] = source
 
+	var block_min_1: bool = type_data.get("block_min_1", false)
 	var dodge_min_1: bool = type_data.get("dodge_min_1", false)
 	var final_reducible: int
-	if source == "dodge" and dodge_min_1 and reducible > 0:
+	if source == "defend" and block_min_1 and reducible > 0:
+		final_reducible = maxi(1, reducible - best)
+	elif source == "dodge" and dodge_min_1 and reducible > 0:
 		final_reducible = maxi(1, reducible - best)
 	else:
 		final_reducible = maxi(0, reducible - best)

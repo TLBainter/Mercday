@@ -22,9 +22,9 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		if ct == "wall":
 			continue
 		var d: ObstacleData = obs.get("data") as ObstacleData
-		if d == null or d.passthrough or d.is_stairs:
+		if d == null or d.passthrough or d.ramp:
 			continue
-		if d.health <= 0 or d.indestructible:
+		if d.health == 0:
 			continue
 		if nearest_enemy == null:
 			return 1.0

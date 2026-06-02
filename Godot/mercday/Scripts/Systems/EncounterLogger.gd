@@ -120,7 +120,7 @@ static func log_generation(field: BattlefieldArea) -> void:
 		else:
 			var d: ObstacleData = obs.get("data") as ObstacleData
 			if d != null and d.passthrough:
-				if d.passthrough_enter_harm > 0 or d.passthrough_exit_harm > 0:
+				if d.pt_enter_harm > 0 or d.pt_exit_harm > 0:
 					damaging_count += 1
 				else:
 					passthrough_count += 1

@@ -112,7 +112,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	]
 
 	# BFS flood-fill from merc position to build a reachable-cell set in one pass.
-	# Replaces per-candidate find_path calls (up to 8 × obstacles in range).
+	# Replaces per-candidate find_path calls (up to 8 x obstacles in range).
 	var reachable: Dictionary = {}
 	var bfs: Array[Vector2i] = [pos]
 	reachable[pos] = true
@@ -150,7 +150,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 			if obs.get("cell_type", "") == "door" and obs.get("door_open", false):
 				continue
 			var obs_data: ObstacleData = obs.get("data") as ObstacleData
-			if obs_data == null or not obs_data.provides_cover:
+			if obs_data == null or not obs_data.covers:
 				continue
 
 			var can_reach: bool
@@ -221,7 +221,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 			var fall_penalty := 0.0
 			if obs_data != null and obs_data.passthrough:
 				var max_hp: int = maxi(1, int(merc.stats.get("maximum_hit_points", 1)))
-				fall_penalty = clampf(float(obs_data.passthrough_enter_harm) / float(max_hp), 0.0, 0.5)
+				fall_penalty = clampf(float(obs_data.pt_enter_harm) / float(max_hp), 0.0, 0.5)
 			var access_penalty := ap_cost_penalty + seek_cost_penalty + fall_penalty
 			var candidate_score := (base + alignment_bonus) * (1.0 - access_penalty)
 			scan_candidates.append({"pos": obs_pos, "dist": dist, "score": candidate_score})

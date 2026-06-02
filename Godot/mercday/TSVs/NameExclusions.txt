@@ -322,7 +322,7 @@ yaoi
 yiffy
 zoophilia
 
-# Excluded syllables — substring match, case-insensitive
+# Excluded syllables  -  substring match, case-insensitive
 # Any generated name part containing one of these strings will be rerolled.
 [syllables]
 cuk

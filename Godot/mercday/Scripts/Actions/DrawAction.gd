@@ -7,7 +7,7 @@ func can_execute(merc: MercenaryData, ctx: Dictionary) -> bool:
 	if weapon == null:
 		return false
 	var state: BattleState = ctx["state"]
-	var draw_cost := state.get_cost(merc, action_name, AutoBattle._get_draw_cost(merc, weapon))
+	var draw_cost := state.get_cost(merc, action_name, WeaponActionExecutor.get_draw_cost(merc, weapon))
 	return state.can_afford(merc, draw_cost)
 
 func _resolve_draw_weapon(merc: MercenaryData) -> WeaponData:

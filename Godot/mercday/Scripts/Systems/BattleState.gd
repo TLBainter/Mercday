@@ -49,6 +49,7 @@ static func create(
 		merc.excess_ap = 0
 		merc.active_states = {}
 		merc.death_test_hp_loss = 0
+		merc.rot_hp_loss = 0
 		merc.aim_active = false
 		merc.weapon_misfired = false
 		merc.last_known_enemy_positions = {}

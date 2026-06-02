@@ -104,11 +104,11 @@ static func cell_pace_cost(from: Vector2i, to: Vector2i, field: BattlefieldArea,
 			var data: ObstacleData = obs.get("data") as ObstacleData
 			if data == null:
 				return -1
-			if data.is_stairs:
+			if data.ramp:
 				base_cost = 1  # handled further below with height logic
 			elif not data.passthrough:
 				return -1
-			elif data.passthrough_enter_harm > 0 or data.passthrough_exit_harm > 0:
+			elif data.pt_enter_harm > 0 or data.pt_exit_harm > 0:
 				# Hazardous passthrough -- crossable but strongly penalised
 				base_cost = 10
 			else:
@@ -303,7 +303,7 @@ static func is_valid_jump_dest(pos: Vector2i, field: BattlefieldArea) -> bool:
 	if cell_type == "door":
 		return obs.get("door_open", false)
 	var data: ObstacleData = obs.get("data") as ObstacleData
-	return data == null or data.passthrough or data.is_stairs
+	return data == null or data.passthrough or data.ramp
 
 
 static func _reconstruct(closed: Dictionary, end: Vector2i, start: Vector2i) -> Array[Vector2i]:

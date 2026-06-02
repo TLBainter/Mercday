@@ -20,10 +20,11 @@ var ammo_ordinary_common: Array = []
 var armor: Dictionary = {}
 var armor_ordinary_common: Array = []
 var obstacles_pool: Array[ObstacleData] = []
-var obstacles_nonbuilding_pool: Array[ObstacleData] = []  # pre-filtered: not building, not stairs
+var obstacles_nonbuilding_pool: Array[ObstacleData] = []  # pre-filtered: not building, not ramp
 var obstacles_by_type: Dictionary = {}   # String -> Array[ObstacleData]
 var obstacles_by_name: Dictionary = {}   # String -> ObstacleData
 var building_pool: Array[ObstacleData] = []  # is_building == true
+var building_only_pool: Array[ObstacleData] = []  # building_only == true
 var knowledge_categories: Dictionary = {}
 var tool_categories: Dictionary = {}
 var stat_definitions: Array[Dictionary] = []
@@ -33,6 +34,7 @@ var critical_success_options: Array = []
 var weapon_trait_library: Dictionary = {}   # weapon_name -> Array[TraitData]
 var armor_trait_library: Dictionary = {}    # armor_category -> Array[TraitData]
 var fight_weapon: WeaponData
+var makeshift_weapons: Dictionary = {}      # name -> WeaponData template (duplicate before use at runtime)
 
 const EFFECT_PREFIXES: PackedStringArray = ["immune to ", "protected from ", "susceptible to "]
 const EFFECT_DSLS: PackedStringArray = ["immune:", "protected:", "susceptible:"]
@@ -69,6 +71,7 @@ func _ready() -> void:
 	_load_types()
 	_load_critical_successes()
 	_load_obstacles()
+	_load_makeshift_weapons()
 	_resolve_location_parents()
 
 
@@ -677,40 +680,41 @@ func _load_obstacles() -> void:
 			continue
 		var o := ObstacleData.new()
 		o.obstacle_name = name_val
-		var size_str: String = _row_get(row, 1)
+		o.obstacle_type = _row_get(row, 1)
+		var size_str: String = _row_get(row, 2)
 		o.size = int(size_str) if size_str.is_valid_int() else 1
-		o.narrow = _row_get(row, 2).to_upper() == "TRUE"
-		o.shape = _row_get(row, 3)
-		var hmin_str: String = _row_get(row, 4)
+		o.narrow = _row_get(row, 3).to_upper() == "TRUE"
+		o.shape = _row_get(row, 4)
+		var hmin_str: String = _row_get(row, 5)
 		o.height_min = int(hmin_str) if hmin_str.is_valid_int() else 1
-		var hmax_str: String = _row_get(row, 5)
+		var hmax_str: String = _row_get(row, 6)
 		o.height_max = int(hmax_str) if hmax_str.is_valid_int() else 3
-		o.obstacle_type = _row_get(row, 6)
-		var hp_str: String = _row_get(row, 7)
-		o.health = int(hp_str) if hp_str.is_valid_int() else 1
-		o.susceptible_to = _row_get(row, 8)
-		o.climbable = _row_get(row, 9).to_upper() == "TRUE"
-		o.climb_difficulty = _row_get(row, 10)
-		o.passthrough = _row_get(row, 11).to_upper() == "TRUE"
-		var enter_str: String = _row_get(row, 12)
-		o.passthrough_enter_harm = int(enter_str) if enter_str.is_valid_int() else 0
-		var exit_str: String = _row_get(row, 13)
-		o.passthrough_exit_harm = int(exit_str) if exit_str.is_valid_int() else 0
-		o.passthrough_harm_type = _row_get(row, 14)
-		o.rugged = _row_get(row, 15).to_upper() == "TRUE"
-		var odds_str: String = _row_get(row, 16)
-		o.expansion_odds = int(odds_str) if odds_str.is_valid_int() else 0
-		o.is_building = _row_get(row, 17).to_upper() == "TRUE"
-		o.is_stairs = _row_get(row, 18).to_upper() == "TRUE"
-		var tdmin := _row_get(row, 19)
-		o.terrain_height_delta_min = float(tdmin) if tdmin.is_valid_float() else 0.0
-		var tdmax := _row_get(row, 20)
-		o.terrain_height_delta_max = float(tdmax) if tdmax.is_valid_float() else 0.0
-		o.provides_cover = (row[21].strip_edges().to_lower() != "false") if row.size() > 21 else true
-		var moveable_str: String = _row_get(row, 22)
+		var tdmin := _row_get(row, 7)
+		o.thd_min = float(tdmin) if tdmin.is_valid_float() else 0.0
+		var tdmax := _row_get(row, 8)
+		o.thd_max = float(tdmax) if tdmax.is_valid_float() else 0.0
+		var moveable_str: String = _row_get(row, 9)
 		o.moveable = moveable_str.to_upper() == "TRUE" or moveable_str == "1"
-		var indestructible_str: String = _row_get(row, 23)
-		o.indestructible = indestructible_str.to_upper() == "TRUE" or indestructible_str == "1"
+		o.climbable = _row_get(row, 10).to_upper() == "TRUE"
+		o.climb_difficulty = _row_get(row, 11)
+		var hp_str: String = _row_get(row, 12)
+		o.health = int(hp_str) if hp_str.is_valid_int() else 1
+		o.susceptible_to = _row_get(row, 13)
+		o.rugged = _row_get(row, 14).to_upper() == "TRUE"
+		o.passthrough = _row_get(row, 15).to_upper() == "TRUE"
+		o.is_building = _row_get(row, 16).to_upper() == "TRUE"
+		o.building_only = _row_get(row, 17).to_upper() == "TRUE"
+		o.is_room = _row_get(row, 18).to_upper() == "TRUE"
+		var enter_str: String = _row_get(row, 19)
+		o.pt_enter_harm = int(enter_str) if enter_str.is_valid_int() else 0
+		var exit_str: String = _row_get(row, 20)
+		o.pt_exit_harm = int(exit_str) if exit_str.is_valid_int() else 0
+		o.pt_harm_type = _row_get(row, 21)
+		var odds_str: String = _row_get(row, 22)
+		o.growth_pct = int(odds_str) if odds_str.is_valid_int() else 0
+		o.ramp = _row_get(row, 23).to_upper() == "TRUE"
+		o.covers = (_row_get(row, 24).to_lower() != "false") if row.size() > 24 else true
+		o.drops = _split_field(_row_get(row, 25))
 		obstacles_pool.append(o)
 		obstacles_by_name[o.obstacle_name] = o
 		if not obstacles_by_type.has(o.obstacle_type):
@@ -718,8 +722,67 @@ func _load_obstacles() -> void:
 		(obstacles_by_type[o.obstacle_type] as Array).append(o)
 		if o.is_building:
 			building_pool.append(o)
-		if not o.is_building and not o.is_stairs:
+		if o.building_only:
+			building_only_pool.append(o)
+		if not o.is_building and not o.ramp and not o.building_only:
 			obstacles_nonbuilding_pool.append(o)
+
+
+func _load_makeshift_weapons() -> void:
+	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Makeshift Weapons.tsv")
+	if rows.size() < 2:
+		return
+	for i: int in range(1, rows.size()):
+		var row: PackedStringArray = rows[i]
+		var name_val: String = _row_get(row, 0)
+		if name_val == "":
+			continue
+		var base_type: String = _row_get(row, 1)
+		var base: WeaponData = weapons.get(base_type) as WeaponData
+		if base == null:
+			push_warning("DataManager: makeshift base type '%s' not found for '%s'" % [base_type, name_val])
+			continue
+		var w := WeaponData.new()
+		w.item_type = base.item_type
+		w.item_rarity = base.item_rarity
+		w.weapon_type = base.weapon_type
+		w.damage_formula_1 = base.damage_formula_1
+		w.damage_formula_2 = base.damage_formula_2
+		w.damage_types_1 = base.damage_types_1.duplicate()
+		w.damage_types_2 = base.damage_types_2.duplicate()
+		w.misc_properties = base.misc_properties.duplicate()
+		w.is_ranged = base.is_ranged
+		w.is_throwable = base.is_throwable
+		w.has_heavy = base.has_heavy
+		w.has_light = base.has_light
+		w.has_extend = base.has_extend
+		w.melee_range = base.melee_range
+		w.draw = base.draw
+		w.item_name = name_val
+		var dmg_types_raw: String = _row_get(row, 2)
+		if dmg_types_raw != "":
+			w.damage_types_1 = _split_field(dmg_types_raw)
+		var thrown_raw: String = _row_get(row, 3)
+		if thrown_raw != "" and thrown_raw.to_upper() != "FALSE":
+			w.range_thrown = thrown_raw
+			w.is_throwable = true
+			var rt := thrown_raw.split("/")
+			w.thrown_intended_range = int(rt[0]) if rt.size() > 0 else 0
+			w.thrown_extended_range = int(rt[1]) if rt.size() > 1 else w.thrown_intended_range
+		var extend_raw: String = _row_get(row, 4)
+		if extend_raw.to_upper() == "TRUE":
+			if not w.misc_properties.has("Extend"):
+				w.misc_properties.append("Extend")
+			w.has_extend = true
+			w.melee_range = 2
+		else:
+			w.misc_properties.erase("Extend")
+			w.has_extend = false
+			w.melee_range = 1
+		var frag_str: String = _row_get(row, 5)
+		w.fragility = int(frag_str) if frag_str.is_valid_int() else 0
+		w.current_fragility = w.fragility
+		makeshift_weapons[name_val] = w
 
 
 func get_random_obstacle() -> ObstacleData:

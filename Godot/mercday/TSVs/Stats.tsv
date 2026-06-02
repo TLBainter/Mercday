@@ -29,8 +29,11 @@ Reroll	(luck / 10.0) + wile	none	derived	How likely this creature is to reattemp
 Accuracy	((dexterity * 10.0) + combat) + (vigor * 2.5)	none	derived	How likely a creature is to hit its target.
 Melee Accuracy	accuracy	none	derived	How likely a creature is to hit its target with a melee attack.
 Ranged Accuracy	accuracy	none	derived	How likely a creature is to hit its target with a ranged attack.
+Thrown Accuracy	max(melee_accuracy, ranged_accuracy) + ((size * 10) - (object_size * 10))	none	derived	How likely a creature is to hit its target with a thrown attack.
+Thrown Range	((vigor * 10) - (object_weight * 10)) if object_weight > 0 else ((vigor * 10) * 2)	floor	derived	The maximum distance a creature can throw an object
 Damage Melee	melee_accuracy / 10.0	floor	derived	The base damage this creature will deal with a melee attack.
 Damage Ranged	ranged_accuracy / 10.0	floor	derived	The base damage this creature will deal with a ranged attack.
+Damage Thrown	thrown_accuracy / 10.0	floor	derived	The base damage this creature will deal with a thrown attack.
 Healthiness	(vigor * 15.0) + luck + avoid	none	derived	How healthy a creature is.
 Tolerance	(healthiness / 2.0) + vigor	none	derived	A creature's willingness to tolerate pain.
 Rest Recovery	healthiness / 100.0	none	derived	Affects the resource recovery a creature experiences while resting.
