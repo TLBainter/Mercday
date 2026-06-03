@@ -45,6 +45,7 @@ static func step_round(state: BattleState, line_fn: Callable = Callable()) -> bo
 		return false
 	state.round_number += 1
 	state.rotate_round_damage()
+	MovementExecutor._near_passable_cache.clear()
 	_emit(line_fn, "[color=gray]=== Round %d ===[/color]" % state.round_number)
 	var _any_attacked := false
 	var any_acted := false
@@ -52,7 +53,7 @@ static func step_round(state: BattleState, line_fn: Callable = Callable()) -> bo
 		if not BattleState._is_alive(merc):
 			if EncounterLogger.is_active():
 				if merc.current_hp == 0 and not ConstStates.has_state(merc, ConstStates.DYING):
-					EncounterLogger.log_verbose("Skipping dead merc %s (hp=0, no Dying state ?????????????????? cheat death was not triggered)" % merc.merc_name)
+					EncounterLogger.log_verbose("Skipping dead merc %s (hp=0, no Dying state - cheat death was not triggered)" % merc.merc_name)
 				else:
 					EncounterLogger.log_verbose("Skipping dead merc %s (hp=%d)" % [merc.merc_name, merc.current_hp])
 			continue
@@ -214,6 +215,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 		merc.excess_ap = 0
 		merc.ap_debt = 0
 	lines.append_array(BattleStateUpdater.update_auto_states(merc, state))
+	merc.active_states.erase("blocked_pickup_pos")
 
 	var enhancements: int = maxi(0, state.round_number - 1)
 	var excess_str := "  ExAP:[color=purple]%d[/color]" % merc.excess_ap if merc.excess_ap > 0 else ""
@@ -259,7 +261,8 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 	var weapon_action_taken := false
 	if not skip_actions:
 		var current_target: MercenaryData = null
-		var movement_blocked := false
+		var _mb_r: int = merc.active_states.get("_move_blocked_round", -1) as int
+		var movement_blocked := _mb_r >= state.round_number - 1
 		var has_moved := false
 		var had_valid_targets := false
 		var seeking_failed := false
@@ -282,7 +285,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 			_action_slot += 1
 			if _action_slot > 50:
 				if EncounterLogger.is_active():
-					EncounterLogger.log_verbose("WARNING: action slot cap reached ?????????????????? ending turn")
+					EncounterLogger.log_verbose("WARNING: action slot cap reached - ending turn")
 				break
 			if merc.current_ap <= 0 and merc.excess_ap <= 0:
 				break
@@ -340,8 +343,12 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 							and _vt_dist > _vt_weapon.thrown_extended_range:
 						_vt_reason = "out_of_throw_range dist=%d intended=%d max=%d" % [_vt_dist, _vt_weapon.thrown_intended_range, _vt_weapon.thrown_extended_range]
 					else:
-						_vt_reason = "unknown"
-					EncounterLogger.log_verbose("NO_VALID_TARGET: %s rejected %s ?????????????????? %s" % [
+						if _vt_weapon != null and _vt_weapon.is_throwable:
+							var _vt_computed := WeaponEvaluator.compute_thrown_range(merc, _vt_weapon)
+							_vt_reason = "unknown (throwable computed_range=%d)" % _vt_computed
+						else:
+							_vt_reason = "unknown"
+					EncounterLogger.log_verbose("NO_VALID_TARGET: %s rejected %s - %s" % [
 						merc.merc_name, e.merc_name, _vt_reason])
 
 			var allies := state.get_allies(merc)
@@ -383,6 +390,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					else:
 						lines.append_array(move_lines)
 						movement_blocked = false
+						merc.active_states.erase("_move_blocked_round")
 						has_moved = true
 						blocked_targets.clear()
 						current_target = decision["target"]
@@ -394,6 +402,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					else:
 						lines.append_array(jump_lines)
 						movement_blocked = false
+						merc.active_states.erase("_move_blocked_round")
 						has_moved = true
 						blocked_targets.clear()
 						current_target = decision["target"]
@@ -404,6 +413,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					else:
 						lines.append_array(climb_lines)
 						movement_blocked = false
+						merc.active_states.erase("_move_blocked_round")
 						has_moved = true
 						blocked_targets.clear()
 				"special":
@@ -446,17 +456,19 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					if atk.get("no_ammo", false):
 						lines.append("  %s has no ammo loaded!" % _cn(merc, state))
 						break
+					if not atk.get("misfired", false):
+						merc.active_states["last_target"] = current_target
 					state.spend_ap(merc, atk_cost)
 					state.record_action(merc, "Attack")
 					merc.combat_idle_rounds = 0
 					weapon_action_taken = true
 					if atk.get("weapon_broke", false):
 						var _broke_name: String = merc.equipped_weapon.item_name if merc.equipped_weapon != null else "weapon"
-						merc.equipped_weapon = null
-						merc.weapon_drawn = false
 						lines.append("  %s's %s breaks apart!" % [_cn(merc, state), _broke_name])
 						if EncounterLogger.is_active():
 							EncounterLogger.log_verbose("FRAGILITY: %s destroyed" % _broke_name)
+						merc.equipped_weapon = DataManager.fight_weapon
+						merc.weapon_drawn = DataManager.fight_weapon != null
 					if EncounterLogger.is_active() and not atk.get("misfired", false):
 						var cr: Dictionary = atk["check_result"]
 						EncounterLogger.log_verbose("ATTACK ROLL: %s vs %.0f%% -> %d hit %d miss  dmg=%d %s" % [
@@ -469,6 +481,8 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 						var _w: WeaponData = merc.equipped_weapon
 						var _is_thrown: bool = _w != null and _w.is_throwable and not _w.is_ranged
 						var two_handed_bonus: int = WeaponArmorPerkLibrary.get_two_handed_damage_bonus(merc, _is_thrown)
+						if two_handed_bonus > 0 and EncounterLogger.is_active():
+							EncounterLogger.log_verbose("TWO_HANDED_BONUS: %s +%d" % [merc.merc_name, two_handed_bonus])
 						var final_damage: int = atk["damage"] + two_handed_bonus
 						var is_crit: bool = CriticalSuccessSystem.is_critical_success(atk["check_result"], merc)
 						if is_crit:
@@ -567,7 +581,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 							if used_perk_effect:
 								break
 						if not used_perk_effect:
-							lines.append_array(CombatApplicator.apply_damage(merc, current_target, final_damage, atk["damage_type"], state, enhancements))
+							lines.append_array(CombatApplicator.apply_damage(merc, current_target, final_damage, atk["damage_type"], state, 0))
 						if final_damage > 0 and BattleState._is_alive(current_target):
 							lines.append_array(WeaponReactiveSystem.apply_on_damage(merc, current_target, merc.equipped_weapon, atk, state))
 							if final_damage >= 2:
@@ -593,7 +607,7 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 							if _as_perk.effect_dsl == "spend:rep:3:after_attack:ally_move_pace:2:no_ap_no_advantage":
 								if merc.current_rep >= 3 and not state.get_allies(merc).is_empty():
 									merc.current_rep -= 3
-									lines.append("  %s calls Artillery Support (3 ReP) ?????????????????? up to 2 allies may move toward %s without AP or AoO!" % [
+									lines.append("  %s calls Artillery Support (3 ReP) - up to 2 allies may move toward %s without AP or AoO!" % [
 										_cn(merc, state), _cn(current_target, state)])
 									# TODO: wire ally movement here once state.move_merc_toward is implemented
 								break
@@ -622,10 +636,10 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					lines.append_array(WeaponReactiveSystem.apply_after_attack(merc, current_target, merc.equipped_weapon, atk, state))
 					if _is_throw_action and merc.equipped_weapon != null:
 						var _thrown_name: String = merc.equipped_weapon.item_name
-						merc.equipped_weapon = null
-						merc.weapon_drawn = false
+						merc.equipped_weapon = DataManager.fight_weapon
+						merc.weapon_drawn = DataManager.fight_weapon != null
 						if EncounterLogger.is_active():
-							EncounterLogger.log_verbose("THROW: %s throws %s ?????????????????? weapon leaves hand" % [merc.merc_name, _thrown_name])
+							EncounterLogger.log_verbose("THROW: %s throws %s - weapon leaves hand" % [merc.merc_name, _thrown_name])
 						lines.append("  %s throws %s! Weapon leaves their hand." % [_cn(merc, state), _thrown_name])
 				"draw":
 					var draw_lines := WeaponActionExecutor.execute_draw(merc, decision["weapon"], state, enhancements)
@@ -647,11 +661,14 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 					if pu_lines.is_empty():
 						break
 					lines.append_array(pu_lines)
+					merc.active_states.erase("bfw_drop_pos")
+					merc.active_states.erase("target_weapon_pos")
 					weapon_action_taken = true
 				"move_to_pickup":
 					var mv_lines := MovementExecutor.execute_move_to_pos(merc, decision["weapon_pos"], state, enhancements)
 					if mv_lines.is_empty():
 						movement_blocked = true
+						merc.active_states["blocked_pickup_pos"] = decision["weapon_pos"]
 					else:
 						lines.append_array(mv_lines)
 						movement_blocked = false
@@ -706,7 +723,7 @@ static func _run_death_test(merc: MercenaryData, state: BattleState, lines: Arra
 		ConstStates.remove_state(merc, ConstStates.DYING)
 		lines.append("  %s dies!" % _cn(merc, state))
 		if EncounterLogger.is_active():
-			EncounterLogger.log_verbose("DEATH CONFIRMED: %s ?????????????????? max HP exhausted by death test failures" % merc.merc_name)
+			EncounterLogger.log_verbose("DEATH CONFIRMED: %s - max HP exhausted by death test failures" % merc.merc_name)
 		return
 	var cheat_death := floorf(float(merc.stats.get("cheat_death", 0.0)))
 	var any_success := false
@@ -737,7 +754,7 @@ static func _run_death_test(merc: MercenaryData, state: BattleState, lines: Arra
 			ConstStates.remove_state(merc, ConstStates.DYING)
 			lines.append("  %s dies!" % _cn(merc, state))
 			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("DEATH CONFIRMED: %s ?????????????????? cheat death failed, max HP exhausted (total failures=%d)" % [
+				EncounterLogger.log_verbose("DEATH CONFIRMED: %s - cheat death failed, max HP exhausted (total failures=%d)" % [
 					merc.merc_name, merc.death_test_hp_loss])
 		else:
 			lines.append("  %s is still dying! (Max HP reduced to %d)" % [_cn(merc, state), new_effective])
@@ -761,13 +778,13 @@ static func _can_attack_target(
 	# regardless of terrain elevation difference between their tiles.
 	if not (is_melee and dist <= melee_range):
 		if EncounterLogger.is_active():
-			EncounterLogger.log_verbose("COVER CHECK: %s->%s dist=%d melee=%s melee_range=%d ?????????????????? applying cover check" % [
+			EncounterLogger.log_verbose("COVER CHECK: %s->%s dist=%d melee=%s melee_range=%d - applying cover check" % [
 				attacker.merc_name, target.merc_name, dist, str(is_melee), melee_range])
 		if state.is_covered_from(target, attacker, ConstStates.COVERED_FULL):
 			return false
 	else:
 		if EncounterLogger.is_active():
-			EncounterLogger.log_verbose("COVER CHECK: %s->%s dist=%d melee=%s melee_range=%d ?????????????????? BYPASSED (adjacent melee)" % [
+			EncounterLogger.log_verbose("COVER CHECK: %s->%s dist=%d melee=%s melee_range=%d - BYPASSED (adjacent melee)" % [
 				attacker.merc_name, target.merc_name, dist, str(is_melee), melee_range])
 	if weapon == null:
 		return dist <= MELEE_RANGE
@@ -786,7 +803,7 @@ static func _can_attack_target(
 			computed_range = mini(computed_range, weapon.thrown_extended_range)
 		return dist <= computed_range
 	if EncounterLogger.is_active():
-		EncounterLogger.log_verbose("RANGE CHECK: %s->%s dist=%d vs range=%d ?????????????????? %s" % [
+		EncounterLogger.log_verbose("RANGE CHECK: %s->%s dist=%d vs range=%d - %s" % [
 			attacker.merc_name, target.merc_name, dist, melee_range,
 			"OK" if dist <= melee_range else "out_of_range"])
 	return dist <= melee_range

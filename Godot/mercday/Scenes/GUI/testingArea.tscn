@@ -14,6 +14,7 @@ reroll_mercs = NodePath("ButtonBar/RerollMercs")
 add_merc = NodePath("ButtonBar/AddMerc")
 remove_merc = NodePath("ButtonBar/RemoveMerc")
 reroll_names = NodePath("ButtonBar/RerollNames")
+add_taverngoer = NodePath("ButtonBar/AddTaverngoer")
 defend_check = NodePath("ButtonBar/DefendCheck")
 urban_check = NodePath("ButtonBar/UrbanCheck")
 monster_hunt_check = NodePath("ButtonBar/MonsterHuntCheck")
@@ -27,6 +28,7 @@ start_battle = NodePath("ButtonBar/StartBattle")
 drop_mercs = NodePath("ButtonBar/DropMercs")
 makeshift_test = NodePath("ButtonBar/MakeshiftTest")
 thrown_test = NodePath("ButtonBar/ThrownTest")
+gen_outhouse_map = NodePath("ButtonBar/GenOuthouseMap")
 
 [node name="ButtonBar" type="GridContainer" parent="." unique_id=1513937818]
 layout_mode = 1
@@ -54,6 +56,11 @@ text = "REMOVE MERC"
 layout_mode = 2
 size_flags_horizontal = 3
 text = "REROLL NAMES"
+
+[node name="AddTaverngoer" type="Button" parent="ButtonBar" unique_id=303030303]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "ADD TAVERNGOER"
 
 [node name="DefendCheck" type="Button" parent="ButtonBar" unique_id=1032239032]
 self_modulate = Color(0.050980393, 1, 1, 1)
@@ -132,3 +139,9 @@ self_modulate = Color(0.4, 1, 0.6, 1)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "START THROWN WPN BATTLE"
+
+[node name="GenOuthouseMap" type="Button" parent="ButtonBar" unique_id=303030303]
+self_modulate = Color(0.7, 0.5, 0.2, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "GEN OUTHOUSE MAP"

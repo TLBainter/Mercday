@@ -27,3 +27,5 @@ class_name ObstacleData extends Resource
 @export var covers: bool = true
 @export var moveable: bool = false
 @export var drops: Array[String] = []  # weapon names that may drop when this obstacle is destroyed
+@export var guaranteed_structures: Array[String] = []
+@export var excluded_structures: Array[String] = []

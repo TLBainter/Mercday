@@ -33,4 +33,8 @@ func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
 
 	# 0.0 = weapon stat matches best stat (good fit), 1.0 = weapon stat is near zero (poor fit)
 	var fitness: float = 1.0 - clampf(weapon_stat_val / best_stat, 0.0, 1.0)
-	return fitness if not invert else 1.0 - fitness
+	var result: float = fitness if not invert else 1.0 - fitness
+	if weapon.fragility > 0:
+		var dur_ratio := clampf(float(weapon.current_fragility) / float(weapon.fragility), 0.0, 1.0)
+		result *= 0.5 + 0.5 * dur_ratio
+	return result

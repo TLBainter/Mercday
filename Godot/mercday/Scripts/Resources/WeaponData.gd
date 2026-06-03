@@ -37,3 +37,4 @@ var is_virtual: bool = false   # always-available pseudo-weapon; never stored in
 
 var fragility: int = 0           # 0 = indestructible; >0 = makeshift weapon, rolls fragility dice on each use
 var current_fragility: int = 0   # runtime counter; decrements on survival roll; 0 = broken (when fragility > 0)
+var base_weapon: WeaponData = null

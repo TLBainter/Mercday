@@ -42,10 +42,14 @@ func _find_climb_target(merc: MercenaryData, state: BattleState) -> Vector2i:
 		var nb := merc_pos + d
 		if nb.x < 0 or nb.x >= field.width or nb.y < 0 or nb.y >= field.length:
 			continue
-		var h_diff := field.get_terrain_height(nb) - merc_h
+		var nb_h := field.get_terrain_height(nb)
+		if nb_h <= merc_h + 0.1 and not field.get_nav_passable_cells().has(nb):
+			var obs := field.get_obstacle_at(nb)
+			if not obs.is_empty() and obs.get("cell_type", "") == "wall":
+				nb_h = merc_h + 2.0
+		var h_diff := nb_h - merc_h
 		if h_diff <= 0.5:
 			continue
-		# Don't grab onto a tile occupied by an enemy
 		if state.is_position_occupied(nb, merc):
 			continue
 		return nb

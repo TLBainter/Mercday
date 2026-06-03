@@ -108,6 +108,9 @@ static func execute_drop(merc: MercenaryData, state: BattleState, cause: String 
 		return []
 	var pos := state.get_position(merc)
 	state.drop_weapon(merc)
+	if DataManager.fight_weapon != null:
+		merc.equipped_weapon = DataManager.fight_weapon
+		merc.weapon_drawn = true
 	var cause_str := (" (%s)" % cause) if cause != "" else ""
 	return ["  %s drops %s at (%d,%d)%s" % [_cn(merc, state), weapon.item_name, pos.x, pos.y, cause_str]]
 
@@ -133,7 +136,8 @@ static func execute_pickup(
 	if merc.equipped_weapon != null and merc.weapon_drawn:
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("HOLSTER: %s holsters %s to pick up %s" % [merc.merc_name, merc.equipped_weapon.item_name, weapon.item_name])
-		merc.inventory.append({"type": "weapon", "data": merc.equipped_weapon})
+		if not merc.equipped_weapon.is_virtual:
+			merc.inventory.append({"type": "weapon", "data": merc.equipped_weapon})
 		merc.equipped_weapon = null
 		merc.weapon_drawn = false
 	state.remove_dropped_weapon(weapon_pos, weapon_entry)

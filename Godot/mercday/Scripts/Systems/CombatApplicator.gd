@@ -46,12 +46,17 @@ static func apply_damage(
 
 	var worth_defending := free_def or CombatDecision.should_attempt_defense(defender, damage, damage_type)
 
-	if worth_defending and not free_def:
-		if defender.excess_ap >= excess_needed \
-				and not ConstStates.has_state(defender, ConstStates.DEBILITATED):
-			defender.excess_ap -= excess_needed
-			used_excess_ap = true
+	if not free_def \
+			and defender.excess_ap >= excess_needed \
+			and not ConstStates.has_state(defender, ConstStates.DEBILITATED) \
+			and CombatDecision.should_spend_excess_ap(defender, attacker, damage_type, state, excess_needed):
+		defender.excess_ap -= excess_needed
+		used_excess_ap = true
+		if not worth_defending:
+			worth_defending = true
 
+	if EncounterLogger.is_active() and not worth_defending and damage > 0:
+		EncounterLogger.log_verbose("DEF SKIP: %s - no EP threshold, no ExAP" % defender.merc_name)
 	var defense_free := free_def or used_excess_ap
 	var res := DefenseSystem.resolve(defender, damage, damage_type, extra_enhancements, defense_free, not worth_defending)
 	if EncounterLogger.is_active():

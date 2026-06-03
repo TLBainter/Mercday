@@ -34,6 +34,7 @@ var terrain_heights: Dictionary = {}    # Vector2i -> float; absent key = 0.0
 var generation_log: Array[String] = []
 var _obs_map: Dictionary = {}               # Vector2i -> obstacle dict; O(1) position lookup
 var cover_obstacles: Array[Dictionary] = [] # pre-filtered to provides_cover==true; rebuilt after generation
+var droppable_obs_map: Dictionary = {}      # Vector2i -> true; obstacles that have drops and are destroyable
 
 # Path width: 1 (extreme/dense) -> 3 (gentle/sparse). Computed from unevenness + cover_amount.
 # Stored so ConnectivityVerifier can match the width used during nav path generation.
@@ -44,7 +45,7 @@ var path_width: int = 2
 var reserved_corridor_cells: Dictionary = {}
 
 
-static func generate_random() -> BattlefieldArea:
+static func generate_random(config: BuildingConfig = null) -> BattlefieldArea:
 	var f := BattlefieldArea.new()
 	f.width  = randi_range(MIN_DIM, MAX_DIM)
 	f.length = randi_range(MIN_DIM, MAX_DIM)
@@ -52,7 +53,7 @@ static func generate_random() -> BattlefieldArea:
 	f.cover_amount = randi() % 5
 	f.unevenness = randi() % 5
 	for _attempt: int in range(4):
-		f._generate_cover()
+		f._generate_cover(config)
 		if f._is_spawn_connected() and f._approach_zone_ok():
 			break
 	return f
@@ -120,12 +121,13 @@ func is_interior(pos: Vector2i) -> bool:
 	return building_interiors.has(pos)
 
 
-func _generate_cover() -> void:
+func _generate_cover(config: BuildingConfig = null) -> void:
 	generation_log.clear()
 	var _gen_start := Time.get_ticks_msec()
 	obstacles.clear()
 	_obs_map.clear()
 	cover_obstacles.clear()
+	droppable_obs_map.clear()
 	building_interiors.clear()
 	building_data.clear()
 	terrain_heights.clear()
@@ -143,16 +145,8 @@ func _generate_cover() -> void:
 	generation_log.append("[GEN] corridor_reservation: %dms" % _ms)
 	print("[GEN] corridor_reservation: %dms" % _ms)
 
-	var density: float = COVER_DENSITY[cover_amount]
-	var target_count: int = int(width * length * density)
 	_t = Time.get_ticks_msec()
-	var placed: int = ObstacleGenerator.place_obstacles(self, target_count)
-	_ms = Time.get_ticks_msec() - _t
-	generation_log.append("[GEN] obstacle_placement: %dms (%d placed)" % [_ms, placed])
-	print("[GEN] obstacle_placement: %dms (%d placed)" % [_ms, placed])
-
-	_t = Time.get_ticks_msec()
-	BuildingGenerator.generate_buildings(self)
+	BuildingGenerator.generate_buildings(self, config)
 	_ms = Time.get_ticks_msec() - _t
 	generation_log.append("[GEN] buildings: %dms" % _ms)
 	print("[GEN] buildings: %dms" % _ms)
@@ -177,6 +171,14 @@ func _generate_cover() -> void:
 	_ms = Time.get_ticks_msec() - _t
 	generation_log.append("[GEN] furniture: %dms" % _ms)
 	print("[GEN] furniture: %dms" % _ms)
+
+	var density: float = COVER_DENSITY[cover_amount]
+	var target_count: int = int(width * length * density)
+	_t = Time.get_ticks_msec()
+	var placed: int = ObstacleGenerator.place_obstacles(self, target_count)
+	_ms = Time.get_ticks_msec() - _t
+	generation_log.append("[GEN] obstacle_placement: %dms (%d placed)" % [_ms, placed])
+	print("[GEN] obstacle_placement: %dms (%d placed)" % [_ms, placed])
 
 	_t = Time.get_ticks_msec()
 	ObstacleGenerator.apply_terrain_effects(self)
@@ -226,6 +228,7 @@ func _generate_cover() -> void:
 	print("[GEN] pocket_removal: %dms" % _ms)
 
 	_rebuild_cover_obstacles()
+	_rebuild_droppable_obs_map()
 
 	var _total_ms := Time.get_ticks_msec() - _gen_start
 	generation_log.append("[GEN] TOTAL: %dms  -  %s" % [_total_ms, to_header_string()])
@@ -417,7 +420,7 @@ func _place_stairs_at_transitions() -> void:
 	for y: int in range(SPAWN_BUFFER, length - SPAWN_BUFFER):
 		for x: int in range(width):
 			var pos := Vector2i(x, y)
-			if _is_obstacle_at(pos):
+			if _is_obstacle_at(pos) or building_interiors.has(pos):
 				continue
 			var qualifies := false
 			for dir: Vector2i in cardinal:
@@ -440,3 +443,16 @@ func _rebuild_cover_obstacles() -> void:
 		var d: ObstacleData = obs.get("data") as ObstacleData
 		if d != null and d.covers:
 			cover_obstacles.append(obs)
+
+
+func _rebuild_droppable_obs_map() -> void:
+	droppable_obs_map.clear()
+	for obs: Dictionary in obstacles:
+		if obs.get("cell_type", "") == "wall":
+			continue
+		var d: ObstacleData = obs.get("data") as ObstacleData
+		if d == null or d.health == 0 or d.drops.is_empty() or d.passthrough or d.ramp:
+			continue
+		var pos: Vector2i = obs.get("pos", Vector2i(-1, -1)) as Vector2i
+		if pos.x >= 0:
+			droppable_obs_map[pos] = true

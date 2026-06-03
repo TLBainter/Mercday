@@ -33,4 +33,5 @@ ap_cost_mode = "move_base"
 priority = 45
 execution_type = "move"
 target_mode = "strategic_advance"
+snap_require = {"movement_blocked": false}
 decision = SubResource("decision")

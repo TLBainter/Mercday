@@ -83,7 +83,7 @@ static func remove_pockets(area) -> void:
 	for y: int in range(_SPAWN_BUFFER, area.length - _SPAWN_BUFFER):
 		for x: int in range(area.width):
 			var pos := Vector2i(x, y)
-			if not area._is_obstacle_at(pos) and not reachable.has(pos):
+			if not area._is_obstacle_at(pos) and not reachable.has(pos) and not area.building_interiors.has(pos):
 				pockets.append(pos)
 
 	if pockets.is_empty():

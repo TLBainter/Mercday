@@ -2,6 +2,15 @@ class_name ActionDispatcher
 
 const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
 
+const INJECTION_POINTS: Dictionary = {
+	40: "pre_move",
+	60: "pre_aim",
+}
+
+const TIER_SNAP_GATES: Dictionary = {
+	60: {"has_valid_target": true},
+}
+
 
 static func _cn(merc: MercenaryData, state: BattleState) -> String:
 	var first := merc.merc_name.get_slice(" ", 0)
@@ -175,7 +184,12 @@ static func execute_perk_action(
 	return lines
 
 
-static func build_decision_snapshot(merc: MercenaryData, enemies: Array[MercenaryData], valid_targets: Array) -> Dictionary:
+static func build_decision_snapshot(
+		merc: MercenaryData,
+		enemies: Array[MercenaryData],
+		valid_targets: Array,
+		state: BattleState,
+		ctx: Dictionary) -> Dictionary:
 	var weapon := merc.equipped_weapon
 	var weapon_drawn := weapon != null and merc.weapon_drawn
 	var ranged_enemy := false
@@ -183,12 +197,24 @@ static func build_decision_snapshot(merc: MercenaryData, enemies: Array[Mercenar
 		if e.equipped_weapon != null and e.equipped_weapon.is_ranged:
 			ranged_enemy = true
 			break
+	var enemy_adjacent := false
+	if state.battlefield != null:
+		for e: MercenaryData in enemies:
+			if BattleState._is_alive(e) and state.distance_to(merc, e) <= 1:
+				enemy_adjacent = true
+				break
+	var max_hp: int = merc.stats.get("maximum_hit_points", 10)
 	return {
 		"weapon_drawn": weapon_drawn,
 		"weapon_is_ranged": weapon != null and merc.weapon_drawn and weapon.is_ranged,
 		"has_ammo": merc.ammo_loaded > 0,
 		"has_valid_target": not valid_targets.is_empty(),
 		"ranged_enemy_present": ranged_enemy,
+		"enemy_adjacent": enemy_adjacent,
+		"movement_blocked": ctx.get("movement_blocked", false),
+		"hp_below_half": merc.current_hp <= max_hp * 0.5,
+		"seeking_mode": ctx.get("seeking_mode", false),
+		"no_valid_targets": valid_targets.is_empty(),
 	}
 
 
@@ -197,6 +223,48 @@ static func snap_passes(snap: Dictionary, requirements: Dictionary) -> bool:
 		if snap.get(key) != requirements[key]:
 			return false
 	return true
+
+
+static func _run_pre_move_injection(
+		merc: MercenaryData,
+		enemies: Array[MercenaryData],
+		valid_targets: Array[MercenaryData],
+		state: BattleState,
+		movement_blocked: bool,
+		weapon_action_taken: bool,
+		is_desperate: bool) -> Dictionary:
+	if merc.ammo_loaded == 0 and CombatDecision._should_reload(merc, enemies, valid_targets, state):
+		if EncounterLogger.is_active():
+			EncounterLogger.log_verbose("INJECTED [reload]: %s (chamber empty, pre-40)" % merc.merc_name)
+		return {"type": "reload", "action_name": "reload", "target": null}
+	if not weapon_action_taken:
+		var wp := CombatDecision._decide_weapon_action(merc, enemies, state, _CONFIG.attack_base_ap, movement_blocked)
+		if wp["type"] != "none":
+			return wp
+		var pu := CombatDecision._decide_pickup_action(merc, enemies, state, _CONFIG.attack_base_ap, _CONFIG.move_base_ap)
+		if pu["type"] != "none":
+			if EncounterLogger.is_active():
+				EncounterLogger.log_verbose("INJECTED [%s]: %s -> %s" % [
+					pu["action_name"], merc.merc_name,
+					str(pu.get("weapon_pos", pu.get("weapon_entry", {}).get("weapon", "")))])
+			return pu
+	if not movement_blocked and not is_desperate and state.battlefield != null and valid_targets.is_empty():
+		var bfw := CombatDecision._decide_break_for_weapon(merc, enemies, state, _CONFIG.attack_base_ap, _CONFIG.move_base_ap)
+		if bfw["type"] != "none":
+			return bfw
+	return {"type": "none"}
+
+
+static func _run_pre_aim_injection(
+		merc: MercenaryData,
+		enemies: Array[MercenaryData],
+		valid_targets: Array[MercenaryData],
+		state: BattleState) -> Dictionary:
+	if merc.ammo_loaded > 0 and CombatDecision._should_reload(merc, enemies, valid_targets, state):
+		if EncounterLogger.is_active():
+			EncounterLogger.log_verbose("INJECTED [reload]: %s (pre-attack tactical)" % merc.merc_name)
+		return {"type": "reload", "action_name": "reload", "target": null}
+	return {"type": "none"}
 
 
 static func choose_from_action_set(
@@ -225,7 +293,7 @@ static func choose_from_action_set(
 		"blocked_targets": blocked_targets,
 		"attack_base_ap": _CONFIG.attack_base_ap, "move_base_ap": _CONFIG.move_base_ap
 	}
-	var snap := build_decision_snapshot(merc, enemies, valid_targets)
+	var snap := build_decision_snapshot(merc, enemies, valid_targets, state, ctx)
 
 	if merc.ammo_loaded == 0 and CombatDecision._should_reload(merc, enemies, valid_targets, state):
 		if EncounterLogger.is_active():
@@ -269,14 +337,26 @@ static func choose_from_action_set(
 	if affordable_actions.is_empty():
 		return {"type": "pass", "action_name": "", "target": null}
 
-	var injected_pre_move := false
-	var injected_pre_aim := false
+	var injected: Dictionary = {}
+	var tier_blocked: Dictionary = {}
 
 	for action: ActionData in sorted_actions:
 		if action.is_reactive:
 			continue
 		if not action.snap_require.is_empty() and not snap_passes(snap, action.snap_require):
 			continue
+
+		var action_tier_blocked := false
+		for gate_priority: int in TIER_SNAP_GATES:
+			if action.priority >= gate_priority:
+				if not tier_blocked.has(gate_priority):
+					tier_blocked[gate_priority] = not snap_passes(snap, TIER_SNAP_GATES[gate_priority])
+				if tier_blocked[gate_priority]:
+					action_tier_blocked = true
+					break
+		if action_tier_blocked:
+			continue
+
 		if _is_desperate and action.action_name == "seek_cover":
 			var _eq := merc.equipped_weapon
 			var _weapon_ok := true
@@ -294,34 +374,21 @@ static func choose_from_action_set(
 					EncounterLogger.log_verbose("    seek_cover suppressed by escalation")
 				continue
 
-		if not injected_pre_move and action.priority >= 40:
-			injected_pre_move = true
-			if merc.ammo_loaded == 0 and CombatDecision._should_reload(merc, enemies, valid_targets, state):
-				if EncounterLogger.is_active():
-					EncounterLogger.log_verbose("INJECTED [reload]: %s (chamber empty, pre-40)" % merc.merc_name)
-				return {"type": "reload", "action_name": "reload", "target": null}
-			if not weapon_action_taken:
-				var wp := CombatDecision._decide_weapon_action(merc, enemies, state, _CONFIG.attack_base_ap, movement_blocked)
-				if wp["type"] != "none":
-					return wp
-				var pu := CombatDecision._decide_pickup_action(merc, enemies, state, _CONFIG.attack_base_ap, _CONFIG.move_base_ap)
-				if pu["type"] != "none":
-					if EncounterLogger.is_active():
-						EncounterLogger.log_verbose("INJECTED [%s]: %s -> %s" % [
-							pu["action_name"], merc.merc_name,
-							str(pu.get("weapon_pos", pu.get("weapon_entry", {}).get("weapon", "")))])
-					return pu
-			if not movement_blocked and state.battlefield != null:
-				var bfw := CombatDecision._decide_break_for_weapon(merc, enemies, state, _CONFIG.attack_base_ap, _CONFIG.move_base_ap)
-				if bfw["type"] != "none":
-					return bfw
-
-		if not injected_pre_aim and action.priority >= 60:
-			injected_pre_aim = true
-			if merc.ammo_loaded > 0 and CombatDecision._should_reload(merc, enemies, valid_targets, state):
-				if EncounterLogger.is_active():
-					EncounterLogger.log_verbose("INJECTED [reload]: %s (pre-attack tactical)" % merc.merc_name)
-				return {"type": "reload", "action_name": "reload", "target": null}
+		for inj_priority: int in INJECTION_POINTS:
+			if action.priority >= inj_priority and not injected.has(inj_priority):
+				injected[inj_priority] = true
+				var inj_result: Dictionary
+				match INJECTION_POINTS[inj_priority]:
+					"pre_move":
+						inj_result = _run_pre_move_injection(
+							merc, enemies, valid_targets, state,
+							movement_blocked, weapon_action_taken, _is_desperate)
+					"pre_aim":
+						inj_result = _run_pre_aim_injection(merc, enemies, valid_targets, state)
+					_:
+						inj_result = {"type": "none"}
+				if inj_result["type"] != "none":
+					return inj_result
 
 		if action.can_execute(merc, ctx):
 			if EncounterLogger.is_active():
@@ -331,7 +398,8 @@ static func choose_from_action_set(
 					"PASS" if verbose["passed"] and verbose["score"] >= action.decision.threshold else "fail"])
 				for fd: Dictionary in verbose["facets"]:
 					var weight_str := "req" if fd["required"] else "w=%.1f" % fd["weight"]
-					EncounterLogger.log_verbose("    %s [%s]: %.2f" % [fd["name"], weight_str, fd["score"]])
+					var score_str := "skipped" if fd.get("skipped", false) else "%.2f" % fd["score"]
+					EncounterLogger.log_verbose("    %s [%s]: %s" % [fd["name"], weight_str, score_str])
 				if verbose["passed"] and verbose["score"] >= action.decision.threshold:
 					if action.action_name == "attack_obstacle":
 						return CombatDecision.decide_obstacle_or_flank(merc, enemies, valid_targets, state, movement_blocked)

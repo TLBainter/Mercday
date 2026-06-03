@@ -6,6 +6,7 @@ const _ThrownWeaponsTest := preload("res://Scripts/Tests/ThrownWeaponsTest.gd")
 @export var add_merc: NodePath
 @export var remove_merc: NodePath
 @export var reroll_names: NodePath
+@export var add_taverngoer: NodePath
 @export var defend_check: NodePath
 @export var urban_check: NodePath
 @export var monster_hunt_check: NodePath
@@ -19,6 +20,7 @@ const _ThrownWeaponsTest := preload("res://Scripts/Tests/ThrownWeaponsTest.gd")
 @export var drop_mercs: NodePath
 @export var makeshift_test: NodePath
 @export var thrown_test: NodePath
+@export var gen_outhouse_map: NodePath
 
 var mercs: Array[MercenaryData] = []
 
@@ -33,6 +35,7 @@ func _ready() -> void:
 	(get_node(add_merc) as Button).pressed.connect(_on_add_merc)
 	(get_node(remove_merc) as Button).pressed.connect(_on_remove_merc)
 	(get_node(reroll_names) as Button).pressed.connect(_on_reroll_names)
+	(get_node(add_taverngoer) as Button).pressed.connect(_on_add_taverngoer)
 	(get_node(defend_check) as Button).pressed.connect(_on_defend_check)
 	(get_node(urban_check) as Button).pressed.connect(_on_urban_check)
 	(get_node(monster_hunt_check) as Button).pressed.connect(_on_monster_hunt_check)
@@ -46,6 +49,7 @@ func _ready() -> void:
 	(get_node(drop_mercs) as Button).pressed.connect(_on_drop_mercs)
 	(get_node(makeshift_test) as Button).pressed.connect(_on_makeshift_test)
 	(get_node(thrown_test) as Button).pressed.connect(_on_thrown_test)
+	(get_node(gen_outhouse_map) as Button).pressed.connect(_on_gen_outhouse_map)
 	for i: int in range(3):
 		var merc := MercGenerator.generate(i)
 		mercs.append(merc)
@@ -80,6 +84,22 @@ func _on_remove_merc() -> void:
 
 func _on_reroll_names() -> void:
 	_print_regional_names()
+
+
+func _on_add_taverngoer() -> void:
+	var avg_level: float = 0.0
+	for m: MercenaryData in mercs:
+		avg_level += float(m.stats.get("level", 0))
+	if mercs.size() > 0:
+		avg_level /= float(mercs.size())
+	var party := {"average_level": avg_level, "merc_count": mercs.size()}
+	print("\n====== TAVERNGOER ======\n")
+	var npc := NPCGenerator.generate_batch("Taverngoer", 1, party)
+	if npc.is_empty():
+		print("ERROR: NPCGenerator returned no results.")
+		return
+	mercs.append(npc[0])
+	_print_merc(npc[0])
 
 
 func _on_defend_check() -> void:
@@ -794,3 +814,129 @@ func _fmt_weapon_dice(rolls: Array[int], die_threshold: int, die_sides: int) -> 
 		var color: String = "green" if val <= die_threshold else "red"
 		parts.append("[color=%s]%d[/color]" % [color, val])
 	return "[%s]  (hit on <=%d/%d)" % [", ".join(parts), die_threshold, die_sides]
+
+
+func _on_gen_outhouse_map() -> void:
+	var outhouse_data: ObstacleData = DataManager.get_obstacle_by_name("Outhouse")
+	if outhouse_data == null:
+		print("Outhouse not found in DataManager.")
+		return
+	var config := BuildingConfig.new()
+	config.forced_template = outhouse_data
+	config.max_count = 20
+	var field := BattlefieldArea.generate_random(config)
+	_write_outhouse_map(field)
+	print("Outhouse map written to encounter_logs.")
+
+
+func _write_outhouse_map(field: BattlefieldArea) -> void:
+	DirAccess.make_dir_absolute("user://encounter_logs")
+	var dt := Time.get_datetime_dict_from_system()
+	var date_str := "%04d-%02d-%02d" % [dt["year"], dt["month"], dt["day"]]
+	var time_str := "%02d-%02d-%02d" % [dt["hour"], dt["minute"], dt["second"]]
+	var path := "user://encounter_logs/outhouse_map_%s_%s.txt" % [date_str, time_str]
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		print("Could not write outhouse map.")
+		return
+	var lines: PackedStringArray = []
+	var outhouse_count: int = 0
+	for b: Dictionary in field.building_data:
+		if (b["name"] as String) == "Outhouse":
+			outhouse_count += 1
+	lines.append("=== OUTHOUSE MAP DEBUG ===")
+	lines.append("Date: %s %s" % [date_str, time_str.replace("-", ":")])
+	lines.append("Field: %dx%d  Outhouses: %d / %d total buildings" % [
+		field.width, field.length, outhouse_count, field.building_data.size()])
+	lines.append("Legend: # wall  D door  W window  T toilet  f furniture  . floor  (space) open")
+	var _b_perim: Dictionary = {}
+	var _b_interior: Dictionary = {}
+	var _b_doors: Dictionary = {}
+	for _b: Dictionary in field.building_data:
+		var _br: Rect2i = _b["rect"]
+		var _bdp: Array = _b["door_positions"]
+		for _bx: int in range(_br.size.x):
+			for _by: int in range(_br.size.y):
+				var _bc := _br.position + Vector2i(_bx, _by)
+				var _on_perim: bool = (_bx == 0 or _bx == _br.size.x - 1 or _by == 0 or _by == _br.size.y - 1)
+				if _on_perim:
+					_b_perim[_bc] = true
+					if _bdp.has(_bc):
+						_b_doors[_bc] = true
+				else:
+					_b_interior[_bc] = true
+	lines.append("")
+	for y: int in range(field.length):
+		var row := ""
+		for x: int in range(field.width):
+			var p := Vector2i(x, y)
+			if _b_doors.has(p):
+				row += "D"
+			elif _b_perim.has(p):
+				if field._obs_map.has(p) and (field._obs_map[p] as Dictionary).get("cell_type", "") == "window":
+					row += "W"
+				else:
+					row += "#"
+			elif _b_interior.has(p):
+				if field._obs_map.has(p):
+					var obs: Dictionary = field._obs_map[p]
+					var ct: String = obs.get("cell_type", "")
+					if ct == "furniture":
+						var d: ObstacleData = obs.get("data") as ObstacleData
+						row += "T" if d != null and d.obstacle_name == "Toilet" else "f"
+					elif ct == "wall":
+						row += "."
+					else:
+						row += "*"
+				else:
+					row += "."
+			elif field._obs_map.has(p):
+				var obs: Dictionary = field._obs_map[p]
+				var ct: String = obs.get("cell_type", "")
+				if ct == "wall":
+					row += "#"
+				elif ct == "door":
+					row += "D"
+				elif ct == "window":
+					row += "W"
+				elif ct == "furniture":
+					var d: ObstacleData = obs.get("data") as ObstacleData
+					row += "T" if d != null and d.obstacle_name == "Toilet" else "f"
+				else:
+					row += "*"
+			else:
+				row += " "
+		lines.append(row)
+	lines.append("")
+	lines.append("--- BUILDINGS ---")
+	for i: int in range(field.building_data.size()):
+		var b: Dictionary = field.building_data[i]
+		var rect: Rect2i = b["rect"]
+		var df: Vector2i = b["door_facing"]
+		var guaranteed: Array = b.get("guaranteed_structures", [])
+		var excluded: Array = b.get("excluded_structures", [])
+		lines.append("Building %d: %s  pos=(%d,%d) size=%dx%d  door=(%d,%d)" % [
+			i + 1, b["name"], rect.position.x, rect.position.y,
+			rect.size.x, rect.size.y, df.x, df.y])
+		if not guaranteed.is_empty():
+			lines.append("  Guaranteed: %s" % ", ".join(guaranteed))
+		if not excluded.is_empty():
+			lines.append("  Excluded: %s" % ", ".join(excluded))
+		for ix: int in range(rect.position.x + 1, rect.end.x - 1):
+			for iy: int in range(rect.position.y + 1, rect.end.y - 1):
+				var p := Vector2i(ix, iy)
+				if field._obs_map.has(p):
+					var obs: Dictionary = field._obs_map[p]
+					var d: ObstacleData = obs.get("data") as ObstacleData
+					if d != null:
+						lines.append("  (%d,%d) %s" % [p.x, p.y, d.obstacle_name])
+		if b.get("guaranteed_structures", []).size() > 0:
+			var has_contents := false
+			for ix: int in range(rect.position.x + 1, rect.end.x - 1):
+				for iy: int in range(rect.position.y + 1, rect.end.y - 1):
+					if field._obs_map.has(Vector2i(ix, iy)):
+						has_contents = true
+			if not has_contents:
+				lines.append("  (empty - placement failed)")
+	f.store_string("\n".join(lines) + "\n")
+	f.close()

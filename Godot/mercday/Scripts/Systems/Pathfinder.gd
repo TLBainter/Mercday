@@ -74,6 +74,8 @@ static func cell_pace_cost(from: Vector2i, to: Vector2i, field: BattlefieldArea,
 	if passable_cells.has(to):
 		var h_diff_pc: float = field.get_terrain_height(to) - field.get_terrain_height(from)
 		if h_diff_pc > 0.5:
+			if h_diff_pc <= 1.0:
+				return 3  # single-level step-up: all mercs
 			if not can_climb or h_diff_pc > 2.0:
 				return -1
 			return 3  # climb cost on corridor cell
@@ -117,9 +119,12 @@ static func cell_pace_cost(from: Vector2i, to: Vector2i, field: BattlefieldArea,
 	var h_diff: float = field.get_terrain_height(to) - field.get_terrain_height(from)
 
 	if h_diff > 0.5:
-		if not can_climb or h_diff > 2.0:
+		if h_diff <= 1.0:
+			return base_cost + 2  # single-level step-up: all mercs
+		elif not can_climb or h_diff > 2.0:
 			return -1
-		base_cost += 2  # climbing penalty for steep terrain
+		else:
+			base_cost += 2  # climbing penalty for steep terrain
 
 	if h_diff <= -1.0:
 		var fall_paces := int(floor(-h_diff))

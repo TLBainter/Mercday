@@ -10,10 +10,13 @@ static func compute_thrown_range(merc: MercenaryData, weapon: WeaponData) -> int
 	# thrown_range stat is baseline with object_weight=0: vigor*20 + any stat bonus
 	# for weighted objects, adjust from that baseline back to (vigor-weight)*10 + bonus
 	var vigor: int = int(merc.stats.get("vigor", 0))
-	var stat_base: int = int(merc.stats.get("thrown_range", 0))
+	var stat_base: int = int(merc.stats.get("thrown_range", vigor * 20))
 	var bonus: int = stat_base - vigor * 20
-	if weapon.weight > 0:
-		return maxi(0, (vigor - weapon.weight) * 10 + bonus)
+	var effective_weight: int = weapon.weight
+	if effective_weight == 0 and weapon.base_weapon != null:
+		effective_weight = weapon.base_weapon.weight
+	if effective_weight > 0:
+		return maxi(0, (vigor - effective_weight) * 10 + bonus)
 	return maxi(0, stat_base)
 
 

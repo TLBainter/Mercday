@@ -4,13 +4,13 @@
 [ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 [ext_resource type="Script" path="res://Scripts/Decisions/MovementNotBlockedFacet.gd" id="MovementNotBlocked"]
 [ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/NotAtOptimalRangeFacet.gd" id="NotAtOptimalRangeFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/EnemyApproachingFacet.gd" id="EnemyApproachingFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/CombatReadinessFacet.gd" id="CombatReadinessFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/OpenExitsFacet.gd" id="OpenExitsFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/RangedRetreatViabilityFacet.gd" id="RangedRetreatViabilityFacet"]
 
 [sub_resource type="Resource" id="facet_approaching"]
 script = ExtResource("EnemyApproachingFacet")
@@ -25,12 +25,6 @@ script = ExtResource("ActiveStateFacet")
 is_required = true
 state_name = "Grappled"
 present_is_high = false
-
-[sub_resource type="Resource" id="facet_ranged"]
-script = ExtResource("WeaponTypeFacet")
-is_required = true
-require_ranged = true
-require_drawn = false
 
 [sub_resource type="Resource" id="facet_hp"]
 script = ExtResource("HpRatioFacet")
@@ -54,9 +48,13 @@ weight = 0.5
 script = ExtResource("NotAimedFacet")
 weight = 0.75
 
+[sub_resource type="Resource" id="facet_weapon"]
+script = ExtResource("RangedRetreatViabilityFacet")
+weight = 4.0
+
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_approaching"), SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_ranged"), SubResource("facet_hp"), SubResource("facet_range"), SubResource("facet_readiness"), SubResource("facet_exits"), SubResource("facet_not_aimed")]
+facets = [SubResource("facet_approaching"), SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_hp"), SubResource("facet_range"), SubResource("facet_readiness"), SubResource("facet_exits"), SubResource("facet_not_aimed"), SubResource("facet_weapon")]
 threshold = 0.4
 
 [resource]
@@ -67,4 +65,5 @@ ap_cost_mode = "move_base"
 priority = 50
 execution_type = "move"
 target_mode = "nearest_enemy"
+snap_require = {"movement_blocked": false}
 decision = SubResource("decision")

@@ -35,6 +35,9 @@ var weapon_trait_library: Dictionary = {}   # weapon_name -> Array[TraitData]
 var armor_trait_library: Dictionary = {}    # armor_category -> Array[TraitData]
 var fight_weapon: WeaponData
 var makeshift_weapons: Dictionary = {}      # name -> WeaponData template (duplicate before use at runtime)
+var npc_templates: Dictionary = {}
+
+const _NPCTemplateClass = preload("res://Scripts/Resources/NPCTemplate.gd")
 
 const EFFECT_PREFIXES: PackedStringArray = ["immune to ", "protected from ", "susceptible to "]
 const EFFECT_DSLS: PackedStringArray = ["immune:", "protected:", "susceptible:"]
@@ -73,6 +76,7 @@ func _ready() -> void:
 	_load_obstacles()
 	_load_makeshift_weapons()
 	_resolve_location_parents()
+	_load_npc_templates()
 
 
 func _csv_rows(path: String) -> Array[PackedStringArray]:
@@ -715,6 +719,8 @@ func _load_obstacles() -> void:
 		o.ramp = _row_get(row, 23).to_upper() == "TRUE"
 		o.covers = (_row_get(row, 24).to_lower() != "false") if row.size() > 24 else true
 		o.drops = _split_field(_row_get(row, 25))
+		o.guaranteed_structures = _split_field(_row_get(row, 26))
+		o.excluded_structures = _split_field(_row_get(row, 27))
 		obstacles_pool.append(o)
 		obstacles_by_name[o.obstacle_name] = o
 		if not obstacles_by_type.has(o.obstacle_type):
@@ -743,6 +749,7 @@ func _load_makeshift_weapons() -> void:
 			push_warning("DataManager: makeshift base type '%s' not found for '%s'" % [base_type, name_val])
 			continue
 		var w := WeaponData.new()
+		w.base_weapon = base
 		w.item_type = base.item_type
 		w.item_rarity = base.item_rarity
 		w.weapon_type = base.weapon_type
@@ -813,6 +820,66 @@ func get_settlement_locations() -> Array:
 		if loc.location_type == "Settlement":
 			result.append(loc)
 	return result
+
+
+func _parse_comma_list(raw: String) -> Array[String]:
+	var result: Array[String] = []
+	for part: String in raw.split(","):
+		var s: String = part.strip_edges()
+		if not s.is_empty():
+			result.append(s)
+	return result
+
+
+func _load_npc_templates() -> void:
+	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/NPCs.tsv")
+	if rows.size() < 2:
+		return
+	for i: int in range(1, rows.size()):
+		var row: PackedStringArray = rows[i]
+		if row.size() < 13 or _row_get(row, 0).is_empty():
+			continue
+		var t = _NPCTemplateClass.new()
+		t.npc_type = _row_get(row, 0)
+		var name_val: String = _row_get(row, 1)
+		t.name_mode = name_val if not name_val.is_empty() else "Random"
+		t.origin_pool = _parse_comma_list(_row_get(row, 2))
+		var anc_entries: Array[String] = _parse_comma_list(_row_get(row, 3))
+		if anc_entries.has("Any"):
+			t.ancestry_any = true
+		else:
+			for entry: String in anc_entries:
+				if "(" in entry:
+					var parts: PackedStringArray = entry.split("(")
+					var aname: String = parts[0].strip_edges()
+					var bname: String = parts[1].trim_suffix(")").strip_edges()
+					t.ancestry_constraints[aname] = bname
+				else:
+					t.ancestry_constraints[entry] = ""
+		var her_entries: Array[String] = _parse_comma_list(_row_get(row, 4))
+		if her_entries.has("Any"):
+			t.heritage_any = true
+		else:
+			t.heritage_pool = her_entries
+		var trad_entries: Array[String] = _parse_comma_list(_row_get(row, 5))
+		if trad_entries.has("Any"):
+			t.tradition_any = true
+		elif trad_entries.has("None"):
+			t.tradition_none = true
+		else:
+			t.tradition_pool = trad_entries
+		t.level_formula = _row_get(row, 6)
+		t.sle_name = _row_get(row, 7) if not _row_get(row, 7).is_empty() else "None"
+		var ele_entries: Array[String] = _parse_comma_list(_row_get(row, 8))
+		if ele_entries.has("Any"):
+			t.ele_any = true
+		elif not ele_entries.has("None"):
+			t.ele_pool = ele_entries
+		t.le_count_str = _row_get(row, 9) if not _row_get(row, 9).is_empty() else "0"
+		t.weapon_pool = _parse_comma_list(_row_get(row, 10))
+		t.armor_pool = _parse_comma_list(_row_get(row, 11))
+		t.loadout_pool = _parse_comma_list(_row_get(row, 12))
+		npc_templates[t.npc_type] = t
 
 
 func expand_heritage_knowledges(heritage: HeritageData) -> Array[String]:

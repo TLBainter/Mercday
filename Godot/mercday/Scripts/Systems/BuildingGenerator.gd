@@ -3,22 +3,48 @@ class_name BuildingGenerator
 static var _door_template: ObstacleData
 
 
-static func generate_buildings(area: BattlefieldArea) -> void:
-	if DataManager.building_pool.is_empty():
+static func generate_buildings(area: BattlefieldArea, config: BuildingConfig = null) -> void:
+	var forced: ObstacleData = config.forced_template if config != null else null
+	var pool: Array = _filtered_pool(config)
+	if forced == null and pool.is_empty():
 		return
-	var max_b: int = BattlefieldArea.MAX_BUILDINGS_BY_DENSITY[area.cover_amount]
+	var max_b: int
+	if config != null and config.max_count >= 0:
+		max_b = config.max_count
+	else:
+		max_b = BattlefieldArea.MAX_BUILDINGS_BY_DENSITY[area.cover_amount]
 	for _i: int in range(max_b):
-		var template: ObstacleData = DataManager.building_pool[randi() % DataManager.building_pool.size()]
+		var template: ObstacleData = forced if forced != null else pool[randi() % pool.size()] as ObstacleData
 		place_building(area, template)
+
+
+static func _filtered_pool(config: BuildingConfig) -> Array:
+	var pool: Array = DataManager.building_pool.duplicate()
+	if config == null:
+		return pool
+	if not config.allowed_types.is_empty():
+		var filtered: Array = []
+		for o: ObstacleData in pool:
+			if config.allowed_types.has(o.obstacle_name):
+				filtered.append(o)
+		pool = filtered
+	if not config.excluded_types.is_empty():
+		var filtered: Array = []
+		for o: ObstacleData in pool:
+			if not config.excluded_types.has(o.obstacle_name):
+				filtered.append(o)
+		pool = filtered
+	return pool
 
 
 static func place_building(area: BattlefieldArea, template: ObstacleData) -> bool:
 	var floor_w: int = maxi(2, int(round(sqrt(float(template.size)))))
 	var floor_h: int = maxi(2, int(ceil(float(template.size) / float(floor_w))))
-	if randi() % 2 == 0:
-		floor_w += 1
-	else:
-		floor_h += 1
+	if template.shape != "SQUARE":
+		if randi() % 2 == 0:
+			floor_w += 1
+		else:
+			floor_h += 1
 	var outer_w: int = floor_w + 2
 	var outer_h: int = floor_h + 2
 
@@ -137,10 +163,51 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 			"door_facing": door_facing,
 			"door_positions": door_positions,
 			"name": template.obstacle_name,
+			"guaranteed_structures": template.guaranteed_structures,
+			"excluded_structures": template.excluded_structures,
 		})
 		return true
 
 	return false
+
+
+static func _place_guaranteed_structures(area: BattlefieldArea, b: Dictionary) -> void:
+	var guaranteed: Array = b.get("guaranteed_structures", [])
+	if guaranteed.is_empty():
+		return
+	var rect: Rect2i = b["rect"]
+	var door_positions: Array = b["door_positions"]
+	var door_facing: Vector2i = b["door_facing"]
+	var entry_cells: Dictionary = {}
+	for dp: Vector2i in door_positions:
+		entry_cells[dp - door_facing] = true
+	var preferred: Array[Vector2i] = []
+	var fallback: Array[Vector2i] = []
+	for ix: int in range(rect.position.x + 1, rect.end.x - 1):
+		for iy: int in range(rect.position.y + 1, rect.end.y - 1):
+			var p := Vector2i(ix, iy)
+			if area._is_obstacle_at(p):
+				continue
+			if entry_cells.has(p):
+				fallback.append(p)
+			else:
+				preferred.append(p)
+	preferred.shuffle()
+	fallback.shuffle()
+	var candidates: Array[Vector2i] = preferred + fallback
+	var idx: int = 0
+	for struct_name: String in guaranteed:
+		if idx >= candidates.size():
+			break
+		var struct_data: ObstacleData = DataManager.get_obstacle_by_name(struct_name)
+		if struct_data == null:
+			continue
+		var pos: Vector2i = candidates[idx]
+		idx += 1
+		var obs := {"pos": pos, "size": struct_data.size,
+			"data": struct_data, "cell_type": "furniture"}
+		area.obstacles.append(obs)
+		area._obs_map[pos] = obs
 
 
 static func place_furniture_in_buildings(area: BattlefieldArea) -> void:
@@ -149,9 +216,12 @@ static func place_furniture_in_buildings(area: BattlefieldArea) -> void:
 	for obs: ObstacleData in DataManager.building_only_pool:
 		if obs.obstacle_type != "Furniture":
 			indoor_pool.append(obs)
-	if indoor_pool.is_empty():
-		return
 	for b: Dictionary in area.building_data:
+		_place_guaranteed_structures(area, b)
+		if (b.get("excluded_structures", []) as Array).has("All"):
+			continue
+		if indoor_pool.is_empty():
+			continue
 		var rect: Rect2i = b["rect"] as Rect2i
 		var free_cells: Array[Vector2i] = []
 		for ix: int in range(rect.position.x + 1, rect.end.x - 1):

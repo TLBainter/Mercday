@@ -208,83 +208,20 @@ static func _do_attack_obstacle(merc: MercenaryData, state: BattleState, enhance
 		break
 	if target_obs.is_empty():
 		return lines
-	var obs_data: ObstacleData = target_obs.get("data") as ObstacleData
-	var obs_name: String = obs_data.obstacle_name if obs_data != null else "obstacle"
-	var obs_hp_max: int = ObstacleUtils.get_hp(obs_data)
-	if not target_obs.has("current_hp"):
-		target_obs["current_hp"] = obs_hp_max
 	var atk_result := AttackSystem.execute_attack(merc, enhancements, 0, null, false, state)
 	if atk_result.get("weapon_broke", false):
 		var _bn: String = merc.equipped_weapon.item_name if merc.equipped_weapon != null else "weapon"
-		merc.equipped_weapon = null
-		merc.weapon_drawn = false
 		lines.append("  %s's %s breaks apart!" % [_cn(merc, state), _bn])
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("FRAGILITY: %s destroyed" % _bn)
+		merc.equipped_weapon = DataManager.fight_weapon
+		merc.weapon_drawn = DataManager.fight_weapon != null
 	var damage: int = atk_result.get("damage", 0)
-	if damage <= 0:
-		lines.append("  %s strikes %s but deals no damage." % [_cn(merc, state), obs_name])
-		return lines
-	target_obs["current_hp"] = int(target_obs["current_hp"]) - damage
-	var hp_remaining: int = maxi(0, int(target_obs["current_hp"]))
-	lines.append("  %s attacks %s! [%d] -> %d/%d" % [
-		_cn(merc, state), obs_name, damage, hp_remaining, obs_hp_max])
-	if EncounterLogger.is_active():
-		EncounterLogger.log_verbose("  %s attacks %s! [%d] -> %d/%d" % [
-			_cn(merc, state), obs_name, damage, hp_remaining, obs_hp_max])
-	if hp_remaining <= 0:
-		var obs_pos: Vector2i = target_obs.get("pos", Vector2i.ZERO) as Vector2i
-		var obs_cells: Array = target_obs.get("cells", [])
-		if obs_data.obstacle_name == "Window":
-			var broken: ObstacleData = DataManager.get_obstacle_by_name("Broken Window")
-			if broken != null:
-				target_obs["data"] = broken
-				target_obs["size"] = broken.size
-				target_obs.erase("current_hp")
-				lines.append("  The Window shatters! Broken glass remains.")
-				if EncounterLogger.is_active():
-					EncounterLogger.log_verbose("  Window at %s broken -> Broken Window" % str(obs_pos))
-		else:
-			if obs_data != null and not obs_data.drops.is_empty():
-				var drop_name: String = obs_data.drops[randi() % obs_data.drops.size()]
-				var drop_tmpl: WeaponData = DataManager.makeshift_weapons.get(drop_name) as WeaponData
-				if drop_tmpl != null:
-					var drop_inst := WeaponData.new()
-					drop_inst.item_name = drop_tmpl.item_name
-					drop_inst.item_type = drop_tmpl.item_type
-					drop_inst.item_rarity = drop_tmpl.item_rarity
-					drop_inst.weapon_type = drop_tmpl.weapon_type
-					drop_inst.damage_formula_1 = drop_tmpl.damage_formula_1
-					drop_inst.damage_types_1 = drop_tmpl.damage_types_1.duplicate()
-					drop_inst.is_ranged = drop_tmpl.is_ranged
-					drop_inst.is_throwable = drop_tmpl.is_throwable
-					drop_inst.has_heavy = drop_tmpl.has_heavy
-					drop_inst.has_light = drop_tmpl.has_light
-					drop_inst.has_extend = drop_tmpl.has_extend
-					drop_inst.melee_range = drop_tmpl.melee_range
-					drop_inst.range_thrown = drop_tmpl.range_thrown
-					drop_inst.thrown_intended_range = drop_tmpl.thrown_intended_range
-					drop_inst.thrown_extended_range = drop_tmpl.thrown_extended_range
-					drop_inst.fragility = drop_tmpl.fragility
-					drop_inst.current_fragility = drop_tmpl.fragility
-					if not state.dropped_weapons.has(obs_pos):
-						state.dropped_weapons[obs_pos] = []
-					(state.dropped_weapons[obs_pos] as Array).append({
-						"weapon": drop_inst, "ammo_loaded": 0, "ammo_loaded_type": ""
-					})
-					lines.append("  A %s breaks loose!" % drop_name)
-					if EncounterLogger.is_active():
-						EncounterLogger.log_verbose("  DROP: %s at %s from %s" % [drop_name, str(obs_pos), obs_name])
-			state.battlefield.obstacles.erase(target_obs)
-			if obs_cells.is_empty():
-				state.battlefield.terrain_heights[obs_pos] = 0.0
-			else:
-				for cell in obs_cells:
-					state.battlefield.terrain_heights[cell as Vector2i] = 0.0
-			lines.append("  %s is destroyed!" % obs_name)
-			lines.append("  %s collapses  -  terrain at %s cleared." % [obs_name, str(obs_pos)])
-			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("  %s is destroyed!" % obs_name)
+	var result := ObstacleUtils.apply_damage(target_obs, damage, state, _cn(merc, state))
+	lines.append_array(result["lines"] as Array)
+	var drop_pos: Vector2i = result.get("drop_pos", Vector2i(-1, -1)) as Vector2i
+	if drop_pos != Vector2i(-1, -1):
+		merc.active_states["bfw_drop_pos"] = drop_pos
 	return lines
 
 

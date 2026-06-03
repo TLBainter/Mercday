@@ -98,4 +98,5 @@ ap_cost_mode = "move_base"
 priority = 50
 execution_type = "move"
 target_mode = "nearest_enemy"
+snap_require = {"movement_blocked": false}
 decision = SubResource("decision")

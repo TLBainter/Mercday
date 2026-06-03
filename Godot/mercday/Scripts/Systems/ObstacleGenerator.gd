@@ -10,7 +10,7 @@ static func place_obstacles(area: BattlefieldArea, target_count: int) -> int:
 		var pos := Vector2i(randi() % area.width, randi() % area.length)
 		if area._in_spawn_zone(pos) or area._is_obstacle_at(pos):
 			continue
-		if area.reserved_corridor_cells.has(pos):
+		if area.reserved_corridor_cells.has(pos) or area.building_interiors.has(pos):
 			continue
 		var template: ObstacleData = DataManager.get_random_obstacle()
 		if not _terrain_compatible(template, area, pos):
@@ -43,7 +43,7 @@ static func _expand_obstacle(area: BattlefieldArea, template: ObstacleData, orig
 				continue
 			if area._in_spawn_zone(np) or area._is_obstacle_at(np):
 				continue
-			if area.reserved_corridor_cells.has(np):
+			if area.reserved_corridor_cells.has(np) or area.building_interiors.has(np):
 				continue
 			var too_close := false
 			for cc: Vector2i in corridor_cells:

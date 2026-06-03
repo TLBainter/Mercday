@@ -33,4 +33,5 @@ ap_cost_mode = "fixed"
 priority = 65
 execution_type = "special"
 target_mode = "current_or_best"
+snap_require = {"enemy_adjacent": true}
 decision = SubResource("decision")

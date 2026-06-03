@@ -110,7 +110,8 @@ static func position_has_cover_from(
 
 
 static func nearest_passable_to(pos: Vector2i, field: BattlefieldArea,
-		p_fall_tolerance: float = 1.0, p_can_climb: bool = false) -> Vector2i:
+		p_fall_tolerance: float = 1.0, p_can_climb: bool = false,
+		p_excluded: Dictionary = {}) -> Vector2i:
 	var cardinals: Array[Vector2i] = [
 		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
 	]
@@ -127,7 +128,7 @@ static func nearest_passable_to(pos: Vector2i, field: BattlefieldArea,
 				return true
 		return false
 
-	if _is_passable.call(pos):
+	if _is_passable.call(pos) and not p_excluded.has(pos):
 		return pos
 
 	var visited: Dictionary = {pos: true}
@@ -141,7 +142,7 @@ static func nearest_passable_to(pos: Vector2i, field: BattlefieldArea,
 			if visited.has(nb):
 				continue
 			visited[nb] = true
-			if _is_passable.call(nb):
+			if _is_passable.call(nb) and not p_excluded.has(nb):
 				return nb
 			if maxi(abs(nb.x - pos.x), abs(nb.y - pos.y)) < 3:
 				queue.append(nb)
@@ -385,6 +386,8 @@ static func execute_move(
 
 	var old_pos := state.get_position(merc)
 	var goal := compute_move_position(merc, move_target, action_name, state, flank_ally, stop_dist_override, valid_targets, enemies)
+	if goal == old_pos:
+		return []
 	var new_pos := goal
 	var path_harms: Array[Dictionary] = []
 	var body_traverse_lines: Array[String] = []
@@ -406,9 +409,18 @@ static func execute_move(
 			_near_passable_cache[_npc_key] = goal
 		if _blocked_path_goals.has(goal):
 			if (_blocked_path_goals[goal] as int) >= state.round_number:
-				if EncounterLogger.is_active():
-					EncounterLogger.log_verbose("MOVE BLOCKED: cached unreachable (%d,%d)" % [goal.x, goal.y])
-				return []
+				var _excl: Dictionary = {}
+				for _bg: Vector2i in _blocked_path_goals:
+					if (_blocked_path_goals[_bg] as int) >= state.round_number:
+						_excl[_bg] = true
+				var _alt := nearest_passable_to(_raw_goal, field, fall_tolerance, can_climb, _excl)
+				if _alt != goal:
+					goal = _alt
+					state.move_goals[merc] = goal
+				else:
+					if EncounterLogger.is_active():
+						EncounterLogger.log_verbose("MOVE BLOCKED: %s goal=(%d,%d) no alt" % [merc.merc_name, goal.x, goal.y])
+					return []
 			else:
 				_blocked_path_goals.erase(goal)
 		var ally_passable: Dictionary
@@ -489,6 +501,8 @@ static func execute_move(
 								old_pos, _raw_goal, field, field.get_nav_passable_cells(),
 								fall_tolerance, false, can_climb, jump_stat)
 							_blocked_path_goals[goal] = state.round_number + (1000 if _static_path.is_empty() else 0)
+							if _static_path.is_empty():
+								merc.active_states["_move_blocked_round"] = state.round_number
 							if EncounterLogger.is_active():
 								EncounterLogger.log_verbose("MOVE BLOCKED: no path (%d,%d)->(%d,%d)" % [
 									old_pos.x, old_pos.y, goal.x, goal.y])
@@ -557,6 +571,7 @@ static func execute_move(
 	if new_pos == old_pos:
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("MOVE STALLED: %s goal=(%d,%d) no viable path" % [merc.merc_name, goal.x, goal.y])
+		_blocked_path_goals[goal] = state.round_number + 3
 		return []
 
 	if not seeking:
@@ -567,7 +582,8 @@ static func execute_move(
 					merc.merc_name, new_pos.x, new_pos.y])
 			var _flank_ok := false
 			if field != null:
-				var _delta := Vector2i(goal.x - old_pos.x, goal.y - old_pos.y)
+				var _enemy_pos: Vector2i = state.get_position(move_target)
+				var _delta := Vector2i(_enemy_pos.x - old_pos.x, _enemy_pos.y - old_pos.y)
 				var _len_f := maxf(1.0, Vector2(float(_delta.x), float(_delta.y)).length())
 				var _perp := Vector2i(roundi(-float(_delta.y) / _len_f * 4.0), roundi(float(_delta.x) / _len_f * 4.0))
 				var _ally_pass: Dictionary = state.turn_ally_passable.get(merc, {}) as Dictionary
@@ -578,7 +594,7 @@ static func execute_move(
 				var _jmp: int = int(merc.stats.get("jump", 0))
 				last_move_heavy = true
 				for _side: int in [1, -1]:
-					var _fg := field.clamp_position(goal + _perp * _side)
+					var _fg := field.clamp_position(_enemy_pos + _perp * _side)
 					var _fp := Pathfinder.find_path_toward(old_pos, _fg, field, _ally_pass, _fall_tol, false, _can_cl, _jmp)
 					if _fp.is_empty():
 						continue
@@ -768,6 +784,11 @@ static func execute_climb(
 		if merc_size <= 0:
 			return []
 		var init_target_h := int(round(field.get_terrain_height(target_pos)))
+		var merc_floor_h := int(round(field.get_terrain_height(state.get_position(merc))))
+		if init_target_h <= merc_floor_h:
+			var _obs := field.get_obstacle_at(target_pos)
+			if not _obs.is_empty() and _obs.get("cell_type", "") == "wall":
+				init_target_h = merc_floor_h + 2
 		var grab_h := merc_size
 		state.set_climbing_data(merc, {
 			"wall_pos": target_pos,
@@ -824,8 +845,17 @@ static func execute_climb(
 static func _complete_climb(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
 	var cd: Dictionary = state.get_climbing_data(merc)
 	var top_pos: Vector2i = cd.get("top_pos", state.get_position(merc)) as Vector2i
+	var pit_pos := state.get_position(merc)
 	state.clear_climbing(merc)
 	ConstStates.remove_state(merc, ConstStates.CLIMBING)
+	if state.battlefield != null:
+		var _obs := state.battlefield.get_obstacle_at(top_pos)
+		if not _obs.is_empty() and _obs.get("cell_type", "") == "wall":
+			var wall_pos: Vector2i = cd.get("wall_pos", top_pos) as Vector2i
+			var _dir := Vector2i(signi(wall_pos.x - pit_pos.x), signi(wall_pos.y - pit_pos.y))
+			var _beyond := wall_pos + _dir
+			if state.battlefield.get_nav_passable_cells().has(_beyond) and not state.is_position_occupied(_beyond, merc):
+				top_pos = _beyond
 	if not state.is_position_occupied(top_pos, merc):
 		state.set_position(merc, top_pos)
 	if state.battlefield != null:
