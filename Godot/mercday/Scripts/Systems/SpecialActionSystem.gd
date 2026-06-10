@@ -153,6 +153,19 @@ static func _do_seek_cover(merc: MercenaryData, state: BattleState, lines: Array
 			var path := Pathfinder.find_path(merc_pos, new_pos, field, {}, fall_tolerance_sc)
 			if path.is_empty():
 				continue
+			var _has_exit := false
+			for _ed: Vector2i in dirs:
+				var _en := new_pos + _ed
+				if _en.x < 0 or _en.x >= field.width or _en.y < 0 or _en.y >= field.length:
+					continue
+				if field.is_obstacle(_en):
+					continue
+				var _ec := PathCost.cell_pace_cost(new_pos, _en, field, {}, fall_tolerance_sc, false, true)
+				if _ec >= 0 and _ec <= pace:
+					_has_exit = true
+					break
+			if not _has_exit:
+				continue
 			var move_cost := state.get_cost(merc, "Move Close", AutoBattle.MOVE_BASE_AP)
 			state.spend_ap(merc, move_cost)
 			state.record_action(merc, "Move Close")

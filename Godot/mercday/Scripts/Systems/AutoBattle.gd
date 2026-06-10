@@ -192,8 +192,6 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 	var lines: Array[String] = []
 	state.start_of_turn(merc)
 	merc.combat_idle_rounds += 1
-	if merc.combat_idle_rounds >= 3:
-		state.position_history.erase(merc)
 	# Drain deferred effects queued for this merc's turn start (e.g. Dagger Bleedout)
 	var _remaining_effects: Array = []
 	for _eff in merc.deferred_effects:
@@ -262,7 +260,8 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 	if not skip_actions:
 		var current_target: MercenaryData = null
 		var _mb_r: int = merc.active_states.get("_move_blocked_round", -1) as int
-		var movement_blocked := _mb_r >= state.round_number - 1
+		var _no_prog: int = state.no_progress_rounds.get(merc, 0) as int
+		var movement_blocked := _mb_r >= state.round_number - 1 or _no_prog >= 3
 		var has_moved := false
 		var had_valid_targets := false
 		var seeking_failed := false

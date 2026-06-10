@@ -196,6 +196,87 @@ static func _score_single_type(dtype: String, enemy: MercenaryData) -> float:
 	return score
 
 
+static func pick_move_target(
+		merc: MercenaryData,
+		ctx: Dictionary,
+		state: BattleState) -> MercenaryData:
+	var blocked: Dictionary = ctx.get("blocked_targets", {})
+	var perm: Dictionary = state.movement_blocked.get(merc, {}) as Dictionary
+	for pb: MercenaryData in perm.keys():
+		blocked[pb] = true
+
+	var enemies: Array = ctx.get("enemies", [])
+	var valid: Array = ctx.get("valid_targets", [])
+
+	var candidates: Array = enemies.filter(func(e: MercenaryData) -> bool: return not blocked.has(e))
+	if candidates.is_empty():
+		candidates = enemies.filter(func(e: MercenaryData) -> bool: return not perm.has(e))
+	if candidates.is_empty():
+		candidates = enemies
+
+	var _team_pref: Array = candidates.filter(func(e: MercenaryData) -> bool:
+		var _r: int = state.team_blocked_round.get(e, -1) as int
+		if _r != state.round_number: return true
+		return (state.team_blocked_count.get(e, 0) as int) < 2)
+	if not _team_pref.is_empty():
+		candidates = _team_pref
+
+	if not valid.is_empty():
+		var valid_candidates: Array = valid.filter(func(e: MercenaryData) -> bool: return candidates.has(e))
+		if not valid_candidates.is_empty():
+			var nearest: MercenaryData = null
+			var best_score := INF
+			for enemy: MercenaryData in valid_candidates:
+				var d := state.distance_to(merc, enemy)
+				var max_hp := float(enemy.stats.get("maximum_hit_points", 1))
+				var hp_ratio := clampf(float(enemy.current_hp) / max_hp, 0.0, 1.0)
+				var s := d - (1.0 - hp_ratio)
+				if s < best_score:
+					best_score = s
+					nearest = enemy
+			if nearest != null:
+				return nearest
+
+	if merc.last_seen_position != Vector2i(-1, -1) and not candidates.is_empty():
+		var best_enemy: MercenaryData = null
+		var best_dist := INF
+		for enemy: MercenaryData in candidates:
+			var epos := state.get_position(enemy)
+			var d := float(maxi(absi(merc.last_seen_position.x - epos.x), absi(merc.last_seen_position.y - epos.y)))
+			if d < best_dist:
+				best_dist = d
+				best_enemy = enemy
+		if best_enemy != null:
+			return best_enemy
+
+	if not merc.last_known_enemy_positions.is_empty():
+		var merc_pos := state.get_position(merc)
+		var best_dist := INF
+		var best_enemy: MercenaryData = null
+		for enemy: MercenaryData in merc.last_known_enemy_positions.keys():
+			if not candidates.has(enemy):
+				continue
+			var known_pos: Vector2i = merc.last_known_enemy_positions[enemy]
+			var d := float(maxi(absi(known_pos.x - merc_pos.x), absi(known_pos.y - merc_pos.y)))
+			if d < best_dist:
+				best_dist = d
+				best_enemy = enemy
+		if best_enemy != null:
+			return best_enemy
+
+	if not candidates.is_empty():
+		var nearest: MercenaryData = null
+		var best_dist := INF
+		for enemy: MercenaryData in candidates:
+			var d := float(state.distance_to(merc, enemy))
+			if d < best_dist:
+				best_dist = d
+				nearest = enemy
+		return nearest
+
+	return null
+
+
 static func _flank_ally_at_current_pos(
 		attacker: MercenaryData,
 		target: MercenaryData,

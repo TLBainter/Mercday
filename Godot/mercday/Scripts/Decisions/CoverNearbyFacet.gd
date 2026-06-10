@@ -105,7 +105,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		clampf(float(merc.stats.get("parkour", 0.0)) / 100.0, 0.0, 1.0),
 		clampf(float(merc.stats.get("tolerance", 0.0)) / 100.0, 0.0, 1.0))
 	var fall_tolerance: float = clampf(_hp_ratio + _best_break_fall, 0.2, 2.0)
-	var can_climb: bool = int(merc.stats.get("size", 0)) > 0
+	var can_climb: bool = true
 	var adj_dirs: Array[Vector2i] = [
 		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
 		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
@@ -128,7 +128,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 				continue
 			if reachable.has(nb):
 				continue
-			if Pathfinder.cell_pace_cost(curr, nb, field, {}, fall_tolerance, false, can_climb) < 0:
+			if PathCost.cell_pace_cost(curr, nb, field, {}, fall_tolerance, false, can_climb) < 0:
 				continue
 			reachable[nb] = true
 			bfs.append(nb)

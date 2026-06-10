@@ -21,10 +21,13 @@ var armor: Dictionary = {}
 var armor_ordinary_common: Array = []
 var obstacles_pool: Array[ObstacleData] = []
 var obstacles_nonbuilding_pool: Array[ObstacleData] = []  # pre-filtered: not building, not ramp
+var obstacles_terrain_pool: Array[ObstacleData] = []     # obstacle_type == "Terrain", non-building
+var obstacles_scatter_pool: Array[ObstacleData] = []     # non-building, non-terrain, non-ramp
 var obstacles_by_type: Dictionary = {}   # String -> Array[ObstacleData]
 var obstacles_by_name: Dictionary = {}   # String -> ObstacleData
 var building_pool: Array[ObstacleData] = []  # is_building == true
 var building_only_pool: Array[ObstacleData] = []  # building_only == true
+var areas_pool: Array[Dictionary] = []   # [{name, type, weights:[6 ints]}]
 var knowledge_categories: Dictionary = {}
 var tool_categories: Dictionary = {}
 var stat_definitions: Array[Dictionary] = []
@@ -74,6 +77,7 @@ func _ready() -> void:
 	_load_types()
 	_load_critical_successes()
 	_load_obstacles()
+	_load_areas()
 	_load_makeshift_weapons()
 	_resolve_location_parents()
 	_load_npc_templates()
@@ -732,6 +736,10 @@ func _load_obstacles() -> void:
 			building_only_pool.append(o)
 		if not o.is_building and not o.ramp and not o.building_only:
 			obstacles_nonbuilding_pool.append(o)
+			if o.obstacle_type == "Terrain":
+				obstacles_terrain_pool.append(o)
+			else:
+				obstacles_scatter_pool.append(o)
 
 
 func _load_makeshift_weapons() -> void:
@@ -793,7 +801,32 @@ func _load_makeshift_weapons() -> void:
 
 
 func get_random_obstacle() -> ObstacleData:
+	if not obstacles_scatter_pool.is_empty():
+		return obstacles_scatter_pool[randi() % obstacles_scatter_pool.size()]
 	return obstacles_nonbuilding_pool[randi() % obstacles_nonbuilding_pool.size()]
+
+
+func get_random_area() -> Dictionary:
+	if areas_pool.is_empty():
+		return {"name": "Unknown", "type": "Exterior", "weights": [17, 17, 17, 17, 16, 16]}
+	return areas_pool[randi() % areas_pool.size()]
+
+
+func _load_areas() -> void:
+	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Areas.tsv")
+	if rows.size() < 2:
+		return
+	for i: int in range(1, rows.size()):
+		var row: PackedStringArray = rows[i]
+		var name_val: String = _row_get(row, 0)
+		if name_val == "":
+			continue
+		var area_type: String = _row_get(row, 1)
+		var weights: Array[int] = []
+		for c: int in range(2, 8):
+			var w_str: String = _row_get(row, c).strip_edges().trim_suffix("%")
+			weights.append(int(w_str) if w_str.is_valid_int() else 0)
+		areas_pool.append({"name": name_val, "type": area_type, "weights": weights})
 
 
 func get_obstacle_by_name(obs_name: String) -> ObstacleData:

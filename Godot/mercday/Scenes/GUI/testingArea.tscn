@@ -29,6 +29,7 @@ drop_mercs = NodePath("ButtonBar/DropMercs")
 makeshift_test = NodePath("ButtonBar/MakeshiftTest")
 thrown_test = NodePath("ButtonBar/ThrownTest")
 gen_outhouse_map = NodePath("ButtonBar/GenOuthouseMap")
+gen_terrain_batch = NodePath("ButtonBar/GenTerrainBatch")
 
 [node name="ButtonBar" type="GridContainer" parent="." unique_id=1513937818]
 layout_mode = 1
@@ -145,3 +146,9 @@ self_modulate = Color(0.7, 0.5, 0.2, 1)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "GEN OUTHOUSE MAP"
+
+[node name="GenTerrainBatch" type="Button" parent="ButtonBar" unique_id=505050505]
+self_modulate = Color(0.3, 0.9, 0.5, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "GEN TERRAIN BATCH"

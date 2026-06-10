@@ -12,13 +12,15 @@ const SPAWN_BUFFER := 3
 # Max buildings per combat, indexed by cover_amount (0-4)
 const MAX_BUILDINGS_BY_DENSITY: Array[int] = [0, 0, 1, 2, 3]
 
-const UNEVENNESS_NAMES: Array[String] = ["flat", "gentle", "hilly", "rough", "extreme"]
+const UNEVENNESS_NAMES: Array[String] = ["flat", "gentle", "hilly", "rough", "extreme", "mountainous", "interior"]
 const UNEVENNESS_RANGE: Array[Vector2] = [
-	Vector2(-0.25, 1.25),
-	Vector2(-0.5,  2.0),
-	Vector2(-1.0,  3.0),
-	Vector2(-3.0,  5.0),
-	Vector2(-20.0, 10.0),
+	Vector2(-2.0, 2.0),
+	Vector2(-2.0, 2.0),
+	Vector2(-2.0, 5.0),
+	Vector2(-5.0, 5.0),
+	Vector2(-5.0, 9.0),
+	Vector2(-0.5, 2.0),
+	Vector2(0.0,  0.0),
 ]
 
 var width: int
@@ -26,6 +28,9 @@ var length: int
 var height: int
 var cover_amount: int
 var unevenness: int = 0
+var area_name: String = ""
+var jagged_cells: Dictionary = {}
+var fly_only_cells: Dictionary = {}
 var obstacles: Array[Dictionary] = []   # [{pos, size, data, ?cell_type, ?door_open}]
 var building_interiors: Dictionary = {} # Vector2i -> true
 var building_data: Array[Dictionary] = []  # [{rect, door_facing, door_positions, name}]
@@ -44,19 +49,83 @@ var path_width: int = 2
 # effect placement so nothing can block them. Exposed to Pathfinder as passable_cells at runtime.
 var reserved_corridor_cells: Dictionary = {}
 
+var spawn_center_a: Vector2i = Vector2i.ZERO
+var spawn_center_b: Vector2i = Vector2i.ZERO
+var spawn_radius: float = 3.0
+var spawn_zone_a: Dictionary = {}
+var spawn_zone_b: Dictionary = {}
 
-static func generate_random(config: BuildingConfig = null) -> BattlefieldArea:
+
+static func generate_random(config: BuildingConfig = null, context: GenerationContext = null) -> BattlefieldArea:
 	var f := BattlefieldArea.new()
 	f.width  = randi_range(MIN_DIM, MAX_DIM)
 	f.length = randi_range(MIN_DIM, MAX_DIM)
 	f.height = randi_range(MIN_DIM, MAX_DIM)
 	f.cover_amount = randi() % 5
-	f.unevenness = randi() % 5
+	var area_data: Dictionary = DataManager.get_random_area()
+	f.area_name = area_data.get("name", "Unknown")
+	var weights: Array = area_data.get("weights", [])
+	var total_w: int = 0
+	for w: int in weights:
+		total_w += w
+	if total_w == 0:
+		f.width = MAX_DIM
+		f.length = MAX_DIM
+		f.unevenness = 6
+	else:
+		var roll: int = randi() % total_w
+		var cum: int = 0
+		f.unevenness = 0
+		for i: int in range(weights.size()):
+			cum += (weights[i] as int)
+			if roll < cum:
+				f.unevenness = i
+				break
+	var ctx: GenerationContext = context if context != null else GenerationContext.new()
+	f._pick_spawn_centers(ctx)
 	for _attempt: int in range(4):
 		f._generate_cover(config)
 		if f._is_spawn_connected() and f._approach_zone_ok():
 			break
 	return f
+
+
+func _pick_spawn_centers(ctx: GenerationContext) -> void:
+	var max_team: int = maxi(ctx.team_size_a, ctx.team_size_b)
+	spawn_radius = maxf(3.0, float(max_team))
+	spawn_radius = maxf(spawn_radius, sqrt(float(width * length)) / 12.0)
+	var side_a: int = randi() % 4
+	var side_b: int = side_a ^ 1
+	spawn_center_a = _pick_side_center(side_a)
+	spawn_center_b = _pick_side_center(side_b)
+	spawn_zone_a = _build_spawn_zone(spawn_center_a)
+	spawn_zone_b = _build_spawn_zone(spawn_center_b)
+
+
+func _pick_side_center(side: int) -> Vector2i:
+	var margin: int = clampi(ceili(sqrt(float(width * length)) / 10.0), 1, 6)
+	match side:
+		0:
+			return Vector2i(randi_range(0, width - 1), randi_range(1, margin))
+		1:
+			return Vector2i(randi_range(0, width - 1), randi_range(length - 1 - margin, length - 2))
+		2:
+			return Vector2i(randi_range(1, margin), randi_range(0, length - 1))
+		_:
+			return Vector2i(randi_range(width - 1 - margin, width - 2), randi_range(0, length - 1))
+
+
+func _build_spawn_zone(center: Vector2i) -> Dictionary:
+	var zone: Dictionary = {}
+	var ri: int = ceili(spawn_radius)
+	for dy: int in range(-ri, ri + 1):
+		for dx: int in range(-ri, ri + 1):
+			var cell := Vector2i(center.x + dx, center.y + dy)
+			if cell.x < 0 or cell.x >= width or cell.y < 0 or cell.y >= length:
+				continue
+			if Vector2(float(dx), float(dy)).length() <= spawn_radius:
+				zone[cell] = true
+	return zone
 
 
 func clamp_position(pos: Vector2i) -> Vector2i:
@@ -70,8 +139,9 @@ func to_log_string() -> String:
 func to_header_string() -> String:
 	var b_str := " (%d building%s)" % [building_data.size(), "s" if building_data.size() != 1 else ""] \
 		if not building_data.is_empty() else ""
-	return "Battlefield: %dx%d (height %d)  -  %s cover, %s terrain%s" % [
-		width, length, height, COVER_AMOUNT_NAMES[cover_amount],
+	var loc := ("[%s] " % area_name) if area_name != "" else ""
+	return "Battlefield: %dx%d (height %d)  %s %s cover, %s terrain%s" % [
+		width, length, height, loc, COVER_AMOUNT_NAMES[cover_amount],
 		UNEVENNESS_NAMES[unevenness], b_str]
 
 
@@ -86,7 +156,9 @@ func to_visual_string() -> String:
 			var pos := Vector2i(x, y)
 			if not pos_map.has(pos):
 				var h: float = get_terrain_height(pos)
-				if h <= -5.0:
+				if jagged_cells.has(pos):
+					row += "[color=red]^[/color]"
+				elif h <= -5.0:
 					row += "[color=#334455]_[/color]"
 				elif h < -0.25:
 					row += "[color=gray],[/color]"
@@ -131,19 +203,44 @@ func _generate_cover(config: BuildingConfig = null) -> void:
 	building_interiors.clear()
 	building_data.clear()
 	terrain_heights.clear()
-
+	jagged_cells.clear()
+	fly_only_cells.clear()
 	reserved_corridor_cells.clear()
+
+	generation_log.append("Area: %s  terrain: %s" % [area_name, UNEVENNESS_NAMES[unevenness]])
+
 	var _t := Time.get_ticks_msec()
-	TerrainGenerator.generate(width, length, unevenness, terrain_heights)
+	_reserve_spawn_corridors()
 	var _ms := Time.get_ticks_msec() - _t
+	generation_log.append("[GEN] corridor_reservation: %dms" % _ms)
+	print("[GEN] corridor_reservation: %dms" % _ms)
+
+	_t = Time.get_ticks_msec()
+	TerrainGenerator.generate(self)
+	_ms = Time.get_ticks_msec() - _t
 	generation_log.append("[GEN] base_terrain: %dms" % _ms)
 	print("[GEN] base_terrain: %dms" % _ms)
 
+	_smooth_corridor_edges()
+
+	var density: float = COVER_DENSITY[cover_amount]
+	var total_count: int = int(width * length * density)
+	@warning_ignore("integer_division")
+	var terrain_count: int = total_count / 4
+
 	_t = Time.get_ticks_msec()
-	_reserve_spawn_corridors()
+	var placed_terrain: int = ObstacleGenerator.place_terrain_obstacles(self, terrain_count)
 	_ms = Time.get_ticks_msec() - _t
-	generation_log.append("[GEN] corridor_reservation: %dms" % _ms)
-	print("[GEN] corridor_reservation: %dms" % _ms)
+	generation_log.append("[GEN] terrain_obstacles: %dms (%d placed)" % [_ms, placed_terrain])
+	print("[GEN] terrain_obstacles: %dms (%d placed)" % [_ms, placed_terrain])
+
+	_t = Time.get_ticks_msec()
+	ObstacleGenerator.apply_terrain_effects(self)
+	_ms = Time.get_ticks_msec() - _t
+	generation_log.append("[GEN] terrain_effects: %dms" % _ms)
+	print("[GEN] terrain_effects: %dms" % _ms)
+
+	TerrainGenerator.clamp_spawn_zones(self)
 
 	_t = Time.get_ticks_msec()
 	BuildingGenerator.generate_buildings(self, config)
@@ -151,10 +248,9 @@ func _generate_cover(config: BuildingConfig = null) -> void:
 	generation_log.append("[GEN] buildings: %dms" % _ms)
 	print("[GEN] buildings: %dms" % _ms)
 
-	var spawn_a := Vector2i(width >> 1, 2)
-	var spawn_b := Vector2i(width >> 1, length - 3)
-	generation_log.append("Spawn centers: Team-0=(%d,%d)  Team-1=(%d,%d)" % [
-		spawn_a.x, spawn_a.y, spawn_b.x, spawn_b.y])
+	generation_log.append("Spawn centers: Team-0=(%d,%d) r=%.1f  Team-1=(%d,%d) r=%.1f" % [
+		spawn_center_a.x, spawn_center_a.y, spawn_radius,
+		spawn_center_b.x, spawn_center_b.y, spawn_radius])
 	if building_data.is_empty():
 		generation_log.append("Buildings placed: 0")
 	else:
@@ -172,42 +268,33 @@ func _generate_cover(config: BuildingConfig = null) -> void:
 	generation_log.append("[GEN] furniture: %dms" % _ms)
 	print("[GEN] furniture: %dms" % _ms)
 
-	var density: float = COVER_DENSITY[cover_amount]
-	var target_count: int = int(width * length * density)
+	var scatter_count: int = total_count - terrain_count
 	_t = Time.get_ticks_msec()
-	var placed: int = ObstacleGenerator.place_obstacles(self, target_count)
+	var placed_scatter: int = ObstacleGenerator.place_obstacles(self, scatter_count)
 	_ms = Time.get_ticks_msec() - _t
-	generation_log.append("[GEN] obstacle_placement: %dms (%d placed)" % [_ms, placed])
-	print("[GEN] obstacle_placement: %dms (%d placed)" % [_ms, placed])
-
-	_t = Time.get_ticks_msec()
-	ObstacleGenerator.apply_terrain_effects(self)
-	_ms = Time.get_ticks_msec() - _t
-	generation_log.append("[GEN] terrain_effects: %dms" % _ms)
-	print("[GEN] terrain_effects: %dms" % _ms)
-
-	# Diagnostic: log any dangerous terrain heights in the approach zone immediately outside spawn.
-	var _az_warns: Array[String] = []
-	for _az_x: int in range(width):
-		for _az_off: int in range(SPAWN_BUFFER, SPAWN_BUFFER + 4):
-			for _az_y: int in [_az_off, length - 1 - _az_off]:
-				var _az_cell := Vector2i(_az_x, _az_y)
-				var _az_h: float = terrain_heights.get(_az_cell, 0.0)
-				if _az_h < -0.3:
-					_az_warns.append("(%d,%d)=%.2f" % [_az_cell.x, _az_cell.y, _az_h])
-	if _az_warns.is_empty():
-		generation_log.append("[GEN] approach_zone: OK")
-		print("[GEN] approach_zone: OK")
-	else:
-		var _az_msg: String = "[GEN] approach_zone: WARNING %d cells h<-0.3: " % _az_warns.size() + ", ".join(_az_warns)
-		generation_log.append(_az_msg)
-		print("[GEN] approach_zone: WARNING %d cells" % _az_warns.size())
+	generation_log.append("[GEN] obstacle_placement: %dms (%d placed)" % [_ms, placed_scatter])
+	print("[GEN] obstacle_placement: %dms (%d placed)" % [_ms, placed_scatter])
 
 	_t = Time.get_ticks_msec()
 	_place_stairs_at_transitions()
 	_ms = Time.get_ticks_msec() - _t
 	generation_log.append("[GEN] stairs: %dms" % _ms)
 	print("[GEN] stairs: %dms" % _ms)
+
+	var _az_a_blocked: bool = _spawn_exit_blocked(spawn_center_a, spawn_zone_a)
+	var _az_b_blocked: bool = _spawn_exit_blocked(spawn_center_b, spawn_zone_b)
+	if not _az_a_blocked and not _az_b_blocked:
+		generation_log.append("[GEN] approach_zone: OK")
+		print("[GEN] approach_zone: OK")
+	else:
+		var _az_parts: Array[String] = []
+		if _az_a_blocked:
+			_az_parts.append("Team-0")
+		if _az_b_blocked:
+			_az_parts.append("Team-1")
+		var _az_msg: String = "[GEN] approach_zone: BLOCKED (%s)" % ", ".join(_az_parts)
+		generation_log.append(_az_msg)
+		print(_az_msg)
 
 	_t = Time.get_ticks_msec()
 	_ensure_pathability()
@@ -227,6 +314,18 @@ func _generate_cover(config: BuildingConfig = null) -> void:
 	generation_log.append("[GEN] pocket_removal: %dms" % _ms)
 	print("[GEN] pocket_removal: %dms" % _ms)
 
+	_t = Time.get_ticks_msec()
+	ConnectivityVerifier.verify_spawn_approaches(self)
+	_ms = Time.get_ticks_msec() - _t
+	generation_log.append("[GEN] spawn_approaches: %dms" % _ms)
+	print("[GEN] spawn_approaches: %dms" % _ms)
+
+	_t = Time.get_ticks_msec()
+	_classify_fly_only_cells()
+	_ms = Time.get_ticks_msec() - _t
+	generation_log.append("[GEN] fly_only_cells: %dms (%d classified)" % [_ms, fly_only_cells.size()])
+	print("[GEN] fly_only_cells: %dms (%d classified)" % [_ms, fly_only_cells.size()])
+
 	_rebuild_cover_obstacles()
 	_rebuild_droppable_obs_map()
 
@@ -235,8 +334,49 @@ func _generate_cover(config: BuildingConfig = null) -> void:
 	print("[GEN] TOTAL: %dms  -  %s" % [_total_ms, to_header_string()])
 
 
+func _classify_fly_only_cells() -> void:
+	var cardinal: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
+	for y: int in range(length):
+		for x: int in range(width):
+			var cell := Vector2i(x, y)
+			if jagged_cells.has(cell):
+				continue
+			if _obs_map.has(cell):
+				continue
+			if reserved_corridor_cells.has(cell):
+				continue
+			var cell_h: float = get_terrain_height(cell)
+			var reachable: bool = false
+			for dir: Vector2i in cardinal:
+				var nb := cell + dir
+				if nb.x < 0 or nb.x >= width or nb.y < 0 or nb.y >= length:
+					continue
+				if jagged_cells.has(nb):
+					continue
+				var h_diff: float = cell_h - get_terrain_height(nb)
+				if h_diff <= 2.0:
+					reachable = true
+					break
+			if not reachable:
+				fly_only_cells[cell] = true
+
+
+func _smooth_corridor_edges() -> void:
+	var cardinal: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
+	for _pass: int in range(3):
+		for cell: Vector2i in reserved_corridor_cells.keys():
+			var sum: float = terrain_heights.get(cell, 0.0)
+			var count: int = 1
+			for dir: Vector2i in cardinal:
+				var nb: Vector2i = cell + dir
+				if nb.x >= 0 and nb.x < width and nb.y >= 0 and nb.y < length:
+					sum += terrain_heights.get(nb, 0.0)
+				count += 1
+			terrain_heights[cell] = clampf(sum / float(count), -0.1, 0.1)
+
+
 func _in_spawn_zone(pos: Vector2i) -> bool:
-	return pos.y < SPAWN_BUFFER or pos.y >= length - SPAWN_BUFFER
+	return spawn_zone_a.has(pos) or spawn_zone_b.has(pos)
 
 
 # Returns true only for solid, impassable non-door obstacles.
@@ -254,11 +394,14 @@ func _is_obstacle_at(pos: Vector2i) -> bool:
 
 
 func _ensure_pathability() -> void:
-	# Corridors are pre-reserved flat and obstacle-free, so obstacle removal is no longer needed.
-	# Smooth terrain only to resolve any remaining gradient issues on non-corridor cells.
+	var skip: Dictionary = {}
+	for k: Vector2i in reserved_corridor_cells.keys():
+		skip[k] = true
+	for k: Vector2i in jagged_cells.keys():
+		skip[k] = true
 	var _terrain_passes := 0
 	while not _is_passable() and _terrain_passes < 5:
-		TerrainGenerator.smooth(terrain_heights, width, length)
+		TerrainGenerator.smooth(terrain_heights, width, length, skip)
 		_terrain_passes += 1
 
 
@@ -279,7 +422,7 @@ func _is_passable() -> bool:
 			var nxt: Vector2i = curr + d
 			if nxt.x < 0 or nxt.x >= width or nxt.y < 0 or nxt.y >= length:
 				continue
-			if visited.has(nxt) or _is_obstacle_at(nxt):
+			if visited.has(nxt) or _is_obstacle_at(nxt) or jagged_cells.has(nxt):
 				continue
 			var h_diff: float = absf(get_terrain_height(nxt) - get_terrain_height(curr))
 			if h_diff > 0.5:
@@ -295,18 +438,38 @@ func _is_spawn_connected() -> bool:
 	return ConnectivityVerifier.spawns_connected(self)
 
 
-# Returns true if the approach zone near each spawn has no severe terrain pits.
-# A pit is defined as h < -1.0; more than 10 such cells in the approach zone triggers a re-roll.
-func _approach_zone_ok() -> bool:
-	var severe := 0
-	for x: int in range(width):
-		for off: int in range(SPAWN_BUFFER, SPAWN_BUFFER + 6):
-			for y: int in [off, length - 1 - off]:
-				if terrain_heights.get(Vector2i(x, y), 0.0) < -1.0:
-					severe += 1
-					if severe > 10:
-						return false
+func _spawn_exit_blocked(center: Vector2i, zone: Dictionary) -> bool:
+	var outer: float = spawn_radius + 4.0
+	var dirs: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
+	var visited: Dictionary = {}
+	var queue: Array[Vector2i] = []
+	for cell: Vector2i in zone.keys():
+		if not _is_obstacle_at(cell) and not jagged_cells.has(cell):
+			visited[cell] = true
+			queue.append(cell)
+	while not queue.is_empty():
+		var curr: Vector2i = queue.pop_front()
+		if Vector2(float(curr.x - center.x), float(curr.y - center.y)).length() > outer:
+			return false
+		for d: Vector2i in dirs:
+			var nxt: Vector2i = curr + d
+			if nxt.x < 0 or nxt.x >= width or nxt.y < 0 or nxt.y >= length:
+				continue
+			if visited.has(nxt) or _is_obstacle_at(nxt) or jagged_cells.has(nxt):
+				continue
+			var h_diff: float = absf(get_terrain_height(nxt) - get_terrain_height(curr))
+			if h_diff > 0.5:
+				continue
+			if h_diff > 0.25 and not has_stairs_at(nxt):
+				continue
+			visited[nxt] = true
+			queue.append(nxt)
 	return true
+
+
+func _approach_zone_ok() -> bool:
+	return not _spawn_exit_blocked(spawn_center_a, spawn_zone_a) \
+		and not _spawn_exit_blocked(spawn_center_b, spawn_zone_b)
 
 
 func is_obstacle(pos: Vector2i) -> bool:
@@ -344,68 +507,81 @@ func has_stairs_at(pos: Vector2i) -> bool:
 func _reserve_spawn_corridors() -> void:
 	reserved_corridor_cells.clear()
 	var difficulty: int = unevenness + cover_amount
+	var map_area: int = width * length
+	var max_width: int = 1 if map_area < 600 else (2 if map_area < 1500 else 3)
 	if difficulty <= 1:
-		path_width = 3
+		path_width = min(3, max_width)
 	elif difficulty <= 4:
-		path_width = 2
+		path_width = min(2, max_width)
 	else:
 		path_width = 1
-	var half_width: int = path_width >> 1
+	@warning_ignore("integer_division")
+	var max_paths: int = clampi(1 + map_area / 600, 1, 3)
+	if unevenness >= 4:
+		max_paths = mini(max_paths, 2)
+	var fork_count: int = randi_range(0, max_paths - 1)
 
-	var spawn_a := Vector2i(width >> 1, SPAWN_BUFFER)
-	var spawn_b := Vector2i(width >> 1, length - SPAWN_BUFFER - 1)
-	var path_count: int = randi_range(1, 3)
-	var path_centers: Array[int] = []
-	for p: int in range(path_count):
-		var x_offset: int = (p - 1) * maxi(2, int(float(width) / 6.0))
-		var ax: int = clamp(spawn_a.x + x_offset, 1, width - 2)
-		var bx: int = clamp(spawn_b.x + x_offset, 1, width - 2)
-		var ay: int = spawn_a.y
-		var by_: int = spawn_b.y
-		var steps: int = absi(by_ - ay) + absi(bx - ax)
-		var cx: int = ax
-		var cy: int = ay
-		for _s: int in range(steps + 1):
-			for dx: int in range(-half_width, half_width + 1):
-				var cell := Vector2i(clamp(cx + dx, 0, width - 1), cy)
-				reserved_corridor_cells[cell] = true
-				terrain_heights[cell] = 0.0
-			if cx != bx:
-				cx += signi(bx - cx)
-			elif cy != by_:
-				cy += signi(by_ - cy)
-		path_centers.append(ax)
+	var delta := Vector2(float(spawn_center_b.x - spawn_center_a.x),
+		float(spawn_center_b.y - spawn_center_a.y))
+	var perp := Vector2(-delta.normalized().y, delta.normalized().x)
+	var max_offset: float = minf(float(width), float(length)) * 0.3
 
-	# Lateral bridge connecting isolated corridor paths at map midpoint.
-	if path_count > 1:
-		@warning_ignore("integer_division")
-		var bridge_y: int = (SPAWN_BUFFER + length - SPAWN_BUFFER - 1) / 2
-		path_centers.sort()
-		for pi: int in range(path_centers.size() - 1):
-			var x_left: int = path_centers[pi]
-			var x_right: int = path_centers[pi + 1]
-			for bx2: int in range(x_left, x_right + 1):
-				var cell := Vector2i(clamp(bx2, 0, width - 1), bridge_y)
-				reserved_corridor_cells[cell] = true
-				terrain_heights[cell] = 0.0
+	var num_waypoints: int = randi_range(2, 5)
+	var waypoints: Array[Vector2i] = [spawn_center_a]
+	for i: int in range(num_waypoints):
+		var t: float = float(i + 1) / float(num_waypoints + 1)
+		var base := Vector2(float(spawn_center_a.x), float(spawn_center_a.y)) + delta * t
+		var offset: float = randf_range(-max_offset, max_offset)
+		waypoints.append(Vector2i(
+			clampi(int(base.x + perp.x * offset), 0, width - 1),
+			clampi(int(base.y + perp.y * offset), 0, length - 1)))
+	waypoints.append(spawn_center_b)
 
-	# Post-reservation corridor smoothing -- clamp corridor cells tightly to 0.0 height.
-	# Three passes average each cell with its cardinal neighbours then re-clamp to [-0.1, 0.1]
-	# so terrain noise or effects cannot leave gradients inside reserved corridors.
-	var cardinal: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
-	for _pass: int in range(3):
-		for cell: Vector2i in reserved_corridor_cells.keys():
-			var sum: float = terrain_heights.get(cell, 0.0)
-			var count: int = 1
-			for dir: Vector2i in cardinal:
-				var nb: Vector2i = cell + dir
-				if nb.x >= 0 and nb.x < width and nb.y >= 0 and nb.y < length:
-					sum += terrain_heights.get(nb, 0.0)
-				count += 1
-			terrain_heights[cell] = clampf(sum / float(count), -0.1, 0.1)
+	for i: int in range(waypoints.size() - 1):
+		_carve_path_segment(waypoints[i], waypoints[i + 1])
 
-	generation_log.append("Corridor reservation: %d path(s), width=%d, %d cells reserved" % [
-		path_count, path_width, reserved_corridor_cells.size()])
+	for _f: int in range(fork_count):
+		var src_idx: int = randi_range(1, waypoints.size() - 2)
+		var fork_offset: float = randf_range(-max_offset * 0.5, max_offset * 0.5)
+		var fork_end := Vector2i(
+			clampi(int(float(spawn_center_b.x) + perp.x * fork_offset), 0, width - 1),
+			clampi(int(float(spawn_center_b.y) + perp.y * fork_offset), 0, length - 1))
+		_carve_path_segment(waypoints[src_idx], fork_end)
+
+	generation_log.append("Corridor reservation: %d waypoint(s), %d fork(s), width=%d, %d cells reserved" % [
+		num_waypoints, fork_count, path_width, reserved_corridor_cells.size()])
+
+
+func _carve_path_segment(from_pt: Vector2i, to_pt: Vector2i) -> void:
+	var hw: int = path_width >> 1
+	var pos := from_pt
+	while pos != to_pt:
+		var ddx: int = to_pt.x - pos.x
+		var ddy: int = to_pt.y - pos.y
+		var step: Vector2i
+		if ddx == 0:
+			step = Vector2i(0, signi(ddy))
+		elif ddy == 0:
+			step = Vector2i(signi(ddx), 0)
+		elif randf() < absf(float(ddx)) / (absf(float(ddx)) + absf(float(ddy))):
+			step = Vector2i(signi(ddx), 0)
+		else:
+			step = Vector2i(0, signi(ddy))
+		var perp := Vector2i(-step.y, step.x)
+		for p: int in range(-hw, hw + 1):
+			var cell := Vector2i(
+				clampi(pos.x + perp.x * p, 0, width - 1),
+				clampi(pos.y + perp.y * p, 0, length - 1))
+			reserved_corridor_cells[cell] = true
+			terrain_heights[cell] = 0.0
+		pos += step
+	var end_perp := Vector2i(1, 0) if (to_pt.x - from_pt.x) == 0 else Vector2i(0, 1)
+	for p: int in range(-hw, hw + 1):
+		var cell := Vector2i(
+			clampi(pos.x + end_perp.x * p, 0, width - 1),
+			clampi(pos.y + end_perp.y * p, 0, length - 1))
+		reserved_corridor_cells[cell] = true
+		terrain_heights[cell] = 0.0
 
 
 func get_nav_passable_cells() -> Dictionary:
@@ -417,10 +593,10 @@ func _place_stairs_at_transitions() -> void:
 	if stairs_template == null:
 		return
 	var cardinal: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
-	for y: int in range(SPAWN_BUFFER, length - SPAWN_BUFFER):
+	for y: int in range(length):
 		for x: int in range(width):
 			var pos := Vector2i(x, y)
-			if _is_obstacle_at(pos) or building_interiors.has(pos):
+			if _in_spawn_zone(pos) or _is_obstacle_at(pos) or building_interiors.has(pos):
 				continue
 			var qualifies := false
 			for dir: Vector2i in cardinal:

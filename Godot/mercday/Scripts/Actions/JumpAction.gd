@@ -53,7 +53,7 @@ func _find_best_jump_target(merc: MercenaryData, ctx: Dictionary) -> Vector2i:
 			if chebyshev == 0 or chebyshev > jump_stat:
 				continue
 			var cell := merc_pos + Vector2i(dx, dy)
-			if not Pathfinder.is_valid_jump_dest(cell, field):
+			if not PathCost.is_valid_jump_dest(cell, field):
 				continue
 			if state.is_position_occupied(cell, merc):
 				continue

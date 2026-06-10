@@ -927,7 +927,7 @@ static func _decide_break_for_weapon(
 			best_move_turns = extra_turns_t
 
 	if best_move_pos != Vector2i(-1, -1):
-		var adj_passable := MovementExecutor.nearest_passable_to(best_move_pos, state.battlefield)
+		var adj_passable := PathHelper.nearest_passable_to(best_move_pos, state.battlefield)
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("BREAK_FOR_WEAPON (approach): %s -> %s at %s adj=%s ('%s' score=%.2f, +%d extra turns, on_hand=%.2f)" % [
 				merc.merc_name, best_move_obs_name, str(best_move_pos), str(adj_passable),

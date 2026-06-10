@@ -17,11 +17,15 @@ var damage_dealt_last_round: Dictionary = {}  # same, snapshot from previous rou
 var dropped_weapons: Dictionary = {}          # Vector2i -> Array[WeaponData]
 var no_target_turns: Dictionary = {}          # MercenaryData -> consecutive turns without a valid attack target
 var move_goals: Dictionary = {}              # MercenaryData -> Vector2i persistent move destination
+var move_targets: Dictionary = {}            # MercenaryData -> MercenaryData current move target
 var position_history: Dictionary = {}        # MercenaryData -> Array[Vector2i] (last 3 end-of-turn positions)
 var no_progress_rounds: Dictionary = {}      # MercenaryData -> consecutive turns without position change
 var _cached_winner: int = -2                  # set by AutoBattle._finalize() before merc reset
 var _merc_team_index: Dictionary = {}         # MercenaryData -> int; populated in create()
 var turn_ally_passable: Dictionary = {}       # MercenaryData -> Dictionary{Vector2i->true}; rebuilt per turn
+var movement_blocked: Dictionary = {}         # MercenaryData -> Dictionary{MercenaryData->true}; permanently unreachable enemies
+var team_blocked_round: Dictionary = {}      # MercenaryData (target) -> int (round of last block increment)
+var team_blocked_count: Dictionary = {}      # MercenaryData (target) -> int (allies blocked on this target in that round)
 
 
 static func create(
@@ -142,33 +146,53 @@ static func _assign_starting_positions(
 	var passable_cells: Dictionary = field.get_nav_passable_cells()
 	var center_a := Vector2i(field.width >> 1, 2)
 	var center_b := Vector2i(field.width >> 1, field.length - 3)
+	var reach_a := PathTargeter.reachable_from(center_a, field, passable_cells, 1.0, false, true)
+	var reach_b := PathTargeter.reachable_from(center_b, field, passable_cells, 1.0, false, true)
 	for merc: MercenaryData in team_a:
 		var offset := Vector2i(randi_range(-2, 2), randi_range(-2, 2))
 		var pos := field.clamp_position(center_a + offset)
-		pos = _find_free_cell(field, passable_cells, pos, center_a)
+		pos = _find_free_cell(field, passable_cells, pos, center_a, reach_b)
 		state.positions[merc] = pos
 		state.heights[merc] = 0
 	for merc: MercenaryData in team_b:
 		var offset := Vector2i(randi_range(-2, 2), randi_range(-2, 2))
 		var pos := field.clamp_position(center_b + offset)
-		pos = _find_free_cell(field, passable_cells, pos, center_b)
+		pos = _find_free_cell(field, passable_cells, pos, center_b, reach_a)
 		state.positions[merc] = pos
 		state.heights[merc] = 0
 
 
-static func _find_free_cell(field: BattlefieldArea, passable_cells: Dictionary, start: Vector2i, fallback: Vector2i) -> Vector2i:
+static func _find_free_cell(field: BattlefieldArea, passable_cells: Dictionary, start: Vector2i, fallback: Vector2i, required_nb_set: Dictionary = {}) -> Vector2i:
 	var dirs: Array[Vector2i] = [
 		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
 		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
 	]
-	if not field.is_obstacle(start) and Pathfinder._has_exit(start, field, passable_cells, 1.0, false, dirs):
-		return start
+	if not field.is_obstacle(start) and PathCost.has_exit_neighbor(start, field, passable_cells, 1.0, false, dirs):
+		var _nb_ok := true
+		if not required_nb_set.is_empty():
+			_nb_ok = false
+			for _d: Vector2i in dirs:
+				if required_nb_set.has(start + _d):
+					_nb_ok = true
+					break
+		if _nb_ok:
+			return start
 	for radius: int in range(1, 5):
 		for dx: int in range(-radius, radius + 1):
 			for dy: int in range(-radius, radius + 1):
 				var candidate := field.clamp_position(start + Vector2i(dx, dy))
-				if not field.is_obstacle(candidate) and Pathfinder._has_exit(candidate, field, passable_cells, 1.0, false, dirs):
-					return candidate
+				if not field.is_obstacle(candidate) and PathCost.has_exit_neighbor(candidate, field, passable_cells, 1.0, false, dirs):
+					var _cnb_ok := true
+					if not required_nb_set.is_empty():
+						_cnb_ok = false
+						for _d: Vector2i in dirs:
+							if required_nb_set.has(candidate + _d):
+								_cnb_ok = true
+								break
+					if _cnb_ok:
+						return candidate
+	if not required_nb_set.is_empty():
+		return _find_free_cell(field, passable_cells, start, fallback)
 	return fallback
 
 
@@ -186,7 +210,7 @@ func end_of_turn(merc: MercenaryData, took_weapon_action: bool = false) -> void:
 	var hist: Array = position_history.get(merc, []) as Array
 	var old_pos: Vector2i = hist[0] as Vector2i if not hist.is_empty() else Vector2i(-1, -1)
 	hist.append(get_position(merc))
-	if hist.size() > 1:
+	if hist.size() > 3:
 		hist.pop_front()
 	position_history[merc] = hist
 	var new_pos: Vector2i = get_position(merc)

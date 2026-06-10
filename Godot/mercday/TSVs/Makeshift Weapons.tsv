@@ -1,16 +1,16 @@
 Weapon Name	Type	DMG Type	Thrown	Extend	Fragility
-Rock	Basic Makeshift	Strike	6/17	FALSE	4
-Table Leg	Specialized Makeshift	Strike	2/3	FALSE	3
-Chair Leg	Basic Makeshift	Strike	1/4	FALSE	2
-Pitchfork	Basic Makeshift	Impale	4/9	TRUE	7
-Big Stick	Great Makeshift	Strike, Impale	3/11	TRUE	3
-Broken Bottle	Basic Makeshift	Lacerate, Impale	2/5	FALSE	2
-Toilet Tank Cover	Great Makeshift	Strike	1/4	FALSE	3
-Brick	Basic Makeshift	Strike	4/15	FALSE	2
-Plate	Basic Makeshift	Strike, Lacerate, Impale	8/13	FALSE	1
+Rock	Basic Makeshift	Strike	4/20	FALSE	4
+Table Leg	Specialized Makeshift	Strike	3/9	FALSE	3
+Chair Leg	Basic Makeshift	Strike	4/9	FALSE	2
+Pitchfork	Basic Makeshift	Impale	3/7	TRUE	7
+Big Stick	Great Makeshift	Strike, Impale	2/5	TRUE	3
+Broken Bottle	Basic Makeshift	Lacerate, Impale	5/14	FALSE	1
+Toilet Tank Cover	Great Makeshift	Strike	3/7	FALSE	3
+Brick	Basic Makeshift	Strike	4/12	FALSE	2
+Plate	Basic Makeshift	Strike, Lacerate, Impale	5/9	FALSE	1
 Utensil	Basic Makeshift	Strike, Impale	3/6	FALSE	7
-Potted Plant	Basic Makeshift	Strike	2/4	FALSE	1
-Wooden Plank	Specialized Makeshift	Strike, Lacerate	1/3	TRUE	2
+Potted Plant	Basic Makeshift	Strike	2/8	FALSE	1
+Wooden Plank	Specialized Makeshift	Strike, Lacerate	3/5	TRUE	2
 				FALSE	
 				FALSE	
 				FALSE	
