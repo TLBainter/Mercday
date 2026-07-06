@@ -7,6 +7,7 @@ var round_number: int = 0
 var battlefield: BattlefieldArea   # null = no positioning active
 var positions: Dictionary = {}     # MercenaryData -> Vector2i
 var heights: Dictionary = {}       # MercenaryData -> int  (0 = ground, >0 = flying altitude)
+var floors: Dictionary = {}        # MercenaryData -> int floor_num (interior maps; 0 for ground floor)
 var climbing_data: Dictionary = {} # MercenaryData -> {wall_pos, current_h, target_h, top_pos}
 # plain int/String fields only; no Vector2i to avoid Variant-inference warnings
 var merc_cover: Dictionary = {}
@@ -154,12 +155,14 @@ static func _assign_starting_positions(
 		pos = _find_free_cell(field, passable_cells, pos, center_a, reach_b)
 		state.positions[merc] = pos
 		state.heights[merc] = 0
+		state.floors[merc] = 0
 	for merc: MercenaryData in team_b:
 		var offset := Vector2i(randi_range(-2, 2), randi_range(-2, 2))
 		var pos := field.clamp_position(center_b + offset)
 		pos = _find_free_cell(field, passable_cells, pos, center_b, reach_a)
 		state.positions[merc] = pos
 		state.heights[merc] = 0
+		state.floors[merc] = 0
 
 
 static func _find_free_cell(field: BattlefieldArea, passable_cells: Dictionary, start: Vector2i, fallback: Vector2i, required_nb_set: Dictionary = {}) -> Vector2i:
@@ -167,7 +170,7 @@ static func _find_free_cell(field: BattlefieldArea, passable_cells: Dictionary, 
 		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
 		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
 	]
-	if not field.is_obstacle(start) and PathCost.has_exit_neighbor(start, field, passable_cells, 1.0, false, dirs):
+	if not (field.is_obstacle(start) or (field.is_interior_map and field.is_obstacle_3d(Vector3i(start.x, start.y, 0)))) and PathCost.has_exit_neighbor(start, field, passable_cells, 1.0, false, dirs):
 		var _nb_ok := true
 		if not required_nb_set.is_empty():
 			_nb_ok = false
@@ -181,7 +184,7 @@ static func _find_free_cell(field: BattlefieldArea, passable_cells: Dictionary, 
 		for dx: int in range(-radius, radius + 1):
 			for dy: int in range(-radius, radius + 1):
 				var candidate := field.clamp_position(start + Vector2i(dx, dy))
-				if not field.is_obstacle(candidate) and PathCost.has_exit_neighbor(candidate, field, passable_cells, 1.0, false, dirs):
+				if not (field.is_obstacle(candidate) or (field.is_interior_map and field.is_obstacle_3d(Vector3i(candidate.x, candidate.y, 0)))) and PathCost.has_exit_neighbor(candidate, field, passable_cells, 1.0, false, dirs):
 					var _cnb_ok := true
 					if not required_nb_set.is_empty():
 						_cnb_ok = false
@@ -299,6 +302,14 @@ func set_height(merc: MercenaryData, h: int) -> void:
 	heights[merc] = clamp(h, 0, max_h)
 
 
+func get_floor(merc: MercenaryData) -> int:
+	return floors.get(merc, 0)
+
+
+func set_floor(merc: MercenaryData, f: int) -> void:
+	floors[merc] = f
+
+
 func get_climbing_data(merc: MercenaryData) -> Dictionary:
 	return climbing_data.get(merc, {}) as Dictionary
 
@@ -317,7 +328,13 @@ func distance_to(a: MercenaryData, b: MercenaryData) -> int:
 		return 0
 	var pa := get_position(a)
 	var pb := get_position(b)
-	var dz := absi(get_height(a) - get_height(b))
+	var dz: int
+	if battlefield.is_interior_map:
+		var floor_a := get_floor(a)
+		var floor_b := get_floor(b)
+		dz = absi((battlefield.interior_floor_elevations.get(floor_a, 0) as int) + get_height(a) - (battlefield.interior_floor_elevations.get(floor_b, 0) as int) - get_height(b))
+	else:
+		dz = absi(get_height(a) - get_height(b))
 	return maxi(maxi(abs(pa.x - pb.x), abs(pa.y - pb.y)), dz)
 
 
@@ -404,13 +421,16 @@ func is_covered_from(merc: MercenaryData, attacker: MercenaryData, cover_type: S
 		if atk_height >= obs_size + horiz_dist:
 			return false
 
-	var dir_x: int = 0
-	var dir_y: int = 0
-	dir_x = merc_cover[merc].get("cover_dir_x", 0)
-	dir_y = merc_cover[merc].get("cover_dir_y", 0)
+	var dir_x: int = merc_cover[merc].get("cover_dir_x", 0)
+	var dir_y: int = merc_cover[merc].get("cover_dir_y", 0)
 	var atk_pos2 := get_position(attacker)
 	var def_pos  := get_position(merc)
-	var to_atk   := atk_pos2 - def_pos
+	var _obs_px: int = merc_cover[merc].get("obstacle_pos_x", -999)
+	var _obs_py: int = merc_cover[merc].get("obstacle_pos_y", -999)
+	if battlefield != null and _obs_px > -900:
+		var ray := BattlefieldArea.get_ray_cells(atk_pos2, def_pos)
+		return ray.has(Vector2i(_obs_px, _obs_py))
+	var to_atk := atk_pos2 - def_pos
 	if dir_x != 0 and sign(to_atk.x) != dir_x:
 		return false
 	if dir_y != 0 and sign(to_atk.y) != dir_y:
@@ -431,6 +451,11 @@ func is_covered_from_pos(target: MercenaryData, from_pos: Vector2i) -> bool:
 		return false
 	var dir_x: int = merc_cover[target].get("cover_dir_x", 0)
 	var dir_y: int = merc_cover[target].get("cover_dir_y", 0)
+	var _obs_px: int = merc_cover[target].get("obstacle_pos_x", -999)
+	var _obs_py: int = merc_cover[target].get("obstacle_pos_y", -999)
+	if battlefield != null and _obs_px > -900:
+		var ray := BattlefieldArea.get_ray_cells(from_pos, def_pos)
+		return ray.has(Vector2i(_obs_px, _obs_py))
 	var to_atk := from_pos - def_pos
 	if dir_x != 0 and sign(to_atk.x) != dir_x:
 		return false

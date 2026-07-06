@@ -1,4 +1,4 @@
 Area Name	Area Type	Flat %	Gentle %	Hilly %	Rough %	Extreme %	Mountainous %	F+	F-	Terrain	Vegetation	Furniture	Structures	Rooms	Terrain Amt	Vegetation Amt	Furniture Amt	Structure Amt	Min Size	Max Size
 Desert Plain	Exterior	25%	25%	25%	25%	0%	0%	0	0	Crevasse, Ditch, Sandbank, Rock Pile, Hill	Brambles, Cactus				Low	Sparse				
 Arctic Mountain	Exterior	0%	0%	0%	25%	25%	50%	0	0	Boulder, Cliff Edge, Crevasse, Pit, Rock Pile, Trench	Pine Tree				High	Low				
-Tavern	Interior	0%	0%	0%	0%	0%	0%	3	1			Table, Stool, Wooden Chair, Bench, Pillar		Balcony, Basement, Bathroom, Bedroom, Dining Area, Kitchen, Pantry, Patio			High		18	45
+Tavern	Interior	0%	0%	0%	0%	0%	0%	3	1			Table, Stool, Wooden Chair, Bench, Pillar		Balcony, Basement, Bathroom, Bedroom, Dining Area, Kitchen, Pantry, Patio			High		18	22

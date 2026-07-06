@@ -34,7 +34,8 @@ static func apply_damage(obs_cell: Dictionary, damage: int, state: BattleState,
 	var drop_name := ""
 	var destroyed := false
 	if hp_remaining <= 0:
-		var obs_pos: Vector2i = obs_cell.get("pos", Vector2i.ZERO) as Vector2i
+		var _raw_opos = obs_cell.get("pos", Vector2i.ZERO)
+		var obs_pos: Vector2i = Vector2i((_raw_opos as Vector3i).x, (_raw_opos as Vector3i).y) if typeof(_raw_opos) == TYPE_VECTOR3I else _raw_opos as Vector2i
 		var obs_cells: Array = obs_cell.get("cells", [])
 		if obs_name == "Window":
 			var broken: ObstacleData = DataManager.get_obstacle_by_name("Broken Window")
@@ -80,11 +81,11 @@ static func apply_damage(obs_cell: Dictionary, damage: int, state: BattleState,
 			state.battlefield.obstacles.erase(obs_cell)
 			var _dupes: Array = []
 			for _o: Dictionary in state.battlefield.obstacles:
-				if _o.get("pos", Vector2i(-1, -1)) == obs_pos and _o.get("data") == obs_data:
+				if _o.get("pos") == _raw_opos and _o.get("data") == obs_data:
 					_dupes.append(_o)
 			for _o: Dictionary in _dupes:
 				state.battlefield.obstacles.erase(_o)
-			state.battlefield._obs_map.erase(obs_pos)
+			state.battlefield._obs_map.erase(_raw_opos)
 			state.battlefield.droppable_obs_map.erase(obs_pos)
 			MovementExecutor._near_passable_cache.clear()
 			if obs_cells.is_empty():

@@ -94,7 +94,8 @@ static func _do_seek_cover(merc: MercenaryData, state: BattleState, lines: Array
 		var obs_data_sc: ObstacleData = obs.get("data") as ObstacleData
 		if obs_data_sc != null and not obs_data_sc.covers:
 			continue
-		var loop_obs_pos: Vector2i = obs["pos"] as Vector2i
+		var _raw_lop = obs["pos"]
+		var loop_obs_pos: Vector2i = Vector2i((_raw_lop as Vector3i).x, (_raw_lop as Vector3i).y) if typeof(_raw_lop) == TYPE_VECTOR3I else _raw_lop as Vector2i
 		var delta := loop_obs_pos - merc_pos
 		var dist: int = maxi(absi(delta.x), absi(delta.y))
 		if dist == 0 or dist > pace:
@@ -121,7 +122,8 @@ static func _do_seek_cover(merc: MercenaryData, state: BattleState, lines: Array
 
 	for entry: Dictionary in candidates:
 		var obs: Dictionary = entry["obs"]
-		var obs_pos: Vector2i = obs["pos"] as Vector2i
+		var _raw_sop = obs["pos"]
+		var obs_pos: Vector2i = Vector2i((_raw_sop as Vector3i).x, (_raw_sop as Vector3i).y) if typeof(_raw_sop) == TYPE_VECTOR3I else _raw_sop as Vector2i
 		var dist: int = entry["dist"]
 		var obs_size: int = int(obs["size"])
 		var obs_data: ObstacleData = obs.get("data") as ObstacleData
@@ -297,7 +299,8 @@ static func _do_shove_obstacle(
 		lines.append("  Shove failed  -  insufficient successes.")
 		return
 	var shove_distance: int = result["successes"] - target_number
-	var obs_pos := obs_dict["pos"] as Vector2i
+	var _raw_shv = obs_dict["pos"]
+	var obs_pos: Vector2i = Vector2i((_raw_shv as Vector3i).x, (_raw_shv as Vector3i).y) if typeof(_raw_shv) == TYPE_VECTOR3I else _raw_shv as Vector2i
 	var shover_pos := state.get_position(shover)
 	var raw_dx := obs_pos.x - shover_pos.x
 	var raw_dy := obs_pos.y - shover_pos.y

@@ -362,7 +362,8 @@ static func _throw_replacement_factor(merc: MercenaryData, weapon: WeaponData, s
 		var d: ObstacleData = obs.get("data") as ObstacleData
 		if d == null or d.health == 0 or d.drops.is_empty():
 			continue
-		var p: Vector2i = obs.get("pos", Vector2i(-1, -1))
+		var _raw_wep = obs.get("pos", Vector2i(-1, -1))
+		var p: Vector2i = Vector2i((_raw_wep as Vector3i).x, (_raw_wep as Vector3i).y) if typeof(_raw_wep) == TYPE_VECTOR3I else _raw_wep as Vector2i
 		if p.x < 0:
 			continue
 		if maxi(abs(p.x - merc_pos.x), abs(p.y - merc_pos.y)) <= 6:

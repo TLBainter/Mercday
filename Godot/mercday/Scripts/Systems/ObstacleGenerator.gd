@@ -1,6 +1,20 @@
 class_name ObstacleGenerator
 
 
+static func _instance_size(template: ObstacleData) -> int:
+	if template.obstacle_type == "Vegetation" or template.obstacle_type == "Terrain":
+		var eff_z: float = template.size_z * randf_range(0.75, 1.25)
+		if template.size_z == 0.0:
+			return ceili((template.size_x + template.size_y) / 2.0)
+		return ceili((template.size_x + template.size_y + eff_z) / 3.0)
+	return template.size
+
+
+static func _make_obs(template: ObstacleData, pos: Vector2i) -> Dictionary:
+	var rotated := template.size_x != template.size_y and randi() % 2 == 0
+	return {"pos": pos, "size": _instance_size(template), "data": template, "rotated": rotated}
+
+
 static func place_terrain_obstacles(area: BattlefieldArea, target_count: int) -> int:
 	if DataManager.obstacles_terrain_pool.is_empty():
 		return 0
@@ -16,7 +30,7 @@ static func place_terrain_obstacles(area: BattlefieldArea, target_count: int) ->
 			continue
 		var template: ObstacleData = DataManager.obstacles_terrain_pool[
 			randi() % DataManager.obstacles_terrain_pool.size()]
-		var new_obs := {"pos": pos, "size": template.size, "data": template}
+		var new_obs := _make_obs(template, pos)
 		area.obstacles.append(new_obs)
 		area._obs_map[pos] = new_obs
 		placed += 1
@@ -38,7 +52,7 @@ static func place_obstacles(area: BattlefieldArea, target_count: int) -> int:
 		var template: ObstacleData = DataManager.get_random_obstacle()
 		if not _terrain_compatible(template, area, pos):
 			continue
-		var new_obs := {"pos": pos, "size": template.size, "data": template}
+		var new_obs := _make_obs(template, pos)
 		area.obstacles.append(new_obs)
 		area._obs_map[pos] = new_obs
 		placed += 1
@@ -77,7 +91,7 @@ static func _expand_obstacle(area: BattlefieldArea, template: ObstacleData, orig
 				continue
 			if not _terrain_compatible(template, area, np):
 				continue
-			var exp_obs := {"pos": np, "size": template.size, "data": template}
+			var exp_obs := _make_obs(template, np)
 			area.obstacles.append(exp_obs)
 			area._obs_map[np] = exp_obs
 			frontier.append(np)
@@ -105,15 +119,16 @@ static func apply_terrain_effects(area: BattlefieldArea) -> void:
 			continue
 		if d.thd_min == 0.0 and d.thd_max == 0.0:
 			continue
-		var pos: Vector2i = obs["pos"] as Vector2i
+		var _raw_op = obs["pos"]
+		var pos: Vector2i = Vector2i((_raw_op as Vector3i).x, (_raw_op as Vector3i).y) if typeof(_raw_op) == TYPE_VECTOR3I else _raw_op as Vector2i
 		var amount: float = randf_range(d.thd_min, d.thd_max)
-		match d.shape:
-			"RECTANGLE":
-				_apply_linear_deformation(area, pos, amount, d.size)
-			"CLIFF":
-				_apply_cliff_deformation(area, pos, amount, d.size)
-			_:
-				_apply_radial_deformation(area, pos, amount, d.size)
+		var aspect: float = maxf(d.size_x, d.size_y) / maxf(minf(d.size_x, d.size_y), 0.01)
+		if d.obstacle_name == "Cliff Edge":
+			_apply_cliff_deformation(area, pos, amount, d.size)
+		elif aspect >= 2.5:
+			_apply_linear_deformation(area, pos, amount, d.size)
+		else:
+			_apply_radial_deformation(area, pos, amount, d.size)
 
 
 static func _apply_radial_deformation(area: BattlefieldArea, center: Vector2i, amount: float, size: int) -> void:

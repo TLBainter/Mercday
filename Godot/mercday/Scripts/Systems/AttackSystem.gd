@@ -37,13 +37,26 @@ static func execute_attack(
 	if target != null and ConstStates.has_state(target, ConstStates.FLANKED):
 		total_enhancements += 1
 
+	var ray_cover := ""
+	if (is_ranged or is_throw) and state != null and target != null and state.battlefield != null:
+		var _rc_atk := state.get_position(attacker)
+		var _rc_def := state.get_position(target)
+		var _rc_h := state.get_height(attacker)
+		var _rc_sz := maxi(1, int(target.stats.get("size", 1)))
+		if state.get_floor(attacker) != state.get_floor(target):
+			ray_cover = "full"
+		else:
+			ray_cover = state.battlefield.get_ray_cover(_rc_atk, _rc_def, _rc_h, _rc_sz)
+
 	var flat_threshold_bonus := 0.0
 	if is_ranged and ConstStates.has_state(attacker, ConstStates.THREATENED) \
 			and not WeaponArmorPerkLibrary.has_weapon_passive(attacker, "weapon_passive:ignore_threatened"):
 		flat_threshold_bonus -= _CONFIG.penalty_threatened  # TODO: wire to BattleConfig
-	if is_ranged and state != null and target != null \
+	if ray_cover == "partial":
+		flat_threshold_bonus -= _CONFIG.penalty_partial_cover
+	elif ray_cover != "full" and is_ranged and state != null and target != null \
 			and state.is_covered_from(target, attacker, ConstStates.COVERED_PARTIAL):
-		flat_threshold_bonus -= _CONFIG.penalty_partial_cover  # TODO: wire to BattleConfig
+		flat_threshold_bonus -= _CONFIG.penalty_partial_cover
 	if is_throw and weapon != null:
 		flat_threshold_bonus += float(-weapon.size * 10)
 
@@ -97,6 +110,11 @@ static func execute_attack(
 				attacker.ammo_inventory[attacker.ammo_loaded_type] = _inv - 1
 				if attacker.ammo_inventory[attacker.ammo_loaded_type] <= 0:
 					attacker.ammo_inventory.erase(attacker.ammo_loaded_type)
+		if ray_cover == "full":
+			if EncounterLogger.is_active():
+				EncounterLogger.log_verbose("[ATTACK] %s -> %s: BLOCKED (cover)" % [
+					attacker.merc_name, target.merc_name if target != null else "?"])
+			return _empty_attack_result(damage_type, false, false)
 		if weapon.misfire > 0 and core_successes < weapon.misfire:
 			EncounterLogger.log_misfire_check(attacker.merc_name, weapon.item_name, weapon.misfire, core_successes, true)
 			attacker.weapon_misfired = true

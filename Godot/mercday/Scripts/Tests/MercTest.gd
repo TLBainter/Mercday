@@ -22,6 +22,7 @@ const _ThrownWeaponsTest := preload("res://Scripts/Tests/ThrownWeaponsTest.gd")
 @export var thrown_test: NodePath
 @export var gen_outhouse_map: NodePath
 @export var gen_terrain_batch: NodePath
+@export var start_interior_battle: NodePath
 
 var mercs: Array[MercenaryData] = []
 
@@ -52,6 +53,7 @@ func _ready() -> void:
 	(get_node(thrown_test) as Button).pressed.connect(_on_thrown_test)
 	(get_node(gen_outhouse_map) as Button).pressed.connect(_on_gen_outhouse_map)
 	(get_node(gen_terrain_batch) as Button).pressed.connect(_on_gen_terrain_batch)
+	(get_node(start_interior_battle) as Button).pressed.connect(_on_start_interior_battle)
 	for i: int in range(3):
 		var merc := MercGenerator.generate(i)
 		mercs.append(merc)
@@ -610,6 +612,37 @@ func _on_start_battle() -> void:
 	_battle_team_a.assign(mercs.slice(0, mid))
 	_battle_team_b.assign(mercs.slice(mid))
 	var field := BattlefieldArea.generate_random()
+	_battle_state = BattleState.create(_battle_team_a, _battle_team_b, field)
+	_battle_line_fn = func(s: String) -> void: print_rich(s)
+	var a_names := ", ".join(_battle_team_a.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	var b_names := ", ".join(_battle_team_b.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))
+	var order_parts: Array[String] = []
+	for i: int in range(_battle_state.turn_queue.size()):
+		var m: MercenaryData = _battle_state.turn_queue[i]
+		var color := "white" if _battle_team_a.has(m) else "yellow"
+		order_parts.append("[color=%s]%s[/color]" % [color, m.merc_name.get_slice(" ", 0)])
+	print_rich("[color=white]Team A:[/color] %s" % a_names)
+	print_rich("[color=yellow]Team B:[/color] %s" % b_names)
+	print_rich("Turn order: %s" % ", ".join(order_parts))
+	AutoBattle.setup(_battle_state, _battle_line_fn)
+	_run_battle_loop()
+
+
+func _on_start_interior_battle() -> void:
+	if mercs.size() < 2:
+		print("Need at least 2 mercs to start a battle.")
+		return
+	if _battle_state != null:
+		print("Battle already in progress.")
+		return
+	print("\n====== AUTOBATTLE (INTERIOR) ======\n")
+	mercs.shuffle()
+	var mid: int = mercs.size() >> 1
+	_battle_team_a.clear()
+	_battle_team_b.clear()
+	_battle_team_a.assign(mercs.slice(0, mid))
+	_battle_team_b.assign(mercs.slice(mid))
+	var field := BattlefieldArea.generate_random(null, null, "Interior")
 	_battle_state = BattleState.create(_battle_team_a, _battle_team_b, field)
 	_battle_line_fn = func(s: String) -> void: print_rich(s)
 	var a_names := ", ".join(_battle_team_a.map(func(m: MercenaryData) -> String: return m.merc_name.get_slice(" ", 0)))

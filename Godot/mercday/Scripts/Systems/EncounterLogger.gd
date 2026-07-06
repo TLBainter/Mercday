@@ -6,6 +6,7 @@ const LOG_DIR := "user://encounter_logs"
 static var _file: FileAccess = null
 static var _bbcode_rx: RegEx = null
 static var _buffer: PackedStringArray = []
+static var _current_stem: String = ""
 
 
 static func begin(encounter_type: String, state: BattleState) -> void:
@@ -17,10 +18,14 @@ static func begin(encounter_type: String, state: BattleState) -> void:
 	var time_str := "%02d-%02d-%02d" % [dt["hour"], dt["minute"], dt["second"]]
 	var safe_type := encounter_type.replace(" ", "-").to_lower()
 	var filename := "%s_log_%s_%s_%s.txt" % [safe_type, session, date_str, time_str]
+	_current_stem = LOG_DIR + "/" + filename.get_basename()
 	_file = FileAccess.open(LOG_DIR + "/" + filename, FileAccess.WRITE)
 	if _file == null:
 		push_warning("EncounterLogger: could not open %s" % filename)
 		return
+	if state != null and state.battlefield != null:
+		WireframeGenerator.save(state.battlefield, _current_stem)
+		HtmlWireframeGenerator.save(state.battlefield, _current_stem)
 	_buffer.clear()
 	_buffer.append("=== MercManager Encounter Log ===")
 	_buffer.append("Type: %s   Session: %s   Date: %s %s" % [
@@ -146,6 +151,44 @@ static func log_generation(field: BattlefieldArea) -> void:
 	_buffer.append("---")
 	for entry: String in field.generation_log:
 		log_verbose(entry)
+	_write_level_log(field)
+
+
+static func _write_level_log(field: BattlefieldArea) -> void:
+	if _current_stem == "":
+		return
+	var fa := FileAccess.open(_current_stem + "_level.txt", FileAccess.WRITE)
+	if fa == null:
+		return
+	var lines: Array[String] = []
+	lines.append("=== Level Structure ===")
+	lines.append("Map: %dx%d  fh: %d" % [field.width, field.length, field.interior_floor_height])
+	for f_num: Variant in field.interior_floor_elevations.keys():
+		var floor_num: int = f_num as int
+		var elev: int = field.interior_floor_elevations[floor_num]
+		lines.append("F%d: elevation=%d" % [floor_num, elev])
+	lines.append("")
+	lines.append("--- Rooms ---")
+	for entry: Dictionary in field.interior_rooms:
+		var rect: Rect2i = entry["rect"] as Rect2i
+		var rname: String = entry["name"] as String
+		var fl: int = entry["floor"] as int
+		lines.append("F%d  %s  pos=(%d,%d) size=%dx%d" % [fl, rname, rect.position.x, rect.position.y, rect.size.x, rect.size.y])
+	lines.append("")
+	lines.append("--- Doors ---")
+	for obs: Dictionary in field.obstacles:
+		if obs.get("cell_type", "") != "door":
+			continue
+		var pos: Vector3i = obs["pos"] as Vector3i
+		var orient: String = obs.get("orientation", "v")
+		lines.append("door (%d,%d) F%d orient=%s" % [pos.x, pos.y, pos.z, orient])
+	lines.append("")
+	lines.append("--- Stairwells ---")
+	for p: Variant in field.stairwell_cells.keys():
+		var pos: Vector3i = p as Vector3i
+		lines.append("stairwell (%d,%d) F%d" % [pos.x, pos.y, pos.z])
+	fa.store_string("\n".join(lines) + "\n")
+	fa.close()
 
 
 static func _ensure_dir() -> void:
@@ -161,7 +204,7 @@ static func _rotate() -> void:
 	dir.list_dir_begin()
 	var name := dir.get_next()
 	while name != "":
-		if not dir.current_is_dir() and name.ends_with(".txt"):
+		if not dir.current_is_dir() and name.ends_with(".txt") and not name.ends_with("_level.txt"):
 			var full := LOG_DIR + "/" + name
 			entries.append({"name": name, "mtime": FileAccess.get_modified_time(full)})
 		name = dir.get_next()
@@ -172,6 +215,12 @@ static func _rotate() -> void:
 	var to_delete := entries.size() - MAX_LOGS + 1
 	for i in to_delete:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOG_DIR + "/" + entries[i]["name"]))
+		var svg_name: String = (entries[i]["name"] as String).get_basename() + ".svg"
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOG_DIR + "/" + svg_name))
+		var level_name: String = (entries[i]["name"] as String).get_basename() + "_level.txt"
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOG_DIR + "/" + level_name))
+		var html_name: String = (entries[i]["name"] as String).get_basename() + "_3d.html"
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOG_DIR + "/" + html_name))
 
 
 static func _strip_bbcode(text: String) -> String:

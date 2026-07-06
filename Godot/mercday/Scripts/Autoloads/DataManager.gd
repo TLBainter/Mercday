@@ -689,30 +689,30 @@ func _load_obstacles() -> void:
 		var o := ObstacleData.new()
 		o.obstacle_name = name_val
 		o.obstacle_type = _row_get(row, 1)
-		var size_str: String = _row_get(row, 2)
-		o.size = int(size_str) if size_str.is_valid_int() else 1
-		o.narrow = _row_get(row, 3).to_upper() == "TRUE"
-		o.shape = _row_get(row, 4)
-		var hmin_str: String = _row_get(row, 5)
-		o.height_min = int(hmin_str) if hmin_str.is_valid_int() else 1
-		var hmax_str: String = _row_get(row, 6)
-		o.height_max = int(hmax_str) if hmax_str.is_valid_int() else 3
-		var tdmin := _row_get(row, 7)
+		var sx_str: String = _row_get(row, 2)
+		o.size_x = float(sx_str) if sx_str.is_valid_float() else 1.0
+		var sy_str: String = _row_get(row, 3)
+		o.size_y = float(sy_str) if sy_str.is_valid_float() else 1.0
+		var sz_str: String = _row_get(row, 4)
+		o.size_z = float(sz_str) if sz_str.is_valid_float() else 0.0
+		o.narrow = _row_get(row, 5).to_upper() == "TRUE"
+		var tdmin := _row_get(row, 6)
 		o.thd_min = float(tdmin) if tdmin.is_valid_float() else 0.0
-		var tdmax := _row_get(row, 8)
+		var tdmax := _row_get(row, 7)
 		o.thd_max = float(tdmax) if tdmax.is_valid_float() else 0.0
-		var moveable_str: String = _row_get(row, 9)
+		var moveable_str: String = _row_get(row, 8)
 		o.moveable = moveable_str.to_upper() == "TRUE" or moveable_str == "1"
-		o.climbable = _row_get(row, 10).to_upper() == "TRUE"
-		o.climb_difficulty = _row_get(row, 11)
-		var hp_str: String = _row_get(row, 12)
+		o.climbable = _row_get(row, 9).to_upper() == "TRUE"
+		o.climb_difficulty = _row_get(row, 10)
+		var hp_str: String = _row_get(row, 11)
 		o.health = int(hp_str) if hp_str.is_valid_int() else 1
-		o.susceptible_to = _row_get(row, 13)
-		o.rugged = _row_get(row, 14).to_upper() == "TRUE"
-		o.passthrough = _row_get(row, 15).to_upper() == "TRUE"
-		o.is_building = _row_get(row, 16).to_upper() == "TRUE"
-		o.building_only = _row_get(row, 17).to_upper() == "TRUE"
-		o.is_room = _row_get(row, 18).to_upper() == "TRUE"
+		o.susceptible_to = _row_get(row, 12)
+		o.rugged = _row_get(row, 13).to_upper() == "TRUE"
+		o.passthrough = _row_get(row, 14).to_upper() == "TRUE"
+		o.is_building = _row_get(row, 15).to_upper() == "TRUE"
+		o.building_only = _row_get(row, 16).to_upper() == "TRUE"
+		o.is_room = _row_get(row, 17).to_upper() == "TRUE"
+		o.room_type = _row_get(row, 18)
 		var enter_str: String = _row_get(row, 19)
 		o.pt_enter_harm = int(enter_str) if enter_str.is_valid_int() else 0
 		var exit_str: String = _row_get(row, 20)
@@ -724,7 +724,9 @@ func _load_obstacles() -> void:
 		o.covers = (_row_get(row, 24).to_lower() != "false") if row.size() > 24 else true
 		o.drops = _split_field(_row_get(row, 25))
 		o.guaranteed_structures = _split_field(_row_get(row, 26))
-		o.excluded_structures = _split_field(_row_get(row, 27))
+		o.possible_structures = _split_field(_row_get(row, 27))
+		o.possible_scatter = _split_field(_row_get(row, 28))
+		o.preferred_position = _row_get(row, 29)
 		obstacles_pool.append(o)
 		obstacles_by_name[o.obstacle_name] = o
 		if not obstacles_by_type.has(o.obstacle_type):
@@ -734,7 +736,7 @@ func _load_obstacles() -> void:
 			building_pool.append(o)
 		if o.building_only:
 			building_only_pool.append(o)
-		if not o.is_building and not o.ramp and not o.building_only:
+		if not o.is_building and not o.ramp and not o.building_only and not o.is_room:
 			obstacles_nonbuilding_pool.append(o)
 			if o.obstacle_type == "Terrain":
 				obstacles_terrain_pool.append(o)
@@ -806,10 +808,11 @@ func get_random_obstacle() -> ObstacleData:
 	return obstacles_nonbuilding_pool[randi() % obstacles_nonbuilding_pool.size()]
 
 
-func get_random_area() -> Dictionary:
-	if areas_pool.is_empty():
+func get_random_area(area_type: String = "Exterior") -> Dictionary:
+	var pool: Array = areas_pool.filter(func(a: Dictionary) -> bool: return a.get("type", "") == area_type)
+	if pool.is_empty():
 		return {"name": "Unknown", "type": "Exterior", "weights": [17, 17, 17, 17, 16, 16]}
-	return areas_pool[randi() % areas_pool.size()]
+	return pool[randi() % pool.size()]
 
 
 func _load_areas() -> void:
@@ -826,11 +829,68 @@ func _load_areas() -> void:
 		for c: int in range(2, 8):
 			var w_str: String = _row_get(row, c).strip_edges().trim_suffix("%")
 			weights.append(int(w_str) if w_str.is_valid_int() else 0)
-		areas_pool.append({"name": name_val, "type": area_type, "weights": weights})
+		var f_plus_str: String = _row_get(row, 8)
+		var f_minus_str: String = _row_get(row, 9)
+		var furniture_raw: String = _row_get(row, 12)
+		var rooms_raw: String = _row_get(row, 14)
+		var min_sz_str: String = _row_get(row, 19)
+		var max_sz_str: String = _row_get(row, 20)
+		areas_pool.append({
+			"name": name_val,
+			"type": area_type,
+			"weights": weights,
+			"f_plus": int(f_plus_str) if f_plus_str.is_valid_int() else 0,
+			"f_minus": int(f_minus_str) if f_minus_str.is_valid_int() else 0,
+			"furniture_list": _split_field(furniture_raw),
+			"rooms_list": _split_field(rooms_raw),
+			"min_size": int(min_sz_str) if min_sz_str.is_valid_int() else 18,
+			"max_size": int(max_sz_str) if max_sz_str.is_valid_int() else 45,
+		})
 
 
 func get_obstacle_by_name(obs_name: String) -> ObstacleData:
 	return obstacles_by_name.get(obs_name) as ObstacleData
+
+
+func get_rooms_for_floor(area_data: Dictionary, floor_num: int) -> Array[ObstacleData]:
+	var rooms_list: Array = area_data.get("rooms_list", [])
+	var result: Array[ObstacleData] = []
+	for room_name: String in rooms_list:
+		var d: ObstacleData = get_obstacle_by_name(room_name)
+		if d == null or not d.is_room:
+			continue
+		var rt: String = d.room_type
+		if not rt.begins_with("Interior"):
+			continue
+		var matches: bool = false
+		if rt.ends_with("Any") and floor_num >= 0:
+			matches = true
+		elif rt.ends_with("F0") and floor_num == 0:
+			matches = true
+		elif rt.ends_with("F+") and floor_num > 0:
+			matches = true
+		elif rt.ends_with("F-") and floor_num < 0:
+			matches = true
+		if matches:
+			result.append(d)
+	return result
+
+
+func get_exterior_rooms_for_floor(area_data: Dictionary, floor_num: int) -> Array[ObstacleData]:
+	var rooms_list: Array = area_data.get("rooms_list", [])
+	var result: Array[ObstacleData] = []
+	for room_name: String in rooms_list:
+		var d: ObstacleData = get_obstacle_by_name(room_name)
+		if d == null or not d.is_room:
+			continue
+		var rt: String = d.room_type
+		if not rt.begins_with("Exterior"):
+			continue
+		if rt.ends_with("F0") and floor_num == 0:
+			result.append(d)
+		elif rt.ends_with("F+") and floor_num > 0:
+			result.append(d)
+	return result
 
 
 func _load_critical_successes() -> void:

@@ -5,7 +5,8 @@ static func cell_pace_cost(from: Vector2i, to: Vector2i, field: BattlefieldArea,
 		passable_cells: Dictionary = {},
 		merc_fall_tolerance: float = 1.0,
 		is_flying: bool = false,
-		can_climb: bool = false) -> int:
+		can_climb: bool = false,
+		floor_num: int = 0) -> int:
 	if field.jagged_cells.has(to):
 		return -1
 	if is_flying:
@@ -30,7 +31,7 @@ static func cell_pace_cost(from: Vector2i, to: Vector2i, field: BattlefieldArea,
 			return -1
 		return 1
 
-	var obs: Dictionary = field.get_obstacle_at(to)
+	var obs: Dictionary = field.get_obstacle_at_floor(to, floor_num) if field.is_interior_map else field.get_obstacle_at(to)
 	var base_cost: int
 
 	if obs.is_empty():
@@ -55,6 +56,10 @@ static func cell_pace_cost(from: Vector2i, to: Vector2i, field: BattlefieldArea,
 				base_cost = 10
 			else:
 				base_cost = 2 if data.rugged else 1
+
+	#TODO: stairwells blocked until explicit cross-floor navigation replaces automatic teleport
+	if field.stairwell_connections.has(Vector3i(to.x, to.y, floor_num)):
+		return -1
 
 	var h_diff: float = field.get_terrain_height(to) - field.get_terrain_height(from)
 
@@ -87,20 +92,21 @@ static func cell_pace_cost(from: Vector2i, to: Vector2i, field: BattlefieldArea,
 static func has_exit_neighbor(cell: Vector2i, field: BattlefieldArea,
 		passable_cells: Dictionary, merc_fall_tolerance: float,
 		is_flying: bool, dirs: Array[Vector2i],
-		can_climb: bool = false) -> bool:
+		can_climb: bool = false,
+		floor_num: int = 0) -> bool:
 	for d: Vector2i in dirs:
 		var nb: Vector2i = cell + d
 		if nb.x < 0 or nb.x >= field.width or nb.y < 0 or nb.y >= field.length:
 			continue
-		if cell_pace_cost(cell, nb, field, passable_cells, merc_fall_tolerance, is_flying, can_climb) >= 0:
+		if cell_pace_cost(cell, nb, field, passable_cells, merc_fall_tolerance, is_flying, can_climb, floor_num) >= 0:
 			return true
 	return false
 
 
-static func is_valid_jump_dest(pos: Vector2i, field: BattlefieldArea) -> bool:
+static func is_valid_jump_dest(pos: Vector2i, field: BattlefieldArea, floor_num: int = 0) -> bool:
 	if pos.x < 0 or pos.x >= field.width or pos.y < 0 or pos.y >= field.length:
 		return false
-	var obs: Dictionary = field.get_obstacle_at(pos)
+	var obs: Dictionary = field.get_obstacle_at_floor(pos, floor_num) if field.is_interior_map else field.get_obstacle_at(pos)
 	if obs.is_empty():
 		return true
 	var cell_type: String = obs.get("cell_type", "")

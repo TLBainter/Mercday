@@ -35,7 +35,8 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		var obs_data: ObstacleData = obs.get("data") as ObstacleData
 		if obs_data != null and not obs_data.covers:
 			continue
-		var obs_pos: Vector2i = obs["pos"] as Vector2i
+		var _raw_cp = obs["pos"]
+		var obs_pos: Vector2i = Vector2i((_raw_cp as Vector3i).x, (_raw_cp as Vector3i).y) if typeof(_raw_cp) == TYPE_VECTOR3I else _raw_cp as Vector2i
 		var delta := obs_pos - merc_pos
 		var dist: float = float(maxi(absi(delta.x), absi(delta.y)))
 		if dist == 0.0 or dist > float(pace) * 2.0:

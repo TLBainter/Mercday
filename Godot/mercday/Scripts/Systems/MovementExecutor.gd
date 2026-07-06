@@ -119,8 +119,8 @@ static func compute_move_position(
 		valid_targets: Array[MercenaryData] = [],
 		enemies: Array[MercenaryData] = []) -> Vector2i:
 	if action_name == "Move Far":
-		return PathTargeter.best_retreat_cell(merc, enemies, state, move_target, valid_targets)
-	return PathTargeter.best_approach_cell(merc, move_target, state, flank_ally, stop_dist_override, valid_targets, enemies)
+		return PathTargeter.best_retreat_cell(merc, enemies, state, move_target, valid_targets, state.get_floor(merc))
+	return PathTargeter.best_approach_cell(merc, move_target, state, flank_ally, stop_dist_override, valid_targets, enemies, state.get_floor(merc))
 
 
 static func execute_move(
@@ -289,7 +289,7 @@ static func execute_move(
 			for i: int in range(path_start_idx + 1, path.size()):
 				var from_cell: Vector2i = path[i - 1]
 				var cell: Vector2i = path[i]
-				var cost := PathCost.cell_pace_cost(from_cell, cell, field, ally_passable, fall_tolerance, false, can_climb)
+				var cost := PathCost.cell_pace_cost(from_cell, cell, field, ally_passable, fall_tolerance, false, can_climb, state.get_floor(merc))
 				if cost < 0:
 					break
 				var _cell_d := maxi(abs(cell.x - goal.x), abs(cell.y - goal.y))
@@ -382,7 +382,7 @@ static func execute_move(
 				var _snb := old_pos + _sd
 				if _snb.x < 0 or _snb.x >= field.width or _snb.y < 0 or _snb.y >= field.length:
 					continue
-				var _sc := PathCost.cell_pace_cost(old_pos, _snb, field, _stall_ap, _stall_ft, false, true)
+				var _sc := PathCost.cell_pace_cost(old_pos, _snb, field, _stall_ap, _stall_ft, false, true, state.get_floor(merc))
 				if _sc >= 0:
 					_any_affordable = true
 					break
@@ -409,7 +409,7 @@ static func execute_move(
 					var _bf_ap: Dictionary = state.turn_ally_passable.get(merc, {}) as Dictionary
 					if _bf_ap.is_empty():
 						_bf_ap = field.get_nav_passable_cells()
-					var _mt_reach := PathTargeter.reachable_from(old_pos, field, _bf_ap, _bf_ft, false, true)
+					var _mt_reach := PathTargeter.reachable_from(old_pos, field, _bf_ap, _bf_ft, false, true, 0, state.get_floor(merc))
 					var _dirs8: Array[Vector2i] = [
 						Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
 						Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
@@ -453,7 +453,7 @@ static func execute_move(
 					var _fn := old_pos
 					var _ft: Array[Vector2i] = [old_pos]
 					for _fi: int in range(1, _fp.size()):
-						var _fc := PathCost.cell_pace_cost(_fp[_fi - 1], _fp[_fi], field, {}, _fall_tol, false, _can_cl)
+						var _fc := PathCost.cell_pace_cost(_fp[_fi - 1], _fp[_fi], field, {}, _fall_tol, false, _can_cl, state.get_floor(merc))
 						if _fc < 0 or _fb - _fc < 0:
 							break
 						_fb -= _fc
@@ -504,6 +504,12 @@ static func execute_move(
 	var old_terrain_pos := old_pos
 	state.escalation[merc]["last_move_from"] = old_pos
 	state.set_position(merc, new_pos)
+	if state.battlefield != null and state.battlefield.is_interior_map:
+		var _sw_key := Vector3i(new_pos.x, new_pos.y, state.get_floor(merc))
+		if state.battlefield.stairwell_connections.has(_sw_key):
+			var _sw_dest: Vector3i = state.battlefield.stairwell_connections[_sw_key] as Vector3i
+			state.set_floor(merc, _sw_dest.z)
+			state.set_position(merc, Vector2i(_sw_dest.x, _sw_dest.y))
 	merc.aim_active = false
 	state.clear_cover(merc)
 
@@ -601,6 +607,12 @@ static func execute_jump(
 	state.spend_ap(merc, state.get_cost(merc, action_name, _CONFIG.move_base_ap))
 	state.record_action(merc, action_name)
 	state.set_position(merc, jump_target_pos)
+	if state.battlefield != null and state.battlefield.is_interior_map:
+		var _sw_key := Vector3i(jump_target_pos.x, jump_target_pos.y, state.get_floor(merc))
+		if state.battlefield.stairwell_connections.has(_sw_key):
+			var _sw_dest: Vector3i = state.battlefield.stairwell_connections[_sw_key] as Vector3i
+			state.set_floor(merc, _sw_dest.z)
+			state.set_position(merc, Vector2i(_sw_dest.x, _sw_dest.y))
 	merc.aim_active = false
 	state.clear_cover(merc)
 
@@ -706,6 +718,12 @@ static func _complete_climb(merc: MercenaryData, state: BattleState, lines: Arra
 				top_pos = _beyond
 	if not state.is_position_occupied(top_pos, merc):
 		state.set_position(merc, top_pos)
+		if state.battlefield != null and state.battlefield.is_interior_map:
+			var _sw_key := Vector3i(top_pos.x, top_pos.y, state.get_floor(merc))
+			if state.battlefield.stairwell_connections.has(_sw_key):
+				var _sw_dest: Vector3i = state.battlefield.stairwell_connections[_sw_key] as Vector3i
+				state.set_floor(merc, _sw_dest.z)
+				state.set_position(merc, Vector2i(_sw_dest.x, _sw_dest.y))
 	if state.battlefield != null:
 		state.set_height(merc, int(round(state.battlefield.get_terrain_height(top_pos))))
 	lines.append("  %s hauls themselves up!" % _cn(merc, state))
@@ -766,6 +784,12 @@ static func execute_move_to_pos(
 		else:
 			move_lines.append("  %s misses %s with the Advantage Attack." % [_cn(reactor, state), _cn(merc, state)])
 	state.set_position(merc, new_pos)
+	if state.battlefield != null and state.battlefield.is_interior_map:
+		var _sw_key := Vector3i(new_pos.x, new_pos.y, state.get_floor(merc))
+		if state.battlefield.stairwell_connections.has(_sw_key):
+			var _sw_dest: Vector3i = state.battlefield.stairwell_connections[_sw_key] as Vector3i
+			state.set_floor(merc, _sw_dest.z)
+			state.set_position(merc, Vector2i(_sw_dest.x, _sw_dest.y))
 	merc.aim_active = false
 	state.clear_cover(merc)
 	move_lines.append("  %s -> weapon ([color=orange]%d,%d -> %d,%d[/color])" % [

@@ -33,7 +33,8 @@ static func reachable_from(
 		fall_tolerance: float,
 		is_flying: bool,
 		can_climb: bool,
-		jump_range: int = 0) -> Dictionary:
+		jump_range: int = 0,
+		floor_num: int = 0) -> Dictionary:
 	var visited: Dictionary = {from: 0}
 	var queue: Array[Vector2i] = [from]
 	var qi := 0
@@ -51,7 +52,7 @@ static func reachable_from(
 				continue
 			if visited.has(nb):
 				continue
-			var cost := PathCost.cell_pace_cost(curr, nb, field, passable, fall_tolerance, is_flying, can_climb)
+			var cost := PathCost.cell_pace_cost(curr, nb, field, passable, fall_tolerance, is_flying, can_climb, floor_num)
 			if cost < 0:
 				continue
 			visited[nb] = curr_cost + cost
@@ -73,12 +74,24 @@ static func reachable_from(
 						continue
 					if visited.has(jcell):
 						continue
-					if not PathCost.is_valid_jump_dest(jcell, field):
+					if not PathCost.is_valid_jump_dest(jcell, field, floor_num):
 						continue
 					var h_cost := int(ceil(maxf(0.0, field.get_terrain_height(jcell) - cell_h)))
 					if cdist + h_cost > jump_range:
 						continue
 					visited[jcell] = (visited[cell] as int) + JUMP_COST_OFFSET + cdist + h_cost
+
+	if field.is_interior_map:
+		for sc: Vector3i in field.stairwell_connections.keys():
+			if sc.z != floor_num:
+				continue
+			var sc2d := Vector2i(sc.x, sc.y)
+			if not visited.has(sc2d):
+				continue
+			var dest: Vector3i = field.stairwell_connections[sc] as Vector3i
+			var dest2d := Vector2i(dest.x, dest.y)
+			if not visited.has(dest2d):
+				visited[dest2d] = (visited[sc2d] as int) + 2
 
 	return visited
 
@@ -88,7 +101,8 @@ static func approach_candidates(
 		target_pos: Vector2i,
 		stop_dist: int,
 		field: BattlefieldArea,
-		is_flying: bool) -> Array[Vector2i]:
+		is_flying: bool,
+		floor_num: int = 0) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	var d := maxi(1, stop_dist)
 	for x: int in range(target_pos.x - d, target_pos.x + d + 1):
@@ -102,7 +116,7 @@ static func approach_candidates(
 				continue
 			if not is_flying and field.fly_only_cells.has(cell):
 				continue
-			var obs := field.get_obstacle_at(cell)
+			var obs: Dictionary = field.get_obstacle_at_floor(cell, floor_num) if field.is_interior_map else field.get_obstacle_at(cell)
 			if not obs.is_empty() and obs.get("cell_type", "") == "wall":
 				continue
 			result.append(cell)
@@ -142,7 +156,8 @@ static func score_candidate(
 		state: BattleState,
 		reachable: Dictionary,
 		known_enemies: Dictionary,
-		weights: Dictionary) -> float:
+		weights: Dictionary,
+		_floor_num: int = 0) -> float:
 	var field := state.battlefield
 	var score := 0.0
 
@@ -215,7 +230,8 @@ static func score_candidate(
 			var od: ObstacleData = obs.get("data") as ObstacleData
 			if od != null and not od.covers:
 				continue
-			var op: Vector2i = obs["pos"] as Vector2i
+			var raw_op = obs["pos"]
+			var op: Vector2i = Vector2i((raw_op as Vector3i).x, (raw_op as Vector3i).y) if typeof(raw_op) == TYPE_VECTOR3I else raw_op as Vector2i
 			if maxi(absi(op.x - candidate.x), absi(op.y - candidate.y)) <= 2:
 				count += 1.0
 		score += float(weights["cover_count"]) * count
@@ -311,7 +327,8 @@ static func best_approach_cell(
 		flank_ally: MercenaryData = null,
 		stop_dist_override: int = -1,
 		_valid_targets: Array[MercenaryData] = [],
-		_enemies: Array[MercenaryData] = []) -> Vector2i:
+		_enemies: Array[MercenaryData] = [],
+		floor_num: int = 0) -> Vector2i:
 	var field := state.battlefield
 	if field == null:
 		return state.get_position(merc)
@@ -350,8 +367,8 @@ static func best_approach_cell(
 
 	var known_enemies: Dictionary = merc.last_known_enemy_positions.duplicate()
 
-	var reachable := reachable_from(from, field, ally_passable, fall_tolerance, is_flying, can_climb, jump_range)
-	var candidates := approach_candidates(target_pos, stop_dist, field, is_flying)
+	var reachable := reachable_from(from, field, ally_passable, fall_tolerance, is_flying, can_climb, jump_range, floor_num)
+	var candidates := approach_candidates(target_pos, stop_dist, field, is_flying, floor_num)
 
 	var reachable_candidates: Array[Vector2i] = []
 	for c: Vector2i in candidates:
@@ -371,7 +388,7 @@ static func best_approach_cell(
 
 	var scored: Array = []
 	for c: Vector2i in reachable_candidates:
-		var s := score_candidate(c, from, merc, state, reachable, known_enemies, weights)
+		var s := score_candidate(c, from, merc, state, reachable, known_enemies, weights, floor_num)
 		s += _ally_score(c, from, merc, target, state, weights)
 		scored.append([s, c])
 	scored.sort_custom(func(a: Array, b: Array) -> bool: return (a[0] as float) > (b[0] as float))
@@ -402,7 +419,8 @@ static func best_retreat_cell(
 		_enemies: Array[MercenaryData],
 		state: BattleState,
 		move_target: MercenaryData = null,
-		_valid_targets: Array[MercenaryData] = []) -> Vector2i:
+		_valid_targets: Array[MercenaryData] = [],
+		floor_num: int = 0) -> Vector2i:
 	var field := state.battlefield
 	if field == null:
 		return state.get_position(merc)
@@ -460,7 +478,7 @@ static func best_retreat_cell(
 			seen[c] = true
 			candidates.append(c)
 
-	var reachable := reachable_from(from, field, ally_passable, fall_tolerance, is_flying, can_climb, jump_range)
+	var reachable := reachable_from(from, field, ally_passable, fall_tolerance, is_flying, can_climb, jump_range, floor_num)
 
 	var reachable_candidates: Array[Vector2i] = []
 	for c: Vector2i in candidates:
@@ -476,14 +494,14 @@ static func best_retreat_cell(
 	var best_cell := reachable_candidates[0]
 	var best_score := -INF
 	for c: Vector2i in reachable_candidates:
-		var s := score_candidate(c, from, merc, state, reachable, known_enemies, weights)
+		var s := score_candidate(c, from, merc, state, reachable, known_enemies, weights, floor_num)
 		if s > best_score:
 			best_score = s
 			best_cell = c
 
 	var existing_goal: Vector2i = state.move_goals.get(merc, Vector2i(-1, -1)) as Vector2i
 	if existing_goal != Vector2i(-1, -1) and existing_goal != best_cell and reachable.has(existing_goal):
-		var old_score := score_candidate(existing_goal, from, merc, state, reachable, known_enemies, weights)
+		var old_score := score_candidate(existing_goal, from, merc, state, reachable, known_enemies, weights, floor_num)
 		if best_score - old_score <= 2.0:
 			return existing_goal
 

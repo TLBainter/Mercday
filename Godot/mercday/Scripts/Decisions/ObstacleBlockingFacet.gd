@@ -28,7 +28,8 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 			continue
 		if nearest_enemy == null:
 			return 1.0
-		var obs_pos: Vector2i = obs["pos"] as Vector2i
+		var _raw_obp = obs["pos"]
+		var obs_pos: Vector2i = Vector2i((_raw_obp as Vector3i).x, (_raw_obp as Vector3i).y) if typeof(_raw_obp) == TYPE_VECTOR3I else _raw_obp as Vector2i
 		var enemy_pos := state.get_position(nearest_enemy)
 		var to_enemy := Vector2i(signi(enemy_pos.x - pos.x), signi(enemy_pos.y - pos.y))
 		var to_obs := Vector2i(signi(obs_pos.x - pos.x), signi(obs_pos.y - pos.y))

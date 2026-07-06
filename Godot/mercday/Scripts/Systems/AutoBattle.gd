@@ -468,7 +468,8 @@ static func _execute_turn(merc: MercenaryData, state: BattleState) -> Array[Stri
 							EncounterLogger.log_verbose("FRAGILITY: %s destroyed" % _broke_name)
 						merc.equipped_weapon = DataManager.fight_weapon
 						merc.weapon_drawn = DataManager.fight_weapon != null
-					if EncounterLogger.is_active() and not atk.get("misfired", false):
+					if EncounterLogger.is_active() and not atk.get("misfired", false) \
+							and not (atk["check_result"] as Dictionary).is_empty():
 						var cr: Dictionary = atk["check_result"]
 						EncounterLogger.log_verbose("ATTACK ROLL: %s vs %.0f%% -> %d hit %d miss  dmg=%d %s" % [
 							str(cr["roll2"]), cr["threshold"],
@@ -836,5 +837,3 @@ static func _get_on_crit_damage_bonus(merc: MercenaryData, lines: Array[String])
 			lines.append("  %s spends %d extra bullets (Burst), adding %d damage." % [
 				merc.merc_name.get_slice(" ", 0), spent, multiples])
 	return bonus
-
-

@@ -30,6 +30,7 @@ makeshift_test = NodePath("ButtonBar/MakeshiftTest")
 thrown_test = NodePath("ButtonBar/ThrownTest")
 gen_outhouse_map = NodePath("ButtonBar/GenOuthouseMap")
 gen_terrain_batch = NodePath("ButtonBar/GenTerrainBatch")
+start_interior_battle = NodePath("ButtonBar/StartInteriorBattle")
 
 [node name="ButtonBar" type="GridContainer" parent="." unique_id=1513937818]
 layout_mode = 1
@@ -152,3 +153,9 @@ self_modulate = Color(0.3, 0.9, 0.5, 1)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "GEN TERRAIN BATCH"
+
+[node name="StartInteriorBattle" type="Button" parent="ButtonBar" unique_id=606060606]
+self_modulate = Color(0.6, 0.4, 1, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "START INTERIOR BATTLE"

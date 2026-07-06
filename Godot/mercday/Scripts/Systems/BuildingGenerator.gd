@@ -38,13 +38,14 @@ static func _filtered_pool(config: BuildingConfig) -> Array:
 
 
 static func place_building(area: BattlefieldArea, template: ObstacleData) -> bool:
-	var floor_w: int = maxi(2, int(round(sqrt(float(template.size)))))
-	var floor_h: int = maxi(2, int(ceil(float(template.size) / float(floor_w))))
-	if template.shape != "SQUARE":
-		if randi() % 2 == 0:
-			floor_w += 1
-		else:
-			floor_h += 1
+	var _fw: int = maxi(2, ceili(template.size_x))
+	var _fh: int = maxi(2, ceili(template.size_y))
+	if _fw != _fh and randi() % 2 == 0:
+		var _tmp: int = _fw
+		_fw = _fh
+		_fh = _tmp
+	var floor_w: int = _fw
+	var floor_h: int = _fh
 	var outer_w: int = floor_w + 2
 	var outer_h: int = floor_h + 2
 
@@ -100,7 +101,7 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 				area.terrain_heights[tl + Vector2i(bx, by)] = flat_h
 
 		var wall_data: ObstacleData = DataManager.get_obstacle_by_name("Wall")
-		var wall_size: int = maxi(3, template.height_min)
+		var wall_size: int = maxi(1, ceili(template.size_z))
 
 		var window_data: ObstacleData = DataManager.get_obstacle_by_name("Window")
 		var window_positions: Dictionary = {}
@@ -164,7 +165,6 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 			"door_positions": door_positions,
 			"name": template.obstacle_name,
 			"guaranteed_structures": template.guaranteed_structures,
-			"excluded_structures": template.excluded_structures,
 		})
 		return true
 
@@ -337,11 +337,11 @@ static func _get_door_template() -> ObstacleData:
 	if _door_template == null:
 		_door_template = ObstacleData.new()
 		_door_template.obstacle_name = "Door"
-		_door_template.size = 2
+		_door_template.size_x = 1.0
+		_door_template.size_y = 0.25
+		_door_template.size_z = 2.0
 		_door_template.obstacle_type = "Structure"
 		_door_template.health = 4
 		_door_template.susceptible_to = "Strike"
 		_door_template.passthrough = false
-		_door_template.height_min = 2
-		_door_template.height_max = 3
 	return _door_template

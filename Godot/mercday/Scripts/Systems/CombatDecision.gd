@@ -186,7 +186,9 @@ static func decide_next_action(
 				var _adj_data: ObstacleData = _adj_o.get("data") as ObstacleData
 				if _adj_data != null and not _adj_data.covers:
 					continue
-				var _adj_delta: Vector2i = (_adj_o["pos"] as Vector2i) - merc_pos
+				var _raw_adj = _adj_o["pos"]
+				var _adj_pos2: Vector2i = Vector2i((_raw_adj as Vector3i).x, (_raw_adj as Vector3i).y) if typeof(_raw_adj) == TYPE_VECTOR3I else _raw_adj as Vector2i
+				var _adj_delta: Vector2i = _adj_pos2 - merc_pos
 				var _to_cover := Vector2(float(_adj_delta.x), float(_adj_delta.y))
 				for _re: MercenaryData in enemies:
 					if _re.equipped_weapon == null or not _re.equipped_weapon.is_ranged:
