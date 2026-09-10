@@ -22,19 +22,16 @@ static func _filtered_pool(config: BuildingConfig) -> Array:
 	var pool: Array = DataManager.building_pool.duplicate()
 	if config == null:
 		return pool
-	if not config.allowed_types.is_empty():
-		var filtered: Array = []
-		for o: ObstacleData in pool:
-			if config.allowed_types.has(o.obstacle_name):
-				filtered.append(o)
-		pool = filtered
-	if not config.excluded_types.is_empty():
-		var filtered: Array = []
-		for o: ObstacleData in pool:
-			if not config.excluded_types.has(o.obstacle_name):
-				filtered.append(o)
-		pool = filtered
-	return pool
+	if config.allowed_types.is_empty() and config.excluded_types.is_empty():
+		return pool
+	var filtered: Array = []
+	for o: ObstacleData in pool:
+		if not config.allowed_types.is_empty() and not config.allowed_types.has(o.obstacle_name):
+			continue
+		if config.excluded_types.has(o.obstacle_name):
+			continue
+		filtered.append(o)
+	return filtered
 
 
 static func place_building(area: BattlefieldArea, template: ObstacleData) -> bool:
@@ -80,7 +77,7 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 			if ext.x < 0 or ext.x >= area.width or ext.y < 0 or ext.y >= area.length:
 				doors_valid = false
 				break
-			if area._is_obstacle_at(ext) or area.building_interiors.has(ext):
+			if area.is_obstacle(ext) or area.building_interiors.has(ext):
 				doors_valid = false
 				break
 		if not doors_valid:
@@ -102,6 +99,7 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 
 		var wall_data: ObstacleData = DataManager.get_obstacle_by_name("Wall")
 		var wall_size: int = maxi(1, ceili(template.size_z))
+		var wall_height: float = maxf(3.0, template.size_z)
 
 		var window_data: ObstacleData = DataManager.get_obstacle_by_name("Window")
 		var window_positions: Dictionary = {}
@@ -132,24 +130,17 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 				var is_perim: bool = (bx == 0 or bx == outer_w - 1 or by == 0 or by == outer_h - 1)
 				if is_perim:
 					if door_positions.has(cell):
-						var _door_obs := {"pos": cell, "size": 2,
-							"data": _get_door_template(), "cell_type": "door", "door_open": false}
-						area.obstacles.append(_door_obs)
-						area._obs_map[cell] = _door_obs
+						_add_perimeter_obstacle(area, cell, 2, _get_door_template(), "door",
+							wall_height, {OpenCloseState.KEY: false})
 					elif window_positions.has(cell):
-						var _win_obs := {"pos": cell, "size": 2,
-							"data": window_data, "cell_type": "window"}
-						area.obstacles.append(_win_obs)
-						area._obs_map[cell] = _win_obs
+						_add_perimeter_obstacle(area, cell, 2, window_data, "window", wall_height, {})
 					else:
-						var _wall_obs := {"pos": cell, "size": wall_size,
-							"data": wall_data, "cell_type": "wall"}
-						area.obstacles.append(_wall_obs)
-						area._obs_map[cell] = _wall_obs
+						_add_perimeter_obstacle(area, cell, wall_size, wall_data, "wall",
+							wall_height, {})
 				else:
 					area.building_interiors[cell] = true
 
-		if not area._is_spawn_connected():
+		if not ConnectivityVerifier.spawns_connected(area):
 			area.obstacles = snap_obstacles
 			area._obs_map = snap_obs_map
 			area.building_interiors = snap_interiors
@@ -171,6 +162,17 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 	return false
 
 
+#One perimeter obstacle appended to the area and mirrored into its obstacle map.
+static func _add_perimeter_obstacle(area: BattlefieldArea, cell: Vector2i, size: int,
+		data: ObstacleData, cell_type: String, height: float, extra: Dictionary) -> void:
+	var obs: Dictionary = {"pos": cell, "size": size, "data": data, "cell_type": cell_type,
+		"height": height, "floor": 0}
+	for k: Variant in extra:
+		obs[k] = extra[k]
+	area.obstacles.append(obs)
+	area._obs_map[cell] = obs
+
+
 static func _place_guaranteed_structures(area: BattlefieldArea, b: Dictionary) -> void:
 	var guaranteed: Array = b.get("guaranteed_structures", [])
 	if guaranteed.is_empty():
@@ -186,7 +188,7 @@ static func _place_guaranteed_structures(area: BattlefieldArea, b: Dictionary) -
 	for ix: int in range(rect.position.x + 1, rect.end.x - 1):
 		for iy: int in range(rect.position.y + 1, rect.end.y - 1):
 			var p := Vector2i(ix, iy)
-			if area._is_obstacle_at(p):
+			if area.is_obstacle(p):
 				continue
 			if entry_cells.has(p):
 				fallback.append(p)
@@ -205,7 +207,7 @@ static func _place_guaranteed_structures(area: BattlefieldArea, b: Dictionary) -
 		var pos: Vector2i = candidates[idx]
 		idx += 1
 		var obs := {"pos": pos, "size": struct_data.size,
-			"data": struct_data, "cell_type": "furniture"}
+			"data": struct_data, "cell_type": "furniture", "floor": 0}
 		area.obstacles.append(obs)
 		area._obs_map[pos] = obs
 
@@ -227,7 +229,7 @@ static func place_furniture_in_buildings(area: BattlefieldArea) -> void:
 		for ix: int in range(rect.position.x + 1, rect.end.x - 1):
 			for iy: int in range(rect.position.y + 1, rect.end.y - 1):
 				var p := Vector2i(ix, iy)
-				if not area._is_obstacle_at(p):
+				if not area.is_obstacle(p):
 					free_cells.append(p)
 		if free_cells.is_empty():
 			continue
@@ -236,7 +238,7 @@ static func place_furniture_in_buildings(area: BattlefieldArea) -> void:
 		for i: int in range(mini(count, free_cells.size())):
 			var furn: ObstacleData = indoor_pool[randi() % indoor_pool.size()] as ObstacleData
 			var _furn_obs := {"pos": free_cells[i], "size": furn.size,
-				"data": furn, "cell_type": "furniture"}
+				"data": furn, "cell_type": "furniture", "floor": 0}
 			area.obstacles.append(_furn_obs)
 			area._obs_map[free_cells[i]] = _furn_obs
 
@@ -251,7 +253,7 @@ static func _footprint_clear(area: BattlefieldArea, tl: Vector2i, w: int, h: int
 				return false
 			if area.reserved_corridor_cells.has(cell):
 				return false
-			if area._is_obstacle_at(cell) or area.building_interiors.has(cell):
+			if area.is_obstacle(cell) or area.building_interiors.has(cell):
 				return false
 	return true
 
@@ -344,4 +346,7 @@ static func _get_door_template() -> ObstacleData:
 		_door_template.health = 4
 		_door_template.susceptible_to = "Strike"
 		_door_template.passthrough = false
+		#TODO: replace this code template with a Door row in Obstacles.tsv.
+		_door_template.interactable = true
+		_door_template.interaction_result = "Open/Close"
 	return _door_template

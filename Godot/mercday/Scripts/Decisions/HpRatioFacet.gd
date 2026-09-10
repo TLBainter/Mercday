@@ -12,10 +12,3 @@ func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
 	else:
 		# 1.0 at full HP, 0.0 when at 0 HP
 		return ratio
-
-static func create(p_below_is_high: bool, p_weight: float = 1.0, p_required: bool = false) -> HpRatioFacet:
-	var facet := HpRatioFacet.new()
-	facet.below_is_high = p_below_is_high
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

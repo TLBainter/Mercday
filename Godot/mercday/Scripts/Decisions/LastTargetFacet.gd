@@ -7,10 +7,3 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	if state == null or mover == null:
 		return 0.0
 	return 1.0 if state.last_attacked.get(merc) == mover else 0.0
-
-
-static func create(p_weight: float = 1.0, p_required: bool = false) -> LastTargetFacet:
-	var facet := LastTargetFacet.new()
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

@@ -5,12 +5,5 @@
 [resource]
 script = ExtResource("1_AIWeightsConfig")
 danger_hp_ratio = 0.25
-half_hp_ratio = 0.5
 safe_distance = 10
-target_range_bonus = 0.5
-target_melee_range_bonus = 1.0
-target_flanking_bonus = 0.25
 defense_damage_threshold = 0.33
-size_dominance_threshold = 4
-balanced_weapon_damage = 7.0
-reload_safe_ratio = 0.5

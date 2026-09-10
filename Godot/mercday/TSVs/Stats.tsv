@@ -37,7 +37,7 @@ Damage Thrown	thrown_accuracy / 10.0	floor	derived	The base damage this creature
 Healthiness	(vigor * 15.0) + luck + avoid	none	derived	How healthy a creature is.
 Tolerance	(healthiness / 2.0) + vigor	none	derived	A creature's willingness to tolerate pain.
 Rest Recovery	healthiness / 100.0	none	derived	Affects the resource recovery a creature experiences while resting.
-Base Success Chance	0	none	derived	A flat value added to all of this merc's stats for a given contract.
+Base Success Chance	level	none	derived	A flat value added to all of this merc's stats for a given contract.
 Assassinate	(dexterity * 2.0) + (grace + speech + performance_wile + attack_dexterity) * 1.25	none	derived	A creature's ability to discretely kill important targets.
 Espionage	social + (wile_circumstance_count * 5.0)	none	derived	A creature's skills in the field of stealth
 Explosives	cognition + dexterity + luck	none	derived	A creature's ability to utilize explosive devices like grenades.

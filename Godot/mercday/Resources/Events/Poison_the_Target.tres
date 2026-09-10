@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" uid="uid://dwcg7h68jvfcy" path="res://Scripts/Resources/EventData.gd" id="1_EventData"]
+
+[resource]
+script = ExtResource("1_EventData")
+event_name = "Poison the Target"
+event_type = "Primary"
+check_stats = Array[String](["Dexterity", "Wile"])
+circumstances = Array[String](["Finesse (Dexterity)", "Performance (Wile)"])
+knowledges = Array[String](["Toxicology", "Tactics", "Botany"])
+tools = Array[String](["Assassin's", "Poisoner's", "Herbologist's"])
+success_formula = "((team.assassinate + team.espionage) / 2.0) - target.luck"
+possible_contracts = Array[String](["Assassinate"])
+possible_locations = Array[String](["Aerdis", "Aldurstein", "Miliim", "Zukei", "Kathaya", "Copari", "Suorr", "Rossade", "Buern", "Vaernebo"])
+enemy = ""
+enemy_counter = ""
+map_rule = ""

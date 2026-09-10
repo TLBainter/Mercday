@@ -25,6 +25,15 @@ const SPELLCAST_DEXTERITY   := "Spellcast (Dexterity)"
 const SPELLCAST_VIGOR       := "Spellcast (Vigor)"
 const SPELLCAST_WILE        := "Spellcast (Wile)"
 
+#Resist circumstance for one stat key; an unknown key keeps the capitalised form.
+static func resist_name(stat: String) -> String:
+	match stat:
+		"cognition": return RESIST_COGNITION
+		"dexterity": return RESIST_DEXTERITY
+		"vigor": return RESIST_VIGOR
+		"wile": return RESIST_WILE
+	return "Resist (%s)" % stat.capitalize()
+
 static var DATA: Dictionary = {}
 static var ALL: Array[String] = []
 
@@ -36,9 +45,15 @@ static func load_from_tsv(path: String) -> void:
 	if not file:
 		push_error("ConstCircumstances: cannot open %s" % path)
 		return
+	var source: String = path.get_file()
+	AsciiNormalizer.reset_count()
+	var row_index: int = -1
 	var first := true
 	while not file.eof_reached():
 		var row: PackedStringArray = file.get_csv_line("\t")
+		row_index += 1
+		for c: int in range(row.size()):
+			row[c] = AsciiNormalizer.normalize(row[c], source, row_index)
 		if first:
 			first = false
 			continue
@@ -58,6 +73,7 @@ static func load_from_tsv(path: String) -> void:
 		}
 		ALL.append(display_name)
 	file.close()
+	AsciiNormalizer.report_file(source)
 
 
 static func make_flags() -> Dictionary:

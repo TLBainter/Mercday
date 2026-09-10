@@ -7,10 +7,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	if state == null:
 		return 0.0
 
-	var ranged_enemies: Array = []
-	for e in ctx.get("enemies", []):
-		if e.equipped_weapon != null and e.equipped_weapon.is_ranged:
-			ranged_enemies.append(e)
+	var ranged_enemies := DecisionFacet.ranged_enemies_in(ctx)
 	if ranged_enemies.is_empty():
 		return 0.0
 
@@ -29,10 +26,3 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 
 	var raw := clampf(threat, 0.0, 1.0)
 	return 1.0 - raw if invert else raw
-
-
-static func create(p_weight: float = 0.6, p_required: bool = false) -> RangedThreatFacet:
-	var facet := RangedThreatFacet.new()
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

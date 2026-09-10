@@ -22,6 +22,7 @@ var symbiosis: String
 var symbiosis_requirement: String
 var fuel_type: String
 var fuel_max: int
+var inflict_states: Array[String] = []
 
 var is_ranged: bool
 var is_throwable: bool
@@ -38,3 +39,27 @@ var is_virtual: bool = false   # always-available pseudo-weapon; never stored in
 var fragility: int = 0           # 0 = indestructible; >0 = makeshift weapon, rolls fragility dice on each use
 var current_fragility: int = 0   # runtime counter; decrements on survival roll; 0 = broken (when fragility > 0)
 var base_weapon: WeaponData = null
+
+
+#Fresh instance of a makeshift template: the fields a dropped copy needs, with its own fragility counter.
+static func duplicate_template(base: WeaponData) -> WeaponData:
+	var copy := WeaponData.new()
+	copy.item_name = base.item_name
+	copy.item_type = base.item_type
+	copy.item_rarity = base.item_rarity
+	copy.weapon_type = base.weapon_type
+	copy.damage_formula_1 = base.damage_formula_1
+	copy.damage_types_1 = base.damage_types_1.duplicate()
+	copy.is_ranged = base.is_ranged
+	copy.is_throwable = base.is_throwable
+	copy.has_heavy = base.has_heavy
+	copy.has_light = base.has_light
+	copy.has_extend = base.has_extend
+	copy.melee_range = base.melee_range
+	copy.range_thrown = base.range_thrown
+	copy.thrown_intended_range = base.thrown_intended_range
+	copy.thrown_extended_range = base.thrown_extended_range
+	copy.fragility = base.fragility
+	copy.current_fragility = base.fragility
+	return copy
+

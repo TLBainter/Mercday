@@ -17,11 +17,3 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		return 1.0 if min_dist <= max_dist else 0.0
 	else:
 		return 1.0 if min_dist > max_dist else 0.0
-
-static func create(p_max_dist: float, p_close_is_high: bool, p_weight: float = 1.0, p_required: bool = false) -> EnemyDistanceFacet:
-	var facet := EnemyDistanceFacet.new()
-	facet.max_dist = p_max_dist
-	facet.close_is_high = p_close_is_high
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

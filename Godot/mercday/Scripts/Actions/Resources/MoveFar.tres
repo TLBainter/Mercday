@@ -9,7 +9,7 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/EnemyApproachingFacet.gd" id="EnemyApproachingFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/CombatReadinessFacet.gd" id="CombatReadinessFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/OpenExitsFacet.gd" id="OpenExitsFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/AimActiveFacet.gd" id="AimActiveFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/RangedRetreatViabilityFacet.gd" id="RangedRetreatViabilityFacet"]
 
 [sub_resource type="Resource" id="facet_approaching"]
@@ -45,7 +45,8 @@ script = ExtResource("OpenExitsFacet")
 weight = 0.5
 
 [sub_resource type="Resource" id="facet_not_aimed"]
-script = ExtResource("NotAimedFacet")
+script = ExtResource("AimActiveFacet")
+aimed_is_high = false
 weight = 0.75
 
 [sub_resource type="Resource" id="facet_weapon"]

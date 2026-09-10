@@ -1,0 +1,23 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/InteractTargetFacet.gd" id="InteractTargetFacet"]
+
+[sub_resource type="Resource" id="facet_interact"]
+script = ExtResource("InteractTargetFacet")
+is_required = true
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_interact")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "Interact"
+ap_cost = 2
+priority = 38
+execution_type = "special"
+target_mode = "none"
+decision = SubResource("decision")

@@ -6,7 +6,7 @@ var bloodlines: Dictionary = {}
 var heritages: Dictionary = {}
 var starting_lifepaths: Dictionary = {}
 var lifepaths_by_category: Dictionary = {}
-var items: Dictionary = {}  # TODO: populated by _load_items() once Items.tsv exists
+var items: Dictionary = {}  #raw Items.tsv rows keyed by item name, filled by _load_items()
 var traditions: Dictionary = {}
 var traits: Dictionary = {}
 var knowledges: Dictionary = {}
@@ -33,31 +33,18 @@ var tool_categories: Dictionary = {}
 var stat_definitions: Array[Dictionary] = []
 var creature_types: Array[String] = []
 var environment_types: Array[String] = []
+var type_columns: Dictionary = {}          # Types.tsv header -> Array[String] of that column's values
 var critical_success_options: Array = []
 var weapon_trait_library: Dictionary = {}   # weapon_name -> Array[TraitData]
 var armor_trait_library: Dictionary = {}    # armor_category -> Array[TraitData]
+var perk_group_library: Dictionary = {}     #group_key -> Array[TraitData], Perk rows only
 var fight_weapon: WeaponData
 var makeshift_weapons: Dictionary = {}      # name -> WeaponData template (duplicate before use at runtime)
 var npc_templates: Dictionary = {}
+var contract_rows: Array[Dictionary] = []
+var event_rows: Array[Dictionary] = []
 
 const _NPCTemplateClass = preload("res://Scripts/Resources/NPCTemplate.gd")
-
-const EFFECT_PREFIXES: PackedStringArray = ["immune to ", "protected from ", "susceptible to "]
-const EFFECT_DSLS: PackedStringArray = ["immune:", "protected:", "susceptible:"]
-
-const STAT_VAR_MAP: Dictionary = {
-	"Maximum Hit Points": "max_hp", "Maximum HP": "max_hp",
-	"Maximum Endurance Points": "max_ep", "Maximum EP": "max_ep",
-	"Maximum Magic Points": "max_mp", "Maximum MP": "max_mp",
-	"Maximum Cognition": "max_cognition", "Maximum Dexterity": "max_dexterity",
-	"Maximum Vigor": "max_vigor", "Maximum Wile": "max_wile",
-	"Defense": "defense", "Speed": "speed", "Pace": "pace",
-	"Accuracy": "accuracy", "Combat": "combat", "Luck": "luck",
-	"Avoid": "avoid", "Block": "block", "Dodge": "dodge",
-	"Health": "health", "Social": "social", "Intellect": "intellect",
-	"Vigor": "vigor",
-}
-
 
 func _ready() -> void:
 	ConstCircumstances.load_from_tsv("res://TSVs/Circumstances.tsv")
@@ -75,12 +62,16 @@ func _ready() -> void:
 	_load_ammo()
 	_load_armor()
 	_load_types()
+	_seed_derived_perk_groups()
+	DataValidator.validate_effect_tokens(traits)
 	_load_critical_successes()
 	_load_obstacles()
 	_load_areas()
 	_load_makeshift_weapons()
 	_resolve_location_parents()
 	_load_npc_templates()
+	_load_contracts()
+	_load_events()
 
 
 func _csv_rows(path: String) -> Array[PackedStringArray]:
@@ -89,10 +80,60 @@ func _csv_rows(path: String) -> Array[PackedStringArray]:
 	if not file:
 		push_error("DataManager: cannot open %s" % path)
 		return rows
+	var source: String = path.get_file()
+	AsciiNormalizer.reset_count()
+	var row_index: int = 0
 	while not file.eof_reached():
-		rows.append(file.get_csv_line("\t"))
+		var row: PackedStringArray = file.get_csv_line("\t")
+		for c: int in range(row.size()):
+			row[c] = AsciiNormalizer.normalize(row[c], source, row_index)
+		rows.append(row)
+		row_index += 1
 	file.close()
+	AsciiNormalizer.report_file(source)
 	return rows
+
+
+#Reads a TSV into one dictionary per data row, keyed by the header cell text.
+func _load_header_rows(path: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var rows: Array[PackedStringArray] = _csv_rows(path)
+	if rows.size() < 2:
+		return out
+	var header: Array[String] = []
+	for c: int in range(rows[0].size()):
+		header.append(_row_get(rows[0], c))
+	for i: int in range(1, rows.size()):
+		var row: PackedStringArray = rows[i]
+		if _row_get(row, 0) == "":
+			continue
+		var d: Dictionary = {}
+		for c: int in range(header.size()):
+			if header[c] == "":
+				continue
+			if d.has(header[c]):
+				push_warning("DataManager: %s duplicate column %s" % [path.get_file(), header[c]])
+				continue
+			d[header[c]] = _row_get(row, c)
+		d["_row"] = i + 1
+		out.append(d)
+	return out
+
+
+func _load_contracts() -> void:
+	contract_rows = _load_header_rows("res://TSVs/Contracts.tsv")
+
+
+func _load_events() -> void:
+	event_rows = _load_header_rows("res://TSVs/Events.tsv")
+
+
+#Exact name lookup over areas_pool; empty dictionary when the area is absent.
+func get_area_by_name(area_name: String) -> Dictionary:
+	for area: Dictionary in areas_pool:
+		if String(area.get("name", "")) == area_name:
+			return area
+	return {}
 
 
 func _split_field(value: String) -> Array[String]:
@@ -108,6 +149,41 @@ func _split_field(value: String) -> Array[String]:
 
 func _row_get(row: PackedStringArray, idx: int) -> String:
 	return row[idx].strip_edges() if idx < row.size() else ""
+
+
+#Typed cell reads: a blank or unparsable cell falls back to the default.
+func _cell_int(row: PackedStringArray, idx: int, default_value: int) -> int:
+	var raw: String = _row_get(row, idx)
+	return int(raw) if raw.is_valid_int() else default_value
+
+
+func _cell_float(row: PackedStringArray, idx: int, default_value: float) -> float:
+	var raw: String = _row_get(row, idx)
+	return float(raw) if raw.is_valid_float() else default_value
+
+
+func _cell_bool(row: PackedStringArray, idx: int) -> bool:
+	return _row_get(row, idx).to_upper() == "TRUE"
+
+
+#Data rows of a sheet: the header is dropped and rows with a blank key cell are skipped.
+func _data_rows(path: String, key_col: int) -> Array[PackedStringArray]:
+	var out: Array[PackedStringArray] = []
+	var rows: Array[PackedStringArray] = _csv_rows(path)
+	for i: int in range(1, rows.size()):
+		if _row_get(rows[i], key_col) == "":
+			continue
+		out.append(rows[i])
+	return out
+
+
+func _split_pipe(value: String) -> Array[String]:
+	var result: Array[String] = []
+	for part: String in value.split("|"):
+		var t: String = part.strip_edges()
+		if t != "":
+			result.append(t)
+	return result
 
 
 func _load_knowledges_and_tools() -> void:
@@ -149,14 +225,8 @@ func _load_knowledges_and_tools() -> void:
 
 
 func _load_stats() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Stats.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Stats.tsv", 0):
 		var stat_name: String = _row_get(row, 0)
-		if stat_name == "":
-			continue
 		stat_definitions.append({
 			"stat": stat_name,
 			"var_name": stat_name.to_lower().replace(" ", "_"),
@@ -164,23 +234,20 @@ func _load_stats() -> void:
 			"round": _row_get(row, 2),
 			"type": _row_get(row, 3),
 		})
+	StatCalculator.invalidate_cache()
 
 
 func _load_locations() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Locations.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Locations.tsv", 1):
 		var loc_name: String = _row_get(row, 1)
-		if loc_name == "":
-			continue
 		var loc := LocationData.new()
 		loc.location_name = loc_name
 		loc.prefix = _row_get(row, 0)
 		loc.location_type = _row_get(row, 23)
+		loc.environment = _row_get(row, 24)
 		loc.demonym = _row_get(row, 20)
 		loc.avg_temperature = _parse_temperature(_row_get(row, 11))
+		loc.set_meta("temperature_raw", _row_get(row, 11))
 		_add_to_buff_dict(loc.knowledge_buffs, _row_get(row, 2), 5.0)
 		_add_to_buff_dict(loc.knowledge_buffs, _row_get(row, 3), 3.0)
 		_add_to_buff_dict(loc.knowledge_buffs, _row_get(row, 4), 1.0)
@@ -244,14 +311,10 @@ func _load_ancestries() -> void:
 			a.rarity = "Common"
 		a.perks = _split_field(_row_get(row, 3))
 		a.drawbacks = _split_field(_row_get(row, 4))
-		var life_str: String = _row_get(row, 5)
-		a.life_expectancy = int(life_str) if life_str.is_valid_int() else -1
-		var dex_str: String = _row_get(row, 6)
-		a.max_dexterity = int(dex_str) if dex_str.is_valid_int() else 0
-		var vgr_str: String = _row_get(row, 7)
-		a.max_vigor = int(vgr_str) if vgr_str.is_valid_int() else 0
-		var size_str: String = _row_get(row, 8)
-		a.size = 2 if size_str == "N/A" else (int(size_str) if size_str.is_valid_int() else 0)
+		a.life_expectancy = _cell_int(row, 5, -1)
+		a.max_dexterity = _cell_int(row, 6, 0)
+		a.max_vigor = _cell_int(row, 7, 0)
+		a.size = 2 if _row_get(row, 8) == "N/A" else _cell_int(row, 8, 0)
 		a.types = _split_field(_row_get(row, 9))
 		a.hybrid_options = _row_get(row, 10)
 		a.knowledge_odds_x20 = _split_field(_row_get(row, 11))
@@ -265,20 +328,12 @@ func _load_ancestries() -> void:
 
 
 func _load_heritages() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Heritages.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Heritages.tsv", 0):
 		var name_val: String = _row_get(row, 0)
-		if name_val == "":
-			continue
 		var h := HeritageData.new()
 		h.heritage_name = name_val
-		var cgn: String = _row_get(row, 1)
-		h.max_cognition = int(cgn) if cgn.is_valid_int() else 0
-		var wil: String = _row_get(row, 2)
-		h.max_wile = int(wil) if wil.is_valid_int() else 0
+		h.max_cognition = _cell_int(row, 1, 0)
+		h.max_wile = _cell_int(row, 2, 0)
 		h.circumstances = _split_field(_row_get(row, 3))
 		h.knowledges = _split_field(_row_get(row, 4))
 		h.tools = _split_field(_row_get(row, 5))
@@ -290,13 +345,16 @@ func _load_lifepaths() -> void:
 	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Lifepaths.tsv")
 	if rows.size() < 2:
 		return
+	var current: LifepathData = null
 	for i: int in range(1, rows.size()):
 		var row: PackedStringArray = rows[i]
 		var event_type: String = _row_get(row, 0)
 		if event_type == "":
+			_add_lifepath_requirement(current, row)
 			continue
 		var name_val: String = _row_get(row, 1)
 		if name_val == "":
+			current = null
 			continue
 		var lp := LifepathData.new()
 		lp.event_type = event_type
@@ -308,6 +366,8 @@ func _load_lifepaths() -> void:
 		if lp.rarity == "":
 			lp.rarity = "Common"
 		lp.stat_bonus_5pct = _split_field(_row_get(row, 10))
+		current = lp
+		_add_lifepath_requirement(lp, row)
 		if event_type == "Starting":
 			starting_lifepaths[name_val] = lp
 		else:
@@ -317,15 +377,27 @@ func _load_lifepaths() -> void:
 			cat_arr.append(lp)
 
 
-func _load_traditions() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Traditions.tsv")
-	if rows.size() < 2:
+#Cells 3-5 hold subject, operator and value; a trailing " AND" or " OR" joins the value to the next entry.
+func _add_lifepath_requirement(lp: LifepathData, row: PackedStringArray) -> void:
+	if lp == null:
 		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	var subject: String = _row_get(row, 3)
+	if subject == "":
+		return
+	var value: String = _row_get(row, 5)
+	var conj: String = ""
+	if value.ends_with(" AND"):
+		conj = "AND"
+		value = value.substr(0, value.length() - 4).strip_edges()
+	elif value.ends_with(" OR"):
+		conj = "OR"
+		value = value.substr(0, value.length() - 3).strip_edges()
+	lp.requirements.append({"subject": subject, "op": _row_get(row, 4), "value": value, "conj": conj})
+
+
+func _load_traditions() -> void:
+	for row: PackedStringArray in _data_rows("res://TSVs/Traditions.tsv", 0):
 		var name_val: String = _row_get(row, 0)
-		if name_val == "":
-			continue
 		var t := TraditionData.new()
 		t.tradition_name = name_val
 		t.stat_boost_15 = _row_get(row, 2)
@@ -343,6 +415,9 @@ func _load_types() -> void:
 	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Types.tsv")
 	if rows.size() < 2:
 		return
+	var headers: Array[String] = []
+	for c: int in range(rows[0].size()):
+		headers.append(_row_get(rows[0], c).strip_edges())
 	for i: int in range(1, rows.size()):
 		var row: PackedStringArray = rows[i]
 		var creature: String = _row_get(row, 0)
@@ -351,18 +426,21 @@ func _load_types() -> void:
 			creature_types.append(creature)
 		if environment != "":
 			environment_types.append(environment)
+		for c: int in range(headers.size()):
+			if headers[c] == "":
+				continue
+			var value: String = _row_get(row, c).strip_edges()
+			if value == "":
+				continue
+			if not type_columns.has(headers[c]):
+				type_columns[headers[c]] = []
+			(type_columns[headers[c]] as Array).append(value)
 
 
 func _load_items() -> void:
-	# TODO: replace with ItemData resources once Godot imports ItemData.gd
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Items.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	#Items stay as raw row dictionaries; ItemData resources are not built here
+	for row: PackedStringArray in _data_rows("res://TSVs/Items.tsv", 0):
 		var name_val: String = _row_get(row, 0)
-		if name_val == "":
-			continue
 		items[name_val] = {
 			"item_name": name_val,
 			"item_rarity": _row_get(row, 1),
@@ -371,37 +449,25 @@ func _load_items() -> void:
 
 
 func _load_weapons() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Weapons.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Weapons.tsv", 1):
 		var weapon_name: String = _row_get(row, 1)
-		if weapon_name == "":
-			continue
 		var w := WeaponData.new()
 		w.item_name = weapon_name
 		w.item_rarity = _row_get(row, 2)
 		w.item_type = "Weapon"
 		w.weapon_type = _row_get(row, 0)
-		var weight_str: String = _row_get(row, 3)
-		w.weight = int(weight_str) if weight_str.is_valid_int() else 0
-		var cost_str: String = _row_get(row, 4)
-		w.cost = int(cost_str) if cost_str.is_valid_int() else 0
+		w.weight = _cell_int(row, 3, 0)
+		w.cost = _cell_int(row, 4, 0)
 		w.damage_formula_1 = _row_get(row, 5)
 		w.damage_types_1 = _split_field(_row_get(row, 6))
 		w.damage_formula_2 = _row_get(row, 7)
 		w.damage_types_2 = _split_field(_row_get(row, 8))
-		var draw_str: String = _row_get(row, 9)
-		w.draw = int(draw_str) if draw_str.is_valid_int() else 0
-		var load_str: String = _row_get(row, 10)
-		w.load_time = int(load_str) if load_str.is_valid_int() else 0
-		var chamber_str: String = _row_get(row, 11)
-		w.chamber = int(chamber_str) if chamber_str.is_valid_int() else 0
+		w.draw = _cell_int(row, 9, 0)
+		w.load_time = _cell_int(row, 10, 0)
+		w.chamber = _cell_int(row, 11, 0)
 		w.range_ranged = _row_get(row, 12)
 		w.range_thrown = _row_get(row, 13)
-		var misfire_str: String = _row_get(row, 14)
-		w.misfire = int(misfire_str) if misfire_str.is_valid_int() else 0
+		w.misfire = _cell_int(row, 14, 0)
 		w.misc_properties = _split_field(_row_get(row, 15))
 		# col 16: Versatile (skip for now)
 		# col 17: Effect (skip for now)
@@ -411,8 +477,8 @@ func _load_weapons() -> void:
 		w.symbiosis = _row_get(row, 21)
 		w.symbiosis_requirement = _row_get(row, 22)
 		w.fuel_type = _row_get(row, 23)
-		var fuel_str: String = _row_get(row, 24)
-		w.fuel_max = int(fuel_str) if fuel_str.is_valid_int() else 0
+		w.fuel_max = _cell_int(row, 24, 0)
+		w.inflict_states = _split_pipe(_row_get(row, 25))
 		w.is_ranged = w.range_ranged != ""
 		w.is_throwable = w.range_thrown != ""
 		w.has_heavy = w.misc_properties.has("Heavy")
@@ -468,14 +534,8 @@ func _create_fight_weapon() -> void:
 
 
 func _load_ammo() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Ammo.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Ammo.tsv", 0):
 		var ammo_name: String = _row_get(row, 0)
-		if ammo_name == "":
-			continue
 		var a := AmmoData.new()
 		a.item_name = ammo_name
 		a.item_rarity = _row_get(row, 9)
@@ -485,49 +545,35 @@ func _load_ammo() -> void:
 		a.damage_types_1 = _split_field(_row_get(row, 3))
 		a.damage_formula_2 = _row_get(row, 4)
 		a.damage_types_2 = _split_field(_row_get(row, 5))
-		var weight_str: String = _row_get(row, 6)
-		a.weight = int(weight_str) if weight_str.is_valid_int() else 0
-		var cost_str: String = _row_get(row, 7)
-		a.cost = int(cost_str) if cost_str.is_valid_int() else 0
+		a.weight = _cell_int(row, 6, 0)
+		a.cost = _cell_int(row, 7, 0)
 		a.compatible = _split_field(_row_get(row, 8))
-		var amount_str: String = _row_get(row, 10)
-		a.amount = int(amount_str) if amount_str.is_valid_int() else 1
+		a.amount = _cell_int(row, 10, 1)
 		a.ammo_class = _row_get(row, 11)
 		a.effect = _row_get(row, 12)
+		a.inflict_states = _split_pipe(_row_get(row, 13))
 		ammo[ammo_name] = a
 		if a.item_rarity == "Ordinary" or a.item_rarity == "Common":
 			ammo_ordinary_common.append(a)
 
 
 func _load_armor() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Armor.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Armor.tsv", 0):
 		var armor_name: String = _row_get(row, 0)
-		if armor_name == "":
-			continue
 		var a := ArmorData.new()
 		a.item_name = armor_name
 		a.item_type = "Armor"
 		a.armor_type = _row_get(row, 1)
-		var weight_str: String = _row_get(row, 2)
-		a.weight = int(weight_str) if weight_str.is_valid_int() else 0
-		var cost_str: String = _row_get(row, 3)
-		a.cost = int(cost_str) if cost_str.is_valid_int() else 0
+		a.weight = _cell_int(row, 2, 0)
+		a.cost = _cell_int(row, 3, 0)
 		a.item_rarity = _row_get(row, 4)
-		var bonus_str: String = _row_get(row, 5)
-		a.armor_bonus = int(bonus_str) if bonus_str.is_valid_int() else 0
-		var ep_str: String = _row_get(row, 6)
-		a.ep_cost = int(ep_str) if ep_str.is_valid_int() else 0
-		var fatigue_str: String = _row_get(row, 7)
-		a.fatigue = int(fatigue_str) if fatigue_str.is_valid_int() else 0
+		a.armor_bonus = _cell_int(row, 5, 0)
+		a.ep_cost = _cell_int(row, 6, 0)
+		a.fatigue = _cell_int(row, 7, 0)
 		a.protection = _split_field(_row_get(row, 8))
 		# col 9: Damage Formula (ignored for now)
 		# col 10: Damage Type (ignored for now)
-		var vigor_str: String = _row_get(row, 11)
-		a.vigor_requirement = int(vigor_str) if vigor_str.is_valid_int() else 0
+		a.vigor_requirement = _cell_int(row, 11, 0)
 		a.armor_class = _row_get(row, 12)
 		var effect_raw: String = _row_get(row, 13)
 		for s: String in effect_raw.split("|", false):
@@ -537,8 +583,7 @@ func _load_armor() -> void:
 		a.symbiosis = _row_get(row, 16)
 		a.symbiosis_requirement = _row_get(row, 17)
 		a.fuel_type = _row_get(row, 18)
-		var fuel_str: String = _row_get(row, 19)
-		a.fuel_amount = int(fuel_str) if fuel_str.is_valid_int() else 0
+		a.fuel_amount = _cell_int(row, 19, 0)
 		match a.armor_type:
 			"Medium":
 				a.halve_swim = true
@@ -554,27 +599,28 @@ func _load_armor() -> void:
 
 
 func _load_traits() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Traits.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Traits.tsv", 3):
 		var name_val: String = _row_get(row, 3)
-		if name_val == "":
-			continue
 		var trait_data := TraitData.new()
 		trait_data.trait_source = _row_get(row, 0)
 		trait_data.trait_category = _row_get(row, 1)
 		trait_data.trait_type = _row_get(row, 2)
 		trait_data.trait_name = name_val
 		trait_data.description = _row_get(row, 4)
-		trait_data.effect_dsl = _convert_legacy_effect(_row_get(row, 5))
+		trait_data.effect_dsl = EffectDslCompiler.convert_legacy_effect(_row_get(row, 5), "Traits.tsv " + name_val)
 		trait_data.rarity = _row_get(row, 6)
 		if trait_data.rarity == "":
 			trait_data.rarity = "Common"
 		trait_data.is_bad = _row_get(row, 7).to_lower() == "true"
 		trait_data.logline_a = _row_get(row, 8)
 		trait_data.logline_b = _row_get(row, 9)
+		if trait_data.trait_type == "Perk":
+			for group_raw: String in _row_get(row, 10).split(","):
+				var group: String = normalize_perk_group(group_raw)
+				if group != "" and not trait_data.perk_groups.has(group):
+					trait_data.perk_groups.append(group)
+			for group_key: String in trait_data.perk_groups:
+				_add_to_perk_group(group_key, trait_data)
 		traits[name_val] = trait_data
 		if trait_data.trait_source == "Weapon":
 			var weapon_name: String = name_val.split("|")[0]
@@ -588,145 +634,89 @@ func _load_traits() -> void:
 			(armor_trait_library[armor_cat] as Array).append(trait_data)
 
 
+#Sheet spelling and token spelling meet here: trimmed, lower case, spaces and hyphens as underscores.
+func normalize_perk_group(text: String) -> String:
+	return text.strip_edges().to_lower().replace(" ", "_").replace("-", "_")
 
 
-func _convert_legacy_effect(raw: String) -> String:
-	if raw == "" or raw == "No special effect.":
-		return ""
-	if _looks_like_dsl(raw):
-		return raw
-	var parts: Array[String] = []
-	for sentence: String in raw.split(". "):
-		var s: String = sentence.strip_edges().trim_suffix(".")
-		if s != "":
-			parts.append(s)
-	var dsl_parts: Array[String] = []
-	for part: String in parts:
-		dsl_parts.append(_convert_one_effect(part))
-	var result: String = "|".join(dsl_parts)
-	return result if _looks_like_dsl(result) else "SPECIAL:" + raw
+func _add_to_perk_group(group: String, trait_data: TraitData) -> void:
+	if group == "" or trait_data == null:
+		return
+	if not perk_group_library.has(group):
+		perk_group_library[group] = []
+	var members: Array = perk_group_library[group]
+	if not members.has(trait_data):
+		members.append(trait_data)
 
 
-func _convert_one_effect(s: String) -> String:
-	var lower: String = s.to_lower()
-	if lower == "flying pace":
-		return "grant:ability:flying_pace"
-	if lower == "swimming pace":
-		return "grant:ability:swimming_pace"
-	if lower == "climbing pace":
-		return "grant:ability:climbing_pace"
-	if lower == "darksight":
-		return "grant:ability:darksight"
-	for i: int in range(EFFECT_PREFIXES.size()):
-		var pfx: String = EFFECT_PREFIXES[i]
-		if lower.begins_with(pfx):
-			return EFFECT_DSLS[i] + s.substr(pfx.length()).strip_edges().to_lower().replace(" ", "_")
-	if s.contains("random"):
-		var count: int = _extract_count(s)
-		if s.contains("Esoteric"):
-			return "grant:random:esoteric:%d" % count
-		if s.contains("Resist") and s.contains("Circumstance"):
-			return "grant:random:circumstance:resist:%d" % count
-		if s.contains("Circumstance"):
-			return "grant:random:circumstance:%d" % count
-		if s.contains("Tool"):
-			return "grant:random:tool:%d" % count
-		if s.contains("Knowledge"):
-			return "grant:random:knowledge:%d" % count
-	return _try_stat_dsl(s)
-
-
-func _try_stat_dsl(s: String) -> String:
-	for display_name: String in STAT_VAR_MAP:
-		for op: String in ["+", "-"]:
-			var pattern: String = display_name + " " + op
-			if s.begins_with(pattern):
-				var num: String = s.substr(pattern.length()).strip_edges()
-				return "stat:%s:%s%s" % [str(STAT_VAR_MAP[display_name]), op, num]
-	return "SPECIAL:" + s
-
-
-func _extract_count(s: String) -> int:
-	if s.contains("three") or s.contains("3"):
-		return 3
-	if s.contains("two") or s.contains("2"):
-		return 2
-	return 1
-
-
-func _looks_like_dsl(s: String) -> bool:
-	if s == "":
-		return true
-	for part: String in s.split("|"):
-		var p: String = part.strip_edges()
-		if p == "":
+#Weapon Perk rows join melee or ranged from the weapon type they are keyed under unless the sheet tagged them.
+func _seed_derived_perk_groups() -> void:
+	var ranged_by_type: Dictionary = {}
+	for weapon_key: String in weapons.keys():
+		var weapon: WeaponData = weapons[weapon_key]
+		if weapon == null or weapon.weapon_type == "":
 			continue
-		if not (p.begins_with("stat:") or p.begins_with("grant:") or p.begins_with("remove:") or
-				p.begins_with("on:") or p.begins_with("block:") or p.begins_with("block_and_replace:") or
-				p.begins_with("immune:") or p.begins_with("protected:") or
-				p.begins_with("susceptible:") or p.begins_with("cost:") or p.begins_with("SPECIAL:") or
-				p.begins_with("armor_weight_ignore:") or p.begins_with("armor_ep_ignore:") or
-				p.begins_with("armor_fatigue_zero:") or p.begins_with("weapon_enhance:") or
-				p.begins_with("weapon_stat:") or p.begins_with("weapon_two_handed:") or
-				p.begins_with("weapon_passive:") or p.begins_with("on_hit:") or
-				p.begins_with("on_pain:") or p.begins_with("on_crit:") or
-				p.begins_with("spend:") or p.begins_with("action:") or
-				p.begins_with("reactive_action:") or p.begins_with("on_kill:") or
-				p.begins_with("on_grapple:")):
-			return false
-	return true
+		var type_key: String = weapon.weapon_type.get_slice(" (", 0).strip_edges()
+		ranged_by_type[type_key] = bool(ranged_by_type.get(type_key, false)) or weapon.is_ranged
+	for library_key: String in weapon_trait_library.keys():
+		if not ranged_by_type.has(library_key):
+			continue
+		var group: String = "ranged" if bool(ranged_by_type[library_key]) else "melee"
+		for entry: Variant in (weapon_trait_library[library_key] as Array):
+			var trait_data: TraitData = entry as TraitData
+			if trait_data == null or trait_data.trait_type != "Perk":
+				continue
+			if trait_data.perk_groups.has("melee") or trait_data.perk_groups.has("ranged"):
+				continue
+			trait_data.perk_groups.append(group)
+			_add_to_perk_group(group, trait_data)
+	var tagged: int = 0
+	for group_key: String in perk_group_library.keys():
+		if group_key != "melee" and group_key != "ranged":
+			tagged += 1
+	print("PERK GROUPS: melee %d, ranged %d, tagged groups %d" % [
+		(perk_group_library.get("melee", []) as Array).size(),
+		(perk_group_library.get("ranged", []) as Array).size(), tagged])
 
 
 func _load_obstacles() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Obstacles.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Obstacles.tsv", 0):
 		var name_val: String = _row_get(row, 0)
-		if name_val == "":
-			continue
 		var o := ObstacleData.new()
 		o.obstacle_name = name_val
 		o.obstacle_type = _row_get(row, 1)
-		var sx_str: String = _row_get(row, 2)
-		o.size_x = float(sx_str) if sx_str.is_valid_float() else 1.0
-		var sy_str: String = _row_get(row, 3)
-		o.size_y = float(sy_str) if sy_str.is_valid_float() else 1.0
-		var sz_str: String = _row_get(row, 4)
-		o.size_z = float(sz_str) if sz_str.is_valid_float() else 0.0
-		o.narrow = _row_get(row, 5).to_upper() == "TRUE"
-		var tdmin := _row_get(row, 6)
-		o.thd_min = float(tdmin) if tdmin.is_valid_float() else 0.0
-		var tdmax := _row_get(row, 7)
-		o.thd_max = float(tdmax) if tdmax.is_valid_float() else 0.0
+		o.size_x = _cell_float(row, 2, 1.0)
+		o.size_y = _cell_float(row, 3, 1.0)
+		o.size_z = _cell_float(row, 4, 0.0)
+		o.height = o.size_z
+		o.narrow = _cell_bool(row, 5)
+		o.thd_min = _cell_float(row, 6, 0.0)
+		o.thd_max = _cell_float(row, 7, 0.0)
 		var moveable_str: String = _row_get(row, 8)
 		o.moveable = moveable_str.to_upper() == "TRUE" or moveable_str == "1"
-		o.climbable = _row_get(row, 9).to_upper() == "TRUE"
+		o.climbable = _cell_bool(row, 9)
 		o.climb_difficulty = _row_get(row, 10)
-		var hp_str: String = _row_get(row, 11)
-		o.health = int(hp_str) if hp_str.is_valid_int() else 1
+		o.health = _cell_int(row, 11, 1)
 		o.susceptible_to = _row_get(row, 12)
-		o.rugged = _row_get(row, 13).to_upper() == "TRUE"
-		o.passthrough = _row_get(row, 14).to_upper() == "TRUE"
-		o.is_building = _row_get(row, 15).to_upper() == "TRUE"
-		o.building_only = _row_get(row, 16).to_upper() == "TRUE"
-		o.is_room = _row_get(row, 17).to_upper() == "TRUE"
+		o.rugged = _cell_bool(row, 13)
+		o.passthrough = _cell_bool(row, 14)
+		o.is_building = _cell_bool(row, 15)
+		o.building_only = _cell_bool(row, 16)
+		o.is_room = _cell_bool(row, 17)
 		o.room_type = _row_get(row, 18)
-		var enter_str: String = _row_get(row, 19)
-		o.pt_enter_harm = int(enter_str) if enter_str.is_valid_int() else 0
-		var exit_str: String = _row_get(row, 20)
-		o.pt_exit_harm = int(exit_str) if exit_str.is_valid_int() else 0
+		o.pt_enter_harm = _cell_int(row, 19, 0)
+		o.pt_exit_harm = _cell_int(row, 20, 0)
 		o.pt_harm_type = _row_get(row, 21)
-		var odds_str: String = _row_get(row, 22)
-		o.growth_pct = int(odds_str) if odds_str.is_valid_int() else 0
-		o.ramp = _row_get(row, 23).to_upper() == "TRUE"
+		o.growth_pct = _cell_int(row, 22, 0)
+		o.ramp = _cell_bool(row, 23)
 		o.covers = (_row_get(row, 24).to_lower() != "false") if row.size() > 24 else true
 		o.drops = _split_field(_row_get(row, 25))
 		o.guaranteed_structures = _split_field(_row_get(row, 26))
 		o.possible_structures = _split_field(_row_get(row, 27))
 		o.possible_scatter = _split_field(_row_get(row, 28))
 		o.preferred_position = _row_get(row, 29)
+		o.interactable = _cell_bool(row, 30)
+		o.interaction_result = _row_get(row, 31)
 		obstacles_pool.append(o)
 		obstacles_by_name[o.obstacle_name] = o
 		if not obstacles_by_type.has(o.obstacle_type):
@@ -745,14 +735,8 @@ func _load_obstacles() -> void:
 
 
 func _load_makeshift_weapons() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Makeshift Weapons.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Makeshift Weapons.tsv", 0):
 		var name_val: String = _row_get(row, 0)
-		if name_val == "":
-			continue
 		var base_type: String = _row_get(row, 1)
 		var base: WeaponData = weapons.get(base_type) as WeaponData
 		if base == null:
@@ -796,8 +780,7 @@ func _load_makeshift_weapons() -> void:
 			w.misc_properties.erase("Extend")
 			w.has_extend = false
 			w.melee_range = 1
-		var frag_str: String = _row_get(row, 5)
-		w.fragility = int(frag_str) if frag_str.is_valid_int() else 0
+		w.fragility = _cell_int(row, 5, 0)
 		w.current_fragility = w.fragility
 		makeshift_weapons[name_val] = w
 
@@ -816,35 +799,25 @@ func get_random_area(area_type: String = "Exterior") -> Dictionary:
 
 
 func _load_areas() -> void:
-	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/Areas.tsv")
-	if rows.size() < 2:
-		return
-	for i: int in range(1, rows.size()):
-		var row: PackedStringArray = rows[i]
+	for row: PackedStringArray in _data_rows("res://TSVs/Areas.tsv", 0):
 		var name_val: String = _row_get(row, 0)
-		if name_val == "":
-			continue
 		var area_type: String = _row_get(row, 1)
 		var weights: Array[int] = []
 		for c: int in range(2, 8):
 			var w_str: String = _row_get(row, c).strip_edges().trim_suffix("%")
 			weights.append(int(w_str) if w_str.is_valid_int() else 0)
-		var f_plus_str: String = _row_get(row, 8)
-		var f_minus_str: String = _row_get(row, 9)
 		var furniture_raw: String = _row_get(row, 12)
 		var rooms_raw: String = _row_get(row, 14)
-		var min_sz_str: String = _row_get(row, 19)
-		var max_sz_str: String = _row_get(row, 20)
 		areas_pool.append({
 			"name": name_val,
 			"type": area_type,
 			"weights": weights,
-			"f_plus": int(f_plus_str) if f_plus_str.is_valid_int() else 0,
-			"f_minus": int(f_minus_str) if f_minus_str.is_valid_int() else 0,
+			"f_plus": _cell_int(row, 8, 0),
+			"f_minus": _cell_int(row, 9, 0),
 			"furniture_list": _split_field(furniture_raw),
 			"rooms_list": _split_field(rooms_raw),
-			"min_size": int(min_sz_str) if min_sz_str.is_valid_int() else 18,
-			"max_size": int(max_sz_str) if max_sz_str.is_valid_int() else 45,
+			"min_size": _cell_int(row, 19, 18),
+			"max_size": _cell_int(row, 20, 45),
 		})
 
 
@@ -853,6 +826,17 @@ func get_obstacle_by_name(obs_name: String) -> ObstacleData:
 
 
 func get_rooms_for_floor(area_data: Dictionary, floor_num: int) -> Array[ObstacleData]:
+	return _rooms_for(area_data, floor_num, "Interior", true)
+
+
+func get_exterior_rooms_for_floor(area_data: Dictionary, floor_num: int) -> Array[ObstacleData]:
+	return _rooms_for(area_data, floor_num, "Exterior", false)
+
+
+#Rooms of this area whose room_type starts with prefix and whose floor suffix fits floor_num.
+#any_floors also accepts the "Any" and "F-" suffixes.
+func _rooms_for(area_data: Dictionary, floor_num: int, prefix: String,
+		any_floors: bool) -> Array[ObstacleData]:
 	var rooms_list: Array = area_data.get("rooms_list", [])
 	var result: Array[ObstacleData] = []
 	for room_name: String in rooms_list:
@@ -860,35 +844,18 @@ func get_rooms_for_floor(area_data: Dictionary, floor_num: int) -> Array[Obstacl
 		if d == null or not d.is_room:
 			continue
 		var rt: String = d.room_type
-		if not rt.begins_with("Interior"):
+		if not rt.begins_with(prefix):
 			continue
 		var matches: bool = false
-		if rt.ends_with("Any") and floor_num >= 0:
+		if any_floors and rt.ends_with("Any") and floor_num >= 0:
 			matches = true
 		elif rt.ends_with("F0") and floor_num == 0:
 			matches = true
 		elif rt.ends_with("F+") and floor_num > 0:
 			matches = true
-		elif rt.ends_with("F-") and floor_num < 0:
+		elif any_floors and rt.ends_with("F-") and floor_num < 0:
 			matches = true
 		if matches:
-			result.append(d)
-	return result
-
-
-func get_exterior_rooms_for_floor(area_data: Dictionary, floor_num: int) -> Array[ObstacleData]:
-	var rooms_list: Array = area_data.get("rooms_list", [])
-	var result: Array[ObstacleData] = []
-	for room_name: String in rooms_list:
-		var d: ObstacleData = get_obstacle_by_name(room_name)
-		if d == null or not d.is_room:
-			continue
-		var rt: String = d.room_type
-		if not rt.begins_with("Exterior"):
-			continue
-		if rt.ends_with("F0") and floor_num == 0:
-			result.append(d)
-		elif rt.ends_with("F+") and floor_num > 0:
 			result.append(d)
 	return result
 
@@ -915,15 +882,6 @@ func get_settlement_locations() -> Array:
 	return result
 
 
-func _parse_comma_list(raw: String) -> Array[String]:
-	var result: Array[String] = []
-	for part: String in raw.split(","):
-		var s: String = part.strip_edges()
-		if not s.is_empty():
-			result.append(s)
-	return result
-
-
 func _load_npc_templates() -> void:
 	var rows: Array[PackedStringArray] = _csv_rows("res://TSVs/NPCs.tsv")
 	if rows.size() < 2:
@@ -936,8 +894,8 @@ func _load_npc_templates() -> void:
 		t.npc_type = _row_get(row, 0)
 		var name_val: String = _row_get(row, 1)
 		t.name_mode = name_val if not name_val.is_empty() else "Random"
-		t.origin_pool = _parse_comma_list(_row_get(row, 2))
-		var anc_entries: Array[String] = _parse_comma_list(_row_get(row, 3))
+		t.origin_pool = _split_field(_row_get(row, 2))
+		var anc_entries: Array[String] = _split_field(_row_get(row, 3))
 		if anc_entries.has("Any"):
 			t.ancestry_any = true
 		else:
@@ -949,12 +907,12 @@ func _load_npc_templates() -> void:
 					t.ancestry_constraints[aname] = bname
 				else:
 					t.ancestry_constraints[entry] = ""
-		var her_entries: Array[String] = _parse_comma_list(_row_get(row, 4))
+		var her_entries: Array[String] = _split_field(_row_get(row, 4))
 		if her_entries.has("Any"):
 			t.heritage_any = true
 		else:
 			t.heritage_pool = her_entries
-		var trad_entries: Array[String] = _parse_comma_list(_row_get(row, 5))
+		var trad_entries: Array[String] = _split_field(_row_get(row, 5))
 		if trad_entries.has("Any"):
 			t.tradition_any = true
 		elif trad_entries.has("None"):
@@ -963,43 +921,38 @@ func _load_npc_templates() -> void:
 			t.tradition_pool = trad_entries
 		t.level_formula = _row_get(row, 6)
 		t.sle_name = _row_get(row, 7) if not _row_get(row, 7).is_empty() else "None"
-		var ele_entries: Array[String] = _parse_comma_list(_row_get(row, 8))
+		var ele_entries: Array[String] = _split_field(_row_get(row, 8))
 		if ele_entries.has("Any"):
 			t.ele_any = true
 		elif not ele_entries.has("None"):
 			t.ele_pool = ele_entries
 		t.le_count_str = _row_get(row, 9) if not _row_get(row, 9).is_empty() else "0"
-		t.weapon_pool = _parse_comma_list(_row_get(row, 10))
-		t.armor_pool = _parse_comma_list(_row_get(row, 11))
-		t.loadout_pool = _parse_comma_list(_row_get(row, 12))
+		t.weapon_pool = _split_field(_row_get(row, 10))
+		t.armor_pool = _split_field(_row_get(row, 11))
+		t.loadout_pool = _split_field(_row_get(row, 12))
+		t.passive_tokens = DataValidator.parse_npc_immunities(_row_get(row, 13), t.npc_type)
 		npc_templates[t.npc_type] = t
 
 
-func expand_heritage_knowledges(heritage: HeritageData) -> Array[String]:
+#An all-caps token names a category and expands to its members; "Any" takes every name.
+func _expand_tokens(list: Array[String], all_names: Dictionary, categories: Dictionary) -> Array[String]:
 	var result: Array[String] = []
-	for token: String in heritage.knowledges:
+	for token: String in list:
 		if token == "Any":
-			result.assign(knowledges.keys())
+			result.assign(all_names.keys())
 			return result
 		var up: String = token.to_upper()
-		if token == up and token.length() > 1 and knowledge_categories.has(up):
-			var cat_arr: Array = knowledge_categories[up]
+		if token == up and token.length() > 1 and categories.has(up):
+			var cat_arr: Array = categories[up]
 			result.append_array(cat_arr)
 		else:
 			result.append(token)
 	return result
+
+
+func expand_heritage_knowledges(heritage: HeritageData) -> Array[String]:
+	return _expand_tokens(heritage.knowledges, knowledges, knowledge_categories)
 
 
 func expand_heritage_tools(heritage: HeritageData) -> Array[String]:
-	var result: Array[String] = []
-	for token: String in heritage.tools:
-		if token == "Any":
-			result.assign(tools.keys())
-			return result
-		var up: String = token.to_upper()
-		if token == up and token.length() > 1 and tool_categories.has(up):
-			var cat_arr: Array = tool_categories[up]
-			result.append_array(cat_arr)
-		else:
-			result.append(token)
-	return result
+	return _expand_tokens(heritage.tools, tools, tool_categories)

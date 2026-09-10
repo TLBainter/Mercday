@@ -11,6 +11,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var shover_size := int(merc.stats.get("size", 1))
 	var shoved_size := int(target.stats.get("size", 1))
 	var target_pos := state.get_position(target)
+	var target_floor := state.get_floor(target)
 	var shover_pos := state.get_position(merc)
 	var dx := target_pos.x - shover_pos.x
 	var dy := target_pos.y - shover_pos.y
@@ -27,7 +28,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		if next == dest:
 			blocked_at = i
 			break
-		var obs := field.get_obstacle_at(next)
+		var obs := field.get_obs(next, target_floor)
 		if not obs.is_empty():
 			var d: ObstacleData = obs.get("data") as ObstacleData
 			if d == null or not d.passthrough:
@@ -35,65 +36,73 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 				break
 		dest = next
 
-	var score := 0.0
+	var score := terrain_drop_score(field, target_pos, dest)
 
-	# Terrain drop bonus
-	var terrain_drop := field.get_terrain_height(target_pos) - field.get_terrain_height(dest)
-	if terrain_drop >= 2.0:
-		score += 0.4
-	elif terrain_drop >= 1.0:
-		score += 0.2
-
-	# Slam damage bonus -- obstacle blocks before shover_size paces
+	#Slam damage bonus when an obstacle blocks before shover_size paces.
 	if blocked_at < shover_size:
 		score += 0.2
 
-	# Cover removal bonus -- target has cover from an ally that dest would break.
-	# Only grant when dest is farther than target's pace from the cover obstacle;
-	# if they can walk back next turn the cover removal is illusory.
-	var cover_info := state.get_cover_info(target)
-	if not cover_info.is_empty():
-		var has_ally_cover := false
-		for ally: MercenaryData in ctx.get("allies", []):
-			if state.is_covered_from(target, ally, ConstStates.COVERED_FULL) or \
-					state.is_covered_from(target, ally, ConstStates.COVERED_PARTIAL):
-				has_ally_cover = true
-				break
-		if has_ally_cover:
-			var obs_x := int(cover_info.get("obstacle_pos_x", -1))
-			var obs_y := int(cover_info.get("obstacle_pos_y", -1))
-			if obs_x >= 0 and obs_y >= 0:
-				var obs_pos := Vector2i(obs_x, obs_y)
-				var target_pace: int = maxi(1, int(target.stats.get("pace", 1)))
-				if maxi(abs(dest.x - obs_pos.x), abs(dest.y - obs_pos.y)) > target_pace:
-					score += 0.2
+	var allies: Array = ctx.get("allies", [])
+	var dest3 := Vector3i(dest.x, dest.y, target_floor)
+	score += cover_break_score(state, target, allies, dest3, shoved_size)
+	score += flank_bonus(state, allies, dest)
 
-	# Ally flanking opportunity -- melee allies within 2 of destination
-	var flank_bonus := 0.0
-	for ally: MercenaryData in ctx.get("allies", []):
-		var ally_pos := state.get_position(ally)
-		if maxi(abs(ally_pos.x - dest.x), abs(ally_pos.y - dest.y)) <= 2:
-			var w: WeaponData = ally.equipped_weapon
-			if w == null or not w.is_ranged:
-				flank_bonus = minf(flank_bonus + 0.1, 0.2)
-
-	score += flank_bonus
-
-	# Enemy flanking ally bonus -- shoving breaks flanking pressure on an ally
-	for ally: MercenaryData in ctx.get("allies", []):
+	#Shoving breaks flanking pressure on an ally.
+	for ally: MercenaryData in allies:
 		if ConstStates.has_state(ally, ConstStates.FLANKED):
 			if state.distance_to(target, ally) <= 1:
 				score += 0.3
 				break
 
-	# Deposed setup bonus -- shove likely causes Deposed and a melee ally is nearby
-	if shover_size >= shoved_size:
-		for ally: MercenaryData in ctx.get("allies", []):
-			var ally_pos := state.get_position(ally)
-			if maxi(abs(ally_pos.x - dest.x), abs(ally_pos.y - dest.y)) <= 3:
-				var w: WeaponData = ally.equipped_weapon
-				if w == null or not w.is_ranged:
-					score += 0.15
-					break
+	score += deposed_setup_score(merc, target, state, allies, dest, shover_size, shoved_size)
 
 	return minf(score, 1.0)
+
+
+#Height the shove drops the target: 0.4 for two paces or more, 0.2 for one.
+static func terrain_drop_score(field: BattlefieldArea, from_pos: Vector2i, dest: Vector2i) -> float:
+	var terrain_drop := field.get_terrain_height(from_pos) - field.get_terrain_height(dest)
+	if terrain_drop >= 2.0:
+		return 0.4
+	elif terrain_drop >= 1.0:
+		return 0.2
+	return 0.0
+
+
+#Cover the destination takes away, counted only for the first covering ally.
+static func cover_break_score(state: BattleState, target: MercenaryData, allies: Array,
+		dest3: Vector3i, shoved_size: int) -> float:
+	for ally: MercenaryData in allies:
+		if not (state.is_covered_from(target, ally, ConstStates.COVERED_FULL) \
+				or state.is_covered_from(target, ally, ConstStates.COVERED_PARTIAL)):
+			continue
+		if str(LineOfSight.check_cell(state, ally, dest3, shoved_size)["cover"]) == "none":
+			return 0.2
+		break
+	return 0.0
+
+
+#Melee allies within 2 of the destination, 0.1 each and capped at 0.2.
+static func flank_bonus(state: BattleState, allies: Array, dest: Vector2i) -> float:
+	var bonus := 0.0
+	for ally: MercenaryData in allies:
+		var ally_pos := state.get_position(ally)
+		if maxi(abs(ally_pos.x - dest.x), abs(ally_pos.y - dest.y)) <= 2:
+			var w: WeaponData = ally.equipped_weapon
+			if w == null or not w.is_ranged:
+				bonus = minf(bonus + 0.1, 0.2)
+	return bonus
+
+
+#Shove likely lands Deposed and a melee ally stands within 3 of the destination.
+static func deposed_setup_score(merc: MercenaryData, target: MercenaryData, state: BattleState,
+		allies: Array, dest: Vector2i, shover_size: int, shoved_size: int) -> float:
+	if shover_size < shoved_size or BattleState.knows(merc, target, "immune:deposed"):
+		return 0.0
+	for ally: MercenaryData in allies:
+		var ally_pos := state.get_position(ally)
+		if maxi(abs(ally_pos.x - dest.x), abs(ally_pos.y - dest.y)) <= 3:
+			var w: WeaponData = ally.equipped_weapon
+			if w == null or not w.is_ranged:
+				return 0.15
+	return 0.0

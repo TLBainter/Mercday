@@ -1,9 +1,143 @@
 class_name PathTargeter
 
 const JUMP_COST_OFFSET := 1000
+const NO_CELL := Vector3i(-1, -1, -1)
+#Window nearest_passable_to scans around a goal, and the paces past the goal's own cost it is grown to.
+const AROUND_RADIUS := 3
+const AROUND_SLACK := 12
+#Paces past the cheapest ring cell that the flood is still grown for the rest of the ring.
+const RING_SLACK := 6
+
+#MercenaryData -> {"key": Array, "search": ReachSearch}: one growing flood per mover.
+static var _reach_slots: Dictionary = {}
 
 
-static func _fall_tolerance(merc: MercenaryData) -> float:
+static func clear_caches() -> void:
+	_reach_slots = {}
+
+
+#Single source of truth for whether a merc moves as a flyer this turn.
+static func is_flying(merc: MercenaryData) -> bool:
+	return int(merc.stats.get("fly", 0)) > 0 and not ConstStates.is_blocked(merc, "ability:fly")
+
+
+#Paces the flood covers by default: this turn's paces plus two more Moves.
+static func reach_budget(merc: MercenaryData, state: BattleState) -> int:
+	return int(MovementExecutor.turn_paces(merc, state, 0)["paces"]) + 2 * MovementExecutor.pace_per_move(merc)
+
+
+#Exactly the allies and cells BattleState.ally_passable_3d puts in the passable set.
+static func _ally_sig(merc: MercenaryData, state: BattleState) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for ally: MercenaryData in state.get_allies(merc):
+		if not BattleState._is_alive(ally) or ConstStates.has_state(ally, ConstStates.DEPOSED):
+			continue
+		if not state.positions.has(ally):
+			continue
+		var p: Vector3i = state.pos3(ally)
+		parts.append("%d,%d,%d" % [p.x, p.y, p.z])
+	parts.sort()
+	return "|".join(parts)
+
+
+#The mover's flood for the current geometry; a changed key starts a fresh one.
+#This merc's flood with the turn's door surcharge set; null when the state has no battlefield.
+static func _prepared_search(merc: MercenaryData, state: BattleState) -> ReachSearch:
+	if state.battlefield == null:
+		return null
+	PathCost.set_door_penalty(PathCost.door_penalty(merc))
+	return _search_for(merc, state)
+
+
+static func _search_for(merc: MercenaryData, state: BattleState) -> ReachSearch:
+	var field := state.battlefield
+	var from := state.pos3(merc)
+	var jump := int(merc.stats.get("jump", 0))
+	var merc_size := int(merc.stats.get("size", 1))
+	var altitude := state.get_height(merc)
+	var flying := is_flying(merc)
+	var tolerance := fall_tolerance(merc)
+	var key: Array = [
+		from, field.path_version, _ally_sig(merc, state), PathCost.door_pace_penalty,
+		tolerance, merc_size, flying, altitude, jump]
+	var slot: Dictionary = _reach_slots.get(merc, {}) as Dictionary
+	if not slot.is_empty() and (slot["key"] as Array) == key:
+		return slot["search"] as ReachSearch
+	var search := ReachSearch.create(
+		from, field, _ally_passable(merc, state), tolerance,
+		flying, true, jump, merc_size, altitude)
+	_reach_slots[merc] = {"key": key, "search": search}
+	return search
+
+
+#Flood fill from the merc's cell with its own capabilities, bounded to two turns of Pace.
+#reachable_far_for grows the same flood further; costs are minimal, not first-touch.
+#Targeter and executor must plan from the same set, so both call this.
+static func reachable_for(merc: MercenaryData, state: BattleState) -> Dictionary:
+	#Every later query in this merc's turn plans with its own door surcharge.
+	var search := _prepared_search(merc, state)
+	if search == null:
+		return {}
+	search.ensure_cost(reach_budget(merc, state))
+	return search.result
+
+
+#Grows this merc's flood until every listed cell is settled, for pace distances beyond the bound.
+#With slack >= 0 the growth stops slack paces past the first listed cell that settles.
+static func reachable_far_for(merc: MercenaryData, state: BattleState, cells: Array, slack: int = -1) -> Dictionary:
+	var search := _prepared_search(merc, state)
+	if search == null:
+		return {}
+	search.ensure_cells(cells, -1, slack)
+	return search.result
+
+
+#The flood's minimal walk path from `from` to goal; [] when the mover stands elsewhere or goal is not walk-settled.
+static func walk_path_for(merc: MercenaryData, state: BattleState, from: Vector3i, goal: Vector3i) -> Array[Vector3i]:
+	var empty: Array[Vector3i] = []
+	if state.pos3(merc) != from:
+		return empty
+	var search := _prepared_search(merc, state)
+	if search == null:
+		return empty
+	search.ensure_cells([goal])
+	return search.walk_path(goal)
+
+
+#Grows this merc's flood to `center`. When center cannot be the goal itself, or force_window is set,
+#the passable goals in the window nearest_passable_to scans are grown to as well, bounded by the
+#center cost plus AROUND_SLACK paces.
+static func reachable_around_for(merc: MercenaryData, state: BattleState, center: Vector3i,
+		force_window: bool = false) -> Dictionary:
+	var field := state.battlefield
+	var search := _prepared_search(merc, state)
+	if search == null:
+		return {}
+	search.ensure_cells([center])
+	var center_cost: int = search.result.get(center, JUMP_COST_OFFSET) as int
+	if center_cost >= JUMP_COST_OFFSET:
+		return search.result
+	var merc_size := int(merc.stats.get("size", 1))
+	var flying := is_flying(merc)
+	var tolerance := fall_tolerance(merc)
+	var altitude := state.get_height(merc)
+	if not force_window and PathHelper.is_goal_passable(center, field, tolerance, true, merc_size, flying, altitude, state, merc):
+		return search.result
+	var window: Array[Vector3i] = []
+	for dx: int in range(-AROUND_RADIUS, AROUND_RADIUS + 1):
+		for dy: int in range(-AROUND_RADIUS, AROUND_RADIUS + 1):
+			var c := Vector3i(center.x + dx, center.y + dy, center.z)
+			if c.x < 0 or c.x >= field.width or c.y < 0 or c.y >= field.length:
+				continue
+			if not PathHelper.is_goal_passable(c, field, tolerance, true, merc_size, flying, altitude, state, merc):
+				continue
+			window.append(c)
+	search.ensure_cells(window, center_cost + AROUND_SLACK)
+	return search.result
+
+
+#Fall risk this mover accepts: hp share plus the better of parkour and tolerance, clamped.
+static func fall_tolerance(merc: MercenaryData) -> float:
 	var hp_ratio := clampf(float(merc.current_hp) / float(maxi(1, int(merc.stats.get("maximum_hit_points", 1)))), 0.1, 1.0)
 	var break_fall := maxf(
 		clampf(float(merc.stats.get("parkour", 0.0)) / 100.0, 0.0, 1.0),
@@ -12,125 +146,100 @@ static func _fall_tolerance(merc: MercenaryData) -> float:
 
 
 static func _ally_passable(merc: MercenaryData, state: BattleState) -> Dictionary:
-	if state.turn_ally_passable.has(merc):
-		return state.turn_ally_passable[merc] as Dictionary
-	var passable: Dictionary = {}
-	for ally: MercenaryData in state.get_allies(merc):
-		if BattleState._is_alive(ally) and not ConstStates.has_state(ally, ConstStates.DEPOSED):
-			var ap: Vector2i = state.positions.get(ally, Vector2i(-1, -1))
-			if ap != Vector2i(-1, -1):
-				passable[ap] = true
-	passable.merge(state.battlefield.get_nav_passable_cells())
-	return passable
+	return state.ally_passable_3d(merc)
 
 
-# BFS flood-fill from `from`; returns Dictionary[Vector2i -> int] (cell -> cumulative cost).
-# Cells reachable only via jump have cost >= JUMP_COST_OFFSET.
+#Cost-ordered flood from `from`; returns Dictionary[Vector3i -> int] (node -> minimal cost).
+#Nodes reachable only via jump have cost >= JUMP_COST_OFFSET.
+#max_walk_cost < 0 floods the whole component; otherwise walk cells stop at that cost.
 static func reachable_from(
-		from: Vector2i,
+		from: Vector3i,
 		field: BattlefieldArea,
 		passable: Dictionary,
 		fall_tolerance: float,
-		is_flying: bool,
+		flying: bool,
 		can_climb: bool,
 		jump_range: int = 0,
-		floor_num: int = 0) -> Dictionary:
-	var visited: Dictionary = {from: 0}
-	var queue: Array[Vector2i] = [from]
-	var qi := 0
-	var dirs: Array[Vector2i] = [
-		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
-		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
-	]
-	while qi < queue.size():
-		var curr: Vector2i = queue[qi]
-		qi += 1
-		var curr_cost: int = visited[curr] as int
-		for d: Vector2i in dirs:
-			var nb := curr + d
-			if nb.x < 0 or nb.x >= field.width or nb.y < 0 or nb.y >= field.length:
-				continue
-			if visited.has(nb):
-				continue
-			var cost := PathCost.cell_pace_cost(curr, nb, field, passable, fall_tolerance, is_flying, can_climb, floor_num)
-			if cost < 0:
-				continue
-			visited[nb] = curr_cost + cost
-			queue.append(nb)
-
-	if jump_range > 0:
-		var walk_cells: Array = visited.keys()
-		for cell: Vector2i in walk_cells:
-			if (visited[cell] as int) >= JUMP_COST_OFFSET:
-				continue
-			var cell_h: float = field.get_terrain_height(cell)
-			for dx: int in range(-jump_range, jump_range + 1):
-				for dy: int in range(-jump_range, jump_range + 1):
-					var cdist := maxi(abs(dx), abs(dy))
-					if cdist == 0 or cdist > jump_range:
-						continue
-					var jcell := cell + Vector2i(dx, dy)
-					if jcell.x < 0 or jcell.x >= field.width or jcell.y < 0 or jcell.y >= field.length:
-						continue
-					if visited.has(jcell):
-						continue
-					if not PathCost.is_valid_jump_dest(jcell, field, floor_num):
-						continue
-					var h_cost := int(ceil(maxf(0.0, field.get_terrain_height(jcell) - cell_h)))
-					if cdist + h_cost > jump_range:
-						continue
-					visited[jcell] = (visited[cell] as int) + JUMP_COST_OFFSET + cdist + h_cost
-
-	if field.is_interior_map:
-		for sc: Vector3i in field.stairwell_connections.keys():
-			if sc.z != floor_num:
-				continue
-			var sc2d := Vector2i(sc.x, sc.y)
-			if not visited.has(sc2d):
-				continue
-			var dest: Vector3i = field.stairwell_connections[sc] as Vector3i
-			var dest2d := Vector2i(dest.x, dest.y)
-			if not visited.has(dest2d):
-				visited[dest2d] = (visited[sc2d] as int) + 2
-
-	return visited
+		merc_size: int = 1,
+		altitude: int = 0,
+		max_walk_cost: int = -1) -> Dictionary:
+	var search := ReachSearch.create(
+		from, field, passable, fall_tolerance, flying, can_climb, jump_range, merc_size, altitude)
+	if max_walk_cost < 0:
+		search.ensure_all()
+	else:
+		search.ensure_cost(max_walk_cost)
+	return search.result
 
 
-# All valid standable cells at exactly `stop_dist` Chebyshev distance from `target_pos`.
+#All valid standable nodes at exactly `stop_dist` Chebyshev distance from `target_pos`, on its floor.
+#A candidate the mover cannot stand on is not an approach cell, so obstacles that are not
+#passthrough, vault-only cells and cells another merc occupies are dropped here.
 static func approach_candidates(
-		target_pos: Vector2i,
+		target_pos: Vector3i,
 		stop_dist: int,
 		field: BattlefieldArea,
-		is_flying: bool,
-		floor_num: int = 0) -> Array[Vector2i]:
-	var result: Array[Vector2i] = []
+		flying: bool,
+		state: BattleState = null,
+		merc: MercenaryData = null,
+		merc_size: int = 1,
+		target: MercenaryData = null,
+		mover_alt: int = 0,
+		melee: bool = false) -> Array[Vector3i]:
+	var result: Array[Vector3i] = []
 	var d := maxi(1, stop_dist)
+	var ring := 0
+	var dropped := 0
 	for x: int in range(target_pos.x - d, target_pos.x + d + 1):
 		for y: int in range(target_pos.y - d, target_pos.y + d + 1):
 			if maxi(absi(x - target_pos.x), absi(y - target_pos.y)) != d:
 				continue
-			var cell := Vector2i(x, y)
+			var cell := Vector3i(x, y, target_pos.z)
 			if cell.x < 0 or cell.x >= field.width or cell.y < 0 or cell.y >= field.length:
 				continue
-			if field.jagged_cells.has(cell):
+			var cell2d := Vector2i(x, y)
+			if field.jagged_cells.has(cell2d):
 				continue
-			if not is_flying and field.fly_only_cells.has(cell):
+			if not flying and field.fly_only_cells.has(cell2d):
 				continue
-			var obs: Dictionary = field.get_obstacle_at_floor(cell, floor_num) if field.is_interior_map else field.get_obstacle_at(cell)
-			if not obs.is_empty() and obs.get("cell_type", "") == "wall":
+			if PathCost.is_landing_alias(cell, field):
 				continue
+			if not field.has_walkable_surface(cell2d, cell.z):
+				continue
+			if not PathHelper.is_standable(cell, field, merc_size):
+				continue
+			if state != null and state.is_position_occupied(cell2d, merc, cell.z):
+				continue
+			ring += 1
+			if target != null and state != null:
+				#Melee reach counts elevation the way BattleState.distance_to does.
+				if melee:
+					var ce := field.cell_base_elevation(cell2d, cell.z) + float(mover_alt)
+					var te := field.cell_base_elevation(state.get_position(target), state.get_floor(target)) \
+						+ float(state.get_height(target))
+					if int(round(absf(ce - te))) > d:
+						dropped += 1
+						continue
+				if not (LineOfSight.check_from(state, cell, mover_alt, merc_size, target)["visible"] as bool):
+					dropped += 1
+					continue
 			result.append(cell)
+	if ring > 0 and dropped == ring and merc != null and target != null and EncounterLogger.is_active():
+		EncounterLogger.log_verbose("MOVE RING: %s no cell at d=%d near %s sees it (ring=%d)" % [
+			merc.merc_name, d, target.merc_name, ring])
 	return result
 
 
-# True if standing at `cell` would put the merc flanked given the provided known enemy positions.
-static func is_flanked_by_known(cell: Vector2i, known: Dictionary) -> bool:
+#True if standing at `cell` would put the merc flanked given the provided known enemy positions.
+static func is_flanked_by_known(cell: Vector3i, known: Dictionary) -> bool:
 	var has_n := false
 	var has_s := false
 	var has_e := false
 	var has_w := false
 	for enemy: MercenaryData in known.keys():
-		var ep: Vector2i = known[enemy] as Vector2i
+		var ep: Vector3i = known[enemy] as Vector3i
+		if ep.z != cell.z:
+			continue
 		var dx := ep.x - cell.x
 		var dy := ep.y - cell.y
 		if absi(dx) > 1 or absi(dy) > 1:
@@ -146,20 +255,38 @@ static func is_flanked_by_known(cell: Vector2i, known: Dictionary) -> bool:
 	return (has_n and has_s) or (has_e and has_w)
 
 
-# Multi-factor candidate scoring. `weights` selects which factors apply and at what magnitude.
-# `reachable` is the output of reachable_from() (cell -> cumulative BFS cost).
-# `known_enemies` is a snapshot of MercenaryData -> Vector2i (last known positions).
+#Cells between two known enemies; a route may end on one but never passes through one unless the mover starts flanked.
+static func flanked_cells(from: Vector3i, goal: Vector3i, field: BattlefieldArea, known: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	if is_flanked_by_known(from, known):
+		return out
+	for enemy: MercenaryData in known.keys():
+		var ep: Vector3i = known[enemy] as Vector3i
+		for d: Vector2i in PathCost.DIRS8:
+			var c := Vector3i(ep.x + d.x, ep.y + d.y, ep.z)
+			if c == from or c == goal or out.has(c):
+				continue
+			if c.x < 0 or c.x >= field.width or c.y < 0 or c.y >= field.length:
+				continue
+			if is_flanked_by_known(c, known):
+				out[c] = true
+	return out
+
+
+#Multi-factor candidate scoring. `weights` selects which factors apply and at what magnitude.
+#`reachable` is the output of reachable_from() (node -> cumulative BFS cost).
+#`known_enemies` is a snapshot of MercenaryData -> Vector3i (last known positions).
 static func score_candidate(
-		candidate: Vector2i,
-		from: Vector2i,
+		candidate: Vector3i,
+		from: Vector3i,
 		merc: MercenaryData,
 		state: BattleState,
 		reachable: Dictionary,
 		known_enemies: Dictionary,
-		weights: Dictionary,
-		_floor_num: int = 0) -> float:
+		weights: Dictionary) -> float:
 	var field := state.battlefield
 	var score := 0.0
+	var cand2d := Vector2i(candidate.x, candidate.y)
 
 	if weights.has("path_cost") and reachable.has(candidate):
 		var raw_cost: int = reachable[candidate] as int
@@ -171,27 +298,13 @@ static func score_candidate(
 			score += float(weights["jump_penalty"])
 
 	if weights.has("cover_at_dest") and field != null and not known_enemies.is_empty():
-		var covered := false
-		for obs: Dictionary in field.get_adjacent_obstacles(candidate):
-			if covered:
+		var cover_size: int = maxi(1, int(merc.stats.get("size", 1)))
+		for enemy: MercenaryData in known_enemies.keys():
+			if enemy.equipped_weapon == null or not enemy.equipped_weapon.is_ranged:
+				continue
+			if state.is_covered_from_pos(enemy, candidate, cover_size):
+				score += float(weights["cover_at_dest"])
 				break
-			var obs_pos: Vector2i = obs["pos"]
-			var cover_dir := Vector2i(signi(obs_pos.x - candidate.x), signi(obs_pos.y - candidate.y))
-			for enemy: MercenaryData in known_enemies.keys():
-				if enemy.equipped_weapon == null or not enemy.equipped_weapon.is_ranged:
-					continue
-				var ep: Vector2i = known_enemies[enemy] as Vector2i
-				var atk_dir := Vector2i(signi(ep.x - candidate.x), signi(ep.y - candidate.y))
-				var blocks := true
-				if cover_dir.x != 0 and cover_dir.x != atk_dir.x:
-					blocks = false
-				if cover_dir.y != 0 and cover_dir.y != atk_dir.y:
-					blocks = false
-				if blocks:
-					covered = true
-					break
-		if covered:
-			score += float(weights["cover_at_dest"])
 
 	if weights.has("flanked_on_arrival") and not known_enemies.is_empty():
 		if is_flanked_by_known(candidate, known_enemies):
@@ -200,7 +313,9 @@ static func score_candidate(
 	if weights.has("route_hazard") and not known_enemies.is_empty():
 		var hazard := 0
 		for enemy: MercenaryData in known_enemies.keys():
-			var ep: Vector2i = known_enemies[enemy] as Vector2i
+			var ep: Vector3i = known_enemies[enemy] as Vector3i
+			if ep.z != candidate.z:
+				continue
 			var from_dist := maxi(absi(ep.x - from.x), absi(ep.y - from.y))
 			var cand_dist := maxi(absi(ep.x - candidate.x), absi(ep.y - candidate.y))
 			if from_dist <= 1 and cand_dist > 1:
@@ -208,15 +323,15 @@ static func score_candidate(
 		score += float(weights["route_hazard"]) * float(hazard)
 
 	if weights.has("height_bonus") and field != null:
-		var from_h := field.get_terrain_height(from)
-		var cand_h := field.get_terrain_height(candidate)
+		var from_h := field.cell_base_elevation(Vector2i(from.x, from.y), from.z)
+		var cand_h := field.cell_base_elevation(cand2d, candidate.z)
 		score += float(weights["height_bonus"]) * clampf((cand_h - from_h) * 0.5, 0.0, 1.0)
 
 	if weights.has("enemy_distance") and not known_enemies.is_empty():
 		var nearest_dist := INF
 		for enemy: MercenaryData in known_enemies.keys():
-			var ep: Vector2i = known_enemies[enemy] as Vector2i
-			var d := float(maxi(absi(ep.x - candidate.x), absi(ep.y - candidate.y)))
+			var ep: Vector3i = known_enemies[enemy] as Vector3i
+			var d := float(maxi(absi(ep.x - candidate.x), absi(ep.y - candidate.y)) + absi(ep.z - candidate.z) * 4)
 			if d < nearest_dist:
 				nearest_dist = d
 		if nearest_dist < INF:
@@ -225,13 +340,15 @@ static func score_candidate(
 	if weights.has("cover_count") and field != null:
 		var count := 0.0
 		for obs: Dictionary in field.obstacles:
-			if obs.get("cell_type", "") == "door" and obs.get("door_open", false):
+			if obs.get("cell_type", "") == "door" and OpenCloseState.is_open(obs):
 				continue
 			var od: ObstacleData = obs.get("data") as ObstacleData
 			if od != null and not od.covers:
 				continue
-			var raw_op = obs["pos"]
-			var op: Vector2i = Vector2i((raw_op as Vector3i).x, (raw_op as Vector3i).y) if typeof(raw_op) == TYPE_VECTOR3I else raw_op as Vector2i
+			if not obs.has("pos"):
+				continue
+			var raw_op2 = obs["pos"]
+			var op: Vector2i = Vector2i((raw_op2 as Vector3i).x, (raw_op2 as Vector3i).y) if typeof(raw_op2) == TYPE_VECTOR3I else raw_op2 as Vector2i
 			if maxi(absi(op.x - candidate.x), absi(op.y - candidate.y)) <= 2:
 				count += 1.0
 		score += float(weights["cover_count"]) * count
@@ -244,39 +361,40 @@ static func score_candidate(
 	if weights.has("los_bonus") and field != null \
 			and merc.equipped_weapon != null and merc.equipped_weapon.is_ranged \
 			and not known_enemies.is_empty():
+		var los_size: int = maxi(1, int(merc.stats.get("size", 1)))
 		for enemy: MercenaryData in known_enemies.keys():
-			if not state.is_covered_from_pos(enemy, candidate):
+			if not state.is_covered_from_pos(enemy, candidate, los_size):
 				score += float(weights["los_bonus"])
 				break
 
 	if weights.has("last_from_penalty"):
 		var esc: Dictionary = state.escalation.get(merc, {}) as Dictionary
-		var last_from: Vector2i = esc.get("last_move_from", Vector2i(-1, -1)) as Vector2i
-		if last_from != Vector2i(-1, -1) and candidate == last_from:
+		var last_from: Vector3i = esc.get("last_move_from", NO_CELL) as Vector3i
+		if last_from != NO_CELL and candidate == last_from:
 			score += float(weights["last_from_penalty"])
 
 	if weights.has("goal_persistence"):
-		var stored: Vector2i = state.move_goals.get(merc, Vector2i(-1, -1)) as Vector2i
-		if stored != Vector2i(-1, -1) and candidate == stored:
+		var stored: Vector3i = state.move_goals.get(merc, NO_CELL) as Vector3i
+		if stored != NO_CELL and candidate == stored:
 			score += float(weights["goal_persistence"])
 
 	return score
 
 
-# Ally-aware scoring factors for Move Close candidates.
-# Handles goal conflict, corridor crowding, pace blocking, and angle diversity.
+#Ally-aware scoring factors for Move Close candidates.
+#Handles goal conflict, corridor crowding, pace blocking, and angle diversity.
 static func _ally_score(
-		candidate: Vector2i,
-		from: Vector2i,
+		candidate: Vector3i,
+		from: Vector3i,
 		merc: MercenaryData,
 		target: MercenaryData,
 		state: BattleState,
 		weights: Dictionary) -> float:
 	var score := 0.0
-	var target_pos := state.get_position(target)
+	var target_pos := state.pos3(target)
 
 	for ally: MercenaryData in state.get_allies(merc):
-		var ally_goal: Vector2i = state.move_goals.get(ally, Vector2i(-1, -1)) as Vector2i
+		var ally_goal: Vector3i = state.move_goals.get(ally, NO_CELL) as Vector3i
 
 		if weights.has("ally_goal_conflict") and ally_goal == candidate:
 			score += float(weights["ally_goal_conflict"])
@@ -285,7 +403,7 @@ static func _ally_score(
 		if ally_target == null or ally_target != target:
 			continue
 
-		if weights.has("angle_diversity") and ally_goal != Vector2i(-1, -1):
+		if weights.has("angle_diversity") and ally_goal != NO_CELL:
 			var cand_dx := float(candidate.x - target_pos.x)
 			var cand_dy := float(candidate.y - target_pos.y)
 			var ally_dx := float(ally_goal.x - target_pos.x)
@@ -297,7 +415,7 @@ static func _ally_score(
 				score += float(weights["angle_diversity"])
 
 		if weights.has("corridor_crowded"):
-			var ally_pos: Vector2i = state.get_position(ally)
+			var ally_pos: Vector3i = state.pos3(ally)
 			var to_cand_dist := maxi(absi(candidate.x - from.x), absi(candidate.y - from.y))
 			var to_ally_dist := maxi(absi(ally_pos.x - from.x), absi(ally_pos.y - from.y))
 			if to_ally_dist > 0 and to_ally_dist < to_cand_dist:
@@ -319,7 +437,7 @@ static func _ally_score(
 	return score
 
 
-# Returns the best adjacent cell to approach `target` from, or Vector2i(-1,-1) if none reachable.
+#Returns the best node to approach `target` from, or NO_CELL if none reachable.
 static func best_approach_cell(
 		merc: MercenaryData,
 		target: MercenaryData,
@@ -327,23 +445,24 @@ static func best_approach_cell(
 		flank_ally: MercenaryData = null,
 		stop_dist_override: int = -1,
 		_valid_targets: Array[MercenaryData] = [],
-		_enemies: Array[MercenaryData] = [],
-		floor_num: int = 0) -> Vector2i:
+		_enemies: Array[MercenaryData] = []) -> Vector3i:
 	var field := state.battlefield
 	if field == null:
-		return state.get_position(merc)
+		return state.pos3(merc)
 
-	var from := state.get_position(merc)
-	var target_pos := state.get_position(target)
+	var from := state.pos3(merc)
+	var target_pos := state.pos3(target)
 
 	if from == target_pos:
 		return from
 
-	var is_flying := int(merc.stats.get("fly", 0)) > 0 and not ConstStates.has_state(merc, ConstStates.GROUNDED)
+	var flying := is_flying(merc)
 	var can_climb := true
-	var jump_range := int(merc.stats.get("jump", 0))
-	var fall_tolerance := _fall_tolerance(merc)
+	var fall_tolerance := fall_tolerance(merc)
 	var ally_passable := _ally_passable(merc, state)
+	var merc_size := int(merc.stats.get("size", 1))
+	var altitude := state.get_height(merc)
+	var reachable := reachable_for(merc, state)
 
 	var stop_dist: int
 	if stop_dist_override >= 0:
@@ -355,90 +474,143 @@ static func best_approach_cell(
 		stop_dist = (weapon.melee_range if weapon != null and not weapon.is_ranged else 1)
 
 	if flank_ally != null:
-		var ally_pos := state.get_position(flank_ally)
+		var ally_pos := state.pos3(flank_ally)
 		var flank_step := Vector2i(signi(target_pos.x - ally_pos.x), signi(target_pos.y - ally_pos.y))
 		if flank_step != Vector2i.ZERO:
-			target_pos = target_pos + flank_step * maxi(1, stop_dist)
+			var mult := maxi(1, stop_dist)
+			target_pos = Vector3i(target_pos.x + flank_step.x * mult, target_pos.y + flank_step.y * mult, target_pos.z)
 
 	if stop_dist == 0:
-		if not state.is_position_occupied(target_pos, merc):
+		if not state.is_position_occupied(Vector2i(target_pos.x, target_pos.y), merc, target_pos.z):
 			return target_pos
-		return PathHelper.nearest_passable_to(target_pos, field, fall_tolerance, can_climb)
+		reachable = reachable_around_for(merc, state, target_pos)
+		return PathHelper.nearest_passable_to(target_pos, field,
+			{"fall_tolerance": fall_tolerance, "can_climb": can_climb, "merc_size": merc_size,
+			"flying": flying, "altitude": altitude, "state": state, "merc": merc},
+			{}, reachable, from, JUMP_COST_OFFSET - 1)
 
 	var known_enemies: Dictionary = merc.last_known_enemy_positions.duplicate()
 
-	var reachable := reachable_from(from, field, ally_passable, fall_tolerance, is_flying, can_climb, jump_range, floor_num)
-	var candidates := approach_candidates(target_pos, stop_dist, field, is_flying, floor_num)
+	#Only a melee approach measures the ring in elevation; a ranged mover is filtered by sight alone.
+	var melee := false
+	if stop_dist_override < 0 and not state.get_allies(merc).has(target):
+		var mw := merc.equipped_weapon
+		melee = mw != null and not mw.is_ranged
+	var candidates := approach_candidates(target_pos, stop_dist, field, flying, state, merc, merc_size,
+		target, altitude, melee)
+	#No ring cell sees the target: close in one ring at a time, then take the plain ring rather than stand still.
+	if candidates.is_empty() and target != null:
+		var ring_d := maxi(1, stop_dist) - 1
+		while candidates.is_empty() and ring_d >= 1:
+			candidates = approach_candidates(target_pos, ring_d, field, flying, state, merc, merc_size,
+				target, altitude, melee)
+			ring_d -= 1
+		var fallback := "closer"
+		#A wider ring that sees the target comes before a plain ring that leaves the mover standing blind.
+		var see_d := maxi(1, stop_dist) + 1
+		while candidates.is_empty() and see_d <= stop_dist + 2:
+			candidates = approach_candidates(target_pos, see_d, field, flying, state, merc, merc_size,
+				target, altitude, melee)
+			fallback = "wider"
+			see_d += 1
+		if candidates.is_empty():
+			fallback = "plain"
+			candidates = approach_candidates(target_pos, stop_dist, field, flying, state, merc, merc_size)
+		if not candidates.is_empty() and EncounterLogger.is_active():
+			EncounterLogger.log_verbose("MOVE RING FALLBACK: %s near %s %s cands=%d" % [
+				merc.merc_name, target.merc_name, fallback, candidates.size()])
 
-	var reachable_candidates: Array[Vector2i] = []
-	for c: Vector2i in candidates:
+	var reachable_candidates: Array[Vector3i] = []
+	for c: Vector3i in candidates:
 		if reachable.has(c):
 			reachable_candidates.append(c)
+	#The whole ring may sit beyond the default bound: grow the flood to it before widening.
+	if reachable_candidates.is_empty() and target != null:
+		reachable = reachable_far_for(merc, state, candidates, RING_SLACK)
+		for fc: Vector3i in candidates:
+			if reachable.has(fc):
+				reachable_candidates.append(fc)
+	#No ring cell can be reached: try wider rings so a merc boxed out by an occupied cell still moves nearer.
+	if reachable_candidates.is_empty() and target != null:
+		var wide_d := stop_dist + 1
+		while reachable_candidates.is_empty() and wide_d <= stop_dist + 3:
+			var wide := approach_candidates(target_pos, wide_d, field, flying, state, merc, merc_size)
+			reachable = reachable_far_for(merc, state, wide, RING_SLACK)
+			for wc: Vector3i in wide:
+				if reachable.has(wc):
+					reachable_candidates.append(wc)
+			if not reachable_candidates.is_empty() and EncounterLogger.is_active():
+				EncounterLogger.log_verbose("MOVE RING WIDER: %s near %s d=%d cands=%d" % [
+					merc.merc_name, target.merc_name, wide_d, reachable_candidates.size()])
+			wide_d += 1
 
 	if reachable_candidates.is_empty():
-		var _tbr: int = state.team_blocked_round.get(target, -1) as int
-		if _tbr == state.round_number:
-			state.team_blocked_count[target] = (state.team_blocked_count.get(target, 0) as int) + 1
-		else:
-			state.team_blocked_round[target] = state.round_number
-			state.team_blocked_count[target] = 1
-		return Vector2i(-1, -1)
+		if EncounterLogger.is_active():
+			EncounterLogger.log_verbose("MOVE NO CELL: %s near %s cands=%d reach=%d door_pen=%d" % [
+				merc.merc_name, target.merc_name, candidates.size(), reachable.size(), PathCost.door_pace_penalty])
+		_note_blocked(state, target)
+		return NO_CELL
 
 	var weights := ConstMoveWeights.MOVE_CLOSE_WEIGHTS
 
 	var scored: Array = []
-	for c: Vector2i in reachable_candidates:
-		var s := score_candidate(c, from, merc, state, reachable, known_enemies, weights, floor_num)
+	for c: Vector3i in reachable_candidates:
+		var s := score_candidate(c, from, merc, state, reachable, known_enemies, weights)
 		s += _ally_score(c, from, merc, target, state, weights)
 		scored.append([s, c])
 	scored.sort_custom(func(a: Array, b: Array) -> bool: return (a[0] as float) > (b[0] as float))
 
+	#A walk-settled candidate has an exact path and a jump-only one never does; a partial path comes last.
 	for entry: Array in scored:
-		var c: Vector2i = entry[1] as Vector2i
-		if not Pathfinder.find_path(from, c, field, ally_passable, fall_tolerance, is_flying, can_climb).is_empty():
-			state.move_goals[merc] = c
-			state.move_targets[merc] = target
-			return c
-		if not PathHelper.find_path_toward(from, c, field, ally_passable, fall_tolerance, is_flying, can_climb, 0).is_empty():
+		var c: Vector3i = entry[1] as Vector3i
+		if (reachable[c] as int) < JUMP_COST_OFFSET:
 			state.move_goals[merc] = c
 			state.move_targets[merc] = target
 			return c
 
-	var _tbr2: int = state.team_blocked_round.get(target, -1) as int
-	if _tbr2 == state.round_number:
+	for entry: Array in scored:
+		var c: Vector3i = entry[1] as Vector3i
+		var partial := PathHelper.find_path_toward(from, c, field, ally_passable, fall_tolerance, flying, can_climb, 0, merc_size, altitude)
+		if not partial.is_empty():
+			if EncounterLogger.is_active():
+				var pe: Vector3i = partial[partial.size() - 1]
+				EncounterLogger.log_verbose("MOVE PARTIAL GOAL: %s no exact path to %d cells near %s; toward (%d,%d) F%d ends (%d,%d) F%d" % [
+					merc.merc_name, scored.size(), target.merc_name, c.x, c.y, c.z, pe.x, pe.y, pe.z])
+			state.move_goals[merc] = c
+			state.move_targets[merc] = target
+			return c
+
+	_note_blocked(state, target)
+	return NO_CELL
+
+
+static func _note_blocked(state: BattleState, target: MercenaryData) -> void:
+	var tbr: int = state.team_blocked_round.get(target, -1) as int
+	if tbr == state.round_number:
 		state.team_blocked_count[target] = (state.team_blocked_count.get(target, 0) as int) + 1
 	else:
 		state.team_blocked_round[target] = state.round_number
 		state.team_blocked_count[target] = 1
-	return Vector2i(-1, -1)
 
 
-# Returns the best retreat cell for a Move Far action.
+#Returns the best retreat node for a Move Far action.
 static func best_retreat_cell(
 		merc: MercenaryData,
-		_enemies: Array[MercenaryData],
+		enemies: Array[MercenaryData],
 		state: BattleState,
 		move_target: MercenaryData = null,
-		_valid_targets: Array[MercenaryData] = [],
-		floor_num: int = 0) -> Vector2i:
+		_valid_targets: Array[MercenaryData] = []) -> Vector3i:
 	var field := state.battlefield
 	if field == null:
-		return state.get_position(merc)
+		return state.pos3(merc)
 
-	var from := state.get_position(merc)
-	var pace := maxi(1, int(merc.stats.get("pace", 1)))
-	if ConstStates.has_state(merc, ConstStates.DEPOSED):
-		pace = mini(pace, 1)
+	var from := state.pos3(merc)
+	var pace := maxi(1, int(MovementExecutor.turn_paces(merc, state, 0)["paces"]))
 
-	var is_flying := int(merc.stats.get("fly", 0)) > 0 and not ConstStates.has_state(merc, ConstStates.GROUNDED)
-	var can_climb := true
-	var jump_range := int(merc.stats.get("jump", 0))
-	var fall_tolerance := _fall_tolerance(merc)
-	var ally_passable := _ally_passable(merc, state)
-
-	var _pre_goal: Vector2i = state.move_goals.get(merc, Vector2i(-1, -1)) as Vector2i
-	if _pre_goal != Vector2i(-1, -1):
-		if state.is_position_occupied(_pre_goal, merc) or field.is_obstacle(_pre_goal):
+	var _pre_goal: Vector3i = state.move_goals.get(merc, NO_CELL) as Vector3i
+	if _pre_goal != NO_CELL:
+		var pg2d := Vector2i(_pre_goal.x, _pre_goal.y)
+		if state.is_position_occupied(pg2d, merc, _pre_goal.z) or field.is_obstacle(pg2d, _pre_goal.z):
 			state.move_goals.erase(merc)
 
 	var known_enemies: Dictionary = merc.last_known_enemy_positions.duplicate()
@@ -456,7 +628,7 @@ static func best_retreat_cell(
 		Vector2i(-1, -1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(1, 1),
 	]
 	var seen: Dictionary = {}
-	var candidates: Array[Vector2i] = []
+	var candidates: Array[Vector3i] = []
 	var allies := state.get_allies(merc)
 	for rd: Vector2i in retreat_dirs:
 		if rd == Vector2i.ZERO:
@@ -464,13 +636,15 @@ static func best_retreat_cell(
 		for mult: int in [pace, pace >> 1]:
 			if mult <= 0:
 				continue
-			var c := field.clamp_position(from + rd * mult)
+			var c2 := field.clamp_position(Vector2i(from.x, from.y) + rd * mult)
+			var c := Vector3i(c2.x, c2.y, from.z)
 			if c == from or seen.has(c):
 				continue
 			if not allies.is_empty():
 				var near_ally := false
 				for ally: MercenaryData in allies:
-					if maxi(absi(c.x - state.get_position(ally).x), absi(c.y - state.get_position(ally).y)) <= 20:
+					var apos := state.get_position(ally)
+					if maxi(absi(c.x - apos.x), absi(c.y - apos.y)) <= 20:
 						near_ally = true
 						break
 				if not near_ally:
@@ -478,30 +652,44 @@ static func best_retreat_cell(
 			seen[c] = true
 			candidates.append(c)
 
-	var reachable := reachable_from(from, field, ally_passable, fall_tolerance, is_flying, can_climb, jump_range, floor_num)
+	var reachable := reachable_for(merc, state)
+	#Only cells the walk can fund this turn while holding back the Attack the retreat sets up.
+	var budget := int(MovementDecider.plan_moves(merc, enemies, state)["paces"])
 
-	var reachable_candidates: Array[Vector2i] = []
-	for c: Vector2i in candidates:
-		if reachable.has(c):
+	var reachable_candidates: Array[Vector3i] = []
+	for c: Vector3i in candidates:
+		if reachable.has(c) and int(reachable[c]) <= budget:
 			reachable_candidates.append(c)
+	#A shooter retreats to a cell that still sees an enemy whenever one is in reach.
+	if merc.equipped_weapon != null and merc.equipped_weapon.is_ranged and not known_enemies.is_empty():
+		var los_size := maxi(1, int(merc.stats.get("size", 1)))
+		var seeing: Array[Vector3i] = []
+		for c: Vector3i in reachable_candidates:
+			for enemy: MercenaryData in known_enemies.keys():
+				if LineOfSight.check_from(state, c, 0, los_size, enemy)["visible"] as bool:
+					seeing.append(c)
+					break
+		if not seeing.is_empty():
+			reachable_candidates = seeing
 
 	if reachable_candidates.is_empty():
 		if not candidates.is_empty():
 			return candidates[0]
-		return field.clamp_position(from - step * pace)
+		var fb := field.clamp_position(Vector2i(from.x, from.y) - step * pace)
+		return Vector3i(fb.x, fb.y, from.z)
 
 	var weights := ConstMoveWeights.MOVE_FAR_WEIGHTS
 	var best_cell := reachable_candidates[0]
 	var best_score := -INF
-	for c: Vector2i in reachable_candidates:
-		var s := score_candidate(c, from, merc, state, reachable, known_enemies, weights, floor_num)
+	for c: Vector3i in reachable_candidates:
+		var s := score_candidate(c, from, merc, state, reachable, known_enemies, weights)
 		if s > best_score:
 			best_score = s
 			best_cell = c
 
-	var existing_goal: Vector2i = state.move_goals.get(merc, Vector2i(-1, -1)) as Vector2i
-	if existing_goal != Vector2i(-1, -1) and existing_goal != best_cell and reachable.has(existing_goal):
-		var old_score := score_candidate(existing_goal, from, merc, state, reachable, known_enemies, weights, floor_num)
+	var existing_goal: Vector3i = state.move_goals.get(merc, NO_CELL) as Vector3i
+	if existing_goal != NO_CELL and existing_goal != best_cell and reachable.has(existing_goal):
+		var old_score := score_candidate(existing_goal, from, merc, state, reachable, known_enemies, weights)
 		if best_score - old_score <= 2.0:
 			return existing_goal
 

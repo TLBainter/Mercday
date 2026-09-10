@@ -1,2 +1,2 @@
-Title	Name	Origin	Ancestry	Heritage	Tradition	Level	sLE	eLE	LE #	Weapon	Armor	Loadout
-Taverngoer	Random First		Any	Any	None	(party.average_level + party.merc_count) / randf(1.5, 3)	None	None	0	None, Dirk, Baton	None, Gambeson, Leather Coat	None, 1 Melee
+Title	Name	Origin	Ancestry	Heritage	Tradition	Level	sLE	eLE	LE #	Weapon	Armor	Loadout	Immunities
+Taverngoer	Random First		Any	Any	None	(party.average_level + party.merc_count) / randf(1.5, 3)	None	None	0	None, Dirk, Baton	None, Gambeson, Leather Coat	None, 1 Melee	None

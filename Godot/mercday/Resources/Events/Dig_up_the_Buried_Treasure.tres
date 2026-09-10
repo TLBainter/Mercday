@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" uid="uid://dwcg7h68jvfcy" path="res://Scripts/Resources/EventData.gd" id="1_EventData"]
+
+[resource]
+script = ExtResource("1_EventData")
+event_name = "Dig up the Buried Treasure"
+event_type = "Primary"
+check_stats = Array[String](["Cognition", "Vigor"])
+circumstances = Array[String](["Athletics (Vigor)", "Clever (Cognition)", "Search (Cognition)", "Notice (Cognition)", "Power (Vigor)"])
+knowledges = Array[String](["Architecture", "Geomancy", "Reconnaissance", "Geology", "Travel"])
+tools = Array[String](["Miner's", "Demolitionist's", "Engineer's", "Archaeologist's"])
+success_formula = "(team.accuracy + team.treasure_hunt) - (50.0 - (target.difficulty * 10.0))"
+possible_contracts = Array[String](["Treasure Hunt"])
+possible_locations = Array[String](["Aerdis", "Aldurstein", "Miliim", "Zukei", "Kathaya", "Copari", "Suorr", "Rossade", "Buern", "Vaernebo"])
+enemy = ""
+enemy_counter = ""
+map_rule = ""

@@ -7,7 +7,7 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/CoverNearbyFacet.gd" id="CoverNearbyFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/RangedThreatFacet.gd" id="RangedThreatFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/CoverOnPathFacet.gd" id="CoverOnPathFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/AimActiveFacet.gd" id="AimActiveFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/CombatIdleFacet.gd" id="CombatIdleFacet"]
 
 [sub_resource type="Resource" id="facet_hp"]
@@ -33,7 +33,8 @@ script = ExtResource("CoverOnPathFacet")
 is_required = true
 
 [sub_resource type="Resource" id="facet_not_aimed"]
-script = ExtResource("NotAimedFacet")
+script = ExtResource("AimActiveFacet")
+aimed_is_high = false
 weight = 0.75
 
 [sub_resource type="Resource" id="facet_idle"]

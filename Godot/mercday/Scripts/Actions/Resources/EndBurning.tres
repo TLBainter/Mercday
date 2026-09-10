@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
 [ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 [ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/StateReliefFacet.gd" id="StateReliefFacet"]
 
 [sub_resource type="Resource" id="facet_1"]
 script = ExtResource("ActiveStateFacet")
@@ -10,9 +11,14 @@ is_required = true
 state_name = "Burning"
 present_is_high = true
 
+[sub_resource type="Resource" id="facet_relief"]
+script = ExtResource("StateReliefFacet")
+weight = 1.0
+action_key = "end_burning"
+
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_1")]
+facets = [SubResource("facet_1"), SubResource("facet_relief")]
 threshold = 0.5
 
 [resource]

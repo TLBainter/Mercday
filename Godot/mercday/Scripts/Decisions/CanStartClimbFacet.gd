@@ -25,13 +25,6 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		var nb := merc_pos + d
 		if nb.x < 0 or nb.x >= field.width or nb.y < 0 or nb.y >= field.length:
 			continue
-		if field.get_terrain_height(nb) - merc_h > 0.5 and not state.is_position_occupied(nb, merc):
+		if field.get_terrain_height(nb) - merc_h > 0.5 and not state.is_position_occupied(nb, merc, state.get_floor(merc)):
 			return 1.0
 	return 0.0
-
-
-static func create(p_weight: float = 1.0, p_required: bool = false) -> CanStartClimbFacet:
-	var facet := CanStartClimbFacet.new()
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

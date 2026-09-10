@@ -1,7 +1,7 @@
 class_name WeaponFitnessFacet extends DecisionFacet
 
 # invert = false: returns high score when weapon is a POOR fit (use for MoveClose / AttackMelee)
-# invert = true:  returns high score when weapon is a GOOD fit (use for MoveFar / AttackRange)
+#invert = true: returns high score when weapon is a GOOD fit (use for MoveFar / AttackRangeAimed)
 @export var invert: bool = false
 
 func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
@@ -11,12 +11,7 @@ func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
 
 	# A ranged weapon with no ammo and no reload option is worthless at range; treat as poor fit.
 	if weapon.is_ranged and merc.ammo_loaded == 0:
-		var has_reserve := false
-		for v in merc.ammo_inventory.values():
-			if int(v) > 0:
-				has_reserve = true
-				break
-		if not has_reserve:
+		if not MercenaryData.has_reserve_ammo(merc):
 			return 1.0
 
 	var dex: float = maxf(0.0, float(merc.stats.get("dexterity", 0)))

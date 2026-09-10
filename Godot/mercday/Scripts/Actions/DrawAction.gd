@@ -1,27 +1,44 @@
 class_name DrawAction extends ActionData
 
+const _BATTLE_CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
+
 func can_execute(merc: MercenaryData, ctx: Dictionary) -> bool:
 	if not enabled:
 		return false
+	var state: BattleState = ctx["state"]
 	var weapon := _resolve_draw_weapon(merc)
 	if weapon == null:
+		WeaponActionExecutor.log_draw_refusal(merc, null, "no_weapon", 0)
 		return false
 	if weapon == merc.equipped_weapon and merc.weapon_drawn:
 		return false
-	var state: BattleState = ctx["state"]
-	var draw_cost := state.get_cost(merc, action_name, WeaponActionExecutor.get_draw_cost(merc, weapon))
-	return state.can_afford(merc, draw_cost)
+	var draw_cost := WeaponActionExecutor.get_swap_cost(merc, weapon, state)
+	if draw_cost < 0:
+		WeaponActionExecutor.log_draw_refusal(merc, weapon, "hands_full", 0, false)
+		return false
+	if not state.can_afford(merc, draw_cost):
+		WeaponActionExecutor.log_draw_refusal(merc, weapon, "ap_short", draw_cost)
+		return false
+	if weapon.is_ranged:
+		var plan := RangedDrawPlanner.plan(
+			merc, weapon, state.get_enemies(merc), state, _BATTLE_CONFIG.attack_base_ap)
+		if str(plan.get("mode", "none")) != "now":
+			WeaponActionExecutor.log_draw_refusal(merc, weapon, "no_los_plan", draw_cost, false)
+			return false
+	return true
 
 func _resolve_draw_weapon(merc: MercenaryData) -> WeaponData:
 	var current := merc.equipped_weapon
 	var _too_unreliable := current != null and current.is_ranged and current.misfire > 0 \
-		and (FirearmReliabilityFacet.compute(merc) * 2.5 + 2.0) / 4.5 < 0.50
+		and not FirearmReliabilityFacet.aimed_viable(merc)
 	var current_is_useless := (current != null and current.is_ranged and merc.ammo_loaded == 0 and _has_no_ammo(merc)) \
 		or _too_unreliable
 	if not current_is_useless:
 		var result := super._resolve_draw_weapon(merc)
 		return result if result != null else DataManager.fight_weapon
 	# Current ranged weapon is out of ammo with no reload option -- find a better alternative.
+	if merc.offhand_weapon != null and not merc.offhand_weapon.is_ranged:
+		return merc.offhand_weapon
 	var fallback: WeaponData = null
 	for entry in merc.inventory:
 		if entry.get("type") != "weapon":

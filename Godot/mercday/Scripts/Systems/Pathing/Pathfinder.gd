@@ -1,67 +1,77 @@
 class_name Pathfinder
 
-# Returns A* path [from, ..., to] over the battlefield grid.
-# Empty array = no path exists (completely blocked).
-static func find_path(from: Vector2i, to: Vector2i, field: BattlefieldArea,
+#Returns A* path [from, ..., to] over the battlefield grid; nodes are Vector3i(x, y, floor).
+#Empty array = no path exists (completely blocked).
+static func find_path(from: Vector3i, to: Vector3i, field: BattlefieldArea,
 		passable_cells: Dictionary = {},
 		merc_fall_tolerance: float = 1.0,
 		is_flying: bool = false,
-		can_climb: bool = false) -> Array[Vector2i]:
+		can_climb: bool = false,
+		merc_size: int = 1,
+		altitude: int = 0,
+		blocked_cells: Dictionary = {}) -> Array[Vector3i]:
 	if from == to:
-		var r: Array[Vector2i] = [from]
+		var r: Array[Vector3i] = [from]
 		return r
 
-	var open: Dictionary = {}
-	var heap: Array = []
+	var g_of: Dictionary = {from: 0}
+	var parent_of: Dictionary = {}
+	var alt_of: Dictionary = {from: altitude}
+	var heap: Array = [[chebyshev(from, to), from]]
 	var closed: Dictionary = {}
-	var exit_cache: Dictionary = {}
-
-	var start_f: int = chebyshev(from, to)
-	open[from] = {"g": 0, "f": start_f, "parent": Vector2i(-999, -999)}
-	heap.append([start_f, from])
-
-	var dirs: Array[Vector2i] = [
-		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
-		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
-	]
 
 	while not heap.is_empty():
 		var top: Array = heap_pop(heap)
-		var best: Vector2i = top[1]
+		var best: Vector3i = top[1]
 		if closed.has(best):
 			continue
-		var node: Dictionary = open[best]
-		open.erase(best)
-		closed[best] = node
+		closed[best] = true
 
 		if best == to:
-			return reconstruct_path(closed, best, from)
+			return path_from_parents(parent_of, best, from)
 
-		for d: Vector2i in dirs:
-			var nb: Vector2i = best + d
-			if nb.x < 0 or nb.x >= field.width or nb.y < 0 or nb.y >= field.length:
-				continue
-			if closed.has(nb):
-				continue
-			var cost: int = PathCost.cell_pace_cost(best, nb, field, passable_cells, merc_fall_tolerance, is_flying, can_climb)
-			if cost < 0:
-				continue
-			if nb != to:
-				if not exit_cache.has(nb):
-					exit_cache[nb] = PathCost.has_exit_neighbor(nb, field, passable_cells, merc_fall_tolerance, is_flying, dirs, can_climb)
-				if not exit_cache[nb]:
-					continue
-			var g: int = node["g"] + cost
-			if not open.has(nb) or g < (open[nb] as Dictionary)["g"]:
-				var f: int = g + chebyshev(nb, to)
-				open[nb] = {"g": g, "f": f, "parent": best}
-				heap_insert(heap, [f, nb])
+		var node_alt: int = altitude
+		if is_flying:
+			node_alt = alt_of[best] as int
+		var node_g: int = g_of[best] as int
+		var best_entry: Array = PathCost.static_entry(field, best, merc_size)
+		relax_neighbors(best, node_alt, node_g, best_entry, field, to, passable_cells,
+			merc_fall_tolerance, is_flying, can_climb, merc_size, closed, blocked_cells,
+			g_of, parent_of, alt_of, heap)
 
-	var empty: Array[Vector2i] = []
+	var empty: Array[Vector3i] = []
 	return empty
 
 
-static func chebyshev(a: Vector2i, b: Vector2i) -> int:
+#Relaxes every neighbour of node into the search maps and heap; cells in blocked_cells are skipped.
+static func relax_neighbors(node: Vector3i, node_alt: int, node_g: int, node_entry: Array,
+		field: BattlefieldArea, to: Vector3i, passable_cells: Dictionary,
+		merc_fall_tolerance: float, is_flying: bool, can_climb: bool, merc_size: int,
+		closed: Dictionary, blocked_cells: Dictionary, g_of: Dictionary, parent_of: Dictionary,
+		alt_of: Dictionary, heap: Array) -> void:
+	for nb: Vector3i in PathCost.neighbors(node, field):
+		if closed.has(nb):
+			continue
+		if blocked_cells.has(nb):
+			continue
+		var cost: int = PathCost.cell_pace_cost(node, nb, field, passable_cells, merc_fall_tolerance, is_flying, can_climb, merc_size, node_alt, node_entry)
+		if cost < 0:
+			continue
+		var nb_alt: int = node_alt
+		if is_flying:
+			nb_alt = PathCost.fly_arrival_altitude(node, nb, field, node_alt)
+		var g: int = node_g + cost
+		if g_of.has(nb) and (g_of[nb] as int) <= g:
+			continue
+		g_of[nb] = g
+		parent_of[nb] = node
+		if is_flying:
+			alt_of[nb] = nb_alt
+		heap_insert(heap, [g + chebyshev(nb, to), nb])
+
+
+#2D Chebyshev; admissible because stair links cost 1 per cell of 2D movement.
+static func chebyshev(a: Vector3i, b: Vector3i) -> int:
 	return maxi(abs(a.x - b.x), abs(a.y - b.y))
 
 
@@ -102,13 +112,13 @@ static func heap_pop(heap: Array) -> Array:
 	return top
 
 
-static func reconstruct_path(closed: Dictionary, end: Vector2i, start: Vector2i) -> Array[Vector2i]:
-	var path: Array[Vector2i] = []
-	var curr: Vector2i = end
+#Path [start, ..., end] from a parent map written by a search that stores one parent per cell.
+static func path_from_parents(parent_of: Dictionary, end: Vector3i, start: Vector3i) -> Array[Vector3i]:
+	var path: Array[Vector3i] = []
+	var curr: Vector3i = end
 	while curr != start:
 		path.append(curr)
-		var node: Dictionary = closed[curr]
-		curr = node["parent"]
+		curr = parent_of[curr] as Vector3i
 	path.append(start)
 	path.reverse()
 	return path

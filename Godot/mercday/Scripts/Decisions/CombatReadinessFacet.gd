@@ -11,12 +11,7 @@ func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
 	var weapon := merc.equipped_weapon
 	var ammo_depletion := 0.0
 	if weapon != null and weapon.is_ranged:
-		var has_ammo := merc.ammo_loaded > 0
-		if not has_ammo:
-			for v in merc.ammo_inventory.values():
-				if int(v) > 0:
-					has_ammo = true
-					break
+		var has_ammo := merc.ammo_loaded > 0 or MercenaryData.has_reserve_ammo(merc)
 		ammo_depletion = 0.0 if has_ammo else 1.0
 
 	var max_ep := float(maxi(1, int(merc.stats.get("maximum_endurance_points", 1))))

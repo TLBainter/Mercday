@@ -16,20 +16,23 @@ static func generate(area: BattlefieldArea) -> void:
 			area.jagged_cells.erase(_jcell)
 
 
-static func _gen_flat(area: BattlefieldArea) -> void:
-	var h := BattlefieldArea.UNEVENNESS_RANGE[0]
-	_seed_peaks(area, randi_range(2, 4), h, 8.0, 15.0)
+#One peak-seed profile: peak count in [peaks_lo, peaks_hi], radii in [r_min, r_max], then smoothing.
+static func _gen_profile(area: BattlefieldArea, idx: int, peaks_lo: int, peaks_hi: int,
+		r_min: float, r_max: float, passes_lo: int, passes_hi: int) -> void:
+	var h: Vector2 = BattlefieldArea.UNEVENNESS_RANGE[idx]
+	_seed_peaks(area, randi_range(peaks_lo, peaks_hi), h, r_min, r_max)
 	_clamp_all(area, h)
-	for _i: int in range(randi_range(5, 8)):
+	var passes: int = passes_lo if passes_lo == passes_hi else randi_range(passes_lo, passes_hi)
+	for _i: int in range(passes):
 		smooth(area.terrain_heights, area.width, area.length, area.reserved_corridor_cells)
+
+
+static func _gen_flat(area: BattlefieldArea) -> void:
+	_gen_profile(area, 0, 2, 4, 8.0, 15.0, 5, 8)
 
 
 static func _gen_gentle(area: BattlefieldArea) -> void:
-	var h := BattlefieldArea.UNEVENNESS_RANGE[1]
-	_seed_peaks(area, randi_range(3, 5), h, 5.0, 10.0)
-	_clamp_all(area, h)
-	for _i: int in range(randi_range(3, 5)):
-		smooth(area.terrain_heights, area.width, area.length, area.reserved_corridor_cells)
+	_gen_profile(area, 1, 3, 5, 5.0, 10.0, 3, 5)
 
 
 static func _gen_hilly(area: BattlefieldArea) -> void:
@@ -55,16 +58,11 @@ static func _gen_hilly(area: BattlefieldArea) -> void:
 
 
 static func _gen_rough(area: BattlefieldArea) -> void:
-	var h := BattlefieldArea.UNEVENNESS_RANGE[3]
-	_seed_peaks(area, randi_range(8, 14), h, 2.0, 5.0)
-	_clamp_all(area, h)
-	smooth(area.terrain_heights, area.width, area.length, area.reserved_corridor_cells)
+	_gen_profile(area, 3, 8, 14, 2.0, 5.0, 1, 1)
 
 
 static func _gen_extreme(area: BattlefieldArea) -> void:
-	var h := BattlefieldArea.UNEVENNESS_RANGE[4]
-	_seed_peaks(area, randi_range(12, 18), h, 1.0, 5.0)
-	_clamp_all(area, h)
+	_gen_profile(area, 4, 12, 18, 1.0, 5.0, 0, 0)
 	if randi() % 2 == 0:
 		smooth(area.terrain_heights, area.width, area.length, area.reserved_corridor_cells)
 
@@ -235,13 +233,16 @@ static func _clamp_all(area: BattlefieldArea, h_range: Vector2) -> void:
 			area.terrain_heights[pos] = clampf(area.terrain_heights.get(pos, 0.0), h_range.x, h_range.y)
 
 
+#Flattens one spawn zone to the 0 to 0.25 band, leaving reserved corridor cells alone.
+static func _clamp_zone(area: BattlefieldArea, zone: Dictionary) -> void:
+	for cell: Vector2i in zone.keys():
+		if not area.reserved_corridor_cells.has(cell):
+			area.terrain_heights[cell] = clampf(area.terrain_heights.get(cell, 0.0), 0.0, 0.25)
+
+
 static func clamp_spawn_zones(area: BattlefieldArea) -> void:
-	for cell: Vector2i in area.spawn_zone_a.keys():
-		if not area.reserved_corridor_cells.has(cell):
-			area.terrain_heights[cell] = clampf(area.terrain_heights.get(cell, 0.0), 0.0, 0.25)
-	for cell: Vector2i in area.spawn_zone_b.keys():
-		if not area.reserved_corridor_cells.has(cell):
-			area.terrain_heights[cell] = clampf(area.terrain_heights.get(cell, 0.0), 0.0, 0.25)
+	_clamp_zone(area, area.spawn_zone_a)
+	_clamp_zone(area, area.spawn_zone_b)
 	var outer: float = area.spawn_radius + 4.0
 	var ri: int = ceili(outer)
 	for center: Vector2i in [area.spawn_center_a, area.spawn_center_b]:

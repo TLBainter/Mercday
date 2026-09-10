@@ -10,15 +10,12 @@ static func update_auto_states(merc: MercenaryData, state: BattleState) -> Array
 	var merc_weapon := merc.equipped_weapon
 	if merc_weapon != null and (merc_weapon.is_ranged or merc_weapon.is_throwable):
 		for enemy: MercenaryData in state.get_enemies(merc):
+			if state.get_floor(enemy) != state.get_floor(merc):
+				continue
 			if state.distance_to(merc, enemy) <= 2:
 				is_threatened = true
 				break
-	var was_threatened := ConstStates.has_state(merc, ConstStates.THREATENED)
-	if is_threatened and not was_threatened:
-		ConstStates.apply_state(merc, ConstStates.THREATENED)
-		lines.append("  %s is threatened!" % _cn(merc, state))
-	elif not is_threatened and was_threatened:
-		ConstStates.remove_state(merc, ConstStates.THREATENED)
+	_set_auto_state(merc, ConstStates.THREATENED, is_threatened, "threatened", state, lines)
 
 	var merc_size := int(merc.stats.get("size", 1))
 	var merc_pos := state.get_position(merc)
@@ -44,80 +41,64 @@ static func update_auto_states(merc: MercenaryData, state: BattleState) -> Array
 		elif dx > 0:
 			has_east = true
 	var is_flanked := (has_north and has_south) or (has_west and has_east)
-	var was_flanked := ConstStates.has_state(merc, ConstStates.FLANKED)
-	if is_flanked and not was_flanked:
-		ConstStates.apply_state(merc, ConstStates.FLANKED)
-		lines.append("  %s is flanked!" % _cn(merc, state))
-	elif not is_flanked and was_flanked:
-		ConstStates.remove_state(merc, ConstStates.FLANKED)
+	_set_auto_state(merc, ConstStates.FLANKED, is_flanked, "flanked", state, lines)
 
 	return lines
+
+
+#Applies or removes an automatic state on the rising or falling edge, logging label on the rise.
+static func _set_auto_state(merc: MercenaryData, state_name: String, wanted: bool, label: String,
+		state: BattleState, lines: Array[String]) -> void:
+	var want := wanted and not ConstStates.is_immune(merc, state_name)
+	var had := ConstStates.has_state(merc, state_name)
+	if want and not had:
+		ConstStates.apply_state(merc, state_name, null, "", "engine:" + ConstStates.normalize_token(state_name))
+		lines.append("  %s is %s!" % [BattleState.colored_name(merc, state), label])
+	elif not want and had:
+		ConstStates.remove_state(merc, state_name)
 
 
 static func apply_dot_effects(merc: MercenaryData, state: BattleState) -> Array[String]:
 	var lines: Array[String] = []
-	if ConstStates.has_state(merc, ConstStates.BURNING):
+	for dot: Dictionary in ConstStates.dot_effects(merc):
+		var amount: int = int(dot["amount"])
+		if amount <= 0:
+			continue
+		var dot_state: String = str(dot["state"])
+		var dot_type: String = str(dot["type"])
 		var hp_before := merc.current_hp
-		merc.current_hp = maxi(0, merc.current_hp - 1)
-		lines.append("  %s is burning! Takes 1 Fire damage. (HP [color=red]%d->%d[/color])" % [
-			_cn(merc, state), hp_before, merc.current_hp])
-		_check_dot_death(merc, state, lines)
-
-	if ConstStates.has_state(merc, ConstStates.SUFFOCATING):
-		var hp_before := merc.current_hp
-		merc.current_hp = maxi(0, merc.current_hp - 1)
-		lines.append("  %s is suffocating! Takes 1 damage. (HP [color=red]%d->%d[/color])" % [
-			_cn(merc, state), hp_before, merc.current_hp])
+		var taken := ExcessPool.take_hp(merc, amount)
+		var dealt: int = int(taken["total"])
+		LifepathTally.record_damage_taken(merc, dealt, dot_type)
+		var src: MercenaryData = ConstStates.get_source(merc, dot_state)
+		if src != null and state != null:
+			state.record_damage_dealt(src, merc, dealt)
+		var text := ""
+		if dot_type == "Fire":
+			text = "  %s is burning! Takes %d Fire damage." % [BattleState.colored_name(merc, state), amount]
+		elif dot_state == ConstStates.SUFFOCATING:
+			text = "  %s is suffocating! Takes %d damage." % [BattleState.colored_name(merc, state), amount]
+		else:
+			text = "  %s takes %d %s damage from %s." % [BattleState.colored_name(merc, state), amount, dot_type, dot_state]
+		var ex_note := " (%d ExHP)" % int(taken["from_excess"]) if int(taken["from_excess"]) > 0 else ""
+		lines.append("%s (HP [color=red]%d->%d[/color])%s" % [
+			text, maxi(0, hp_before), maxi(0, merc.current_hp), ex_note])
 		_check_dot_death(merc, state, lines)
 
 	return lines
-
-
-static func check_stalemate(state: BattleState) -> bool:
-	if state.teams.size() < 2:
-		return false
-	var team_hp: Array[int] = []
-	var team_accuracy: Array[float] = []
-	var team_pace: Array[float] = []
-	for i: int in range(state.teams.size()):
-		var hp := 0
-		var acc := 0.0
-		var spd := 0.0
-		var alive := 0
-		for m: MercenaryData in state.teams[i]:
-			if m.current_hp > 0:
-				hp += m.current_hp
-				acc += maxf(float(m.stats.get("melee_accuracy", 0)), float(m.stats.get("ranged_accuracy", 0)))
-				spd += float(m.stats.get("pace", 1))
-				alive += 1
-		team_hp.append(hp)
-		team_accuracy.append(acc / maxf(1.0, float(alive)))
-		team_pace.append(spd / maxf(1.0, float(alive)))
-	if team_hp[0] != team_hp[1]:
-		return false
-	if not is_equal_approx(team_accuracy[0], team_accuracy[1]):
-		return false
-	if not is_equal_approx(team_pace[0], team_pace[1]):
-		return false
-	return true
 
 
 static func _check_dot_death(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
 	if merc.current_hp > 0:
 		return
 	if ConstStates.has_state(merc, ConstStates.DYING):
-		merc.current_hp = -1
+		merc.current_hp = 0
+		merc.is_dead = true
 		ConstStates.remove_state(merc, ConstStates.DYING)
-		lines.append("  %s is dead!" % _cn(merc, state))
+		lines.append("  %s is dead!" % BattleState.colored_name(merc, state))
 	else:
 		merc.current_hp = 0
-		ConstStates.apply_state(merc, ConstStates.DYING)
-		lines.append("  %s is dying!" % _cn(merc, state))
+		ConstStates.apply_state(merc, ConstStates.DYING, null, "", "engine:dying")
+		lines.append("  %s is dying!" % BattleState.colored_name(merc, state))
 
 
-static func _cn(merc: MercenaryData, state: BattleState) -> String:
-	var first := merc.merc_name.get_slice(" ", 0)
-	for i: int in range(state.teams.size()):
-		if (state.teams[i] as Array).has(merc):
-			return "[color=%s]%s[/color]" % ["white" if i == 0 else "yellow", first]
-	return first

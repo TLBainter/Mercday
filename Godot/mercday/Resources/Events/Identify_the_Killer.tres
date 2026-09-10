@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" uid="uid://dwcg7h68jvfcy" path="res://Scripts/Resources/EventData.gd" id="1_EventData"]
+
+[resource]
+script = ExtResource("1_EventData")
+event_name = "Identify the Killer"
+event_type = "Primary"
+check_stats = Array[String](["Cognition", "Wile"])
+circumstances = Array[String](["Clever (Cognition)", "Intuition (Cognition)", "Intuition (Wile)", "Search (Cognition)", "Speech (Wile)"])
+knowledges = Array[String](["Hunting", "Tactics", "Forensics", "Reconnaissance", "Biology", "Psychology", "Thanatology"])
+tools = Array[String](["Taxidermist's", "Scout's", "Survivalist's", "Mortician's", "Investigator's"])
+success_formula = "team.investigate - (target.cognition * 10.0)"
+possible_contracts = Array[String](["Investigate"])
+possible_locations = Array[String](["Aerdis", "Aldurstein", "Miliim", "Zukei", "Kathaya", "Copari", "Suorr", "Rossade", "Buern", "Vaernebo"])
+enemy = ""
+enemy_counter = ""
+map_rule = ""

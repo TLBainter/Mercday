@@ -4,6 +4,7 @@ class_name ObstacleData extends Resource
 @export var size_x: float = 1.0
 @export var size_y: float = 1.0
 @export var size_z: float = 1.0
+var height: float = 0.0  #height in paces; set from Size Z at load
 var size: int:
 	get:
 		if size_z == 0.0:
@@ -37,3 +38,5 @@ var size: int:
 @export var possible_structures: Array[String] = []
 @export var possible_scatter: Array[String] = []
 @export var preferred_position: String = ""
+@export var interactable: bool = false  #a merc may spend the Interact action on this
+@export var interaction_result: String = ""  #what Interact does, e.g. "Open/Close"

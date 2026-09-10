@@ -44,6 +44,23 @@ static func _find_region(location: LocationData) -> String:
 	return ""
 
 
+#One finished name part: a prefab draw or a generated part run through the post steps.
+static func _resolve_name(region: String, is_surname: bool, prefab_out: Array = []) -> String:
+	var use_prefab: bool = _has_prefab(region, is_surname) and randf() < 0.5
+	prefab_out.append(use_prefab)
+	if use_prefab:
+		return _pick_prefab(region, is_surname)
+	var part: String = _generate_part(region, is_surname)
+	if part.is_empty():
+		return part
+	part = _post_process(part, region)
+	part = _cap_first(part)
+	part = _fix_trailing_apos(part)
+	if not is_surname and region == "Cyfrolaef" and part.length() <= 3:
+		part = _cap_first(_reverse_string(part.to_lower()))
+	return part
+
+
 static func _make_full_name(region: String) -> String:
 	for _i: int in range(20):
 		if region == "Aldurstein" and randf() < 0.5:
@@ -62,46 +79,17 @@ static func _make_full_name(region: String) -> String:
 			while first_b.length() > 1 and (first_b.length() > 6 or not _is_v(first_b[first_b.length() - 1].to_lower(), false)):
 				first_b = first_b.substr(0, first_b.length() - 1)
 			return first_a + " " + first_b + "dottir"
-		var use_pfab_first: bool = _has_prefab(region, false) and randf() < 0.5
-		var first: String
-		if use_pfab_first:
-			first = _pick_prefab(region, false)
-		else:
-			first = _generate_part(region, false)
-			if not first.is_empty():
-				first = _post_process(first, region)
-				first = _cap_first(first)
-				first = _fix_trailing_apos(first)
-				if region == "Cyfrolaef" and first.length() <= 3:
-					first = _cap_first(_reverse_string(first.to_lower()))
+		var first: String = _resolve_name(region, false)
 		if first.is_empty() or first.length() < 2 or _is_excluded(first) or _has_digraph_conflict(first):
 			continue
 		var rec_first: Array = _recent_first_names.get(region, []) as Array
 		if _first_name_conflicts(first, rec_first):
-			var use_pfab_reroll_f: bool = _has_prefab(region, false) and randf() < 0.5
-			var rerolled_f: String
-			if use_pfab_reroll_f:
-				rerolled_f = _pick_prefab(region, false)
-			else:
-				rerolled_f = _generate_part(region, false)
-				if not rerolled_f.is_empty():
-					rerolled_f = _post_process(rerolled_f, region)
-					rerolled_f = _cap_first(rerolled_f)
-					rerolled_f = _fix_trailing_apos(rerolled_f)
-					if region == "Cyfrolaef" and rerolled_f.length() <= 3:
-						rerolled_f = _cap_first(_reverse_string(rerolled_f.to_lower()))
+			var rerolled_f: String = _resolve_name(region, false)
 			if not rerolled_f.is_empty() and not _is_excluded(rerolled_f) and not _has_digraph_conflict(rerolled_f):
 				first = rerolled_f
-		var use_pfab_last: bool = _has_prefab(region, true) and randf() < 0.5
-		var last: String
-		if use_pfab_last:
-			last = _pick_prefab(region, true)
-		else:
-			last = _generate_part(region, true)
-			if not last.is_empty():
-				last = _post_process(last, region)
-				last = _cap_first(last)
-				last = _fix_trailing_apos(last)
+		var pfab_flag: Array = []
+		var last: String = _resolve_name(region, true, pfab_flag)
+		var use_pfab_last: bool = pfab_flag[0]
 		if last.is_empty() or last.length() < 2 or _is_excluded(last) or _has_digraph_conflict(last):
 			continue
 		if region == "Aerdis" and not use_pfab_last and last.length() < 4:
@@ -117,30 +105,12 @@ static func _make_full_name(region: String) -> String:
 			continue
 		var rec_last: Array = _recent_surnames.get(region, []) as Array
 		if rec_last.has(last):
-			var use_pfab_reroll2: bool = _has_prefab(region, true) and randf() < 0.5
-			var rerolled2: String
-			if use_pfab_reroll2:
-				rerolled2 = _pick_prefab(region, true)
-			else:
-				rerolled2 = _generate_part(region, true)
-				if not rerolled2.is_empty():
-					rerolled2 = _post_process(rerolled2, region)
-					rerolled2 = _cap_first(rerolled2)
-					rerolled2 = _fix_trailing_apos(rerolled2)
+			var rerolled2: String = _resolve_name(region, true)
 			if not rerolled2.is_empty() and not _is_excluded(rerolled2):
 				last = rerolled2
 		if not first.is_empty() and not last.is_empty():
 			if first[first.length() - 1].to_lower() == last[last.length() - 1].to_lower():
-				var use_pfab_reroll: bool = _has_prefab(region, true) and randf() < 0.5
-				var rerolled: String
-				if use_pfab_reroll:
-					rerolled = _pick_prefab(region, true)
-				else:
-					rerolled = _generate_part(region, true)
-					if not rerolled.is_empty():
-						rerolled = _post_process(rerolled, region)
-						rerolled = _cap_first(rerolled)
-						rerolled = _fix_trailing_apos(rerolled)
+				var rerolled: String = _resolve_name(region, true)
 				if not rerolled.is_empty() and not _is_excluded(rerolled):
 					last = rerolled
 		if (first + " " + last).length() <= 64:
@@ -307,9 +277,9 @@ static func _post_process(name: String, region: String) -> String:
 	r = _collapse_repeating(r)
 	r = _fix_triple_same_consonant(r)
 	if region != "Copari" and region != "Cyfrolaef":
-		r = _fix_triple_vowels(r, false)
+		r = _fix_triple_vowels(r)
 	if region != "Kathaya" and region != "Cyfrolaef":
-		r = _fix_triple_consonants(r, false)
+		r = _fix_triple_consonants(r)
 	return r
 
 
@@ -401,25 +371,25 @@ static func _pp_rossade(name: String) -> String:
 	return result
 
 
-static func _fix_triple_vowels(name: String, use_y: bool) -> String:
+static func _fix_triple_vowels(name: String) -> String:
 	var result: String = name
 	var i: int = 0
 	while i < result.length() - 2:
-		if _is_v(result[i].to_lower(), use_y) and _is_v(result[i+1].to_lower(), use_y) and _is_v(result[i+2].to_lower(), use_y):
+		if _is_v(result[i].to_lower(), false) and _is_v(result[i+1].to_lower(), false) and _is_v(result[i+2].to_lower(), false):
 			result = result.substr(0, i + 1) + result.substr(i + 2)
 		else:
 			i += 1
 	return result
 
 
-static func _fix_triple_consonants(name: String, use_y: bool) -> String:
+static func _fix_triple_consonants(name: String) -> String:
 	var result: String = name
 	var i: int = 0
 	while i < result.length() - 2:
 		var a: String = result[i].to_lower()
 		var b: String = result[i + 1].to_lower()
 		var cc: String = result[i + 2].to_lower()
-		if not _is_v(a, use_y) and a != "'" and not _is_v(b, use_y) and b != "'" and not _is_v(cc, use_y) and cc != "'":
+		if not _is_v(a, false) and a != "'" and not _is_v(b, false) and b != "'" and not _is_v(cc, false) and cc != "'":
 			result = result.substr(0, i + 1) + result.substr(i + 2)
 		else:
 			i += 1
@@ -442,12 +412,12 @@ static func _pick(pool: Array) -> String:
 	return pool[randi() % pool.size()] as String if not pool.is_empty() else ""
 
 
-static func _pick_vowel_weighted(pool: Array) -> String:
+#Weighted draw over pool; weight_fn returns the weight of one entry.
+static func _pick_weighted(pool: Array, weight_fn: Callable) -> String:
 	var total: float = 0.0
 	var weights: Array[float] = []
 	for item in pool:
-		var s: String = str(item)
-		var w: float = 1.25 if (not s.is_empty() and _is_v(s[s.length() - 1].to_lower(), false)) else 1.0
+		var w: float = weight_fn.call(item)
 		weights.append(w)
 		total += w
 	var r: float = randf() * total
@@ -457,40 +427,24 @@ static func _pick_vowel_weighted(pool: Array) -> String:
 		if r <= cum:
 			return pool[i] as String
 	return pool[-1] as String
+
+
+static func _pick_vowel_weighted(pool: Array) -> String:
+	return _pick_weighted(pool, func(item: Variant) -> float:
+		var s: String = str(item)
+		return 1.25 if (not s.is_empty() and _is_v(s[s.length() - 1].to_lower(), false)) else 1.0)
 
 
 static func _pick_length_weighted(pool: Array) -> String:
-	var total: float = 0.0
-	var weights: Array[float] = []
-	for item in pool:
-		var w: float = maxf(1.0, float(str(item).length()))
-		weights.append(w)
-		total += w
-	var r: float = randf() * total
-	var cum: float = 0.0
-	for i: int in range(weights.size()):
-		cum += weights[i]
-		if r <= cum:
-			return pool[i] as String
-	return pool[-1] as String
+	return _pick_weighted(pool, func(item: Variant) -> float:
+		return maxf(1.0, float(str(item).length())))
 
 
 static func _pick_target_ending_weighted(pool: Array, targets: Array[String], boost: float) -> String:
-	var total: float = 0.0
-	var weights: Array[float] = []
-	for item in pool:
+	return _pick_weighted(pool, func(item: Variant) -> float:
 		var s: String = _strip_markers(str(item))
 		var ends_in_target: bool = not s.is_empty() and targets.has(s[s.length() - 1].to_lower())
-		var w: float = boost if ends_in_target else 1.0
-		weights.append(w)
-		total += w
-	var r: float = randf() * total
-	var cum: float = 0.0
-	for i: int in range(weights.size()):
-		cum += weights[i]
-		if r <= cum:
-			return pool[i] as String
-	return pool[-1] as String
+		return boost if ends_in_target else 1.0)
 
 
 static func _first_name_conflicts(name: String, recent: Array) -> bool:

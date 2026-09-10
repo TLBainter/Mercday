@@ -1,5 +1,8 @@
 class_name ClimbAction extends ActionData
 
+#Last target picked by can_execute; to_decision_dict reads it back so the search runs once.
+var _climb_pick: Vector2i = Vector2i(-1, -1)
+
 
 func can_execute(merc: MercenaryData, ctx: Dictionary) -> bool:
 	if not super.can_execute(merc, ctx):
@@ -12,7 +15,8 @@ func can_execute(merc: MercenaryData, ctx: Dictionary) -> bool:
 	# Initiation: size must allow grabbing, and a valid steep tile must exist nearby
 	if int(merc.stats.get("size", 0)) <= 0:
 		return false
-	return _find_climb_target(merc, state) != Vector2i(-1, -1)
+	_climb_pick = _find_climb_target(merc, state)
+	return _climb_pick != Vector2i(-1, -1)
 
 
 func to_decision_dict(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
@@ -21,7 +25,7 @@ func to_decision_dict(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
 	if ConstStates.has_state(merc, ConstStates.CLIMBING):
 		result["climb_continuing"] = true
 	else:
-		result["climb_target_pos"] = _find_climb_target(merc, state)
+		result["climb_target_pos"] = _climb_pick
 	return result
 
 
@@ -44,13 +48,13 @@ func _find_climb_target(merc: MercenaryData, state: BattleState) -> Vector2i:
 			continue
 		var nb_h := field.get_terrain_height(nb)
 		if nb_h <= merc_h + 0.1 and not field.get_nav_passable_cells().has(nb):
-			var obs := field.get_obstacle_at(nb)
+			var obs := field.get_obs(nb, 0)
 			if not obs.is_empty() and obs.get("cell_type", "") == "wall":
 				nb_h = merc_h + 2.0
 		var h_diff := nb_h - merc_h
 		if h_diff <= 0.5:
 			continue
-		if state.is_position_occupied(nb, merc):
+		if state.is_position_occupied(nb, merc, state.get_floor(merc)):
 			continue
 		return nb
 	return Vector2i(-1, -1)

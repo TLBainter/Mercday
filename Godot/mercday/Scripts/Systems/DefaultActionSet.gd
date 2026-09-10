@@ -10,10 +10,11 @@ static func create() -> MercActionSet:
 		load(_DIR + "BreakFree.tres"),
 		load(_DIR + "GetUp.tres"),
 		load(_DIR + "EndBurning.tres"),
+		load(_DIR + "AidAlly.tres"),
 		load(_DIR + "BreakFall.tres"),
 		load(_DIR + "SeekCover.tres"),
-		load(_DIR + "OpenDoor.tres"),
-		# TODO: BattleState.dropped_weapons exists; add a "pick up dropped weapon" decision here.
+		load(_DIR + "Interact.tres"),
+		#TODO: BattleState.dropped_weapons exists; add a "pick up dropped weapon" decision here.
 		load(_DIR + "Draw.tres"),
 		load(_DIR + "Climb.tres"),
 		load(_DIR + "MoveFar.tres"),

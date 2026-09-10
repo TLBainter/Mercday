@@ -34,7 +34,7 @@ Starting	Slumbering Power	This merc has some sort of power sleeping within them.
 Starting	Uhm...	This merc isn't really sure why they're doing this. They never thought they needed a reason.					Down to Clown	Uncommon		Any
 Starting	Usurped	Once, this individual held a seat of significant power. That was taken from them and the thieving party now rules in their stead. They may hold a grudge.				Out of Touch	With Authority	Legendary		Social, Urban
 Starting	Visions	This merc claims to receive occasional visions of something vague. They're not sure what it means, but they're convinced the visions are prophetic.				Nightmares	As Foretold	Very Rare		Any
-Starting	Wish Fulfilled	This merc swears they have already been here and done that, having reached the peak of their adventuring career and foolishly made a wish to do it all over again. Pretty hard to believe.				Familiar Pain	Been Around the Defend	Very Rare		Luck
+Starting	Wish Fulfilled	This merc swears they have already been here and done that, having reached the peak of their adventuring career and foolishly made a wish to do it all over again. Pretty hard to believe.				Familiar Pain	Been Around the Block	Very Rare		Luck
 Experienced	Advanced Academics	This merc didn't stop learning just becomes school's out!	Knowledge Count	IS >=	3	Awkward	Undergrad Studies	Common		Intellect
 Experienced	Alley Agreement	This merc has made an alliance with some sort of criminal underlord.	Contract Location	IS	Undercity		Underbelly	Rare		Unsavory
 Experienced	Artifact Encounter	This merc has encountered a previously-undiscovered magical artifact that has provided keen, unique insights.	Contract Event	IS	Discover Artifact	Echoes of Ruin	Gleaned Insight	Very Rare		Zealotry
@@ -42,7 +42,7 @@ Experienced	Assassin of Kings	This merc has killed someone of significant statio
 			Contract Type	IS	Assassinate					
 Experienced	Back to Haunt Me	This merc made a terrible mistake that came back to haunt them in a truly dreadful way while on a contract.	Failed Check	IS >=	1 AND	Less Forgiving	Distrusting Atonement	Uncommon		Reroll
 			Contract Success	IS	false					
-Experienced	Bar Fight	This merc got into a bar fight, which... they may have started.	Contract Event	IS	Bar Fight	You Guys Wanna Start a Fight?	Improvised Weapons, Tavern Brawler	Common		Damage Melee
+Experienced	Bar Fight	This merc got into a bar fight, which... they may have started.	Contract Event	IS	Tavern Brawl	You Guys Wanna Start a Fight?	Improvised Weapons, Tavern Brawler	Common		Damage Melee
 Experienced	Betrayed	This merc was betrayed by someone they trusted.	Contract Event	IS	Betrayal AND	Closed Off	Untrusting	Uncommon		Intellect, Social
 			Merc Relationship	IS >=	3					
 Experienced	Bled Out	This merc has cast so many hemomancy spells that have taken a toll on their body that they're practically used to the blood loss, by now.	Blood Toll Count	IS >=	3		Fast Clotting	Rare		Cheat Death
@@ -53,7 +53,7 @@ Experienced	Sage's Prodigy	This merc has spent considerable time under the studi
 Experienced	Coward's Way Out	 This merc took a cowardly way out of a dangerous situation. They may never live that down.	Contract Event	IS	Fled	Eager Exit	Cowardly Tricks	Rare		Cheat Death, Luck
 Experienced	Daredevil	This merc has pulled off a crazy acrobatic stunt during a contract! Everyone was so impressed that they'll likely keep pulling stunts like that.	Succeeded Check	IS	Dexterity AND		Stuntin'	Rare		Luck, Parkour
 			Success Count	IS >=	3					
-Experienced	Death Trauma	This merc witnessed the death of another mercenary, which has forced them to reckon with their own mortality... and the mortality of their companions.	Dead Mercs	IS >=	1	"No, Not Again"	Won't Let It Happen	Rare		Cheat Death
+Experienced	Death Trauma	This merc witnessed the death of another mercenary, which has forced them to reckon with their own mortality... and the mortality of their companions.	Dead Mercs	IS >=	1	No Not Again	Won't Let It Happen	Rare		Cheat Death
 Experienced	Demolitions Expert	This merc has thrown a grenade a time or two, to great effect! After so much time spent with grenades, they consider themselves a pro.	Used Item Type	IS	Explosive AND		Here Comes the Boom	Uncommon		Explosives
 			Success Count	IS >=	3					
 Experienced	Discourager	The words spoken by this merc really are like sticks and stones. They truly can hurt.	Succeeded Check	IS	Wile AND	Don't Heckle Me	Small Talk	Very Rare		Social
@@ -63,7 +63,7 @@ Experienced	Dissection	This merc is well-experienced in the act of dissection, u
 			Has Tool	ONE OF	Mortician's, Taxidermist's					
 Experienced	Disrespect Their Authority	This merc has no real respect for authority, which may get them into trouble now and then, but also makes them strong in their will and beliefs.	Failed Check	IS	Wile AND	Preconceptions	Bow to No One	Rare		Assassinate, Tolerance
 			Target Creature	HAS TAG	Authority					
-Experienced	Encourager	This merc has assumed a role that sees them giving words of affirmation and encouragement to their allies both in the field and back in the tavern.	Succeeded Check	IS	Wile	Just Trying to Help	"Enhance, Enhance"	Uncommon		Social
+Experienced	Encourager	This merc has assumed a role that sees them giving words of affirmation and encouragement to their allies both in the field and back in the tavern.	Succeeded Check	IS	Wile	Just Trying to Help	Enhance Enhance	Uncommon		Social
 			Target Creature	IS	Merc					
 Experienced	Environ Combatant	After a successful contract in [ENVIRON], this merc considers themselves an expert in locations of that type.	Contract Success	IS	TRUE AND		Climate Advantage	Very Rare		Speed, Parkour
 			Contract Location	IS	[ENVIRON]					
@@ -79,17 +79,17 @@ Experienced	Glass Cannon	This merc is incredibly fragile, but they pack a punch 
 Experienced	Group Therapist	Others tend to come to this merc for therapy, even though they have no real professional training in that field.	CGN	IS >=	3 OR		Honorary Psych	Very Rare		Support
 			WIL	IS >=	3 AND					
 			Merc Relationship	IS	5 AND					
-			Succeeded Check	IS	wile OR cognition					
+			Succeeded Check	IS	Wile, Cognition					
 Experienced	Heavy Lifting	This merc works out.	Succeeded Check	IS	Vigor AND		Power Lifter	Uncommon		Damage Melee
 			Success Count	IS >=	Vigor					
-Experienced	Hel and Back	This merc has really been through it with the rest of their party. All of them have seen the worst of the worst. While that has taken its toll, it has also made them stronger.	Surviving Mercs	IS	ALL AND	Let Myself Go	Steadfast	Uncommon	All	Any
+Experienced	Hel and Back	This merc has really been through it with the rest of their party. All of them have seen the worst of the worst. While that has taken its toll, it has also made them stronger.	Dead Mercs	IS	0 AND	Let Myself Go	Steadfast	Uncommon	All	Any
 			Level	IS >=	20 AND					
 			Merc Relationship	IS >=	4 AND					
 			Contract Success	IS	true					
 Experienced	Imprisoned	After being held captive, trapped, or otherwise sealed off from the rest of the party during a contract, this merc has developed intense claustrophobia. They refuse to be confined, again.	Contract Event	ONE OF	Kidnapped, Cave-In, Imprisoned	Too Firmly Planted	Immovable	Uncommon		Rescue
 Experienced	Incredible Shot	Somehow, this merc has pulled off the shot of the century. Not only was the distance absurd, but the point hit on the target was impressive, too!	Damage Dealt	IS >=	Tolerance AND	Not a Melee Fighter	Incredible Marksmanship	Common		Damage Ranged
 			Used Item Type	IS	Ranged					
-Experienced	In Love	This merc has fallen in love with [Beau]. This could present an HR nightmare...	Merc Relationship	IS >=	3	"Longing, Yearning"	"Heart-Eyed, Bushy-Tailed"	Very Rare		Social
+Experienced	In Love	This merc has fallen in love with [Beau]. This could present an HR nightmare...	Merc Relationship	IS >=	3	Longing Yearning	Heart-Eyed Bushy-Tailed	Very Rare		Social
 Experienced	Hyper-Focused	This merc has continued to hone their skills in a particular field, ensuring they continue to get better at it.	Skill Count	IS >=	5 AND	Hyper-Focused	Journeyman's Knack	Uncommon		Intellect
 			Skill	HAS TAG	Same					
 Experienced	Kidnapped	This merc was taken against their will from the rest of the party during the contract. Their treatment was brutal and they're glad they made it out alive.	Contract Event	ONE OF	Kidnapped, Imprisoned	Threat of Capture	Eyes in the Back of My Head	Uncommon		Rescue
@@ -158,7 +158,7 @@ Experienced	Wed	This merc has married another merc in your tavern! How sweet. Ma
 Experienced	Weird-Touched	This merc has experienced the bizarre realm of the Weird and is forever tainted by it.	Contract Location	IS	Weird		Fable Mind	Very Rare		Luck
 Experienced	Well-Read ([STUDY TOPIC])	This merc has read an impressive number of books on a variety of topics, primarily focusing on fictional works. These books include mysteries, poetry, literary fiction, and more!	External Event	IS	Study [STUDY TOPIC] AND		[STUDY EXPERTISE]	Uncommon		Intellect
 			Event Count	IS >=	5					
-Experienced	X-Marked Spot	After toiling away in the sun, this merc unearthed significant treasure! Now, they've got a knack for finding such things.	Contract Event	IS	Buried Treasure AND		That Belongs in My Pockets	Rare		Treasure Hunt, Luck
+Experienced	X-Marked Spot	After toiling away in the sun, this merc unearthed significant treasure! Now, they've got a knack for finding such things.	Contract Event	IS	Dig up the Buried Treasure AND		That Belongs in My Pockets	Rare		Treasure Hunt, Luck
 			Contract Success	IS	true					
 Experienced	Youthful and Spry	This merc swears they're not too old for this nonsense, and they seem to be capable despite their age.	Age	IS	Elder AND	Pulled Something	I Stretch Every Morning	Common		Cheat Death
 			Succeeded Check	ONE OF	Dexterity, Vigor AND					
@@ -187,8 +187,8 @@ Curse	Curse of Shorelung
 Curse	Curse of Timebomb									
 Forced	Addicted to [SUBSTANCE]									
 Forced	Broken Vow									
-Forced	Buddy's Passing									
-Forced	Forever Yearning									
+Forced	Buddy's Passing	This merc's closest companion died in the field. Nothing about the guild feels the same.				Grief Stricken		Common		
+Forced	Forever Yearning	The merc this one loved turned them down. The longing did not stop.				Unrequited Heart		Common		
 Forced	Implanted Core									
 Forced	One-Eye									
 Forced	Pactless									

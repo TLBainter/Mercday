@@ -12,11 +12,3 @@ func evaluate(_merc: MercenaryData, ctx: Dictionary) -> float:
 		if ratio <= hp_threshold:
 			return 1.0
 	return 0.0
-
-
-static func create(p_hp_threshold: float = 0.33, p_weight: float = 1.0, p_required: bool = false) -> AllyThreatFacet:
-	var facet := AllyThreatFacet.new()
-	facet.hp_threshold = p_hp_threshold
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

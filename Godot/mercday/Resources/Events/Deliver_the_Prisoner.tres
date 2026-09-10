@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" uid="uid://dwcg7h68jvfcy" path="res://Scripts/Resources/EventData.gd" id="1_EventData"]
+
+[resource]
+script = ExtResource("1_EventData")
+event_name = "Deliver the Prisoner"
+event_type = "Primary"
+check_stats = Array[String](["Cognition", "Dexterity"])
+circumstances = Array[String](["Clever (Cognition)", "Intuition (Cognition)", "Grace (Dexterity)", "Search (Cognition)"])
+knowledges = Array[String](["Hunting", "Tactics", "Travel"])
+tools = Array[String](["Navigator's", "Survivalist's", "Scout's", "Cartographer's"])
+success_formula = "(team.escort + (team.social / 2.0)) - (50.0 - (target.wile * 10.0))"
+possible_contracts = Array[String](["Escort"])
+possible_locations = Array[String](["Aerdis", "Aldurstein", "Miliim", "Zukei", "Kathaya", "Copari", "Suorr", "Rossade", "Buern", "Vaernebo"])
+enemy = ""
+enemy_counter = ""
+map_rule = ""

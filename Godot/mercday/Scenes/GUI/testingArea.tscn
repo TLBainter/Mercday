@@ -26,11 +26,10 @@ attack_check = NodePath("ButtonBar/AttackCheck")
 damage_check = NodePath("ButtonBar/DamageCheck")
 start_battle = NodePath("ButtonBar/StartBattle")
 drop_mercs = NodePath("ButtonBar/DropMercs")
-makeshift_test = NodePath("ButtonBar/MakeshiftTest")
-thrown_test = NodePath("ButtonBar/ThrownTest")
 gen_outhouse_map = NodePath("ButtonBar/GenOuthouseMap")
 gen_terrain_batch = NodePath("ButtonBar/GenTerrainBatch")
 start_interior_battle = NodePath("ButtonBar/StartInteriorBattle")
+run_test_contract = NodePath("ButtonBar/RunTestContract")
 
 [node name="ButtonBar" type="GridContainer" parent="." unique_id=1513937818]
 layout_mode = 1
@@ -130,18 +129,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "DROP MERCS"
 
-[node name="MakeshiftTest" type="Button" parent="ButtonBar" unique_id=101010101]
-self_modulate = Color(1, 0.5, 0, 1)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "START MAKESHIFT WPN BATTLE"
-
-[node name="ThrownTest" type="Button" parent="ButtonBar" unique_id=202020202]
-self_modulate = Color(0.4, 1, 0.6, 1)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "START THROWN WPN BATTLE"
-
 [node name="GenOuthouseMap" type="Button" parent="ButtonBar" unique_id=303030303]
 self_modulate = Color(0.7, 0.5, 0.2, 1)
 layout_mode = 2
@@ -159,3 +146,9 @@ self_modulate = Color(0.6, 0.4, 1, 1)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "START INTERIOR BATTLE"
+
+[node name="RunTestContract" type="Button" parent="ButtonBar" unique_id=808080808]
+self_modulate = Color(0.6, 0.4, 1, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "RUN TEST CONTRACT"

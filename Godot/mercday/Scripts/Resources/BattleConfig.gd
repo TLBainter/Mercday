@@ -5,8 +5,7 @@ class_name BattleConfig extends Resource
 @export var draw_base_ap: int = 0
 @export var melee_range: int = 1
 @export var max_rounds: int = 100
-@export var penalty_threatened: float = -30.0
-@export var penalty_partial_cover: float = -15.0
+@export var battle_yield_msec: int = 16  #wall time ms between frame yields in an auto battle; 0 yields at every turn and slot
 @export var rand_factor_min: float = 0.1
 @export var rand_factor_max: float = 4.9
 @export var base_success_chance_stat: String = "base_success_chance"

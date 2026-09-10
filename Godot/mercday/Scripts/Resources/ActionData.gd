@@ -26,6 +26,8 @@ func can_execute(merc: MercenaryData, ctx: Dictionary) -> bool:
 			base_cost = ctx.get("attack_base_ap", ap_cost)
 		"move_base":
 			base_cost = ctx.get("move_base_ap", ap_cost)
+	if ap_cost_mode == "move_base":
+		return state.can_afford(merc, state.move_cost(merc, action_name, base_cost))
 	return state.can_afford(merc, state.get_cost(merc, action_name, base_cost))
 
 
@@ -39,9 +41,20 @@ func to_decision_dict(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
 		result["flank_ally"] = null
 		if move_stop_dist >= 0:
 			result["move_stop_dist"] = move_stop_dist
+		_add_move_plan(result, merc, ctx)
 	if draw_from_inventory:
 		result["weapon"] = _resolve_draw_weapon(merc)
 	return result
+
+
+#The Moves this walk may buy and the AP it holds back, priced as the movement decider prices them.
+static func _add_move_plan(result: Dictionary, merc: MercenaryData, ctx: Dictionary) -> void:
+	var state: BattleState = ctx.get("state")
+	if state == null:
+		return
+	var plan: Dictionary = MovementDecider.plan_moves(merc, ctx.get("enemies", []), state)
+	result["moves_allowed"] = int(plan["moves_allowed"])
+	result["reserve_ap"] = int(plan["reserve_ap"])
 
 
 func _resolve_target(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
@@ -51,7 +64,7 @@ func _resolve_target(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
 			var cur = ctx.get("current_target")
 			if cur != null and valid.has(cur):
 				return cur
-			return CombatDecision.decide_target(merc, valid, ctx["state"])
+			return TargetSelector.pick_target(merc, valid, ctx["state"])
 		"nearest_enemy":
 			var state: BattleState = ctx["state"]
 			var nearest: MercenaryData = null

@@ -10,3 +10,4 @@ var rarity: String
 var is_bad: bool
 var logline_a: String
 var logline_b: String
+var perk_groups: Array[String] = []  #normalized perk group words from Traits.tsv column 11

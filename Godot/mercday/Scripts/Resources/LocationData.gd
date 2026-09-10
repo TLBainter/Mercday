@@ -4,6 +4,7 @@ var location_name: String
 var prefix: String
 var parent: LocationData
 var location_type: String
+var environment: String
 var demonym: String
 var avg_temperature: float
 var knowledge_buffs: Dictionary

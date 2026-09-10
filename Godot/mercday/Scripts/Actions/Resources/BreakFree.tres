@@ -3,15 +3,21 @@
 [ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
 [ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 [ext_resource type="Script" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/StateReliefFacet.gd" id="StateReliefFacet"]
 
 [sub_resource type="Resource" id="facet_1"]
 script = ExtResource("AnyStateFacet")
 is_required = true
 states = PackedStringArray("Grappled", "Inhibited", "Suffocating")
 
+[sub_resource type="Resource" id="facet_relief"]
+script = ExtResource("StateReliefFacet")
+weight = 1.0
+action_key = "break_free"
+
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_1")]
+facets = [SubResource("facet_1"), SubResource("facet_relief")]
 threshold = 0.5
 
 [resource]

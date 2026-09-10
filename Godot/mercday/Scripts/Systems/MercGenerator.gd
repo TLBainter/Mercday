@@ -18,15 +18,62 @@ static var _rolling_stat_penalty_age: Dictionary = {
 }
 static var _tradition_batch_counts: Dictionary = {}
 
+#When >= 0 generate() writes this level before the stat step; EnemyTeamBuilder resets it
+static var forced_level: int = -1
+#When it names a DataManager.traditions key _step5_tradition uses it instead of the roll
+static var forced_tradition: String = ""
+
+#Tokens already reported this run; keeps one dead token from warning once per merc
+static var _warned_tokens: Dictionary = {}
+
+#The only max_ keys StatCalculator reads; every other max_ key is unread
+const CORE_MAX_KEYS: PackedStringArray = ["max_vigor", "max_dexterity", "max_cognition", "max_wile"]
+
+#max_ spellings that name a Stats.tsv row instead of a core maximum
+const MAX_STAT_ALIASES: Dictionary = {
+	"max_hp": "maximum_hit_points",
+	"max_ep": "maximum_endurance_points",
+	"max_mp": "maximum_magic_points",
+}
+
+#Prefixes owned by combat, contract or perk code; generation skips them without a warning
+const RUNTIME_PREFIXES: PackedStringArray = [
+	"action:", "reactive_action:", "on_hit:", "on_pain:", "on_crit:", "on_kill:", "on_grapple:",
+	"spend:", "while:", "to:", "chance:", "repeat:", "per:", "lasting:", "inflict:", "damage:",
+	"resource:", "damage_dealt:", "damage_taken:", "reward:", "success_chance:", "remove_self",
+	"weapon_enhance:", "weapon_stat:", "weapon_two_handed:", "weapon_passive:",
+	"armor_weight_ignore:", "armor_ep_ignore:", "armor_fatigue_zero:",
+]
+
+const AGE_YOUNG := "Young"
+const AGE_ADULT := "Adult"
+const AGE_ELDER := "Elder"
+const ELDER_XP_PERCENT := 115
+const YOUNG_XP_PERCENT := 50
+const AGE_PHYSICAL: Array[String] = ["vigor", "dexterity"]
+const AGE_MENTAL: Array[String] = ["cognition", "wile"]
+const AGE_PHYSICAL_MAX: Array[String] = ["max_vigor", "max_dexterity"]
+const AGE_MENTAL_MAX: Array[String] = ["max_cognition", "max_wile"]
+const AGELESS_MIN_AGE := 3
+const AGELESS_MAX_AGE := 150
+
 
 static func generate(_merc_index: int = 0) -> MercenaryData:
 	var merc := MercenaryData.new()
+	merc.merc_uid = CampaignKnowledge.next_uid()
 	if _merc_index == 0:
 		_tradition_batch_counts.clear()
 	merc.stat_bonuses = {}
+	merc.stat_flat_bonuses = {}
+	merc.stat_multipliers = {}
 	merc.max_stats = {}
 	merc.odds_bonuses = {}
 	merc.stats = {}
+	merc.stats_baseline = {}
+	merc.xp = 0
+	if forced_level >= 0:
+		merc.stats["level"] = float(forced_level)
+		merc.xp = ExperienceSystem.xp_for_level(maxi(0, forced_level))
 	merc.circumstance_flags = ConstCircumstances.make_flags()
 	merc.circumstance_additional_bonus = ConstCircumstances.make_bonuses()
 	merc.blocked_circumstances = []
@@ -43,10 +90,10 @@ static func generate(_merc_index: int = 0) -> MercenaryData:
 	_step6_traits(merc)
 	_step7_stats(merc)
 	_reapply_ability_grants(merc)
-	_apply_flat_stat_traits(merc)
 	_clamp_floor_stats(merc)
 	_apply_random_stat_boosts(merc)
 	_step5_tradition(merc)
+	_step_age(merc)
 	merc.merc_name = NameGenerator.generate(merc.starting_location)
 	merc.current_hp = int(merc.stats.get("maximum_hit_points", 1))
 	merc.current_ep = int(merc.stats.get("maximum_endurance_points", 1))
@@ -314,7 +361,8 @@ static func _build_kt_pool(heritage: HeritageData) -> Array[Dictionary]:
 
 static func _step4_lifepath(merc: MercenaryData) -> void:
 	var items: Array[Dictionary] = []
-	for lp: LifepathData in DataManager.starting_lifepaths.values():
+	var pool: Array = DataManager.starting_lifepaths.values()
+	for lp: LifepathData in LifepathRequirements.filter(merc, pool):
 		items.append({"name": lp.event_name, "rarity": lp.rarity})
 	if items.is_empty():
 		return
@@ -335,7 +383,7 @@ static func _step5_tradition(merc: MercenaryData) -> void:
 	var trad_boosts: Dictionary = _build_tradition_boosts(merc)
 	for pen_name: String in _rolling_penalties["tradition"]:
 		trad_boosts[pen_name] = (trad_boosts.get(pen_name, 0.0) as float) - (_rolling_penalties["tradition"][pen_name] as float)
-	var trad_name: String = _resolve_tradition_with_rerolls(items, trad_boosts)
+	var trad_name: String = forced_tradition if (forced_tradition != "" and DataManager.traditions.has(forced_tradition)) else _resolve_tradition_with_rerolls(items, trad_boosts)
 	merc.tradition = DataManager.traditions.get(trad_name, null) as TraditionData
 	if not merc.tradition:
 		return
@@ -344,24 +392,25 @@ static func _step5_tradition(merc: MercenaryData) -> void:
 	_apply_tradition_boosts(merc)
 
 	var boost_name: String = merc.tradition.circumstance_boost
-	if boost_name == "":
-		return
+	if boost_name != "":
+		var already_had: bool = merc.circumstance_flags.get(boost_name, false)
 
-	var already_had: bool = merc.circumstance_flags.get(boost_name, false)
+		merc.circumstance_additional_bonus[boost_name] = 25.0
 
-	merc.circumstance_additional_bonus[boost_name] = 25.0
+		if not already_had:
+			if ConstCircumstances.DATA.has(boost_name):
+				merc.circumstance_flags[boost_name] = true
+		else:
+			var extra_pool: Array[Dictionary] = []
+			for display_name: String in ConstCircumstances.DATA:
+				extra_pool.append({"name": display_name, "rarity": ConstCircumstances.DATA[display_name]["rarity"]})
+			if extra_pool.size() > 0:
+				var extra_name: String = WeightedTable.roll(extra_pool)
+				if ConstCircumstances.DATA.has(extra_name):
+					merc.circumstance_flags[extra_name] = true
 
-	if not already_had:
-		if ConstCircumstances.DATA.has(boost_name):
-			merc.circumstance_flags[boost_name] = true
-	else:
-		var extra_pool: Array[Dictionary] = []
-		for display_name: String in ConstCircumstances.DATA:
-			extra_pool.append({"name": display_name, "rarity": ConstCircumstances.DATA[display_name]["rarity"]})
-		if extra_pool.size() > 0:
-			var extra_name: String = WeightedTable.roll(extra_pool)
-			if ConstCircumstances.DATA.has(extra_name):
-				merc.circumstance_flags[extra_name] = true
+	#Runs last so the circumstance flags and bonus set above reach the derived stats.
+	_recalculate_stats(merc)
 
 
 static func _step6_traits(merc: MercenaryData) -> void:
@@ -385,11 +434,11 @@ static func _step6_traits(merc: MercenaryData) -> void:
 		drawback_names.append_array(lp.drawbacks)
 
 	for trait_name: String in perk_names:
-		var trait_data: TraitData = DataManager.traits.get(trait_name, null) as TraitData
+		var trait_data: TraitData = _lookup_trait(trait_name)
 		if trait_data:
 			_assign_trait(merc, trait_data)
 	for trait_name: String in drawback_names:
-		var trait_data: TraitData = DataManager.traits.get(trait_name, null) as TraitData
+		var trait_data: TraitData = _lookup_trait(trait_name)
 		if trait_data:
 			_assign_trait(merc, trait_data)
 
@@ -403,8 +452,12 @@ static func _step6_traits(merc: MercenaryData) -> void:
 		_apply_dsl_to_merc(merc, trait_data.effect_dsl)
 
 	for i: int in range(perk_count_before, merc.perks.size()):
+		if merc.group_perk_cells_applied.has(merc.perks[i].trait_name):
+			continue
 		_apply_dsl_to_merc(merc, merc.perks[i].effect_dsl)
 	for i: int in range(drawback_count_before, merc.drawbacks.size()):
+		if merc.group_perk_cells_applied.has(merc.drawbacks[i].trait_name):
+			continue
 		_apply_dsl_to_merc(merc, merc.drawbacks[i].effect_dsl)
 
 
@@ -432,6 +485,8 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 		return
 	for token: String in dsl.split("|"):
 		var t: String = token.strip_edges()
+		if t.begins_with("SPECIAL:"):
+			continue
 		if t.begins_with("stat:max_"):
 			var parts: PackedStringArray = t.split(":")
 			if parts.size() == 3:
@@ -439,7 +494,12 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 				var val_str: String = parts[2]
 				var op: int = 1 if val_str.begins_with("+") else -1
 				var amount: int = int(val_str.substr(1)) * op
-				merc.max_stats[stat_key] = (merc.max_stats.get(stat_key, 0) as int) + amount
+				if MAX_STAT_ALIASES.has(stat_key):
+					_add_stat_flat(merc, MAX_STAT_ALIASES[stat_key] as String, float(amount))
+				else:
+					if not CORE_MAX_KEYS.has(stat_key):
+						_warn_token_once(t, "writes a max_stats key that nothing reads")
+					merc.max_stats[stat_key] = (merc.max_stats.get(stat_key, 0) as int) + amount
 		elif t.begins_with("stat:min_"):
 			var parts: PackedStringArray = t.split(":")
 			if parts.size() == 3:
@@ -508,23 +568,26 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 					var bl: AncestryData = DataManager.bloodlines.get(bl_names[0], null) as AncestryData
 					if bl:
 						for trait_name: String in bl.perks:
-							var td: TraitData = DataManager.traits.get(trait_name, null) as TraitData
+							var td: TraitData = _lookup_trait(trait_name)
 							if td:
 								_assign_trait(merc, td)
 						for trait_name: String in bl.drawbacks:
-							var td: TraitData = DataManager.traits.get(trait_name, null) as TraitData
+							var td: TraitData = _lookup_trait(trait_name)
 							if td:
 								_assign_trait(merc, td)
 		elif t.begins_with("grant:knowledge:"):
 			var k_name: String = t.substr("grant:knowledge:".length()).strip_edges()
-			if DataManager.knowledges.has(k_name):
+			var k_data: UtilityTraitData = _find_knowledge(k_name)
+			if k_data == null:
+				_warn_token_once(t, "has no Knowledges and Tools row")
+			else:
 				var already: bool = false
 				for k: UtilityTraitData in merc.knowledges:
-					if k.utility_name == k_name:
+					if k.utility_name == k_data.utility_name:
 						already = true
 						break
 				if not already:
-					merc.knowledges.append(DataManager.knowledges[k_name] as UtilityTraitData)
+					merc.knowledges.append(k_data)
 		elif t.begins_with("grant:circumstance:"):
 			var circ_key: String = t.substr("grant:circumstance:".length()).strip_edges()
 			for display: String in _resolve_circumstance_key(circ_key):
@@ -532,7 +595,7 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 					merc.circumstance_flags[display] = true
 		elif t.begins_with("grant:trait:"):
 			var trait_name: String = t.substr("grant:trait:".length()).strip_edges()
-			var td: TraitData = DataManager.traits.get(trait_name, null) as TraitData
+			var td: TraitData = _lookup_trait(trait_name)
 			if td:
 				_assign_trait(merc, td)
 		elif t.begins_with("grant:passive:"):
@@ -599,16 +662,17 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 				for lp_data: LifepathData in category_lifepaths:
 					if names.has(lp_data.event_name.to_lower()):
 						candidates.append(lp_data)
+			candidates.assign(LifepathRequirements.filter(merc, candidates))
 			candidates.shuffle()
 			for i: int in range(mini(count, candidates.size())):
 				var granted_lp: LifepathData = candidates[i]
 				merc.lifepaths.append(granted_lp)
 				for trait_name: String in granted_lp.perks:
-					var td: TraitData = DataManager.traits.get(trait_name, null) as TraitData
+					var td: TraitData = _lookup_trait(trait_name)
 					if td:
 						_assign_trait(merc, td)
 				for trait_name: String in granted_lp.drawbacks:
-					var td: TraitData = DataManager.traits.get(trait_name, null) as TraitData
+					var td: TraitData = _lookup_trait(trait_name)
 					if td:
 						_assign_trait(merc, td)
 		elif t.begins_with("grant:random:knowledge:"):
@@ -677,7 +741,7 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 				env_pool.shuffle()
 				for i: int in range(mini(count, env_pool.size())):
 					var env_key: String = (env_pool[i] as String).to_lower().replace(" ", "_")
-					merc.stats[env_key] = (merc.stats.get(env_key, 0.0) as float) + amount
+					_add_stat_flat(merc, env_key, amount)
 		elif t.begins_with("grant:random:creature_stat:"):
 			var parts: PackedStringArray = t.split(":")
 			if parts.size() == 5:
@@ -689,7 +753,7 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 				cr_pool.shuffle()
 				for i: int in range(mini(count, cr_pool.size())):
 					var cr_key: String = (cr_pool[i] as String).to_lower().replace(" ", "_")
-					merc.stats[cr_key] = (merc.stats.get(cr_key, 0.0) as float) + amount
+					_add_stat_flat(merc, cr_key, amount)
 		elif t.begins_with("stat:circumstance_boost:"):
 			var parts: PackedStringArray = t.split(":")
 			if parts.size() == 4:
@@ -724,7 +788,7 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 					if chosen.begins_with("max_"):
 						merc.max_stats[chosen] = (merc.max_stats.get(chosen, 0) as int) + amount
 					else:
-						merc.stats[chosen] = (merc.stats.get(chosen, 0.0) as float) + float(amount)
+						_add_stat_flat(merc, chosen, float(amount))
 		elif t.begins_with("grant:random:item:rarity:"):
 			# grant:random:item:rarity:<rarity1,rarity2,...>:<n>
 			var parts: PackedStringArray = t.split(":")
@@ -743,7 +807,7 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 					merc.items.append(candidates[i])
 				# TODO: convert to typed ItemData once Godot imports ItemData.gd
 		elif t.begins_with("immune:") or t.begins_with("protected:") or t.begins_with("susceptible:"):
-			if not merc.passive_effects.has(t):
+			if ConstStates.immune_token_allowed(t, "Traits.tsv") and not merc.passive_effects.has(t):
 				merc.passive_effects.append(t)
 		elif t.begins_with("cost:"):
 			# cost:<category>:<percent>  (negative = discount)
@@ -752,6 +816,119 @@ static func _apply_dsl_to_merc(merc: MercenaryData, dsl: String) -> void:
 				var category: String = parts[1]
 				var amount: float = float(parts[2].trim_suffix("%"))
 				merc.cost_modifiers[category] = (merc.cost_modifiers.get(category, 0.0) as float) + amount
+				_add_stat_flat(merc, category + "_cost_modifier", amount)
+		elif t.begins_with("grant:random:perk_group:"):
+			var parts: PackedStringArray = t.split(":")
+			if parts.size() != 5:
+				_warn_token_once(t, "is an unparsed perk group token")
+			else:
+				var count: int = int(parts[4])
+				if count > 0:
+					_grant_random_group_perks(merc, parts[3], count, t)
+				else:
+					_warn_token_once(t, "has no positive perk group count")
+		elif t.begins_with("grant:random:") and t.contains("weapon_perk:"):
+			var parts: PackedStringArray = t.split(":")
+			var filter: String = ""
+			if parts[2] == "basic_weapon_perk":
+				filter = "basic"
+			elif parts[2] == "specialized_weapon_perk":
+				filter = "specialized"
+			var count: int = 0
+			if parts.size() == 4:
+				count = int(parts[3])
+			elif parts.size() == 5:
+				filter = parts[3].to_lower()
+				count = int(parts[4])
+			elif parts.size() == 6 and parts[3] == "type":
+				filter = parts[4].to_lower()
+				count = int(parts[5])
+			else:
+				_warn_token_once(t, "is an unparsed weapon perk token")
+			if count > 0:
+				_grant_random_perks(merc.weapon_perks, _weapon_perk_pool(filter), count, t)
+		elif t.begins_with("grant:random:armor_perk:"):
+			var parts: PackedStringArray = t.split(":")
+			var filter: String = ""
+			var count: int = 0
+			if parts.size() == 4:
+				count = int(parts[3])
+			elif parts.size() == 5:
+				filter = parts[3].to_lower()
+				count = int(parts[4])
+			elif parts.size() == 6 and parts[3] == "type":
+				filter = parts[4].to_lower()
+				count = int(parts[5])
+			else:
+				_warn_token_once(t, "is an unparsed armor perk token")
+			if count > 0:
+				_grant_random_perks(merc.armor_perks, _armor_perk_pool(filter), count, t)
+		elif t.begins_with("grant:random:protection:"):
+			var parts: PackedStringArray = t.split(":")
+			if parts.size() == 5:
+				var category: String = parts[3].to_lower()
+				var count: int = int(parts[4])
+				var pool: Array[String] = []
+				for type_name: String in ConstDamageTypes.DAMAGE_TYPES:
+					var type_row: Dictionary = ConstDamageTypes.DAMAGE_TYPES[type_name] as Dictionary
+					if (type_row.get("category", "") as String).to_lower() != category:
+						continue
+					var protect_token: String = "protected:" + type_name.to_lower()
+					if not merc.passive_effects.has(protect_token):
+						pool.append(protect_token)
+				if pool.is_empty():
+					_warn_token_once(t, "has no damage type left in that category")
+				pool.shuffle()
+				for i: int in range(mini(count, pool.size())):
+					merc.passive_effects.append(pool[i])
+			else:
+				_warn_token_once(t, "is an unparsed protection token")
+		elif t.begins_with("remove:random:circumstance:"):
+			var parts: PackedStringArray = t.split(":")
+			var filter: String = ""
+			var count: int = 0
+			var excepted: Array[String] = []
+			if parts.size() == 5:
+				filter = parts[3].to_lower()
+				count = int(parts[4])
+			elif parts.size() == 7 and parts[4] == "except":
+				filter = parts[3].to_lower()
+				count = int(parts[6])
+				for raw_key: String in parts[5].split(","):
+					excepted.append_array(_resolve_circumstance_key(raw_key.strip_edges()))
+			else:
+				_warn_token_once(t, "is an unparsed circumstance removal token")
+			var held: Array[String] = []
+			for d: String in ConstCircumstances.ALL:
+				if not merc.circumstance_flags.get(d, false) or excepted.has(d):
+					continue
+				if _circumstance_matches_filter(d, filter):
+					held.append(d)
+			held.shuffle()
+			for i: int in range(mini(count, held.size())):
+				merc.circumstance_flags[held[i]] = false
+		elif t.begins_with("stat:"):
+			var parts: PackedStringArray = t.split(":")
+			if parts.size() == 3 and (parts[2].begins_with("+") or parts[2].begins_with("-")):
+				var key: String = parts[1]
+				var val_str: String = parts[2]
+				var op: float = 1.0 if val_str.begins_with("+") else -1.0
+				if val_str.ends_with("%"):
+					_add_stat_multiplier(merc, key, float(val_str.trim_suffix("%").substr(1)) * op / 100.0)
+				else:
+					_add_stat_flat(merc, key, float(val_str.substr(1)) * op)
+			else:
+				_warn_token_once(t, "is an unparsed stat token")
+		elif t.begins_with("remove:ability:"):
+			continue
+		else:
+			var runtime_owned: bool = false
+			for prefix: String in RUNTIME_PREFIXES:
+				if t.begins_with(prefix):
+					runtime_owned = true
+					break
+			if not runtime_owned:
+				_warn_token_once(t, "has no generation handler")
 
 
 static func _resolve_circumstance_key(key: String) -> Array[String]:
@@ -788,75 +965,161 @@ static func _apply_random_stat_boosts(merc: MercenaryData) -> void:
 	core_stats.shuffle()
 	for i: int in range(2):
 		var stat_key: String = core_stats[i]
-		var max_key: String = "max_" + stat_key
-		var current: int = merc.stats.get(stat_key, 0) as int
-		var max_val: int = merc.max_stats.get(max_key, 0) as int
-		merc.stats[stat_key] = mini(current + 1, max_val)
+		merc.stat_bonuses[stat_key] = (merc.stat_bonuses.get(stat_key, 0.0) as float) + 1.0
+	_recalculate_stats(merc)
 
 
-static func _apply_flat_stat_traits(merc: MercenaryData) -> void:
-	var all_traits: Array[TraitData] = []
-	all_traits.append_array(merc.perks)
-	all_traits.append_array(merc.drawbacks)
-	# cost: % is a flat game-unit value (not a multiplier) and runs in the flat pass
-	for pass_pct: bool in [true, false]:
-		for trait_data: TraitData in all_traits:
-			if trait_data.effect_dsl == "" or trait_data.effect_dsl.begins_with("SPECIAL:"):
-				continue
-			for token: String in trait_data.effect_dsl.split("|"):
-				var t: String = token.strip_edges()
-				if t.begins_with("cost:") and not pass_pct:
-					var cost_parts: PackedStringArray = t.split(":")
-					if cost_parts.size() == 3:
-						var stat_key: String = cost_parts[1] + "_cost_modifier"
-						var amount: float = float(cost_parts[2].trim_suffix("%"))
-						merc.stats[stat_key] = (merc.stats.get(stat_key, 0.0) as float) + amount
-					continue
-				if not t.begins_with("stat:"):
-					continue
-				if t.begins_with("stat:max_") or t.begins_with("stat:min_") or \
-						t.begins_with("stat:random:") or t.begins_with("stat:circumstance_boost:"):
-					continue
-				var parts: PackedStringArray = t.split(":")
-				if parts.size() == 3:
-					var key: String = parts[1]
-					var val_str: String = parts[2]
-					var is_pct: bool = val_str.ends_with("%")
-					if is_pct != pass_pct:
-						continue
-					var op: float = 1.0 if val_str.begins_with("+") else -1.0
-					if is_pct:
-						var pct: float = float(val_str.trim_suffix("%").substr(1)) * op
-						var cur: float = merc.stats.get(key, 0.0) as float
-						merc.stats[key] = cur * (1.0 + pct / 100.0)
-					else:
-						var amount: float = float(val_str.substr(1)) * op
-						merc.stats[key] = (merc.stats.get(key, 0.0) as float) + amount
+#Band edges for one life expectancy; young runs from 0, elder ends on the expectancy itself.
+static func age_bands(le: int) -> Dictionary:
+	var adult_lo: int = floori(float(le) / 3.0)
+	var adult_hi: int = floori(float(le) * 4.0 / 5.0)
+	return {
+		"young_lo": 0, "young_hi": adult_lo - 1,
+		"adult_lo": adult_lo, "adult_hi": adult_hi,
+		"elder_lo": adult_hi + 1, "elder_hi": le,
+	}
+
+
+#Category one age falls in under one life expectancy; a missing expectancy reads as Adult.
+static func age_category_for(age: int, le: int) -> String:
+	if le <= 0:
+		return AGE_ADULT
+	var bands: Dictionary = age_bands(le)
+	if age < int(bands["adult_lo"]):
+		return AGE_YOUNG
+	if age <= int(bands["adult_hi"]):
+		return AGE_ADULT
+	return AGE_ELDER
+
+
+#Inclusive [lo, hi] of one third of a band; third is 0 Low, 1 Mid, 2 High.
+static func age_third(lo: int, hi: int, third: int) -> Array[int]:
+	var span: int = hi - lo + 1
+	if span <= 0:
+		return [lo, lo]
+	var a: int = lo + (span * third) / 3
+	var b: int = lo + (span * (third + 1)) / 3 - 1
+	return [a, maxi(a, b)]
+
+
+#Rolls the designer's band table and returns a uniform age inside the third it picked.
+static func roll_age(le: int) -> int:
+	var bands: Dictionary = age_bands(le)
+	var r: float = randf() * 100.0
+	var pick: Array[int] = []
+	if r < 10.0:
+		pick = age_third(int(bands["young_lo"]), int(bands["young_hi"]), 1)
+	elif r < 15.0:
+		pick = age_third(int(bands["elder_lo"]), int(bands["elder_hi"]), 0)
+	elif r < 25.0:
+		pick = age_third(int(bands["elder_lo"]), int(bands["elder_hi"]), 1)
+	elif r < 37.0:
+		pick = age_third(int(bands["adult_lo"]), int(bands["adult_hi"]), 0)
+	elif r < 52.0:
+		pick = age_third(int(bands["adult_lo"]), int(bands["adult_hi"]), 2)
+	else:
+		pick = age_third(int(bands["adult_lo"]), int(bands["adult_hi"]), 1)
+	return clampi(randi_range(pick[0], pick[1]), 0, le)
+
+
+#The higher life expectancy of a hybrid's two ancestries; -1 when neither ancestry has one.
+static func life_expectancy_for(merc: MercenaryData) -> int:
+	var primary: int = merc.ancestry.life_expectancy if merc.ancestry != null else -1
+	var secondary: int = -1
+	if merc.is_hybrid and merc.recessive_ancestry != null:
+		secondary = merc.recessive_ancestry.life_expectancy
+	return maxi(primary, secondary)
+
+
+static func _step_age(merc: MercenaryData) -> void:
+	var le: int = life_expectancy_for(merc)
+	if le <= 0:
+		merc.age = randi_range(AGELESS_MIN_AGE, AGELESS_MAX_AGE)
+		merc.age_category = AGE_ADULT
+		return
+	merc.age = roll_age(le)
+	merc.age_category = age_category_for(merc.age, le)
+	apply_age_effects(merc, merc.age_category)
+
+
+#Generation only stat, maximum, xp and lifepath changes for one category; a forced level keeps its xp.
+static func apply_age_effects(merc: MercenaryData, category: String) -> void:
+	if merc == null:
+		return
+	match category:
+		AGE_ELDER:
+			_shift_core_stat(merc, AGE_PHYSICAL, -1, 1)
+			_shift_core_stat(merc, AGE_MENTAL, 1, 0)
+			_shift_max_stats(merc, AGE_PHYSICAL_MAX, -1)
+			_shift_max_stats(merc, AGE_MENTAL_MAX, 1)
+			if forced_level < 0:
+				merc.xp = floori(float(merc.xp * ELDER_XP_PERCENT) / 100.0)
+				ExperienceSystem.set_level_from_xp(merc)
+			_grant_age_lifepath(merc)
+		AGE_YOUNG:
+			_shift_core_stat(merc, AGE_PHYSICAL, 1, 0)
+			_shift_core_stat(merc, AGE_MENTAL, -1, 0)
+			_shift_max_stats(merc, AGE_PHYSICAL_MAX, 1)
+			if forced_level < 0:
+				merc.xp = floori(float(merc.xp * YOUNG_XP_PERCENT) / 100.0)
+				ExperienceSystem.set_level_from_xp(merc)
+
+
+#Moves one named core stat by delta; a stat that would break the floor or its maximum is skipped.
+static func _shift_core_stat(merc: MercenaryData, keys: Array[String], delta: int, floor_value: int) -> String:
+	var order: Array[String] = keys.duplicate()
+	order.shuffle()
+	for key: String in order:
+		var cur: int = int(merc.stats.get(key, 0))
+		var cap: int = int(merc.max_stats.get("max_" + key, 0))
+		if delta < 0 and cur + delta < floor_value:
+			continue
+		if delta > 0 and cur + delta > cap:
+			continue
+		merc.stat_bonuses[key] = float(merc.stat_bonuses.get(key, 0.0)) + float(delta)
+		_recalculate_stats(merc)
+		return key
+	return ""
+
+
+static func _shift_max_stats(merc: MercenaryData, keys: Array[String], delta: int) -> void:
+	for key: String in keys:
+		merc.max_stats[key] = maxi(1, int(merc.max_stats.get(key, 0)) + delta)
+	_recalculate_stats(merc)
+
+
+#Every Experienced row with a real trait payoff that the merc does not hold yet; no requirement gate.
+static func elder_event_pool(merc: MercenaryData) -> Array[String]:
+	var names: Array[String] = []
+	for lp: LifepathData in DataManager.lifepaths_by_category.get("Experienced", []) as Array:
+		if lp == null or LifepathProgression.has_event(merc, lp.event_name):
+			continue
+		if LifepathProgression.CODED_EVENTS.has(lp.event_name):
+			continue
+		if LifepathProgression.has_payoff(lp):
+			names.append(lp.event_name)
+	return names
+
+
+#One extra Elder event: paying Experienced rows except Buddy and In Love, by rarity, no requirement gate; else Starting.
+static func _grant_age_lifepath(merc: MercenaryData) -> String:
+	var names: Array[String] = elder_event_pool(merc)
+	var pick: String = LifepathProgression.draw(names) if not names.is_empty() else ""
+	if pick == "":
+		var items: Array[Dictionary] = []
+		for lp: LifepathData in LifepathRequirements.filter(merc, DataManager.starting_lifepaths.values()):
+			if not LifepathProgression.has_event(merc, lp.event_name):
+				items.append({"name": lp.event_name, "rarity": lp.rarity})
+		if not items.is_empty():
+			pick = WeightedTable.roll(items)
+	if pick == "":
+		return ""
+	var lines: Array[String] = LifepathProgression.grant(merc, pick)
+	return pick if not lines.is_empty() else ""
 
 
 static func _reapply_ability_grants(merc: MercenaryData) -> void:
-	var all_traits: Array[TraitData] = []
-	all_traits.append_array(merc.perks)
-	all_traits.append_array(merc.drawbacks)
-	for trait_data: TraitData in all_traits:
-		if trait_data.effect_dsl == "" or trait_data.effect_dsl.begins_with("SPECIAL:"):
-			continue
-		for token: String in trait_data.effect_dsl.split("|"):
-			var t: String = token.strip_edges()
-			if t.begins_with("grant:ability:"):
-				var ability: String = t.substr("grant:ability:".length())
-				match ability:
-					"flying_pace":   merc.stats["fly"] = 1.0
-					"swimming_pace": merc.stats["swim"] = 1.0
-					"climbing_pace": merc.stats["climb"] = 1.0
-					"darksight":     merc.stats["darksight"] = 1.0
-			elif t.begins_with("remove:ability:"):
-				var ability: String = t.substr("remove:ability:".length())
-				match ability:
-					"walking_pace":  merc.stats["walk"] = 0.0
-					"flying_pace":   merc.stats["fly"] = 0.0
-					"swimming_pace": merc.stats["swim"] = 0.0
-					"climbing_pace": merc.stats["climb"] = 0.0
+	StatCalculator.apply_ability_grants(merc)
 
 
 static func _prepare_max_stats(merc: MercenaryData) -> void:
@@ -922,12 +1185,12 @@ static func _step7_stats(merc: MercenaryData) -> void:
 		var dom_bonuses: Dictionary = _merged_pair_stat_bonuses(merc.ancestry, merc.bloodline)
 		var rec_bonuses: Dictionary = _merged_pair_stat_bonuses(merc.recessive_ancestry, merc.recessive_bloodline)
 		for key: String in dom_bonuses:
-			merc.stat_bonuses[key] = (merc.stat_bonuses.get(key, 0.0) as float) + (dom_bonuses[key] as float)
+			_add_stat_multiplier(merc, key, dom_bonuses[key] as float)
 		for key: String in rec_bonuses:
 			var dom_val: float = dom_bonuses.get(key, 0.0) as float
 			var rec_val: float = rec_bonuses[key] as float
 			if rec_val > dom_val:
-				merc.stat_bonuses[key] = (merc.stat_bonuses.get(key, 0.0) as float) + (rec_val - dom_val)
+				_add_stat_multiplier(merc, key, rec_val - dom_val)
 	else:
 		var empty_str_arr: Array[String] = []
 		_apply_stat_bonus_5pct(merc, merc.ancestry.stat_bonus_5pct if merc.ancestry else empty_str_arr)
@@ -939,7 +1202,7 @@ static func _step7_stats(merc: MercenaryData) -> void:
 		_apply_stat_bonus_5pct(merc, lp.stat_bonus_5pct)
 
 	merc.luck_roll = _roll_luck()
-	merc.stats = StatCalculator.calculate_all(merc)
+	StatCalculator.refresh(merc)
 
 
 static func _collect_stat_bonus_5pct(stat_names: Array[String]) -> Dictionary:
@@ -970,8 +1233,7 @@ static func _apply_stat_bonus_5pct(merc: MercenaryData, stat_names: Array[String
 		var resolved: String = raw_name
 		if raw_name == "Any":
 			resolved = core_stats[randi() % core_stats.size()]
-		var var_name: String = resolved.to_lower().replace(" ", "_")
-		merc.stat_bonuses[var_name] = (merc.stat_bonuses.get(var_name, 0.0) as float) + 0.05
+		_add_stat_multiplier(merc, resolved.to_lower().replace(" ", "_"), 0.05)
 
 
 static func _apply_tradition_boosts(merc: MercenaryData) -> void:
@@ -1046,9 +1308,7 @@ static func _resolve_tradition_with_rerolls(
 static func _apply_single_stat_boost(merc: MercenaryData, stat_name: String, mult: float) -> void:
 	if stat_name == "":
 		return
-	var var_name: String = stat_name.to_lower().replace(" ", "_")
-	if merc.stats.has(var_name):
-		merc.stats[var_name] = (merc.stats[var_name] as float) * (1.0 + mult)
+	_add_stat_multiplier(merc, stat_name.to_lower().replace(" ", "_"), mult)
 
 
 static func _roll_luck() -> float:
@@ -1236,3 +1496,203 @@ static func _equip_starting_ammo(merc: MercenaryData) -> void:
 	var reserve: int = chosen.amount - merc.ammo_loaded
 	if reserve > 0:
 		merc.ammo_inventory[chosen.item_name] = reserve
+
+
+#Adds a flat stat token amount; StatCalculator folds it inside the dependency loop.
+static func _add_stat_flat(merc: MercenaryData, var_name: String, amount: float) -> void:
+	StatCalculator.add_flat(merc, var_name, amount)
+
+
+#Sums a fractional multiplier; two +5% boosts store 0.10 and scale the computed value once.
+static func _add_stat_multiplier(merc: MercenaryData, var_name: String, amount: float) -> void:
+	StatCalculator.add_percent(merc, var_name, amount)
+
+
+#One warning per spelling per run, so a dead sheet cell stays visible without spamming the log.
+static func _warn_token_once(key: String, reason: String) -> void:
+	if _warned_tokens.has(key):
+		return
+	_warned_tokens[key] = true
+	push_warning("MercGenerator: '%s' %s" % [key, reason])
+
+
+#Substitutes every [COLUMN] placeholder with a random value from that Types.tsv column.
+static func _expand_trait_placeholders(name: String) -> String:
+	var result: String = name
+	while true:
+		var open_idx: int = result.find("[")
+		if open_idx < 0:
+			break
+		var close_idx: int = result.find("]", open_idx)
+		if close_idx < 0:
+			break
+		var header: String = result.substr(open_idx + 1, close_idx - open_idx - 1)
+		var values: Array = DataManager.type_columns.get(header, []) as Array
+		if values.is_empty():
+			_warn_token_once("[" + header + "]", "has no Types.tsv column")
+			return ""
+		var pick: String = values[randi() % values.size()] as String
+		result = result.substr(0, open_idx) + pick + result.substr(close_idx + 1)
+	return result
+
+
+#Every [COLUMN] expansion of a name, in Types.tsv column order; no roll, unknown column gives none.
+static func placeholder_variants(name: String) -> Array[String]:
+	var results: Array[String] = [name]
+	while true:
+		var pending: Array[String] = []
+		var expanded: bool = false
+		for entry: String in results:
+			var open_idx: int = entry.find("[")
+			var close_idx: int = entry.find("]", open_idx) if open_idx >= 0 else -1
+			if open_idx < 0 or close_idx < 0:
+				pending.append(entry)
+				continue
+			var header: String = entry.substr(open_idx + 1, close_idx - open_idx - 1)
+			var values: Array = DataManager.type_columns.get(header, []) as Array
+			if values.is_empty():
+				_warn_token_once("[" + header + "]", "has no Types.tsv column")
+				return []
+			expanded = true
+			for value: String in values:
+				pending.append(entry.substr(0, open_idx) + value + entry.substr(close_idx + 1))
+		results = pending
+		if not expanded:
+			break
+	return results
+
+
+#Traits.tsv lookup that resolves [COLUMN] placeholders first and warns once on a missing row.
+static func _lookup_trait(raw_name: String) -> TraitData:
+	var name: String = raw_name.strip_edges()
+	if name == "":
+		return null
+	var warn_key: String = name
+	if DataManager.traits.has(name):
+		return DataManager.traits[name] as TraitData
+	if name.contains("["):
+		name = _expand_trait_placeholders(name)
+		if name == "":
+			return null
+		if DataManager.traits.has(name):
+			return DataManager.traits[name] as TraitData
+	#Dedupes on the unexpanded name so a broken placeholder warns once, not once per random pick.
+	_warn_token_once(warn_key, "has no Traits.tsv row")
+	return null
+
+
+#Exact knowledge match first, then a case insensitive scan so grant:knowledge:tactics resolves.
+static func _find_knowledge(k_name: String) -> UtilityTraitData:
+	if DataManager.knowledges.has(k_name):
+		return DataManager.knowledges[k_name] as UtilityTraitData
+	var lower: String = k_name.to_lower()
+	for key: String in DataManager.knowledges:
+		if key.to_lower() == lower:
+			return DataManager.knowledges[key] as UtilityTraitData
+	return null
+
+
+#Single recalculation point; passes after _step7_stats change merc fields, never merc.stats.
+static func _recalculate_stats(merc: MercenaryData) -> void:
+	StatCalculator.refresh(merc)
+
+
+#Perk rows of the weapon library; filter matches a trait_category or part of a weapon type key.
+static func _weapon_perk_pool(filter: String) -> Array[TraitData]:
+	var pool: Array[TraitData] = []
+	for key: String in DataManager.weapon_trait_library:
+		var key_match: bool = filter == "" or filter == "any" or key.to_lower().contains(filter)
+		for entry: Variant in (DataManager.weapon_trait_library[key] as Array):
+			var td: TraitData = entry as TraitData
+			if td == null or td.trait_type != "Perk":
+				continue
+			if not key_match and td.trait_category.to_lower() != filter:
+				continue
+			pool.append(td)
+	return pool
+
+
+#Perk rows of the armor library, whose keys are the armor types Light, Medium, Heavy and Bulky.
+static func _armor_perk_pool(filter: String) -> Array[TraitData]:
+	var pool: Array[TraitData] = []
+	for key: String in DataManager.armor_trait_library:
+		if filter != "" and filter != "any" and key.to_lower() != filter:
+			continue
+		for entry: Variant in (DataManager.armor_trait_library[key] as Array):
+			var td: TraitData = entry as TraitData
+			if td == null or td.trait_type != "Perk":
+				continue
+			pool.append(td)
+	return pool
+
+
+#Perk rows tagged into a named group by Traits.tsv column 11 or derived from Weapons.tsv.
+static func _perk_group_pool(group: String) -> Array[TraitData]:
+	var pool: Array[TraitData] = []
+	var key: String = DataManager.normalize_perk_group(group)
+	if key == "":
+		return pool
+	for entry: Variant in (DataManager.perk_group_library.get(key, []) as Array):
+		var td: TraitData = entry as TraitData
+		if td == null or td.trait_type != "Perk":
+			continue
+		pool.append(td)
+	return pool
+
+
+#Draws count group perks the merc lacks, routes each by trait_source and applies its own cell.
+static func _grant_random_group_perks(merc: MercenaryData, group: String, count: int, token: String) -> void:
+	var held: Dictionary = {}
+	var sources: Array = [merc.weapon_perks, merc.armor_perks, merc.perks, merc.drawbacks, merc.descriptors]
+	for source: Variant in sources:
+		for entry: Variant in (source as Array):
+			var held_td: TraitData = entry as TraitData
+			if held_td:
+				held[held_td.trait_name] = true
+	var choices: Array[TraitData] = []
+	for td: TraitData in _perk_group_pool(group):
+		if not held.has(td.trait_name):
+			choices.append(td)
+	if choices.is_empty():
+		_warn_token_once(token, "has no perk group members")
+		return
+	choices.shuffle()
+	for i: int in range(mini(count, choices.size())):
+		var drawn: TraitData = choices[i]
+		match drawn.trait_source:
+			"Weapon":
+				merc.weapon_perks.append(drawn)
+			"Armor":
+				merc.armor_perks.append(drawn)
+			_:
+				_assign_trait(merc, drawn)
+		_apply_dsl_to_merc(merc, drawn.effect_dsl)
+		merc.group_perk_cells_applied[drawn.trait_name] = true
+
+
+#Draws count perks the merc does not already hold and appends them to the granted list.
+static func _grant_random_perks(target: Array[TraitData], pool: Array[TraitData], count: int, token: String) -> void:
+	var held: Dictionary = {}
+	for td: TraitData in target:
+		if td:
+			held[td.trait_name] = true
+	var choices: Array[TraitData] = []
+	for td: TraitData in pool:
+		if not held.has(td.trait_name):
+			choices.append(td)
+	if choices.is_empty():
+		_warn_token_once(token, "has no perk left to draw")
+		return
+	choices.shuffle()
+	for i: int in range(mini(count, choices.size())):
+		target.append(choices[i])
+
+
+#Filter is empty, all, a stat word such as wile, or a circumstance name such as resist.
+static func _circumstance_matches_filter(display: String, filter: String) -> bool:
+	if filter == "" or filter == "all" or filter == "any":
+		return true
+	var row: Dictionary = ConstCircumstances.DATA.get(display, {}) as Dictionary
+	if (row.get("stat", "") as String).to_lower() == filter:
+		return true
+	return (row.get("circumstance_name", "") as String).to_lower().replace(" ", "_") == filter

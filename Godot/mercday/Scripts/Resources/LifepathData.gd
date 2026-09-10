@@ -7,3 +7,5 @@ var drawbacks: Array[String]
 var perks: Array[String]
 var rarity: String
 var stat_bonus_5pct: Array[String]
+#{"subject": String, "op": String, "value": String, "conj": "AND"|"OR"|""}
+var requirements: Array[Dictionary] = []

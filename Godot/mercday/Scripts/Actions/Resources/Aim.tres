@@ -5,7 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/AmmoStatusFacet.gd" id="AmmoStatusFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/AimActiveFacet.gd" id="AimActiveFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/EffectiveHitChanceFacet.gd" id="EffectiveHitChanceFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/AimPayoffFacet.gd" id="AimPayoffFacet"]
@@ -26,7 +26,8 @@ script = ExtResource("ValidTargetsFacet")
 is_required = true
 
 [sub_resource type="Resource" id="facet_aimed"]
-script = ExtResource("NotAimedFacet")
+script = ExtResource("AimActiveFacet")
+aimed_is_high = false
 is_required = true
 
 [sub_resource type="Resource" id="facet_misfire"]

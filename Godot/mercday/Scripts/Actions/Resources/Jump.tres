@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 [ext_resource type="Script" path="res://Scripts/Decisions/EnemiesExistFacet.gd" id="EnemiesExistFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/NoValidAttackTargetsFacet.gd" id="NoValidAttackTargetsFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
 
 [sub_resource type="Resource" id="facet_enemies"]
 script = ExtResource("EnemiesExistFacet")
@@ -29,8 +29,9 @@ state_name = "Deposed"
 present_is_high = false
 
 [sub_resource type="Resource" id="facet_no_attack_target"]
-script = ExtResource("NoValidAttackTargetsFacet")
+script = ExtResource("ValidTargetsFacet")
 is_required = true
+has_targets_is_high = false
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")

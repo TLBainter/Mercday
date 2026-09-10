@@ -1,17 +1,16 @@
 class_name EncounterLogger
 
-const MAX_LOGS := 10
 const LOG_DIR := "user://encounter_logs"
 
 static var _file: FileAccess = null
 static var _bbcode_rx: RegEx = null
 static var _buffer: PackedStringArray = []
 static var _current_stem: String = ""
+static var _field: BattlefieldArea = null
 
 
 static func begin(encounter_type: String, state: BattleState) -> void:
 	_ensure_dir()
-	_rotate()
 	var dt := Time.get_datetime_dict_from_system()
 	var session := "%06x" % randi()
 	var date_str := "%04d-%02d-%02d" % [dt["year"], dt["month"], dt["day"]]
@@ -23,8 +22,9 @@ static func begin(encounter_type: String, state: BattleState) -> void:
 	if _file == null:
 		push_warning("EncounterLogger: could not open %s" % filename)
 		return
+	_field = null
 	if state != null and state.battlefield != null:
-		WireframeGenerator.save(state.battlefield, _current_stem)
+		_field = state.battlefield
 		HtmlWireframeGenerator.save(state.battlefield, _current_stem)
 	_buffer.clear()
 	_buffer.append("=== MercManager Encounter Log ===")
@@ -36,8 +36,29 @@ static func begin(encounter_type: String, state: BattleState) -> void:
 			for m: MercenaryData in state.teams[i]:
 				names.append(m.merc_name)
 			_buffer.append("Team %d: %s" % [i, ", ".join(names)])
+		for i in state.teams.size():
+			_buffer.append("Team %d gear: %s" % [i, ", ".join(_gear_notes(state.teams[i]))])
 	_buffer.append("=================================")
 	_buffer.append("")
+
+
+#Per merc: fly when the merc can fly, then the weapons held and packed.
+static func _gear_notes(team: Array) -> Array[String]:
+	var notes: Array[String] = []
+	for m: MercenaryData in team:
+		var parts: Array[String] = []
+		if int(m.stats.get("fly", 0)) > 0:
+			parts.append("fly")
+		if m.equipped_weapon != null and not m.equipped_weapon.is_virtual:
+			parts.append(m.equipped_weapon.item_name)
+		for entry: Dictionary in m.inventory:
+			if entry.get("type") != "weapon":
+				continue
+			var w: WeaponData = entry.get("data") as WeaponData
+			if w != null:
+				parts.append(w.item_name)
+		notes.append("%s [%s]" % [m.merc_name, " / ".join(parts)])
+	return notes
 
 
 static func end(result: Dictionary) -> void:
@@ -51,10 +72,14 @@ static func end(result: Dictionary) -> void:
 	flush()
 	_file.close()
 	_file = null
+	if _field != null and _current_stem != "":
+		HtmlWireframeGenerator.save_to(_field, _current_stem + "_end.html")
 
 
 static func flush() -> void:
-	if _file == null or _buffer.is_empty():
+	if _file == null:
+		return
+	if _buffer.is_empty():
 		return
 	_file.store_string("\n".join(_buffer) + "\n")
 	_buffer.clear()
@@ -64,23 +89,41 @@ static func is_active() -> bool:
 	return _file != null
 
 
-static func log_line(text: String) -> void:
+#Full path of the log file the last begin() opened; empty before the first encounter.
+static func current_log_path() -> String:
+	return _current_stem + ".txt" if _current_stem != "" else ""
+
+
+#Buffers one already stripped line; a no-op while no log file is open.
+static func _append(line: String) -> void:
 	if _file == null:
 		return
-	_buffer.append(_strip_bbcode(text))
+	_buffer.append(line)
+
+
+#Per-floor map with every merc's starting cell marked by team number.
+static func log_spawn_map(state: BattleState) -> void:
+	if _field == null or state == null:
+		return
+	var spawns: Array[Dictionary] = []
+	for i: int in state.teams.size():
+		for m: MercenaryData in state.teams[i]:
+			spawns.append({"team": i, "floor": state.get_floor(m), "pos": state.get_position(m)})
+	_append("SPAWN MAP")
+	_append(_field.to_spawn_map_string(spawns))
+
+
+static func log_line(text: String) -> void:
+	_append(_strip_bbcode(text))
 
 
 static func log_verbose(text: String) -> void:
-	if _file == null:
-		return
-	_buffer.append("  >> " + text)
+	_append("  >> " + _strip_bbcode(text))
 
 
 static func log_cover_scan(merc_name: String, search_range: int, candidates: Array, best_score: float) -> void:
-	if _file == null:
-		return
 	if candidates.is_empty():
-		_buffer.append("  [cover-scan] %s  radius=%d  -> no candidates in range" % [merc_name, search_range])
+		_append("  [cover-scan] %s  radius=%d  -> no candidates in range" % [merc_name, search_range])
 		return
 	var parts: Array[String] = []
 	for c: Dictionary in candidates:
@@ -92,15 +135,16 @@ static func log_cover_scan(merc_name: String, search_range: int, candidates: Arr
 		else:
 			parts.append("(%d,%d) d=%d score=%.2f" % [pos.x, pos.y, dist, c.get("score", 0.0)])
 	var result_str := "no usable cover" if best_score <= 0.0 else ("best=%.2f" % best_score)
-	_buffer.append("  [cover-scan] %s  radius=%d  %s  -> %s" % [
+	_append("  [cover-scan] %s  radius=%d  %s  -> %s" % [
 		merc_name, search_range, " | ".join(parts), result_str])
 
 
-static func log_misfire_check(merc_name: String, weapon_name: String, threshold: int, roll: int, misfired: bool) -> void:
-	if _file == null:
-		return
+static func log_misfire_check(merc_name: String, weapon_name: String, threshold: int, roll: int, misfired: bool,
+		crit_saved: bool = false) -> void:
 	var outcome := "MISFIRE" if misfired else "clear"
-	_buffer.append("  [misfire-check] %s / %s  threshold=%d  roll=%d  -> %s" % [
+	if crit_saved:
+		outcome = "clear (crit)"
+	_append("  [misfire-check] %s / %s  threshold=%d  roll=%d  -> %s" % [
 		merc_name, weapon_name, threshold, roll, outcome])
 
 
@@ -133,8 +177,12 @@ static func log_generation(field: BattlefieldArea) -> void:
 				other_count += 1
 	_buffer.append("Obstacles: %d total  walls=%d  doors=%d  passthrough=%d  damaging=%d  solid=%d" % [
 		field.obstacles.size(), wall_count, door_count, passthrough_count, damaging_count, other_count])
-	if field.building_data.is_empty():
-		_buffer.append("Buildings: none")
+	if field.is_interior_map:
+		var ifp: Rect2i = field.building_footprint
+		_buffer.append("Buildings: interior  footprint=(%d,%d) %dx%d (shell walls included)" % [
+			ifp.position.x, ifp.position.y, ifp.size.x, ifp.size.y])
+	elif field.building_data.is_empty():
+		_buffer.append("Buildings: none (0 placed exterior buildings)")
 	else:
 		for i: int in range(field.building_data.size()):
 			var b: Dictionary = field.building_data[i]
@@ -151,44 +199,7 @@ static func log_generation(field: BattlefieldArea) -> void:
 	_buffer.append("---")
 	for entry: String in field.generation_log:
 		log_verbose(entry)
-	_write_level_log(field)
-
-
-static func _write_level_log(field: BattlefieldArea) -> void:
-	if _current_stem == "":
-		return
-	var fa := FileAccess.open(_current_stem + "_level.txt", FileAccess.WRITE)
-	if fa == null:
-		return
-	var lines: Array[String] = []
-	lines.append("=== Level Structure ===")
-	lines.append("Map: %dx%d  fh: %d" % [field.width, field.length, field.interior_floor_height])
-	for f_num: Variant in field.interior_floor_elevations.keys():
-		var floor_num: int = f_num as int
-		var elev: int = field.interior_floor_elevations[floor_num]
-		lines.append("F%d: elevation=%d" % [floor_num, elev])
-	lines.append("")
-	lines.append("--- Rooms ---")
-	for entry: Dictionary in field.interior_rooms:
-		var rect: Rect2i = entry["rect"] as Rect2i
-		var rname: String = entry["name"] as String
-		var fl: int = entry["floor"] as int
-		lines.append("F%d  %s  pos=(%d,%d) size=%dx%d" % [fl, rname, rect.position.x, rect.position.y, rect.size.x, rect.size.y])
-	lines.append("")
-	lines.append("--- Doors ---")
-	for obs: Dictionary in field.obstacles:
-		if obs.get("cell_type", "") != "door":
-			continue
-		var pos: Vector3i = obs["pos"] as Vector3i
-		var orient: String = obs.get("orientation", "v")
-		lines.append("door (%d,%d) F%d orient=%s" % [pos.x, pos.y, pos.z, orient])
-	lines.append("")
-	lines.append("--- Stairwells ---")
-	for p: Variant in field.stairwell_cells.keys():
-		var pos: Vector3i = p as Vector3i
-		lines.append("stairwell (%d,%d) F%d" % [pos.x, pos.y, pos.z])
-	fa.store_string("\n".join(lines) + "\n")
-	fa.close()
+	LevelDumpWriter.save(field, _current_stem)
 
 
 static func _ensure_dir() -> void:
@@ -196,35 +207,8 @@ static func _ensure_dir() -> void:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(LOG_DIR))
 
 
-static func _rotate() -> void:
-	var dir := DirAccess.open(LOG_DIR)
-	if dir == null:
-		return
-	var entries: Array[Dictionary] = []
-	dir.list_dir_begin()
-	var name := dir.get_next()
-	while name != "":
-		if not dir.current_is_dir() and name.ends_with(".txt") and not name.ends_with("_level.txt"):
-			var full := LOG_DIR + "/" + name
-			entries.append({"name": name, "mtime": FileAccess.get_modified_time(full)})
-		name = dir.get_next()
-	dir.list_dir_end()
-	if entries.size() < MAX_LOGS:
-		return
-	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["mtime"] < b["mtime"])
-	var to_delete := entries.size() - MAX_LOGS + 1
-	for i in to_delete:
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOG_DIR + "/" + entries[i]["name"]))
-		var svg_name: String = (entries[i]["name"] as String).get_basename() + ".svg"
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOG_DIR + "/" + svg_name))
-		var level_name: String = (entries[i]["name"] as String).get_basename() + "_level.txt"
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOG_DIR + "/" + level_name))
-		var html_name: String = (entries[i]["name"] as String).get_basename() + "_3d.html"
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(LOG_DIR + "/" + html_name))
-
-
 static func _strip_bbcode(text: String) -> String:
 	if _bbcode_rx == null:
 		_bbcode_rx = RegEx.new()
-		_bbcode_rx.compile("\\[[^\\]]*\\]")
+		_bbcode_rx.compile("\\[/?(color|b|i|u|s|url|img|font|font_size|bgcolor|fgcolor|outline_color|outline_size|center|right|left|fill|indent|code|p|lb|rb|wave|tornado|shake|fade|rainbow|pulse|hint|table|cell|ul|ol|char)(=[^\\]]*)?\\]")
 	return _bbcode_rx.sub(text, "", true)

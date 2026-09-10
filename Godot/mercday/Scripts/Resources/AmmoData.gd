@@ -11,3 +11,4 @@ var compatible: Array[String]
 var amount: int
 var ammo_class: String
 var effect: String
+var inflict_states: Array[String] = []

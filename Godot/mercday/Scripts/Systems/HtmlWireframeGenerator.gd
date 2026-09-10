@@ -2,12 +2,17 @@ class_name HtmlWireframeGenerator
 
 
 static func save(field: BattlefieldArea, path_stem: String) -> void:
+	save_to(field, path_stem + "_3d.html")
+
+
+#Writes the viewer to an exact path; used for the battle-end re-serialization.
+static func save_to(field: BattlefieldArea, path: String) -> void:
 	if field == null:
 		return
 	var html := _build_html(field)
-	var f := FileAccess.open(path_stem + "_3d.html", FileAccess.WRITE)
+	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
-		push_warning("HtmlWireframeGenerator: could not write %s_3d.html" % path_stem)
+		push_warning("HtmlWireframeGenerator: could not write %s" % path)
 		return
 	f.store_string(html)
 	f.close()
@@ -36,13 +41,8 @@ static func _extract_data(field: BattlefieldArea) -> Dictionary:
 
 	var obs_list: Array = []
 	for obs: Dictionary in field.obstacles:
-		var raw_pos = obs["pos"]
-		var pos: Vector3i
-		if raw_pos is Vector3i:
-			pos = raw_pos as Vector3i
-		else:
-			var p2 := raw_pos as Vector2i
-			pos = Vector3i(p2.x, p2.y, 0)
+		var cell := BattlefieldArea.cell_of(obs["pos"])
+		var pos := Vector3i(cell.x, cell.y, BattlefieldArea.floor_of(obs["pos"]))
 		var d: ObstacleData = obs.get("data") as ObstacleData
 		obs_list.append({
 			"x": pos.x, "y": pos.y, "floor": pos.z,
@@ -57,26 +57,39 @@ static func _extract_data(field: BattlefieldArea) -> Dictionary:
 			"name": d.obstacle_name.to_lower() if d != null else "",
 			"type": d.obstacle_type.to_lower() if d != null else "",
 			"narrow": d.narrow if d != null else false,
+			"broken": obs.get("broken", false) as bool,
 		})
 	data["obstacles"] = obs_list
 
+	#Exterior buildings key their cells by Vector2i; the viewer draws those on floor 0.
 	var bi: Array = []
 	for k: Variant in field.building_interiors.keys():
-		var pos := k as Vector3i
-		bi.append([pos.x, pos.y, pos.z])
+		if k is Vector3i:
+			var pos: Vector3i = k
+			bi.append([pos.x, pos.y, pos.z])
+		elif k is Vector2i:
+			var flat: Vector2i = k
+			bi.append([flat.x, flat.y, 0])
 	data["building_interiors"] = bi
 
-	var cc: Array = []
-	for k: Variant in field.ceiling_cells.keys():
-		var pos := k as Vector3i
-		cc.append([pos.x, pos.y, pos.z])
-	data["ceiling_cells"] = cc
+	data["ceiling_cells"] = _triples(field.ceiling_cells)
 
-	var sc: Array = []
-	for k: Variant in field.stairwell_cells.keys():
-		var pos := k as Vector3i
-		sc.append([pos.x, pos.y, pos.z])
-	data["stairwell_cells"] = sc
+	data["stairwell_cells"] = _triples(field.stairwell_cells)
+
+	var stc: Array = []
+	for k: Variant in field.stair_run_cells.keys():
+		var sp := k as Vector3i
+		stc.append([sp.x, sp.y, sp.z, field.cell_base_elevation(Vector2i(sp.x, sp.y), sp.z)])
+	data["stair_cells"] = stc
+
+	var dls: Array = []
+	for k: Variant in field.drop_links.keys():
+		var dp := k as Vector3i
+		for dl: Dictionary in (field.drop_links[k] as Array):
+			var dt: Vector3i = dl["to"] as Vector3i
+			dls.append({"x": dp.x, "y": dp.y, "floor": dp.z, "tx": dt.x, "ty": dt.y,
+				"paces": int(dl["paces"]), "kind": str(dl["kind"])})
+	data["drop_links"] = dls
 
 	var rooms: Array = []
 	for entry: Dictionary in field.interior_rooms:
@@ -94,25 +107,31 @@ static func _extract_data(field: BattlefieldArea) -> Dictionary:
 		bdata.append({"x": rect.position.x, "y": rect.position.y, "w": rect.size.x, "h": rect.size.y, "name": b.get("name", "")})
 	data["buildings"] = bdata
 
-	var sa: Array = []
-	for k: Variant in field.spawn_zone_a.keys():
-		var pos := k as Vector2i
-		sa.append([pos.x, pos.y])
-	data["spawn_a"] = sa
+	data["spawn_a"] = _pairs(field.spawn_zone_a)
 
-	var sb: Array = []
-	for k: Variant in field.spawn_zone_b.keys():
-		var pos := k as Vector2i
-		sb.append([pos.x, pos.y])
-	data["spawn_b"] = sb
+	data["spawn_b"] = _pairs(field.spawn_zone_b)
 
-	var jc: Array = []
-	for k: Variant in field.jagged_cells.keys():
-		var pos := k as Vector2i
-		jc.append([pos.x, pos.y])
-	data["jagged_cells"] = jc
+	data["jagged_cells"] = _pairs(field.jagged_cells)
 
 	return data
+
+
+#Vector3i keys of d as [x, y, floor] arrays, in key order.
+static func _triples(d: Dictionary) -> Array:
+	var out: Array = []
+	for k: Variant in d.keys():
+		var pos := k as Vector3i
+		out.append([pos.x, pos.y, pos.z])
+	return out
+
+
+#Vector2i keys of d as [x, y] arrays, in key order.
+static func _pairs(d: Dictionary) -> Array:
+	var out: Array = []
+	for k: Variant in d.keys():
+		var pos := k as Vector2i
+		out.append([pos.x, pos.y])
+	return out
 
 
 static func _build_html(field: BattlefieldArea) -> String:
@@ -234,9 +253,10 @@ resetCam();
 scene.add(new THREE.AmbientLight(0xffffff,0.9));
 
 // groups
-const spawnGrp=new THREE.Group(), furnGrp=new THREE.Group(), labelGrp=new THREE.Group();
-scene.add(spawnGrp,furnGrp,labelGrp);
+const spawnGrp=new THREE.Group(), furnGrp=new THREE.Group();
+scene.add(spawnGrp,furnGrp);
 const allSpawnMeshes=[];
+const hoverMeshes=[];
 const fGrps={};
 for(const fn of fNums){fGrps[fn]=new THREE.Group();scene.add(fGrps[fn]);}
 const base=new THREE.Group();
@@ -249,10 +269,10 @@ function lm(col){return new THREE.LineBasicMaterial({color:col});}
 const M={
   wall:m(0xd8d4c4,.88),wallE:lm(0x989080),
   floor:m(0x8aa0b4,.45),floorE:lm(0x607890),
-  ceil:m(0x1a1a1e,.75),ceilE:lm(0x404044),
-  stair:m(0xe8e0c4,.4),stairE:lm(0xa09870),
   door:m(0xa06830,.88),doorE:lm(0x704820),
   glass:m(0x80b8e0,.55),glassE:lm(0x5090c0),
+  glassB:m(0xe05a3c,.45),glassBE:lm(0xa03010),
+  dropB:m(0xffcc33,.95),dropW:m(0xff5a3c,.95),
   spawnA:m(0x4878c8,.35),spawnB:m(0x48a040,.35),
   veg:m(0x4a8a1a,.85),vegE:lm(0x2a6808),
   furn:m(0x9a7030,.85),furnE:lm(0x6a4818),
@@ -280,6 +300,7 @@ function addBox(grp,x,y,z,sx,sy,sz,fill,edge,ud){
     if(ud) Object.assign(ln.userData,ud);
     grp.add(ln);
   }
+  return mesh;
 }
 
 function addPlane(grp,cx,y,cz,sx,sz,mat,ud){
@@ -296,7 +317,7 @@ function extG(ch){const k=ch.toFixed(4);if(!extGroups[k]){extGroups[k]=new THREE
 function mergeGroup(grp){
   const fills=new Map(),lines=new Map(),keep=[];
   for(const o of [...grp.children]){
-    if(o.userData.isFurn||o.userData.isSpawn||o.userData.isLabel){keep.push(o);continue;}
+    if(o.userData.isFurn||o.userData.isSpawn||o.userData.isLabel||o.userData.tag){keep.push(o);continue;}
     if(o.isMesh){
       const k=o.material.uuid;
       if(!fills.has(k))fills.set(k,{mat:o.material,geos:[]});
@@ -328,32 +349,14 @@ const TH={};
 for(const [k,v] of Object.entries(D.terrain_heights||{})) TH[k]=v;
 function tY(gx,gy){return (TH[gx+'_'+gy]||0)*3.0;}
 
-const stairwellXF=IS_INT?new Set((D.stairwell_cells||[]).map(c=>c[0]+','+c[2])):new Set();
-// INTERIOR SCENE
+// interior scene
 if(IS_INT){
   const ceilSet=new Set((D.ceiling_cells||[]).map(c=>c[0]+','+c[1]+','+c[2]));
 
   const bldInt=new Set((D.building_interiors||[]).map(c=>c[0]+','+c[1]+','+c[2]));
-  const stFootprint=new Set();
-  {
-    const fnNs=fNums.slice().sort((a,b)=>a-b);
-    for(const cell of (D.stairwell_cells||[])){
-      const [cx,cz,cfn]=cell;
-      const cfi=fnNs.indexOf(cfn);
-      if(cfi<0) continue;
-      const cav=cz-(TOP_Y+1);
-      if(cav<1) continue;
-      const cmc=Math.min(cav,8);
-      let ctdx=(cx%2===1&&cx-1>=BLD_X+1)?-1:1;
-      if(ctdx>0&&cx+1>BLD_X+FW) ctdx=-1;
-      const topN=Math.min(3,cmc+1);
-      const topZ=cz-cmc;
-      const adjOkC=bldInt.has((cx+ctdx)+','+cz+','+cfn);
-      const useCSW=cmc>=4&&adjOkC&&(ctdx>0?cx+1<=BLD_X+FW:cx-1>=BLD_X+1);
-      if(!useCSW) for(let zi=0;zi<topN;zi++) stFootprint.add(cx+','+(topZ+zi)+','+cfn);
-      if(useCSW) for(let zi=1;zi<topN;zi++) stFootprint.add((cx+ctdx)+','+(cz-zi)+','+cfn);
-    }
-  }
+  const stairElev={};
+  for(const c of (D.stair_cells||[])) stairElev[c[0]+','+c[1]+','+c[2]]=c[3];
+  const stFootprint=new Set(Object.keys(stairElev));
 
   for(const cell of (D.building_interiors||[])){
     const [gx,gy,fn]=cell;
@@ -365,39 +368,23 @@ if(IS_INT){
 
   const wallPosSet=new Set((D.obstacles||[]).filter(o=>o.cell_type==='wall').map(o=>o.x+','+o.y+','+o.floor));
 
-  const fnNums=fNums.slice().sort((a,b)=>a-b);
-  const SPC=3;
-  for(const cell of (D.stairwell_cells||[])){
-    const [gx,gy,fn]=cell;
-    const fi=fnNums.indexOf(fn);
-    if(fi<=0) continue;
-    const fnPrev=fnNums[fi-1];
-    const yBase=floorElev(fnPrev);
-    const yTop=floorElev(fn);
-    const totalH=yTop-yBase;
-    if(totalH<=0) continue;
-    const y0=(yBase+yTop)*0.5;
-    const avail=gy-(TOP_Y+1);
-    if(avail<1) continue;
-    const mc=Math.min(avail,8),ns=mc*SPC,sh=totalH/ns,sd=1/SPC;
-    const px=()=>gx;
-    const pz=si=>gy-(si+1)*sd;
-    const gOf=y=>y<y0?(fGrps[fnPrev]||base):(fGrps[fn]||base);
-    let tdx=(gx%2===1&&gx-1>=BLD_X+1)?-1:1;
-    if(tdx>0&&gx+1>BLD_X+FW) tdx=-1;
-    const adjX=gx+tdx;
-    const adjOk=bldInt.has(adjX+','+gy+','+fn);
-    const useSW=mc>=4&&adjOk&&(tdx>0?gx+1<=BLD_X+FW:gx-1>=BLD_X+1);
-    if(useSW){
-      const halfN=Math.floor(ns/2),halfC=halfN/SPC;
-      for(let si=0;si<halfN;si++) addBox(gOf(yBase+si*sh),px(),yBase+si*sh,pz(si),1,sh,sd,M.stO,M.stOE);
-      const ex=px(),ez=pz(halfN-1);
-      addBox(gOf(yBase+halfN*sh),ex+(tdx<0?tdx:0),yBase+halfN*sh,ez-1,1+Math.abs(tdx),sh,1,M.stO,M.stOE);
-      const ox=gx+tdx,oz=ez;
-      for(let si=0;si<halfN;si++) addBox(gOf(yBase+(halfN+si)*sh),ox,yBase+(halfN+si)*sh,oz+si*sd,1,sh,sd,M.stO,M.stOE);
-    } else {
-      for(let si=0;si<ns;si++) addBox(gOf(yBase+si*sh),gx,yBase+si*sh,gy-(si+1)*sd,1,sh,sd,M.stO,M.stOE);
-    }
+  // stair treads drawn at their interpolated elevation
+  for(const c of (D.stair_cells||[])){
+    const [gx,gy,fn,ev]=c;
+    const prev=stairElev[gx+','+(gy-1)+','+fn];
+    const low=(prev===undefined)?ev-0.14:Math.min(ev,prev);
+    const th=Math.max(0.14,ev-low);
+    addBox(fGrps[fn]||base,gx,ev-th,gy,1,th,1,M.stO,M.stOE);
+  }
+
+  // drop link sources: balcony edges and broken shell windows
+  for(const dl of (D.drop_links||[])){
+    const dey=floorElev(dl.floor);
+    const cone=new THREE.Mesh(new THREE.ConeGeometry(.22,.5,4),dl.kind==='window'?M.dropW:M.dropB);
+    cone.position.set(dl.x+.5,dey+.35,dl.y+.5);
+    cone.userData.tag='drop '+dl.kind+' ('+dl.x+','+dl.y+') F'+dl.floor+' -> ('+dl.tx+','+dl.ty+') F0 paces='+dl.paces;
+    (fGrps[dl.floor]||base).add(cone);
+    hoverMeshes.push(cone);
   }
 
   // room labels
@@ -426,7 +413,7 @@ if(IS_INT){
   }
 }
 
-// EXTERIOR SCENE
+// exterior scene
 if(!IS_INT){
   addPlane(base,W*.5,.02,L*.5,W,L,M.ground);
 
@@ -449,24 +436,21 @@ if(!IS_INT){
   }
 }
 
-// SPAWN ZONES (both)
-for(const [gx,gy] of (D.spawn_a||[])){
-  if(IS_INT){
-    // find which floor this spawn is on by checking building_interiors
-    const fn=Object.keys(D.floors||{}).map(Number).sort((a,b)=>a-b)[0]||0;
-    const sm=addPlane(fGrps[fn]||base,gx+.5,floorElev(fn)+.05,gy+.5,1,1,M.spawnA);
-    allSpawnMeshes.push(sm);sm.userData.isSpawn=true;
-  } else addPlane(spawnGrp,gx+.5,tY(gx,gy)+.05,gy+.5,1,1,M.spawnA);
+// spawn zones (both)
+function drawSpawn(cells,mat){
+  for(const [gx,gy] of (cells||[])){
+    if(IS_INT){
+      // spawn floor is the lowest key in D.floors
+      const fn=Object.keys(D.floors||{}).map(Number).sort((a,b)=>a-b)[0]||0;
+      const sm=addPlane(fGrps[fn]||base,gx+.5,floorElev(fn)+.05,gy+.5,1,1,mat);
+      allSpawnMeshes.push(sm);sm.userData.isSpawn=true;
+    } else addPlane(spawnGrp,gx+.5,tY(gx,gy)+.05,gy+.5,1,1,mat);
+  }
 }
-for(const [gx,gy] of (D.spawn_b||[])){
-  if(IS_INT){
-    const fn=Object.keys(D.floors||{}).map(Number).sort((a,b)=>a-b)[0]||0;
-    const sm=addPlane(fGrps[fn]||base,gx+.5,floorElev(fn)+.05,gy+.5,1,1,M.spawnB);
-    allSpawnMeshes.push(sm);sm.userData.isSpawn=true;
-  } else addPlane(spawnGrp,gx+.5,tY(gx,gy)+.05,gy+.5,1,1,M.spawnB);
-}
+drawSpawn(D.spawn_a,M.spawnA);
+drawSpawn(D.spawn_b,M.spawnB);
 
-// OBSTACLES
+// obstacles
 const stairwellXSet=new Set((D.stairwell_cells||[]).map(c=>c[0]+','+c[2]));
 for(const obs of (D.obstacles||[])){
   const{x:gx,y:gy,floor:ofn,cell_type:ct,orient:ori,name:on,type:ot}=obs;
@@ -497,15 +481,15 @@ for(const obs of (D.obstacles||[])){
     const wallH=wH-0.05;
     addBox(grp,bx+.01,by,bz+.01,.98,wallH,.98,M.wall,M.wallE);
   } else if(ct==='window'){
-    if(ori==='v'){
-      addBox(grp,bx,by,bz,1,wH*.25,1,M.wall,M.wallE);
-      addBox(grp,bx,by+wH*.75,bz,1,wH*.25-0.05,1,M.wall,M.wallE);
-      addBox(grp,bx+.44,by+wH*.25,bz+.05,.12,wH*.5,.9,M.glass,M.glassE);
-    } else {
-      addBox(grp,bx,by,bz,1,wH*.25,1,M.wall,M.wallE);
-      addBox(grp,bx,by+wH*.75,bz,1,wH*.25-0.05,1,M.wall,M.wallE);
-      addBox(grp,bx+.05,by+wH*.25,bz+.44,.9,wH*.5,.12,M.glass,M.glassE);
-    }
+    const brk=!!obs.broken;
+    const gM=brk?M.glassB:M.glass, gE=brk?M.glassBE:M.glassE;
+    const gud=brk?{tag:'window ('+gx+','+gy+') F'+ofn+' broken'}:null;
+    addBox(grp,bx,by,bz,1,wH*.25,1,M.wall,M.wallE);
+    addBox(grp,bx,by+wH*.75,bz,1,wH*.25-0.05,1,M.wall,M.wallE);
+    const gmesh=(ori==='v')
+      ?addBox(grp,bx+.44,by+wH*.25,bz+.05,.12,wH*.5,.9,gM,gE,gud)
+      :addBox(grp,bx+.05,by+wH*.25,bz+.44,.9,wH*.5,.12,gM,gE,gud);
+    if(brk) hoverMeshes.push(gmesh);
   } else if(ct==='door'){
     addBox(grp,bx,by-.02,bz,1,.04,1,M.floor,null);
     if(ori==='h'){
@@ -572,7 +556,7 @@ for(const obs of (D.obstacles||[])){
 }
 if(IS_INT){for(const fn of fNums)mergeGroup(fGrps[fn]);}
 else{mergeGroup(base);mergeGroup(spawnGrp);for(const grp of Object.values(extGroups))mergeGroup(grp);}
-// --- UI ---
+// ui
 const slider=document.getElementById('floor-slider');
 const floorLbl=document.getElementById('floor-label');
 
@@ -606,7 +590,6 @@ document.getElementById('chk-furn').addEventListener('change',e=>{
 });
 document.getElementById('chk-labels').addEventListener('change',e=>{
   allLabMeshes.forEach(m=>m.visible=e.target.checked);
-  labelGrp.visible=e.target.checked;
 });
 
 window.addEventListener('resize',()=>{
@@ -614,6 +597,19 @@ window.addEventListener('resize',()=>{
   renderer.setSize(w,innerHeight);
   cam.aspect=w/innerHeight;
   cam.updateProjectionMatrix();
+});
+
+const ray=new THREE.Raycaster();
+const ptr=new THREE.Vector2();
+const infoEl=document.getElementById('info');
+const INFO_BASE=infoEl.textContent;
+renderer.domElement.addEventListener('pointermove',ev=>{
+  if(!hoverMeshes.length) return;
+  ptr.x=(ev.clientX/(innerWidth-PANEL))*2-1;
+  ptr.y=-(ev.clientY/innerHeight)*2+1;
+  ray.setFromCamera(ptr,cam);
+  const hit=ray.intersectObjects(hoverMeshes,false)[0];
+  infoEl.textContent=hit?(INFO_BASE+'  |  '+hit.object.userData.tag):INFO_BASE;
 });
 
 (function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,cam);})();

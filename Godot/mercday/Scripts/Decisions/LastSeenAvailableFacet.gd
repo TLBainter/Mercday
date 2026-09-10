@@ -7,11 +7,4 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	for enemy: MercenaryData in ctx.get("enemies", []):
 		if enemy == last and BattleState._is_alive(enemy):
 			return 1.0
-	merc.active_states.erase("last_target")
 	return 0.0
-
-static func create(p_weight: float = 1.0, p_required: bool = false) -> LastSeenAvailableFacet:
-	var facet := LastSeenAvailableFacet.new()
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

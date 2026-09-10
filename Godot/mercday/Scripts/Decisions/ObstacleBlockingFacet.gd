@@ -17,7 +17,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		if d < nearest_dist:
 			nearest_dist = d
 			nearest_enemy = e
-	for obs: Dictionary in state.battlefield.get_adjacent_obstacles(pos):
+	for obs: Dictionary in state.battlefield.get_adjacent_obstacles(pos, state.get_floor(merc)):
 		var ct: String = obs.get("cell_type", "")
 		if ct == "wall":
 			continue
@@ -28,17 +28,10 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 			continue
 		if nearest_enemy == null:
 			return 1.0
-		var _raw_obp = obs["pos"]
-		var obs_pos: Vector2i = Vector2i((_raw_obp as Vector3i).x, (_raw_obp as Vector3i).y) if typeof(_raw_obp) == TYPE_VECTOR3I else _raw_obp as Vector2i
+		var obs_pos := BattlefieldArea.cell_of(obs["pos"])
 		var enemy_pos := state.get_position(nearest_enemy)
 		var to_enemy := Vector2i(signi(enemy_pos.x - pos.x), signi(enemy_pos.y - pos.y))
 		var to_obs := Vector2i(signi(obs_pos.x - pos.x), signi(obs_pos.y - pos.y))
 		if to_obs == to_enemy or to_obs.x == to_enemy.x or to_obs.y == to_enemy.y:
 			return 1.0
 	return 0.0
-
-static func create(p_weight: float = 1.0, p_required: bool = false) -> ObstacleBlockingFacet:
-	var facet := ObstacleBlockingFacet.new()
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

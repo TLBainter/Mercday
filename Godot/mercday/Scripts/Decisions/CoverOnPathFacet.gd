@@ -8,15 +8,12 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	if state == null or state.battlefield == null:
 		return 1.0
 
-	var ranged_enemies: Array = []
-	for e in ctx.get("enemies", []):
-		if e.equipped_weapon != null and e.equipped_weapon.is_ranged:
-			ranged_enemies.append(e)
+	var ranged_enemies := DecisionFacet.ranged_enemies_in(ctx)
 	if ranged_enemies.is_empty():
 		return 1.0
 
 	var merc_pos := state.get_position(merc)
-	var pace: int = maxi(1, int(merc.stats.get("pace", 1)))
+	var pace: int = maxi(1, int(MovementExecutor.turn_paces(merc, state, 0)["paces"]))
 
 	var nearest_enemy: MercenaryData = null
 	var nearest_dist: float = INF
@@ -30,13 +27,12 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var best_cover_pos := Vector2i(-1, -1)
 	var best_cover_dist: float = INF
 	for obs: Dictionary in state.battlefield.obstacles:
-		if obs.get("cell_type", "") == "door" and obs.get("door_open", false):
+		if obs.get("cell_type", "") == "door" and OpenCloseState.is_open(obs):
 			continue
 		var obs_data: ObstacleData = obs.get("data") as ObstacleData
 		if obs_data != null and not obs_data.covers:
 			continue
-		var _raw_cp = obs["pos"]
-		var obs_pos: Vector2i = Vector2i((_raw_cp as Vector3i).x, (_raw_cp as Vector3i).y) if typeof(_raw_cp) == TYPE_VECTOR3I else _raw_cp as Vector2i
+		var obs_pos := BattlefieldArea.cell_of(obs["pos"])
 		var delta := obs_pos - merc_pos
 		var dist: float = float(maxi(absi(delta.x), absi(delta.y)))
 		if dist == 0.0 or dist > float(pace) * 2.0:
@@ -59,10 +55,3 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var detour_ratio := (best_cover_dist + cover_to_enemy) / direct_dist
 
 	return 0.0 if detour_ratio > DETOUR_LIMIT else 1.0
-
-
-static func create(p_weight: float = 1.0, p_required: bool = true) -> CoverOnPathFacet:
-	var facet := CoverOnPathFacet.new()
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

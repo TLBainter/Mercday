@@ -18,3 +18,5 @@ var le_count_str: String = "0"
 var weapon_pool: Array[String] = []
 var armor_pool: Array[String] = []
 var loadout_pool: Array[String] = []
+#"<immune|protected|susceptible>:<normalized name>" from the Immunities column.
+var passive_tokens: Array[String] = []

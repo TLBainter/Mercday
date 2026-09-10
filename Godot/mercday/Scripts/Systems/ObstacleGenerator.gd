@@ -12,46 +12,39 @@ static func _instance_size(template: ObstacleData) -> int:
 
 static func _make_obs(template: ObstacleData, pos: Vector2i) -> Dictionary:
 	var rotated := template.size_x != template.size_y and randi() % 2 == 0
-	return {"pos": pos, "size": _instance_size(template), "data": template, "rotated": rotated}
+	return {"pos": pos, "size": _instance_size(template), "data": template, "rotated": rotated, "floor": 0}
 
 
 static func place_terrain_obstacles(area: BattlefieldArea, target_count: int) -> int:
 	if DataManager.obstacles_terrain_pool.is_empty():
 		return 0
-	var placed := 0
-	var max_attempts := target_count * 30
-	for _i: int in range(max_attempts):
-		if placed >= target_count:
-			break
-		var pos := Vector2i(randi() % area.width, randi() % area.length)
-		if area._in_spawn_zone(pos) or area._is_obstacle_at(pos):
-			continue
-		if area.reserved_corridor_cells.has(pos) or area.building_interiors.has(pos):
-			continue
-		var template: ObstacleData = DataManager.obstacles_terrain_pool[
-			randi() % DataManager.obstacles_terrain_pool.size()]
-		var new_obs := _make_obs(template, pos)
-		area.obstacles.append(new_obs)
-		area._obs_map[pos] = new_obs
-		placed += 1
-		placed += _expand_obstacle(area, template, pos, target_count - placed)
-	return placed
+	return _place_from_pool(area, target_count, true)
 
 
 static func place_obstacles(area: BattlefieldArea, target_count: int) -> int:
+	return _place_from_pool(area, target_count, false)
+
+
+#Scatters obstacles outside the spawn zones; terrain_only draws from the terrain pool instead.
+static func _place_from_pool(area: BattlefieldArea, target_count: int, terrain_only: bool) -> int:
 	var placed := 0
 	var max_attempts := target_count * 30
 	for _i: int in range(max_attempts):
 		if placed >= target_count:
 			break
 		var pos := Vector2i(randi() % area.width, randi() % area.length)
-		if area._in_spawn_zone(pos) or area._is_obstacle_at(pos):
+		if area._in_spawn_zone(pos) or area.is_obstacle(pos):
 			continue
 		if area.reserved_corridor_cells.has(pos) or area.building_interiors.has(pos):
 			continue
-		var template: ObstacleData = DataManager.get_random_obstacle()
-		if not _terrain_compatible(template, area, pos):
-			continue
+		var template: ObstacleData
+		if terrain_only:
+			template = DataManager.obstacles_terrain_pool[
+				randi() % DataManager.obstacles_terrain_pool.size()]
+		else:
+			template = DataManager.get_random_obstacle()
+			if not _terrain_compatible(template, area, pos):
+				continue
 		var new_obs := _make_obs(template, pos)
 		area.obstacles.append(new_obs)
 		area._obs_map[pos] = new_obs
@@ -78,7 +71,7 @@ static func _expand_obstacle(area: BattlefieldArea, template: ObstacleData, orig
 			var np: Vector2i = parent + d
 			if np.x < 0 or np.x >= area.width or np.y < 0 or np.y >= area.length:
 				continue
-			if area._in_spawn_zone(np) or area._is_obstacle_at(np):
+			if area._in_spawn_zone(np) or area.is_obstacle(np):
 				continue
 			if area.reserved_corridor_cells.has(np) or area.building_interiors.has(np):
 				continue
@@ -119,8 +112,7 @@ static func apply_terrain_effects(area: BattlefieldArea) -> void:
 			continue
 		if d.thd_min == 0.0 and d.thd_max == 0.0:
 			continue
-		var _raw_op = obs["pos"]
-		var pos: Vector2i = Vector2i((_raw_op as Vector3i).x, (_raw_op as Vector3i).y) if typeof(_raw_op) == TYPE_VECTOR3I else _raw_op as Vector2i
+		var pos := BattlefieldArea.cell_of(obs["pos"])
 		var amount: float = randf_range(d.thd_min, d.thd_max)
 		var aspect: float = maxf(d.size_x, d.size_y) / maxf(minf(d.size_x, d.size_y), 0.01)
 		if d.obstacle_name == "Cliff Edge":
@@ -141,9 +133,7 @@ static func _apply_radial_deformation(area: BattlefieldArea, center: Vector2i, a
 				continue
 			if area.reserved_corridor_cells.has(cell):
 				continue
-			var _da: float = Vector2(float(cell.x - area.spawn_center_a.x), float(cell.y - area.spawn_center_a.y)).length()
-			var _db: float = Vector2(float(cell.x - area.spawn_center_b.x), float(cell.y - area.spawn_center_b.y)).length()
-			if _da < area.spawn_radius + 4.0 or _db < area.spawn_radius + 4.0:
+			if _near_spawn(area, cell):
 				continue
 			var dist: float = Vector2(float(dx), float(dy)).length()
 			if dist > radius:
@@ -167,9 +157,7 @@ static func _apply_linear_deformation(area: BattlefieldArea, center: Vector2i, a
 				continue
 			if area.reserved_corridor_cells.has(cell):
 				continue
-			var _da: float = Vector2(float(cell.x - area.spawn_center_a.x), float(cell.y - area.spawn_center_a.y)).length()
-			var _db: float = Vector2(float(cell.x - area.spawn_center_b.x), float(cell.y - area.spawn_center_b.y)).length()
-			if _da < area.spawn_radius + 4.0 or _db < area.spawn_radius + 4.0:
+			if _near_spawn(area, cell):
 				continue
 			var main_t: float = 1.0 - float(absi(mi)) / float(main_extent + 1)
 			var perp_t: float = 1.0 - float(absi(pi)) / float(perp_extent + 1)
@@ -194,12 +182,19 @@ static func _apply_cliff_deformation(area: BattlefieldArea, center: Vector2i, am
 					continue
 				if area.reserved_corridor_cells.has(cell):
 					continue
-				var _cda: float = Vector2(float(cell.x - area.spawn_center_a.x), float(cell.y - area.spawn_center_a.y)).length()
-				var _cdb: float = Vector2(float(cell.x - area.spawn_center_b.x), float(cell.y - area.spawn_center_b.y)).length()
-				if _cda < area.spawn_radius + 4.0 or _cdb < area.spawn_radius + 4.0:
+				if _near_spawn(area, cell):
 					continue
 				area.terrain_heights[cell] = minf(area.terrain_heights.get(cell, 0.0), tier_depth)
 		d += tier_w
+
+
+#True when the cell sits inside either spawn radius plus the 4 pace margin.
+static func _near_spawn(area: BattlefieldArea, cell: Vector2i) -> bool:
+	var da: float = Vector2(float(cell.x - area.spawn_center_a.x), float(cell.y - area.spawn_center_a.y)).length()
+	if da < area.spawn_radius + 4.0:
+		return true
+	var db: float = Vector2(float(cell.x - area.spawn_center_b.x), float(cell.y - area.spawn_center_b.y)).length()
+	return db < area.spawn_radius + 4.0
 
 
 static func _cliff_facing(area: BattlefieldArea, pos: Vector2i) -> Vector2i:

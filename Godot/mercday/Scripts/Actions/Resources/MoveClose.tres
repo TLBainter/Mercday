@@ -12,9 +12,10 @@
 [ext_resource type="Script" path="res://Scripts/Decisions/LastSeenAvailableFacet.gd" id="LastSeenAvailable"]
 [ext_resource type="Script" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/RangedThreatFacet.gd" id="RangedThreatFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/NotAimedFacet.gd" id="NotAimedFacet"]
+[ext_resource type="Script" path="res://Scripts/Decisions/AimActiveFacet.gd" id="AimActiveFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/CombatIdleFacet.gd" id="CombatIdleFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/PoorShotQualityFacet.gd" id="PoorShotQuality"]
+[ext_resource type="Script" path="res://Scripts/Decisions/CanSeeTargetFacet.gd" id="CanSeeTarget"]
 
 [sub_resource type="Resource" id="facet_enemies_exist"]
 script = ExtResource("EnemiesExist")
@@ -71,7 +72,8 @@ weight = 0.5
 invert = true
 
 [sub_resource type="Resource" id="facet_not_aimed"]
-script = ExtResource("NotAimedFacet")
+script = ExtResource("AimActiveFacet")
+aimed_is_high = false
 weight = 0.75
 
 [sub_resource type="Resource" id="facet_idle"]
@@ -85,9 +87,14 @@ script = ExtResource("PoorShotQuality")
 weight = 1.0
 accuracy_threshold = 30.0
 
+[sub_resource type="Resource" id="facet_can_see"]
+script = ExtResource("CanSeeTarget")
+is_required = false
+weight = 1.0
+
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_enemies_exist"), SubResource("facet_no_targets"), SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_preferred"), SubResource("facet_dist"), SubResource("facet_readiness"), SubResource("facet_last_seen"), SubResource("facet_hp_risk"), SubResource("facet_threat_risk"), SubResource("facet_not_aimed"), SubResource("facet_idle"), SubResource("facet_poor_shot")]
+facets = [SubResource("facet_enemies_exist"), SubResource("facet_no_targets"), SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_preferred"), SubResource("facet_dist"), SubResource("facet_readiness"), SubResource("facet_last_seen"), SubResource("facet_hp_risk"), SubResource("facet_threat_risk"), SubResource("facet_not_aimed"), SubResource("facet_idle"), SubResource("facet_poor_shot"), SubResource("facet_can_see")]
 threshold = 0.5
 
 [resource]

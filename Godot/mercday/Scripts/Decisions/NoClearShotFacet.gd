@@ -19,7 +19,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		var state: BattleState = ctx.get("state") as BattleState
 		if state == null or weapon.thrown_intended_range <= 0:
 			return 1.0 if ctx.get("valid_targets", []).is_empty() else 0.0
-		var throw_acc := WeaponEvaluator.compute_thrown_accuracy(merc, weapon)
+		var throw_acc := ThrownWeaponRules.compute_thrown_accuracy(merc, weapon)
 		var melee_acc := float(merc.stats.get("melee_accuracy", 50.0))
 		var throw_dominant := melee_acc > 0.0 and throw_acc >= melee_acc * 1.5
 		var has_backup := false
@@ -28,10 +28,13 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 				has_backup = true
 				break
 		var disarm_penalty := 0.0 if has_backup else 0.5
-		var throw_avg := WeaponEvaluator._parse_formula_for_avg(weapon.damage_formula_1)
+		var throw_avg := WeaponEvaluator.parse_formula_for_avg(weapon.damage_formula_1)
 		var expected_dmg := clampf(throw_acc / 100.0, 0.01, 1.0) * throw_avg
 		for enemy: MercenaryData in ctx.get("valid_targets", []):
 			if state.distance_to(merc, enemy) > weapon.thrown_intended_range:
+				continue
+			if not bool(ThrownWeaponRules.should_throw(
+					merc, weapon, enemy, ctx.get("enemies", []), state, false)["throw"]):
 				continue
 			if not throw_dominant:
 				return 1.0
@@ -43,10 +46,3 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 				return 0.0
 		return 1.0
 	return 1.0 if ctx.get("valid_targets", []).is_empty() else 0.0
-
-
-static func create(p_weight: float = 1.0, p_required: bool = false) -> NoClearShotFacet:
-	var facet := NoClearShotFacet.new()
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet

@@ -1,5 +1,12 @@
 class_name FirearmReliabilityFacet extends DecisionFacet
 
+#Aim scoring mirrors AttackRangeAimed.tres: reliability w=2.5, aim_boost w=2.0, threshold 0.50.
+const AIM_RELIABILITY_WEIGHT := 2.5
+const AIM_BOOST_WEIGHT := 2.0
+const AIM_TOTAL_WEIGHT := 4.5
+const AIM_THRESHOLD := 0.50
+
+
 func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
 	return compute(merc)
 
@@ -15,10 +22,30 @@ static func compute(merc: MercenaryData) -> float:
 	var k := int(weapon.misfire)
 	if num_dice < k:
 		return 0.0
-	return _prob_at_least_k(num_dice, k, p)
+	return prob_at_least_k(num_dice, k, p)
 
 
-static func _prob_at_least_k(n: int, k: int, p: float) -> float:
+static func aimed_score(reliability: float) -> float:
+	return (reliability * AIM_RELIABILITY_WEIGHT + AIM_BOOST_WEIGHT) / AIM_TOTAL_WEIGHT
+
+
+static func aimed_viable_at(reliability: float) -> bool:
+	return aimed_score(reliability) >= AIM_THRESHOLD
+
+
+static func unaimed_viable_at(reliability: float) -> bool:
+	return (reliability * AIM_RELIABILITY_WEIGHT) / AIM_TOTAL_WEIGHT >= AIM_THRESHOLD
+
+
+static func aimed_viable(merc: MercenaryData) -> bool:
+	return aimed_viable_at(compute(merc))
+
+
+static func unaimed_viable(merc: MercenaryData) -> bool:
+	return unaimed_viable_at(compute(merc))
+
+
+static func prob_at_least_k(n: int, k: int, p: float) -> float:
 	if k <= 0:
 		return 1.0
 	if p <= 0.0:

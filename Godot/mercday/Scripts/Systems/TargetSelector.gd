@@ -8,6 +8,13 @@ static func pick_target(
 		_weights: Dictionary = {}) -> MercenaryData:
 	if enemies.is_empty():
 		return null
+	var barred := ConstStates.blocked_targets(attacker)
+	if not barred.is_empty():
+		var allowed: Array = enemies.filter(func(e: MercenaryData) -> bool: return not barred.has(e))
+		if allowed.size() != enemies.size():
+			log_target_blocked(attacker, enemies, barred)
+			if not allowed.is_empty():
+				enemies = allowed
 	var weapon := attacker.equipped_weapon
 	var is_ranged := weapon != null and weapon.is_ranged
 	var avoid_key := "avoid_ranged" if is_ranged else "avoid_melee"
@@ -78,7 +85,7 @@ static func pick_target(
 		if weapon != null and not weapon.damage_types_1.is_empty():
 			var all_types: Array = weapon.damage_types_1.duplicate()
 			all_types.append_array(weapon.damage_types_2)
-			mult += score_type_vs_enemy(all_types, enemy)
+			mult += WeaponEvaluator.score_type_vs_enemy(all_types, enemy, attacker)
 
 		weights.append(maxi(1, int(base * mult)))
 
@@ -103,7 +110,14 @@ static func find_flankable_target(
 	var best_enemy: MercenaryData = null
 	var best_ally: MercenaryData = null
 	var best_dist := 999999
+	var barred := ConstStates.blocked_targets(mover)
+	var barred_logged := false
 	for enemy: MercenaryData in enemies:
+		if barred.has(enemy):
+			if not barred_logged:
+				barred_logged = true
+				log_target_blocked(mover, enemies, barred)
+			continue
 		var target_size := int(enemy.stats.get("size", 1))
 		if mover_size < target_size - 1:
 			continue
@@ -137,65 +151,6 @@ static func _enemy_in_intended_range(
 	return state.distance_to(attacker, enemy) <= weapon.ranged_intended_range
 
 
-# Returns a [-1.0, ~0.8] score for how well damage_types exploit this enemy's profile.
-# Negative = bad matchup (immune, protected by state); positive = good matchup.
-# Averages across all types in the list so multi-type weapons aren't over-rewarded.
-static func score_type_vs_enemy(damage_types: Array, enemy: MercenaryData) -> float:
-	if damage_types.is_empty():
-		return 0.0
-	var total := 0.0
-	for dtype: String in damage_types:
-		total += _score_single_type(dtype, enemy)
-	return total / float(damage_types.size())
-
-
-static func _score_single_type(dtype: String, enemy: MercenaryData) -> float:
-	var score := 0.0
-	var type_lower := dtype.to_lower()
-
-	# Passive effects (traits, armor protection): immune / susceptible / protected
-	for effect: String in enemy.passive_effects:
-		if effect == "immune:" + type_lower:
-			return -1.0
-		elif effect == "susceptible:" + type_lower:
-			score += 0.6
-		elif effect == "protected:" + type_lower:
-			score -= 0.3
-
-	# State-based interactions
-	match dtype:
-		"Toxic":
-			if ConstStates.has_state(enemy, ConstStates.POISONED):
-				score += 0.5   # +1 damage bonus kicks in
-		"Sonic":
-			if ConstStates.has_state(enemy, ConstStates.DEAFENED):
-				score -= 0.4   # Deafened grants Protected from Sonic
-		"Fire":
-			if ConstStates.has_state(enemy, ConstStates.DRENCHED):
-				score -= 0.3   # Drenched grants Protected from Fire
-		"Will":
-			# Will can't reduce HP below 1  -  bad for finishing off low-HP targets
-			var max_hp := int(enemy.stats.get("maximum_hit_points", 1))
-			if float(enemy.current_hp) / float(maxi(1, max_hp)) < 0.25:
-				score -= 0.5
-
-	# Defense-profile manipulation: reward types that counter how this enemy actually defends
-	var defend := float(enemy.stats.get("defend_reduction", 0))
-	var dodge := float(enemy.stats.get("dodge_reduction", 0))
-	var total_def := defend + dodge
-	if total_def > 0.0:
-		var defend_ratio := defend / total_def   # 1.0 = pure blocker
-		var dodge_ratio  := dodge  / total_def   # 1.0 = pure dodger
-		match dtype:
-			"Acid":     score += 0.4  * defend_ratio   # removes block entirely
-			"Holy":     score += 0.4  * dodge_ratio    # removes dodge entirely
-			"Strike":   score += 0.25 * defend_ratio   # halves block successes
-			"Impale":   score += 0.2  * defend_ratio   # block can't reduce below 1
-			"Lacerate": score += 0.2  * dodge_ratio    # dodge can't reduce below 1
-
-	return score
-
-
 static func pick_move_target(
 		merc: MercenaryData,
 		ctx: Dictionary,
@@ -206,6 +161,16 @@ static func pick_move_target(
 		blocked[pb] = true
 
 	var enemies: Array = ctx.get("enemies", [])
+	var barred := ConstStates.blocked_targets(merc)
+	if not barred.is_empty():
+		var removed := false
+		for b: MercenaryData in barred:
+			if enemies.has(b) and not blocked.has(b):
+				blocked[b] = true
+				removed = true
+		if removed:
+			log_target_blocked(merc, enemies, barred)
+
 	var valid: Array = ctx.get("valid_targets", [])
 
 	var candidates: Array = enemies.filter(func(e: MercenaryData) -> bool: return not blocked.has(e))
@@ -226,8 +191,9 @@ static func pick_move_target(
 		if not valid_candidates.is_empty():
 			var nearest: MercenaryData = null
 			var best_score := INF
+			var _interior := state.battlefield != null and state.battlefield.is_interior_map
 			for enemy: MercenaryData in valid_candidates:
-				var d := state.distance_to(merc, enemy)
+				var d := state.path_distance_to(merc, enemy) if _interior else state.distance_to(merc, enemy)
 				var max_hp := float(enemy.stats.get("maximum_hit_points", 1))
 				var hp_ratio := clampf(float(enemy.current_hp) / max_hp, 0.0, 1.0)
 				var s := d - (1.0 - hp_ratio)
@@ -237,12 +203,13 @@ static func pick_move_target(
 			if nearest != null:
 				return nearest
 
-	if merc.last_seen_position != Vector2i(-1, -1) and not candidates.is_empty():
+	if merc.last_seen_position != Vector3i(-1, -1, -1) and not candidates.is_empty():
 		var best_enemy: MercenaryData = null
 		var best_dist := INF
 		for enemy: MercenaryData in candidates:
-			var epos := state.get_position(enemy)
-			var d := float(maxi(absi(merc.last_seen_position.x - epos.x), absi(merc.last_seen_position.y - epos.y)))
+			var epos := state.pos3(enemy)
+			var d := float(maxi(absi(merc.last_seen_position.x - epos.x), absi(merc.last_seen_position.y - epos.y))
+				+ absi(merc.last_seen_position.z - epos.z) * 4)
 			if d < best_dist:
 				best_dist = d
 				best_enemy = enemy
@@ -250,14 +217,15 @@ static func pick_move_target(
 			return best_enemy
 
 	if not merc.last_known_enemy_positions.is_empty():
-		var merc_pos := state.get_position(merc)
+		var merc_pos := state.pos3(merc)
 		var best_dist := INF
 		var best_enemy: MercenaryData = null
 		for enemy: MercenaryData in merc.last_known_enemy_positions.keys():
 			if not candidates.has(enemy):
 				continue
-			var known_pos: Vector2i = merc.last_known_enemy_positions[enemy]
-			var d := float(maxi(absi(known_pos.x - merc_pos.x), absi(known_pos.y - merc_pos.y)))
+			var known_pos: Vector3i = merc.last_known_enemy_positions[enemy] as Vector3i
+			var d := float(maxi(absi(known_pos.x - merc_pos.x), absi(known_pos.y - merc_pos.y))
+				+ absi(known_pos.z - merc_pos.z) * 4)
 			if d < best_dist:
 				best_dist = d
 				best_enemy = enemy
@@ -265,10 +233,11 @@ static func pick_move_target(
 			return best_enemy
 
 	if not candidates.is_empty():
+		var _interior2 := state.battlefield != null and state.battlefield.is_interior_map
 		var nearest: MercenaryData = null
 		var best_dist := INF
 		for enemy: MercenaryData in candidates:
-			var d := float(state.distance_to(merc, enemy))
+			var d := float(state.path_distance_to(merc, enemy)) if _interior2 else float(state.distance_to(merc, enemy))
 			if d < best_dist:
 				best_dist = d
 				nearest = enemy
@@ -304,3 +273,22 @@ static func _flank_ally_at_current_pos(
 		if am_x > 0 and da_x < 0:
 			return ally
 	return null
+
+
+#One line per candidate a target:block:source state bars this merc from attacking.
+static func log_target_blocked(merc: MercenaryData, enemies: Array, barred: Array) -> void:
+	if not EncounterLogger.is_active():
+		return
+	for enemy: MercenaryData in enemies:
+		if barred.has(enemy):
+			EncounterLogger.log_verbose("TARGET BLOCKED: %s -> %s states=%s" % [
+				merc.merc_name, enemy.merc_name, _blocking_states(merc, enemy)])
+
+
+#States whose target:block:source token names this source.
+static func _blocking_states(merc: MercenaryData, source: MercenaryData) -> String:
+	var names: Array[String] = []
+	for e: Dictionary in ConstStates.active_effects(merc):
+		if str(e["token"]).begins_with("target:block:source") and e["source"] == source:
+			names.append(str(e["state"]))
+	return CheckSystem.states_text(names)

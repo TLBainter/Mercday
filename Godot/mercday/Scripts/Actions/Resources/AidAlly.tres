@@ -1,0 +1,24 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" path="res://Scripts/Decisions/StateReliefFacet.gd" id="StateReliefFacet"]
+
+[sub_resource type="Resource" id="facet_relief"]
+script = ExtResource("StateReliefFacet")
+weight = 1.0
+action_key = "aid_ally"
+
+[sub_resource type="Resource" id="decision"]
+script = ExtResource("DecisionData")
+facets = [SubResource("facet_relief")]
+threshold = 0.5
+
+[resource]
+script = ExtResource("ActionData")
+action_name = "aid_ally"
+ap_cost = 2
+priority = 25
+execution_type = "special"
+target_mode = "none"
+decision = SubResource("decision")

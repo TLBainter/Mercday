@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" uid="uid://dwcg7h68jvfcy" path="res://Scripts/Resources/EventData.gd" id="1_EventData"]
+
+[resource]
+script = ExtResource("1_EventData")
+event_name = "Tavern Brawl"
+event_type = "Mishap"
+check_stats = Array[String](["Dexterity", "Vigor", "Wile"])
+circumstances = Array[String](["Athletics (Vigor)", "Attack (Vigor)", "Grace (Dexterity)", "Attack (Dexterity)", "Power (Vigor)", "Presence (Vigor)", "Presence (Wile)"])
+knowledges = Array[String](["Dueling", "Tactics", "Undercity", "Uppercity", "Diplomacy", "Chivalry", "Colosseum"])
+tools = Array[String](["Brewer's"])
+success_formula = "Battle"
+possible_contracts = Array[String](["Assassinate", "Entertain", "Escort", "Investigate", "Military", "Rescue"])
+possible_locations = Array[String](["Aerdis", "Aldurstein", "Miliim", "Zukei", "Kathaya", "Copari", "Suorr", "Rossade", "Buern", "Vaernebo"])
+enemy = "Taverngoer"
+enemy_counter = "party.merc_count + bad_luck_roll"
+map_rule = "Interior:Tavern"

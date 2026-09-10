@@ -12,7 +12,10 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var enemies: Array = ctx.get("enemies", [])
 	if enemies.is_empty():
 		return 0.0
-	var pace: int = maxi(1, int(merc.stats.get("pace", 1)))
+	var pace: int = maxi(1, int(MovementExecutor.turn_paces(merc, state, 0)["paces"]))
+	var closest := 999999
+	for enemy: MercenaryData in enemies:
+		closest = mini(closest, state.distance_to(merc, enemy))
 	var ranged_acc := float(merc.stats.get("ranged_accuracy", 0.0))
 	var melee_acc := float(merc.stats.get("melee_accuracy", 0.0))
 	var best_weapon_score := -9999.0
@@ -35,12 +38,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		var viable := false
 		var in_range := false
 		if w.is_ranged and not w.is_throwable:
-			var has_ammo := merc.ammo_loaded > 0
-			if not has_ammo:
-				for cnt: int in merc.ammo_inventory.values():
-					if cnt > 0:
-						has_ammo = true
-						break
+			var has_ammo := merc.ammo_loaded > 0 or MercenaryData.has_reserve_ammo(merc)
 			if has_ammo:
 				viable = true
 				for enemy: MercenaryData in enemies:
@@ -55,7 +53,8 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 					break
 		if not viable:
 			continue
-		var s := WeaponEvaluator.score_weapon(w, merc, enemies, state)
+		#The retreat breaks melee contact, so the weapon is scored from outside it.
+		var s := WeaponEvaluator.score_weapon(w, merc, enemies, state, false, maxi(3, closest))
 		if s > best_weapon_score:
 			best_weapon_score = s
 		has_viable = true
@@ -76,10 +75,3 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	if hp_ratio < 0.5:
 		score += (0.5 - hp_ratio) * 0.3
 	return clampf(score, 0.0, 1.0)
-
-
-static func create(p_weight: float = 4.0, p_required: bool = false) -> RangedRetreatViabilityFacet:
-	var facet := RangedRetreatViabilityFacet.new()
-	facet.weight = p_weight
-	facet.is_required = p_required
-	return facet
