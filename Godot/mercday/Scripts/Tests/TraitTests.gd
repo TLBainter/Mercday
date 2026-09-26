@@ -7,6 +7,7 @@ const SEED_CLOWN := 20260901
 const SEED_DISSECTOR := 20260902
 const SEED_ESCAPE := 20260903
 const SEED_GROUP := 20260910
+const SEED_INFLICT := 20260911
 const REPS := 200
 
 
@@ -41,6 +42,8 @@ static func run() -> bool:
 	_case_compound_condition(res)
 	_case_bond_scope(res)
 	_case_rest_beau_scopes(res)
+	_case_inflict_outside(res)
+	_case_item_grant(res)
 	return TestFixtures.summarize(res, "TRAIT")
 
 
@@ -48,17 +51,7 @@ static func run() -> bool:
 
 #A merc whose stats come from the real Stats.tsv formulas, so a percent or flat delta is observable.
 static func _merc(name: String) -> MercenaryData:
-	var m := MercenaryData.new()
-	m.merc_name = name
-	m.max_stats = {"max_vigor": 8, "max_dexterity": 8, "max_cognition": 8, "max_wile": 8, "size": 1}
-	m.luck_roll = 5.0
-	m.stats = {"level": 5}
-	m.stats = StatCalculator.calculate_all(m)
-	m.stats["pain_limit"] = 0
-	m.stats_baseline = StatCalculator.calculate_all(m)
-	m.current_hp = int(m.stats.get("maximum_hit_points", 1))
-	m.current_ep = 0
-	return m
+	return TestFixtures.level_merc(name, false)
 
 
 #Raises the hit point pool before BattleState.create copies it into current_hp.
@@ -98,29 +91,11 @@ static func _give(merc: MercenaryData, td: TraitData) -> void:
 		merc.perks.append(td)
 
 
-static func _holds(merc: MercenaryData, trait_name: String) -> bool:
-	for td: TraitData in merc.perks:
-		if td != null and td.trait_name == trait_name:
-			return true
-	for td2: TraitData in merc.drawbacks:
-		if td2 != null and td2.trait_name == trait_name:
-			return true
-	return false
-
-
 static func _has_knowledge(merc: MercenaryData, k_name: String) -> bool:
 	for k: UtilityTraitData in merc.knowledges:
 		if k != null and k.utility_name == k_name:
 			return true
 	return false
-
-
-static func _flags_on(merc: MercenaryData) -> Array[String]:
-	var out: Array[String] = []
-	for display: String in merc.circumstance_flags:
-		if bool(merc.circumstance_flags[display]):
-			out.append(display)
-	return out
 
 
 static func _contract(type_name: String, stats: Dictionary, circs: Dictionary) -> ContractData:
@@ -132,11 +107,11 @@ static func _contract(type_name: String, stats: Dictionary, circs: Dictionary) -
 
 
 static func _run_for(c: ContractData, team: Array[MercenaryData], verdict: String) -> ContractRun:
-	var run := ContractRun.new()
-	run.contract = c
-	run.team = team
-	run.verdict = verdict
-	return run
+	var contract_run := ContractRun.new()
+	contract_run.contract = c
+	contract_run.team = team
+	contract_run.verdict = verdict
+	return contract_run
 
 
 static func _weapon(fragility: int, is_virtual: bool) -> WeaponData:
@@ -181,19 +156,19 @@ static func _case_untapped_potential(res: Dictionary) -> void:
 	circs[relevant] = 15.0
 	var c := _contract("Monster Hunt", {"Dexterity": 15.0}, circs)
 	var team: Array[MercenaryData] = [m]
-	var run := _run_for(c, team, "")
-	var before: int = _flags_on(m).size()
-	TraitRuntime.begin_contract(run)
-	var after: Array[String] = _flags_on(m)
+	var contract_run := _run_for(c, team, "")
+	var before: int = TestFixtures.true_flags(m).size()
+	TraitRuntime.begin_contract(contract_run)
+	var after: Array[String] = TestFixtures.true_flags(m)
 	TestFixtures.check(res, "untapped potential grants one contract relevant circumstance",
 		after.size() == before + 1 and after.has(relevant),
 		"flags before %d, after %s" % [before, str(after)])
-	TestFixtures.check(res, "untapped potential removes itself", not _holds(m, "Untapped Potential"),
+	TestFixtures.check(res, "untapped potential removes itself", not TestFixtures.holds_trait(m, "Untapped Potential"),
 		"perks %d drawbacks %d" % [m.perks.size(), m.drawbacks.size()])
-	TraitRuntime.revert_contract(run)
+	TraitRuntime.revert_contract(contract_run)
 	TestFixtures.check(res, "untapped potential grant survives revert_contract",
-		bool(m.circumstance_flags.get(relevant, false)) and _flags_on(m).size() == before + 1,
-		"flags after revert %s" % str(_flags_on(m)))
+		bool(m.circumstance_flags.get(relevant, false)) and TestFixtures.true_flags(m).size() == before + 1,
+		"flags after revert %s" % str(TestFixtures.true_flags(m)))
 
 
 static func _case_curse_marked(res: Dictionary) -> void:
@@ -202,12 +177,12 @@ static func _case_curse_marked(res: Dictionary) -> void:
 	if td == null:
 		return
 	var m := _merc("Cain")
-	MercGenerator._apply_dsl_to_merc(m, td.effect_dsl)
+	TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
 	TestFixtures.check(res, "curse marked grants Presence (Vigor)",
 		bool(m.circumstance_flags.get(ConstCircumstances.PRESENCE_VIGOR, false)),
-		"flags %s" % str(_flags_on(m)))
-	TestFixtures.check(res, "curse marked grants the Intimidating trait", _holds(m, "Intimidating"),
-		"perks %d, holds Intimidating %s" % [m.perks.size(), str(_holds(m, "Intimidating"))])
+		"flags %s" % str(TestFixtures.true_flags(m)))
+	TestFixtures.check(res, "curse marked grants the Intimidating trait", TestFixtures.holds_trait(m, "Intimidating"),
+		"perks %d, holds Intimidating %s" % [m.perks.size(), str(TestFixtures.holds_trait(m, "Intimidating"))])
 
 
 static func _case_beginners_luck(res: Dictionary) -> void:
@@ -219,13 +194,13 @@ static func _case_beginners_luck(res: Dictionary) -> void:
 	_give(m, td)
 	var c := _contract("Assassinate", {"Dexterity": 15.0, "Cognition": 10.0}, {})
 	var team: Array[MercenaryData] = [m]
-	var run := _run_for(c, team, "")
+	var contract_run := _run_for(c, team, "")
 	var before: int = int(m.stats.get("dexterity", 0))
-	TraitRuntime.end_contract(run)
+	TraitRuntime.end_contract(contract_run)
 	var after: int = int(m.stats.get("dexterity", 0))
 	TestFixtures.check(res, "beginners luck raises the contract core stat by 2", after == before + 2,
 		"dexterity %d -> %d (contract core of Assassinate)" % [before, after])
-	TestFixtures.check(res, "beginners luck removes itself", not _holds(m, "Beginner's Luck"),
+	TestFixtures.check(res, "beginners luck removes itself", not TestFixtures.holds_trait(m, "Beginner's Luck"),
 		"perks %d drawbacks %d" % [m.perks.size(), m.drawbacks.size()])
 
 
@@ -295,7 +270,7 @@ static func _case_down_to_clown(res: Dictionary) -> void:
 	m.blocked_circumstances = blocked
 	var c := _contract("Entertain", {"Wile": 10.0}, {})
 	var team: Array[MercenaryData] = [m]
-	var run := _run_for(c, team, "")
+	var contract_run := _run_for(c, team, "")
 	seed(SEED_CLOWN)
 	var count_held: bool = true
 	var saw_kept: bool = false
@@ -304,8 +279,8 @@ static func _case_down_to_clown(res: Dictionary) -> void:
 		var start: Dictionary = {}
 		start[keep_a] = true
 		m.circumstance_flags = start
-		TraitRuntime.end_contract(run)
-		var on_now: Array[String] = _flags_on(m)
+		TraitRuntime.end_contract(contract_run)
+		var on_now: Array[String] = TestFixtures.true_flags(m)
 		if on_now.size() != 1:
 			count_held = false
 			break
@@ -329,7 +304,7 @@ static func _case_tavern_brawler(res: Dictionary) -> void:
 	var plain := _merc("Tav0")
 	var base: float = _stat(plain, "accuracy")
 	var m := _merc("Tav")
-	MercGenerator._apply_dsl_to_merc(m, td.effect_dsl)
+	TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
 	StatCalculator.refresh(m)
 	TestFixtures.check(res, "tavern brawler grants +15 percent accuracy at generation",
 		base > 0.0 and _near(_stat(m, "accuracy"), base * 1.15),
@@ -547,7 +522,7 @@ static func _case_eyes_in_the_back(res: Dictionary) -> void:
 		return
 	var plain := _merc("Eye0")
 	var m := _merc("Eye")
-	MercGenerator._apply_dsl_to_merc(m, td.effect_dsl)
+	TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
 	StatCalculator.refresh(m)
 	TestFixtures.check(res, "eyes in the back raises avoid by 40",
 		_near(_stat(m, "avoid"), _stat(plain, "avoid") + 40.0),
@@ -612,7 +587,7 @@ static func _case_party_tank(res: Dictionary) -> void:
 		return
 	var plain := _merc("Tnk0")
 	var m := _merc("Tnk")
-	MercGenerator._apply_dsl_to_merc(m, td.effect_dsl)
+	TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
 	StatCalculator.refresh(m)
 	TestFixtures.check(res, "party tank adds 1 maximum hit point",
 		int(m.stats.get("maximum_hit_points", 0)) == int(plain.stats.get("maximum_hit_points", 0)) + 1,
@@ -679,7 +654,7 @@ static func _case_knowledge_grants(res: Dictionary) -> void:
 			continue
 		var k_name: String = wanted[trait_name]
 		var m := _merc("Kn_" + trait_name)
-		MercGenerator._apply_dsl_to_merc(m, td.effect_dsl)
+		TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
 		TestFixtures.check(res, "%s grants the %s knowledge" % [trait_name, k_name], _has_knowledge(m, k_name),
 			"knowledges %d, holds %s %s" % [m.knowledges.size(), k_name, str(_has_knowledge(m, k_name))])
 	var cog_rows: Array[String] = ["Polemologist", "Historian", "Omnimancer", "Technologist"]
@@ -689,7 +664,7 @@ static func _case_knowledge_grants(res: Dictionary) -> void:
 			continue
 		var cm := _merc("Cog_" + cog_name)
 		var before: int = int(cm.max_stats.get("max_cognition", 0))
-		MercGenerator._apply_dsl_to_merc(cm, ctd.effect_dsl)
+		TraitDSL.apply_dsl_to_merc(cm, ctd.effect_dsl)
 		TestFixtures.check(res, "%s raises max_cognition by 1" % cog_name,
 			int(cm.max_stats.get("max_cognition", 0)) == before + 1,
 			"max_cognition %d -> %d" % [before, int(cm.max_stats.get("max_cognition", 0))])
@@ -702,7 +677,7 @@ static func _case_fragile_cannon(res: Dictionary) -> void:
 		return
 	var plain := _merc("Fra0")
 	var m := _merc("Fra")
-	MercGenerator._apply_dsl_to_merc(m, td.effect_dsl)
+	TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
 	StatCalculator.refresh(m)
 	TestFixtures.check(res, "fragile cannon lowers the computed maximum hit points",
 		int(m.stats.get("maximum_hit_points", 0)) == int(plain.stats.get("maximum_hit_points", 0)) - 2,
@@ -722,7 +697,7 @@ static func _case_new_rows(res: Dictionary) -> void:
 	var und: TraitData = _lib("Undergrad Studies")
 	if und != null:
 		var m := _merc("Und")
-		MercGenerator._apply_dsl_to_merc(m, und.effect_dsl)
+		TraitDSL.apply_dsl_to_merc(m, und.effect_dsl)
 		TestFixtures.check(res, "undergrad studies grants one random knowledge", m.knowledges.size() == 1,
 			"knowledges %d" % m.knowledges.size())
 	var drops: Dictionary = {"Grief Stricken": 3.0, "Unrequited Heart": 2.0}
@@ -733,12 +708,14 @@ static func _case_new_rows(res: Dictionary) -> void:
 		var amount: float = drops[row_name2]
 		var plain := _merc("Bsc_" + row_name2)
 		var m2 := _merc("New_" + row_name2)
-		MercGenerator._apply_dsl_to_merc(m2, td.effect_dsl)
+		TraitDSL.apply_dsl_to_merc(m2, td.effect_dsl)
 		StatCalculator.refresh(m2)
 		TestFixtures.check(res, "%s lowers base success chance by %d" % [row_name2, int(amount)],
 			_near(_stat(m2, "base_success_chance"), _stat(plain, "base_success_chance") - amount),
 			"base_success_chance %.2f vs base %.2f" % [_stat(m2, "base_success_chance"),
 			_stat(plain, "base_success_chance")])
+
+
 static func _case_buddy_clauses(res: Dictionary) -> void:
 	TraitRuntime.clear_all()
 	var combo: TraitData = _require(res, "companion combo row", "Companion Combo")
@@ -787,7 +764,12 @@ static func _case_buddy_clauses(res: Dictionary) -> void:
 	TestFixtures.check(res, "missing your pal reverts with the buddy there",
 		_near(_stat(lone, "base_success_chance"), base2),
 		"base_success_chance back to %.2f, got %.2f" % [base2, _stat(lone, "base_success_chance")])
-	TestFixtures.check(res, "no buddy uid reads as absent", lone.buddy_uid > 0, "the pointer drives both clauses")
+	lone.buddy_uid = 0
+	TraitRuntime.refresh_continuous(lone, st2)
+	TestFixtures.check(res, "no buddy uid reads as absent",
+		_near(_stat(lone, "base_success_chance"), maxf(0.0, base2 - 7.0)),
+		"base_success_chance %.2f, the dangling uid gave %.2f"
+		% [_stat(lone, "base_success_chance"), maxf(0.0, base2 - 7.0)])
 
 
 static func _case_perk_groups(res: Dictionary) -> void:
@@ -803,7 +785,11 @@ static func _case_perk_groups(res: Dictionary) -> void:
 	if melee.size() >= 2:
 		seed(SEED_GROUP)
 		var m := _merc("Grp")
-		MercGenerator._apply_dsl_to_merc(m, "grant:random:perk_group:melee:2")
+		var staff: WeaponData = _weapon(0, false)
+		staff.weapon_type = "Staff"
+		m.equipped_weapon = staff
+		m.weapon_drawn = true
+		TraitDSL.apply_dsl_to_merc(m, "grant:random:perk_group:melee:2")
 		var names: Array[String] = []
 		var derived: bool = true
 		for td: TraitData in m.weapon_perks:
@@ -821,7 +807,7 @@ static func _case_perk_groups(res: Dictionary) -> void:
 			recorded and names.size() == 2,
 			"recorded %s" % str(m.group_perk_cells_applied.keys()))
 	var u := _merc("Unk")
-	MercGenerator._apply_dsl_to_merc(u, "grant:random:perk_group:no_such_group:1")
+	TraitDSL.apply_dsl_to_merc(u, "grant:random:perk_group:no_such_group:1")
 	TestFixtures.check(res, "an unknown perk group grants nothing",
 		u.weapon_perks.is_empty() and u.armor_perks.is_empty() and u.perks.is_empty()
 		and u.group_perk_cells_applied.is_empty(),
@@ -858,7 +844,7 @@ static func _case_group_perk_generation(res: Dictionary) -> void:
 		after == before + 1,
 		"max_cognition %d -> %d, a second pass would read %d" % [before, after, before + 2])
 	TestFixtures.check(res, "a Merc source group perk lands in perks and is recorded",
-		_holds(m, "TEST Group Member")
+		TestFixtures.holds_trait(m, "TEST Group Member")
 		and bool(m.group_perk_cells_applied.get("TEST Group Member", false)),
 		"perks %d, recorded %s" % [m.perks.size(), str(m.group_perk_cells_applied.keys())])
 	DataManager.traits.erase(giver.trait_name)
@@ -972,3 +958,70 @@ static func _case_rest_beau_scopes(res: Dictionary) -> void:
 	TestFixtures.check(res, "rest_complete and beau_seen default to the permanent scope",
 		_near(_stat(m, "accuracy"), acc + 5.0) and _near(_stat(m, "avoid"), avo + 5.0),
 		"accuracy %.2f, avoid %.2f after end_encounter" % [_stat(m, "accuracy"), _stat(m, "avoid")])
+
+
+#A rest clause inflicts with no BattleState, so the Inflict Default duration becomes a campaign timer.
+static func _case_inflict_outside(res: Dictionary) -> void:
+	TraitRuntime.clear_all()
+	CampaignClock.reset()
+	CampaignClock.advance(50)
+	var m := _merc("Inf")
+	var td := TraitData.new()
+	td.trait_name = "TEST Wet Rest"
+	td.trait_type = "Perk"
+	td.effect_dsl = "on:rest_complete:always:inflict:inhibited"
+	m.perks.append(td)
+	seed(SEED_INFLICT)
+	var last: Array[String] = []
+	for _i: int in range(REPS):
+		var lines: Array[String] = []
+		TraitRuntime.fire("rest_complete", m, {"kind": "breather", "run": null, "lines": lines})
+		last = lines
+		if ConstStates.has_state(m, ConstStates.INHIBITED):
+			break
+	var named: bool = false
+	var failed: bool = false
+	for line: String in last:
+		if line.contains(ConstStates.INHIBITED):
+			named = true
+		if line.contains("fails to resist " + ConstStates.INHIBITED):
+			failed = true
+	var held: bool = ConstStates.has_state(m, ConstStates.INHIBITED)
+	var expiry: int = int(m.campaign_states.get(ConstStates.INHIBITED, 0))
+	TestFixtures.check(res, "inflict outside a battle writes its lines",
+		not last.is_empty() and named,
+		"%d lines, first '%s'" % [last.size(), last[0] if not last.is_empty() else "none"])
+	TestFixtures.check(res, "inflict outside a battle lands the state", held and failed,
+		"held %s, resist line %s" % [str(held), str(failed)])
+	TestFixtures.check(res, "the landed state carries a campaign timer",
+		expiry == CampaignClock.now() + 1,
+		"expiry %d, now %d" % [expiry, CampaignClock.now()])
+
+
+#A granted item lands as an ItemData resource, so the salary rarity total can read its rarity.
+static func _case_item_grant(res: Dictionary) -> void:
+	var m := _merc("Grant")
+	if DataManager.items.is_empty():
+		TestFixtures.check(res, "Items.tsv carries rows for the item grant token", false,
+			"DataManager.items is empty, the grant check cannot run")
+		return
+	var before_items: int = m.items.size()
+	var before_gear: int = SalarySystem.carried_gear(m).size()
+	var before_rarity: int = SalarySystem.rarity_score(m)
+	TraitDSL.apply_dsl_to_merc(m, "grant:random:item:rarity:common,uncommon:1")
+	var granted: Array = m.items.slice(before_items)
+	var typed: bool = granted.size() == 1
+	var want: int = before_rarity
+	for entry: Variant in granted:
+		if entry is ItemData and (entry as ItemData).item_name != "":
+			want += RarityRank.rank((entry as ItemData).item_rarity)
+		else:
+			typed = false
+	TestFixtures.check(res, "a granted item is an ItemData with a name", typed,
+		"granted %d of 1, items %d" % [granted.size(), m.items.size()])
+	var after_gear: int = SalarySystem.carried_gear(m).size()
+	var after_rarity: int = SalarySystem.rarity_score(m)
+	TestFixtures.check(res, "the salary rarity total counts the granted item",
+		after_gear == before_gear + 1 and after_rarity == want,
+		"gear %d to %d, rarity %d to %d, wanted %d" % [before_gear, after_gear,
+		before_rarity, after_rarity, want])

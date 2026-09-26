@@ -38,11 +38,24 @@ static func event(name: String) -> EventData:
 
 
 static func contract_type_names() -> Array[String]:
+	return _names_in(ContractResourceBuilder.CONTRACT_DIR, "contract_type")
+
+
+static func event_names() -> Array[String]:
+	return _names_in(ContractResourceBuilder.EVENT_DIR, "event_name")
+
+
+#Every .tres in one generated directory, sorted by the named field; a row without that field is skipped.
+static func _names_in(dir_path: String, field: String) -> Array[String]:
 	var out: Array[String] = []
-	for file_name: String in _tres_files(ContractResourceBuilder.CONTRACT_DIR):
-		var res: Resource = ResourceLoader.load(ContractResourceBuilder.CONTRACT_DIR + "/" + file_name, "", ResourceLoader.CACHE_MODE_IGNORE)
-		if res is ContractData:
-			out.append((res as ContractData).contract_type)
+	for file_name: String in _tres_files(dir_path):
+		var res: Resource = ResourceLoader.load(dir_path + "/" + file_name, "",
+			ResourceLoader.CACHE_MODE_IGNORE)
+		if res == null:
+			continue
+		var value: Variant = res.get(field)
+		if value is String and String(value) != "":
+			out.append(String(value))
 	out.sort()
 	return out
 

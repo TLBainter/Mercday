@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Contracts/ActiveCrew.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/CrewTooltip.tscn" id="2"]
+
+[node name="ActiveCrew" type="VBoxContainer"]
+theme_override_constants/separation = 4
+script = ExtResource("1")
+
+[node name="Caption" type="Label" parent="."]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"
+text = "Active Crew"
+
+[node name="Columns" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Tip" parent="." instance=ExtResource("2")]
+layout_mode = 2

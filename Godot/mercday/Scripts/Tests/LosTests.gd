@@ -5,6 +5,7 @@ class_name LosTests
 
 const WALL_H := 4.0
 const FENCE_H := 0.75
+const POST_H := 4.0
 
 
 static func run() -> bool:
@@ -13,6 +14,7 @@ static func run() -> bool:
 	_case_window_intact(res)
 	_case_window_broken(res)
 	_case_fence_partial(res)
+	_case_sight_cover(res)
 	_case_flyer_over_fence(res)
 	_case_big_shooter(res)
 	_case_size2_top_only(res)
@@ -26,6 +28,7 @@ static func run() -> bool:
 	_case_basement(res)
 	_case_stair_run(res)
 	_case_under_stairs(res)
+	_case_roof_object(res)
 	return TestFixtures.summarize(res, "LOS")
 
 
@@ -82,6 +85,53 @@ static func _case_fence_partial(res: Dictionary) -> void:
 	var r := _los(f, Vector3i(0, 0, 0), 0, 1, Vector3i(4, 0, 0), 0, 1)
 	var ok: bool = (r["visible"] as bool) and str(r["cover"]) == "partial"
 	TestFixtures.check(res, "fence gives partial cover", ok, _fmt(r))
+
+
+#A Lamp Post copy: tall and narrow, Sight=Cover unless the case asks for the plain rule.
+static func _post_data(sight: bool) -> ObstacleData:
+	var d := ObstacleData.new()
+	d.obstacle_name = "Lamp Post"
+	d.size_z = POST_H
+	d.height = POST_H
+	d.narrow = true
+	d.sight_cover = sight
+	return d
+
+
+static func _put_post(f: BattlefieldArea, cell: Vector3i, sight: bool) -> void:
+	TestFixtures.put(f, cell, {"cell_type": "furniture", "height": POST_H, "data": _post_data(sight)})
+
+
+static func _case_sight_cover(res: Dictionary) -> void:
+	var mid := TestFixtures.exterior_field()
+	_put_post(mid, Vector3i(3, 0, 0), true)
+	var r_mid := _los(mid, Vector3i(0, 0, 0), 0, 1, Vector3i(6, 0, 0), 0, 1)
+	var mid_ok: bool = (r_mid["visible"] as bool) and str(r_mid["cover"]) == "none"
+	TestFixtures.check(res, "los_sight_mid", mid_ok, _fmt(r_mid))
+
+	var near := TestFixtures.exterior_field()
+	_put_post(near, Vector3i(5, 0, 0), true)
+	var r_near := _los(near, Vector3i(0, 0, 0), 0, 1, Vector3i(6, 0, 0), 0, 1)
+	var near_ok: bool = (r_near["visible"] as bool) and str(r_near["cover"]) == "partial"
+	TestFixtures.check(res, "los_sight_near", near_ok, _fmt(r_near))
+
+	var shoot := TestFixtures.exterior_field()
+	_put_post(shoot, Vector3i(1, 0, 0), true)
+	var r_shoot := _los(shoot, Vector3i(0, 0, 0), 0, 1, Vector3i(6, 0, 0), 0, 1)
+	var shoot_ok: bool = (r_shoot["visible"] as bool) and str(r_shoot["cover"]) == "none"
+	TestFixtures.check(res, "los_sight_near_shooter", shoot_ok, _fmt(r_shoot))
+
+	var diag := TestFixtures.exterior_field()
+	_put_post(diag, Vector3i(6, 5, 0), true)
+	_put_post(diag, Vector3i(5, 6, 0), true)
+	var r_diag := _los(diag, Vector3i(5, 5, 0), 0, 1, Vector3i(6, 6, 0), 0, 1)
+	TestFixtures.check(res, "los_sight_diagonal_corner", r_diag["visible"] as bool, _fmt(r_diag))
+
+	var plain := TestFixtures.exterior_field()
+	_put_post(plain, Vector3i(3, 0, 0), false)
+	var r_plain := _los(plain, Vector3i(0, 0, 0), 0, 1, Vector3i(6, 0, 0), 0, 1)
+	var plain_ok: bool = not (r_plain["visible"] as bool) and str(r_plain["cover"]) == "full"
+	TestFixtures.check(res, "los_sight_plain_narrow", plain_ok, _fmt(r_plain))
 
 
 static func _case_flyer_over_fence(res: Dictionary) -> void:
@@ -196,7 +246,7 @@ static func _case_basement(res: Dictionary) -> void:
 #Straight run on F1 at x 4..6 from y 2 (elevation 0) up to y 8 (elevation 3), three cells wide.
 static func _stair_run() -> BattlefieldArea:
 	var f := _interior()
-	f.stair_runs[1] = {"sx": 5, "ly": 2, "uy": 8}
+	f.stair_runs[1] = [{"sx": 5, "ly": 2, "uy": 8}]
 	for x: int in range(4, 7):
 		for y: int in range(2, 9):
 			f.stair_run_cells[Vector3i(x, y, 1)] = true
@@ -229,7 +279,7 @@ static func _case_stair_run(res: Dictionary) -> void:
 	var to_top_ok: bool = not (to_top["visible"] as bool) and str(to_top["blocker"]).begins_with("stairs")
 	TestFixtures.check(res, "a merc under the stairs cannot see the top landing through the steps", to_top_ok, _fmt(to_top))
 	var rv := _interior()
-	rv.stair_runs[1] = {"sx": 5, "ly": 2, "uy": 8, "up": -1}
+	rv.stair_runs[1] = [{"sx": 5, "ly": 2, "uy": 8, "up": -1}]
 	for x: int in range(4, 7):
 		for y: int in range(2, 9):
 			rv.stair_run_cells[Vector3i(x, y, 1)] = true
@@ -239,7 +289,7 @@ static func _case_stair_run(res: Dictionary) -> void:
 	TestFixtures.check(res, "bottom of the reversed stairs sees a merc halfway up", rv_b["visible"] as bool, _fmt(rv_b))
 	var g := _interior()
 	g.interior_floor_elevations = {0: 0, 1: 3, 2: 6}
-	g.stair_runs[2] = {"sx": 5, "ly": 2, "uy": 8}
+	g.stair_runs[2] = [{"sx": 5, "ly": 2, "uy": 8}]
 	for x: int in range(4, 7):
 		for y: int in range(2, 9):
 			g.stair_run_cells[Vector3i(x, y, 2)] = true
@@ -257,3 +307,45 @@ static func _case_under_stairs(res: Dictionary) -> void:
 	var through := _los(f, Vector3i(3, 7, 0), 0, 2, Vector3i(5, 8, 1), 0, 1)
 	var t_ok: bool = not (through["visible"] as bool) and str(through["blocker"]).begins_with("stairs")
 	TestFixtures.check(res, "a ray rising through a tread stays blocked", t_ok, _fmt(through))
+
+
+#A one storey shell under a flat roof at level 1, plane 3; the city variant hands the cells to building 0.
+static func _roof_map(exterior: bool, city: bool) -> BattlefieldArea:
+	var f: BattlefieldArea = TestFixtures.exterior_field() if exterior else _interior()
+	if not exterior:
+		f.interior_floor_elevations = {0: 0}
+	for x: int in range(0, 10):
+		for y: int in range(0, 10):
+			f.roof_cells[Vector3i(x, y, 1)] = RoofBuilder.FLAT
+			f.roof_elevations[Vector2i(x, y)] = 3
+			if city:
+				f.building_id_at[Vector2i(x, y)] = 0
+	if city:
+		f.building_planes.append({0: 0})
+		f.outdoor_planes = {0: 0}
+	return f
+
+
+#A roof object between two roof standers blocks the ray on every map kind, and the bare roof never does.
+static func _case_roof_object(res: Dictionary) -> void:
+	var from := Vector3i(2, 5, 1)
+	var to := Vector3i(8, 5, 1)
+	var seen: Array[String] = []
+	var blocked: Array[String] = []
+	for spec: Array in [["exterior", true, false], ["interior", false, false], ["city", false, true]]:
+		var name: String = String(spec[0])
+		var bare: BattlefieldArea = _roof_map(bool(spec[1]), bool(spec[2]))
+		var clear: Dictionary = _los(bare, from, 0, 1, to, 0, 1)
+		if not (clear["visible"] as bool):
+			seen.append("%s bare: %s" % [name, _fmt(clear)])
+		if bool(spec[1]):
+			continue
+		var walled: BattlefieldArea = _roof_map(bool(spec[1]), bool(spec[2]))
+		TestFixtures.put(walled, Vector3i(5, 5, 1), {"cell_type": "wall", "height": 2.0})
+		var hit: Dictionary = _los(walled, from, 0, 1, to, 0, 1)
+		if hit["visible"] as bool:
+			blocked.append("%s walled: %s" % [name, _fmt(hit)])
+	TestFixtures.check(res, "roof object: bare roof planes see across on every map kind", seen.is_empty(),
+		"; ".join(seen) if not seen.is_empty() else "3 map kind(s) clear")
+	TestFixtures.check(res, "roof object: a wall on the roof level blocks on interior and city maps", blocked.is_empty(),
+		"; ".join(blocked) if not blocked.is_empty() else "2 map kind(s) blocked")

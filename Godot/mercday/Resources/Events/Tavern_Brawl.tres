@@ -6,6 +6,7 @@
 script = ExtResource("1_EventData")
 event_name = "Tavern Brawl"
 event_type = "Mishap"
+trigger = ""
 check_stats = Array[String](["Dexterity", "Vigor", "Wile"])
 circumstances = Array[String](["Athletics (Vigor)", "Attack (Vigor)", "Grace (Dexterity)", "Attack (Dexterity)", "Power (Vigor)", "Presence (Vigor)", "Presence (Wile)"])
 knowledges = Array[String](["Dueling", "Tactics", "Undercity", "Uppercity", "Diplomacy", "Chivalry", "Colosseum"])

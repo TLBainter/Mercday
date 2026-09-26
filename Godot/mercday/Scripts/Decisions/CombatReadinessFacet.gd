@@ -1,7 +1,7 @@
 class_name CombatReadinessFacet extends DecisionFacet
 
-# invert = false: returns LOW when ready (use for MoveFar -- healthy mercs retreat less)
-# invert = true:  returns HIGH when ready (use for MoveClose -- healthy mercs advance more)
+#invert = false: returns LOW when ready (use for MoveFar; healthy mercs retreat less)
+#invert = true:  returns HIGH when ready (use for MoveClose; healthy mercs advance more)
 @export var invert: bool = false
 
 func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:

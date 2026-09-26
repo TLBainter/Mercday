@@ -18,20 +18,8 @@ static func generate_buildings(area: BattlefieldArea, config: BuildingConfig = n
 		place_building(area, template)
 
 
-static func _filtered_pool(config: BuildingConfig) -> Array:
-	var pool: Array = DataManager.building_pool.duplicate()
-	if config == null:
-		return pool
-	if config.allowed_types.is_empty() and config.excluded_types.is_empty():
-		return pool
-	var filtered: Array = []
-	for o: ObstacleData in pool:
-		if not config.allowed_types.is_empty() and not config.allowed_types.has(o.obstacle_name):
-			continue
-		if config.excluded_types.has(o.obstacle_name):
-			continue
-		filtered.append(o)
-	return filtered
+static func _filtered_pool(_config: BuildingConfig) -> Array:
+	return DataManager.building_pool.duplicate()
 
 
 static func place_building(area: BattlefieldArea, template: ObstacleData) -> bool:
@@ -47,25 +35,8 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 	var outer_h: int = floor_h + 2
 
 	for _attempt: int in range(50):
-		var tl := Vector2i(
-			randi() % maxi(1, area.width - outer_w),
-			BattlefieldArea.SPAWN_BUFFER + randi() % maxi(1, area.length - outer_h - BattlefieldArea.SPAWN_BUFFER * 2)
-		)
-		if not _footprint_clear(area, tl, outer_w, outer_h):
-			continue
-
-		if _footprint_in_keep_clear(area, tl, outer_w, outer_h):
-			continue
-
-		var nav_overlap := false
-		for bx: int in range(outer_w):
-			for by: int in range(outer_h):
-				if area.reserved_corridor_cells.has(tl + Vector2i(bx, by)):
-					nav_overlap = true
-					break
-			if nav_overlap:
-				break
-		if nav_overlap:
+		var tl: Vector2i = _find_footprint(area, outer_w, outer_h)
+		if tl.x < 0:
 			continue
 
 		var door_facing: Vector2i = _choose_door_direction(area, tl, outer_w, outer_h)
@@ -83,10 +54,7 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 		if not doors_valid:
 			continue
 
-		var snap_obstacles: Array[Dictionary] = area.obstacles.duplicate(false)
-		var snap_obs_map: Dictionary = area._obs_map.duplicate(false)
-		var snap_interiors: Dictionary = area.building_interiors.duplicate(false)
-		var snap_terrain: Dictionary = area.terrain_heights.duplicate(false)
+		var snap: Dictionary = _snapshot(area)
 
 		var h_sum: float = 0.0
 		for bx: int in range(outer_w):
@@ -97,54 +65,11 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 			for by: int in range(outer_h):
 				area.terrain_heights[tl + Vector2i(bx, by)] = flat_h
 
-		var wall_data: ObstacleData = DataManager.get_obstacle_by_name("Wall")
-		var wall_size: int = maxi(1, ceili(template.size_z))
 		var wall_height: float = maxf(3.0, template.size_z)
-
-		var window_data: ObstacleData = DataManager.get_obstacle_by_name("Window")
-		var window_positions: Dictionary = {}
-		if window_data != null:
-			var candidates: Array[Vector2i] = []
-			for bx: int in range(outer_w):
-				for by: int in range(outer_h):
-					var cell := tl + Vector2i(bx, by)
-					var is_perim := (bx == 0 or bx == outer_w - 1 or by == 0 or by == outer_h - 1)
-					if not is_perim or door_positions.has(cell):
-						continue
-					var adj_door := false
-					for dir: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-						if door_positions.has(cell + dir):
-							adj_door = true
-							break
-					if not adj_door:
-						candidates.append(cell)
-			candidates.shuffle()
-			@warning_ignore("integer_division")
-			var num_windows: int = randi_range(1, maxi(1, candidates.size() / 6))
-			for i: int in range(mini(num_windows, candidates.size())):
-				window_positions[candidates[i]] = true
-
-		for bx: int in range(outer_w):
-			for by: int in range(outer_h):
-				var cell: Vector2i = tl + Vector2i(bx, by)
-				var is_perim: bool = (bx == 0 or bx == outer_w - 1 or by == 0 or by == outer_h - 1)
-				if is_perim:
-					if door_positions.has(cell):
-						_add_perimeter_obstacle(area, cell, 2, _get_door_template(), "door",
-							wall_height, {OpenCloseState.KEY: false})
-					elif window_positions.has(cell):
-						_add_perimeter_obstacle(area, cell, 2, window_data, "window", wall_height, {})
-					else:
-						_add_perimeter_obstacle(area, cell, wall_size, wall_data, "wall",
-							wall_height, {})
-				else:
-					area.building_interiors[cell] = true
+		_build_perimeter(area, tl, outer_w, outer_h, door_positions, wall_height, template)
 
 		if not ConnectivityVerifier.spawns_connected(area):
-			area.obstacles = snap_obstacles
-			area._obs_map = snap_obs_map
-			area.building_interiors = snap_interiors
-			area.terrain_heights = snap_terrain
+			_restore(area, snap)
 			area.generation_log.append(
 				"Building rejected: would disconnect spawns at pos=(%d,%d) size=%dx%d" % [
 				tl.x, tl.y, outer_w, outer_h])
@@ -157,16 +82,102 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 			"name": template.obstacle_name,
 			"guaranteed_structures": template.guaranteed_structures,
 		})
+		#The accepted hut carries one flat roof at level 1; a rejected attempt never reaches here.
+		RoofBuilder.add_hut_roof(area, Rect2i(tl, Vector2i(outer_w, outer_h)), wall_height)
 		return true
 
 	return false
 
 
-#One perimeter obstacle appended to the area and mirrored into its obstacle map.
+#One rolled top left corner clear of the map edge, the keep clear zones and the reserved corridors.
+#Vector2i(-1, -1) when the roll is rejected, so the caller spends one of its attempts on it.
+static func _find_footprint(area: BattlefieldArea, outer_w: int, outer_h: int) -> Vector2i:
+	var tl := Vector2i(
+		randi() % maxi(1, area.width - outer_w),
+		BattlefieldArea.SPAWN_BUFFER + randi() % maxi(1, area.length - outer_h - BattlefieldArea.SPAWN_BUFFER * 2)
+	)
+	if not _footprint_clear(area, tl, outer_w, outer_h):
+		return Vector2i(-1, -1)
+	if _footprint_in_keep_clear(area, tl, outer_w, outer_h):
+		return Vector2i(-1, -1)
+	for bx: int in range(outer_w):
+		for by: int in range(outer_h):
+			if area.reserved_corridor_cells.has(tl + Vector2i(bx, by)):
+				return Vector2i(-1, -1)
+	return tl
+
+
+#Walls, doors and windows round the footprint; the cells inside become building interior in the same pass.
+static func _build_perimeter(area: BattlefieldArea, tl: Vector2i, outer_w: int, outer_h: int,
+		door_positions: Array[Vector2i], wall_height: float, template: ObstacleData) -> void:
+	var wall_data: ObstacleData = DataManager.get_obstacle_by_name("Wall")
+	var wall_size: int = maxi(1, ceili(template.size_z))
+
+	var window_data: ObstacleData = DataManager.get_obstacle_by_name("Window")
+	var window_positions: Dictionary = {}
+	if window_data != null:
+		var candidates: Array[Vector2i] = []
+		for bx: int in range(outer_w):
+			for by: int in range(outer_h):
+				var cell := tl + Vector2i(bx, by)
+				var is_perim := (bx == 0 or bx == outer_w - 1 or by == 0 or by == outer_h - 1)
+				if not is_perim or door_positions.has(cell):
+					continue
+				var adj_door := false
+				for dir: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					if door_positions.has(cell + dir):
+						adj_door = true
+						break
+				if not adj_door:
+					candidates.append(cell)
+		candidates.shuffle()
+		var num_windows: int = randi_range(1, maxi(1, int(candidates.size() / 6.0)))
+		for i: int in range(mini(num_windows, candidates.size())):
+			window_positions[candidates[i]] = true
+
+	for bx: int in range(outer_w):
+		for by: int in range(outer_h):
+			var cell: Vector2i = tl + Vector2i(bx, by)
+			var is_perim: bool = (bx == 0 or bx == outer_w - 1 or by == 0 or by == outer_h - 1)
+			if is_perim:
+				if door_positions.has(cell):
+					_add_perimeter_obstacle(area, cell, 2, _get_door_template(), "door",
+						wall_height, {OpenCloseState.KEY: false})
+				elif window_positions.has(cell):
+					_add_perimeter_obstacle(area, cell, 2, window_data, "window", wall_height, {})
+				else:
+					_add_perimeter_obstacle(area, cell, wall_size, wall_data, "wall",
+						wall_height, {})
+			else:
+				area.building_interiors[cell] = true
+
+
+#Copies of the four area tables a rejected building has to give back.
+static func _snapshot(area: BattlefieldArea) -> Dictionary:
+	return {
+		"obstacles": area.obstacles.duplicate(false),
+		"obs_map": area._obs_map.duplicate(false),
+		"interiors": area.building_interiors.duplicate(false),
+		"terrain": area.terrain_heights.duplicate(false),
+	}
+
+
+#Puts the four tables back exactly as _snapshot took them.
+static func _restore(area: BattlefieldArea, snap: Dictionary) -> void:
+	var obstacles: Array[Dictionary] = snap["obstacles"]
+	area.obstacles = obstacles
+	area._obs_map = snap["obs_map"]
+	area.building_interiors = snap["interiors"]
+	area.terrain_heights = snap["terrain"]
+
+
+#One obstacle appended to the area and mirrored into its obstacle map; height 0 carries no height key.
 static func _add_perimeter_obstacle(area: BattlefieldArea, cell: Vector2i, size: int,
 		data: ObstacleData, cell_type: String, height: float, extra: Dictionary) -> void:
-	var obs: Dictionary = {"pos": cell, "size": size, "data": data, "cell_type": cell_type,
-		"height": height, "floor": 0}
+	var obs: Dictionary = {"pos": cell, "size": size, "data": data, "cell_type": cell_type}
+	if height != 0.0:
+		obs["height"] = height
+	obs["floor"] = 0
 	for k: Variant in extra:
 		obs[k] = extra[k]
 	area.obstacles.append(obs)
@@ -206,10 +217,7 @@ static func _place_guaranteed_structures(area: BattlefieldArea, b: Dictionary) -
 			continue
 		var pos: Vector2i = candidates[idx]
 		idx += 1
-		var obs := {"pos": pos, "size": struct_data.size,
-			"data": struct_data, "cell_type": "furniture", "floor": 0}
-		area.obstacles.append(obs)
-		area._obs_map[pos] = obs
+		_add_perimeter_obstacle(area, pos, struct_data.size, struct_data, "furniture", 0.0, {})
 
 
 static func place_furniture_in_buildings(area: BattlefieldArea) -> void:
@@ -220,8 +228,6 @@ static func place_furniture_in_buildings(area: BattlefieldArea) -> void:
 			indoor_pool.append(obs)
 	for b: Dictionary in area.building_data:
 		_place_guaranteed_structures(area, b)
-		if (b.get("excluded_structures", []) as Array).has("All"):
-			continue
 		if indoor_pool.is_empty():
 			continue
 		var rect: Rect2i = b["rect"] as Rect2i
@@ -237,10 +243,7 @@ static func place_furniture_in_buildings(area: BattlefieldArea) -> void:
 		free_cells.shuffle()
 		for i: int in range(mini(count, free_cells.size())):
 			var furn: ObstacleData = indoor_pool[randi() % indoor_pool.size()] as ObstacleData
-			var _furn_obs := {"pos": free_cells[i], "size": furn.size,
-				"data": furn, "cell_type": "furniture", "floor": 0}
-			area.obstacles.append(_furn_obs)
-			area._obs_map[free_cells[i]] = _furn_obs
+			_add_perimeter_obstacle(area, free_cells[i], furn.size, furn, "furniture", 0.0, {})
 
 
 static func _footprint_clear(area: BattlefieldArea, tl: Vector2i, w: int, h: int) -> bool:

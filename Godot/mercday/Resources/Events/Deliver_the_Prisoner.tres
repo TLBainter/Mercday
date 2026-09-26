@@ -6,6 +6,7 @@
 script = ExtResource("1_EventData")
 event_name = "Deliver the Prisoner"
 event_type = "Primary"
+trigger = ""
 check_stats = Array[String](["Cognition", "Dexterity"])
 circumstances = Array[String](["Clever (Cognition)", "Intuition (Cognition)", "Grace (Dexterity)", "Search (Cognition)"])
 knowledges = Array[String](["Hunting", "Tactics", "Travel"])

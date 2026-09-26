@@ -20,3 +20,6 @@ var armor_pool: Array[String] = []
 var loadout_pool: Array[String] = []
 #"<immune|protected|susceptible>:<normalized name>" from the Immunities column.
 var passive_tokens: Array[String] = []
+var traits: Array[String] = []
+#Cap on the rounds a generated NPC starts with; -1 leaves it uncapped.
+var max_ammo: int = -1

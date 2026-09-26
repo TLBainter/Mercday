@@ -8,6 +8,7 @@ static func create() -> MercActionSet:
 		load(_DIR + "AttackObstacle.tres"),
 		load(_DIR + "Pass.tres"),
 		load(_DIR + "BreakFree.tres"),
+		load(_DIR + "Grapple.tres"),
 		load(_DIR + "GetUp.tres"),
 		load(_DIR + "EndBurning.tres"),
 		load(_DIR + "AidAlly.tres"),
@@ -18,6 +19,7 @@ static func create() -> MercActionSet:
 		load(_DIR + "Draw.tres"),
 		load(_DIR + "Climb.tres"),
 		load(_DIR + "MoveFar.tres"),
+		load(_DIR + "Withdraw.tres"),
 		load(_DIR + "RepositionToAlly.tres"),
 		load(_DIR + "MoveClose.tres"),
 		load(_DIR + "Shove.tres"),
@@ -29,9 +31,6 @@ static func create() -> MercActionSet:
 		load(_DIR + "AttackMelee.tres"),
 		load(_DIR + "AttackThrow.tres"),
 		load(_DIR + "AdvantageAttack.tres"),
-		load(_DIR + "Assist.tres"),
-		load(_DIR + "Resist.tres"),
-		load(_DIR + "DeathTest.tres"),
-		load(_DIR + "UseItem.tres"),
+		#Assist, Resist, DeathTest and UseItem stay on disk disabled; add a load line when one is enabled.
 	]
 	return action_set

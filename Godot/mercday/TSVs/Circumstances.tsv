@@ -1,7 +1,7 @@
 Stat	Circumstance	Description	Effect	Rarity
 Vigor	Athletics	Athletics is used to determine a merc's endurance and ability to perform constitution-related feats, testing their heart and lungs more than their raw strength.	Relevant check +15%.	Uncommon
 Dexterity	Attack	When the merc attempts to harm or otherwise attack someone or something, they'll use the Attack Circumstance. Dexterity Attacks are used for ranged or light-weight weapons, such as crossbows, handguns, and rapiers.	Relevant check +15%.	Common
-Vigor	Attack	Whn the merc attempts to harm or otherwise attack someone or something, they'll use the Attack Circumstance. Vigor Attacks are used for heavy weapons, such as greatbows or colossal swords.	Relevant check +15%.	Common
+Vigor	Attack	When the merc attempts to harm or otherwise attack someone or something, they'll use the Attack Circumstance. Vigor Attacks are used for heavy weapons, such as greatbows or colossal swords.	Relevant check +15%.	Common
 Cognition	Clever	When a merc applies their wits and intellect, they'll use the Clever Circumstance, which applies their resourcefulness and intelligence.	Relevant check +15%.	Uncommon
 Dexterity	Finesse	Finesse is used when a merc wishes to utilize their dextrousness in a concentrated fashion with their fingers rather than their whole body. It reflects fine motor skills.	Relevant check +15%.	Uncommon
 Dexterity	Grace	Grace is the application of the dextrousness of one's body, allowing a mercenary to effectively perform acrobatic maneuvers or move without stepping on creaking wooden boards.	Relevant check +15%.	Uncommon

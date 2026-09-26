@@ -4,7 +4,7 @@ class_name TurnOrderSystem
 static var _rank: Dictionary = {}
 
 
-# Tiebreakers: Speed -> Dexterity -> Max Dexterity -> Luck -> random rank.
+#Tiebreakers: Speed -> Dexterity -> Max Dexterity -> Luck -> random rank.
 static func sort_initiative(mercs: Array[MercenaryData]) -> Array[MercenaryData]:
 	var result := mercs.duplicate()
 	var shuffled := mercs.duplicate()

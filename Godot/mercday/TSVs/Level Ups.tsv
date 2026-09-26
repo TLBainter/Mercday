@@ -1,0 +1,47 @@
+Tier	Levels	Option	Weight	Description
+Level 0	0	max_hp	1	+1 Max HP
+Level 0	0	max_ep	1	+1 Max EP
+Level 0	0	circumstance	1	Gain a selected Circumstance
+Level 0	0	knowledge	1	Gain a Knowledge Trait
+Level 0	0	tool	1	Gain a Tool Trait
+Level 0	0	attribute:2:3	1	Increase an Attribute from 2 to 3
+Level 0	0	bank	1	Save the Experience Point to use at Level 1
+Level 1	1	max_mp	1	+1 Max MP
+Level 1	1	max_ep	1	+1 Max EP
+Level 1	1	armor_or_weapon_perk	1	Gain an Armor OR Weapon Perk
+Level 1	1	knowledge_or_tool	1	Gain a Knowledge OR Tool Trait
+Level 1	1	attribute:2:3	1	Increase 1 attribute from 2 to 3
+Level 1	1	skill_point	1	Gain 1 Skill Point
+Levels 2-8	2, 4, 6, 8	max_mp	1	+1 Max MP
+Levels 2-8	2, 4, 6, 8	max_ep	1	+1 Max EP
+Levels 2-8	2, 4, 6, 8	knowledge_or_tool	1	Knowledge or Tool Trait
+Levels 2-8	2, 4, 6, 8	attribute:2:3	1	Increase an attribute from 2 to 3
+Levels 2-8	2, 4, 6, 8	attribute:3:4	1	Increase an attribute from 3 to 4
+Levels 2-8	2, 4, 6, 8	lifepath_event	1	Gain a Lifepath Event
+Levels 2-8	2, 4, 6, 8	tradition_skill_point	1	Gain 1 Skill Point for your Tradition Skill Tree
+Levels 2-8	2, 4, 6, 8	skill_point	1	Gain 1 Skill Point
+Levels 10-18	10, 12, 14, 16, 18	max_mp	1	+1 Max MP
+Levels 10-18	10, 12, 14, 16, 18	max_ep	1	+1 Max EP
+Levels 10-18	10, 12, 14, 16, 18	circumstance	1	Gain a Circumstance
+Levels 10-18	10, 12, 14, 16, 18	attribute:2:3	1	Increase attr. from 2 to 3
+Levels 10-18	10, 12, 14, 16, 18	attribute:3:4	1	Increase attr. from 3 to 4
+Levels 10-18	10, 12, 14, 16, 18	class_skill_tree	1	Gain an additional Class Skill Tree
+Levels 10-18	10, 12, 14, 16, 18	lifepath_event	1	Gain a Lifepath Event
+Levels 10-18	10, 12, 14, 16, 18	skill_point	1	Gain 1 Skill Point
+Levels 20-28	20, 22, 24, 26, 28	max_mp	1	+1 Max MP
+Levels 20-28	20, 22, 24, 26, 28	max_ep	1	+1 Max EP
+Levels 20-28	20, 22, 24, 26, 28	circumstance	1	Gain a Circumstance
+Levels 20-28	20, 22, 24, 26, 28	attribute:3:4	1	Increase 1 attribute from 3 to 4
+Levels 20-28	20, 22, 24, 26, 28	attribute:4:5	1	Increase 1 attribute from 4 to 5
+Levels 20-28	20, 22, 24, 26, 28	lifepath_event	1	Gain a Lifepath Event
+Levels 20-28	20, 22, 24, 26, 28	pace	1	+1 Pace
+Levels 30-40	30, 32, 34, 36, 38, 40	max_hp	1	+1 Max HP
+Levels 30-40	30, 32, 34, 36, 38, 40	max_ep	1	+1 Max EP
+Levels 30-40	30, 32, 34, 36, 38, 40	max_mp	1	+1 Max MP
+Levels 30-40	30, 32, 34, 36, 38, 40	attribute:4:5	1	Increase attr. from 4 to 5
+Levels 30-40	30, 32, 34, 36, 38, 40	class_skill_tree	1	Gain an additional Class Skill Tree
+Levels 30-40	30, 32, 34, 36, 38, 40	lifepath_event	1	Gain a Lifepath Event
+Levels 30-40	30, 32, 34, 36, 38, 40	lifepath_event	1	Gain a Lifepath Event
+Levels 30-40	30, 32, 34, 36, 38, 40	action_points	1	+1 Max AP
+Levels 30-40	30, 32, 34, 36, 38, 40	skill_point	1	Gain a Skill Point
+Levels 30-40	30, 32, 34, 36, 38, 40	skill_point	1	Gain a Skill Point

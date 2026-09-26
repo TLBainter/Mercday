@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>html,body{margin:0;background:transparent}button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}</style>
+</helmet>
+<button onClick="{{ onClick }}" onMouseEnter="{{ onEnter }}" onMouseLeave="{{ onLeave }}" title="{{ title }}" style="position:relative;box-sizing:border-box;width:100%;height:{{ h }};display:flex;align-items:center;justify-content:center;gap:8px;padding:0 {{ padX }};white-space:nowrap;background:{{ bg }};color:{{ fg }};font:400 11px Silkscreen;letter-spacing:1px;box-shadow:inset 0 4px 0 {{ hi }},0 -4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+  <sc-if value="{{ unlocked }}" hint-placeholder-val="{{ true }}"><div style="flex:none;display:grid;grid-template-columns:{{ iconGrid }};grid-auto-rows:{{ iconPx }}"><sc-for list="{{ icon }}" as="c" hint-placeholder-count="144"><div style="background:{{ c }}"></div></sc-for></div></sc-if>
+  <sc-if value="{{ locked }}" hint-placeholder-val="{{ false }}"><div title="Locked on your plan" style="flex:none;width:24px;height:24px;display:flex;align-items:center;justify-content:center"><div style="display:grid;grid-template-columns:repeat(7,3px);grid-auto-rows:3px"><sc-for list="{{ lockCells }}" as="c" hint-placeholder-count="56"><span style="background:{{ c }}"></span></sc-for></div></div></sc-if>
+  <sc-if value="{{ active }}" hint-placeholder-val="{{ false }}"><span>{{ label }}</span></sc-if>
+  <sc-if value="{{ hasBadge }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:-6px;padding:1px 4px;background:{{ badgeBg }};color:#0a0f1c;font:400 7px Silkscreen">{{ badge }}</span></sc-if>
+  <sc-if value="{{ dot }}" hint-placeholder-val="{{ false }}"><dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-14px;right:-14px;z-index:8;pointer-events:none"></dc-import></sc-if>
+  <sc-if value="{{ hasTag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">{{ tag }}</span></sc-if>
+</button>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;220px&quot;,&quot;height&quot;:&quot;70px&quot;},&quot;label&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Metrics&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;active&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;locked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;dot&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;icon&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string[]&quot;},&quot;title&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;badge&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;badgeBg&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;tag&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;padX&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;iconCols&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number&quot;},&quot;iconPx&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;onClick&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onEnter&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(e) =&gt; void&quot;},&quot;onLeave&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(e) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  // Shared tab (TabButton.tscn). Locked tabs stay clickable; the host shows a Locked Page over the tab's content.
+  lockMap = ['..###..', '.#...#.', '.#...#.', '#######', '###.###', '###.###', '#######', '.......'];
+  renderVals() {
+    const p = this.props, a = !!p.active, L = !!p.locked;
+    return {
+      label: p.label || '', iconGrid: 'repeat(' + (p.iconCols || 12) + ',' + (p.iconPx || '2px') + ')', iconPx: p.iconPx || '2px', title: p.title || '', icon: p.icon || [], active: a, locked: L, unlocked: !L, dot: !!p.dot,
+      badge: p.badge || '', hasBadge: !!p.badge, badgeBg: p.badgeBg || '#6cc36a', tag: p.tag || '', hasTag: !!p.tag,
+      h: a ? '44px' : '38px', padX: p.padX || '16px',
+      bg: a ? (L ? '#a8651f' : '#f28c28') : L ? '#27324a' : '#2b4f8a', fg: a ? '#0a0f1c' : L ? '#8a97ad' : '#f3ead7', hi: a ? (L ? '#c98a44' : '#ffb266') : L ? '#34415e' : '#3b6fb6',
+            lockCells: this.lockMap.join('').split('').map(ch => ch === '#' ? (a ? '#0a0f1c' : '#f2d33d') : 'transparent'),
+      onClick: () => p.onClick && p.onClick(), onEnter: e => p.onEnter && p.onEnter(e), onLeave: e => p.onLeave && p.onLeave(e),
+    };
+  }
+}
+</script>
+</body>
+</html>

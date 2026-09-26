@@ -187,7 +187,7 @@ static func _roll_weapon_dice(weapon: WeaponData, threshold: float) -> Dictionar
 		out["dmg_type"] = weapon.damage_types_1[0]
 	else:
 		out["dmg_type"] = "Unknown"
-	var parsed: Dictionary = _parse_damage_formula(dmg_formula)
+	var parsed: Dictionary = AttackSystem._parse_damage_formula(dmg_formula)
 	out["flat_bonus"] = parsed["flat_bonus"]
 	if parsed["is_todo"]:
 		out["label"] = dmg_formula + "  [#TODO: ammunition]"
@@ -276,7 +276,7 @@ static func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type:
 
 			var src: String = res["reduction_source"]
 			print("  Best:       %s (%d reduction)" % [src, res["best_reduction"]])
-			print("  Reducible:  %d ? %d = %d" % [res["reducible"], res["best_reduction"], res["final_reducible"]])
+			print("  Reducible:  %d - %d = %d" % [res["reducible"], res["best_reduction"], res["final_reducible"]])
 
 	var final_dmg: int = res["final_damage"]
 	var dmg_color: String = "red" if final_dmg > 0 else "white"
@@ -285,32 +285,6 @@ static func _run_damage_check(merc: MercenaryData, raw_damage: int, damage_type:
 
 	if merc.current_hp <= 0:
 		print_rich("[color=red]*** %s has been reduced to 0 HP! ***[/color]\n" % merc.merc_name)
-
-
-static func _parse_damage_formula(formula: String) -> Dictionary:
-	var result := {"num_dice": 0, "die_sides": 0, "flat_bonus": 0, "is_todo": false}
-	var f: String = formula.strip_edges()
-	if f == "0" or f == "Varies" or f == "":
-		result["is_todo"] = true
-		return result
-	var flat: int = 0
-	var plus_idx: int = f.find(" + ")
-	if plus_idx != -1:
-		flat = int(f.substr(plus_idx + 3).strip_edges())
-		f = f.left(plus_idx).strip_edges()
-	result["flat_bonus"] = flat
-	var d_idx: int = f.find("d")
-	if d_idx == -1:
-		result["is_todo"] = true
-		return result
-	var num_str: String = f.left(d_idx)
-	var sides_str: String = f.substr(d_idx + 1)
-	if not num_str.is_valid_int() or not sides_str.is_valid_int():
-		result["is_todo"] = true
-		return result
-	result["num_dice"] = int(num_str)
-	result["die_sides"] = int(sides_str)
-	return result
 
 
 static func drop_mercs(mercs: Array[MercenaryData]) -> void:

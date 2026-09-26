@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 2px 0 0 #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-button{display:none}
+@keyframes mDraw{to{stroke-dashoffset:0}}
+@keyframes mPop{to{opacity:1}}
+</style>
+</helmet>
+<div style="display:none" aria-hidden="true"><dc-import name="Locked Page" hint-size="0px,0px"></dc-import><dc-import name="Feature Lock" hint-size="0px,0px"></dc-import></div>
+<div style="min-height:{{ lay.wrapMinH }};padding:{{ lay.wrapPad }};display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Metrics Viewer" style="position:relative;width:{{ lay.w }};height:{{ lay.h }};flex:none;background:{{ lay.bg }};background-image:{{ lay.bgImg }};padding:{{ lay.pad }};display:grid;grid-template-columns:{{ lay.cols }};gap:{{ lay.gap }};box-shadow:{{ lay.shadow }}">
+
+    <div style="position:relative;min-height:0;display:flex;flex-direction:column;gap:12px;padding:14px 10px 14px 14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c">
+      <sc-if value="{{ graphLock.on }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(10,15,28,0.94);cursor:not-allowed"><div style="display:grid;grid-template-columns:repeat(7,5px);grid-auto-rows:5px"><sc-for list="{{ bigLock }}" as="c" hint-placeholder-count="56"><span style="background:{{ c }}"></span></sc-for></div><span style="font:400 10px Silkscreen;color:#5e7699">{{ graphLock.feature }} locked</span></div></sc-if>
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">MetricList.tscn</div></sc-if>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding-right:4px">
+        <span style="font:400 13px Silkscreen;color:#f28c28;letter-spacing:1px">{{ listTitle }}</span>
+        <span style="font:400 11px Silkscreen;color:#9cc6ef">{{ onCount }}</span>
+      </div>
+
+      <sc-if value="{{ mercPickLocked }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-right:4px;padding:10px 12px;background:#0e1628;box-shadow:0 -3px 0 #3b4d6e,0 3px 0 #3b4d6e,-3px 0 0 #3b4d6e,3px 0 0 #3b4d6e">
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:700 12px/1 Silkscreen;color:#f3ead7">All Mercs</span><span style="font-size:12px;color:#9cc6ef">Showing merc averages</span></div>
+          <dc-import name="Feature Lock" verb="view" feature="individual merc metrics" plan="Mercday Enterprise" upgrade="Merc Metrics" upgrade-id="mercmetrics" tier="{{ 2 }}" tiers="{{ 3 }}" hint-size="20px,20px"></dc-import>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showMercPicker }}" hint-placeholder-val="{{ true }}">
+        <div data-popup="1" style="position:relative;padding-right:4px">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MercSelector.tscn</span></sc-if>
+          <button onClick="{{ toggleMercPop }}" style="width:100%;display:grid;grid-template-columns:44px minmax(0,1fr) 10px;gap:10px;align-items:center;padding:6px 10px 6px 6px;text-align:left;background:#0e1628;box-shadow:0 -3px 0 #f28c28,0 3px 0 #f28c28,-3px 0 0 #f28c28,3px 0 0 #f28c28" style-hover="background:#15223d">
+            <div style="width:44px;height:44px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6"></div>
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+              <span style="font:700 12px/1 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ merc.name }}</span>
+              <span style="font-size:12px;line-height:1;color:#9cc6ef">LVL {{ merc.level }} · <span style="color:{{ merc.tradColor }}">{{ merc.trad }}</span></span>
+              <span style="font-size:12px;line-height:1;color:#8a97ad">{{ merc.tenure }}</span>
+            </div>
+            <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #f3ead7"></span>
+          </button>
+          <sc-if value="{{ mercPop }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 8px);left:0;right:4px;z-index:40;max-height:420px;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+              <sc-for list="{{ mercOpts }}" as="m" hint-placeholder-count="10">
+                <button onClick="{{ m.onClick }}" style="flex:none;display:grid;grid-template-columns:30px minmax(0,1fr);gap:8px;align-items:center;padding:4px;text-align:left;background:{{ m.bg }}" style-hover="filter:brightness(1.2)">
+                  <div style="width:30px;height:30px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6"></div>
+                  <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+                    <span style="font:700 11px/1 Silkscreen;color:{{ m.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</span>
+                    <span style="font-size:12px;line-height:1;color:{{ m.sub }}">LVL {{ m.level }} · {{ m.tenure }}</span>
+                  </div>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ cmp.can }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;align-items:flex-start;margin-top:8px">
+              <button onClick="{{ cmp.toggle }}" title="{{ cmp.title }}" style="width:28px;height:24px;padding:0;background:#2b4f8a;color:#f3ead7;font:700 16px/1 Silkscreen;box-shadow:inset 0 2px 0 #3b6fb6,inset 0 -2px 0 #1f3560,0 -2px 0 #0a0f1c,0 2px 0 #0a0f1c,-2px 0 0 #0a0f1c,2px 0 0 #0a0f1c" style-hover="background:#3b6fb6">{{ cmp.sign }}</button>
+              <sc-if value="{{ cmp.active }}" hint-placeholder-val="{{ false }}">
+                <div style="width:100%;display:flex;align-items:flex-start">
+                <div style="position:relative;flex:none;width:34px;height:40px"><div style="position:absolute;left:13px;top:0;width:2px;height:28px;background:#9cc6ef"></div><div style="position:absolute;left:13px;top:26px;width:21px;height:2px;background:#9cc6ef"></div></div>
+                <div data-popup="1" style="position:relative;flex:1;min-width:0;margin-top:8px">
+                  <button onClick="{{ cmp.togglePop }}" style="width:100%;display:grid;grid-template-columns:30px minmax(0,1fr) 10px;gap:8px;align-items:center;padding:4px 8px 4px 4px;text-align:left;background:#0e1628;box-shadow:0 -2px 0 #9cc6ef,0 2px 0 #9cc6ef,-2px 0 0 #9cc6ef,2px 0 0 #9cc6ef" style-hover="background:#15223d">
+                    <div style="width:30px;height:30px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6"></div>
+                    <span style="min-width:0;font:700 11px/1 Silkscreen;color:{{ cmp.nameColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cmp.name }}</span>
+                    <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #f3ead7"></span>
+                  </button>
+                  <sc-if value="{{ cmp.popOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:41;max-height:260px;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:6px;display:flex;flex-direction:column;gap:3px;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                      <sc-for list="{{ cmp.opts }}" as="c" hint-placeholder-count="6">
+                        <button onClick="{{ c.onClick }}" style="flex:none;width:100%;min-width:0;box-sizing:border-box;display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px;align-items:center;padding:3px;text-align:left;background:{{ c.bg }}" style-hover="filter:brightness(1.2)">
+                          <div style="width:22px;height:22px;background-image:repeating-linear-gradient(45deg,#1f3560 0 3px,#0e1628 3px 6px);box-shadow:inset 0 0 0 2px #3b6fb6"></div>
+                          <span style="font:700 10px/1 Silkscreen;color:{{ c.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isContract }}" hint-placeholder-val="{{ false }}">
+        <div data-popup="1" style="position:relative;padding-right:4px">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">TypeSelector.tscn</span></sc-if>
+          <button onClick="{{ toggleTypePop }}" style="width:100%;display:grid;grid-template-columns:minmax(0,1fr) 10px;gap:10px;align-items:center;padding:10px 12px;text-align:left;background:#0e1628;box-shadow:0 -3px 0 #f28c28,0 3px 0 #f28c28,-3px 0 0 #f28c28,3px 0 0 #f28c28" style-hover="background:#15223d">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+              <span style="font:700 12px/1 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ typeLabel }}</span>
+              <span style="font-size:12px;line-height:1;color:#9cc6ef">{{ typeSub }}</span>
+            </div>
+            <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #f3ead7"></span>
+          </button>
+          <sc-if value="{{ typePop }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 8px);left:0;right:4px;z-index:40;padding:8px;display:flex;flex-direction:column;gap:4px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+              <button onClick="{{ selectAllTypes }}" style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;text-align:left;background:#16233f" style-hover="filter:brightness(1.2)">
+                <span style="flex:none;width:14px;height:14px;display:flex;align-items:center;justify-content:center;background:{{ allBox }};box-shadow:inset 0 0 0 2px #f28c28"><span style="width:4px;height:4px;background:{{ allDot }}"></span></span>
+                <span style="font:400 11px Silkscreen;color:#f28c28">All Types</span>
+              </button>
+              <div style="height:2px;background:#2b4f8a;margin:2px 0"></div>
+              <sc-for list="{{ typeOpts }}" as="t" hint-placeholder-count="3">
+                <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;text-align:left;opacity:{{ t.opacity }};background:#16233f" style-hover="filter:brightness(1.2)">
+                  <span style="flex:none;width:14px;height:14px;display:flex;align-items:center;justify-content:center;background:{{ t.box }};box-shadow:inset 0 0 0 2px #f28c28"><span style="width:4px;height:4px;background:{{ t.dot }}"></span></span>
+                  <span style="font-size:13px;color:{{ t.fg }}">{{ t.label }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow-y:auto;overflow-x:hidden;padding:4px 6px 4px 2px">
+        <sc-for list="{{ groups }}" as="gp" hint-placeholder-count="1">
+          <sc-if value="{{ gp.hasTitle }}" hint-placeholder-val="{{ false }}"><span style="flex:none;padding:6px 2px 0;font:400 9px Silkscreen;color:#9cc6ef">{{ gp.title }}</span></sc-if>
+          <sc-for list="{{ gp.items }}" as="it" hint-placeholder-count="9">
+            <sc-if value="{{ it.locked }}" hint-placeholder-val="{{ false }}"><div style="flex:none;height:30px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 8px;background:#101a30;box-shadow:inset 0 0 0 2px #1f3560"><span style="flex:1;min-width:0;font-size:13px;color:#5e7699;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.name }}</span><dc-import name="Feature Lock" verb="view" feature="{{ it.name }}" plan="Mercday Enterprise" upgrade="{{ it.upName }}" upgrade-id="{{ it.upId }}" tier="{{ 1 }}" tiers="{{ 1 }}" hint-size="20px,20px"></dc-import></div></sc-if>
+            <sc-if value="{{ it.open }}" hint-placeholder-val="{{ true }}">
+            <div style="position:relative;flex:none;display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:6px">
+              <sc-if value="{{ it.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:36px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MetricToggle.tscn</span></sc-if>
+              <button onClick="{{ it.toggle }}" title="{{ it.name }}" style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;text-align:left;background:{{ it.bg }};box-shadow:inset 0 -2px 0 {{ it.lo }},inset 0 2px 0 {{ it.hi }}" style-hover="filter:brightness(1.15)">
+                <span style="flex:none;width:14px;height:14px;display:flex;align-items:center;justify-content:center;background:{{ it.box }};box-shadow:inset 0 0 0 2px {{ it.color }}"><span style="width:4px;height:4px;background:{{ it.dot }}"></span></span>
+                <span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ it.fg }}">{{ it.name }}</span>
+                <sc-if value="{{ it.hasCmp }}" hint-placeholder-val="{{ false }}"><span title="{{ it.cmpTitle }}" style="flex:none;width:14px;height:14px"><sc-if value="{{ it.hasArrow }}" hint-placeholder-val="{{ false }}"><span style="display:grid;grid-template-columns:repeat(7,2px);grid-auto-rows:2px"><sc-for list="{{ it.arrow }}" as="px" hint-placeholder-count="49"><span style="background:{{ px }}"></span></sc-for></span></sc-if></span></sc-if>
+              </button>
+              <button onClick="{{ it.focus }}" title="Use as Y-axis" style="height:30px;font:700 11px Silkscreen;color:{{ it.yFg }};background:{{ it.yBg }};box-shadow:inset 0 -2px 0 {{ it.yLo }},inset 0 2px 0 {{ it.yHi }}" style-hover="filter:brightness(1.2)">Y</button>
+            </div>
+            </sc-if>
+          </sc-for>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-right:4px">
+        <button onClick="{{ allOn }}" style="height:28px;background:#2b4f8a;font:400 10px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Show All</button>
+        <button onClick="{{ allOff }}" style="height:28px;background:#2b4f8a;font:400 10px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Hide All</button>
+      </div>
+    </div>
+
+    <div style="position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;gap:14px">
+      <div style="position:relative;height:40px;flex:none;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">GraphTabs.tscn</div></sc-if>
+        <div style="display:flex;gap:10px">
+          <sc-if value="{{ showTabs }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ graphTabs }}" as="t" hint-placeholder-count="3">
+            <button onClick="{{ t.onClick }}" style="height:40px;padding:0 18px;font:700 12px Silkscreen;white-space:nowrap;color:{{ t.fg }};background:{{ t.bg }};box-shadow:inset 0 4px 0 {{ t.hi }},inset 0 -4px 0 {{ t.lo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.12)"><span style="display:inline-flex;align-items:center;gap:8px"><sc-if value="{{ t.locked }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;grid-template-columns:repeat(7,2px);grid-auto-rows:2px"><sc-for list="{{ t.lockCells }}" as="c" hint-placeholder-count="56"><span style="background:{{ c }}"></span></sc-for></span></sc-if>{{ t.label }}</span></button>
+          </sc-for></sc-if>
+        </div>
+        <div style="position:relative;display:flex;align-items:center;gap:8px">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-16px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ScaleSelector.tscn</div></sc-if>
+          <sc-if value="{{ isMerc }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ toggleAvg }}" title="{{ avgTitle }}" style="display:flex;align-items:center;gap:8px;margin-right:14px;padding:0;background:none;opacity:{{ avgOpacity }};cursor:{{ avgCursor }};color:#f3ead7;font:400 10px Silkscreen" style-hover="filter:brightness(1.2)"><span style="flex:none;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 2px #3b6fb6"><svg width="14" height="14" viewBox="0 0 8 8" shape-rendering="crispEdges"><path d="M6 1h1v2H6zM5 3h1v1H5zM4 4h1v1H4zM3 5h1v1H3zM1 3h1v1H1zM2 4h1v1H2zM2 5h1v1H2zM3 6h1v1H3z" fill="{{ avgCheck }}"></path></svg></span>Show Averages</button>
+          </sc-if>
+          <span style="font:400 10px Silkscreen;color:#9cc6ef;margin-right:4px">Scale</span>
+          <sc-for list="{{ scales }}" as="sc" hint-placeholder-count="4">
+            <button onClick="{{ sc.onClick }}" title="{{ sc.title }}" style="height:30px;padding:0 10px;font:400 10px Silkscreen;cursor:{{ sc.cursor }};opacity:{{ sc.opacity }};color:{{ sc.fg }};background:{{ sc.bg }};box-shadow:inset 0 3px 0 {{ sc.hi }},inset 0 -3px 0 {{ sc.lo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.12)">{{ sc.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:16px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,0 -4px 0 #f28c28">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">LineChart.tscn</div></sc-if>
+        <div style="height:34px;flex:none;display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0">
+            <span style="flex:none;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:{{ focus.color }};color:#0a0f1c;font:700 11px Silkscreen">Y</span>
+            <span style="font:700 16px Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ focus.name }}</span>
+            <span style="font-size:14px;color:#9cc6ef;white-space:nowrap">Now: <span style="color:{{ focus.color }}">{{ focus.now }}</span></span>
+          </div>
+          <span style="flex:none;font:400 10px Silkscreen;color:#9cc6ef">{{ rangeLabel }}</span>
+        </div>
+        <div onMouseMove="{{ onMove }}" onMouseLeave="{{ onLeave }}" style="position:relative;width:{{ lay.chartW }};height:{{ lay.chartH }};flex:none;background:#0e1628;box-shadow:0 0 0 3px #0a0f1c">
+          {{ chart }}
+          <sc-if value="{{ graphLock.page }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;z-index:39;background:rgba(6,10,20,0.84);cursor:not-allowed"></div><dc-import name="Locked Page" verb="view" feature="{{ graphLock.feature }}" plan="{{ graphLock.plan }}" style="position:absolute;inset:0;z-index:40" hint-size="100%,100%"></dc-import></sc-if>
+          <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:#9cc6ef">Enable a metric on the left.</div>
+          </sc-if>
+          <sc-if value="{{ hov.on }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:{{ hov.x }};top:12px;width:2px;height:{{ lay.plotH }};background:#f3ead7;opacity:0.35;pointer-events:none"></div>
+            <sc-for list="{{ hov.dots }}" as="d" hint-placeholder-count="2">
+              <div style="position:absolute;left:{{ d.left }};top:{{ d.top }};width:10px;height:10px;background:{{ d.color }};box-shadow:0 0 0 2px #0a0f1c;pointer-events:none"></div>
+            </sc-for>
+            <div style="position:absolute;left:{{ hov.tipLeft }};top:16px;z-index:20;width:240px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+              <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ChartTooltip.tscn</div></sc-if>
+              <span style="font:700 12px Silkscreen;color:#f28c28">{{ hov.label }}</span>
+              <sc-for list="{{ hov.rows }}" as="rw" hint-placeholder-count="2">
+                <div style="display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:8px;align-items:center">
+                  <span style="width:10px;height:10px;background:{{ rw.color }}"></span>
+                  <span style="font-size:13px;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ rw.name }}</span>
+                  <span style="font:400 11px Silkscreen;color:{{ rw.color }};white-space:nowrap">{{ rw.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <span style="font:700 18px Silkscreen;color:#f28c28">Scene map</span>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+              <span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span>
+              <span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span>
+            </div>
+            <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+            <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7">
+              <sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;historyMonths&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:30,&quot;min&quot;:1,&quot;max&quot;:120,&quot;step&quot;:1,&quot;unit&quot;:&quot;months&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;}}">
+class Component extends DCLogic {
+  state = { graph: 'guild', types: [1, 2, 3], typePop: false, mercId: null, cmpOpen: false, cmpId: null, scale: null, on: {}, focus: {}, hover: null, mercPop: false };
+  traditions = [['Brave', '#5aa6e8'], ['Chymist', '#6cc36a'], ['Divine', '#f2d33d'], ['Hellion', '#a36ce8'], ['Honorable', '#f28c28'], ['Mage', '#a8385a'], ['Mystech', '#3fc9c0'], ['Performer', '#f07ab8'], ['Sorcerer', '#e8583f'], ['Warrior', '#a0a8b8']];
+  levels = [7, 12, 3, 9, 15, 5, 11, 2, 8, 4];
+  salaries = [60, 150, 1200, 80, 300, 40, 90, 1500, 70, 120];
+  employment = [14, 3, 27, 8, 19, 1, 11, 6, 22, 4]; // months, matches Merc Viewer
+  palette = ['#f28c28', '#5aa6e8', '#6cc36a', '#e8583f', '#f2d33d', '#a36ce8', '#3fc9c0', '#f07ab8', '#a0a8b8', '#ffb266', '#9cc6ef', '#3fae5a', '#c85a8a'];
+  defs = {
+    merc: [
+      { k: 'salary', name: 'Salary', agg: 'last', fmt: 'money' }, { k: 'xp', name: 'Experience Gain', agg: 'sum', fmt: 'int' }, { k: 'level', name: 'Level', agg: 'last', fmt: 'int' },
+      { k: 'wins', name: 'Successful Contracts', agg: 'sum', fmt: 'int' }, { k: 'losses', name: 'Failed Contracts', agg: 'sum', fmt: 'int' },
+      { k: 'sRoll', name: 'Successes Rolled (Avg / Contract)', agg: 'evt', fmt: 'dec' }, { k: 'fRoll', name: 'Failures Rolled (Avg / Contract)', agg: 'evt', fmt: 'dec' },
+      { k: 'kills', name: 'Enemies Defeated', agg: 'sum', fmt: 'int' }, { k: 'op', name: 'Guild Opinion', agg: 'avg', fmt: 'op' }, { k: 'vac', name: 'Vacation Days Taken', agg: 'sum', fmt: 'int' }],
+    contract: [
+      { k: 'count', name: 'Contract #', agg: 'sum', fmt: 'int', group: 'Totals' }, { k: 'wins', name: 'Successful Contracts', agg: 'sum', fmt: 'int', group: 'Totals' }, { k: 'losses', name: 'Failed Contracts', agg: 'sum', fmt: 'int', group: 'Totals' },
+      { k: 'i1', name: 'Issuer Type 1', agg: 'sum', fmt: 'int', group: 'Contract # by Issuer Type' }, { k: 'i2', name: 'Issuer Type 2', agg: 'sum', fmt: 'int', group: 'Contract # by Issuer Type' }, { k: 'i3', name: 'Issuer Type 3', agg: 'sum', fmt: 'int', group: 'Contract # by Issuer Type' }, { k: 'i4', name: 'Issuer Type 4', agg: 'sum', fmt: 'int', group: 'Contract # by Issuer Type' },
+      { k: 'diff', name: 'Average Difficulty', agg: 'evt', fmt: 'dec', group: 'Averages' }, { k: 'reward', name: 'Average Reward', agg: 'evt', fmt: 'money', group: 'Averages' }, { k: 'expense', name: 'Average Expense', agg: 'evt', fmt: 'money', group: 'Averages' }, { k: 'time', name: 'Average Time (incl. Travel)', agg: 'evt', fmt: 'days', group: 'Averages' }],
+    guild: [
+      { k: 'bank', name: 'Guild Bank Value', agg: 'last', fmt: 'money' }, { k: 'exp', name: 'Guild Expenses', agg: 'sum', fmt: 'money' }, { k: 'count', name: 'Mercenary #', agg: 'last', fmt: 'int' },
+      { k: 'dead', name: 'Merc Casualties', agg: 'sum', fmt: 'int' }, { k: 'mop', name: 'Merc Guild Opinion', agg: 'avg', fmt: 'op' }, { k: 'cop', name: 'Client Guild Opinion', agg: 'avg', fmt: 'op' }, { k: 'port', name: 'Investment Portfolio', agg: 'last', fmt: 'money' }],
+  };
+  defaultOn = { merc: { salary: 1, level: 1, wins: 1 }, contract: { count: 1, wins: 1, losses: 1 }, guild: { bank: 1, exp: 1 } };
+  sceneMap = [
+    { name: 'MetricsViewer.tscn', uses: 'root', root: 'HBox › MetricList + GraphPanel', vars: ['@export var history: MetricsHistory', '@export var graph: GraphKind  # MERC, CONTRACT, GUILD'] },
+    { name: 'MetricsHistory (autoload)', uses: 'data', root: 'Node — one sample per in-game day', vars: ['func series(key, from_day, bucket_days) -> PackedFloat32Array', '# agg: SUM, LAST, AVG, EVENT_AVG (carry forward)'] },
+    { name: 'ScaleSelector.tscn', uses: 'x1', root: 'HBox › Button ×4 (ButtonGroup)', vars: ['# WEEK if ≥10 weeks, MONTH if ≥10 months,', '# QUARTER if ≥100 months, else disabled', 'signal scale_changed(bucket_days)'] },
+    { name: 'MetricToggle.tscn', uses: 'x N', root: 'HBox › CheckButton + Label + CompareArrow (Show Averages only) + AxisButton', vars: ['@export var metric: MetricDef', '@export var color: Color', '@export var vs_team_pct: float  # arrow: |Δ|≥15% straight, else diagonal; green good / red bad / blue neutral', 'signal toggled(on)', 'signal focus_requested'] },
+    { name: 'ShowAveragesToggle', uses: 'Merc graph only, left of Scale', root: 'CheckBox (orange check, default off)', vars: ['# ON: per metric, underlay a 22%-opacity 6px line (same color) = mean of OTHER mercs employed in each bucket; Y range includes it'] },
+    { name: 'LineChart.tscn', uses: 'x1', root: 'Control › Line2D ×N + Labels', vars: ['@export var series: Array[PackedFloat32Array]', '@export var focus_index: int  # drives Y labels', '# Tween each Line2D points 0→N on show'] },
+    { name: 'ChartTooltip.tscn', uses: 'x1', root: 'PanelContainer (follows cursor)', vars: ['@export var bucket_label: String', '@export var rows: Array[{color, name, value}]'] },
+    { name: 'TypeSelector.tscn', uses: 'x1 (Contract Graph)', root: 'Button + PopupPanel › CheckBox ×N', vars: ['@export var selected_types: Array[ContractType]  # default: all', 'signal types_changed(types)  # metrics re-aggregate over selection'] },
+    { name: 'MetricsViewer (embedded)', uses: 'Merc Viewer › Metrics tab', root: 'same scene, compact layout', vars: ['@export var locked_merc: MercData  # hides GraphTabs + MercSelector'] },
+    { name: 'MercSelector.tscn', uses: 'x1 (Merc Graph)', root: 'Button + PopupPanel list (+ CompareButton + compact CompareList)', vars: ['@export var mercs: Array[MercData]', 'signal merc_selected(merc)  # clicking the selected merc again unselects → team averages (solid)', '# Merc Metrics I: averages only (selector shows FeatureLock); II: pick a merc; III: +/− compare → merc 2 ghost lines, arrows compare merc 1 vs merc 2', '# Tabs: Guild (default, Pro) · Contract (Contract Metrics) · Merc (Merc Metrics I+). Opinion metrics need Employee Survey / Customer Satisfaction and sink to the legend bottom'] },
+  ];
+  rng(seed) { let a = seed * 2654435761 >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  world(M) {
+    if (this._w && this._wM === M) return this._w;
+    const D = M * 30, r = this.rng(17 + M), Z = () => new Float64Array(D), E = () => ({ s: new Float64Array(D), n: new Float64Array(D) });
+    const hire = this.employment.map(e => Math.max(0, D - e * 30));
+    const ghosts = [[0, 200], [0, 410], [60, 700]].filter(g => g[1] < D);
+    const G = { bank: Z(), exp: Z(), count: Z(), dead: Z(), mop: Z(), cop: Z(), port: Z() };
+    // Investment Portfolio (StockMarket): market value of held shares. Sample: first buy ~40% in, periodic buys, daily drift/noise (separate seed).
+    { const rp = this.rng(4242 + M), b0 = Math.floor(D * 0.4); let v = 0; for (let d = b0; d < D; d++) { if (d === b0 || rp() < 0.02) v += 150 + Math.round(rp() * 350); v *= 1 + 0.0006 + (rp() - 0.5) * 0.03; G.port[d] = Math.max(0, v); } }
+    const CT = [0, 1, 2].map(() => ({ count: Z(), i1: Z(), i2: Z(), i3: Z(), i4: Z(), diff: E(), wins: Z(), losses: Z(), reward: E(), expense: E(), time: E() }));
+    const MD = this.levels.map(() => ({ salary: Z(), xp: Z(), level: Z(), wins: Z(), losses: Z(), sRoll: E(), fRoll: E(), kills: Z(), op: Z(), vac: Z() }));
+    // Vacation Days Taken: 1 per day on vacation (separate seed so other series are unchanged).
+    MD.forEach((md, i) => { const rv = this.rng(900 + i + M); for (let d = hire[i] + 20; d < D; d++) if (rv() < 0.006) { const n = 3 + Math.floor(rv() * 8); for (let j = 0; j < n && d < D; j++, d++) md.vac[d] = 1; d += 20; } });
+    MD.forEach((md, i) => { let o = (i * 4 + 10) % 11 - 5; for (let d = D - 1; d >= hire[i]; d--) { md.op[d] = o; if (r() < 0.035) o = Math.max(-5, Math.min(5, o + (r() < 0.5 ? -1 : 1))); } });
+    MD.forEach((md, i) => { const S = this.salaries[i], T = D - hire[i], k = Math.floor(T / 180); for (let d = hire[i]; d < D; d++) md.salary[d] = Math.round(S * (1 - 0.12 * (k - Math.floor((d - hire[i]) / T * (k + 1))))); });
+    const cash = Z(); let cop = 1;
+    for (let d = 0; d < D; d++) {
+      const real = []; hire.forEach((h, i) => { if (d >= h) real.push(i); });
+      const gh = ghosts.filter(g => d >= g[0] && d < g[1]);
+      ghosts.forEach(g => { if (g[1] === d) G.dead[d]++; });
+      G.count[d] = real.length + gh.length;
+      real.forEach(i => { MD[i].xp[d] += 2 + Math.floor(r() * 4); });
+      const add = (e, v) => { e.s[d] += v; e.n[d]++; };
+      if (G.count[d] && r() < Math.min(0.7, 0.2 + 0.05 * G.count[d])) {
+        const diff = Math.max(0.5, Math.min(5, Math.round((0.5 + r() * 3 + d / D * 1.5) * 2) / 2));
+        const reward = Math.round(diff * 150 * (0.6 + r() * 0.8)), expense = Math.round(reward * (0.06 + r() * 0.12)), ok = r() < 0.92 - diff * 0.08;
+        const C = CT[Math.floor(r() * 3)]; C.count[d]++; C['i' + (1 + Math.floor(r() * 4))][d]++;
+        add(C.diff, diff); add(C.reward, reward); add(C.expense, expense); add(C.time, (12 + diff * 20 * (0.5 + r())) / 24);
+        C[ok ? 'wins' : 'losses'][d]++;
+        cash[d] += (ok ? reward : 0) - expense; G.exp[d] += expense; cop += ok ? 0.35 : -0.8;
+        const team = [...real].sort(() => r() - 0.5).slice(0, 1 + Math.floor(r() * Math.min(4, real.length)));
+        team.forEach(i => { const md = MD[i]; md.xp[d] += Math.round(40 + diff * 30 * (ok ? 1 : 0.5)); md[ok ? 'wins' : 'losses'][d]++;
+          add(md.sRoll, 2 + r() * 3 + (ok ? 2 : 0)); add(md.fRoll, 1 + r() * 2 + (ok ? 0 : 2)); md.kills[d] += Math.floor(r() * diff * 2.5); });
+      }
+      if (d % 30 === 29) { const pay = real.reduce((a, i) => a + MD[i].salary[d], 0) + gh.length * 60; cash[d] -= pay; G.exp[d] += pay; }
+      cop = Math.max(-5, Math.min(5, cop * 0.99)); G.cop[d] = cop;
+      G.mop[d] = real.length ? real.reduce((a, i) => a + MD[i].op[d], 0) / real.length : 0;
+    }
+    let b = 500, lo = Infinity; for (let d = 0; d < D; d++) { b += cash[d]; G.bank[d] = b; lo = Math.min(lo, b); }
+    if (lo < 100) for (let d = 0; d < D; d++) G.bank[d] += 100 - lo;
+    MD.forEach((md, i) => { const L = this.levels[i], T = D - hire[i], st = Math.max(1, L - Math.max(1, Math.floor(T / 90))); let tot = 0, cum = 0;
+      for (let d = hire[i]; d < D; d++) tot += md.xp[d];
+      for (let d = hire[i]; d < D; d++) { cum += md.xp[d]; md.level[d] = st + Math.floor((L - st) * cum / (tot || 1)); } });
+    this._w = { D, hire, G, CT, MD }; this._cmb = {}; this._wM = M; return this._w;
+  }
+  combined(W, types) {
+    const key = types.join(','); if (this._cmb[key]) return this._cmb[key];
+    const out = {}; Object.keys(W.CT[0]).forEach(k => { const a0 = W.CT[0][k];
+      if (a0.s) { const s = new Float64Array(W.D), n = new Float64Array(W.D); types.forEach(t => { const e = W.CT[t - 1][k]; for (let d = 0; d < W.D; d++) { s[d] += e.s[d]; n[d] += e.n[d]; } }); out[k] = { s, n }; }
+      else { const a = new Float64Array(W.D); types.forEach(t => { const e = W.CT[t - 1][k]; for (let d = 0; d < W.D; d++) a[d] += e[d]; }); out[k] = a; } });
+    return this._cmb[key] = out;
+  }
+  series(a, agg, start, len, size) {
+    const n = Math.ceil(len / size), out = []; let prev = null;
+    for (let b = 0; b < n; b++) { const x = start + b * size, z = Math.min(start + len, x + size); let s = 0, c = 0;
+      if (agg === 'evt') { for (let d = x; d < z; d++) { s += a.s[d]; c += a.n[d]; } const v = c ? s / c : prev; out.push(v); if (v != null) prev = v; }
+      else if (agg === 'last') out.push(a[z - 1]);
+      else { for (let d = x; d < z; d++) s += a[d]; out.push(agg === 'sum' ? s : s / (z - x)); } }
+    const first = out.find(v => v != null) ?? 0; return out.map(v => v == null ? first : v);
+  }
+  arrowMaps = { up: ['...#...', '..###..', '.#####.', '#######', '..###..', '..###..', '..###..'], diag: ['.######', '....###', '...####', '..###.#', '.###...', '###....', '##.....'] };
+  arrowCells(dir, big, color) { let m = this.arrowMaps[big ? 'up' : 'diag']; if (dir === 'down') m = [...m].reverse(); return m.join('').split('').map(ch => ch === '#' ? color : 'transparent'); }
+  fmt(v, f) { if (f === 'money') return Math.round(v).toLocaleString('en-US') + ' N'; if (f === 'int') return String(Math.round(v)); if (f === 'op') return (v > 0.05 ? '+' : '') + v.toFixed(1); if (f === 'days') return v.toFixed(1) + ' Days'; return v.toFixed(1); }
+  axisFmt(v, f, span) { if (f === 'money') return Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(Math.round(v)); if (f === 'int' && span >= 8) return String(Math.round(v)); if (f === 'op') return (v > 0.05 ? '+' : '') + v.toFixed(1); return v.toFixed(1); }
+  componentDidMount() {
+    this.onDoc = e => { if (e.target.closest && e.target.closest('[data-popup]')) return; if (this.state.mercPop || this.state.typePop || this.state.cmpPop) this.setState({ mercPop: false, typePop: false, cmpPop: false }); };
+    document.addEventListener('mousedown', this.onDoc);
+    this.onStore = () => this.forceUpdate(); if (window.__mercStore) window.__mercStore.subs.add(this.onStore);
+  }
+  componentWillUnmount() { document.removeEventListener('mousedown', this.onDoc); if (window.__mercStore && this.onStore) window.__mercStore.subs.delete(this.onStore); }
+  renderVals() {
+    const show = this.props.showScenes ?? false, s = this.state, emb = this.props.embedMercId != null, g = emb ? 'merc' : s.graph;
+    const M = Math.max(1, Math.min(120, Math.round(this.props.historyMonths ?? 30)));
+    // Plan/upgrade gates (SubscriptionManager.entitlements). Guild = Pro; Contract = Contract Metrics; Merc = Merc Metrics I (averages) / II (individual) / III (compare).
+    const E = (window.__mercStore && window.__mercStore.entitlements) ? window.__mercStore.entitlements() : { metrics: true, contractMetrics: true, mercMetrics: 3, guildOpinion: true, clientOpinion: true };
+    const W = this.world(M), indiv = emb || (E.mercMetrics || 0) >= 2, mid = emb ? this.props.embedMercId : (indiv ? s.mercId : null), cmpOk = !emb && mid != null && (E.mercMetrics || 0) >= 3, cmpId = cmpOk ? s.cmpId : null;
+    const avgMode = g === 'merc' && mid == null; // no merc selected → solid team-average lines
+    const start = g === 'merc' && !avgMode ? W.hire[mid] : 0, len = W.D - start;
+    const types = [...s.types].sort(), src = g === 'merc' ? (avgMode ? null : W.MD[mid]) : g === 'contract' ? this.combined(W, types) : W.G;
+    const scales = [['day', 'Days', 'Day', 1, true, ''], ['week', 'Weeks', 'Week', 7, Math.floor(len / 7) >= 10, 'Needs 10+ weeks of data'], ['month', 'Months', 'Month', 30, Math.floor(len / 30) >= 10, 'Needs 10+ months of data'], ['quarter', 'Quarters', 'Quarter', 90, Math.floor(len / 30) >= 100, 'Needs 100+ months of data']];
+    const avail = scales.filter(x => x[4]), sc = scales.find(x => x[0] === s.scale && x[4]) || avail[avail.length - 1];
+    const onMap = s.on[g] || this.defaultOn[g];
+    const teamAvg = (k, agg, excl) => { const ids = W.hire.map((h0, i) => i).filter(i => i !== excl), ser = ids.map(i => this.series(W.MD[i][k], agg, start, len, sc[3])), nB = ser[0] ? ser[0].length : 0;
+      return Array.from({ length: nB }, (_, b) => { const end = start + Math.min(len, (b + 1) * sc[3]), inn = ids.map((i, j) => W.hire[i] < end ? ser[j][b] : null).filter(x => x != null); return inn.length ? inn.reduce((a, x) => a + x, 0) / inn.length : null; }); };
+    // Opinion metrics need the survey upgrades; locked items sink to the bottom of the legend and can't be plotted.
+    const lockK = { op: E.guildOpinion ? null : ['Employee Survey', 'survey'], mop: E.guildOpinion ? null : ['Employee Survey', 'survey'], cop: E.clientOpinion ? null : ['Customer Satisfaction', 'customer'] };
+    const vals0 = this.defs[g].map((d, i) => { const lk = lockK[d.k] || null, raw = avgMode ? teamAvg(d.k, d.agg, -1) : this.series(src[d.k], d.agg, start, len, sc[3]), first = raw.find(x => x != null) ?? 0;
+      return { ...d, color: this.palette[i], locked: !!lk, upName: lk ? lk[0] : '', upId: lk ? lk[1] : '', on: !lk && !!onMap[d.k], data: raw.map(x => x == null ? first : x) }; });
+    const vals = [...vals0.filter(v => !v.locked), ...vals0.filter(v => v.locked)];
+    // Show Averages (merc graph): per bucket, mean of OTHER mercs employed during that bucket (hired before bucket end).
+    // Ghost underlay: Merc Comparison (merc 2) takes priority; otherwise Show Averages (disabled in team-average mode and while comparing).
+    const avgOn = g === 'merc' && !avgMode && cmpId == null && !!s.showAvg, ghostOn = avgOn || (cmpId != null && g === 'merc');
+    if (cmpId != null && g === 'merc') vals.forEach(v => { if (!v.on) return; const ser = this.series(W.MD[cmpId][v.k], v.agg, start, len, sc[3]); v.avg = ser.map((x, b) => W.hire[cmpId] < start + Math.min(len, (b + 1) * sc[3]) ? x : null); });
+    else if (avgOn) vals.forEach(v => { if (v.on) v.avg = teamAvg(v.k, v.agg, mid); });
+    const graphLock = emb ? ((E.mercMetrics || 0) >= 2 ? { on: false } : { on: true, feature: 'Merc Metrics', plan: 'Mercday Enterprise' })
+        : g === 'guild' ? (E.metrics ? { on: false } : { on: true, feature: 'Guild Metrics', plan: 'Mercday Pro' }) : g === 'contract' ? (E.contractMetrics ? { on: false } : { on: true, feature: 'Contract Metrics', plan: 'Mercday Enterprise' })
+        : ((E.mercMetrics || 0) >= 1 ? { on: false } : { on: true, feature: 'Merc Metrics', plan: 'Mercday Enterprise' });
+    graphLock.page = graphLock.on && !emb; // embedded: Merc Viewer's own tab LockedPage covers it (avoid a double dialog)
+    if (graphLock.on) vals.forEach(v => { v.on = false; }); // locked graph: nothing plotted, no axes
+    const onList = vals.filter(v => v.on);
+    const fk = onList.find(v => v.k === s.focus[g]) ? s.focus[g] : onList[0] && onList[0].k;
+    const fv = vals.find(v => v.k === fk);
+    const n = vals[0].data.length;
+    const Wd = emb ? 434 : 888, Ht = emb ? 466 : 550, L = 62, R = 16, T = 12, B = 30, pw = Wd - L - R, ph = Ht - T - B;
+    const xAt = i => n === 1 ? L + pw / 2 : L + i * pw / (n - 1);
+    const range = v => { const all = v.avg ? [...v.data, ...v.avg.filter(x => x != null)] : v.data; let lo = Math.min(...all), hi = Math.max(...all); if (hi - lo < 1e-9) { lo -= 1; hi += 1; } const p = (hi - lo) * 0.08; return [lo - p, hi + p]; };
+    onList.forEach(v => { v.rg = range(v); });
+    const yOf = (val, rg) => T + ph - (val - rg[0]) / (rg[1] - rg[0]) * ph;
+    const h = React.createElement, key = g + '-' + mid + '-' + types.join('') + '-' + sc[0] + '-' + M + (ghostOn ? '-g' + (cmpId ?? 'a') : '') + (avgMode ? '-t' : ''), kids = [];
+    [0, 1, 2, 3, 4].forEach(j => { const y = T + ph - j / 4 * ph;
+      kids.push(h('line', { key: 'g' + j, x1: L, x2: Wd - R, y1: y, y2: y, stroke: '#1a2b4d', strokeWidth: 2, shapeRendering: 'crispEdges' }));
+      if (fv && fv.rg) { const val = fv.rg[0] + (fv.rg[1] - fv.rg[0]) * j / 4; kids.push(h('text', { key: 'y' + j, x: L - 8, y: y + 3, textAnchor: 'end', fill: fv.color, style: { font: '400 9px Silkscreen' } }, this.axisFmt(val, fv.fmt, fv.rg[1] - fv.rg[0]))); } });
+    const step = Math.max(1, Math.ceil(n / (emb ? 5 : 8)));
+    for (let i = 0; i < n; i += step) { const x = xAt(i);
+      kids.push(h('line', { key: 'xt' + i, x1: x, x2: x, y1: T + ph, y2: T + ph + 5, stroke: '#3b6fb6', strokeWidth: 2, shapeRendering: 'crispEdges' }));
+      kids.push(h('text', { key: 'xl' + i, x, y: T + ph + 20, textAnchor: 'middle', fill: '#9cc6ef', style: { font: '400 9px Silkscreen' } }, sc[2] + ' ' + (i + 1))); }
+    kids.push(h('line', { key: 'ax', x1: L, x2: L, y1: T, y2: T + ph, stroke: '#3b6fb6', strokeWidth: 2, shapeRendering: 'crispEdges' }));
+    kids.push(h('line', { key: 'ay', x1: L, x2: Wd - R, y1: T + ph, y2: T + ph, stroke: '#3b6fb6', strokeWidth: 2, shapeRendering: 'crispEdges' }));
+    if (ghostOn) onList.forEach(v => { if (!v.avg) return; const pts = v.avg.map((val, i) => val == null ? null : xAt(i).toFixed(1) + ',' + yOf(val, v.rg).toFixed(1)).filter(Boolean);
+      if (pts.length > 1) kids.push(h('polyline', { key: key + '-avg-' + v.k, points: pts.join(' '), fill: 'none', stroke: v.color, strokeWidth: 6, strokeOpacity: 0.22, strokeLinejoin: 'bevel', pathLength: 1, strokeDasharray: 1, strokeDashoffset: 1, style: { animation: 'mDraw 1.6s steps(48, end) forwards' } })); });
+    [...onList.filter(v => v.k !== fk), ...onList.filter(v => v.k === fk)].forEach(v => { const f = v.k === fk, id = key + '-' + v.k;
+      kids.push(h('polyline', { key: id, points: v.data.map((val, i) => xAt(i).toFixed(1) + ',' + yOf(val, v.rg).toFixed(1)).join(' '), fill: 'none', stroke: v.color, strokeWidth: f ? 4 : 2, strokeOpacity: f ? 1 : 0.75, strokeLinejoin: 'bevel', pathLength: 1, strokeDasharray: 1, strokeDashoffset: 1, style: { animation: 'mDraw 1.6s steps(48, end) forwards' } }));
+      if (n <= 60) v.data.forEach((val, i) => kids.push(h('rect', { key: id + '-d' + i, x: xAt(i) - (f ? 4 : 3), y: yOf(val, v.rg) - (f ? 4 : 3), width: f ? 8 : 6, height: f ? 8 : 6, fill: v.color, shapeRendering: 'crispEdges', style: { opacity: 0, animation: 'mPop 0.01s linear forwards', animationDelay: (n === 1 ? 0 : i / (n - 1) * 1.6).toFixed(2) + 's' } })));
+    });
+    const chart = graphLock.on ? null : h('svg', { width: Wd, height: Ht, style: { display: 'block' } }, kids);
+    const hi = s.hover != null && s.hover < n && onList.length ? s.hover : null;
+    const hx = hi == null ? 0 : xAt(hi);
+    const hov = hi == null ? { on: false } : { on: true, x: (hx - 1) + 'px', tipLeft: Math.max(4, Math.min(Wd - 244, hx > Wd / 2 ? hx - 262 : hx + 22)) + 'px', label: sc[2] + ' ' + (hi + 1),
+      rows: onList.map(v => ({ color: v.color, name: v.name, value: this.fmt(v.data[hi], v.fmt) + (ghostOn && v.avg && v.avg[hi] != null ? ' (' + (cmpId != null ? 'vs ' : 'avg ') + this.fmt(v.avg[hi], v.fmt) + ')' : '') })),
+      dots: onList.map(v => ({ color: v.color, left: (hx - 5) + 'px', top: (yOf(v.data[hi], v.rg) - 5) + 'px' })) };
+    const setOn = fn => this.setState(st => ({ on: { ...st.on, [g]: fn({ ...(st.on[g] || this.defaultOn[g]) }) } }));
+    const groups = []; vals.forEach((v, i) => { let gp = groups[groups.length - 1]; if (!gp || gp.key !== (v.group || '')) groups.push(gp = { key: v.group || '', title: v.group || '', hasTitle: !!v.group, items: [] });
+      const f = v.k === fk && v.on;
+      // Legend arrow: this merc's mean vs team average mean over the viewed range. higherGood: +1 good, −1 bad (losses, failure rolls), 0 neutral (salary, vacation).
+      let cmp = { hasCmp: false, hasArrow: false, arrow: [], cmpTitle: '' };
+      if (ghostOn && v.on && v.avg) { const mv = v.data.reduce((a, x) => a + x, 0) / (v.data.length || 1), av = v.avg.filter(x => x != null), am = av.length ? av.reduce((a, x) => a + x, 0) / av.length : mv;
+        const pct = am ? (mv - am) / Math.abs(am) * 100 : (mv ? 100 : 0), same = Math.abs(pct) < 0.5, dir = { losses: -1, fRoll: -1, salary: 0, vac: 0 }[v.k] ?? 1, good = dir === 0 ? null : (mv > am) === (dir > 0);
+        const col = good == null ? '#5aa6e8' : good ? '#6cc36a' : '#e8583f';
+        cmp = { hasCmp: true, hasArrow: !same, arrow: same ? [] : this.arrowCells(mv > am ? 'up' : 'down', Math.abs(pct) >= 15, col), cmpTitle: same ? (cmpId != null ? 'Same as compared merc' : 'Same as team average') : (pct > 0 ? '+' : '−') + Math.abs(Math.round(pct)) + '% vs ' + (cmpId != null ? 'FirstName' + (cmpId + 1) + ' LastName' + (cmpId + 1) : 'team average') }; }
+      gp.items.push({ name: v.name, color: v.color, tag: show && i === 0, ...cmp, locked: !!v.locked, open: !v.locked, upName: v.upName, upId: v.upId,
+        bg: v.on ? '#2b4f8a' : '#16233f', hi: v.on ? '#3b6fb6' : '#1f3560', lo: v.on ? '#1f3560' : '#111c33', fg: v.on ? '#f3ead7' : '#8a97ad',
+        box: v.on ? v.color : '#0a0f1c', dot: v.on ? '#0a0f1c' : 'transparent',
+        yBg: f ? v.color : '#16233f', yFg: f ? '#0a0f1c' : '#5e7699', yHi: f ? '#ffffff55' : '#1f3560', yLo: f ? '#00000044' : '#111c33',
+        toggle: () => setOn(o => { o[v.k] = !o[v.k]; return o; }),
+        focus: () => { setOn(o => { o[v.k] = 1; return o; }); this.setState(st => ({ focus: { ...st.focus, [g]: v.k } })); } }); });
+    const tenure = i => { const d = W.D - W.hire[i], mo = Math.floor(d / 30); return 'Hired ' + (mo < 1 ? d + ' days' : mo + (mo === 1 ? ' month' : ' months')) + ' ago'; };
+    const mercOf = i => ({ name: 'FirstName' + (i + 1) + ' LastName' + (i + 1), level: String(this.levels[i]).padStart(2, '0'), trad: this.traditions[i][0], tradColor: this.traditions[i][1], tenure: tenure(i) });
+    return {
+      showScenes: show, sceneMap: this.sceneMap, showTabs: !emb, showMercPicker: g === 'merc' && !emb && indiv, mercPickLocked: g === 'merc' && !emb && !indiv,
+      lay: emb ? { wrapMinH: '0', wrapPad: '0', w: '680px', h: '596px', bg: 'transparent', bgImg: 'none', pad: '0', cols: '200px minmax(0,1fr)', gap: '14px', shadow: 'none', chartW: '434px', chartH: '466px', plotH: (Ht - 42) + 'px' }
+        : { wrapMinH: '100vh', wrapPad: '32px', w: '1280px', h: '720px', bg: '#101a30', bgImg: 'repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px)', pad: '20px', cols: '300px minmax(0,1fr)', gap: '20px', shadow: '0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000', chartW: '888px', chartH: '550px', plotH: (Ht - 42) + 'px' },
+      listTitle: { merc: 'Merc Data', contract: 'Contract Data', guild: 'Guild Data' }[g], onCount: onList.length + '/' + vals.length,
+      isMerc: g === 'merc', merc: mid == null ? { name: 'All Mercs', level: '--', trad: 'Team average', tradColor: '#9cc6ef', tenure: 'Select a merc for their metrics' } : mercOf(mid), mercPop: s.mercPop,
+      // Merc Comparison (Merc Metrics III): + opens a compact roster; picking a merc ghosts their lines. − / X closes it.
+      cmp: { can: cmpOk, active: !!s.cmpOpen, sign: s.cmpOpen ? '−' : '+', title: s.cmpOpen ? 'Stop comparing' : 'Compare with another merc',
+        toggle: () => this.setState(st => st.cmpOpen ? { cmpOpen: false, cmpPop: false, cmpId: null } : { cmpOpen: true, cmpPop: true }),
+        togglePop: () => this.setState(st => ({ cmpPop: !st.cmpPop, mercPop: false })), popOpen: cmpOk && !!s.cmpOpen && !!s.cmpPop,
+        name: cmpId != null ? mercOf(cmpId).name : 'Select a merc', nameColor: cmpId != null ? '#f3ead7' : '#9cc6ef',
+        opts: this.levels.map((_, i) => i).filter(i => i !== mid).map(i => ({ name: mercOf(i).name, bg: i === cmpId ? '#9cc6ef' : '#0e1628', fg: i === cmpId ? '#0a0f1c' : '#f3ead7', onClick: () => this.setState(st => ({ cmpId: st.cmpId === i ? null : i, cmpPop: false })) })) },
+      avgOpacity: avgMode || cmpId != null ? 0.4 : 1, avgCursor: avgMode || cmpId != null ? 'not-allowed' : 'pointer', avgTitle: avgMode ? 'Averages are already shown while no merc is selected' : cmpId != null ? 'Unavailable while comparing mercs' : 'Underlay the average of mercs employed in each period',
+      toggleMercPop: () => this.setState(st => ({ mercPop: !st.mercPop })),
+      mercOpts: this.levels.map((_, i) => ({ ...mercOf(i), bg: i === mid ? '#f28c28' : '#16233f', fg: i === mid ? '#0a0f1c' : '#f3ead7', sub: i === mid ? '#3a2410' : '#9cc6ef', onClick: () => this.setState(st => ({ mercId: st.mercId === i ? null : i, cmpId: null, cmpOpen: false, mercPop: false, hover: null })) })),
+      groups, toggleAvg: () => { if (avgMode || cmpId != null) return; this.setState(st => ({ showAvg: !st.showAvg })); }, avgCheck: s.showAvg && !avgMode && cmpId == null ? '#f28c28' : 'transparent',
+      isContract: g === 'contract', typePop: s.typePop,
+      typeLabel: types.length === 3 ? 'All Contract Types' : types.map(t => 'Type ' + t).join(', '),
+      typeSub: types.length === 3 ? 'Showing totals across every type' : types.length + ' of 3 types selected',
+      toggleTypePop: () => this.setState(st => ({ typePop: !st.typePop })),
+      typeAllOn: types.length === 3, selectAllTypes: () => this.setState({ types: [1, 2, 3], hover: null }),
+      allBox: types.length === 3 ? '#f28c28' : '#0a0f1c', allDot: types.length === 3 ? '#0a0f1c' : 'transparent',
+      typeOpts: [1, 2, 3].map(t => { const on = types.includes(t), last = on && types.length === 1; return { label: 'Contract Type ' + t, box: on ? '#f28c28' : '#0a0f1c', dot: on ? '#0a0f1c' : 'transparent', fg: on ? '#f3ead7' : '#8a97ad', opacity: last ? 0.6 : 1, title: last ? 'At least one type must stay selected' : '',
+        onClick: () => { if (last) return; this.setState(st => ({ hover: null, types: on ? st.types.filter(x => x !== t) : [...st.types, t] })); } }; }),
+      allOn: () => setOn(() => Object.fromEntries(vals.map(v => [v.k, 1]))), allOff: () => setOn(() => ({})),
+            graphLock, bigLock: ['..###..', '.#...#.', '.#...#.', '#######', '###.###', '###.###', '#######', '.......'].join('').split('').map(ch => ch === '#' ? '#f2d33d' : 'transparent'),
+      graphTabs: [['guild', 'Guild Graph', E.metrics], ['contract', 'Contract Graph', E.contractMetrics], ['merc', 'Merc Graph', (E.mercMetrics || 0) >= 1]].map(([k, l, okT]) => { const on = g === k; return { label: l, locked: !okT, lockCells: ['..###..', '.#...#.', '.#...#.', '#######', '###.###', '###.###', '#######', '.......'].join('').split('').map(ch => ch === '#' ? (on ? '#0a0f1c' : '#f2d33d') : 'transparent'), bg: on ? '#f28c28' : okT ? '#2b4f8a' : '#27324a', fg: on ? '#0a0f1c' : '#f3ead7', hi: on ? '#ffb266' : '#3b6fb6', lo: on ? '#b85a12' : '#1f3560', onClick: () => this.setState({ graph: k, hover: null, mercPop: false }) }; }),
+      scales: scales.map(x => { const on = x === sc && !graphLock.on, ok = x[4] && !graphLock.on; return { label: x[1], title: graphLock.on ? 'Locked' : x[4] ? '' : x[5], opacity: ok ? 1 : 0.4, cursor: ok ? 'pointer' : 'not-allowed',
+        bg: on ? '#f28c28' : '#2b4f8a', fg: on ? '#0a0f1c' : '#f3ead7', hi: on ? '#ffb266' : '#3b6fb6', lo: on ? '#b85a12' : '#1f3560',
+        onClick: () => { if (ok) this.setState({ scale: x[0], hover: null }); } }; }),
+      focus: fv ? { name: fv.name, color: fv.color, now: this.fmt(fv.data[n - 1], fv.fmt) } : { name: 'No metric selected', color: '#3b6fb6', now: '—' },
+      rangeLabel: n === 1 ? sc[2] + ' 1' : sc[2] + ' 1 – ' + sc[2] + ' ' + n,
+      chart, empty: (onList.length === 0) && !graphLock.on, hov,
+      onMove: e => { const el = e.currentTarget, rc = el.getBoundingClientRect(), k = rc.width / (el.offsetWidth || rc.width), x = (e.clientX - rc.left) / k;
+        const i = n === 1 ? 0 : Math.max(0, Math.min(n - 1, Math.round((x - L) / pw * (n - 1)))); if (i !== this.state.hover) this.setState({ hover: i }); },
+      onLeave: () => this.setState({ hover: null }),
+    };
+  }
+}
+</script>
+</body>
+</html>

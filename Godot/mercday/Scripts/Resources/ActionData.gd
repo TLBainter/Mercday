@@ -8,7 +8,7 @@ class_name ActionData extends Resource
 @export var priority: int = 99
 @export var is_reactive: bool = false
 @export var trigger: String = ""
-@export_enum("pass", "special", "attack", "move", "draw", "climb") var execution_type: String = "special"
+@export_enum("pass", "special", "attack", "move", "draw", "climb", "jump") var execution_type: String = "special"
 @export_enum("none", "current_or_best", "nearest_enemy", "nearest_ally", "mover", "strategic_advance") var target_mode: String = "none"
 @export var move_stop_dist: int = -1  ## -1 = auto (stops at weapon range); >=0 overrides stop distance
 @export var draw_from_inventory: bool = false
@@ -26,9 +26,17 @@ func can_execute(merc: MercenaryData, ctx: Dictionary) -> bool:
 			base_cost = ctx.get("attack_base_ap", ap_cost)
 		"move_base":
 			base_cost = ctx.get("move_base_ap", ap_cost)
+	var afford := false
 	if ap_cost_mode == "move_base":
-		return state.can_afford(merc, state.move_cost(merc, action_name, base_cost))
-	return state.can_afford(merc, state.get_cost(merc, action_name, base_cost))
+		afford = state.can_afford(merc, state.move_cost(merc, action_name, base_cost))
+	else:
+		afford = state.can_afford(merc, state.get_cost(merc, action_name, base_cost))
+	if not afford:
+		return false
+	#A walk onto the cell a planned climb or leap already owns buys nothing, so it yields the slot.
+	if execution_type == "move" or action_name == "withdraw":
+		return not MovementExecutor.move_yields(merc, state, action_name)
+	return true
 
 
 func to_decision_dict(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
@@ -62,7 +70,7 @@ func _resolve_target(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
 		"current_or_best":
 			var valid: Array = ctx.get("valid_targets", [])
 			var cur = ctx.get("current_target")
-			if cur != null and valid.has(cur):
+			if cur != null and valid.has(cur) and not FleeSystem.has_better_quarry(cur, valid, ctx["state"]):
 				return cur
 			return TargetSelector.pick_target(merc, valid, ctx["state"])
 		"nearest_enemy":
@@ -73,8 +81,6 @@ func _resolve_target(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
 				var d := state.distance_to(merc, enemy)
 				var max_hp: float = float(enemy.stats.get("maximum_hit_points", 1))
 				var hp_ratio := clampf(float(enemy.current_hp) / max_hp, 0.0, 1.0)
-				# Subtract up to 1.0 from distance for a damaged target.
-				# Keeps near-full-HP targets comparable; only matters when HP differs.
 				var score := d - (1.0 - hp_ratio)
 				if score < best_score:
 					best_score = score
@@ -93,17 +99,16 @@ func _resolve_target(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
 		"mover":
 			return ctx.get("mover")
 		"strategic_advance":
+			#Priority order: an ally in danger with an adjacent enemy, then the nearest enemy, then the ally closest to any enemy.
 			var state: BattleState = ctx["state"]
 			var enemies: Array = ctx.get("enemies", [])
 			var allies: Array = ctx.get("allies", [])
-			# 1. Ally in danger (<=30% HP) with an adjacent enemy -- go rescue them
 			for ally: MercenaryData in allies:
 				var max_hp := int(ally.stats.get("maximum_hit_points", 1))
 				if float(ally.current_hp) / float(max_hp) <= 0.30:
 					for enemy: MercenaryData in enemies:
 						if state.distance_to(ally, enemy) <= 1:
 							return ally
-			# 2. Nearest enemy -- primary: advance to close the gap
 			var nearest: MercenaryData = null
 			var best_d := INF
 			for enemy: MercenaryData in enemies:
@@ -113,7 +118,6 @@ func _resolve_target(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
 					nearest = enemy
 			if nearest != null:
 				return nearest
-			# 3. Ally closest to any enemy -- follow the frontline when no enemies reachable
 			var best_ally: MercenaryData = null
 			var best_ally_d := INF
 			for ally: MercenaryData in allies:

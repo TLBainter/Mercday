@@ -8,12 +8,12 @@ const PERK_GROUP_PREFIX: String = "grant:random:perk_group:"
 
 static func is_damage_target(token: String) -> bool:
 	for dt: String in ConstDamageTypes.DAMAGE_TYPES.keys():
-		if ConstStates.normalize_token(dt) == token:
+		if StateTokens.normalize_token(dt) == token:
 			return true
 	var categories := PackedStringArray([ConstDamageTypes.STANDARD, ConstDamageTypes.ELEMENTAL,
 		ConstDamageTypes.ESOTERIC])
 	for cat: String in categories:
-		if ConstStates.normalize_token(cat) == token:
+		if StateTokens.normalize_token(cat) == token:
 			return true
 	return false
 
@@ -38,13 +38,13 @@ static func check_effect_token(token: String, where: String) -> void:
 	var parts: PackedStringArray = token.split(":")
 	if parts.size() < 2:
 		return
-	var verb: String = ConstStates.normalize_token(parts[0])
+	var verb: String = StateTokens.normalize_token(parts[0])
 	if not (verb in ["immune", "protected", "susceptible"]):
 		return
-	if ConstStates.normalize_token(parts[1]) == "tag":
+	if StateTokens.normalize_token(parts[1]) == "tag":
 		return
 	for spec: String in parts[1].split(","):
-		var target: String = ConstStates.normalize_token(spec)
+		var target: String = StateTokens.normalize_token(spec)
 		if target == "":
 			continue
 		if ConstStates.state_from_token(target) != "" or is_damage_target(target):
@@ -84,8 +84,8 @@ static func parse_npc_immunities(raw: String, title: String) -> Array[String]:
 		if pieces.size() < 2:
 			push_warning("%s: unknown immunity token %s" % [where, token])
 			continue
-		var verb: String = ConstStates.normalize_token(pieces[0])
-		var target: String = ConstStates.normalize_token(pieces[1])
+		var verb: String = StateTokens.normalize_token(pieces[0])
+		var target: String = StateTokens.normalize_token(pieces[1])
 		if not (verb in ["immune", "protected", "susceptible"]) or target == "":
 			push_warning("%s: unknown immunity token %s" % [where, token])
 			continue

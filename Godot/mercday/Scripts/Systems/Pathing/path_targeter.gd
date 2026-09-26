@@ -7,13 +7,51 @@ const AROUND_RADIUS := 3
 const AROUND_SLACK := 12
 #Paces past the cheapest ring cell that the flood is still grown for the rest of the ring.
 const RING_SLACK := 6
+#Settled cells one approach flood may hold, as a multiple of the cells the turn's own flood holds.
+const FAR_CAP_MULT := 4
+#The floor that multiple never drops below, so a boxed-in mover still gets a useful horizon.
+const FAR_CAP_MIN := 500
+#Standable cells a map must hold before any approach flood is capped; smaller maps always flood in full.
+const FAR_CAP_CELLS := 3000
+#Share of the standable cells that lifts the cap floor on the largest maps.
+const FAR_CAP_DIV := 8
 
 #MercenaryData -> {"key": Array, "search": ReachSearch}: one growing flood per mover.
 static var _reach_slots: Dictionary = {}
+#0 or more forces that cap on every mover; tests set it and hand it back to -1.
+static var far_cap_override: int = -1
+#[field id, path_version] and the standable cell count built for it; one field at a time.
+static var _walk_key: Array = []
+static var _walk_n: int = 0
 
 
 static func clear_caches() -> void:
 	_reach_slots = {}
+
+
+#Standable cells of the map for a size 1 walker: the ground floor in full, then the building floors above
+#and below it and every roof level. Counted once per path_version.
+static func walk_cells_of(field: BattlefieldArea) -> int:
+	if field == null:
+		return 0
+	var key: Array = [field.get_instance_id(), field.path_version]
+	if _walk_key == key:
+		return _walk_n
+	var n: int = 0
+	for x: int in range(field.width):
+		for y: int in range(field.length):
+			if PathHelper.is_standable(Vector3i(x, y, 0), field, 1):
+				n += 1
+	for raw: Variant in field.footprint_cells.keys():
+		var cell: Vector3i = raw as Vector3i
+		if cell.z != 0 and PathHelper.is_standable(cell, field, 1):
+			n += 1
+	for raw_roof: Variant in field.roof_cells.keys():
+		if PathHelper.is_standable(raw_roof as Vector3i, field, 1):
+			n += 1
+	_walk_key = key
+	_walk_n = n
+	return n
 
 
 #Single source of truth for whether a merc moves as a flyer this turn.
@@ -42,10 +80,10 @@ static func _ally_sig(merc: MercenaryData, state: BattleState) -> String:
 
 #The mover's flood for the current geometry; a changed key starts a fresh one.
 #This merc's flood with the turn's door surcharge set; null when the state has no battlefield.
-static func _prepared_search(merc: MercenaryData, state: BattleState) -> ReachSearch:
+static func _prepared_search(merc: MercenaryData, state: BattleState, warm: bool = false) -> ReachSearch:
 	if state.battlefield == null:
 		return null
-	PathCost.set_door_penalty(PathCost.door_penalty(merc))
+	PathCost.set_mover_doors(merc, state, warm)
 	return _search_for(merc, state)
 
 
@@ -58,8 +96,10 @@ static func _search_for(merc: MercenaryData, state: BattleState) -> ReachSearch:
 	var flying := is_flying(merc)
 	var tolerance := fall_tolerance(merc)
 	var key: Array = [
-		from, field.path_version, _ally_sig(merc, state), PathCost.door_pace_penalty,
-		tolerance, merc_size, flying, altitude, jump]
+		from, field.path_version, field.door_version, _ally_sig(merc, state), PathCost.door_pace_penalty,
+		tolerance, merc_size, flying, altitude, jump, PathCost.water_cost, PathCost.sunk_depth,
+		PathCost.wanted_sig, PathCost.link_climbs, PathCost.climb_pace, int(ceil(PathCost.climb_hp / 4.0)),
+		PathCost.lock_mode, PathCost.lock_pace_penalty]
 	var slot: Dictionary = _reach_slots.get(merc, {}) as Dictionary
 	if not slot.is_empty() and (slot["key"] as Array) == key:
 		return slot["search"] as ReachSearch
@@ -73,23 +113,106 @@ static func _search_for(merc: MercenaryData, state: BattleState) -> ReachSearch:
 #Flood fill from the merc's cell with its own capabilities, bounded to two turns of Pace.
 #reachable_far_for grows the same flood further; costs are minimal, not first-touch.
 #Targeter and executor must plan from the same set, so both call this.
-static func reachable_for(merc: MercenaryData, state: BattleState) -> Dictionary:
+static func reachable_for(merc: MercenaryData, state: BattleState, warm: bool = false) -> Dictionary:
 	#Every later query in this merc's turn plans with its own door surcharge.
-	var search := _prepared_search(merc, state)
+	var search := _prepared_search(merc, state, warm)
 	if search == null:
 		return {}
-	search.ensure_cost(reach_budget(merc, state))
+	var budget := reach_budget(merc, state)
+	search.ensure_cost(budget)
+	if search.near_cells < 0:
+		search.near_cells = _walk_cell_count(search.result, budget)
 	return search.result
+
+
+#Walk-reachable entries of a flood result priced at limit or under; jump-published ones price no
+#route to stand on. Costs are minimal, so the count is the same however far the flood has grown.
+static func _walk_cell_count(reach: Dictionary, limit: int) -> int:
+	var walk := 0
+	for key: Variant in reach.keys():
+		var cost: int = reach[key] as int
+		if cost < JUMP_COST_OFFSET and cost <= limit:
+			walk += 1
+	return walk
+
+
+#The cap floor for a map with that many standable cells.
+static func cap_floor_of(cells: int) -> int:
+	return maxi(FAR_CAP_MIN, int(cells / float(FAR_CAP_DIV)))
+
+
+#Settled cells one far growth may add: four turns' worth of the mover's own flood, at least FAR_CAP_MIN or a
+#share of the map's standable cells. -1 (no cap) on a map with FAR_CAP_CELLS standable cells or fewer.
+static func far_cap_for(merc: MercenaryData, state: BattleState) -> int:
+	if far_cap_override >= 0:
+		return far_cap_override
+	var cells: int = walk_cells_of(state.battlefield)
+	if cells <= FAR_CAP_CELLS:
+		return -1
+	var floor_cap: int = cap_floor_of(cells)
+	var search := _prepared_search(merc, state)
+	if search == null:
+		return floor_cap
+	if search.near_cells < 0:
+		reachable_for(merc, state)
+	return maxi(floor_cap, FAR_CAP_MULT * maxi(0, search.near_cells))
+
+
+#True when the last far growth of this merc's flood stopped on its cap.
+static func far_capped(merc: MercenaryData, state: BattleState) -> bool:
+	var search := _prepared_search(merc, state)
+	return search != null and search.capped
+
+
+#The walk-settled cell of this merc's flood nearest the box around cells, or NO_CELL.
+static func far_frontier_for(merc: MercenaryData, state: BattleState, cells: Array) -> Vector3i:
+	var search := _prepared_search(merc, state)
+	if search == null:
+		return NO_CELL
+	return search.nearest_settled_to(cells)
+
+
+#2D Chebyshev distance from cell to the box around cells, as the flood measures it.
+static func far_box_distance(merc: MercenaryData, state: BattleState, cell: Vector3i, cells: Array) -> int:
+	var search := _prepared_search(merc, state)
+	if search == null:
+		return 0
+	return search.box_distance(cell, cells)
 
 
 #Grows this merc's flood until every listed cell is settled, for pace distances beyond the bound.
 #With slack >= 0 the growth stops slack paces past the first listed cell that settles.
-static func reachable_far_for(merc: MercenaryData, state: BattleState, cells: Array, slack: int = -1) -> Dictionary:
+#With max_settled >= 0 it also stops once the flood holds that many settled cells.
+static func reachable_far_for(merc: MercenaryData, state: BattleState, cells: Array, slack: int = -1,
+		max_settled: int = -1) -> Dictionary:
 	var search := _prepared_search(merc, state)
 	if search == null:
 		return {}
-	search.ensure_cells(cells, -1, slack)
+	search.ensure_cells(cells, -1, slack, max_settled)
 	return search.result
+
+
+#Spawn-time fill of the field's landing tables: every jumper's own turn flood runs once here, so the first
+#turns find the tables around both spawn zones built. Widest jump first, since a table is built once at the
+#widest range asked for so far. The flood slots are dropped after; AutoBattle.setup would drop them anyway.
+#The warm-up plans without the lock branch, which would draw the RNG and shift the battle's first roll.
+static func warm_jumps(state: BattleState) -> int:
+	if state == null or state.battlefield == null:
+		return 0
+	var jumpers: Array[MercenaryData] = []
+	for team: Array in state.teams:
+		for merc: MercenaryData in team:
+			if not state.positions.has(merc) or not BattleState._is_alive(merc):
+				continue
+			if int(merc.stats.get("jump", 0)) <= 0:
+				continue
+			jumpers.append(merc)
+	jumpers.sort_custom(func(a: MercenaryData, b: MercenaryData) -> bool:
+		return int(a.stats.get("jump", 0)) > int(b.stats.get("jump", 0)))
+	for merc: MercenaryData in jumpers:
+		reachable_for(merc, state, true)
+	clear_caches()
+	return jumpers.size()
 
 
 #The flood's minimal walk path from `from` to goal; [] when the mover stands elsewhere or goal is not walk-settled.
@@ -156,7 +279,7 @@ static func reachable_from(
 		from: Vector3i,
 		field: BattlefieldArea,
 		passable: Dictionary,
-		fall_tolerance: float,
+		tolerance: float,
 		flying: bool,
 		can_climb: bool,
 		jump_range: int = 0,
@@ -164,7 +287,7 @@ static func reachable_from(
 		altitude: int = 0,
 		max_walk_cost: int = -1) -> Dictionary:
 	var search := ReachSearch.create(
-		from, field, passable, fall_tolerance, flying, can_climb, jump_range, merc_size, altitude)
+		from, field, passable, tolerance, flying, can_climb, jump_range, merc_size, altitude)
 	if max_walk_cost < 0:
 		search.ensure_all()
 	else:
@@ -399,6 +522,14 @@ static func _ally_score(
 		if weights.has("ally_goal_conflict") and ally_goal == candidate:
 			score += float(weights["ally_goal_conflict"])
 
+		if weights.has("leader_aura"):
+			var reach: int = AuraTactics.aura_reach(ally)
+			if reach > 0:
+				var aura_pos: Vector3i = state.pos3(ally)
+				if aura_pos.z == candidate.z \
+						and maxi(absi(candidate.x - aura_pos.x), absi(candidate.y - aura_pos.y)) <= reach:
+					score += float(weights["leader_aura"])
+
 		var ally_target: MercenaryData = state.move_targets.get(ally) as MercenaryData
 		if ally_target == null or ally_target != target:
 			continue
@@ -458,7 +589,7 @@ static func best_approach_cell(
 
 	var flying := is_flying(merc)
 	var can_climb := true
-	var fall_tolerance := fall_tolerance(merc)
+	var tolerance := fall_tolerance(merc)
 	var ally_passable := _ally_passable(merc, state)
 	var merc_size := int(merc.stats.get("size", 1))
 	var altitude := state.get_height(merc)
@@ -485,7 +616,7 @@ static func best_approach_cell(
 			return target_pos
 		reachable = reachable_around_for(merc, state, target_pos)
 		return PathHelper.nearest_passable_to(target_pos, field,
-			{"fall_tolerance": fall_tolerance, "can_climb": can_climb, "merc_size": merc_size,
+			{"fall_tolerance": tolerance, "can_climb": can_climb, "merc_size": merc_size,
 			"flying": flying, "altitude": altitude, "state": state, "merc": merc},
 			{}, reachable, from, JUMP_COST_OFFSET - 1)
 
@@ -524,25 +655,44 @@ static func best_approach_cell(
 	for c: Vector3i in candidates:
 		if reachable.has(c):
 			reachable_candidates.append(c)
-	#The whole ring may sit beyond the default bound: grow the flood to it before widening.
+	#The whole ring may sit beyond the default bound: grow the flood to it, then to wider rings so a merc
+	#boxed out by an occupied cell still moves nearer. The capped growth runs first, the full one after it.
 	if reachable_candidates.is_empty() and target != null:
-		reachable = reachable_far_for(merc, state, candidates, RING_SLACK)
-		for fc: Vector3i in candidates:
-			if reachable.has(fc):
-				reachable_candidates.append(fc)
-	#No ring cell can be reached: try wider rings so a merc boxed out by an occupied cell still moves nearer.
-	if reachable_candidates.is_empty() and target != null:
-		var wide_d := stop_dist + 1
-		while reachable_candidates.is_empty() and wide_d <= stop_dist + 3:
-			var wide := approach_candidates(target_pos, wide_d, field, flying, state, merc, merc_size)
-			reachable = reachable_far_for(merc, state, wide, RING_SLACK)
-			for wc: Vector3i in wide:
-				if reachable.has(wc):
-					reachable_candidates.append(wc)
-			if not reachable_candidates.is_empty() and EncounterLogger.is_active():
-				EncounterLogger.log_verbose("MOVE RING WIDER: %s near %s d=%d cands=%d" % [
-					merc.merc_name, target.merc_name, wide_d, reachable_candidates.size()])
-			wide_d += 1
+		var cap: int = -1 if state.far_full.has(merc) else far_cap_for(merc, state)
+		for _attempt: int in range(2):
+			reachable = reachable_far_for(merc, state, candidates, RING_SLACK, cap)
+			for fc: Vector3i in candidates:
+				if reachable.has(fc):
+					reachable_candidates.append(fc)
+			var wide_d := stop_dist + 1
+			while reachable_candidates.is_empty() and wide_d <= stop_dist + 3:
+				var wide := approach_candidates(target_pos, wide_d, field, flying, state, merc, merc_size)
+				reachable = reachable_far_for(merc, state, wide, RING_SLACK, cap)
+				for wc: Vector3i in wide:
+					if reachable.has(wc):
+						reachable_candidates.append(wc)
+				if not reachable_candidates.is_empty() and EncounterLogger.is_active():
+					EncounterLogger.log_verbose("MOVE RING WIDER: %s near %s d=%d cands=%d" % [
+						merc.merc_name, target.merc_name, wide_d, reachable_candidates.size()])
+				wide_d += 1
+			if not reachable_candidates.is_empty() or cap < 0 or not far_capped(merc, state):
+				break
+			var here := far_box_distance(merc, state, from, candidates)
+			var frontier := far_frontier_for(merc, state, candidates)
+			var gap := far_box_distance(merc, state, frontier, candidates) if frontier != NO_CELL else here
+			if frontier != NO_CELL and gap < here:
+				if EncounterLogger.is_active():
+					EncounterLogger.log_verbose("MOVE FAR CAP: %s near %s settled=%d toward (%d,%d) F%d dist=%d" % [
+						merc.merc_name, target.merc_name, reachable.size(), frontier.x, frontier.y,
+						frontier.z, gap])
+				state.move_goals[merc] = frontier
+				state.move_targets[merc] = target
+				return frontier
+			state.far_full[merc] = true
+			if EncounterLogger.is_active():
+				EncounterLogger.log_verbose("MOVE FAR FULL: %s near %s settled=%d" % [
+					merc.merc_name, target.merc_name, reachable.size()])
+			cap = -1
 
 	if reachable_candidates.is_empty():
 		if EncounterLogger.is_active():
@@ -570,7 +720,7 @@ static func best_approach_cell(
 
 	for entry: Array in scored:
 		var c: Vector3i = entry[1] as Vector3i
-		var partial := PathHelper.find_path_toward(from, c, field, ally_passable, fall_tolerance, flying, can_climb, 0, merc_size, altitude)
+		var partial := PathHelper.find_path_toward(from, c, field, ally_passable, tolerance, flying, can_climb, 0, merc_size, altitude)
 		if not partial.is_empty():
 			if EncounterLogger.is_active():
 				var pe: Vector3i = partial[partial.size() - 1]

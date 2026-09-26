@@ -1,0 +1,40 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Contracts/ContractViewer.gd" id="1"]
+[ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ContractList.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ContractDetail.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SubWindow.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ConfirmDialog.tscn" id="6"]
+
+[node name="ContractViewer" type="Control"]
+custom_minimum_size = Vector2(1280, 720)
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2")
+script = ExtResource("1")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="Columns" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Left" parent="Margin/Columns" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="Right" parent="Margin/Columns" instance=ExtResource("4")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Popup" parent="." instance=ExtResource("5")]
+layout_mode = 1
+
+[node name="Confirm" parent="." instance=ExtResource("6")]
+layout_mode = 1

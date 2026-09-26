@@ -1,0 +1,250 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Metrics/MetricsViewer.gd" id="1"]
+[ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Metrics/GraphTabs.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Metrics/MercSelector.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Metrics/TypeSelector.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Metrics/MetricList.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Metrics/ScaleSelector.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Metrics/LineChart.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Metrics/ShowAveragesToggle.tscn" id="9"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="10"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="11"]
+
+[node name="MetricsViewer" type="Control"]
+custom_minimum_size = Vector2(1280, 720)
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2")
+script = ExtResource("1")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="Columns" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="LeftPanel" type="PanelContainer" parent="Margin/Columns"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+size_flags_vertical = 3
+theme_type_variation = &"RaisedPanel"
+
+[node name="LeftMargin" type="MarginContainer" parent="Margin/Columns/LeftPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="LeftBox" type="VBoxContainer" parent="Margin/Columns/LeftPanel/LeftMargin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ListHeader" type="HBoxContainer" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ListTitle" type="Label" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/ListHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"TitleLabel"
+theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
+theme_override_font_sizes/font_size = 13
+text = "Guild Data"
+
+[node name="OnCount" type="Label" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/ListHeader"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"SmallLabel"
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_font_sizes/font_size = 11
+text = "0/0"
+
+[node name="SelectorSlot" type="VBoxContainer" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="MercSelector" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/SelectorSlot" instance=ExtResource("4")]
+layout_mode = 2
+
+[node name="CompareBox" type="HBoxContainer" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/SelectorSlot"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CompareButton" type="Button" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/SelectorSlot/CompareBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(28, 24)
+size_flags_vertical = 4
+theme_override_fonts/font = ExtResource("10")
+theme_override_font_sizes/font_size = 12
+text = "+"
+
+[node name="CompareSelector" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/SelectorSlot/CompareBox" instance=ExtResource("4")]
+layout_mode = 2
+size_flags_horizontal = 3
+visible = false
+compact = true
+
+[node name="TypeSelector" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/SelectorSlot" instance=ExtResource("5")]
+layout_mode = 2
+visible = false
+
+[node name="ListScroll" type="ScrollContainer" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 0
+
+[node name="MetricList" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/ListScroll" instance=ExtResource("6")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ListButtons" type="HBoxContainer" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ShowAll" type="Button" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/ListButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 28)
+theme_override_fonts/font = ExtResource("11")
+theme_override_font_sizes/font_size = 10
+text = "Show All"
+
+[node name="HideAll" type="Button" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/ListButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 28)
+theme_override_fonts/font = ExtResource("11")
+theme_override_font_sizes/font_size = 10
+text = "Hide All"
+
+[node name="RightBox" type="VBoxContainer" parent="Margin/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 0
+
+[node name="HeaderRow" type="HBoxContainer" parent="Margin/Columns/RightBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Margin/Columns/RightBox/HeaderRow"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"TitleLabel"
+clip_text = true
+text_overrun_behavior = 3
+text = "Guild Metrics"
+
+[node name="GraphTabs" parent="Margin/Columns/RightBox/HeaderRow" instance=ExtResource("3")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ShowAverages" parent="Margin/Columns/RightBox/HeaderRow" instance=ExtResource("9")]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="ScaleLabel" type="Label" parent="Margin/Columns/RightBox/HeaderRow"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"SmallLabel"
+theme_override_fonts/font = ExtResource("11")
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_font_sizes/font_size = 10
+text = "SCALE"
+
+[node name="ScaleSelector" parent="Margin/Columns/RightBox/HeaderRow" instance=ExtResource("7")]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="ChartColumn" type="VBoxContainer" parent="Margin/Columns/RightBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="ChartEdge" type="ColorRect" parent="Margin/Columns/RightBox/ChartColumn"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 4)
+color = Color(0.949020, 0.549020, 0.156863, 1)
+
+[node name="ChartPanel" type="PanelContainer" parent="Margin/Columns/RightBox/ChartColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"RaisedPanel"
+
+[node name="ChartMargin" type="MarginContainer" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="ChartBox" type="VBoxContainer" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ChartHeader" type="HBoxContainer" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 34)
+theme_override_constants/separation = 10
+
+[node name="Swatch" type="ColorRect" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/ChartHeader"]
+layout_mode = 2
+custom_minimum_size = Vector2(24, 24)
+size_flags_vertical = 4
+color = Color(0.949020, 0.549020, 0.156863, 1)
+
+[node name="FocusLabel" type="Label" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/ChartHeader"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"TitleLabel"
+theme_override_fonts/font = ExtResource("10")
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_font_sizes/font_size = 16
+text = "No metric selected"
+
+[node name="NowText" type="Label" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/ChartHeader"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"DescriptionLabel"
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_font_sizes/font_size = 14
+text = "Now:"
+
+[node name="NowValue" type="Label" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/ChartHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_type_variation = &"DescriptionLabel"
+theme_override_colors/font_color = Color(0.231373, 0.435294, 0.713725, 1)
+theme_override_font_sizes/font_size = 14
+text = "-"
+
+[node name="RangeLabel" type="Label" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/ChartHeader"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"SmallLabel"
+theme_override_fonts/font = ExtResource("11")
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_font_sizes/font_size = 10
+text = ""
+
+[node name="Chart" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox" instance=ExtResource("8")]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Legend" type="HBoxContainer" parent="Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox"]
+layout_mode = 2
+theme_override_constants/separation = 14

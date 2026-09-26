@@ -23,17 +23,17 @@ static func header(run: ContractRun) -> void:
 		run.emit("CONTRACT LOCATION: none")
 	else:
 		var parent_name: String = run.location.parent.location_name if run.location.parent != null else "none"
-		var terrain: String = ContractTerrain.area_name_for(run.location)
 		run.emit("CONTRACT LOCATION: %s (%s, parent %s) terrain %s" % [
 			run.location.location_name, run.location.location_type, parent_name,
-			terrain if terrain != "" else "none"])
+			ContractTerrain.describe(run.location)])
 	run.emit("CONTRACT OPPONENT: %s" % (contract.location_b if contract.location_b != "" else "none"))
 	run.emit("CONTRACT DESCRIPTION: %s" % contract.description)
 	run.emit("CONTRACT REWARD: %d notes, max mercs %d" % [contract.reward_notes, contract.max_mercs])
+	run.emit("CONTRACT LEVEL: level %d difficulty %.1f" % [contract.contract_level, contract.difficulty])
 	run.emit("CONTRACT TEAM: %d mercs" % run.team.size())
 	for merc: MercenaryData in run.team:
 		run.emit("TEAM: %s" % merc_line(merc))
-	run.emit("CONTRACT MISHAPS: %s" % (", ".join(contract.rolled_mishaps) if not contract.rolled_mishaps.is_empty() else "none"))
+	run.emit("CONTRACT MISHAPS: %s" % _join_or_none(contract.rolled_mishaps))
 	run.emit("CONTRACT PRIMARY: %s" % (contract.assigned_primary_event if contract.assigned_primary_event != "" else "none"))
 	for line: String in (run.modifier_record.get("lines", []) as Array):
 		run.emit(line)
@@ -67,8 +67,9 @@ static func verdict(run: ContractRun) -> void:
 			(outcome.get("casualties", []) as Array).size(),
 			int(outcome.get("enemies_defeated", 0)),
 			int(outcome.get("enemy_count", 0))])
-	var names: Array[String] = run.merc_names(run.casualties)
-	run.emit("CONTRACT CASUALTIES: %s" % (", ".join(names) if not names.is_empty() else "none"))
+	_list_line(run, "CONTRACT CASUALTIES", run.casualties)
+	_list_line(run, "CONTRACT DEFECTORS", run.defectors)
+	_list_line(run, "CONTRACT DEPARTED", run.departed)
 	for merc: MercenaryData in run.living_team():
 		if merc.rest_lockout_until <= CampaignClock.now():
 			run.emit("CONTRACT LOCKOUT: %s none" % merc.merc_name)
@@ -79,7 +80,16 @@ static func verdict(run: ContractRun) -> void:
 	var log_paths: Array[String] = []
 	for entry: String in run.encounter_logs:
 		log_paths.append(ProjectSettings.globalize_path(entry))
-	run.emit("CONTRACT ENCOUNTER LOGS: %s" % (", ".join(log_paths) if not log_paths.is_empty() else "none"))
+	run.emit("CONTRACT ENCOUNTER LOGS: %s" % _join_or_none(log_paths))
+
+
+#One verdict roster line: the named mercs, or none when the list is empty.
+static func _list_line(run: ContractRun, label: String, mercs: Array[MercenaryData]) -> void:
+	run.emit("%s: %s" % [label, _join_or_none(run.merc_names(mercs))])
+
+
+static func _join_or_none(parts: Array) -> String:
+	return ", ".join(parts) if not parts.is_empty() else "none"
 
 
 static func write(run: ContractRun) -> String:

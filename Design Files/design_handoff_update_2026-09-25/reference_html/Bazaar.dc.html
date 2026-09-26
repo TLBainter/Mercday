@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./fit-frame.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+input{font:inherit}
+input::placeholder{color:#5e7699}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 2px 0 0 #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-button{display:none}
+</style>
+</helmet>
+<div style="display:none" aria-hidden="true"><dc-import name="Tab Button" hint-size="0px,0px"></dc-import><dc-import name="Feature Lock" hint-size="0px,0px"></dc-import></div>
+<div style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Bazaar" style="position:relative;width:1280px;height:720px;flex:none;background:#101a30;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px);padding:20px;display:flex;flex-direction:column;box-shadow:0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000">
+
+    <div style="position:relative;height:44px;flex:none;display:flex;justify-content:space-between;align-items:flex-end;padding:0 4px">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">BazaarTabs (TabButton.tscn ×3)</div></sc-if>
+      <div style="height:44px;display:flex;flex-direction:row-reverse;justify-content:flex-end;gap:8px">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+          <dc-import name="Tab Button" label="{{ t.label }}" title="{{ t.label }}" icon="{{ t.icon }}" active="{{ t.active }}" dot="{{ t.dot }}" pad-x="16px" on-click="{{ t.onClick }}" style="flex:{{ t.flex }};align-self:flex-end;position:relative;z-index:{{ t.z }}" hint-size="52px,38px"></dc-import>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="position:relative;flex:1;min-height:0;padding:16px;background:#1a2b4d;box-shadow:inset 4px 0 0 #28447a,inset -4px -4px 0 #111c33,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,0 -4px 0 #f28c28">
+
+      <sc-if value="{{ isShop }}" hint-placeholder-val="{{ true }}">
+        <div style="height:100%;display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px">
+          <div style="position:relative;min-height:0;display:flex;flex-direction:column;gap:16px;overflow-y:auto;overflow-x:hidden;padding:12px 8px 12px 12px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:2px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">FilterPanel.tscn</div></sc-if>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px;margin-bottom:4px">Department</span>
+              <sc-for list="{{ depts }}" as="d" hint-placeholder-count="8">
+                <button onClick="{{ d.onClick }}" style="height:26px;flex:none;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 8px;text-align:left;font-size:14px;color:{{ d.fg }};background:{{ d.bg }}" style-hover="filter:brightness(1.25)"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.label }}</span><span style="font:400 10px Silkscreen;color:{{ d.cfg }}">{{ d.count }}</span></button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ hasSubs }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px;margin-bottom:4px">{{ subTitle }}</span>
+                <sc-for list="{{ subOpts }}" as="o" hint-placeholder-count="4">
+                  <button onClick="{{ o.onClick }}" style="height:24px;flex:none;display:flex;align-items:center;gap:8px;padding:0 6px;text-align:left;font-size:14px;color:{{ o.fg }}" style-hover="background:#15223d">
+                    <span style="flex:none;width:14px;height:14px;display:flex;align-items:center;justify-content:center;background:{{ o.box }};box-shadow:inset 0 0 0 2px #f28c28"><span style="width:4px;height:4px;background:{{ o.dot }}"></span></span>
+                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.label }}</span>
+                    <span style="font:400 10px Silkscreen;color:#5e7699">{{ o.count }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px;margin-bottom:4px">Price</span>
+              <sc-for list="{{ priceOpts }}" as="o" hint-placeholder-count="5">
+                <button onClick="{{ o.onClick }}" style="height:24px;flex:none;display:flex;align-items:center;gap:8px;padding:0 6px;text-align:left;font-size:14px;color:{{ o.fg }}" style-hover="background:#15223d">
+                  <span style="flex:none;width:14px;height:14px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 2px #9cc6ef"><span style="width:6px;height:6px;background:{{ o.dot }}"></span></span>
+                  <span style="flex:1">{{ o.label }}</span>
+                </button>
+              </sc-for>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) 40px;gap:6px;align-items:center;margin-top:6px">
+                <input value="{{ pmin }}" onChange="{{ onMin }}" placeholder="Min" inputmode="numeric" style="width:100%;height:28px;padding:0 8px;border:0;outline:0;background:#0a0f1c;color:#f3ead7;font-size:14px;box-shadow:inset 0 0 0 2px {{ customRing }}">
+                <span style="font-size:13px;color:#9cc6ef">–</span>
+                <input value="{{ pmax }}" onChange="{{ onMax }}" placeholder="Max" inputmode="numeric" style="width:100%;height:28px;padding:0 8px;border:0;outline:0;background:#0a0f1c;color:#f3ead7;font-size:14px;box-shadow:inset 0 0 0 2px {{ customRing }}">
+                <button onClick="{{ applyCustom }}" style="height:28px;background:#2b4f8a;font:400 10px Silkscreen;box-shadow:inset 0 2px 0 #3b6fb6,inset 0 -2px 0 #1f3560" style-hover="background:#3b6fb6">Go</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px;margin-bottom:4px">Rarity</span>
+              <sc-for list="{{ rarOpts }}" as="o" hint-placeholder-count="5">
+                <sc-if value="{{ o.open }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ o.onClick }}" style="height:24px;flex:none;display:flex;align-items:center;gap:8px;padding:0 6px;text-align:left;font-size:14px" style-hover="background:#15223d">
+                    <span style="flex:none;width:14px;height:14px;display:flex;align-items:center;justify-content:center;background:{{ o.box }};box-shadow:inset 0 0 0 2px {{ o.color }}"><span style="width:4px;height:4px;background:{{ o.dot }}"></span></span>
+                    <span style="flex:1;color:{{ o.color }}">{{ o.label }}</span>
+                    <span style="font:400 10px Silkscreen;color:#5e7699">{{ o.count }}</span>
+                  </button>
+                </sc-if>
+                <sc-if value="{{ o.locked }}" hint-placeholder-val="{{ false }}">
+                  <div style="height:24px;flex:none;display:flex;align-items:center;gap:8px;padding:0 6px;font-size:14px;color:#5e7699">
+                    <span style="flex:none;width:14px;height:14px;background:#0a0f1c;box-shadow:inset 0 0 0 2px #3b4d6e"></span>
+                    <span style="flex:1">{{ o.label }}</span>
+                    <dc-import name="Feature Lock" verb="view" feature="{{ o.feature }}" plan="Mercday Enterprise" upgrade="Better Items" upgrade-id="betteritems" tier="{{ o.tier }}" tiers="{{ 4 }}" px="{{ 1 }}" hint-size="12px,12px"></dc-import>
+                  </div>
+                </sc-if>
+              </sc-for>
+            </div>
+            <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ clearFilters }}" style="align-self:flex-start;padding:2px 0;font:400 10px Silkscreen;color:#f28c28;text-decoration:underline;text-underline-offset:3px" style-hover="color:#ffb266">Clear all filters</button>
+            </sc-if>
+          </div>
+
+          <div style="min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px">
+            <div style="position:relative;display:flex;gap:12px;align-items:center">
+              <div style="flex:1;min-width:0;height:36px;display:flex;background:#0a0f1c;box-shadow:inset 0 0 0 2px #3b6fb6">
+                <input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search the Bazaar" style="flex:1;min-width:0;height:100%;padding:0 12px;border:0;outline:0;background:transparent;color:#f3ead7;font-size:15px">
+                <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearQ }}" title="Clear search" style="flex:none;width:32px;font:700 14px Silkscreen;color:#9cc6ef" style-hover="color:#f3ead7">X</button></sc-if>
+                <div style="flex:none;width:44px;display:flex;align-items:center;justify-content:center;background:#f28c28;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12"><div style="display:grid;grid-template-columns:repeat(10,2px);grid-auto-rows:2px"><sc-for list="{{ searchIcon }}" as="px" hint-placeholder-count="100"><span style="background:{{ px }}"></span></sc-for></div></div>
+              </div>
+              <div data-popup="1" style="position:relative;display:flex;align-items:center;gap:8px">
+                <span style="font:400 10px Silkscreen;color:#9cc6ef">Sort by</span>
+                <button onClick="{{ toggleSort }}" style="height:32px;min-width:170px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px;background:#2b4f8a;font:400 10px Silkscreen;white-space:nowrap;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6"><span>{{ sortLabel }}</span><span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #f3ead7"></span></button>
+                <sc-if value="{{ sortOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:calc(100% + 8px);right:0;z-index:45;min-width:190px;padding:6px;display:flex;flex-direction:column;gap:3px;background:#1f3560;box-shadow:0 -3px 0 #f28c28,0 3px 0 #f28c28,-3px 0 0 #f28c28,3px 0 0 #f28c28,6px 6px 0 3px rgba(0,0,0,0.5)">
+                    <sc-for list="{{ sortOpts }}" as="o" hint-placeholder-count="5">
+                      <button onClick="{{ o.onClick }}" style="height:26px;display:flex;align-items:center;padding:0 10px;text-align:left;white-space:nowrap;font:400 10px Silkscreen;color:{{ o.fg }};background:{{ o.bg }}" style-hover="filter:brightness(1.2)">{{ o.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:0 2px">
+              <span style="font-size:14px;color:#9cc6ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ crumb }}</span>
+              <span style="flex:none;font:400 10px Silkscreen;color:#f3ead7">{{ resultLabel }}</span>
+            </div>
+            <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:4px 8px 4px 4px">
+              <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+                <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+                  <span style="font:700 14px Silkscreen;color:#f3ead7">No items match your filters</span>
+                  <span style="font-size:14px;color:#9cc6ef">Try a different department, price, or rarity.</span>
+                  <button onClick="{{ clearFilters }}" style="height:32px;padding:0 16px;background:#2b4f8a;font:400 10px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Clear all filters</button>
+                </div>
+              </sc-if>
+              <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+                <sc-for list="{{ items }}" as="it" hint-placeholder-count="8">
+                  <div style="position:relative;min-width:0;display:flex;flex-direction:column;gap:6px;padding:8px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+                    <sc-if value="{{ it.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ItemCard.tscn</span></sc-if>
+                    <div style="position:relative;width:100%;aspect-ratio:1 / 1;flex:none;background:#15223d;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.06) 0 4px,transparent 4px 8px);box-shadow:inset 0 0 0 2px {{ it.rc }}">
+                      <span style="position:absolute;top:4px;left:4px;padding:1px 4px;background:{{ it.rc }};color:#0a0f1c;font:400 8px Silkscreen">{{ it.rarity }}</span>
+                    </div>
+                    <span style="font:700 11px/1.2 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.name }}</span>
+                    <span style="font-size:12px;line-height:1;color:#9cc6ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.sub }} · {{ it.dept }}</span>
+                    <span style="display:flex;align-items:center;gap:5px;font:700 16px/1 Silkscreen;color:#f3ead7">{{ it.price }}<span style="display:inline-grid;grid-template-columns:repeat(7,2px);grid-auto-rows:2px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></span>
+                    <span style="font-size:12px;line-height:1;color:#6cc36a">Arrives {{ eta }}</span>
+                    <sc-if value="{{ it.notInCart }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ it.add }}" style="height:30px;flex:none;margin-top:2px;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12" style-hover="filter:brightness(1.1)" style-active="filter:brightness(0.9)">Add to Cart</button>
+                    </sc-if>
+                    <sc-if value="{{ it.inCart }}" hint-placeholder-val="{{ false }}">
+                      <div style="height:30px;flex:none;margin-top:2px;display:grid;grid-template-columns:30px minmax(0,1fr) 30px;background:#0a0f1c;box-shadow:inset 0 0 0 2px #6cc36a">
+                        <button onClick="{{ it.dec }}" title="Remove one" style="font:700 14px Silkscreen;color:#f3ead7;background:#2b4f8a;box-shadow:inset 0 0 0 2px #6cc36a" style-hover="background:#3b6fb6">−</button>
+                        <span style="display:flex;align-items:center;justify-content:center;font:700 13px Silkscreen;color:#6cc36a">{{ it.qty }}</span>
+                        <button onClick="{{ it.add }}" title="Add one" style="font:700 14px Silkscreen;color:#f3ead7;background:#2b4f8a;box-shadow:inset 0 0 0 2px #6cc36a" style-hover="background:#3b6fb6">+</button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isCart }}" hint-placeholder-val="{{ false }}">
+        <div style="height:100%;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px">
+          <div style="position:relative;min-height:0;display:flex;flex-direction:column;gap:10px;padding:14px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">CartList.tscn</div></sc-if>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="font:700 16px Silkscreen;color:#f28c28">Shopping Cart</span>
+              <span style="font:400 10px Silkscreen;color:#9cc6ef">{{ cartCountLabel }}</span>
+            </div>
+            <div style="height:2px;flex:none;background:#1f3560"></div>
+            <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+                <span style="font:700 14px Silkscreen;color:#f3ead7">Your cart is empty</span>
+                <span style="font-size:14px;color:#9cc6ef">Items you add from the Shop appear here.</span>
+                <button onClick="{{ goShop }}" style="height:34px;padding:0 18px;background:#f28c28;color:#0a0f1c;font:400 11px Silkscreen;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Continue Shopping</button>
+              </div>
+            </sc-if>
+            <div style="min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;padding:2px 6px 2px 2px">
+              <sc-for list="{{ cartRows }}" as="c" hint-placeholder-count="3">
+                <div style="flex:none;display:grid;grid-template-columns:64px minmax(0,1fr) 120px 110px;gap:14px;align-items:center;padding:8px;background:#15223d">
+                  <div style="width:64px;height:64px;background:#15223d;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.06) 0 4px,transparent 4px 8px);box-shadow:inset 0 0 0 2px {{ c.rc }}"></div>
+                  <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+                    <span style="font:700 12px/1.2 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+                    <span style="font-size:13px;line-height:1;color:#9cc6ef"><span style="color:{{ c.rc }}">{{ c.rarity }}</span> · {{ c.sub }} · {{ c.dept }}</span>
+                    <span style="font-size:12px;line-height:1;color:#6cc36a">Arrives {{ eta }}</span>
+                    <button onClick="{{ c.remove }}" style="align-self:flex-start;padding:2px 0;font:400 9px Silkscreen;color:#e8583f;text-decoration:underline;text-underline-offset:3px" style-hover="color:#ff8a70">Remove</button>
+                  </div>
+                  <div style="height:30px;display:grid;grid-template-columns:30px minmax(0,1fr) 30px;background:#0a0f1c;box-shadow:inset 0 0 0 2px #3b6fb6">
+                    <button onClick="{{ c.dec }}" style="font:700 14px Silkscreen;background:#2b4f8a;box-shadow:inset 0 0 0 2px #3b6fb6" style-hover="background:#3b6fb6">−</button>
+                    <span style="display:flex;align-items:center;justify-content:center;font:700 13px Silkscreen">{{ c.qty }}</span>
+                    <button onClick="{{ c.inc }}" style="font:700 14px Silkscreen;background:#2b4f8a;box-shadow:inset 0 0 0 2px #3b6fb6" style-hover="background:#3b6fb6">+</button>
+                  </div>
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                    <span style="display:flex;align-items:center;gap:4px;font:700 15px/1 Silkscreen;color:#f3ead7">{{ c.line }}<span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></span>
+                    <span style="font-size:12px;color:#9cc6ef">{{ c.each }} each</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="position:relative;align-self:start;display:flex;flex-direction:column;gap:10px;padding:14px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">OrderSummary.tscn</div></sc-if>
+            <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px">Order Summary</span>
+            <sc-for list="{{ summary }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+                <span style="font-size:13px;color:#9cc6ef;white-space:nowrap">{{ r.label }}</span>
+                <span style="display:flex;align-items:center;gap:4px;font:400 12px Silkscreen;color:{{ r.color }}">{{ r.value }}<sc-if value="{{ r.n }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></sc-if></span>
+              </div>
+            </sc-for>
+            <div style="height:2px;background:#1f3560"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font:700 12px Silkscreen;color:#f3ead7">Order Total</span>
+              <span style="display:flex;align-items:center;gap:5px;font:700 18px/1 Silkscreen;color:#f28c28">{{ cartTotal }}<span style="display:inline-grid;grid-template-columns:repeat(7,2px);grid-auto-rows:2px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="font-size:13px;color:#9cc6ef;white-space:nowrap">Notes After Purchase</span>
+              <span style="font:400 12px Silkscreen;color:{{ afterColor }}">{{ afterLabel }}</span>
+            </div>
+            <button onClick="{{ openCheckout }}" title="{{ checkoutReason }}" style="height:46px;margin-top:4px;font:700 13px Silkscreen;letter-spacing:1px;opacity:{{ checkoutOpacity }};cursor:{{ checkoutCursor }};color:#f3ead7;text-shadow:2px 2px 0 #0a0f1c;background:#3f9a4a;box-shadow:inset 0 4px 0 #6cc36a,inset 0 -4px 0 #2a6b32,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Proceed to Checkout</button>
+            <sc-if value="{{ hasReason }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;line-height:1.3;color:#e8583f;text-align:center">{{ checkoutReason }}</span></sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isOrders }}" hint-placeholder-val="{{ false }}">
+        <div style="height:100%;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+            <span style="font:700 16px Silkscreen;color:#f28c28">Your Orders</span>
+            <div style="display:flex;gap:8px">
+              <sc-for list="{{ orderFilters }}" as="o" hint-placeholder-count="3">
+                <button onClick="{{ o.onClick }}" style="height:30px;padding:0 12px;font:400 10px Silkscreen;white-space:nowrap;color:{{ o.fg }};background:{{ o.bg }};box-shadow:inset 0 3px 0 {{ o.hi }},inset 0 -3px 0 {{ o.lo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.12)">{{ o.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;overflow-y:auto;overflow-x:hidden;padding:4px 8px 4px 4px">
+            <sc-if value="{{ noOrders }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;color:#9cc6ef">No orders here yet.</div>
+            </sc-if>
+            <sc-for list="{{ orders }}" as="o" hint-placeholder-count="3">
+              <div style="position:relative;flex:none;display:flex;flex-direction:column;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+                <sc-if value="{{ o.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">OrderCard.tscn</span></sc-if>
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:8px 14px;background:#15223d;box-shadow:inset 0 -2px 0 #1f3560">
+                  <sc-for list="{{ o.head }}" as="h" hint-placeholder-count="4">
+                    <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+                      <span style="font:400 8px Silkscreen;color:#9cc6ef">{{ h.label }}</span>
+                      <span style="display:flex;align-items:center;gap:4px;font-size:14px;line-height:1;color:#f3ead7">{{ h.value }}<sc-if value="{{ h.n }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></sc-if></span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;padding:12px 14px">
+                  <div style="display:flex;align-items:baseline;gap:12px">
+                    <span style="font:700 13px Silkscreen;color:{{ o.color }}">{{ o.title }}</span>
+                    <span style="font-size:13px;color:#9cc6ef">{{ o.sub }}</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:2px;height:14px;padding:2px;background:#0a0f1c">
+                    <sc-for list="{{ o.cells }}" as="cl" hint-placeholder-count="20"><div style="background:{{ cl }}"></div></sc-for>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font:400 8px Silkscreen;color:#5e7699">
+                    <span>Ordered {{ o.placedShort }}</span><span>{{ o.endLabel }}</span>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    <sc-for list="{{ o.lines }}" as="l" hint-placeholder-count="2">
+                      <div style="display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;background:#15223d">
+                        <div style="width:32px;height:32px;flex:none;background:#15223d;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.06) 0 3px,transparent 3px 6px);box-shadow:inset 0 0 0 2px {{ l.rc }}"></div>
+                        <div style="display:flex;flex-direction:column;gap:3px">
+                          <span style="font:700 10px Silkscreen;color:#f3ead7">{{ l.name }}</span>
+                          <span style="font-size:12px;line-height:1;color:{{ l.rc }}">{{ l.rarity }} · ×{{ l.qty }}</span>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ lock.on }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.84);cursor:not-allowed">
+          <div style="width:520px;padding:26px 28px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;cursor:default;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f2d33d,0 4px 0 #f2d33d,-4px 0 0 #f2d33d,4px 0 0 #f2d33d,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">LockedPage.tscn</span></sc-if>
+            <div style="display:grid;grid-template-columns:repeat(7,6px);grid-auto-rows:6px"><sc-for list="{{ bigLock }}" as="c" hint-placeholder-count="56"><span style="background:{{ c }}"></span></sc-for></div>
+            <span style="font-size:17px;line-height:1.4;color:#f3ead7">{{ lock.line1 }}</span>
+            <span style="font-size:17px;line-height:1.4;color:#f3ead7">{{ lock.pre }}<span style="color:#f2d33d">{{ lock.hi }}</span>{{ lock.post }}</span>
+            <button onClick="{{ goUnlock }}" style="height:40px;padding:0 22px;background:#f28c28;color:#0a0f1c;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Take Me There</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ dlgCheckout }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:520px;padding:20px 22px 22px;display:flex;flex-direction:column;gap:14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #6cc36a,0 4px 0 #6cc36a,-4px 0 0 #6cc36a,4px 0 0 #6cc36a,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">CheckoutDialog.tscn</div></sc-if>
+          <button onClick="{{ closeDialog }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55">X</button>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font:400 11px Silkscreen;color:#9cc6ef;letter-spacing:1px">Checkout</span>
+            <span style="font:700 18px Silkscreen;color:#f28c28">Review Your Order</span>
+          </div>
+          <div style="max-height:190px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;overflow-x:hidden;padding-right:6px">
+            <sc-for list="{{ cartRows }}" as="c" hint-placeholder-count="3">
+              <div style="flex:none;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;background:#0e1628">
+                <span style="min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:{{ c.rc }}">{{ c.name }}</span> <span style="color:#9cc6ef">×{{ c.qty }}</span></span>
+                <span style="flex:none;display:flex;align-items:center;gap:4px;font:400 12px Silkscreen">{{ c.line }}<span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ checkoutStats }}" as="st" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 10px;background:#0a0f1c">
+                <span style="font:400 9px Silkscreen;color:#9cc6ef">{{ st.label }}</span>
+                <span style="display:flex;align-items:center;gap:4px;font-size:14px;color:{{ st.color }}">{{ st.value }}<sc-if value="{{ st.n }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></sc-if></span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <button onClick="{{ closeDialog }}" style="height:38px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Cancel</button>
+            <button onClick="{{ placeOrder }}" style="height:38px;background:#3f9a4a;color:#f3ead7;text-shadow:2px 2px 0 #0a0f1c;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #6cc36a,inset 0 -3px 0 #2a6b32,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Place Order</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ dlgPlaced }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:460px;padding:22px;display:flex;flex-direction:column;gap:14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #6cc36a,0 4px 0 #6cc36a,-4px 0 0 #6cc36a,4px 0 0 #6cc36a,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <span style="font:700 18px Silkscreen;color:#6cc36a">Order Placed!</span>
+          <span style="font-size:15px;line-height:1.4;color:#f3ead7">{{ placedMsg }}</span>
+          <div style="display:flex;justify-content:flex-end;gap:12px">
+            <button onClick="{{ keepShopping }}" style="height:36px;padding:0 18px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">Keep Shopping</button>
+            <button onClick="{{ viewOrders }}" style="height:36px;padding:0 18px;background:#6cc36a;color:#0a0f1c;font:400 12px Silkscreen;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">View Orders</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <span style="font:700 18px Silkscreen;color:#f28c28">Scene map</span>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+              <span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span>
+              <span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span>
+            </div>
+            <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+            <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7">
+              <sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;shop&quot;,&quot;cart&quot;,&quot;orders&quot;],&quot;default&quot;:&quot;shop&quot;,&quot;tsType&quot;:&quot;'shop' | 'cart' | 'orders'&quot;},&quot;demoRarity&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:2,&quot;min&quot;:0,&quot;max&quot;:4,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Standalone preview&quot;},&quot;demoSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:5,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Standalone preview&quot;},&quot;demoLocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Standalone preview&quot;},&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;}}">
+class Component extends DCLogic {
+  state = { tab: null, dept: 'all', subs: {}, price: 'any', pmin: '', pmax: '', custom: null, rar: {}, q: '', sort: 'featured', sortOpen: false, oFilter: 'all', dialog: null };
+  rarities = [['Ordinary', '#a0a8b8'], ['Common', '#f3ead7'], ['Uncommon', '#6cc36a'], ['Rare', '#5aa6e8'], ['Very Rare', '#a36ce8']];
+  // [key, label, base price, [[subtype, singular]]]. PLACEHOLDER catalog: 5 generated items per subtype.
+  deptDefs = [['weapons', 'Weapons', 40, [['Swords', 'Sword'], ['Axes', 'Axe'], ['Bows', 'Bow'], ['Daggers', 'Dagger'], ['Staves', 'Staff'], ['Firearms', 'Firearm']]],
+    ['armor', 'Armor', 50, [['Light Armor', 'Light Armor'], ['Medium Armor', 'Medium Armor'], ['Heavy Armor', 'Heavy Armor'], ['Shields', 'Shield']]],
+    ['headwear', 'Headwear', 25, [['Helmets', 'Helmet'], ['Hoods', 'Hood'], ['Hats', 'Hat'], ['Circlets', 'Circlet']]],
+    ['containers', 'Containers', 20, [['Backpacks', 'Backpack'], ['Pouches', 'Pouch'], ['Quivers', 'Quiver'], ['Chests', 'Chest']]],
+    ['tools', 'Tools', 30, [['Kits', 'Kit'], ['Instruments', 'Instrument'], ['Navigation', 'Compass']]],
+    ['consumables', 'Consumables', 8, [['Potions', 'Potion'], ['Rations', 'Ration'], ['Scrolls', 'Scroll'], ['Bombs', 'Bomb']]],
+    ['trinkets', 'Trinkets', 35, [['Rings', 'Ring'], ['Amulets', 'Amulet'], ['Charms', 'Charm']]]];
+  rarityMult = [1, 2.5, 6, 15, 40];
+  presets = [['any', 'Any Price', 0, Infinity], ['u50', 'Under 50', 0, 50], ['50', '50 to 150', 50, 150], ['150', '150 to 400', 150, 400], ['400', '400 & Above', 400, Infinity]];
+  sorts = [['featured', 'Featured'], ['low', 'Price: Low to High'], ['high', 'Price: High to Low'], ['rarity', 'Rarity: Highest First'], ['name', 'Name: A to Z']];
+  speedDays = [20, 15, 14, 11, 10, 2]; // Faster Items tier 0–5
+  today = 540; // PLACEHOLDER game day (GameClock.day)
+  months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  noteMap = ['...#...', '...#...', '.#.##..', '.###.#.', '.#.#.#.', '.#.#.#.', '.#.#.#.', '.#.#.#.', '...#...'];
+  lockMap = ['..###..', '.#...#.', '.#...#.', '#######', '###.###', '###.###', '#######', '.......'];
+  searchMap = ['..####....', '.#....#...', '#......#..', '#......#..', '#......#..', '.#....#...', '..#####...', '......##..', '.......##.', '........##'];
+  tabIcons = {
+    shop: { o: '#f28c28', w: '#f3ead7', map: ['............', 'oowwoowwooww', 'oowwoowwooww', '############', '.#wwwwwwww#.', '.#w##ww##w#.', '.#w##ww##w#.', '.#wwwwwwww#.', '.#ww####ww#.', '.#ww#..#ww#.', '############', '............'] },
+    cart: { o: '#f28c28', w: '#f3ead7', map: ['............', '##..........', '.#..........', '.##########.', '.#wwwwwwww#.', '..#wwwwww#..', '..#wwwwww#..', '...######...', '...#.....#..', '..###...###.', '..###...###.', '............'] },
+    orders: { o: '#f28c28', w: '#f3ead7', map: ['............', '...######...', '..#wwwwww#..', '.##########.', '.#wwwowwww#.', '.#wwwowwww#.', '.#wwwowwww#.', '.#wwwowwww#.', '.#wwwwwwww#.', '.##########.', '............', '............'] },
+  };
+  sceneMap = [
+    { name: 'BazaarViewer.tscn', uses: 'root (HUD › My Bazaar)', root: 'VBox › BazaarTabs + Panel(ShopPage | CartPage | OrdersPage) + LockedPage', vars: ['@export var start_tab: Tab  # SHOP, CART, ORDERS', '# locked unless entitlements.bazaar (Customize › Bazaar)'] },
+    { name: 'BazaarManager (autoload)', uses: 'data', root: 'Node', vars: ['var catalog: Array[ItemData]', 'var cart: Dictionary  # item_id → qty', 'var orders: Array[OrderData]', 'func delivery_days() -> int  # 20 → 15/14/11/10 → 2 (Faster Items)', 'func place_order() -> OrderData  # spends notes, clears cart', 'signal order_arrived(order)'] },
+    { name: 'FilterPanel.tscn', uses: 'Shop', root: 'ScrollContainer › VBox(Department, Type, Price, Rarity)', vars: ['@export var department: StringName  # &"all"', '@export var subtypes: Array[StringName]', '@export var price_range: Vector2i', '@export var rarities: Array[Rarity]  # locked above Better Items tier', 'signal filters_changed'] },
+    { name: 'ItemCard.tscn', uses: 'x N (grid, 4 cols)', root: 'PanelContainer › VBox', vars: ['@export var item: ItemData', '@export var qty_in_cart: int  # 0 → Add to Cart, else − qty +', 'signal add_pressed / remove_pressed'] },
+    { name: 'CartPage.tscn', uses: 'Cart', root: 'HBox › CartList + OrderSummary', vars: ['# Checkout disabled if empty or total > notes', 'signal checkout_pressed'] },
+    { name: 'OrderCard.tscn', uses: 'x N (Orders)', root: 'PanelContainer › VBox(Header ×4, Status, Progress20, ItemChips)', vars: ['@export var order: OrderData  # id, placed_day, days, lines, total', '# delivered when placed_day + days ≤ today'] },
+  ];
+  rng(seed) { let a = seed * 2654435761 >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  get catalog() {
+    if (this._cat) return this._cat; const r = this.rng(77), out = []; let id = 1;
+    this.deptDefs.forEach(([dk, dl, base, subs]) => subs.forEach(([sl, sing]) => { for (let k = 0; k < 5; k++) {
+      const roll = r(), ri = roll < 0.3 ? 0 : roll < 0.55 ? 1 : roll < 0.75 ? 2 : roll < 0.9 ? 3 : 4;
+      out.push({ id: id++, name: sing + ' ' + (k + 1), dept: dk, deptLabel: dl, sub: sl, ri, price: Math.max(1, Math.round(base * this.rarityMult[ri] * (0.7 + r() * 0.6))), feat: r() }); } }));
+    this._byId = Object.fromEntries(out.map(x => [x.id, x])); return this._cat = out;
+  }
+  item(id) { this.catalog; return this._byId[id]; }
+  fmtDay(d) { return this.months[Math.floor(d / 30) % 12] + ' ' + (d % 30 + 1); }
+  n(v) { return Math.round(v).toLocaleString('en-US'); }
+  // Shared session store (GameState). Falls back to a local store when opened standalone.
+  store() { const w = window.__mercStore; if (w) return w; if (!this.local) { const self = this; this.local = { money: 1000, emit() { self.forceUpdate(); } }; } return this.local; }
+  bz() { const st = this.store(); if (!st.bazaar) { const mk = (id, placed, lines) => ({ id, placed, days: 20, lines, total: lines.reduce((a, [iid, q]) => a + this.item(iid).price * q, 0) });
+      st.bazaar = { cart: {}, nextId: 1046, orders: [mk(1045, 534, [[101, 1]]), mk(1044, 526, [[55, 1], [70, 3], [88, 1]]), mk(1043, 505, [[12, 1]]), mk(1042, 488, [[3, 1], [40, 2]]), mk(1041, 462, [[118, 2]])] }; }
+    return st.bazaar; }
+  ents() { const st = this.store(), p = this.props;
+    if (st.entitlements) { const e = st.entitlements(); return { on: !!e.bazaar, rar: e.bazaarRarity || 0, spd: e.bazaarSpeed || 0, ent: e.plan === 'enterprise' }; }
+    return { on: !(p.demoLocked ?? false), rar: Math.max(0, Math.min(4, p.demoRarity ?? 2)), spd: Math.max(0, Math.min(5, p.demoSpeed ?? 0)), ent: true }; }
+  commit() { const st = this.store(); if (st.emit) st.emit(); this.forceUpdate(); }
+  setQty(id, q) { const B = this.bz(), c = { ...B.cart }; if (q <= 0) delete c[id]; else c[id] = q; B.cart = c; this.commit(); }
+  componentDidMount() {
+    this.onDoc = e => { if (e.target.closest && e.target.closest('[data-popup]')) return; if (this.state.sortOpen) this.setState({ sortOpen: false }); };
+    document.addEventListener('mousedown', this.onDoc);
+    this.onStore = () => this.forceUpdate(); if (window.__mercStore && window.__mercStore.subs) window.__mercStore.subs.add(this.onStore);
+  }
+  componentWillUnmount() { document.removeEventListener('mousedown', this.onDoc); if (window.__mercStore && window.__mercStore.subs) window.__mercStore.subs.delete(this.onStore); }
+  renderVals() {
+    const s = this.state, show = this.props.showScenes ?? false, st = this.store(), B = this.bz(), E = this.ents(), cat = this.catalog;
+    const tab = s.tab ?? this.props.startTab ?? 'shop', days = this.speedDays[E.spd], arrive = this.today + days;
+    const eta = this.fmtDay(arrive) + ' (' + (days === 2 ? '2-Day' : days + ' days') + ')';
+    const glyph = this.noteMap.join('').split('').map(ch => ch === '#' ? 'currentColor' : 'transparent');
+    // Filters. Rarity above the Better Items tier never appears. No rarity box checked = all unlocked rarities.
+    const rarSel = Object.keys(s.rar).filter(k => s.rar[k]).map(Number), rarOk = it => it.ri <= E.rar && (!rarSel.length || rarSel.includes(it.ri));
+    const P = this.presets.find(p => p[0] === s.price) || this.presets[0];
+    const priceOk = it => s.custom ? (s.custom.min == null || it.price >= s.custom.min) && (s.custom.max == null || it.price <= s.custom.max) : it.price >= P[2] && it.price < P[3];
+    const ql = s.q.trim().toLowerCase(), qOk = it => !ql || (it.name + ' ' + it.sub + ' ' + it.deptLabel).toLowerCase().includes(ql);
+    const subSel = Object.keys(s.subs[s.dept] || {}).filter(k => (s.subs[s.dept] || {})[k]);
+    const inDept = it => s.dept === 'all' || it.dept === s.dept, subOk = it => s.dept === 'all' || !subSel.length || subSel.includes(it.sub);
+    const pre = cat.filter(it => priceOk(it) && qOk(it));
+    const base = pre.filter(rarOk);
+    let res = base.filter(it => inDept(it) && subOk(it));
+    const sortFn = { featured: (a, b) => a.feat - b.feat, low: (a, b) => a.price - b.price, high: (a, b) => b.price - a.price, rarity: (a, b) => b.ri - a.ri || a.price - b.price, name: (a, b) => a.name.localeCompare(b.name) }[s.sort];
+    res = [...res].sort(sortFn);
+    const deptDef = this.deptDefs.find(d => d[0] === s.dept), rarAvail = it => it.ri <= E.rar;
+    const anyFilter = s.dept !== 'all' || subSel.length > 0 || s.price !== 'any' || !!s.custom || rarSel.length > 0 || !!ql;
+    const cartIds = Object.keys(B.cart).map(Number), cartCount = cartIds.reduce((a, k) => a + B.cart[k], 0);
+    const cartRows = cartIds.map(k => { const it = this.item(k), q = B.cart[k], R = this.rarities[it.ri]; return { id: k, name: it.name, sub: it.sub, dept: it.deptLabel, rarity: R[0], rc: R[1], qty: q, each: this.n(it.price), line: this.n(it.price * q),
+      inc: () => this.setQty(k, q + 1), dec: () => this.setQty(k, q - 1), remove: () => this.setQty(k, 0) }; });
+    const total = cartIds.reduce((a, k) => a + this.item(k).price * B.cart[k], 0), money = st.money ?? 0, after = money - total;
+    const reason = !cartCount ? 'Your cart is empty.' : after < 0 ? 'Not enough notes. Remove items or earn ' + this.n(-after) + ' more.' : '';
+    const canBuy = !reason && E.on;
+    const orders = [...B.orders].sort((a, b) => b.placed - a.placed).map(o => { const end = o.placed + o.days, done = end <= this.today, el = Math.max(0, Math.min(o.days, this.today - o.placed)), filled = done ? 20 : Math.round(el / o.days * 20);
+      return { ...o, done, end, el, filled }; });
+    const oCount = { all: orders.length, transit: orders.filter(o => !o.done).length, delivered: orders.filter(o => o.done).length };
+    const shownOrders = orders.filter(o => s.oFilter === 'all' || (s.oFilter === 'transit' ? !o.done : o.done));
+    const lk = !E.on;
+    if (!B.seen) B.seen = { 1041: true, 1042: true };
+    if (tab === 'orders' && orders.some(o => o.done && !B.seen[o.id])) { orders.forEach(o => { if (o.done) B.seen[o.id] = true; }); setTimeout(() => this.commit(), 0); }
+    const unseen = orders.some(o => o.done && !B.seen[o.id]);
+    const setTab = k => this.setState({ tab: k, sortOpen: false });
+    return {
+      showScenes: show, sceneMap: this.sceneMap, nGlyph: glyph, eta,
+      bigLock: this.lockMap.join('').split('').map(ch => ch === '#' ? '#f2d33d' : 'transparent'),
+      searchIcon: this.searchMap.join('').split('').map(ch => ch === '#' ? '#0a0f1c' : 'transparent'),
+      tabs: [['shop', 'Shop'], ['cart', 'Cart'], ['orders', 'Orders']].map(([k, l]) => { const on = tab === k, ic = this.tabIcons[k];
+        return { label: l, active: on, flex: on ? '0 0 auto' : '0 0 52px', dot: k === 'orders' && unseen, z: k === 'orders' && unseen ? 3 : 1, // dot = delivered order not yet viewed on the Orders tab
+          icon: ic.map.join('').split('').map(ch => ch === '.' ? 'transparent' : ch === '#' ? '#0a0f1c' : ch === 'o' ? ic.o : on ? '#0a0f1c' : ic.w), onClick: () => setTab(k) }; }),
+      isShop: tab === 'shop', isCart: tab === 'cart', isOrders: tab === 'orders',
+      depts: [['all', 'All Departments'], ...this.deptDefs.map(d => [d[0], d[1]])].map(([k, l]) => { const on = s.dept === k, c = k === 'all' ? base.length : base.filter(it => it.dept === k).length;
+        return { label: l, count: c, bg: on ? '#f28c28' : 'transparent', fg: on ? '#0a0f1c' : c ? '#f3ead7' : '#5e7699', cfg: on ? '#3a2410' : '#5e7699', onClick: () => this.setState({ dept: k }) }; }),
+      hasSubs: !!deptDef, subTitle: deptDef ? deptDef[1] + ' Type' : '',
+      subOpts: deptDef ? deptDef[3].map(([sl]) => { const on = subSel.includes(sl); return { label: sl, count: base.filter(it => it.dept === s.dept && it.sub === sl).length, fg: on ? '#f3ead7' : '#9cc6ef', box: on ? '#f28c28' : '#0a0f1c', dot: on ? '#0a0f1c' : 'transparent',
+        onClick: () => this.setState(st2 => { const cur = { ...(st2.subs[st2.dept] || {}) }; cur[sl] = !cur[sl]; return { subs: { ...st2.subs, [st2.dept]: cur } }; }) }; }) : [],
+      priceOpts: this.presets.map(p => { const on = !s.custom && s.price === p[0]; return { label: p[1], fg: on ? '#f3ead7' : '#9cc6ef', dot: on ? '#f28c28' : 'transparent', onClick: () => this.setState({ price: p[0], custom: null, pmin: '', pmax: '' }) }; }),
+      pmin: s.pmin, pmax: s.pmax, customRing: s.custom ? '#f28c28' : '#3b6fb6',
+      onMin: e => this.setState({ pmin: e.target.value.replace(/[^0-9]/g, '') }), onMax: e => this.setState({ pmax: e.target.value.replace(/[^0-9]/g, '') }),
+      applyCustom: () => { const mn = s.pmin === '' ? null : +s.pmin, mx = s.pmax === '' ? null : +s.pmax; this.setState({ custom: mn == null && mx == null ? null : { min: mn, max: mx } }); },
+      rarOpts: this.rarities.map(([l, c], i) => { const ok = i <= E.rar, on = rarSel.includes(i); return { label: l, color: c, open: ok, locked: !ok, tier: i, feature: l + ' items',
+        count: pre.filter(it => it.ri === i && inDept(it) && subOk(it)).length, box: on ? c : '#0a0f1c', dot: on ? '#0a0f1c' : 'transparent',
+        onClick: () => this.setState(st2 => ({ rar: { ...st2.rar, [i]: !st2.rar[i] } })) }; }),
+      anyFilter, clearFilters: () => this.setState({ dept: 'all', subs: {}, price: 'any', custom: null, pmin: '', pmax: '', rar: {}, q: '' }),
+      q: s.q, hasQ: !!s.q, onQ: e => this.setState({ q: e.target.value }), clearQ: () => this.setState({ q: '' }),
+      sortLabel: (this.sorts.find(x => x[0] === s.sort) || this.sorts[0])[1], sortOpen: s.sortOpen, toggleSort: () => this.setState(st2 => ({ sortOpen: !st2.sortOpen })),
+      sortOpts: this.sorts.map(([k, l]) => ({ label: l, bg: s.sort === k ? '#f28c28' : '#16233f', fg: s.sort === k ? '#0a0f1c' : '#f3ead7', onClick: () => this.setState({ sort: k, sortOpen: false }) })),
+      crumb: [deptDef ? deptDef[1] : 'All Departments', subSel.length ? subSel.join(', ') : null, ql ? '"' + s.q.trim() + '"' : null].filter(Boolean).join(' › '),
+      resultLabel: res.length + (res.length === 1 ? ' result' : ' results'), noResults: res.length === 0,
+      items: res.map((it, i) => { const R = this.rarities[it.ri], q = B.cart[it.id] || 0; return { name: it.name, sub: it.sub, dept: it.deptLabel, rarity: R[0], rc: R[1], price: this.n(it.price), tag: show && i === 0,
+        qty: q, inCart: q > 0, notInCart: q === 0, add: () => this.setQty(it.id, q + 1), dec: () => this.setQty(it.id, q - 1) }; }),
+      cartRows, cartEmpty: cartRows.length === 0, cartCountLabel: cartCount + (cartCount === 1 ? ' item' : ' items'), goShop: () => setTab('shop'),
+      summary: [{ label: 'Items (' + cartCount + ')', value: this.n(total), n: true, color: '#f3ead7' }, { label: 'Delivery', value: 'Free', color: '#6cc36a' }, { label: 'Arrives', value: cartCount ? eta : '—', color: '#6cc36a' }, { label: 'Your Notes', value: this.n(money), n: true, color: '#f3ead7' }],
+      cartTotal: this.n(total), afterLabel: this.n(after), afterColor: after < 0 ? '#e8583f' : '#6cc36a',
+      checkoutReason: reason, hasReason: !!reason && cartCount > 0, checkoutOpacity: canBuy ? 1 : 0.4, checkoutCursor: canBuy ? 'pointer' : 'not-allowed',
+      openCheckout: () => { if (canBuy) this.setState({ dialog: { kind: 'checkout' } }); },
+      dlgCheckout: !!s.dialog && s.dialog.kind === 'checkout', dlgPlaced: !!s.dialog && s.dialog.kind === 'placed',
+      checkoutStats: [{ label: 'Subtotal', value: this.n(total), n: true, color: '#f3ead7' }, { label: 'Delivery', value: 'Free', color: '#6cc36a' }, { label: 'Estimated Arrival', value: eta, color: '#6cc36a' }, { label: 'Notes After Purchase', value: this.n(after), n: true, color: after < 0 ? '#e8583f' : '#6cc36a' }],
+      closeDialog: () => this.setState({ dialog: null }),
+      placeOrder: () => { if (!canBuy) return; const id = B.nextId++, lines = cartIds.map(k => [k, B.cart[k]]);
+        st.money = money - total; B.orders = [{ id, placed: this.today, days, lines, total }, ...B.orders]; B.cart = {}; this.commit();
+        this.setState({ dialog: { kind: 'placed', id, arrive } }); },
+      placedMsg: s.dialog && s.dialog.kind === 'placed' ? 'Order #' + s.dialog.id + ' will arrive ' + this.fmtDay(s.dialog.arrive) + (days === 2 ? ' (2-Day delivery).' : ' (' + days + ' days).') : '',
+      keepShopping: () => this.setState({ dialog: null, tab: 'shop' }), viewOrders: () => this.setState({ dialog: null, tab: 'orders', oFilter: 'all' }),
+      orderFilters: [['all', 'All'], ['transit', 'In Transit'], ['delivered', 'Delivered']].map(([k, l]) => { const on = s.oFilter === k; return { label: l + ' (' + oCount[k] + ')', bg: on ? '#f28c28' : '#2b4f8a', fg: on ? '#0a0f1c' : '#f3ead7', hi: on ? '#ffb266' : '#3b6fb6', lo: on ? '#b85a12' : '#1f3560', onClick: () => this.setState({ oFilter: k }) }; }),
+      noOrders: shownOrders.length === 0,
+      orders: shownOrders.map((o, i) => ({ tag: show && i === 0,
+        head: [{ label: 'Order Placed', value: this.fmtDay(o.placed) }, { label: 'Total', value: this.n(o.total), n: true }, { label: 'Items', value: String(o.lines.reduce((a, l) => a + l[1], 0)) }, { label: 'Order #', value: String(o.id) }],
+        title: o.done ? 'Delivered ' + this.fmtDay(o.end) : 'Arriving ' + this.fmtDay(o.end), color: o.done ? '#6cc36a' : '#f28c28',
+        sub: o.done ? 'Delivered to Guild Storage' : (o.end - this.today) + (o.end - this.today === 1 ? ' day left' : ' days left') + ' · Day ' + o.el + ' of ' + o.days,
+        cells: Array.from({ length: 20 }, (_, j) => j < o.filled ? (o.done ? '#6cc36a' : '#f28c28') : '#1f3560'),
+        placedShort: this.fmtDay(o.placed), endLabel: (o.done ? 'Delivered ' : 'Arrives ') + this.fmtDay(o.end),
+        lines: o.lines.map(([iid, q]) => { const it = this.item(iid), R = this.rarities[it.ri]; return { name: it.name, qty: q, rarity: R[0], rc: R[1] }; }) })),
+      lock: lk ? (E.ent ? { on: true, line1: 'The Bazaar is locked.', pre: 'It requires the ', hi: 'Bazaar', post: ' upgrade!' } : { on: true, line1: 'This feature of Mercday is not available on your plan!', pre: 'Upgrade to ', hi: 'Mercday Enterprise', post: ' to use the Bazaar.' }) : { on: false },
+      goUnlock: () => { const g = st.goToPlans; if (!g) return; g.call(st, E.ent ? { tab: 'customize', upgrade: 'bazaar', tier: 1 } : { tab: 'plans' }); },
+    };
+  }
+}
+</script>
+</body>
+</html>

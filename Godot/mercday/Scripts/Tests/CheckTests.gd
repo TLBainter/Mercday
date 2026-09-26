@@ -13,6 +13,7 @@ static func run() -> bool:
 	_case_reroll(res)
 	_case_auto_fail(res)
 	_case_odds(res)
+	_case_mixed_pool(res)
 	_case_banking(res)
 	_case_resist(res)
 	_case_item_inflict(res)
@@ -138,6 +139,38 @@ static func _case_odds(res: Dictionary) -> void:
 	_drained(res, "odds queue drained")
 
 
+#A net-zero core pool rolls one hard pair plus one normal die per enhancement.
+#The estimator has to model that same mixed pool, so rolled frequency and estimate must agree.
+static func _case_mixed_pool(res: Dictionary) -> void:
+	var m := _merc(0, 0.0, 0.0)
+	var def := _def()
+	def["formula"] = "50"
+	def["enhancements"] = 2
+	CheckSystem.forced_rolls.clear()
+	var estimate := CheckSystem.expected_success_chance(m, def, 2)
+	var dist := CheckSystem.success_distribution(m, def)
+	var pmf: Array = dist["pmf"]
+	TestFixtures.check(res, "a 0-stat pool counts the hard pair and the enhancement dice",
+		int(dist["dice"]) == 3 and pmf.size() == 4,
+		"%d dice %d pmf entries" % [int(dist["dice"]), pmf.size()])
+	var was_banking: bool = CriticalSuccessSystem.banking
+	CriticalSuccessSystem.banking = true
+	seed(20260922)
+	var rounds := 20000
+	var hits := 0
+	for _i: int in rounds:
+		if int(CheckSystem.make_check(m, def)["successes"]) >= 2:
+			hits += 1
+	CriticalSuccessSystem.banking = was_banking
+	m.pending_crit_rewards.clear()
+	randomize()
+	var rolled := float(hits) / float(rounds)
+	TestFixtures.check(res, "the trial 2 estimate matches the rolled frequency",
+		absf(rolled - estimate) < 0.02,
+		"rolled %.4f estimate %.4f" % [rolled, estimate])
+	_drained(res, "mixed pool queue drained")
+
+
 static func _case_banking(res: Dictionary) -> void:
 	var forced: Array[int] = [15, 15]
 	var m := _merc(2, 0.0, 0.0)
@@ -232,15 +265,13 @@ static func _arena(hp: int, extra_names: Array[String] = []) -> Dictionary:
 	state.battlefield = TestFixtures.exterior_field()
 	var col := 0
 	for m: MercenaryData in team_a + team_b:
-		state.positions[m] = Vector2i(2 + col, 2)
-		state.heights[m] = 0
-		state.floors[m] = 0
+		TestFixtures.place(state, m, Vector2i(2 + col, 2))
 		col += 1
 	def_m.current_hp = hp
 	for e: MercenaryData in extras:
 		e.current_hp = hp
 	return {"atk": atk_m, "def": def_m, "extras": extras, "team_a": team_a, "team_b": team_b,
-		"state": state, "col": col}
+		"state": state}
 
 
 static func _case_item_inflict(res: Dictionary) -> void:
@@ -252,7 +283,8 @@ static func _case_item_inflict(res: Dictionary) -> void:
 	var def_2: MercenaryData = extras[0]
 	var def_3: MercenaryData = extras[1]
 	var team_b: Array[MercenaryData] = ar["team_b"]
-	var col: int = ar["col"]
+	var team_a: Array[MercenaryData] = ar["team_a"]
+	var col: int = team_a.size() + team_b.size()
 	var w := WeaponData.new()
 	w.inflict_states.assign(["Poisoned"] as Array[String])
 	atk_m.equipped_weapon = w
@@ -318,7 +350,12 @@ static func _case_reward_pool(res: Dictionary) -> void:
 	pool = CriticalSuccessSystem.build_option_pool({"stat_used": "dodge_reduction"}, m, {"formula": "dodge"})
 	TestFixtures.check(res, "dodge crit draws the plain Dexterity rows and the Dodge row", _defense_pool_ok(pool, "dodge"),
 		"pool %d plain rows %d" % [pool.size(), _plain_dex_rows()])
-	pool = CriticalSuccessSystem.build_option_pool({"stat_used": "dexterity"}, m, {"formula": "melee_accuracy"})
+	#The Combat rows grant a perk of the swung weapon's type, so the pool needs a weapon with unowned rows.
+	var swung := WeaponData.new()
+	swung.item_name = "Dirk"
+	swung.weapon_type = "Dagger (Basic)"
+	pool = CriticalSuccessSystem.build_option_pool({"stat_used": "dexterity"}, m,
+		{"formula": "melee_accuracy", "weapon": swung})
 	var has_combat := false
 	var all_dex := not pool.is_empty()
 	for entry: Dictionary in pool:
@@ -428,14 +465,14 @@ static func _case_perk_abort(res: Dictionary) -> void:
 	m.current_rep = 1
 	var perk := TraitData.new()
 	perk.effect_dsl = "action:1:ep:1:rep:1:no_such_effect"
-	var lines := ActionDispatcher.execute_perk_action(m, perk, t, state, 0)
+	var lines := PerkActionExecutor.execute_perk_action(m, perk, t, state, 0)
 	var ok := lines.is_empty() and m.current_ap == 1 and m.excess_ap == 1 and m.current_ep == 2 and m.current_rep == 1
 	TestFixtures.check(res, "perk abort refunds AP, excess AP, EP and ReP", ok,
 		"ap %d excess %d ep %d rep %d lines %d" % [m.current_ap, m.excess_ap, m.current_ep, m.current_rep, lines.size()])
 	m.current_ap = 2
 	m.excess_ap = 0
 	perk.effect_dsl = "action:1:attack_already_damaged"
-	lines = ActionDispatcher.execute_perk_action(m, perk, t, state, 0)
+	lines = PerkActionExecutor.execute_perk_action(m, perk, t, state, 0)
 	TestFixtures.check(res, "perk abort without a prior attack refunds the AP", lines.is_empty() and m.current_ap == 2 and m.excess_ap == 0,
 		"ap %d excess %d lines %d" % [m.current_ap, m.excess_ap, lines.size()])
 
@@ -469,6 +506,7 @@ static func _case_whip_pull(res: Dictionary) -> void:
 	atk_m.weapon_drawn = true
 	var perk := TraitData.new()
 	perk.effect_dsl = "reactive_action:on_hit:size_lte_self:pull_target:1"
+	perk.gear_key = "Probe Whip"
 	atk_m.weapon_perks.assign([perk] as Array[TraitData])
 	atk_m.current_ep = 2
 	ConstStates.apply_state(def_m, ConstStates.GRAPPLED, atk_m)
@@ -502,6 +540,7 @@ static func _case_resolve_hit(res: Dictionary) -> void:
 	atk_m.weapon_drawn = true
 	var perk := TraitData.new()
 	perk.effect_dsl = "reactive_action:on_hit:size_lte_self:pull_target:1"
+	perk.gear_key = "Probe Whip"
 	atk_m.weapon_perks.assign([perk] as Array[TraitData])
 	atk_m.current_ep = 2
 	ConstStates.apply_state(def_m, ConstStates.GRAPPLED, atk_m)

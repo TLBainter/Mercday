@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./fit-frame.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="./legal-data.js"></script>
+<script src="./promo-core.js"></script>
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 2px 0 0 #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-button{display:none}
+</style>
+</helmet>
+<div style="display:none" aria-hidden="true"><dc-import name="Tab Button" hint-size="0px,0px"></dc-import><dc-import name="Feature Lock" hint-size="0px,0px"></dc-import><dc-import name="Quantity Stepper" hint-size="0px,0px"></dc-import><dc-import name="Odd Job Crew" hint-size="0px,0px"></dc-import></div>
+<div style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Promotions" style="position:relative;width:1280px;height:720px;flex:none;background:#101a30;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px);padding:20px;display:flex;flex-direction:column;box-shadow:0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000">
+
+    <div style="position:relative;height:44px;flex:none;display:flex;align-items:flex-end;padding:0 4px">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">PromotionsTabs (TabButton.tscn ×2)</div></sc-if>
+      <div style="height:44px;display:flex;flex-direction:row-reverse;justify-content:flex-end;gap:8px">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+          <dc-import name="Tab Button" label="{{ t.label }}" title="{{ t.label }}" icon="{{ t.icon }}" active="{{ t.active }}" pad-x="16px" on-click="{{ t.onClick }}" style="flex:{{ t.flex }};align-self:flex-end;position:relative" hint-size="52px,38px"></dc-import>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="position:relative;flex:1;min-height:0;padding:16px;background:#1a2b4d;box-shadow:inset 4px 0 0 #28447a,inset -4px -4px 0 #111c33,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,0 -4px 0 #f28c28">
+
+      <sc-if value="{{ hasNotice }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:50;padding:8px 14px;background:#0e1628;font-size:14px;color:{{ noticeColor }};box-shadow:0 0 0 3px {{ noticeColor }},6px 6px 0 3px rgba(0,0,0,0.5)">{{ notice }}</div>
+      </sc-if>
+
+      <sc-if value="{{ isAds }}" hint-placeholder-val="{{ true }}">
+        <div style="height:100%;display:flex;flex-direction:column;gap:12px">
+          <div style="flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+              <span style="font:700 16px Silkscreen;color:#f28c28">{{ modeTitle }}</span>
+              <span style="font-size:14px;color:#9cc6ef">{{ modeDesc }}</span>
+            </div>
+
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:4px 6px 4px 4px">
+            <sc-if value="{{ noCampaigns }}" hint-placeholder-val="{{ false }}">
+              <div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:15px;color:#9cc6ef">{{ emptyText }}</div>
+            </sc-if>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start">
+              <sc-for list="{{ campaigns }}" as="c" hint-placeholder-count="2">
+                <div style="position:relative;display:flex;flex-direction:column;gap:10px;padding:14px;background:#0e1628;box-shadow:inset 0 0 0 2px #2b4f8a">
+                  <sc-if value="{{ c.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">CampaignCard.tscn</span></sc-if>
+                  <div style="display:grid;grid-template-columns:48px minmax(0,1fr);gap:12px;align-items:center">
+                    <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#15223d;box-shadow:inset 0 0 0 2px #3b6fb6"><div style="display:grid;grid-template-columns:repeat(12,3px);grid-auto-rows:3px"><sc-for list="{{ c.icon }}" as="px" hint-placeholder-count="144"><div style="background:{{ px }}"></div></sc-for></div></div>
+                    <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+                      <span style="font:700 13px Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+                      <span style="font-size:13px;color:#9cc6ef">{{ c.type }}</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:5px">
+                    <sc-for list="{{ c.targets }}" as="tg" hint-placeholder-count="2">
+                      <div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;align-items:baseline">
+                        <span style="font:400 9px Silkscreen;color:#9cc6ef">{{ tg.label }}</span>
+                        <span style="font-size:13px;color:#f3ead7;text-wrap:pretty">{{ tg.value }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:4px">
+                    <div style="display:flex;justify-content:space-between"><span style="font:400 9px Silkscreen;color:#9cc6ef;white-space:nowrap">Time Remaining</span><span style="font:700 11px Silkscreen;color:#f3ead7">{{ c.left }}</span></div>
+                    <div style="display:flex;gap:2px;height:10px;padding:2px;background:#0a0f1c"><sc-for list="{{ c.cells }}" as="cc" hint-placeholder-count="20"><div style="flex:1;background:{{ cc }}"></div></sc-for></div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#15223d">
+                    <span style="font:400 9px Silkscreen;color:#9cc6ef">{{ c.resLabel }}</span>
+                    <span style="font:700 14px Silkscreen;color:#6cc36a">{{ c.res }}</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:{{ c.cols }};gap:10px">
+                    <sc-if value="{{ c.isJob }}" hint-placeholder-val="{{ true }}"><button onClick="{{ c.view }}" style="height:32px;font:400 10px Silkscreen;background:#2b4f8a;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560" style-hover="background:#3b6fb6">View Applicants</button></sc-if>
+                    <button onClick="{{ c.end }}" style="height:32px;font:400 10px Silkscreen;color:#0a0f1c;background:#e8583f;box-shadow:inset 0 3px 0 #ff8a70,inset 0 -3px 0 #a33a28" style-hover="filter:brightness(1.1)">End Campaign</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="flex:none;display:flex;justify-content:flex-end">
+            <button onClick="{{ openBuilder }}" style="height:40px;padding:0 20px;font:700 12px Silkscreen;color:#0a0f1c;background:#f28c28;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">+ New Campaign</button>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+
+    <sc-if value="{{ bOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:1190px;height:660px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">CampaignBuilder.tscn</div></sc-if>
+          <button onClick="{{ b.close }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 48px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55">X</button>
+          <div style="flex:none;display:flex;justify-content:space-between;align-items:center;gap:12px">
+            <span style="font:700 18px Silkscreen;color:#f28c28">{{ b.title }}</span>
+
+          </div>
+          <div style="flex:1;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px">
+            <div style="min-height:0;display:flex;flex-direction:column;gap:8px">
+              <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px">Campaign Type</span>
+              <sc-for list="{{ b.types }}" as="ty" hint-placeholder-count="5">
+                <div onClick="{{ ty.onClick }}" title="{{ ty.title }}" style="position:relative;z-index:{{ ty.z }};flex:none;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;cursor:{{ ty.cursor }};opacity:{{ ty.opacity }};background:{{ ty.bg }};box-shadow:inset 0 0 0 {{ ty.ringW }} {{ ty.ring }}" style-hover="filter:brightness(1.12)">
+                  <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#0e1628;filter:{{ ty.iconFilter }}"><div style="display:grid;grid-template-columns:repeat(12,3px);grid-auto-rows:3px"><sc-for list="{{ ty.icon }}" as="px" hint-placeholder-count="144"><div style="background:{{ px }}"></div></sc-for></div></div>
+                  <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+                    <span style="font:700 11px Silkscreen;color:#f3ead7;white-space:nowrap">{{ ty.name }}</span>
+                    <span style="font-size:12px;color:#9cc6ef;white-space:nowrap">{{ ty.sub }}</span>
+                    <div title="Quality of mercs or contracts it attracts" style="display:flex;gap:1px"><sc-for list="{{ ty.stars }}" as="s" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:repeat(9,1px);grid-auto-rows:1px"><sc-for list="{{ s }}" as="px" hint-placeholder-count="81"><div style="background:{{ px }}"></div></sc-for></div></sc-for></div>
+                  </div>
+                  <sc-if value="{{ ty.locked }}" hint-placeholder-val="{{ false }}"><dc-import name="Feature Lock" verb="use" feature="{{ ty.name }}" plan="Mercday Enterprise" upgrade="{{ ty.upgrade }}" upgrade-id="{{ ty.upgradeId }}" tier="{{ 1 }}" tiers="{{ ty.tiers }}" px="{{ 2 }}" hint-size="22px,22px"></dc-import></sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <div style="min-height:0;display:flex;flex-direction:column;gap:10px;padding:12px;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+              <div style="flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end">
+                <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+                  <span style="font:400 9px Silkscreen;color:#9cc6ef">Campaign Name</span>
+                  <button onClick="{{ b.editName }}" style="height:38px;padding:0 12px;display:flex;align-items:center;gap:10px;text-align:left;background:#0a0f1c;box-shadow:inset 0 0 0 2px #3b6fb6" style-hover="box-shadow:inset 0 0 0 2px #f28c28">
+                    <span style="flex:1;min-width:0;font-size:16px;color:{{ b.nameColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.nameShown }}</span>
+                    <span style="flex:none;font:400 9px Silkscreen;color:#5e7699">{{ b.nameCount }}</span>
+                  </button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <span style="font:400 9px Silkscreen;color:#9cc6ef">Duration (days)</span>
+                  <span style="width:170px"><dc-import name="Quantity Stepper" variant="field" value="{{ b.days }}" min="{{ 1 }}" max="{{ 90 }}" step="{{ 1 }}" show-max="{{ false }}" on-change="{{ b.onDays }}" hint-size="170px,38px"></dc-import></span>
+                </div>
+              </div>
+              <div style="flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-top:8px;box-shadow:inset 0 2px 0 #1f3560">
+                <span style="flex:none;font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px;white-space:nowrap">{{ b.targetTitle }}</span>
+                <span style="font-size:13px;color:#9cc6ef;text-align:right;white-space:nowrap">{{ b.targetNote }}</span>
+              </div>
+              <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:8px;padding-right:6px">
+                <sc-for list="{{ b.groups }}" as="g" hint-placeholder-count="4">
+                  <div style="flex:none;display:flex;flex-direction:column;background:#15223d">
+                    <sc-if value="{{ g.hasHead }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ g.toggle }}" style="height:34px;padding:0 10px;display:flex;align-items:center;gap:8px;text-align:left;background:{{ g.headBg }};box-shadow:inset 0 2px 0 #2b4f8a" style-hover="filter:brightness(1.15)">
+                        <span style="flex:none;width:10px;font:700 10px Silkscreen;color:#f28c28">{{ g.caret }}</span>
+                        <span style="flex:1;font:700 11px Silkscreen;color:#f3ead7">{{ g.label }}</span>
+                        <sc-if value="{{ g.hasCount }}" hint-placeholder-val="{{ false }}"><span style="min-width:18px;height:18px;padding:0 4px;display:flex;align-items:center;justify-content:center;background:#f28c28;color:#0a0f1c;font:700 9px Silkscreen">{{ g.count }}</span></sc-if>
+                      </button>
+                    </sc-if>
+                    <sc-if value="{{ g.open }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px;padding:10px">
+                        <sc-for list="{{ g.secs }}" as="sc" hint-placeholder-count="2">
+                          <div style="min-width:0;display:flex;flex-direction:column;gap:6px;grid-column:{{ sc.span }}">
+                            <span style="font:400 9px Silkscreen;color:{{ sc.labelColor }}">{{ sc.label }}</span>
+                            <sc-if value="{{ sc.locked }}" hint-placeholder-val="{{ false }}"><dc-import name="Feature Lock" label="Locked" height="30px" font-size="9px" verb="target" feature="{{ sc.feature }}" plan="Mercday Enterprise" upgrade="{{ sc.upgrade }}" upgrade-id="{{ sc.upgradeId }}" tier="{{ sc.tier }}" tiers="{{ sc.tiers }}" px="{{ 2 }}" style="display:block;width:100%" hint-size="100%,30px"></dc-import></sc-if>
+                            <sc-if value="{{ sc.isChips }}" hint-placeholder-val="{{ true }}">
+                              <div style="display:flex;flex-wrap:wrap;gap:5px">
+                                <sc-for list="{{ sc.chips }}" as="ch" hint-placeholder-count="4">
+                                  <button onClick="{{ ch.onClick }}" title="{{ ch.title }}" style="height:24px;padding:0 7px;display:flex;align-items:center;gap:5px;font-size:12px;color:{{ ch.fg }};background:{{ ch.bg }};opacity:{{ ch.opacity }};cursor:{{ ch.cursor }};box-shadow:inset 0 0 0 2px {{ ch.ring }}" style-hover="filter:brightness(1.2)"><sc-if value="{{ ch.dot }}" hint-placeholder-val="{{ false }}"><span style="width:8px;height:8px;flex:none;background:{{ ch.dotColor }};box-shadow:0 0 0 1px #0a0f1c"></span></sc-if>{{ ch.label }}</button>
+                                </sc-for>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ sc.isNum }}" hint-placeholder-val="{{ false }}">
+                              <div style="display:flex;align-items:center;gap:6px">
+                                <sc-for list="{{ sc.nums }}" as="nm" hint-placeholder-count="1">
+                                  <sc-if value="{{ nm.sep }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#9cc6ef">to</span></sc-if>
+                                  <span style="flex:1;min-width:0;max-width:170px"><dc-import name="Quantity Stepper" variant="field" value="{{ nm.value }}" min="{{ nm.min }}" max="{{ nm.max }}" step="{{ nm.step }}" show-max="{{ false }}" on-change="{{ nm.onChange }}" hint-size="100%,38px"></dc-import></span>
+                                </sc-for>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ sc.isSlider }}" hint-placeholder-val="{{ false }}">
+                              <div style="display:flex;flex-direction:column;gap:6px;max-width:380px">
+                                <div ref="{{ sc.sl.ref }}" onPointerDown="{{ sc.sl.down }}" onPointerMove="{{ sc.sl.move }}" onPointerUp="{{ sc.sl.up }}" style="position:relative;height:26px;margin:0 9px;cursor:pointer;touch-action:none">
+                                  <div style="position:absolute;left:-9px;right:-9px;top:9px;height:8px;background:#0a0f1c;box-shadow:inset 0 0 0 2px #1f3560"></div>
+                                  <div style="position:absolute;top:9px;height:8px;left:{{ sc.sl.loPct }};width:{{ sc.sl.span }};background:#f28c28"></div>
+                                  <div style="position:absolute;top:2px;left:{{ sc.sl.loPct }};width:18px;height:22px;margin-left:-9px;background:#f3ead7;box-shadow:inset -3px -3px 0 #9cc6ef,0 0 0 2px #0a0f1c"></div>
+                                  <div style="position:absolute;top:2px;left:{{ sc.sl.hiPct }};width:18px;height:22px;margin-left:-9px;background:#f3ead7;box-shadow:inset -3px -3px 0 #9cc6ef,0 0 0 2px #0a0f1c"></div>
+                                </div>
+                                <div style="display:flex;justify-content:space-between;gap:8px;font:700 11px Silkscreen;color:#f2b33d;white-space:nowrap"><span>{{ sc.sl.loLabel }}</span><span>{{ sc.sl.hiLabel }}</span></div>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ sc.isStars }}" hint-placeholder-val="{{ false }}">
+                              <div style="display:flex;gap:24px">
+                                <sc-for list="{{ sc.starRows }}" as="sr" hint-placeholder-count="2">
+                                  <div style="display:flex;align-items:center;gap:10px">
+                                    <span style="font:400 9px Silkscreen;color:#9cc6ef;width:28px">{{ sr.label }}</span>
+                                    <div style="display:flex;gap:2px">
+                                      <sc-for list="{{ sr.stars }}" as="st" hint-placeholder-count="5">
+                                        <div style="position:relative;padding:2px"><div style="display:grid;grid-template-columns:repeat(9,3px);grid-auto-rows:3px"><sc-for list="{{ st.cells }}" as="px" hint-placeholder-count="81"><div style="background:{{ px }}"></div></sc-for></div><button onClick="{{ st.onHalf }}" onMouseEnter="{{ st.enterHalf }}" onMouseLeave="{{ st.leave }}" title="{{ st.halfTitle }}" style="position:absolute;top:0;bottom:0;left:0;width:50%"></button><button onClick="{{ st.onFull }}" onMouseEnter="{{ st.enterFull }}" onMouseLeave="{{ st.leave }}" title="{{ st.fullTitle }}" style="position:absolute;top:0;bottom:0;right:0;width:50%"></button></div>
+                                      </sc-for>
+                                    </div>
+                                  </div>
+                                </sc-for>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ sc.isMods }}" hint-placeholder-val="{{ false }}">
+                              <div style="height:{{ sc.boxH }};overflow-y:auto;overflow-x:hidden;padding:4px 6px 4px 4px;background:#0a0f1c;box-shadow:inset 0 0 0 2px #1f3560">
+                              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+                                <sc-for list="{{ sc.mods }}" as="md" hint-placeholder-count="4">
+                                  <div onClick="{{ md.onClick }}" title="{{ md.title }}" style="position:relative;display:flex;flex-direction:column;gap:6px;padding:8px;cursor:{{ md.cursor }};opacity:{{ md.opacity }};filter:{{ md.filter }};background:#0e1628;box-shadow:inset 0 0 0 {{ md.ringW }} {{ md.ring }}" style-hover="filter:brightness(1.12)">
+                                    <div style="display:grid;grid-template-columns:64px minmax(0,1fr);gap:8px;align-items:stretch">
+                                      <div style="position:relative;width:64px;height:64px;display:flex;align-items:center;justify-content:center;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #1f3560">
+                                        <span style="padding:1px 3px;background:#0a0f1c;font:400 7px Silkscreen;color:#5e7699;text-align:center">{{ md.imgLabel }}</span>
+                                        <sc-if value="{{ md.on }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:3px;right:3px;width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:#f28c28;color:#0a0f1c;font:700 10px Silkscreen">✓</span></sc-if>
+                                      </div>
+                                      <div style="min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:3px">
+                                        <sc-if value="{{ md.hasRel }}" hint-placeholder-val="{{ false }}">
+                                          <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;padding:2px 5px;background:#15223d">
+                                            <span style="font:400 7px Silkscreen;color:#9cc6ef">Relationship</span>
+                                            <sc-if value="{{ md.relOpen }}" hint-placeholder-val="{{ true }}"><span style="font:700 10px Silkscreen;color:{{ md.relColor }}">{{ md.rel }}</span></sc-if>
+                                            <sc-if value="{{ md.relLocked }}" hint-placeholder-val="{{ false }}"><dc-import name="Feature Lock" verb="view" feature="Relationships" plan="Mercday Enterprise" upgrade="Customer Satisfaction" upgrade-id="customer" tier="{{ 1 }}" tiers="{{ 1 }}" px="{{ 1 }}" hint-size="14px,14px"></dc-import></sc-if>
+                                          </div>
+                                        </sc-if>
+                                        <sc-for list="{{ md.stats }}" as="ms" hint-placeholder-count="3">
+                                          <div title="{{ ms.title }}" style="display:flex;justify-content:space-between;align-items:center;gap:4px;padding:1px 5px;background:#15223d">
+                                            <span style="font:400 7px Silkscreen;color:#9cc6ef">{{ ms.label }}</span>
+                                            <span style="font:700 10px Silkscreen;color:{{ ms.color }}">{{ ms.value }}</span>
+                                          </div>
+                                        </sc-for>
+                                      </div>
+                                    </div>
+                                    <span style="font:700 11px Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ md.name }}</span>
+                                    <sc-if value="{{ md.hasNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#e8583f">{{ md.note }}</span></sc-if>
+                                  </div>
+                                </sc-for>
+                              </div>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ sc.isCrew }}" hint-placeholder-val="{{ false }}">
+                              <dc-import name="Odd Job Crew" max="{{ sc.crew.max }}" team="{{ sc.crew.team }}" candidates="{{ sc.crew.cands }}" per="{{ sc.crew.per }}" def-pay="{{ sc.crew.defPay }}" money="{{ sc.crew.money }}" tip-kind="Odd Job" tip-text="Send a merc to spread the word about your guild." pick-desc="Sorted by best fit for Word of Mouth." on-team="{{ sc.crew.onTeam }}" on-per="{{ sc.crew.onPer }}" hint-size="100%,130px"></dc-import>
+                            </sc-if>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:16px;align-items:center">
+            <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:10px">
+              <sc-if value="{{ b.hasReason }}" hint-placeholder-val="{{ false }}"><span style="margin-right:auto;font-size:13px;color:#e8583f">{{ b.reason }}</span></sc-if>
+              <span style="font-size:13px;color:#9cc6ef;white-space:nowrap">{{ b.costNote }}</span>
+              <span style="font:700 18px Silkscreen;color:{{ b.costColor }};white-space:nowrap">{{ b.cost }}</span>
+            </div>
+            <button onClick="{{ b.launch }}" title="{{ b.reason }}" style="height:42px;opacity:{{ b.opacity }};filter:{{ b.filter }};cursor:{{ b.cursor }};background:#6cc36a;color:#0a0f1c;font:700 13px Silkscreen;box-shadow:inset 0 3px 0 #9be29a,inset 0 -3px 0 #3f8a3e,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Launch Campaign</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ nameOpen }}" hint-placeholder-val="{{ false }}">
+      <dc-import name="Text Entry" title="Name Your Campaign" placeholder="{{ namePh }}" value="{{ nameVal }}" max-length="{{ 64 }}" on-done="{{ nameDone }}" on-cancel="{{ nameCancel }}" style="position:absolute;inset:0;z-index:95" hint-size="100%,100%"></dc-import>
+    </sc-if>
+
+    <sc-if value="{{ cfOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:520px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <span style="font:700 16px Silkscreen;color:#f28c28">{{ cf.title }}</span>
+          <span style="font-size:15px;line-height:1.4;color:#f3ead7;text-wrap:pretty">{{ cf.body }}</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <button onClick="{{ cf.no }}" style="height:40px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560" style-hover="background:#3b6fb6">Cancel</button>
+            <button onClick="{{ cf.yes }}" style="height:40px;color:#0a0f1c;background:{{ cf.bg }};font:700 12px Silkscreen;box-shadow:inset 0 3px 0 rgba(255,255,255,0.3),inset 0 -3px 0 rgba(0,0,0,0.3)" style-hover="filter:brightness(1.1)">{{ cf.cta }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;},&quot;demoAll&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;}}">
+class Component extends DCLogic {
+  // PromotionsWindow.tscn — Ad Campaigns (Advertise Job | Advertise Guild). Hiring lives in Finance › Hiring. PromotionsManager autoload owns campaigns + applicants.
+  state = { tab: 'ads', mode: 'job', builder: null, confirm: null, naming: false, openG: { builder: { Value: true } }, notice: null };
+  scenes = [
+    { name: 'PromotionsWindow.tscn', root: 'Control › VBox (PromotionsTabs, Panel)', vars: ['@export var mode: String = "job"  # job = Advertise Job tab · promo = Advertise Guild tab'] },
+    { name: 'CampaignCard.tscn', root: 'PanelContainer', vars: ['@export var campaign: CampaignData', 'signal view_applicants / ended'] },
+    { name: 'CampaignBuilder.tscn', root: 'Window › (TypeList, Config: Name + Duration + FilterGroups)', vars: ['# Filters are data-driven TraitFilterDefs grouped Value / Identity / Physical / Mental; locked defs render a FeatureLock', 'signal launched(CampaignData)'] },
+    { name: 'FilterGroup.tscn', root: 'VBox › HeaderButton (caret, label, active count) · Body', vars: ['@export var expanded: bool'] },
+    { name: 'RangeSlider.tscn', root: 'Control › Track · Fill · ThumbLo · ThumbHi', vars: ['@export var min_value / max_value / step', 'signal range_changed(lo, hi)  # nearest thumb follows the pointer'] },
+    { name: 'TextEntryDialog.tscn', root: 'Window › LineEdit + OnScreenKeyboard', vars: ['@export var max_length: int = 64'] },
+  ];
+  // Pulls shared PromotionsManager logic from promo-core.js (fields + methods).
+  useCore() { if (this._core) return true; const B = window.MercPromoBase; if (!B) return false; Object.assign(this, new B()); Object.getOwnPropertyNames(B.prototype).forEach(k => { if (k !== 'constructor') this[k] = B.prototype[k]; }); this._core = true; return true; }
+  renderVals() {
+    if (!this.useCore()) { clearTimeout(this.coreT); this.coreT = setTimeout(() => this.forceUpdate(), 30); return {}; }
+    const s = this.state, st = this.store(), E = this.ents(), P = this.pr(), T = this.today(), show = !!this.props.showScenes, money = st.money ?? 0;
+    const emp = this.employed(), maxM = E.maxMercs || 20, free = emp < maxM;
+    const seg = on => on ? { fg: '#0a0f1c', bg: '#f28c28', hi: '#ffb266', lo: '#b85a12' } : { fg: '#9cc6ef', bg: '#15223d', hi: '#1f3560', lo: '#0a0f1c' };
+    const modeBtns = (cur, onPick) => [['job', 'Job Postings'], ['promo', 'Guild Promo']].map(([k, l]) => ({ label: l, ...seg(cur === k), onClick: () => onPick(k) }));
+    const typeOf = k => this.types.find(t => t.k === k);
+    const campaigns = P.campaigns.filter(c => c.mode === s.mode).map(c => { const t = typeOf(c.type), left = Math.max(0, c.start + c.days - T), frac = left / c.days;
+      return { tag: show, name: c.name, type: t.name, icon: this.pal(this.icons[c.type]), targets: this.summary(c), left: left + (left === 1 ? ' day' : ' days'),
+        cells: Array.from({ length: 20 }, (_, i) => (i + 0.5) / 20 < frac ? '#f28c28' : '#1f3560'), isJob: c.mode === 'job', cols: c.mode === 'job' ? '1fr 1fr' : '1fr',
+        resLabel: c.mode === 'job' ? 'Applicants' : 'Contracts Received', res: String(c.mode === 'job' ? P.applicants.filter(a => a.from === c.id).length : c.res),
+        view: () => this.setState({ tab: 'hiring', hf: { from: [c.id] } }),
+        end: () => this.setState({ confirm: { title: 'End ' + c.name + '?', body: 'The campaign stops now. Notes already spent are not refunded.', cta: 'End Campaign', bg: '#e8583f', yes: () => { P.campaigns = P.campaigns.filter(x => x !== c); this.commit(); } } }) }; });
+    // Builder
+    let b = {}; const bOpen = !!s.builder, B = s.builder;
+    if (bOpen) { const setB = patch => this.setState(p => ({ builder: { ...p.builder, ...patch } })), t = typeOf(B.type), set = (k, v) => setB({ sel: { ...B.sel, [k]: v } });
+      let groups;
+      if (B.mode === 'job') groups = this.grouped('builder', this.mercDefs(false), B.sel, set, E);
+      else groups = [{ label: '', hasHead: false, open: true, caret: '', headBg: '', hasCount: false, count: '', toggle: null, secs: this.contractDefs(B.type).map(d => this.sec(d, B.sel, set, E)) }];
+      if (B.type === 'wom') { const cap = E.oddJobs || 0;
+        groups.unshift({ label: '', hasHead: false, open: true, caret: '', headBg: '', hasCount: false, count: '', toggle: null, secs: [{ label: 'Word of Mouth Crew', labelColor: '#9cc6ef', span: '1 / -1', locked: false, isChips: false, isNum: false, isSlider: false, isStars: false, isMods: false, isCrew: true, chips: [], nums: [], mods: [], starRows: [], sl: {},
+          crew: { max: cap, team: (B.team || []).slice(0, cap), cands: this.crewCands(B.mode === 'job' ? 13 : 29), per: B.per ?? this.defPay(), defPay: this.defPay(), money, onTeam: tm => setB({ team: tm }), onPer: v => setB({ per: v }) } }] }); }
+      const team = (B.team || []).slice(0, E.oddJobs || 0), cost = B.type === 'wom' ? team.length * (B.per ?? this.defPay()) : t.perDay * B.days, dflt = 'Campaign ' + P.next;
+      const reason = !t.ent(E) ? t.name + ' is locked.' : t.promoOnly && B.mode === 'job' ? 'Direct Sale is for Guild Promo only.' : t.target && B.sel.target == null ? 'Choose who to ' + (t.target === 'Sponsor' ? 'sponsor.' : 'advertise to.') : B.type === 'wom' && !team.length ? 'Add at least one merc.' : cost > money ? 'Not enough notes.' : '';
+      b = { title: B.mode === 'job' ? 'New Campaign · Advertise Job' : 'New Campaign · Advertise Guild',
+        types: this.types.map((ty, i) => { const ok = ty.ent(E), bad = ty.promoOnly && B.mode === 'job', on = B.type === ty.k;
+          return { z: 20 - i /* earlier rows paint over later ones so a lock tooltip opening downward stays on top */, name: ty.name, sub: ty.sub, stars: this.stars(ty.quality), icon: this.pal(this.icons[ty.k]), locked: !ok, upgrade: ty.upgrade, upgradeId: ty.upgradeId, tiers: ty.tiers,
+            title: bad ? 'Guild Promo only' : '', opacity: bad ? 0.4 : ok ? 1 : 0.6, cursor: bad || !ok ? 'not-allowed' : 'pointer', iconFilter: ok ? 'none' : 'grayscale(1) brightness(0.6)',
+            bg: on ? '#15223d' : '#0e1628', ring: on ? '#f28c28' : '#1f3560', ringW: on ? '3px' : '2px',
+            onClick: () => { if (ok && !bad) setB({ type: ty.k, sel: B.mode === 'promo' ? { ...B.sel, target: undefined } : B.sel }); } }; }),
+        nameShown: B.name || dflt, nameColor: B.name ? '#f3ead7' : '#5e7699', nameCount: (B.name || '').length + ' / 64', editName: () => this.setState({ naming: true }),
+        days: B.days, onDays: v => setB({ days: v }),
+        targetTitle: B.mode === 'job' ? 'Mercs You Want' : 'Contracts You Want',
+        targetNote: B.mode === 'job' ? 'Applicant level can\'t be targeted.' : 'Level and reward can\'t be targeted.',
+        groups, costNote: B.type === 'wom' ? 'Odd Job pay, due up front' : t.perDay + ' / day × ' + B.days + ' days, due up front', cost: this.n(cost) + ' n', costColor: cost > money ? '#e8583f' : '#f3ead7',
+        reason, hasReason: !!reason, opacity: reason ? 0.45 : 1, filter: reason ? 'grayscale(1)' : 'none', cursor: reason ? 'not-allowed' : 'pointer',
+        close: () => this.setState({ builder: null }),
+        launch: () => { if (reason) return; st.money = money - cost; const id = P.next++, name = B.name || 'Campaign ' + id;
+          P.campaigns = [...P.campaigns, { id, name, mode: B.mode, type: B.type, start: T, days: B.days, sel: B.sel, res: 0, team }]; this.commit();
+          this.setState({ builder: null, mode: B.mode }); this.flash(name + ' launched.', '#6cc36a'); } }; }
+    const cf = s.confirm ? { ...s.confirm, no: () => this.setState({ confirm: null }), yes: () => { const f = s.confirm.yes; this.setState({ confirm: null }); f(); } } : {};
+    return {
+      showScenes: show,
+      tabs: [['promo', 'Advertise Guild'], ['job', 'Advertise Job']].map(([k, l]) => { const on = k === 'hiring' ? s.tab === 'hiring' : s.tab === 'ads' && s.mode === k;
+        return { label: l, active: on, flex: on ? '0 0 auto' : '0 0 52px', icon: this.tabIcons[k === 'hiring' ? 'hiring' : k === 'job' ? 'ads' : 'guild'].join('').split('').map(ch => ch === '.' ? 'transparent' : on ? (ch === 'o' ? '#0a0f1c' : '#5a3510') /* active tab is orange: draw the icon dark, two tones */ : ch === 'o' ? '#f28c28' : '#f3ead7'), onClick: () => this.setState(k === 'hiring' ? { tab: 'hiring', sortOpen: false } : { tab: 'ads', mode: k, sortOpen: false }) }; }),
+      hasNotice: !!s.notice, notice: s.notice ? s.notice.text : '', noticeColor: s.notice ? s.notice.color : '#f3ead7',
+      isAds: true,
+      modeDesc: s.mode === 'job' ? 'Post jobs to attract mercs to apply to your guild.' : 'Promote your guild to attract new contracts.',
+      modeTitle: s.mode === 'job' ? 'Advertise Job' : 'Advertise Guild',
+      openBuilder: () => this.setState({ builder: { mode: s.mode, type: 'flyers', sel: {}, days: 30, team: [], per: null, name: '' } }),
+      campaigns, noCampaigns: !campaigns.length, emptyText: s.mode === 'job' ? 'No job postings running.' : 'No guild promos running.',
+      bOpen, b,
+      nameOpen: bOpen && s.naming, namePh: B ? 'Campaign ' + P.next : '', nameVal: B ? B.name || '' : '',
+      nameDone: v => this.setState(p => ({ naming: false, builder: { ...p.builder, name: v.slice(0, 64) } })), nameCancel: () => this.setState({ naming: false }),
+      cfOpen: !!s.confirm, cf,
+    };
+  }
+}
+</script>
+</body>
+</html>

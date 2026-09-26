@@ -1,0 +1,88 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Contracts/ActionBar.gd" id="1"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SuccessMeter.tscn" id="3"]
+
+[node name="ActionBar" type="PanelContainer"]
+theme_type_variation = &"InsetPanel"
+script = ExtResource("1")
+
+[node name="Pad" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Row" type="HBoxContainer" parent="Pad"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Odds" type="VBoxContainer" parent="Pad/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Head" type="HBoxContainer" parent="Pad/Row/Odds"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Caption" type="Label" parent="Pad/Row/Odds/Head"]
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
+theme_override_font_sizes/font_size = 12
+text = "Success Odds"
+
+[node name="OddsLabel" type="Label" parent="Pad/Row/Odds/Head"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 20
+theme_override_fonts/font = ExtResource("2")
+text = "0%"
+
+[node name="Meter" parent="Pad/Row/Odds" instance=ExtResource("3")]
+layout_mode = 2
+size_flags_horizontal = 3
+pixel_scale = 2
+stretch = true
+
+[node name="Hint" type="Label" parent="Pad/Row/Odds"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_font_sizes/font_size = 11
+theme_override_fonts/font = ExtResource("2")
+text = ""
+autowrap_mode = 3
+max_lines_visible = 2
+
+[node name="Buttons" type="HBoxContainer" parent="Pad/Row"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 8
+
+[node name="Optimize" type="Button" parent="Pad/Row/Buttons"]
+custom_minimum_size = Vector2(86, 36)
+layout_mode = 2
+text = "Optimize"
+
+[node name="Clear" type="Button" parent="Pad/Row/Buttons"]
+custom_minimum_size = Vector2(86, 36)
+layout_mode = 2
+text = "Clear"
+
+[node name="Cancel" type="Button" parent="Pad/Row/Buttons"]
+custom_minimum_size = Vector2(86, 36)
+layout_mode = 2
+theme_type_variation = &"ButtonDanger"
+text = "Cancel"
+
+[node name="Dispatch" type="Button" parent="Pad/Row"]
+custom_minimum_size = Vector2(190, 56)
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"ButtonGo"
+theme_override_font_sizes/font_size = 18
+theme_override_fonts/font = ExtResource("2")
+text = "Dispatch"

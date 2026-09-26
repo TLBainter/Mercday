@@ -6,6 +6,7 @@
 script = ExtResource("1_EventData")
 event_name = "Assist with the Skirmish"
 event_type = "Primary"
+trigger = ""
 check_stats = Array[String](["Dexterity", "Vigor"])
 circumstances = Array[String](["Athletics (Vigor)", "Attack (Dexterity)", "Attack (Vigor)", "Power (Vigor)", "Presence (Vigor)", "Resist (Dexterity)", "Resist (Vigor)"])
 knowledges = Array[String](["Dueling", "Hunting", "Tactics", "Reconnaissance", "Chivalry"])

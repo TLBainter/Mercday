@@ -7,7 +7,7 @@ const XP_PER_LEVEL := 100
 
 
 static func level_for(xp: int) -> int:
-	return maxi(0, xp) / XP_PER_LEVEL
+	return int(maxi(0, xp) / float(XP_PER_LEVEL))
 
 
 static func xp_for_level(level: int) -> int:
@@ -21,7 +21,7 @@ static func enemy_xp(merc_level: int, enemy_level: int) -> int:
 		return 11
 	if enemy_level == merc_level:
 		return 10
-	if enemy_level <= merc_level / 2:
+	if enemy_level <= int(merc_level / 2.0):
 		return 1
 	return 5
 
@@ -54,7 +54,7 @@ static func set_level_from_xp(merc: MercenaryData) -> int:
 	return target
 
 
-#One level at a time so every level gained gets its own lifepath roll.
+#One level at a time so every level gained gets its own lifepath roll and its own level-up picks.
 static func resolve_level_ups(merc: MercenaryData) -> Array[String]:
 	var lines: Array[String] = []
 	if merc == null or merc.merc_uid <= 0:
@@ -68,6 +68,7 @@ static func resolve_level_ups(merc: MercenaryData) -> Array[String]:
 		StatCalculator.refresh(merc)
 		lines.append("LEVEL UP: %s is now level %d (%d xp)" % [merc.merc_name, cur, merc.xp])
 		lines.append_array(LifepathProgression.on_level_up(merc))
+		lines.append_array(LevelUpSystem.on_level(merc, cur))
 	return lines
 
 
@@ -83,7 +84,7 @@ static func award_encounter(team_a: Array[MercenaryData], enemies: Array[Mercena
 	var totals: Dictionary = {}
 	var details: Dictionary = {}
 	for enemy: MercenaryData in enemies:
-		if enemy == null or not (enemy.is_dead or enemy.current_hp <= 0):
+		if enemy == null or not (enemy.is_dead or enemy.current_hp <= 0 or enemy.off_field):
 			continue
 		var e_level: int = current_level(enemy)
 		for merc: MercenaryData in team_a:
@@ -92,7 +93,7 @@ static func award_encounter(team_a: Array[MercenaryData], enemies: Array[Mercena
 			var full: int = enemy_xp(int(levels.get(merc, 0)), e_level)
 			var by_target: Dictionary = dealt.get(merc, {})
 			var hit: bool = int(by_target.get(enemy, 0)) > 0
-			var amount: int = full if hit else full / 2
+			var amount: int = full if hit else int(full / 2.0)
 			if amount <= 0:
 				continue
 			totals[merc] = int(totals.get(merc, 0)) + amount

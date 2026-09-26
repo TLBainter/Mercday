@@ -4,6 +4,12 @@ class_name ContractGenerator
 
 const SAVE_DIR := "user://contracts"
 const MAX_LOCATION_ROLLS := 100
+#The contract level is drawn this far either side of the guild average; every step doubles the difficulty.
+const LEVEL_SPREAD_LOW := 0.75
+const LEVEL_SPREAD_HIGH := 1.25
+const LEVEL_SPREAD_STEP := 0.25
+const MIN_DIFFICULTY := 0.5
+const MAX_DIFFICULTY := 5.0
 
 
 static func generate(contract_type_name: String = "") -> ContractData:
@@ -15,8 +21,9 @@ static func generate(contract_type_name: String = "") -> ContractData:
 		return null
 	contract.reward_notes = config.default_reward_notes
 	contract.max_mercs = config.default_max_mercs
-	if contract.difficulty <= 0.0:
-		contract.difficulty = roll_difficulty()
+	var average_level: float = GuildRoster.average_level()
+	contract.contract_level = roll_contract_level(average_level)
+	apply_difficulty(contract, average_level)
 	var a: LocationData = pick_location_a()
 	var b: LocationData = pick_location_b(a)
 	contract.location_a = a.location_name if a != null else ""
@@ -36,9 +43,34 @@ static func generate(contract_type_name: String = "") -> ContractData:
 	return contract
 
 
-#1 to 5 in steps of 0.5, uniform over the nine values, until Difficulty is authored.
+#An authored Difficulty cell is the base instead of a roll; both bend to the level the work was drawn at.
+static func apply_difficulty(contract: ContractData, average_level: float) -> void:
+	if contract == null:
+		return
+	var base: float = contract.difficulty if contract.difficulty > 0.0 else roll_difficulty()
+	var ratio: float = 1.0 if average_level <= 0.0 else float(contract.contract_level) / average_level
+	contract.difficulty = snap_half(clampf(base * difficulty_multiplier(ratio),
+		MIN_DIFFICULTY, MAX_DIFFICULTY))
+
+
+#0.5 to 5 in steps of 0.5, uniform over the ten values, until Difficulty is authored.
 static func roll_difficulty() -> float:
-	return float(randi_range(2, 10)) / 2.0
+	return float(randi_range(1, 10)) / 2.0
+
+
+#The guild level the work is written for: a triangular draw a quarter either side of the roster average.
+static func roll_contract_level(average_level: float) -> int:
+	return maxi(1, int(roundf(OpponentGenerator.triangular(average_level * LEVEL_SPREAD_LOW,
+		average_level, average_level * LEVEL_SPREAD_HIGH))))
+
+
+#Work drawn above the guild's level is harder and work drawn below it is easier; each quarter doubles.
+static func difficulty_multiplier(ratio: float) -> float:
+	return pow(2.0, (ratio - 1.0) / LEVEL_SPREAD_STEP)
+
+
+static func snap_half(x: float) -> float:
+	return roundf(x * 2.0) / 2.0
 
 
 static func pick_location_a() -> LocationData:
@@ -47,14 +79,21 @@ static func pick_location_a() -> LocationData:
 		return null
 	for _i: int in range(MAX_LOCATION_ROLLS):
 		var loc: LocationData = DataManager.locations[keys[randi() % keys.size()]] as LocationData
-		if loc != null and ContractTerrain.area_name_for(loc) != "":
+		if loc != null and ContractTerrain.has_terrain(loc) and _hosts_contracts(loc):
 			return loc
 	push_error("ContractGenerator: no location with terrain after %d rolls" % MAX_LOCATION_ROLLS)
 	for key: String in keys:
 		var loc: LocationData = DataManager.locations[key] as LocationData
-		if loc != null and ContractTerrain.area_name_for(loc) != "":
+		if loc != null and ContractTerrain.has_terrain(loc) and _hosts_contracts(loc):
 			return loc
 	return null
+
+
+#Domains never host a contract for now.
+static func _hosts_contracts(loc: LocationData) -> bool:
+	if loc == null:
+		return false
+	return loc.location_type == "Country" or loc.location_type == "Settlement"
 
 
 static func pick_location_b(a: LocationData) -> LocationData:
@@ -83,7 +122,10 @@ static func pick_location_b(a: LocationData) -> LocationData:
 static func fill_description(template: String, a: LocationData, b: LocationData) -> String:
 	var name_a: String = _display_name(a)
 	var name_b: String = _display_name(b)
-	return template.replace("[location_a.demonym]", name_a).replace("[location_b.demonym]", name_b)
+	var text: String = template.replace("[location_a.demonym]", name_a)
+	text = text.replace("[location_b.demonym]", name_b)
+	text = text.replace("[location_a.name]", _place_name(a))
+	return text.replace("[location_b.name]", _place_name(b))
 
 
 #Writes the instance to path, or to the first free user://contracts/contract_<n>.tres when path is empty.
@@ -102,6 +144,13 @@ static func save_instance(contract: ContractData, path: String = "") -> String:
 		push_warning("ContractGenerator: could not save %s (error %d)" % [target, err])
 		return ""
 	return ProjectSettings.globalize_path(target)
+
+
+#The plain place name for the [location_?.name] tokens; the demonym tokens keep _display_name.
+static func _place_name(loc: LocationData) -> String:
+	if loc == null or loc.location_name == "":
+		return "Unknown"
+	return loc.location_name
 
 
 static func _display_name(loc: LocationData) -> String:

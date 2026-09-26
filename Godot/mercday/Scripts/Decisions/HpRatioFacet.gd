@@ -7,8 +7,8 @@ func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
 	max_hp = max(1.0, max_hp)
 	var ratio: float = float(merc.current_hp) / max_hp
 	if below_is_high:
-		# 1.0 when critically injured, 0.0 at full HP
+		#1.0 when critically injured, 0.0 at full HP
 		return 1.0 - ratio
 	else:
-		# 1.0 at full HP, 0.0 when at 0 HP
+		#1.0 at full HP, 0.0 when at 0 HP
 		return ratio

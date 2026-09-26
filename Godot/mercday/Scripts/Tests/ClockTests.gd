@@ -77,8 +77,23 @@ static func _case_line(res: Dictionary) -> void:
 	TestFixtures.check(res, "line prints minutes below an hour", mins.contains("+10 min"),
 		"expected +10 min in %s" % mins)
 	var odd: String = CampaignClock.delta_text(90)
-	TestFixtures.check(res, "delta_text keeps a part hour in minutes", odd == "+90 min",
-		"expected +90 min, got %s" % odd)
+	TestFixtures.check(res, "delta_text prints a part hour in hours and minutes", odd == "+1 h 30 min",
+		"expected +1 h 30 min, got %s" % odd)
+	var part_hour: String = CampaignClock.delta_text(400)
+	TestFixtures.check(res, "delta_text splits a span below a day", part_hour == "+6 h 40 min",
+		"expected +6 h 40 min, got %s" % part_hour)
+	var ten_days: String = CampaignClock.delta_text(14400)
+	TestFixtures.check(res, "delta_text prints whole days", ten_days == "+10 d",
+		"expected +10 d, got %s" % ten_days)
+	var one_day: String = CampaignClock.delta_text(1440)
+	TestFixtures.check(res, "delta_text prints one whole day", one_day == "+1 d",
+		"expected +1 d, got %s" % one_day)
+	var part_day: String = CampaignClock.delta_text(1500)
+	TestFixtures.check(res, "delta_text prints a part day in days and hours", part_day == "+1 d 1 h",
+		"expected +1 d 1 h, got %s" % part_day)
+	var many_days: String = CampaignClock.delta_text(12000)
+	TestFixtures.check(res, "delta_text splits a span above a day", many_days == "+8 d 8 h",
+		"expected +8 d 8 h, got %s" % many_days)
 
 
 static func _case_rollover(res: Dictionary) -> void:

@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/DirToggle.gd" id="1"]
+
+[node name="DirToggle" type="Button"]
+custom_minimum_size = Vector2(40, 26)
+theme_type_variation = &"ButtonOrange"
+script = ExtResource("1")

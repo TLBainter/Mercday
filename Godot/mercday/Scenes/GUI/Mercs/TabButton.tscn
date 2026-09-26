@@ -1,0 +1,34 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mercs/TabButton.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/IconRect.tscn" id="2"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
+
+[node name="TabButton" type="Button"]
+custom_minimum_size = Vector2(52, 38)
+clip_text = true
+script = ExtResource("1")
+
+[node name="Row" type="HBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 4.0
+offset_bottom = -4.0
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="Icon" parent="Row" instance=ExtResource("2")]
+layout_mode = 2
+mouse_filter = 2
+size_flags_vertical = 4
+pixel_scale = 2
+
+[node name="Text" type="Label" parent="Row"]
+layout_mode = 2
+visible = false
+mouse_filter = 2
+size_flags_vertical = 4
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 11

@@ -1,0 +1,2033 @@
+{
+  "_note": "Sample data suite mirroring the HTML prototypes. Load into Resources (MercData, ContractData) or a JSON seed for GameState. Placeholder names are intentional.",
+  "bank_notes": 1000,
+  "traditions": [
+    {
+      "name": "Brave",
+      "color": "#5aa6e8"
+    },
+    {
+      "name": "Chymist",
+      "color": "#6cc36a"
+    },
+    {
+      "name": "Divine",
+      "color": "#f2d33d"
+    },
+    {
+      "name": "Hellion",
+      "color": "#a36ce8"
+    },
+    {
+      "name": "Honorable",
+      "color": "#f28c28"
+    },
+    {
+      "name": "Mage",
+      "color": "#a8385a"
+    },
+    {
+      "name": "Mystech",
+      "color": "#3fc9c0"
+    },
+    {
+      "name": "Performer",
+      "color": "#f07ab8"
+    },
+    {
+      "name": "Sorcerer",
+      "color": "#e8583f"
+    },
+    {
+      "name": "Warrior",
+      "color": "#a0a8b8"
+    }
+  ],
+  "roles": [
+    "Leader",
+    "Support",
+    "Driver",
+    "Assassin",
+    "Guide",
+    "Escort"
+  ],
+  "merc_statuses": {
+    "available": "Available",
+    "resting": "Resting",
+    "contract": "On a Contract",
+    "vacation": "On Vacation"
+  },
+  "guild_opinion_range": [
+    -5,
+    5
+  ],
+  "difficulty_names": {
+    "1": "Very Easy",
+    "2": "Straightforward",
+    "3": "Average",
+    "4": "Hard",
+    "5": "Impossible",
+    "0.5": "Cakewalk",
+    "1.5": "Easy",
+    "2.5": "Manageable",
+    "3.5": "Challenging",
+    "4.5": "Tough"
+  },
+  "difficulty_colors": {
+    "1": "#6cc36a",
+    "2": "#5fb0b8",
+    "3": "#f2b33d",
+    "4": "#f28c28",
+    "5": "#e8583f",
+    "0.5": "#3fae5a",
+    "1.5": "#64b98c",
+    "2.5": "#5aa6e8",
+    "3.5": "#f2a033",
+    "4.5": "#ec6a36"
+  },
+  "match_rating_colors": {
+    "1": "#ec6a36",
+    "2": "#f28c28",
+    "3": "#f2b33d",
+    "4": "#5fb0b8",
+    "5": "#3fae5a",
+    "0.5": "#e8583f",
+    "1.5": "#ef7c2f",
+    "2.5": "#f2a033",
+    "3.5": "#5aa6e8",
+    "4.5": "#64b98c"
+  },
+  "contract_status_colors": {
+    "Available": "#6cc36a",
+    "Active": "#5aa6e8",
+    "Expired": "#e8583f",
+    "Completed": "#f2b33d",
+    "Rejected": "#a0a8b8"
+  },
+  "urgency_colors": {
+    "Low": "#6cc36a",
+    "None": "#f28c28",
+    "High": "#e8583f"
+  },
+  "travel_modes": [
+    {
+      "key": "foot",
+      "label": "Foot",
+      "full": "On Foot",
+      "km_per_day": 30,
+      "rate": 1,
+      "per_km": 25,
+      "per_merc": true
+    },
+    {
+      "key": "caravan",
+      "label": "Caravan",
+      "full": "By Caravan",
+      "km_per_day": 45,
+      "rate": 7,
+      "per_km": 25,
+      "per_merc": false
+    },
+    {
+      "key": "horse",
+      "label": "Horse",
+      "full": "By Horse",
+      "km_per_day": 120,
+      "rate": 5,
+      "per_km": 25,
+      "per_merc": true
+    },
+    {
+      "key": "train",
+      "label": "Train",
+      "full": "By Train",
+      "km_per_day": 250,
+      "rate": 25,
+      "per_km": 25,
+      "per_merc": true
+    },
+    {
+      "key": "airship",
+      "label": "Airship",
+      "full": "By Airship",
+      "km_per_day": 300,
+      "rate": 35,
+      "per_km": 25,
+      "per_merc": true
+    },
+    {
+      "key": "teleport",
+      "label": "Teleport",
+      "full": "By Teleportation",
+      "km_per_day": 0,
+      "rate": 50,
+      "per_km": 10,
+      "per_merc": true
+    }
+  ],
+  "travel_cost_formula": "floor(distance_km / per_km) * rate * (per_merc ? max(team_size, merc_min) : 1); time_hours = km_per_day ? distance_km / km_per_day * 24 : 0",
+  "mercs": [
+    {
+      "id": 0,
+      "name": "Merc 1 Name",
+      "heritage": "Merc 1 Heritage",
+      "level": 7,
+      "tradition": "Brave",
+      "age_group": "Adult",
+      "monthly_salary": 60,
+      "employment_months": 14,
+      "guild_opinion": 5,
+      "status": "available",
+      "status_time_left": null,
+      "knowledges": [
+        "Knowledge 7",
+        "Knowledge 1",
+        "Knowledge 12",
+        "Knowledge 11"
+      ],
+      "tools": [
+        "Tool 8",
+        "Tool 10",
+        "Tool 9"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "Merc 2 Name",
+      "heritage": "Merc 2 Heritage",
+      "level": 12,
+      "tradition": "Chymist",
+      "age_group": "Young",
+      "monthly_salary": 150,
+      "employment_months": 3,
+      "guild_opinion": -2,
+      "status": "available",
+      "status_time_left": null,
+      "knowledges": [
+        "Knowledge 4",
+        "Knowledge 12",
+        "Knowledge 8",
+        "Knowledge 6"
+      ],
+      "tools": [
+        "Tool 11",
+        "Tool 4",
+        "Tool 6"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Merc 3 Name",
+      "heritage": "Merc 3 Heritage",
+      "level": 3,
+      "tradition": "Divine",
+      "age_group": "Elder",
+      "monthly_salary": 1200,
+      "employment_months": 27,
+      "guild_opinion": 2,
+      "status": "available",
+      "status_time_left": null,
+      "knowledges": [
+        "Knowledge 5",
+        "Knowledge 4",
+        "Knowledge 1",
+        "Knowledge 7"
+      ],
+      "tools": [
+        "Tool 2",
+        "Tool 1",
+        "Tool 4"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Merc 4 Name",
+      "heritage": "Merc 4 Heritage",
+      "level": 9,
+      "tradition": "Hellion",
+      "age_group": "Adult",
+      "monthly_salary": 80,
+      "employment_months": 8,
+      "guild_opinion": -5,
+      "status": "available",
+      "status_time_left": null,
+      "knowledges": [
+        "Knowledge 8",
+        "Knowledge 2",
+        "Knowledge 7",
+        "Knowledge 3"
+      ],
+      "tools": [
+        "Tool 12",
+        "Tool 11",
+        "Tool 10"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Merc 5 Name",
+      "heritage": "Merc 5 Heritage",
+      "level": 15,
+      "tradition": "Honorable",
+      "age_group": "Young",
+      "monthly_salary": 300,
+      "employment_months": 19,
+      "guild_opinion": -1,
+      "status": "vacation",
+      "status_time_left": {
+        "days": 2,
+        "hours": 14,
+        "minutes": 5
+      },
+      "knowledges": [
+        "Knowledge 10",
+        "Knowledge 12",
+        "Knowledge 3",
+        "Knowledge 4"
+      ],
+      "tools": [
+        "Tool 9",
+        "Tool 11",
+        "Tool 2"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Merc 6 Name",
+      "heritage": "Merc 6 Heritage",
+      "level": 5,
+      "tradition": "Mage",
+      "age_group": "Elder",
+      "monthly_salary": 40,
+      "employment_months": 1,
+      "guild_opinion": 3,
+      "status": "available",
+      "status_time_left": null,
+      "knowledges": [
+        "Knowledge 10",
+        "Knowledge 11",
+        "Knowledge 6",
+        "Knowledge 2"
+      ],
+      "tools": [
+        "Tool 5",
+        "Tool 3",
+        "Tool 9"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Merc 7 Name",
+      "heritage": "Merc 7 Heritage",
+      "level": 11,
+      "tradition": "Mystech",
+      "age_group": "Adult",
+      "monthly_salary": 90,
+      "employment_months": 11,
+      "guild_opinion": -4,
+      "status": "available",
+      "status_time_left": null,
+      "knowledges": [
+        "Knowledge 6",
+        "Knowledge 2",
+        "Knowledge 10",
+        "Knowledge 8"
+      ],
+      "tools": [
+        "Tool 3",
+        "Tool 1",
+        "Tool 6"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Merc 8 Name",
+      "heritage": "Merc 8 Heritage",
+      "level": 2,
+      "tradition": "Performer",
+      "age_group": "Adult",
+      "monthly_salary": 1500,
+      "employment_months": 6,
+      "guild_opinion": 0,
+      "status": "available",
+      "status_time_left": null,
+      "knowledges": [
+        "Knowledge 9",
+        "Knowledge 11",
+        "Knowledge 4",
+        "Knowledge 7"
+      ],
+      "tools": [
+        "Tool 9",
+        "Tool 2",
+        "Tool 10"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Merc 9 Name",
+      "heritage": "Merc 9 Heritage",
+      "level": 8,
+      "tradition": "Sorcerer",
+      "age_group": "Young",
+      "monthly_salary": 70,
+      "employment_months": 22,
+      "guild_opinion": 4,
+      "status": "available",
+      "status_time_left": null,
+      "knowledges": [
+        "Knowledge 11",
+        "Knowledge 4",
+        "Knowledge 3",
+        "Knowledge 9"
+      ],
+      "tools": [
+        "Tool 10",
+        "Tool 6",
+        "Tool 2"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Merc 10 Name",
+      "heritage": "Merc 10 Heritage",
+      "level": 4,
+      "tradition": "Warrior",
+      "age_group": "Elder",
+      "monthly_salary": 120,
+      "employment_months": 4,
+      "guild_opinion": -3,
+      "status": "resting",
+      "status_time_left": {
+        "days": 0,
+        "hours": 7,
+        "minutes": 20
+      },
+      "knowledges": [
+        "Knowledge 8",
+        "Knowledge 3",
+        "Knowledge 9",
+        "Knowledge 1"
+      ],
+      "tools": [
+        "Tool 8",
+        "Tool 4",
+        "Tool 5"
+      ]
+    }
+  ],
+  "contracts": [
+    {
+      "id": 0,
+      "name": "Contract 1 Name",
+      "type": 1,
+      "difficulty": 3,
+      "recommended_level": 10,
+      "reward": 800,
+      "distance_km": 48,
+      "completion_hours": 48,
+      "expires_in_hours": 70,
+      "status": "Available",
+      "urgency": "Low",
+      "merc_min": 1,
+      "merc_max": 3,
+      "description": "Contract 1 Description",
+      "location": "Location 1",
+      "issuer": "Issuer 1 Name",
+      "issuer_type": 1,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 1",
+            "hidden_bonus": 35
+          },
+          {
+            "name": "Knowledge 4",
+            "hidden_bonus": 2
+          },
+          {
+            "name": "Knowledge 7",
+            "hidden_bonus": 9
+          },
+          {
+            "name": "Knowledge 10",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Knowledge 1",
+            "hidden_bonus": 23
+          },
+          {
+            "name": "Knowledge 4",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Knowledge 7",
+            "hidden_bonus": 37
+          },
+          {
+            "name": "Knowledge 10",
+            "hidden_bonus": 4
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 1",
+            "hidden_bonus": 26
+          },
+          {
+            "name": "Tool 6",
+            "hidden_bonus": 19
+          },
+          {
+            "name": "Tool 11",
+            "hidden_bonus": 12
+          },
+          {
+            "name": "Tool 4",
+            "hidden_bonus": 5
+          },
+          {
+            "name": "Tool 9",
+            "hidden_bonus": 38
+          },
+          {
+            "name": "Tool 2",
+            "hidden_bonus": 31
+          },
+          {
+            "name": "Tool 7",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Tool 12",
+            "hidden_bonus": 17
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 34
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 36
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 12
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 38
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 14
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 40
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 16
+          }
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "name": "Contract 2 Name",
+      "type": 2,
+      "difficulty": 0.5,
+      "recommended_level": 3,
+      "reward": 80,
+      "distance_km": 2,
+      "completion_hours": 4,
+      "expires_in_hours": 30,
+      "status": "Available",
+      "urgency": "None",
+      "merc_min": 1,
+      "merc_max": 1,
+      "description": "Contract 2 Description",
+      "location": "Location 2",
+      "issuer": "Issuer 2 Name",
+      "issuer_type": 2,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 2",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Knowledge 5",
+            "hidden_bonus": 4
+          },
+          {
+            "name": "Knowledge 8",
+            "hidden_bonus": 18
+          },
+          {
+            "name": "Knowledge 11",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Knowledge 2",
+            "hidden_bonus": 6
+          },
+          {
+            "name": "Knowledge 5",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Knowledge 8",
+            "hidden_bonus": 34
+          },
+          {
+            "name": "Knowledge 11",
+            "hidden_bonus": 8
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 3",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Tool 8",
+            "hidden_bonus": 12
+          },
+          {
+            "name": "Tool 1",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Tool 6",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Tool 11",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Tool 4",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Tool 9",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Tool 2",
+            "hidden_bonus": 36
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 23
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 12
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 1
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 40
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 29
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 18
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 7
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 46
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 35
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 24
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "name": "Contract 3 Name",
+      "type": 3,
+      "difficulty": 4.5,
+      "recommended_level": 15,
+      "reward": 2400,
+      "distance_km": 110,
+      "completion_hours": 120,
+      "expires_in_hours": 10,
+      "status": "Active",
+      "urgency": "High",
+      "merc_min": 2,
+      "merc_max": 5,
+      "description": "Contract 3 Description",
+      "location": "Location 3",
+      "issuer": "Issuer 3 Name",
+      "issuer_type": 3,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 3",
+            "hidden_bonus": 25
+          },
+          {
+            "name": "Knowledge 6",
+            "hidden_bonus": 6
+          },
+          {
+            "name": "Knowledge 9",
+            "hidden_bonus": 27
+          },
+          {
+            "name": "Knowledge 12",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Knowledge 3",
+            "hidden_bonus": 29
+          },
+          {
+            "name": "Knowledge 6",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Knowledge 9",
+            "hidden_bonus": 31
+          },
+          {
+            "name": "Knowledge 12",
+            "hidden_bonus": 12
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 5",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Tool 10",
+            "hidden_bonus": 5
+          },
+          {
+            "name": "Tool 3",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Tool 8",
+            "hidden_bonus": 35
+          },
+          {
+            "name": "Tool 1",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Tool 6",
+            "hidden_bonus": 25
+          },
+          {
+            "name": "Tool 11",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Tool 4",
+            "hidden_bonus": 15
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 14
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 18
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 22
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 26
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 32
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "name": "Contract 4 Name",
+      "type": 1,
+      "difficulty": 2,
+      "recommended_level": 7,
+      "reward": 400,
+      "distance_km": 20,
+      "completion_hours": 24,
+      "expires_in_hours": 120,
+      "status": "Available",
+      "urgency": "Low",
+      "merc_min": 1,
+      "merc_max": 2,
+      "description": "Contract 4 Description",
+      "location": "Location 4",
+      "issuer": "Issuer 4 Name",
+      "issuer_type": 4,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 4",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Knowledge 7",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Knowledge 10",
+            "hidden_bonus": 36
+          },
+          {
+            "name": "Knowledge 1",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Knowledge 4",
+            "hidden_bonus": 12
+          },
+          {
+            "name": "Knowledge 7",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Knowledge 10",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Knowledge 1",
+            "hidden_bonus": 16
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 7",
+            "hidden_bonus": 12
+          },
+          {
+            "name": "Tool 12",
+            "hidden_bonus": 38
+          },
+          {
+            "name": "Tool 5",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Tool 10",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Tool 3",
+            "hidden_bonus": 36
+          },
+          {
+            "name": "Tool 8",
+            "hidden_bonus": 22
+          },
+          {
+            "name": "Tool 1",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Tool 6",
+            "hidden_bonus": 34
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 5
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 35
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 15
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 45
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 25
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 40
+          }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "name": "Contract 5 Name",
+      "type": 2,
+      "difficulty": 1.5,
+      "recommended_level": 6,
+      "reward": 220,
+      "distance_km": 12,
+      "completion_hours": 12,
+      "expires_in_hours": 50,
+      "status": "Available",
+      "urgency": "None",
+      "merc_min": 1,
+      "merc_max": 4,
+      "description": "Contract 5 Description",
+      "location": "Location 5",
+      "issuer": "Issuer 5 Name",
+      "issuer_type": 1,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 5",
+            "hidden_bonus": 15
+          },
+          {
+            "name": "Knowledge 8",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Knowledge 11",
+            "hidden_bonus": 5
+          },
+          {
+            "name": "Knowledge 2",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Knowledge 5",
+            "hidden_bonus": 35
+          },
+          {
+            "name": "Knowledge 8",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Knowledge 11",
+            "hidden_bonus": 25
+          },
+          {
+            "name": "Knowledge 2",
+            "hidden_bonus": 20
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 9",
+            "hidden_bonus": 34
+          },
+          {
+            "name": "Tool 2",
+            "hidden_bonus": 31
+          },
+          {
+            "name": "Tool 7",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Tool 12",
+            "hidden_bonus": 25
+          },
+          {
+            "name": "Tool 5",
+            "hidden_bonus": 22
+          },
+          {
+            "name": "Tool 10",
+            "hidden_bonus": 19
+          },
+          {
+            "name": "Tool 3",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Tool 8",
+            "hidden_bonus": 13
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 46
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 2
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 36
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 14
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 42
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 48
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "name": "Contract 6 Name",
+      "type": 3,
+      "difficulty": 3.5,
+      "recommended_level": 12,
+      "reward": 1100,
+      "distance_km": 60,
+      "completion_hours": 72,
+      "expires_in_hours": 26,
+      "status": "Active",
+      "urgency": "High",
+      "merc_min": 2,
+      "merc_max": 3,
+      "description": "Contract 6 Description",
+      "location": "Location 6",
+      "issuer": "Issuer 6 Name",
+      "issuer_type": 2,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 6",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Knowledge 9",
+            "hidden_bonus": 12
+          },
+          {
+            "name": "Knowledge 12",
+            "hidden_bonus": 14
+          },
+          {
+            "name": "Knowledge 3",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Knowledge 6",
+            "hidden_bonus": 18
+          },
+          {
+            "name": "Knowledge 9",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Knowledge 12",
+            "hidden_bonus": 22
+          },
+          {
+            "name": "Knowledge 3",
+            "hidden_bonus": 24
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 11",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Tool 4",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Tool 9",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Tool 2",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Tool 7",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Tool 12",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Tool 5",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Tool 10",
+            "hidden_bonus": 32
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 37
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 19
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 1
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 42
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 33
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 15
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 6
+          }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "name": "Contract 7 Name",
+      "type": 1,
+      "difficulty": 5,
+      "recommended_level": 16,
+      "reward": 5000,
+      "distance_km": 150,
+      "completion_hours": 168,
+      "expires_in_hours": 200,
+      "status": "Available",
+      "urgency": "Low",
+      "merc_min": 3,
+      "merc_max": 5,
+      "description": "Contract 7 Description",
+      "location": "Location 7",
+      "issuer": "Issuer 7 Name",
+      "issuer_type": 3,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 7",
+            "hidden_bonus": 5
+          },
+          {
+            "name": "Knowledge 10",
+            "hidden_bonus": 14
+          },
+          {
+            "name": "Knowledge 1",
+            "hidden_bonus": 23
+          },
+          {
+            "name": "Knowledge 4",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Knowledge 7",
+            "hidden_bonus": 1
+          },
+          {
+            "name": "Knowledge 10",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Knowledge 1",
+            "hidden_bonus": 19
+          },
+          {
+            "name": "Knowledge 4",
+            "hidden_bonus": 28
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 1",
+            "hidden_bonus": 38
+          },
+          {
+            "name": "Tool 6",
+            "hidden_bonus": 17
+          },
+          {
+            "name": "Tool 11",
+            "hidden_bonus": 36
+          },
+          {
+            "name": "Tool 4",
+            "hidden_bonus": 15
+          },
+          {
+            "name": "Tool 9",
+            "hidden_bonus": 34
+          },
+          {
+            "name": "Tool 2",
+            "hidden_bonus": 13
+          },
+          {
+            "name": "Tool 7",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Tool 12",
+            "hidden_bonus": 11
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 36
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 40
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 44
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 48
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 2
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 6
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 14
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "name": "Contract 8 Name",
+      "type": 2,
+      "difficulty": 1,
+      "recommended_level": 4,
+      "reward": 150,
+      "distance_km": 5,
+      "completion_hours": 8,
+      "expires_in_hours": 6,
+      "status": "Available",
+      "urgency": "High",
+      "merc_min": 1,
+      "merc_max": 2,
+      "description": "Contract 8 Description",
+      "location": "Location 8",
+      "issuer": "Issuer 8 Name",
+      "issuer_type": 4,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 8",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Knowledge 11",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Knowledge 2",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Knowledge 5",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Knowledge 8",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Knowledge 11",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Knowledge 2",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Knowledge 5",
+            "hidden_bonus": 32
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 3",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Tool 8",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Tool 1",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Tool 6",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Tool 11",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Tool 4",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Tool 9",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Tool 2",
+            "hidden_bonus": 30
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 19
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 36
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 3
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 37
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 4
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 21
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 38
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 5
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 22
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "name": "Contract 9 Name",
+      "type": 3,
+      "difficulty": 2.5,
+      "recommended_level": 9,
+      "reward": 520,
+      "distance_km": 35,
+      "completion_hours": 36,
+      "expires_in_hours": 90,
+      "status": "Available",
+      "urgency": "None",
+      "merc_min": 1,
+      "merc_max": 3,
+      "description": "Contract 9 Description",
+      "location": "Location 9",
+      "issuer": "Issuer 9 Name",
+      "issuer_type": 1,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 9",
+            "hidden_bonus": 35
+          },
+          {
+            "name": "Knowledge 12",
+            "hidden_bonus": 18
+          },
+          {
+            "name": "Knowledge 3",
+            "hidden_bonus": 1
+          },
+          {
+            "name": "Knowledge 6",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Knowledge 9",
+            "hidden_bonus": 7
+          },
+          {
+            "name": "Knowledge 12",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Knowledge 3",
+            "hidden_bonus": 13
+          },
+          {
+            "name": "Knowledge 6",
+            "hidden_bonus": 36
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 5",
+            "hidden_bonus": 2
+          },
+          {
+            "name": "Tool 10",
+            "hidden_bonus": 3
+          },
+          {
+            "name": "Tool 3",
+            "hidden_bonus": 4
+          },
+          {
+            "name": "Tool 8",
+            "hidden_bonus": 5
+          },
+          {
+            "name": "Tool 1",
+            "hidden_bonus": 6
+          },
+          {
+            "name": "Tool 6",
+            "hidden_bonus": 7
+          },
+          {
+            "name": "Tool 11",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Tool 4",
+            "hidden_bonus": 9
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 40
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 40
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 30
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "name": "Contract 10 Name",
+      "type": 1,
+      "difficulty": 4,
+      "recommended_level": 13,
+      "reward": 1600,
+      "distance_km": 85,
+      "completion_hours": 96,
+      "expires_in_hours": 40,
+      "status": "Available",
+      "urgency": "Low",
+      "merc_min": 2,
+      "merc_max": 4,
+      "description": "Contract 10 Description",
+      "location": "Location 10",
+      "issuer": "Issuer 10 Name",
+      "issuer_type": 2,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 10",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Knowledge 1",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Knowledge 4",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Knowledge 7",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Knowledge 10",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Knowledge 1",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Knowledge 4",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Knowledge 7",
+            "hidden_bonus": 0
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 7",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Tool 12",
+            "hidden_bonus": 36
+          },
+          {
+            "name": "Tool 5",
+            "hidden_bonus": 8
+          },
+          {
+            "name": "Tool 10",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Tool 3",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Tool 8",
+            "hidden_bonus": 4
+          },
+          {
+            "name": "Tool 1",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Tool 6",
+            "hidden_bonus": 28
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 1
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 44
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 37
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 30
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 23
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 9
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 2
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 45
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 38
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "name": "Contract 11 Name",
+      "type": 2,
+      "difficulty": 3,
+      "recommended_level": 10,
+      "reward": 700,
+      "distance_km": 40,
+      "completion_hours": 48,
+      "expires_in_hours": 0,
+      "status": "Expired",
+      "urgency": "None",
+      "merc_min": 1,
+      "merc_max": 2,
+      "description": "Contract 11 Description",
+      "location": "Location 11",
+      "issuer": "Issuer 11 Name",
+      "issuer_type": 3,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 11",
+            "hidden_bonus": 25
+          },
+          {
+            "name": "Knowledge 2",
+            "hidden_bonus": 22
+          },
+          {
+            "name": "Knowledge 5",
+            "hidden_bonus": 19
+          },
+          {
+            "name": "Knowledge 8",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Knowledge 11",
+            "hidden_bonus": 13
+          },
+          {
+            "name": "Knowledge 2",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Knowledge 5",
+            "hidden_bonus": 7
+          },
+          {
+            "name": "Knowledge 8",
+            "hidden_bonus": 4
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 9",
+            "hidden_bonus": 6
+          },
+          {
+            "name": "Tool 2",
+            "hidden_bonus": 29
+          },
+          {
+            "name": "Tool 7",
+            "hidden_bonus": 12
+          },
+          {
+            "name": "Tool 12",
+            "hidden_bonus": 35
+          },
+          {
+            "name": "Tool 5",
+            "hidden_bonus": 18
+          },
+          {
+            "name": "Tool 10",
+            "hidden_bonus": 1
+          },
+          {
+            "name": "Tool 3",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Tool 8",
+            "hidden_bonus": 7
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 42
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 48
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 4
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 22
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 34
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 40
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 46
+          }
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "name": "Contract 12 Name",
+      "type": 3,
+      "difficulty": 2,
+      "recommended_level": 7,
+      "reward": 300,
+      "distance_km": 8,
+      "completion_hours": 16,
+      "expires_in_hours": 0,
+      "status": "Completed",
+      "urgency": "None",
+      "merc_min": 1,
+      "merc_max": 1,
+      "description": "Contract 12 Description",
+      "location": "Location 12",
+      "issuer": "Issuer 12 Name",
+      "issuer_type": 4,
+      "recommended": {
+        "knowledges": [
+          {
+            "name": "Knowledge 12",
+            "hidden_bonus": 20
+          },
+          {
+            "name": "Knowledge 3",
+            "hidden_bonus": 24
+          },
+          {
+            "name": "Knowledge 6",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Knowledge 9",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Knowledge 12",
+            "hidden_bonus": 36
+          },
+          {
+            "name": "Knowledge 3",
+            "hidden_bonus": 0
+          },
+          {
+            "name": "Knowledge 6",
+            "hidden_bonus": 4
+          },
+          {
+            "name": "Knowledge 9",
+            "hidden_bonus": 8
+          }
+        ],
+        "tools": [
+          {
+            "name": "Tool 11",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Tool 4",
+            "hidden_bonus": 22
+          },
+          {
+            "name": "Tool 9",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Tool 2",
+            "hidden_bonus": 10
+          },
+          {
+            "name": "Tool 7",
+            "hidden_bonus": 4
+          },
+          {
+            "name": "Tool 12",
+            "hidden_bonus": 38
+          },
+          {
+            "name": "Tool 5",
+            "hidden_bonus": 32
+          },
+          {
+            "name": "Tool 10",
+            "hidden_bonus": 26
+          }
+        ],
+        "traditions": [
+          {
+            "name": "Brave",
+            "hidden_bonus": 33
+          },
+          {
+            "name": "Chymist",
+            "hidden_bonus": 2
+          },
+          {
+            "name": "Divine",
+            "hidden_bonus": 21
+          },
+          {
+            "name": "Hellion",
+            "hidden_bonus": 40
+          },
+          {
+            "name": "Honorable",
+            "hidden_bonus": 9
+          },
+          {
+            "name": "Mage",
+            "hidden_bonus": 28
+          },
+          {
+            "name": "Mystech",
+            "hidden_bonus": 47
+          },
+          {
+            "name": "Performer",
+            "hidden_bonus": 16
+          },
+          {
+            "name": "Sorcerer",
+            "hidden_bonus": 35
+          },
+          {
+            "name": "Warrior",
+            "hidden_bonus": 4
+          }
+        ]
+      }
+    }
+  ],
+  "active_contracts": {
+    "2": {
+      "name": "Contract 3 Name",
+      "hours": 150,
+      "reward": 2400,
+      "travel_cost": 300,
+      "odds": 62,
+      "team": [
+        {
+          "merc_id": 6,
+          "role": "Leader",
+          "match": 4
+        },
+        {
+          "merc_id": 2,
+          "role": "Guide",
+          "match": 3.5
+        }
+      ]
+    },
+    "5": {
+      "name": "Contract 6 Name",
+      "hours": 80,
+      "reward": 1100,
+      "travel_cost": 120,
+      "odds": 48,
+      "team": [
+        {
+          "merc_id": 1,
+          "role": "Leader",
+          "match": 3.5
+        },
+        {
+          "merc_id": 7,
+          "role": "Driver",
+          "match": 2.5
+        }
+      ]
+    }
+  }
+}

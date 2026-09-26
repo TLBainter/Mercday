@@ -65,9 +65,15 @@ description_template = "Take Down [target.name] at [location_a.name]"
 target_categories = Array[String](["Creature"])
 possible_traits = Array[String]([])
 possible_locations = Array[String]([])
+terrain_odds = Array[Dictionary]([{
+"area": "Cavern",
+"percent": 25
+}])
 reward_notes = 0
 max_mercs = 0
 difficulty = 0.0
+contract_level = 0
+unsavory = false
 assigned_primary_event = ""
 rolled_mishaps = Array[String]([])
 location_a = ""
@@ -75,3 +81,6 @@ location_b = ""
 description = ""
 team_uids = Array[int]([])
 status = "Type"
+rescue_merc_uid = 0
+rescue_kind = ""
+rescue_merc_name = ""

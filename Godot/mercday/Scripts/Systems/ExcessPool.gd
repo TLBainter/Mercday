@@ -8,14 +8,14 @@ const FIELDS: Dictionary = {"hp": "excess_hp", "ep": "excess_ep", "mp": "excess_
 
 
 #Adds to one pool clamped to 0..CAP and returns the delta actually applied.
-static func add(merc: MercenaryData, kind: String, amount: int) -> int:
+static func add(merc: MercenaryData, kind: String, value: int) -> int:
 	if merc == null:
 		return 0
 	var field: String = String(FIELDS.get(kind, ""))
 	if field == "":
 		return 0
 	var before: int = int(merc.get(field))
-	var after: int = clampi(before + amount, 0, CAP)
+	var after: int = clampi(before + value, 0, CAP)
 	merc.set(field, after)
 	return after - before
 
@@ -53,6 +53,12 @@ static func refund_hp(merc: MercenaryData, from_excess: int, from_hp: int) -> vo
 		return
 	merc.excess_hp = clampi(merc.excess_hp + maxi(0, from_excess), 0, CAP)
 	merc.current_hp = maxi(0, merc.current_hp + maxi(0, from_hp))
+
+
+static func hp_total(merc: MercenaryData) -> int:
+	if merc == null:
+		return 0
+	return merc.current_hp + maxi(0, merc.excess_hp)
 
 
 static func available_ep(merc: MercenaryData) -> int:

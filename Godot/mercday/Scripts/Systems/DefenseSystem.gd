@@ -1,6 +1,14 @@
 class_name DefenseSystem
 
-static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, extra_enhancements: int = 0, free_defense: bool = false, skip_defense: bool = false) -> Dictionary:
+static func resolve(
+		merc: MercenaryData,
+		raw_damage: int,
+		damage_type: String,
+		extra_enhancements: int = 0,
+		free_defense: bool = false,
+		skip_defense: bool = false,
+		force_direct: bool = false,
+		defense_flaws: int = 0) -> Dictionary:
 	var type_data: Dictionary = ConstDamageTypes.get_type(damage_type)
 	var type_lower: String = damage_type.to_lower()
 
@@ -17,6 +25,7 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 		"reduction_source": "none",
 		"final_reducible":  raw_damage,
 		"final_damage":     raw_damage,
+		"min_1_only":       false,
 		"ep_spent":         0,
 		"excess_hp_absorbed": 0,
 		"hp_absorbed":      0,
@@ -34,7 +43,7 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 		raw_damage += int(taken["bonus"])
 		out["raw_damage"] = raw_damage
 	if bool(taken["direct"]):
-		# Force direct (overrides type_data below)
+		#Force direct (overrides type_data below)
 		out["is_direct"] = true
 	if (int(taken["bonus"]) > 0 or bool(taken["direct"])) and EncounterLogger.is_active():
 		EncounterLogger.log_verbose("DAMAGE TAKEN MOD: %s direct=%s bonus=%d raw=%d" % [
@@ -65,9 +74,9 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 
 	out["modified_damage"] = modified_damage
 
-	# Vulnerable state may have set out["is_direct"] = true above; merge with type flags.
-	# TODO Electric: should be is_direct when target wears metal armor; waiting on 'metal' property on ArmorData.
-	var is_direct: bool = type_data.get("is_direct", false) or out.get("is_direct", false)
+	#Vulnerable state may have set out["is_direct"] = true above; merge with type flags.
+	#TODO Electric: should be is_direct when target wears metal armor; waiting on 'metal' property on ArmorData.
+	var is_direct: bool = force_direct or type_data.get("is_direct", false) or out.get("is_direct", false)
 	var fire_first: bool = type_data.get("fire_first_point", false)
 	var direct_portion: int = 0
 	var reducible: int = modified_damage
@@ -94,14 +103,10 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 	var ep_cost := 1
 	var ep_blocked := false
 	if not free_defense:
-		ep_blocked = ConstStates.is_blocked(merc, "spend:ep:defend")
+		ep_cost = CombatApplicator.state_ep_cost(merc, 1, "defend")
+		ep_blocked = ep_cost < 0
 		if ep_blocked:
-			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("EP BLOCKED: %s defend" % merc.merc_name)
-		else:
-			ep_cost = ConstStates.cost_multiplier(merc, "ep")
-			if ep_cost > 1 and EncounterLogger.is_active():
-				EncounterLogger.log_verbose("EP COST MOD: %s defend base=1 cost=%d" % [merc.merc_name, ep_cost])
+			ep_cost = 1
 
 	if ep_blocked or (ExcessPool.available_ep(merc) < ep_cost and not free_defense) or skip_defense:
 		out["final_damage"] = modified_damage
@@ -119,31 +124,14 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 	var defend_halved: bool = type_data.get("defend_halved", false)
 
 	if not defend_blocked:
-		var def_check: Dictionary = {
-			"stat_keys":    ["defend_reduction"],
-			"circumstances": [],
-			"knowledges":   [],
-			"tools":        [],
-			"formula":      "defend",
-			"enhancements": extra_enhancements,
-			"flat_threshold_bonus": 0.0,
-		}
-		var def_result: Dictionary = CheckSystem.make_check(merc, def_check)
+		var def_result: Dictionary = _roll_defend(merc, extra_enhancements, defense_flaws)
 		out["defend_result"] = def_result
 		defend_successes = int(def_result["successes"])
 		if defend_halved:
 			defend_successes = floori(defend_successes / 2.0)
 
 	if not dodge_blocked:
-		var dodge_check: Dictionary = {
-			"stat_keys":    ["dodge_reduction"],
-			"circumstances": [],
-			"knowledges":   [],
-			"tools":        [],
-			"formula":      "dodge",
-			"enhancements": extra_enhancements,
-		}
-		var dodge_result: Dictionary = CheckSystem.make_check(merc, dodge_check)
+		var dodge_result: Dictionary = _roll_dodge(merc, extra_enhancements, defense_flaws)
 		out["dodge_result"] = dodge_result
 		dodge_successes = int(dodge_result["successes"])
 
@@ -152,6 +140,7 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 
 	var best: int
 	var source: String
+	#CalledShotOdds._reduction_distribution mirrors the tie and the floors below; change the pair together.
 	if defend_successes >= dodge_successes:
 		best = defend_successes
 		source = "defend"
@@ -166,8 +155,10 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 	var final_reducible: int
 	if source == "defend" and block_min_1 and reducible > 0:
 		final_reducible = maxi(1, reducible - best)
+		out["min_1_only"] = reducible - best <= 0 and direct_portion == 0
 	elif source == "dodge" and dodge_min_1 and reducible > 0:
 		final_reducible = maxi(1, reducible - best)
+		out["min_1_only"] = reducible - best <= 0 and direct_portion == 0
 	else:
 		final_reducible = maxi(0, reducible - best)
 	out["final_reducible"] = final_reducible
@@ -179,6 +170,19 @@ static func resolve(merc: MercenaryData, raw_damage: int, damage_type: String, e
 
 	_record_take(out, ExcessPool.take_hp(merc, final_dmg, 1 if will_floor else 0))
 	return out
+
+
+#The Defend roll, armor dice and their log line included.
+static func _roll_defend(merc: MercenaryData, extra_enhancements: int, defense_flaws: int) -> Dictionary:
+	var armor_dice: int = WeaponArmorPerkLibrary.effective_armor_bonus(merc)
+	if armor_dice > 0 and EncounterLogger.is_active():
+		EncounterLogger.log_verbose("ARMOR BONUS: %s +%d defend dice" % [merc.merc_name, armor_dice])
+	return CheckSystem.make_check(merc, PerkValuation.defend_check_def(merc, defense_flaws, extra_enhancements))
+
+
+#The Dodge roll made beside the Defend roll.
+static func _roll_dodge(merc: MercenaryData, extra_enhancements: int, defense_flaws: int) -> Dictionary:
+	return CheckSystem.make_check(merc, PerkValuation.dodge_check_def(merc, defense_flaws, extra_enhancements))
 
 
 static func _record_take(out: Dictionary, taken: Dictionary) -> void:
@@ -205,3 +209,11 @@ static func _merge_modifier(a: String, b: String) -> String:
 		if a == rank or b == rank:
 			return rank
 	return "none"
+
+
+#The modifier resolve() would apply to this damage type: immune, susceptible, protected or none.
+static func damage_modifier_for(merc: MercenaryData, damage_type: String) -> String:
+	if merc == null:
+		return "none"
+	return _merge_modifier(_passive_modifier(merc, damage_type.to_lower()),
+		ConstStates.damage_modifier(merc, damage_type))

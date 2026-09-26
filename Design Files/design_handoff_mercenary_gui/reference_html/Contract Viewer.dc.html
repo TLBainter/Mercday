@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+input[type=range]{accent-color:#f28c28;width:100%;margin:0;height:16px}
+input[type=checkbox]{accent-color:#f28c28;width:16px;height:16px;margin:0}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 2px 0 0 #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-button{display:none}
+::-webkit-scrollbar-corner{background:#0a0f1c}
+@keyframes urgentPulse{0%,100%{opacity:0.04}50%{opacity:0.38}}
+</style>
+</helmet>
+<div style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Contract Viewer" ref="{{ frameRef }}" style="position:relative;width:1280px;height:720px;flex:none;background:#101a30;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px);padding:20px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:20px;box-shadow:0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000">
+
+    <sc-if value="{{ tip.on }}" hint-placeholder-val="{{ false }}">
+      <div onMouseEnter="{{ keepTip }}" onMouseLeave="{{ hideTipNow }}" style="position:absolute;left:{{ tip.x }};top:{{ tip.y }};z-index:50;width:320px;padding:14px;display:flex;flex-direction:column;gap:10px;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ContractTooltip.tscn</div></sc-if>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:10px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+            <span style="font:700 14px Silkscreen;color:#f28c28;line-height:1.2;text-wrap:pretty">{{ tip.name }}</span>
+            <span style="font-size:14px;color:#f3ead7">{{ tip.type }}</span>
+          </div>
+          <div style="width:40px;height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+            <span style="font:400 7px Silkscreen;letter-spacing:1px">LVL</span>
+            <span style="font:700 15px Silkscreen;line-height:1">{{ tip.level }}</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:#0e1628">
+          <div style="display:flex;gap:3px">
+            <sc-for list="{{ tip.stars }}" as="s" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:repeat(9,2px);grid-auto-rows:2px"><sc-for list="{{ s }}" as="px" hint-placeholder-count="81"><div style="background:{{ px }}"></div></sc-for></div>
+            </sc-for>
+          </div>
+          <span style="font:700 11px Silkscreen;color:{{ tip.diffColor }};white-space:nowrap">{{ tip.diffLabel }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="display:flex;flex-direction:column;gap:3px;padding:6px 10px;background:#0e1628">
+            <span style="font:400 8px Silkscreen;color:#9cc6ef">Reward</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="flex:none;width:12px;height:14px;display:flex;align-items:center;justify-content:center;background:#f28c28"><div style="display:grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ noteGlyph }}" as="px" hint-placeholder-count="63"><div style="background:{{ px }}"></div></sc-for></div></div>
+              <span style="font:700 12px Silkscreen;color:#f3ead7">{{ tip.reward }}</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;padding:6px 10px;background:#0e1628">
+            <span style="font:400 8px Silkscreen;color:#9cc6ef">Urgency</span>
+            <span style="font:700 12px Silkscreen;color:{{ tip.urgencyColor }}">{{ tip.urgency }}</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:8px;padding-top:8px;box-shadow:inset 0 2px 0 #2b4f8a">
+          <span style="font:400 8px Silkscreen;color:#9cc6ef">Issuer</span>
+          <span style="font-size:14px;color:#f3ead7">{{ tip.issuer }}</span>
+        </div>
+      </div>
+    </sc-if>
+    <!-- ContractList.tscn -->
+    <div style="position:relative;min-height:0;display:flex;flex-direction:column;gap:12px;padding:14px 10px 14px 14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">ContractList.tscn</div></sc-if>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding-right:4px">
+        <span style="font:400 13px Silkscreen;color:#f28c28;letter-spacing:1px">Contracts</span>
+        <span style="font:400 11px Silkscreen;color:#9cc6ef">{{ countLabel }}</span>
+      </div>
+      <div style="position:relative;display:flex;gap:8px;align-items:center;padding:0 4px 0 3px">
+        <button data-popup="1" onClick="{{ toggleSort }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:26px;padding:0 8px;background:#2b4f8a;font:400 10px Silkscreen;white-space:nowrap;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">
+          <span style="display:grid;gap:2px"><span style="width:10px;height:2px;background:#f3ead7"></span><span style="width:7px;height:2px;background:#f3ead7"></span><span style="width:4px;height:2px;background:#f3ead7"></span></span>
+          {{ sortLabel }}
+        </button>
+        <button onClick="{{ toggleDir }}" title="{{ dirTitle }}" style="flex:none;width:40px;height:26px;display:flex;align-items:center;justify-content:center;gap:4px;background:{{ dirBg }};box-shadow:inset 0 3px 0 {{ dirHi }},inset 0 -3px 0 {{ dirLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+          <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid {{ upColor }}"></span>
+          <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid {{ downColor }}"></span>
+        </button>
+        <button data-popup="1" onClick="{{ toggleFilter }}" style="flex:none;height:26px;padding:0 8px;display:flex;align-items:center;gap:6px;background:{{ filterBg }};color:{{ filterFg }};font:400 10px Silkscreen;box-shadow:inset 0 3px 0 {{ filterHi }},inset 0 -3px 0 {{ filterLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+          <span style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="width:10px;height:2px;background:{{ filterFg }}"></span><span style="width:6px;height:2px;background:{{ filterFg }}"></span><span style="width:2px;height:4px;background:{{ filterFg }}"></span></span>
+          Filter
+        </button>
+
+        <sc-if value="{{ sortOpen }}" hint-placeholder-val="{{ false }}">
+          <div data-popup="1" style="position:absolute;top:36px;left:72px;z-index:40;width:220px;padding:12px;display:flex;flex-direction:column;gap:10px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+            <span style="font:400 10px Silkscreen;color:#9cc6ef">Sort by</span>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <sc-for list="{{ sortOpts }}" as="o" hint-placeholder-count="5">
+                <button onClick="{{ o.onClick }}" style="text-align:left;padding:6px 8px;font-size:14px;background:{{ o.bg }};color:{{ o.fg }}" style-hover="filter:brightness(1.2)">{{ o.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ filterOpen }}" hint-placeholder-val="{{ false }}">
+          <div data-popup="1" style="position:absolute;top:36px;left:72px;z-index:40;width:300px;padding:14px;display:flex;flex-direction:column;gap:14px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ContractFilterPanel.tscn</div></sc-if>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <input type="checkbox" checked="{{ showClosed }}" onChange="{{ onShowClosed }}">
+              <span style="font-size:14px">Show Expired, Completed, and Rejected</span>
+            </label>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:400 10px Silkscreen;color:#9cc6ef">Difficulty</span><span style="font:400 10px Silkscreen;color:#f2b33d">{{ dRange }}</span></div>
+              <div style="display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">Min</span><input type="range" min="0.5" max="5" step="0.5" value="{{ dMin }}" onChange="{{ onDMin }}"></div>
+              <div style="display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">Max</span><input type="range" min="0.5" max="5" step="0.5" value="{{ dMax }}" onChange="{{ onDMax }}"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:400 10px Silkscreen;color:#9cc6ef">Reward</span><span style="font:400 10px Silkscreen;color:#f2b33d">{{ rRange }}</span></div>
+              <div style="display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">Min</span><input type="range" min="0" max="{{ rewardCap }}" step="50" value="{{ rMin }}" onChange="{{ onRMin }}"></div>
+              <div style="display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">Max</span><input type="range" min="0" max="{{ rewardCap }}" step="50" value="{{ rMax }}" onChange="{{ onRMax }}"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:400 10px Silkscreen;color:#9cc6ef">Max Distance</span><span style="font:400 10px Silkscreen;color:#f2b33d">{{ distLabel }}</span></div>
+              <input type="range" min="1" max="{{ distCap }}" step="1" value="{{ maxDist }}" onChange="{{ onDist }}">
+            </div>
+            <button onClick="{{ resetFilters }}" style="align-self:flex-start;height:26px;padding:0 10px;background:#2b4f8a;font:400 10px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560" style-hover="background:#3b6fb6">Reset</button>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;padding:4px 6px 4px 4px">
+        <sc-for list="{{ list }}" as="c" hint-placeholder-count="8">
+          <button onClick="{{ c.onClick }}" onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ hideTip }}" style="position:relative;flex:none;height:68px;display:grid;grid-template-columns:56px minmax(0,1fr) 48px;gap:10px;align-items:center;padding:6px;text-align:left;filter:{{ c.filter }};background:{{ c.bg }};box-shadow:0 -3px 0 {{ c.ring }},0 3px 0 {{ c.ring }},-3px 0 0 {{ c.ring }},3px 0 0 {{ c.ring }}" style-hover="background:#15223d">
+            <sc-if value="{{ c.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ContractListItem.tscn</span></sc-if>
+            <div style="position:relative;width:56px;height:56px;overflow:hidden;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6">
+              <sc-if value="{{ c.urgent }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#ff2a1f;animation:urgentPulse 2.6s ease-in-out infinite;pointer-events:none"></div></sc-if>
+              <sc-if value="{{ c.mark }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><div style="display:grid;grid-template-columns:repeat(14,2px);grid-auto-rows:2px;filter:drop-shadow(2px 2px 0 #0a0f1c) drop-shadow(-1px -1px 0 #0a0f1c)"><sc-for list="{{ c.mark }}" as="px" hint-placeholder-count="196"><div style="background:{{ px }}"></div></sc-for></div></div></sc-if>
+              <div style="position:absolute;top:0;left:0;right:0;height:14px;display:flex;align-items:center;justify-content:center;background:rgba(10,15,28,0.78);font:500 8px/1 'Pixelify Sans',monospace;color:{{ c.statusColor }};white-space:nowrap">{{ c.status }}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0;height:56px">
+              <span style="font:700 12px/1 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+              <div style="display:flex;gap:2px">
+                <sc-for list="{{ c.stars }}" as="s" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:repeat(9,2px);grid-auto-rows:2px"><sc-for list="{{ s }}" as="px" hint-placeholder-count="81"><div style="background:{{ px }}"></div></sc-for></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px">
+                <div style="flex:none;width:12px;height:14px;display:flex;align-items:center;justify-content:center;background:#f28c28"><div style="display:grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ noteGlyph }}" as="px" hint-placeholder-count="63"><div style="background:{{ px }}"></div></sc-for></div></div>
+                <span style="font:700 11px Silkscreen;color:#f3ead7">{{ c.reward }}</span>
+              </div>
+            </div>
+            <div style="width:48px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+              <span style="font:400 8px Silkscreen;letter-spacing:1px">LVL</span>
+              <span style="font:700 18px Silkscreen;line-height:1">{{ c.level }}</span>
+            </div>
+          </button>
+        </sc-for>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px;text-align:center;font-size:14px;color:#9cc6ef;background:#0e1628">No contracts match these filters.</div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- ContractDetail.tscn -->
+    <div style="position:relative;min-height:0;display:flex;flex-direction:column;gap:16px;padding:20px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,0 -4px 0 #f28c28">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">ContractDetail.tscn</div></sc-if>
+      <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:18px">
+          <div style="position:relative;width:150px;height:150px;overflow:hidden;background:#0e1628;background-image:repeating-linear-gradient(45deg,#15223d 0 6px,#0e1628 6px 12px);box-shadow:inset 0 0 0 4px #f28c28;display:flex;align-items:flex-end;justify-content:center;padding:10px">
+            <sc-if value="{{ sel.urgent }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#ff2a1f;animation:urgentPulse 2.6s ease-in-out infinite;pointer-events:none"></div></sc-if>
+              <sc-if value="{{ sel.mark }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><div style="display:grid;grid-template-columns:repeat(14,6px);grid-auto-rows:6px;filter:drop-shadow(2px 2px 0 #0a0f1c) drop-shadow(-1px -1px 0 #0a0f1c)"><sc-for list="{{ sel.mark }}" as="px" hint-placeholder-count="196"><div style="background:{{ px }}"></div></sc-for></div></div></sc-if>
+            <div style="position:absolute;top:4px;left:4px;right:4px;height:22px;display:flex;align-items:center;justify-content:center;background:rgba(10,15,28,0.78);font:400 11px Silkscreen;letter-spacing:1px;color:{{ sel.statusColor }}">{{ sel.status }}</div>
+            <span style="position:relative;font:400 10px ui-monospace,monospace;color:#9cc6ef;background:#0e1628;padding:3px 6px">contract image</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0;height:150px">
+            <div style="display:flex;flex-direction:column;gap:0">
+              <span style="font:700 22px Silkscreen;color:#f28c28;line-height:1;text-shadow:2px 2px 0 #0a0f1c">{{ sel.name }}</span>
+              <span style="font-size:14px;line-height:1.1;color:#8a97ad">{{ sel.dateLine }}</span>
+              <span style="font-size:12px;line-height:1.1;color:#5e7699">{{ sel.dateRel }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="flex:none;width:48px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+                <span style="font:400 8px Silkscreen;letter-spacing:1px">LVL</span>
+                <span style="font:700 18px Silkscreen;line-height:1">{{ sel.recLevel }}</span>
+              </div>
+              <span style="font:400 16px Silkscreen;color:#f3ead7">{{ sel.type }}</span>
+              <div style="position:relative;display:flex;align-items:flex-end;gap:5px;margin-left:14px">
+                <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">{{ mercSceneTag }}</span></sc-if>
+                <sc-if value="{{ sel.notActive }}" hint-placeholder-val="{{ true }}">
+                  <div title="{{ sel.mercTitle }}" style="display:flex;align-items:flex-end;gap:5px">
+                    <sc-for list="{{ sel.mercIcons }}" as="m" hint-placeholder-count="5">
+                      <div style="display:grid;grid-template-columns:repeat(10,2px);grid-auto-rows:2px"><sc-for list="{{ m }}" as="px" hint-placeholder-count="140"><div style="background:{{ px }}"></div></sc-for></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ sel.isActive }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:4px">
+                    <sc-for list="{{ sel.crew }}" as="m" hint-placeholder-count="3">
+                      <div onClick="{{ m.onClick }}" onMouseEnter="{{ m.onEnter }}" onMouseLeave="{{ m.onLeave }}" style="position:relative;width:46px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer" style-hover="filter:brightness(1.2)">
+                        <span style="width:100%;height:12px;display:flex;align-items:center;justify-content:center;background:{{ m.roleBg }};color:{{ m.roleFg }};font:400 7px Silkscreen;white-space:nowrap;overflow:hidden">{{ m.role }}</span>
+                        <div style="width:34px;height:34px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px {{ m.ring }}"></div>
+                        <sc-if value="{{ m.tip }}" hint-placeholder-val="{{ false }}">
+                          <div style="position:absolute;top:calc(100% + 8px);left:0;z-index:30;width:220px;padding:12px;display:flex;flex-direction:column;gap:8px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">CrewTooltip.tscn</div></sc-if>
+                            <div style="display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:8px;align-items:start">
+                              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                                <span style="font:700 12px Silkscreen;color:#f28c28;line-height:1.2">{{ m.name }}</span>
+                                <div style="display:flex;align-items:center;gap:6px">
+                                  <div style="flex:none;width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 1px {{ m.tradColor }}"><div style="display:grid;grid-template-columns:repeat(12,1px);grid-auto-rows:1px"><sc-for list="{{ m.sigil }}" as="px" hint-placeholder-count="144"><div style="background:{{ px }}"></div></sc-for></div></div>
+                                  <span style="font-size:13px;color:{{ m.tradColor }}">{{ m.trad }}</span>
+                                </div>
+                              </div>
+                              <div style="width:36px;height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+                                <span style="font:400 7px Silkscreen">LVL</span>
+                                <span style="font:700 14px Silkscreen;line-height:1">{{ m.level }}</span>
+                              </div>
+                            </div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:#0e1628">
+                              <span style="font:400 8px Silkscreen;color:#9cc6ef">Contract Match</span>
+                              <div style="display:flex;gap:2px"><sc-for list="{{ m.stars }}" as="s" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:repeat(9,2px);grid-auto-rows:2px"><sc-for list="{{ s }}" as="px" hint-placeholder-count="81"><div style="background:{{ px }}"></div></sc-for></div></sc-for></div>
+                            </div>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <div style="margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div style="background:#0e1628;padding:4px 10px;display:flex;flex-direction:column;gap:2px">
+                <span style="font:400 9px Silkscreen;color:#9cc6ef">Contract Issuer</span>
+                <span style="font-size:15px">{{ sel.issuer }}</span>
+              </div>
+              <div style="background:#0e1628;padding:4px 10px;display:flex;flex-direction:column;gap:2px">
+                <span style="font:400 9px Silkscreen;color:#9cc6ef">Issuer Type</span>
+                <span style="font-size:15px">{{ sel.issuerType }}</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+            <div onMouseEnter="{{ sel.oddsEnter }}" onMouseLeave="{{ sel.tipLeave }}" style="position:relative;display:flex;gap:4px;cursor:{{ sel.hoverCursor }}">
+              <sc-if value="{{ sel.oddsTip }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:250px;padding:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">OddsTooltip.tscn</div></sc-if>
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+                    <span style="font:400 10px Silkscreen;color:#f28c28">Success Odds</span>
+                    <span style="font:700 18px Silkscreen;color:{{ sel.oddsColor }}">{{ sel.oddsLabel }}</span>
+                  </div>
+                  <div style="display:flex;gap:2px;height:14px;padding:2px;background:#0a0f1c">
+                    <sc-for list="{{ sel.oddsCells }}" as="oc" hint-placeholder-count="20"><div style="flex:1;background:{{ oc }}"></div></sc-for>
+                  </div>
+                  <span style="font-size:13px;color:#9cc6ef">{{ sel.diffLabel }} contract</span>
+                </div>
+              </sc-if>
+              <sc-for list="{{ sel.bigStars }}" as="s" hint-placeholder-count="5">
+                <div style="display:grid;grid-template-columns:repeat(9,3px);grid-auto-rows:3px"><sc-for list="{{ s }}" as="px" hint-placeholder-count="81"><div style="background:{{ px }}"></div></sc-for></div>
+              </sc-for>
+            </div>
+            <div onMouseEnter="{{ sel.moneyEnter }}" onMouseLeave="{{ sel.tipLeave }}" style="position:relative;display:flex;align-items:center;gap:8px;margin-top:4px;cursor:{{ sel.hoverCursor }}">
+              <sc-if value="{{ sel.moneyTip }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:250px;padding:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">PayoutTooltip.tscn</div></sc-if>
+                  <span style="font:400 10px Silkscreen;color:#f28c28">Payout</span>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0e1628"><span style="font:400 9px Silkscreen;color:#9cc6ef">Reward</span><span style="font-size:14px">{{ sel.pay.reward }} N</span></div>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0e1628"><span style="font:400 9px Silkscreen;color:#9cc6ef">Expenses</span><span style="font-size:14px;color:#e8583f">−{{ sel.pay.cost }} N</span></div>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0a0f1c;box-shadow:inset 0 2px 0 #2b4f8a"><span style="font:400 9px Silkscreen;color:#9cc6ef">Expected Total</span><span style="font:700 14px Silkscreen;color:{{ sel.pay.netColor }}">{{ sel.pay.net }} N</span></div>
+                  <div style="display:flex;flex-direction:column;gap:2px;padding-top:4px"><span style="font:400 9px Silkscreen;color:#9cc6ef">Estimated Payday</span><span style="font-size:14px">{{ sel.pay.day }}</span><span style="font-size:12px;color:#8a97ad">{{ sel.pay.dayRel }}</span></div>
+                </div>
+              </sc-if>
+              <div style="flex:none;width:20px;height:24px;display:flex;align-items:center;justify-content:center;background:#f28c28;box-shadow:inset -2px -2px 0 #b85a12,inset 2px 2px 0 #ffb266">
+                <div style="display:grid;grid-template-columns:repeat(7,2px);grid-auto-rows:2px"><sc-for list="{{ noteGlyph }}" as="px" hint-placeholder-count="63"><div style="background:{{ px }}"></div></sc-for></div>
+              </div>
+              <span style="font:700 26px/24px Silkscreen;color:#f3ead7">{{ sel.rewardLabel }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#0e1628;padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+          <span style="font:400 9px Silkscreen;color:#9cc6ef">Description</span>
+          <p style="margin:0;font-size:15px;line-height:1.4;text-wrap:pretty">{{ sel.desc }}</p>
+        </div>
+
+        <div style="position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">StatCard.tscn ×3</div></sc-if>
+          <div style="background:#0e1628;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+            <span style="font:400 9px Silkscreen;color:#9cc6ef">Completion Time</span>
+            <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.completionLabel }}</span>
+          </div>
+          <div style="background:#0e1628;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+            <span style="font:400 9px Silkscreen;color:#9cc6ef">Distance · Location</span>
+            <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.distLabel }} · {{ sel.location }}</span>
+          </div>
+          <div style="background:#0e1628;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+            <span style="font:400 9px Silkscreen;color:#9cc6ef">Urgency</span>
+            <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:Silkscreen;font-size:14px;color:{{ sel.urgencyColor }}">{{ sel.urgency }}</span>
+          </div>
+        </div>
+
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+          <sc-for list="{{ sel.bests }}" as="b" hint-placeholder-count="3">
+            <div style="position:relative;min-height:0;display:flex;flex-direction:column;gap:8px">
+              <sc-if value="{{ b.tag }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">RecommendedList.tscn</div></sc-if>
+              <span style="font:400 12px Silkscreen;color:#f28c28;letter-spacing:1px;white-space:nowrap">{{ b.title }}</span>
+              <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;overflow-y:auto;overflow-x:hidden;padding:4px;background:#0e1628;border:3px solid #1f3560;outline:2px solid #0a0f1c">
+                <sc-for list="{{ b.items }}" as="it" hint-placeholder-count="6">
+                  <div style="flex:none;display:flex;align-items:center;gap:8px;height:26px;padding:0 10px;background:#2b4f8a;box-shadow:inset 0 -3px 0 #1f3560,inset 0 3px 0 #3b6fb6">
+                    <sc-if value="{{ it.sigil }}" hint-placeholder-val="{{ false }}">
+                      <div style="flex:none;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 1px {{ it.color }}">
+                        <div style="display:grid;grid-template-columns:repeat(12,1px);grid-auto-rows:1px"><sc-for list="{{ it.sigil }}" as="px" hint-placeholder-count="144"><div style="background:{{ px }}"></div></sc-for></div>
+                      </div>
+                    </sc-if>
+                    <span style="flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.name }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ canDecide }}" hint-placeholder-val="{{ true }}">
+          <div style="position:relative;flex:none;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">DecisionButtons.tscn</div></sc-if>
+            <button onClick="{{ accept }}" style="height:54px;display:flex;align-items:center;justify-content:center;gap:14px;background:#2b4f8a;font:700 18px Silkscreen;color:#f3ead7;letter-spacing:1px;box-shadow:inset 0 4px 0 #3b6fb6,inset 0 -4px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6" style-active="background:#1f3560">
+              <div style="display:grid;grid-template-columns:repeat(14,3px);grid-auto-rows:3px;filter:drop-shadow(2px 2px 0 #0a0f1c)"><sc-for list="{{ checkIcon }}" as="px" hint-placeholder-count="196"><div style="background:{{ px }}"></div></sc-for></div>
+              Accept
+            </button>
+            <button onClick="{{ askReject }}" style="height:54px;display:flex;align-items:center;justify-content:center;gap:14px;background:#2b4f8a;font:700 18px Silkscreen;color:#f3ead7;letter-spacing:1px;box-shadow:inset 0 4px 0 #3b6fb6,inset 0 -4px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6" style-active="background:#1f3560">
+              <div style="display:grid;grid-template-columns:repeat(10,3px);grid-auto-rows:3px;filter:drop-shadow(2px 2px 0 #0a0f1c)"><sc-for list="{{ xIcon }}" as="px" hint-placeholder-count="100"><div style="background:{{ px }}"></div></sc-for></div>
+              Reject
+            </button>
+          </div>
+        </sc-if>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ dispatchOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:1101px;height:619px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <div style="position:absolute;top:0;left:0;width:1280px;height:720px;overflow:hidden;transform:scale(0.86);transform-origin:top left">
+            <dc-import name="Dispatch Window" contract="{{ dispatchContract }}" busy-ids="{{ busyIds }}" on-dispatched="{{ onDispatched }}" on-close="{{ closeDispatch }}" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ mercViewOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeMercView }}" style="position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div onClick="{{ stop }}" style="position:relative;width:850px;height:619px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <div style="position:absolute;top:0;left:0;width:988px;height:720px;overflow:hidden;transform:scale(0.86);transform-origin:top left">
+            <dc-import name="Merc Viewer" merc-id="{{ mercViewId }}" hide-roster="{{ true }}" style="position:absolute;top:-32px;left:-32px;width:1052px" hint-size="1052px,784px"></dc-import>
+          </div>
+          <button onClick="{{ closeMercView }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55">X</button>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:420px;padding:22px;display:flex;flex-direction:column;gap:16px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #e8583f,0 4px 0 #e8583f,-4px 0 0 #e8583f,4px 0 0 #e8583f,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ConfirmDialog.tscn</div></sc-if>
+          <span style="font:700 18px Silkscreen;color:#e8583f">Are you sure?</span>
+          <span style="font-size:15px;line-height:1.4;color:#f3ead7">Once rejected, this contract will no longer be available.</span>
+          <div style="display:flex;justify-content:flex-end;gap:12px">
+            <button onClick="{{ cancelReject }}" style="height:36px;padding:0 18px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Cancel</button>
+            <button onClick="{{ confirmReject }}" style="height:36px;padding:0 22px;background:#e8583f;color:#0a0f1c;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #ff8a70,inset 0 -3px 0 #a83a28,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Yes</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <span style="font:700 18px Silkscreen;color:#f28c28">Scene map</span>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="9">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+              <span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span>
+              <span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span>
+            </div>
+            <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+            <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7">
+              <sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;}}">class Component extends DCLogic {
+  state = { sel: 0, sort: 'difficulty', desc: true, sortOpen: false, filterOpen: false, showClosed: false, dMin: 0.5, dMax: 5, rMin: 0, rMax: null, maxDist: null };
+  levels = [7, 12, 3, 9, 15, 5, 11, 2, 8, 4];
+  rateColors = { 0.5: '#e8583f', 1: '#ec6a36', 1.5: '#ef7c2f', 2: '#f28c28', 2.5: '#f2a033', 3: '#f2b33d', 3.5: '#5aa6e8', 4: '#5fb0b8', 4.5: '#64b98c', 5: '#3fae5a' };
+  // Shared session state (GameState autoload in Godot). Keep identical in Contract Viewer + Merc Viewer.
+  gameStore() { const w = window; return w.__mercStore || (w.__mercStore = { subs: new Set(),
+    active: { 2: { name: 'Contract 3 Name', hours: 150, reward: 2400, travelCost: 300, odds: 62, team: [{ id: 6, role: 'Leader', match: 4 }, { id: 2, role: 'Guide', match: 3.5 }] },
+      5: { name: 'Contract 6 Name', hours: 80, reward: 1100, travelCost: 120, odds: 48, team: [{ id: 1, role: 'Leader', match: 3.5 }, { id: 7, role: 'Driver', match: 2.5 }] } },
+    dispatch(id, run) { this.active = { ...this.active, [id]: run }; this.subs.forEach(f => f()); } }); }
+  rateStars(v) { const col = this.rateColors[v]; return [0, 1, 2, 3, 4].map(i => { const full = v >= i + 1, half = !full && v >= i + 0.5; return this.starMap.join('').split('').map((ch, j) => ch !== '#' ? 'transparent' : (full || (half && j % 9 <= 4)) ? col : '#1f3560'); }); }
+  diffNames = { 0.5: 'Cakewalk', 1: 'Very Easy', 1.5: 'Easy', 2: 'Straightforward', 2.5: 'Manageable', 3: 'Average', 3.5: 'Challenging', 4: 'Hard', 4.5: 'Tough', 5: 'Impossible' };
+  statusColors = { Available: '#6cc36a', Active: '#5aa6e8', Expired: '#e8583f', Completed: '#f2b33d', Rejected: '#a0a8b8' };
+  thumbMap = ['....ff........', '...fff........', '...fff........', '..ffff........', '..ffffffffff..', 'cc.ffffffffff.', 'cc.ffffdddddd.', 'cc.fffffffff..', 'cc.ffffddddd..', 'cc.ffffffff...', 'cc.ffffdddd...', 'cc.fffffff....', '..............', '..............'].reverse();
+  xMap = ['##......##', '###....###', '.###..###.', '..######..', '...####...', '...####...', '..######..', '.###..###.', '###....###', '##......##'];
+  isClosed(st) { return st === 'Expired' || st === 'Completed' || st === 'Rejected'; }
+  traditions = [['Brave', '#5aa6e8'], ['Chymist', '#6cc36a'], ['Divine', '#f2d33d'], ['Hellion', '#a36ce8'], ['Honorable', '#f28c28'], ['Mage', '#a8385a'], ['Mystech', '#3fc9c0'], ['Performer', '#f07ab8'], ['Sorcerer', '#e8583f'], ['Warrior', '#a0a8b8']];
+  noteMap = ['...#...', '#..#..#', '##.#..#', '#.##..#', '#..#..#', '#..##.#', '#..#.##', '#..#..#', '...#...'];
+  starMap = ['....#....', '...###...', '...###...', '#########', '.#######.', '..#####..', '..#####..', '.###.###.', '.##...##.'];
+  contracts = (() => {
+    const D = [3, 0.5, 4.5, 2, 1.5, 3.5, 5, 1, 2.5, 4, 3, 2];
+    const RW = [800, 80, 2400, 400, 220, 1100, 5000, 150, 520, 1600, 700, 300];
+    const DI = [48, 2, 110, 20, 12, 60, 150, 5, 35, 85, 40, 8];
+    const CT = [48, 4, 120, 24, 12, 72, 168, 8, 36, 96, 48, 16];
+    const EX = [70, 30, 10, 120, 50, 26, 200, 6, 90, 40, 0, 0];
+    const UR = ['Low', 'None', 'High', 'Low', 'None', 'High', 'Low', 'High', 'None', 'Low', 'None', 'None'];
+    const ST = ['Available', 'Available', 'Active', 'Available', 'Available', 'Active', 'Available', 'Available', 'Available', 'Available', 'Expired', 'Completed'];
+    return D.map((d, i) => ({ id: i, name: 'Contract ' + (i + 1) + ' Name', type: 'Contract Type ' + ((i % 3) + 1), typeN: (i % 3) + 1,
+      diff: d, reward: RW[i], dist: DI[i], hours: CT[i], exp: EX[i], status: ST[i], recLevel: Math.round(d * 3) + 1,
+      mercMin: [1, 1, 2, 1, 1, 2, 3, 1, 1, 2, 1, 1][i], mercMax: [3, 1, 5, 2, 4, 3, 5, 2, 3, 4, 2, 1][i], urgency: (ST[i] === 'Expired' || ST[i] === 'Completed') ? 'None' : UR[i], desc: 'Contract ' + (i + 1) + ' Description',
+      location: 'Location ' + (i + 1), issuer: 'Issuer ' + (i + 1) + ' Name', issuerType: 'Issuer Type ' + ((i % 4) + 1),
+      know: Array.from({ length: 8 }, (_, k) => ({ name: 'Knowledge ' + ((i + k * 3) % 12 + 1), bonus: ((i + 1) * (k + 5) * 7) % 40 })),
+      tools: Array.from({ length: 8 }, (_, k) => ({ name: 'Tool ' + ((i * 2 + k * 5) % 12 + 1), bonus: ((i + 3) * (k + 2) * 11) % 40 })),
+      trads: Array.from({ length: 10 }, (_, k) => ({ t: this.traditions[k], bonus: ((i + 2) * (k + 7) * 13) % 50 })) }));
+  })();
+  diffColors = { 0.5: '#3fae5a', 1: '#6cc36a', 1.5: '#64b98c', 2: '#5fb0b8', 2.5: '#5aa6e8', 3: '#f2b33d', 3.5: '#f2a033', 4: '#f28c28', 4.5: '#ec6a36', 5: '#e8583f' };
+  urgencyColors = { Low: '#6cc36a', None: '#f28c28', High: '#e8583f' };
+  starCells(v, i) {
+    const full = v >= i + 1, half = !full && v >= i + 0.5, col = this.diffColors[v];
+    return this.starMap.join('').split('').map((ch, j) => ch !== '#' ? 'transparent' : (full || (half && j % 9 <= 4)) ? col : '#1f3560');
+  }
+  stars(v) { return [0, 1, 2, 3, 4].map(i => this.starCells(v, i)); }
+  personMap = ['...####...', '..######..', '..######..', '..######..', '..######..', '...####...', '..........', '..######..', '.########.', '##########', '##########', '##########', '##########', '##########'];
+  personCells(kind) {
+    const m = this.personMap, col = kind === 'req' ? '#f28c28' : '#f3ead7';
+    const on = (x, y) => y >= 0 && y < 14 && x >= 0 && x < 10 && m[y][x] === '#';
+    const out = [];
+    for (let y = 0; y < 14; y++) for (let x = 0; x < 10; x++) {
+      if (!on(x, y)) { out.push('transparent'); continue; }
+      if (kind !== 'no') { out.push(col); continue; }
+      out.push(on(x - 1, y) && on(x + 1, y) && on(x, y - 1) && on(x, y + 1) ? 'transparent' : '#3b6fb6');
+    }
+    return out;
+  }
+  checkMap = ['..............', '............##', '...........###', '..........###.', '.........###..', '........###...', '.##....###....', '.###..###.....', '..######......', '...####.......', '....##........', '..............', '..............', '..............'];
+  markCells(status) {
+    if (status === 'Completed') return this.checkMap.join('').split('').map(ch => ch === '#' ? '#6cc36a' : 'transparent');
+    if (status === 'Rejected') return this.thumbMap.join('').split('').map(ch => ch === 'f' ? '#e8583f' : ch === 'd' ? '#a83a28' : ch === 'c' ? '#e8583f' : 'transparent');
+    if (status !== 'Expired') return null;
+    const out = [];
+    for (let y = 0; y < 14; y++) for (let x = 0; x < 14; x++) {
+      const dx = x - 6.5, dy = y - 6.5, d = Math.hypot(dx, dy);
+      out.push((d > 4.6 && d < 6.9) || (Math.abs(dx - dy) < 1.3 && d < 5) ? '#e8583f' : 'transparent');
+    }
+    return out;
+  }
+  dur(h) { const d = Math.floor(h / 24), r = h % 24; return d + ' Days, ' + r + ' Hours'; }
+  swordMap() {
+    const g = Array.from({ length: 12 }, () => Array(12).fill('.'));
+    for (let r = 0; r <= 6; r++) { g[r][11 - r] = 'b'; if (r > 0) g[r][12 - r] = 'b'; }
+    [[5, 2], [6, 3], [7, 4], [8, 5], [9, 6], [10, 0], [11, 0], [11, 1]].forEach(([r, c]) => g[r][c] = 'b');
+    [[8, 3], [9, 2], [10, 1]].forEach(([r, c]) => g[r][c] = 'g');
+    return g.flat();
+  }
+  frameRef = React.createRef();
+  showTip(e, c) {
+    const fr = this.frameRef.current; if (!fr) return;
+    clearTimeout(this.tipT);
+    const a = fr.getBoundingClientRect(), r = e.currentTarget.getBoundingClientRect(), k = a.width / (fr.offsetWidth || a.width);
+    const x = (r.right - a.left) / k - 24, H = a.height / k;
+    let y = (r.top - a.top) / k + 18; if (y + 250 > H) y = H - 260;
+    this.setState({ tip: { on: true, x: x + 'px', y: y + 'px', name: c.name, type: c.type, level: String(c.recLevel).padStart(2, '0'),
+      stars: this.stars(c.diff), diffLabel: this.diffNames[c.diff], diffColor: this.diffColors[c.diff],
+      urgency: c.urgency, urgencyColor: this.urgencyColors[c.urgency], reward: c.reward + ' Notes', issuer: c.issuer } });
+  }
+  componentDidMount() {
+    this.onStore = () => this.forceUpdate(); this.gameStore().subs.add(this.onStore);
+    this.onDocDown = e => { if (e.target.closest && e.target.closest('[data-popup]')) return;
+      if (this.state.sortOpen || this.state.filterOpen) this.setState({ sortOpen: false, filterOpen: false }); };
+    document.addEventListener('mousedown', this.onDocDown);
+  }
+  componentWillUnmount() { this.gameStore().subs.delete(this.onStore); clearTimeout(this.tipT); document.removeEventListener('mousedown', this.onDocDown); }
+  sceneMap = [
+    { name: 'MercCount.tscn', uses: 'x1', root: 'HBoxContainer › TextureRect ×5', vars: ['@export var required: int = 1  # orange', '@export var allowed: int  # white up to this', '# beyond allowed: hollow dark blue'] },
+    { name: 'DecisionButtons.tscn', uses: 'x1', root: 'HBox › Button ×2 (Accept / Reject)', vars: ['@export var contract: ContractData', 'signal accepted  # opens DispatchWindow for contract', 'signal reject_requested'] },
+    { name: 'ActiveCrew.tscn', uses: 'x1 (replaces MercCount when ACTIVE)', root: 'HBox › CrewPortrait ×N', vars: ['@export var team: Array[{merc, role, match}]', '# role label on top; leader in orange', 'signal merc_clicked(merc)  # opens MercViewer (hide_roster = true)'] },
+    { name: 'PayoutTooltip.tscn', uses: 'x1 (ACTIVE only)', root: 'PanelContainer › VBox', vars: ['@export var reward: int', '@export var expenses: int', '@export var payday: String'] },
+    { name: 'OddsTooltip.tscn', uses: 'x1 (ACTIVE only)', root: 'PanelContainer › VBox + SuccessMeter', vars: ['@export var odds: float'] },
+    { name: 'CrewTooltip.tscn', uses: 'x1 shared', root: 'PanelContainer (top_level)', vars: ['@export var merc: MercData', '@export var match: float  # contract match stars'] },
+    { name: 'ConfirmDialog.tscn', uses: 'x1 (popup)', root: 'PopupPanel › VBox', vars: ['@export var title: String', '@export var message: String', '@export var confirm_label: String = "Yes"', 'signal confirmed', 'signal cancelled'] },
+    { name: 'ContractTooltip.tscn', uses: 'x1 shared', root: 'PanelContainer (top_level)', vars: ['@export var contract: ContractData'] },
+    { name: 'ContractViewer.tscn', uses: 'root', root: 'HBoxContainer › ContractList + ContractDetail', vars: ['@export var contracts: Array[ContractData]', '@export var selected_index: int'] },
+    { name: 'ContractList.tscn', uses: 'x1', root: 'PanelContainer › VBox › ScrollContainer', vars: ['@export var sort_mode: ContractSort  # DIFFICULTY, VALUE, TYPE, DISTANCE, COMPLETION_DATE', '@export var descending: bool = true', 'signal contract_selected(contract)'] },
+    { name: 'ContractListItem.tscn', uses: 'x N', root: 'Button › HBox (image, labels, stars)', vars: ['@export var contract: ContractData', '@export var selected: bool', '# modulate gray when EXPIRED/COMPLETED/REJECTED'] },
+    { name: 'DifficultyStars.tscn', uses: 'x N', root: 'HBoxContainer › TextureRect ×5', vars: ['@export var rating: float  # 0.5–5.0, half steps', '@export var star_size: int'] },
+    { name: 'ContractFilterPanel.tscn', uses: 'x1 (popup)', root: 'PopupPanel › VBox', vars: ['@export var show_closed: bool = false', '@export var difficulty_range: Vector2', '@export var reward_range: Vector2i', '@export var max_distance_km: int', 'signal filters_changed'] },
+    { name: 'RangeSlider.tscn', uses: 'x5', root: 'HBox › Label + HSlider', vars: ['@export var label: String', '@export var min_value: float', '@export var max_value: float', '@export var step: float'] },
+    { name: 'ContractDetail.tscn', uses: 'x1', root: 'PanelContainer › VBox', vars: ['@export var contract: ContractData'] },
+    { name: 'StatCard.tscn', uses: 'x3', root: 'PanelContainer › VBox', vars: ['@export var label: String', '@export var value: String', '@export var accent: Color'] },
+    { name: 'RecommendedList.tscn', uses: 'x3', root: 'VBox › ScrollContainer › Row ×N (auto-sorted by hidden bonus)', vars: ['@export var title: String', '@export var entries: Array[BonusEntry]', '@export var show_sigil: bool  # traditions'] },
+    { name: 'StatusMark.tscn', uses: 'x N', root: 'TextureRect (over portrait)', vars: ['@export var status: ContractStatus  # COMPLETED → green check, EXPIRED → red no-sign, REJECTED → thumbs down'] },
+    { name: 'UrgencyPulse.tscn', uses: 'x N', root: 'ColorRect + AnimationPlayer', vars: ['@export var active: bool  # urgency == HIGH', '@export var period: float = 2.6'] },
+  ];
+  renderVals() {
+    const show = this.props.showScenes ?? false, s = this.state;
+    const rej = s.rejected || {};
+    const act = this.gameStore().active;
+    const all = this.contracts.map(c => rej[c.id] ? { ...c, status: 'Rejected', urgency: 'None' } : act[c.id] ? { ...c, status: 'Active', run: act[c.id] } : c);
+    const busyIds = Object.values(act).flatMap(r => r.team.map(t => t.id));
+    const dc = this.contracts.find(c => c.id === s.dispatchFor);
+    const pool = all.filter(c => s.showClosed || !this.isClosed(c.status));
+    const rewardCap = Math.max(50, ...pool.map(c => c.reward)), rMax = s.rMax == null ? rewardCap : Math.min(s.rMax, rewardCap), rMin = Math.min(s.rMin, rMax);
+    const distCap = Math.max(1, ...pool.map(c => c.dist)), maxDist = s.maxDist == null ? distCap : Math.min(s.maxDist, distCap);
+    let list = pool.filter(c => c.diff >= s.dMin && c.diff <= s.dMax && c.reward >= rMin && c.reward <= rMax && c.dist <= maxDist);
+    const cmp = { difficulty: (a, b) => b.diff - a.diff, value: (a, b) => b.reward - a.reward, type: (a, b) => a.typeN - b.typeN || b.diff - a.diff, distance: (a, b) => b.dist - a.dist, completion: (a, b) => (b.status === 'Completed' ? -1 : b.hours) - (a.status === 'Completed' ? -1 : a.hours) }[s.sort];
+    list.sort(cmp); if (!s.desc) list.reverse();
+    const sel = list.find(c => c.id === s.sel) || list[0];
+    const labels = { difficulty: 'Difficulty', value: 'Value', type: 'Type', distance: 'Distance', completion: 'Completion Date' };
+    const filtered = s.showClosed || s.dMin > 0.5 || s.dMax < 5 || rMin > 0 || rMax < rewardCap || maxDist < distCap;
+    const sword = this.swordMap();
+    const setNum = (k, other, cmpFn) => e => { const v = +e.target.value; this.setState(st => { const o = {}; o[k] = v; if (cmpFn(v, st[other])) o[other] = v; return o; }); };
+    return {
+      showScenes: show,
+      countLabel: list.length + '/' + this.contracts.length,
+      sortLabel: labels[s.sort], sortOpen: s.sortOpen, filterOpen: s.filterOpen,
+      toggleSort: () => this.setState(st => ({ sortOpen: !st.sortOpen, filterOpen: false })),
+      toggleFilter: () => this.setState(st => ({ filterOpen: !st.filterOpen, sortOpen: false })),
+      sortOpts: Object.entries(labels).map(([k, l]) => ({ label: l, bg: s.sort === k ? '#f28c28' : '#16233f', fg: s.sort === k ? '#0a0f1c' : '#f3ead7', onClick: () => this.setState({ sort: k, sortOpen: false }) })),
+      toggleDir: () => this.setState(st => ({ desc: !st.desc })),
+      dirTitle: s.desc ? 'Highest to lowest' : 'Lowest to highest',
+      dirBg: s.desc ? '#f28c28' : '#2b4f8a', dirHi: s.desc ? '#ffb266' : '#3b6fb6', dirLo: s.desc ? '#b85a12' : '#1f3560',
+      upColor: s.desc ? '#7a4a1a' : '#f3ead7', downColor: s.desc ? '#0a0f1c' : '#5e7699',
+      filterBg: filtered ? '#f28c28' : '#2b4f8a', filterFg: filtered ? '#0a0f1c' : '#f3ead7', filterHi: filtered ? '#ffb266' : '#3b6fb6', filterLo: filtered ? '#b85a12' : '#1f3560',
+      showClosed: s.showClosed, onShowClosed: e => this.setState({ showClosed: e.target.checked }),
+      dMin: s.dMin, dMax: s.dMax, rMin, rMax, maxDist, rewardCap, distCap,
+      dRange: this.diffNames[s.dMin] + ' – ' + this.diffNames[s.dMax],
+      rRange: rMin + ' – ' + rMax + ' N',
+      distLabel: maxDist + ' km',
+      onDMin: setNum('dMin', 'dMax', (v, o) => v > o), onDMax: setNum('dMax', 'dMin', (v, o) => v < o),
+      onRMin: e => { const v = +e.target.value; this.setState({ rMin: v, rMax: v > rMax ? (v >= rewardCap ? null : v) : s.rMax }); },
+      onRMax: e => { const v = +e.target.value; this.setState({ rMax: v >= rewardCap ? null : v, rMin: v < rMin ? v : s.rMin }); },
+      onDist: e => { const v = +e.target.value; this.setState({ maxDist: v >= distCap ? null : v }); },
+      resetFilters: () => this.setState({ showClosed: false, dMin: 0.5, dMax: 5, rMin: 0, rMax: null, maxDist: null }),
+      empty: list.length === 0,
+      canDecide: !!sel && sel.status === 'Available',
+      checkIcon: this.checkMap.join('').split('').map(ch => ch === '#' ? '#6cc36a' : 'transparent'),
+      xIcon: this.xMap.join('').split('').map(ch => ch === '#' ? '#ff3b2f' : 'transparent'),
+      accept: () => this.setState({ dispatchFor: sel.id, sortOpen: false, filterOpen: false, tip: null }),
+      dispatchOpen: s.dispatchFor != null, busyIds, mercSceneTag: sel && sel.run ? 'ActiveCrew.tscn' : 'MercCount.tscn',
+      dispatchContract: dc ? { id: dc.id, name: dc.name, type: dc.type, level: dc.recLevel, diff: dc.diff, reward: dc.reward, dist: dc.dist, hours: dc.hours, mercMin: dc.mercMin, mercMax: dc.mercMax } : null,
+      mercViewOpen: s.mercView != null, mercViewId: s.mercView, closeMercView: () => this.setState({ mercView: null }), stop: e => e.stopPropagation(),
+      closeDispatch: () => this.setState({ dispatchFor: null }),
+      onDispatched: p => { const id = s.dispatchFor; this.gameStore().dispatch(id, { ...p, name: dc.name }); this.setState({ dispatchFor: null, sel: id }); },
+      askReject: () => this.setState({ confirmOpen: true, sortOpen: false, filterOpen: false }),
+      cancelReject: () => this.setState({ confirmOpen: false }),
+      confirmReject: () => this.setState(st => ({ confirmOpen: false, rejected: { ...(st.rejected || {}), [sel.id]: true } })),
+      confirmOpen: !!s.confirmOpen,
+      list: list.map((c, i) => { const on = sel && c.id === sel.id, closed = this.isClosed(c.status); return {
+        name: c.name, type: c.type, status: c.status, statusColor: this.statusColors[c.status], stars: this.stars(c.diff), tag: show && i === 0,
+        reward: c.reward, level: String(c.recLevel).padStart(2, '0'), urgent: c.urgency === 'High', mark: this.markCells(c.status),
+        bg: on ? '#15223d' : '#0e1628', ring: on ? '#f28c28' : '#0a0f1c', filter: closed ? 'grayscale(0.65) brightness(0.8)' : 'none',
+        onEnter: e => this.showTip(e, c),
+        onClick: () => this.setState({ sel: c.id, sortOpen: false, filterOpen: false, crewTip: null }) }; }),
+      frameRef: this.frameRef,
+      tip: s.tip || { on: false },
+      hideTip: () => { clearTimeout(this.tipT); this.tipT = setTimeout(() => this.setState({ tip: null }), 350); },
+      keepTip: () => clearTimeout(this.tipT),
+      hideTipNow: () => { clearTimeout(this.tipT); this.setState({ tip: null }); },
+      hasSel: !!sel,
+      noteGlyph: this.noteMap.join('').split('').map(ch => ch === '#' ? '#0a0f1c' : 'transparent'),
+      sel: sel ? {
+        name: sel.name, type: sel.type, status: sel.status, statusColor: this.statusColors[sel.status], issuer: sel.issuer, issuerType: sel.issuerType,
+        bigStars: this.stars(sel.diff), diffLabel: this.diffNames[sel.diff], diffColor: this.diffColors[sel.diff],
+        urgent: sel.urgency === 'High', mark: this.markCells(sel.status),
+        isActive: !!sel.run, notActive: !sel.run, hoverCursor: sel.run ? 'help' : 'default',
+        ...(() => { const r = sel.run; if (!r) return { oddsTip: false, moneyTip: false, oddsEnter: () => {}, moneyEnter: () => {}, tipLeave: () => {} };
+          const odds = r.odds ?? 50, oc = odds >= 85 ? '#3fae5a' : odds >= 70 ? '#6cc36a' : odds >= 55 ? '#5aa6e8' : odds >= 45 ? '#f2b33d' : odds >= 25 ? '#f28c28' : '#e8583f';
+          const rw = r.reward ?? sel.reward, cost = r.travelCost ?? 0, net = rw - cost;
+          return { oddsTip: s.headTip === 'odds', moneyTip: s.headTip === 'money', oddsLabel: odds + '%', oddsColor: oc, oddsCells: Array.from({ length: 20 }, (_, k) => (k + 1) * 5 <= odds + 2 ? oc : '#1f3560'),
+            pay: { reward: rw, cost, net, netColor: net >= 0 ? '#6cc36a' : '#e8583f', day: '[Date] [Month] [Year]', dayRel: Math.max(1, Math.ceil(r.hours / 24)) + ' Days From Now' },
+            oddsEnter: () => this.setState({ headTip: 'odds' }), moneyEnter: () => this.setState({ headTip: 'money' }), tipLeave: () => this.setState({ headTip: null }) }; })(),
+        crew: sel.run ? sel.run.team.map((t, k) => { const tr = this.traditions[t.id]; return { role: t.role, name: 'Merc ' + (t.id + 1) + ' Name', level: String(this.levels[t.id]).padStart(2, '0'),
+          trad: tr[0], tradColor: tr[1], sigil: sword.map(ch => ch === 'b' ? tr[1] : ch === 'g' ? '#f3ead7' : 'transparent'), stars: this.rateStars(t.match),
+          roleBg: t.role === 'Leader' ? '#f28c28' : '#2b4f8a', roleFg: t.role === 'Leader' ? '#0a0f1c' : '#f3ead7', ring: t.role === 'Leader' ? '#f28c28' : '#3b6fb6',
+          tip: s.crewTip === k, onClick: () => this.setState({ mercView: t.id, crewTip: null }), onEnter: () => this.setState({ crewTip: k }), onLeave: () => this.setState({ crewTip: null }) }; }) : [],
+        mercIcons: [0, 1, 2, 3, 4].map(i => this.personCells(i < sel.mercMin ? 'req' : i < sel.mercMax ? 'ok' : 'no')),
+        mercTitle: 'Mercs: ' + sel.mercMin + ' required, up to ' + sel.mercMax, desc: sel.desc, urgency: sel.urgency, urgencyColor: this.urgencyColors[sel.urgency],
+        dateLine: sel.run ? 'Estimated Return Time [Date] [Month] [Year]' : sel.status === 'Completed' ? 'Completed on [Date] [Month] [Year]' : sel.status === 'Rejected' ? 'Rejected on [Date] [Month] [Year]' : 'Deadline [Date] [Month] [Year]',
+        dateRel: sel.run ? Math.max(1, Math.ceil(sel.run.hours / 24)) + ' Days From Now' : sel.status === 'Expired' ? 'Expired' : (sel.status === 'Completed' || sel.status === 'Rejected') ? '' : Math.floor(sel.exp / 24) + ' Days From Now',
+        rewardLabel: String(sel.reward), recLevel: String(sel.recLevel).padStart(2, '0'),
+        completionLabel: this.dur(sel.hours),
+        expLabel: sel.status === 'Expired' ? 'Expired' : sel.status === 'Completed' ? '—' : this.dur(sel.exp),
+        expColor: sel.status === 'Expired' ? '#e8583f' : sel.exp / 24 > 3 ? '#f3ead7' : sel.exp / 24 >= 1 ? '#f28c28' : '#e8583f',
+        distLabel: sel.dist + ' km', location: sel.location,
+        bests: [
+          { title: 'Recommended Knowledges', tag: show, items: [...sel.know].sort((a, b) => b.bonus - a.bonus).map(k => ({ name: k.name })) },
+          { title: 'Recommended Tools', tag: false, items: [...sel.tools].sort((a, b) => b.bonus - a.bonus).map(k => ({ name: k.name })) },
+          { title: 'Recommended Traditions', tag: false, items: [...sel.trads].sort((a, b) => b.bonus - a.bonus).map(k => ({ name: k.t[0], color: k.t[1], sigil: sword.map(ch => ch === 'b' ? k.t[1] : ch === 'g' ? '#f3ead7' : 'transparent') })) },
+        ],
+      } : {},
+      sceneMap: this.sceneMap,
+    };
+  }
+}</script>
+</body>
+</html>

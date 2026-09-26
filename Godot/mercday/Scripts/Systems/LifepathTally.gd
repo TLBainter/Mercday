@@ -39,13 +39,20 @@ static func _rec(merc: MercenaryData) -> Dictionary:
 	return _data[merc.merc_uid] as Dictionary
 
 
+#The record a read wants; a merc with no record yet reports an empty Dictionary and gains none.
+static func _read(merc: MercenaryData) -> Dictionary:
+	if merc == null or merc.merc_uid <= 0:
+		return {}
+	return _data.get(merc.merc_uid, {}) as Dictionary
+
+
 #A passed check stores the best success count for that stat; a named kind (resist, cheat_death) skips the failures total.
 static func record_check(merc: MercenaryData, stat: String, successes: int, passed: bool,
 		counts_as_failure: bool = true) -> void:
 	var rec := _rec(merc)
 	if rec.is_empty():
 		return
-	var key := ConstStates.normalize_token(stat)
+	var key := StateTokens.normalize_token(stat)
 	if passed:
 		var by_stat: Dictionary = rec["passed"]
 		by_stat[key] = maxi(int(by_stat.get(key, 0)), successes)
@@ -65,7 +72,7 @@ static func record_damage(merc: MercenaryData, amount: int, tolerance: int, item
 	if rec.is_empty() or tolerance <= 0 or amount < tolerance:
 		return
 	var by_type: Dictionary = rec["damage"]
-	by_type[ConstStates.normalize_token(item_type)] = true
+	by_type[StateTokens.normalize_token(item_type)] = true
 
 
 static func record_damage_dealt_total(merc: MercenaryData, amount: int) -> void:
@@ -81,7 +88,7 @@ static func record_damage_taken(merc: MercenaryData, amount: int, damage_type: S
 		return
 	rec["taken_total"] = int(rec["taken_total"]) + amount
 	rec["taken_max"] = maxi(int(rec["taken_max"]), amount)
-	var key := ConstStates.normalize_token(damage_type)
+	var key := StateTokens.normalize_token(damage_type)
 	if key == "":
 		return
 	var by_type: Dictionary = rec["taken_types"]
@@ -90,7 +97,7 @@ static func record_damage_taken(merc: MercenaryData, amount: int, damage_type: S
 
 #One field of the merc tally record, or default when the merc has no record yet.
 static func _field(merc: MercenaryData, key: String, default: Variant) -> Variant:
-	var rec := _rec(merc)
+	var rec := _read(merc)
 	return default if rec.is_empty() else rec[key]
 
 
@@ -108,7 +115,7 @@ static func damage_taken_max(merc: MercenaryData) -> int:
 
 static func took_damage_type(merc: MercenaryData, damage_type: String) -> bool:
 	var by_type: Dictionary = _field(merc, "taken_types", {})
-	return by_type.has(ConstStates.normalize_token(damage_type))
+	return by_type.has(StateTokens.normalize_token(damage_type))
 
 
 #Counts states this merc's own actions put on someone else.
@@ -116,7 +123,7 @@ static func record_inflicted(source: MercenaryData, state_name: String) -> void:
 	var rec := _rec(source)
 	if rec.is_empty():
 		return
-	var key := ConstStates.normalize_token(state_name)
+	var key := StateTokens.normalize_token(state_name)
 	if key == "":
 		return
 	var by_state: Dictionary = rec["inflicted"]
@@ -125,14 +132,14 @@ static func record_inflicted(source: MercenaryData, state_name: String) -> void:
 
 static func inflicted_count(source: MercenaryData, state_name: String) -> int:
 	var by_state: Dictionary = _field(source, "inflicted", {})
-	return int(by_state.get(ConstStates.normalize_token(state_name), 0))
+	return int(by_state.get(StateTokens.normalize_token(state_name), 0))
 
 
 #Checks rolled by anyone without a campaign identity land on the contract target instead.
 static func record_target_check(merc: MercenaryData, stat: String, passed: bool) -> void:
 	if merc == null or merc.merc_uid > 0 or passed:
 		return
-	var key := ConstStates.normalize_token(stat)
+	var key := StateTokens.normalize_token(stat)
 	if key == "":
 		return
 	var failed: Dictionary = _target["failed"]
@@ -140,17 +147,17 @@ static func record_target_check(merc: MercenaryData, stat: String, passed: bool)
 
 
 static func target_failed(stat: String) -> bool:
-	return (_target["failed"] as Dictionary).has(ConstStates.normalize_token(stat))
+	return (_target["failed"] as Dictionary).has(StateTokens.normalize_token(stat))
 
 
 static func succeeded(merc: MercenaryData, stat: String) -> bool:
 	var passed: Dictionary = _field(merc, "passed", {})
-	return passed.has(ConstStates.normalize_token(stat))
+	return passed.has(StateTokens.normalize_token(stat))
 
 
 static func success_count(merc: MercenaryData, stat: String) -> int:
 	var passed: Dictionary = _field(merc, "passed", {})
-	return int(passed.get(ConstStates.normalize_token(stat), 0))
+	return int(passed.get(StateTokens.normalize_token(stat), 0))
 
 
 #Best success count over every stat, used when no Succeeded Check entry named one first.
@@ -172,7 +179,7 @@ static func failure_count(merc: MercenaryData) -> int:
 
 static func failed_stat(merc: MercenaryData, stat: String) -> bool:
 	var failed: Dictionary = _field(merc, "failed", {})
-	return failed.has(ConstStates.normalize_token(stat))
+	return failed.has(StateTokens.normalize_token(stat))
 
 
 #An empty item type asks whether any weapon class landed a hit at or above the target's Tolerance.
@@ -180,4 +187,4 @@ static func damage_met_tolerance(merc: MercenaryData, item_type: String) -> bool
 	var by_type: Dictionary = _field(merc, "damage", {})
 	if item_type == "":
 		return not by_type.is_empty()
-	return bool(by_type.get(ConstStates.normalize_token(item_type), false))
+	return bool(by_type.get(StateTokens.normalize_token(item_type), false))

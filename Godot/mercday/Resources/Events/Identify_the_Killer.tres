@@ -6,6 +6,7 @@
 script = ExtResource("1_EventData")
 event_name = "Identify the Killer"
 event_type = "Primary"
+trigger = ""
 check_stats = Array[String](["Cognition", "Wile"])
 circumstances = Array[String](["Clever (Cognition)", "Intuition (Cognition)", "Intuition (Wile)", "Search (Cognition)", "Speech (Wile)"])
 knowledges = Array[String](["Hunting", "Tactics", "Forensics", "Reconnaissance", "Biology", "Psychology", "Thanatology"])

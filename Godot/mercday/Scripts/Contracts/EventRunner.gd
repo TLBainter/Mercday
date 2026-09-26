@@ -1,14 +1,18 @@
 class_name EventRunner
 
-#Dispatches one contract event to the battle resolver or the formula resolver.
+#Dispatches one contract event to the competition, battle or formula resolver.
 
 
-static func run(event: EventData, contract_run: ContractRun) -> Dictionary:
+static func run(event: EventData, contract_run: ContractRun, opts: Dictionary = {}) -> Dictionary:
 	if event == null or contract_run == null:
 		return outcome(event)
 	contract_run.emit("EVENT START: %s (%s)" % [event.event_name, event.event_type])
+	if event.event_name == RespiteKidnapResolver.EVENT_NAME:
+		return await RespiteKidnapResolver.resolve(event, contract_run, opts)
+	if event.is_competition():
+		return await CompetitionResolver.resolve(event, contract_run)
 	if event.is_battle():
-		return await BattleEventResolver.resolve(event, contract_run)
+		return await BattleEventResolver.resolve(event, contract_run, opts)
 	return FormulaEventResolver.resolve(event, contract_run)
 
 

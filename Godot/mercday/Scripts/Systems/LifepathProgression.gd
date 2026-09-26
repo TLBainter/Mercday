@@ -22,6 +22,11 @@ const FORCED_REPLACES: Dictionary = {
 static var _team: Array[MercenaryData] = []
 
 
+#The contract team a grant resolves its bonds against.
+static func team() -> Array[MercenaryData]:
+	return _team
+
+
 static func clear() -> void:
 	_team.clear()
 
@@ -84,12 +89,12 @@ static func has_payoff(lp: LifepathData) -> bool:
 	names.append_array(lp.drawbacks)
 	for trait_name: String in names:
 		if trait_name.contains("["):
-			for variant: String in MercGenerator.placeholder_variants(trait_name):
+			for variant: String in TraitDSL.placeholder_variants(trait_name):
 				var vt: TraitData = DataManager.traits.get(variant, null) as TraitData
 				if vt != null and vt.effect_dsl != "" and not vt.effect_dsl.begins_with("SPECIAL:"):
 					return true
 			continue
-		var td: TraitData = MercGenerator._lookup_trait(trait_name)
+		var td: TraitData = TraitDSL.lookup_trait(trait_name)
 		if td != null and td.effect_dsl != "" and not td.effect_dsl.begins_with("SPECIAL:"):
 			return true
 	return false
@@ -236,13 +241,13 @@ static func _apply(merc: MercenaryData, lp: LifepathData) -> void:
 	var mult_before: Dictionary = merc.stat_multipliers.duplicate(true)
 	var resolved: Array[String] = []
 	for trait_name: String in _trait_names(lp):
-		var td: TraitData = MercGenerator._lookup_trait(trait_name)
+		var td: TraitData = TraitDSL.lookup_trait(trait_name)
 		if td == null:
 			continue
-		MercGenerator._assign_trait(merc, td)
-		MercGenerator._apply_dsl_to_merc(merc, td.effect_dsl)
+		MercGenerator.assign_trait(merc, td)
+		TraitDSL.apply_dsl_to_merc(merc, td.effect_dsl)
 		resolved.append(td.trait_name)
-	MercGenerator._apply_stat_bonus_5pct(merc, lp.stat_bonus_5pct)
+	MercGenerator.apply_stat_bonus_5pct(merc, lp.stat_bonus_5pct)
 	merc.lifepath_stat_deltas[lp.event_name] = {
 		"flat": _delta(flat_before, merc.stat_flat_bonuses),
 		"mult": _delta(mult_before, merc.stat_multipliers),
@@ -266,7 +271,7 @@ static func _strip_traits(merc: MercenaryData, lp: LifepathData) -> void:
 	var granted: Array = record.get("traits", []) as Array
 	if granted.is_empty():
 		for trait_name: String in _trait_names(lp):
-			var td: TraitData = MercGenerator._lookup_trait(trait_name)
+			var td: TraitData = TraitDSL.lookup_trait(trait_name)
 			if td == null:
 				continue
 			merc.perks.erase(td)
@@ -384,14 +389,4 @@ static func _in_team(run: ContractRun, uid: int) -> MercenaryData:
 	for merc: MercenaryData in run.team:
 		if merc != null and merc.merc_uid == uid:
 			return merc
-	return null
-
-
-#The merc a bond points at, resolved against the current contract team.
-static func partner(merc: MercenaryData, uid: int) -> MercenaryData:
-	if merc == null or uid <= 0:
-		return null
-	for other: MercenaryData in _team:
-		if other != null and other.merc_uid == uid:
-			return other
 	return null

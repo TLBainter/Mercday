@@ -8,6 +8,9 @@ static func is_standable(cell: Vector3i, field: BattlefieldArea, merc_size: int 
 	var cell2d := Vector2i(cell.x, cell.y)
 	if PathCost.under_stair_blocked(cell, field, merc_size):
 		return false
+	#Solid rock holds nobody; a pool does, since the mover swims or stands on its floor.
+	if field.is_cavern and field.rock_cells.has(cell2d):
+		return false
 	if field.is_stair_cell(cell2d, cell.z):
 		return true
 	if PathCost.is_vault_cell(cell, field, merc_size):
@@ -46,6 +49,9 @@ static func is_top_standable(cell: Vector3i, field: BattlefieldArea, merc_size: 
 	var top_h := BattlefieldArea.obstacle_height(obs)
 	if top_h < 1.0:
 		return false
+	#In a cavern the rock roof is the ceiling: the mover's top must fit under it.
+	if field.is_cavern:
+		return top_h + float(maxi(1, merc_size)) <= field.clearance(cell2d)
 	var ceiling := PathCost.slab_above(cell2d, cell.z, field)
 	if ceiling >= PathCost.NO_CEILING:
 		return true
@@ -131,8 +137,7 @@ static func find_path_toward(from: Vector3i, to: Vector3i, field: BattlefieldAre
 				var jcell: Vector3i = dest[0] as Vector3i
 				if closed.has(jcell) and _toward_reached(jcell, from, to, exit_ok, field, passable_cells, merc_fall_tolerance, is_flying, can_climb, merc_size, altitude, alt_of):
 					continue
-				var door: Dictionary = dest[2] as Dictionary
-				if not door.is_empty() and not OpenCloseState.is_open(door):
+				if PathCost.jump_row_blocked(dest):
 					continue
 				var jdist := Pathfinder.chebyshev(jcell, to)
 				if cdz < best_dz or (cdz == best_dz and jdist < best_dist):

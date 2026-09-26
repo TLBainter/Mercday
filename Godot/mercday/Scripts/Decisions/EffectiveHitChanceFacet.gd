@@ -10,7 +10,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		return 0.0
 	if not ConstStates.has_state(merc, ConstStates.THREATENED):
 		return 1.0
-	if WeaponArmorPerkLibrary.has_weapon_passive(merc, "weapon_passive:ignore_threatened"):
+	if WeaponArmorPerkLibrary.has_weapon_passive(merc, "ignore_threatened"):
 		return 1.0
 	var pool := AttackSystem.attack_pool_size(merc, merc.equipped_weapon)
 	return clampf(float(pool - 1) / float(pool), 0.0, 1.0)

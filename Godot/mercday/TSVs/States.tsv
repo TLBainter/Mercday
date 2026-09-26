@@ -11,6 +11,7 @@ Fatigued	check:all:-5:per_stack			respite	furlough	[Target] is exhausted...	[Tar
 Flanked	attack_vs:all:enhance:+1			auto		[Target] is surrounded!	[Target] is no longer surrounded!	Flanked is applied when 2 or more enemies are on either side of a creature. The mercs must be no less than 1 Size smaller than the merc to flank them (a Size 1 merc cannot flank a Size 3 merc, for example).	
 Grappled	block:action:move			action:break_free		[Target] has been grappled!	[Target] broke free of the grapple!		Resist:Vigor:2||
 Grounded	block:ability:fly			cause		[Target] is forced to stay on the ground!	[Target] is no longer forced to the ground!		
+Hobbled	move:pace:-2			cause		[Target] is hobbled!	[Target] is no longer hobbled!		
 Inhibited	check:all:flaw:+1	attack_vs:all:enhance:+1	stat:avoid:-15	action:break_free		[Target] is physically bound!	[Target] broke free!		Resist:Vigor:3|1 Minute|
 Invisible	check:dexterity:+15	check_vs:tag:sight:-15		cause		[Target] can no longer be seen!	[Target] is visible, again!		
 Madness	check:all:-2.5:per_stack	check:wile:-2.5:per_stack		cause	furlough:complete	[Target] has a tinge of madness!	[Target] recovered some sanity.		
@@ -18,7 +19,7 @@ Mute	block:tag:voice			cause		[Target] cannot speak!	[Target] can speak, again!
 Poisoned	check:all:-5	healing:-1		cause		[Target] has been poisoned!	[Target] recovered from the poison!		Resist:Vigor:2|1 Minute|Resist:Vigor:2:End Turn
 Shocked	block:action:all:except:defend	check:dexterity,vigor:auto_fail		cause		[Target] is in shock!	[Target] snapped out of it!		
 Slowed	cost:ap:x2	cost:ep:x2		cause		[Target] is moving sluggishly.	[Target]'s speed is back to normal!		Resist:Vigor:2|1 Round|
-Suffocating	dot:direct:1			action:break_free		[Target] can't breathe!	[Target] can breathe, again.		
+Suffocating	suffocate			action:break_free		[Target] can't breathe!	[Target] can breathe, again.		
 Surprised	skip_turn			time:1:round		[Target] is surprised!	[Target] is ready to act.		Resist:Cognition:2|1 Round|
 Terrified	move:block_toward:source	move:away_from:source:1		cause		[Target] is terrified of [Enemy]!	[Target] is ready to face their fear!		Resist:Wile:3|1 Round|
 Threatened	attack:ranged,thrown:flaw:+1			action:move_far		[Target] is close to [Enemy]!	[Target] got to a safe distance!	The merc is within 2 Paces of an enemy.	
@@ -26,6 +27,9 @@ Unconscious	apply:debilitated,deposed,vulnerable	apply:deafened,mute	block:actio
 Vulnerable	damage_taken:direct	damage_taken:+1		cause		[Target] is vulnerable!	[Target] is ready to defend themselves.		
 Covered (Full)	target:block:angles			auto		[Target] has found full cover!	[Target] is no longer in full cover!	The merc has positioned themselves in a manner that makes them difficult to target from a certain angle.	
 Covered (Partial)	defense:free:angles			auto		[Target] has found partial cover!	[Target] is no longer in partial cover!	This merc has positioned themselves in a manner that makes them somewhat difficult to target from some angles.	
-Drowning	dot:direct:1	check:all:flaw:+1		cause		[Target] is drowning!	[Target] is no longer drowning.		
+Drowning	suffocate	check:all:flaw:+1		cause		[Target] is drowning!	[Target] is no longer drowning.		
 Heat Exhaustion	check:all:-5	apply:fatigued		respite	time:1:hour	[Target] is overcome by the heat!	[Target] has cooled down.		
 Frostbite	check:dexterity:flaw:+1			respite	time:1:hour	[Target] is frostbitten!	[Target] has warmed up.		
+Distracted	skip_turn			time:1:round		[Target] is distracted!	[Target] refocuses.		
+Emboldened	check:all:enhance:+1			auto		[Target] is emboldened!	[Target] is no longer emboldened!	Emboldened is applied while a creature is within 5 Paces of an ally with a leader aura and can see or hear that ally. Blinded denies the sight, Deafened denies the hearing, and only losing both denies the state.	
+Hidden						[Target] is hidden.	[Target] has been spotted!		

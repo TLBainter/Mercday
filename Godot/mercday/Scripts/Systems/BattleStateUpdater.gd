@@ -41,9 +41,47 @@ static func update_auto_states(merc: MercenaryData, state: BattleState) -> Array
 		elif dx > 0:
 			has_east = true
 	var is_flanked := (has_north and has_south) or (has_west and has_east)
+	if not is_flanked:
+		is_flanked = _saber_flanked(merc, state)
 	_set_auto_state(merc, ConstStates.FLANKED, is_flanked, "flanked", state, lines)
 
+	var aura_source: MercenaryData = null
+	var aura_token := StateTokens.normalize_token(ConstStates.EMBOLDENED)
+	for ally: MercenaryData in state.get_allies(merc):
+		if ally.auras.is_empty() or ConstStates.has_state(ally, ConstStates.DYING) \
+				or ConstStates.has_state(ally, ConstStates.UNCONSCIOUS):
+			continue
+		for aura: Dictionary in ally.auras:
+			if StateTokens.normalize_token(str(aura.get("state", ""))) != aura_token:
+				continue
+			if state.distance_to(merc, ally) > int(aura.get("paces", 0)):
+				continue
+			if _aura_reaches(merc, ally, str(aura.get("gate", "")), state):
+				aura_source = ally
+				break
+		if aura_source != null:
+			break
+	var aura_label := "emboldened"
+	if aura_source != null:
+		aura_label = "emboldened by %s" % aura_source.merc_name
+	_set_auto_state(merc, ConstStates.EMBOLDENED, aura_source != null, aura_label, state, lines)
+
 	return lines
+
+
+#Saber Flank: an unflanked saber holder flanks every enemy standing within 1 pace of it.
+static func _saber_flanked(merc: MercenaryData, state: BattleState) -> bool:
+	for enemy: MercenaryData in state.get_enemies(merc):
+		if not BattleState._is_alive(enemy) or enemy.off_field:
+			continue
+		if ConstStates.has_state(enemy, ConstStates.FLANKED):
+			continue
+		if state.get_floor(enemy) != state.get_floor(merc) or state.distance_to(merc, enemy) > 1:
+			continue
+		if not WeaponArmorPerkLibrary.has_weapon_passive(enemy, "weapon_passive:adjacent_flank_if_not_flanked"):
+			continue
+		return true
+	return false
 
 
 #Applies or removes an automatic state on the rising or falling edge, logging label on the rise.
@@ -52,10 +90,20 @@ static func _set_auto_state(merc: MercenaryData, state_name: String, wanted: boo
 	var want := wanted and not ConstStates.is_immune(merc, state_name)
 	var had := ConstStates.has_state(merc, state_name)
 	if want and not had:
-		ConstStates.apply_state(merc, state_name, null, "", "engine:" + ConstStates.normalize_token(state_name))
+		ConstStates.apply_state(merc, state_name, null, "", "engine:" + StateTokens.normalize_token(state_name))
 		lines.append("  %s is %s!" % [BattleState.colored_name(merc, state), label])
 	elif not want and had:
 		ConstStates.remove_state(merc, state_name)
+
+
+#True when merc still senses the aura source: hearing needs range only, sight needs LOS.
+static func _aura_reaches(merc: MercenaryData, source: MercenaryData, gate: String,
+		state: BattleState) -> bool:
+	if gate != "sight" and not ConstStates.has_state(merc, ConstStates.DEAFENED):
+		return true
+	if gate == "hearing" or ConstStates.has_state(merc, ConstStates.BLINDED):
+		return false
+	return bool(LineOfSight.check(state, merc, source)["visible"])
 
 
 static func apply_dot_effects(merc: MercenaryData, state: BattleState) -> Array[String]:
@@ -76,29 +124,52 @@ static func apply_dot_effects(merc: MercenaryData, state: BattleState) -> Array[
 		var text := ""
 		if dot_type == "Fire":
 			text = "  %s is burning! Takes %d Fire damage." % [BattleState.colored_name(merc, state), amount]
-		elif dot_state == ConstStates.SUFFOCATING:
-			text = "  %s is suffocating! Takes %d damage." % [BattleState.colored_name(merc, state), amount]
 		else:
 			text = "  %s takes %d %s damage from %s." % [BattleState.colored_name(merc, state), amount, dot_type, dot_state]
 		var ex_note := " (%d ExHP)" % int(taken["from_excess"]) if int(taken["from_excess"]) > 0 else ""
 		lines.append("%s (HP [color=red]%d->%d[/color])%s" % [
 			text, maxi(0, hp_before), maxi(0, merc.current_hp), ex_note])
-		_check_dot_death(merc, state, lines)
+		check_hp_death(merc, state, lines)
+		if merc.off_field:
+			break
 
 	return lines
 
 
-static func _check_dot_death(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
+#Dying, death or removal from the field for a merc a start-of-turn effect brought to 0 HP.
+static func check_hp_death(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
+	if state != null and state.no_death_removal and ExcessPool.hp_total(merc) <= 1:
+		remove_without_death(merc, state, lines)
+		return
 	if merc.current_hp > 0:
 		return
 	if ConstStates.has_state(merc, ConstStates.DYING):
-		merc.current_hp = 0
-		merc.is_dead = true
-		ConstStates.remove_state(merc, ConstStates.DYING)
-		lines.append("  %s is dead!" % BattleState.colored_name(merc, state))
+		mark_dead(merc, BattleState.colored_name(merc, state), lines)
 	else:
-		merc.current_hp = 0
-		ConstStates.apply_state(merc, ConstStates.DYING, null, "", "engine:dying")
-		lines.append("  %s is dying!" % BattleState.colored_name(merc, state))
+		mark_dying(merc, BattleState.colored_name(merc, state), lines)
+
+
+#Pulls a merc the no-death rule keeps alive off the field, clearing Dying and its recorded source.
+static func remove_without_death(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
+	merc.current_hp = 1
+	if ConstStates.has_state(merc, ConstStates.DYING):
+		ConstStates.remove_state(merc, ConstStates.DYING)
+	state.dying_source.erase(merc)
+	state.remove_from_field(merc, "out", lines)
+
+
+#Turns a Dying merc into a dead one and logs the death line under the supplied display name.
+static func mark_dead(merc: MercenaryData, name_text: String, lines: Array[String]) -> void:
+	merc.current_hp = 0
+	merc.is_dead = true
+	ConstStates.remove_state(merc, ConstStates.DYING)
+	lines.append("  %s is dead!" % name_text)
+
+
+#Puts a merc at 0 HP into Dying and logs the line; the caller records the dying source.
+static func mark_dying(merc: MercenaryData, name_text: String, lines: Array[String]) -> void:
+	merc.current_hp = 0
+	ConstStates.apply_state(merc, ConstStates.DYING, null, "", "engine:dying")
+	lines.append("  %s is dying!" % name_text)
 
 

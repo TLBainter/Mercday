@@ -1,5 +1,6 @@
 Weapon Name	Type	DMG Type	Thrown	Extend	Fragility
 Rock	Basic Makeshift	Strike	4/20	FALSE	4
+Rock Spike	Basic Makeshift	Impale	4/20	FALSE	4
 Table Leg	Specialized Makeshift	Strike	3/9	FALSE	3
 Chair Leg	Basic Makeshift	Strike	4/9	FALSE	2
 Pitchfork	Basic Makeshift	Impale	3/7	TRUE	7

@@ -6,6 +6,7 @@
 script = ExtResource("1_EventData")
 event_name = "Save the Trapped Civilian"
 event_type = "Primary"
+trigger = ""
 check_stats = Array[String](["Vigor", "Cognition"])
 circumstances = Array[String](["Athletics (Vigor)", "Clever (Cognition)", "Intuition (Cognition)", "Search (Cognition)", "Power (Vigor)"])
 knowledges = Array[String](["Tactics", "Architecture"])

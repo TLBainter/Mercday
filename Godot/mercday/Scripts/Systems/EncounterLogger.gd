@@ -7,9 +7,13 @@ static var _bbcode_rx: RegEx = null
 static var _buffer: PackedStringArray = []
 static var _current_stem: String = ""
 static var _field: BattlefieldArea = null
+#While true no log file is opened; batch runs use it to skip per-encounter logs.
+static var suppressed := false
 
 
 static func begin(encounter_type: String, state: BattleState) -> void:
+	if suppressed:
+		return
 	_ensure_dir()
 	var dt := Time.get_datetime_dict_from_system()
 	var session := "%06x" % randi()
@@ -25,7 +29,6 @@ static func begin(encounter_type: String, state: BattleState) -> void:
 	_field = null
 	if state != null and state.battlefield != null:
 		_field = state.battlefield
-		HtmlWireframeGenerator.save(state.battlefield, _current_stem)
 	_buffer.clear()
 	_buffer.append("=== MercManager Encounter Log ===")
 	_buffer.append("Type: %s   Session: %s   Date: %s %s" % [
@@ -57,7 +60,7 @@ static func _gear_notes(team: Array) -> Array[String]:
 			var w: WeaponData = entry.get("data") as WeaponData
 			if w != null:
 				parts.append(w.item_name)
-		notes.append("%s [%s]" % [m.merc_name, " / ".join(parts)])
+		notes.append("%s [%s] %s" % [m.merc_name, " / ".join(parts), Encumbrance.short_text(m)])
 	return notes
 
 
@@ -72,8 +75,6 @@ static func end(result: Dictionary) -> void:
 	flush()
 	_file.close()
 	_file = null
-	if _field != null and _current_stem != "":
-		HtmlWireframeGenerator.save_to(_field, _current_stem + "_end.html")
 
 
 static func flush() -> void:
@@ -110,7 +111,7 @@ static func log_spawn_map(state: BattleState) -> void:
 		for m: MercenaryData in state.teams[i]:
 			spawns.append({"team": i, "floor": state.get_floor(m), "pos": state.get_position(m)})
 	_append("SPAWN MAP")
-	_append(_field.to_spawn_map_string(spawns))
+	_append(BattlefieldRender.to_spawn_map_string(_field, spawns))
 
 
 static func log_line(text: String) -> void:
@@ -177,10 +178,20 @@ static func log_generation(field: BattlefieldArea) -> void:
 				other_count += 1
 	_buffer.append("Obstacles: %d total  walls=%d  doors=%d  passthrough=%d  damaging=%d  solid=%d" % [
 		field.obstacles.size(), wall_count, door_count, passthrough_count, damaging_count, other_count])
-	if field.is_interior_map:
+	if field.is_cavern:
+		var pools := 0
+		for ch: Dictionary in field.cavern_chambers:
+			if ch.get("flooded", false) as bool:
+				pools += 1
+		_buffer.append("Cavern: chambers=%d tunnels=%d entrances=%d pools=%d scatters=%d" % [
+			field.cavern_chambers.size(), field.cavern_tunnels.size(),
+			_cavern_entrance_count(field), pools, field.obstacles.size() - wall_count])
+	elif field.is_city:
+		_buffer.append_array(_city_lines(field))
+	elif field.is_interior_map:
 		var ifp: Rect2i = field.building_footprint
-		_buffer.append("Buildings: interior  footprint=(%d,%d) %dx%d (shell walls included)" % [
-			ifp.position.x, ifp.position.y, ifp.size.x, ifp.size.y])
+		_buffer.append("Buildings: interior  footprint=(%d,%d) %dx%d (shell walls included) mask=%d cells" % [
+			ifp.position.x, ifp.position.y, ifp.size.x, ifp.size.y, field.footprint_union.size()])
 	elif field.building_data.is_empty():
 		_buffer.append("Buildings: none (0 placed exterior buildings)")
 	else:
@@ -199,7 +210,40 @@ static func log_generation(field: BattlefieldArea) -> void:
 	_buffer.append("---")
 	for entry: String in field.generation_log:
 		log_verbose(entry)
-	LevelDumpWriter.save(field, _current_stem)
+
+
+#The two city summary lines of a generation block; readable without an open log file.
+static func _city_lines(field: BattlefieldArea) -> PackedStringArray:
+	var city: Dictionary = field.city
+	var stats: Dictionary = city.get("stats", {})
+	var spawn: Dictionary = city.get("spawn", {})
+	var out := PackedStringArray()
+	out.append("City: tier=%s mains=%d sides=%d alleys=%d dead_ends=%d plots=%d/%d/%d lots=%d buildings=%d failed_lots=%d back_lanes=%d street_objects=%d nature_objects=%d nature=%d%% tries=%d alley_ring=%d alley_conn=%d connectors=%d isolated=%d connect_d=%d" % [
+		String(city.get("tier", "")), int(stats.get("mains", 0)), int(stats.get("sides", 0)),
+		int(stats.get("alleys", 0)), int(stats.get("dead_ends", 0)),
+		int(stats.get("plots_large", 0)), int(stats.get("plots_medium", 0)),
+		int(stats.get("plots_small", 0)), int(stats.get("lots", 0)), int(stats.get("buildings", 0)),
+		int(stats.get("failed_lots", 0)), int(stats.get("back_lanes", 0)),
+		int(stats.get("street_objects", 0)), int(stats.get("nature_objects", 0)),
+		int(round(float(stats.get("nature_pct", 0.0)))), int(city.get("tries", 0)),
+		int(stats.get("alley_ring_cells", 0)), int(stats.get("alley_connector_cells", 0)),
+		int(stats.get("alley_connectors", 0)), int(stats.get("alley_isolated", 0)),
+		int(stats.get("alley_connect_d", 0))])
+	out.append("City spawn: A side=%d outdoor=%d zone=%d buildings=%d posts=%d; B side=%d outdoor=%d zone=%d buildings=%d posts=%d" % [
+		int(spawn.get("side_a", 0)), int(spawn.get("outdoor_a", 0)), field.spawn_zone_a.size(),
+		(spawn.get("buildings_a", []) as Array).size(), CitySpawns.window_posts(field, 0).size(),
+		int(spawn.get("side_b", 0)), int(spawn.get("outdoor_b", 0)), field.spawn_zone_b.size(),
+		(spawn.get("buildings_b", []) as Array).size(), CitySpawns.window_posts(field, 1).size()])
+	return out
+
+
+#Entrance tunnels carved to the border; falls back to the border cell count.
+static func _cavern_entrance_count(field: BattlefieldArea) -> int:
+	var n := 0
+	for t: Dictionary in field.cavern_tunnels:
+		if str(t.get("kind", "")) == "entrance":
+			n += 1
+	return n if n > 0 else field.entrance_cells.size()
 
 
 static func _ensure_dir() -> void:

@@ -1,0 +1,133 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Contracts/DispatchWindow.gd" id="1"]
+[ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/DispatchRoster.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ContractSummary.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/TravelSelector.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/TeamSlot.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ContractPreview.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ConfirmDialog.tscn" id="9"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/MercPicker.tscn" id="12"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ActionBar.tscn" id="13"]
+
+[node name="DispatchWindow" type="Control"]
+custom_minimum_size = Vector2(1280, 720)
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2")
+script = ExtResource("1")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="Columns" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Left" parent="Margin/Columns" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="Centre" type="VBoxContainer" parent="Margin/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="Summary" parent="Margin/Columns/Centre" instance=ExtResource("4")]
+layout_mode = 2
+
+[node name="TravelPanel" type="PanelContainer" parent="Margin/Columns/Centre"]
+layout_mode = 2
+theme_type_variation = &"InsetPanel"
+
+[node name="Pad" type="MarginContainer" parent="Margin/Columns/Centre/TravelPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Rows" type="VBoxContainer" parent="Margin/Columns/Centre/TravelPanel/Pad"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Margin/Columns/Centre/TravelPanel/Pad/Rows"]
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
+theme_override_font_sizes/font_size = 12
+text = "Travel"
+
+[node name="Venture" parent="Margin/Columns/Centre/TravelPanel/Pad/Rows" instance=ExtResource("5")]
+layout_mode = 2
+
+[node name="Return" parent="Margin/Columns/Centre/TravelPanel/Pad/Rows" instance=ExtResource("5")]
+layout_mode = 2
+
+[node name="TeamPanel" type="PanelContainer" parent="Margin/Columns/Centre"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"InsetPanel"
+
+[node name="Pad" type="MarginContainer" parent="Margin/Columns/Centre/TeamPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Rows" type="VBoxContainer" parent="Margin/Columns/Centre/TeamPanel/Pad"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Head" type="HBoxContainer" parent="Margin/Columns/Centre/TeamPanel/Pad/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Margin/Columns/Centre/TeamPanel/Pad/Rows/Head"]
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
+theme_override_font_sizes/font_size = 12
+text = "Team"
+
+[node name="Count" type="Label" parent="Margin/Columns/Centre/TeamPanel/Pad/Rows/Head"]
+layout_mode = 2
+size_flags_horizontal = 10
+size_flags_vertical = 4
+theme_type_variation = &"SmallLabel"
+text = "0 / 5, 1 required"
+
+[node name="Slots" type="HBoxContainer" parent="Margin/Columns/Centre/TeamPanel/Pad/Rows"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="Slot0" parent="Margin/Columns/Centre/TeamPanel/Pad/Rows/Slots" instance=ExtResource("6")]
+layout_mode = 2
+
+[node name="Slot1" parent="Margin/Columns/Centre/TeamPanel/Pad/Rows/Slots" instance=ExtResource("6")]
+layout_mode = 2
+
+[node name="Slot2" parent="Margin/Columns/Centre/TeamPanel/Pad/Rows/Slots" instance=ExtResource("6")]
+layout_mode = 2
+
+[node name="Slot3" parent="Margin/Columns/Centre/TeamPanel/Pad/Rows/Slots" instance=ExtResource("6")]
+layout_mode = 2
+
+[node name="Slot4" parent="Margin/Columns/Centre/TeamPanel/Pad/Rows/Slots" instance=ExtResource("6")]
+layout_mode = 2
+
+[node name="Actions" parent="Margin/Columns/Centre" instance=ExtResource("13")]
+layout_mode = 2
+
+[node name="Right" parent="Margin/Columns" instance=ExtResource("8")]
+layout_mode = 2
+
+[node name="Picker" parent="." instance=ExtResource("12")]
+
+[node name="Confirm" parent="." instance=ExtResource("9")]
+layout_mode = 1

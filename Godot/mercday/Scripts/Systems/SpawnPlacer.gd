@@ -6,6 +6,10 @@ extends RefCounted
 #Batch option: each team spawns across its half of the floors instead of one floor per team.
 static var spawn_floor_split: bool = false
 
+#Walk budget a roof post's way down has to fit inside, and the flood cap one merc may spend looking.
+const ROOF_EXIT_BUDGET: int = 60
+const ROOF_EXIT_FLOODS: int = 8
+
 
 static func assign(
 		state: BattleState,
@@ -13,6 +17,15 @@ static func assign(
 		team_b: Array[MercenaryData]) -> void:
 	var field := state.battlefield
 	var passable_cells: Dictionary = field.get_nav_passable_cells()
+	if field.is_cavern:
+		_assign_cavern_positions(state, field, passable_cells, team_a, team_b)
+		return
+	if field.is_dungeon:
+		_assign_dungeon_positions(state, field, passable_cells, team_a, team_b)
+		return
+	if field.is_city:
+		_assign_city_positions(state, field, passable_cells, team_a, team_b)
+		return
 	if spawn_floor_split and field.is_interior_map and field.interior_floor_elevations.size() >= 2:
 		_assign_split_positions(state, field, passable_cells, team_a, team_b)
 		return
@@ -23,8 +36,14 @@ static func assign(
 				floor_a = f
 	#A closed interactable door is a route a merc can open, so spawn reach counts it free.
 	PathCost.set_door_penalty(0)
-	var center_a := _walkable_center(field, passable_cells, Vector3i(field.width >> 1, 2, floor_a))
-	var center_b := _walkable_center(field, passable_cells, Vector3i(field.width >> 1, field.length - 3, 0))
+	var seed_a := Vector3i(field.width >> 1, 2, floor_a)
+	var seed_b := Vector3i(field.width >> 1, field.length - 3, 0)
+	#Exterior maps start each team at its generated centre, inside its generated zone.
+	if not field.is_interior_map and not field.spawn_zone_a.is_empty() and not field.spawn_zone_b.is_empty():
+		seed_a = Vector3i(field.spawn_center_a.x, field.spawn_center_a.y, 0)
+		seed_b = Vector3i(field.spawn_center_b.x, field.spawn_center_b.y, 0)
+	var center_a := _walkable_center(field, passable_cells, seed_a)
+	var center_b := _walkable_center(field, passable_cells, seed_b)
 	var reach_a := PathTargeter.reachable_from(center_a, field, passable_cells, 1.0, false, true, 0, 1)
 	var reach_b := PathTargeter.reachable_from(center_b, field, passable_cells, 1.0, false, true, 0, 1)
 	if center_a.z != center_b.z and not reach_a.has(center_b):
@@ -38,25 +57,199 @@ static func assign(
 	field.generation_log.append("SPAWN CENTER: Team 0 F%d (%d,%d)" % [center_a.z, center_a.x, center_a.y])
 	field.generation_log.append("SPAWN CENTER: Team 1 F%d (%d,%d)" % [center_b.z, center_b.x, center_b.y])
 	var taken: Dictionary = {}
-	_place_team(state, field, passable_cells, team_a, center_a, reach_b, taken)
-	_place_team(state, field, passable_cells, team_b, center_b, reach_a, taken)
+	_place_team(state, field, passable_cells, team_a, center_a, reach_b, taken, _zone_for(field.spawn_zone_a, center_a))
+	_place_team(state, field, passable_cells, team_b, center_b, reach_a, taken, _zone_for(field.spawn_zone_b, center_b))
+
+
+#The generated zone when it holds the team's centre cell; {} (no zone limit) otherwise.
+static func _zone_for(zone: Dictionary, center: Vector3i) -> Dictionary:
+	return zone if zone.has(Vector2i(center.x, center.y)) else {}
+
+
+#The cavern generator picks both centres and both zones; each team stays inside its own zone.
+static func _assign_cavern_positions(state: BattleState, field: BattlefieldArea, passable_cells: Dictionary,
+		team_a: Array[MercenaryData], team_b: Array[MercenaryData]) -> void:
+	var pro: Array = _spawn_prologue(field, passable_cells, 0, 0, true)
+	var center_a: Vector3i = pro[0]
+	var center_b: Vector3i = pro[1]
+	var reach_a: Dictionary = pro[2]
+	var reach_b: Dictionary = pro[3]
+	var taken: Dictionary = pro[4]
+	_place_team(state, field, passable_cells, team_a, center_a, reach_b, taken, field.spawn_zone_a)
+	_place_team(state, field, passable_cells, team_b, center_b, reach_a, taken, field.spawn_zone_b)
+
+
+#City maps: a ranged-focused merc holds an upper window facing the enemy, the rest start on foot in the zone.
+static func _assign_city_positions(state: BattleState, field: BattlefieldArea, passable_cells: Dictionary,
+		team_a: Array[MercenaryData], team_b: Array[MercenaryData]) -> void:
+	var pro: Array = _spawn_prologue(field, passable_cells, 0, 0, true)
+	var center_a: Vector3i = pro[0]
+	var center_b: Vector3i = pro[1]
+	var reach_a: Dictionary = pro[2]
+	var reach_b: Dictionary = pro[3]
+	var taken: Dictionary = pro[4]
+	var rosters: Array = [team_a, team_b]
+	var centers: Array[Vector3i] = [center_a, center_b]
+	var reaches: Array[Dictionary] = [reach_a, reach_b]
+	var roof_part_at: Dictionary = _roof_part_index(field)
+	for t: int in range(2):
+		var posts: Array[Vector3i] = CitySpawns.window_posts(field, t)
+		var roofs: Array[Vector3i] = CitySpawns.roof_posts(field, t)
+		var own_reach: Dictionary = reaches[t]
+		var on_foot: Array[MercenaryData] = []
+		for merc: MercenaryData in (rosters[t] as Array):
+			var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
+			var post := Vector3i(-1, -1, -1)
+			var on_roof: bool = false
+			if WeaponEvaluator.is_ranged_focused(merc):
+				for cand: Vector3i in posts:
+					if not own_reach.has(cand):
+						continue
+					if not _spawnable(field, passable_cells, cand, taken, merc_size):
+						continue
+					post = cand
+					break
+				if post.x < 0:
+					var floods: int = 0
+					var refused: Dictionary = {}
+					var denied: bool = false
+					for roof: Vector3i in roofs:
+						if not _spawnable(field, passable_cells, roof, taken, merc_size):
+							continue
+						var part_key: Variant = roof_part_at.get(roof, roof)
+						if refused.has(part_key):
+							continue
+						if floods >= ROOF_EXIT_FLOODS:
+							break
+						floods += 1
+						if not _can_leave_roof(field, passable_cells, roof, merc):
+							refused[part_key] = true
+							denied = true
+							continue
+						post = roof
+						on_roof = true
+						break
+					if post.x < 0 and denied:
+						field.generation_log.append("SPAWN POST: %s roof refused, no way down (size %d)"
+							% [merc.merc_name, int(merc.stats.get("size", 1))])
+			if post.x < 0:
+				on_foot.append(merc)
+				continue
+			taken[post] = true
+			state.positions[merc] = Vector2i(post.x, post.y)
+			state.heights[merc] = 0
+			state.floors[merc] = post.z
+			if on_roof:
+				field.generation_log.append("SPAWN POST: %s ROOF L%d (%d,%d)"
+					% [merc.merc_name, post.z, post.x, post.y])
+			else:
+				field.generation_log.append("SPAWN POST: %s F%d (%d,%d)" % [merc.merc_name, post.z, post.x, post.y])
+		_place_team(state, field, passable_cells, on_foot, centers[t], reaches[1 - t], taken,
+			CitySpawns.outdoor_zone(field, t))
+
+
+#Roof cell -> its roof_parts row, so one refused part is not flooded once per cell it owns.
+static func _roof_part_index(field: BattlefieldArea) -> Dictionary:
+	var out: Dictionary = {}
+	for i: int in range(field.roof_parts.size()):
+		var part: Dictionary = field.roof_parts[i]
+		var level: int = int(part.get("level", 0))
+		for cell: Vector2i in (part.get("cells", []) as Array):
+			out[Vector3i(cell.x, cell.y, level)] = i
+	return out
+
+
+#True when this unit can get itself off that roof: a route down to open ground inside a short walk
+#budget, priced with its own flight, climb links and drop links.
+static func _can_leave_roof(field: BattlefieldArea, passable_cells: Dictionary, roof: Vector3i,
+		merc: MercenaryData) -> bool:
+	var snap := PathCost.climb_snapshot()
+	PathCost.set_climb(merc)
+	var search := ReachSearch.create(roof, field, passable_cells,
+		PathTargeter.fall_tolerance(merc), PathTargeter.is_flying(merc), true,
+		int(merc.stats.get("jump", 0)),
+		int(merc.stats.get("size", 1)), 0)
+	var out: bool = search.ensure_until(ROOF_EXIT_BUDGET,
+		func(cell: Vector3i) -> bool: return cell.z == 0 and not field.roof_cells.has(cell))
+	PathCost.restore_climb(snap)
+	return out
+
+
+#The dungeon generator picks both rooms; team A holds the Foyer, team B its own floor.
+static func _assign_dungeon_positions(state: BattleState, field: BattlefieldArea, passable_cells: Dictionary,
+		team_a: Array[MercenaryData], team_b: Array[MercenaryData]) -> void:
+	var pro: Array = _spawn_prologue(field, passable_cells, field.spawn_floor_a, field.spawn_floor_b, false)
+	var center_a: Vector3i = pro[0]
+	var center_b: Vector3i = pro[1]
+	var reach_a: Dictionary = pro[2]
+	var reach_b: Dictionary = pro[3]
+	var taken: Dictionary = pro[4]
+	_place_team(state, field, passable_cells, team_a, center_a, reach_b, taken, field.spawn_zone_a)
+	_place_team(state, field, passable_cells, team_b, center_b, reach_a, taken, field.spawn_zone_b)
+
+
+#Both spawn centres, both reachable sets and the shared taken set for one map type.
+#Returns [center_a, center_b, reach_a, reach_b, taken]; reset_water is off where the map keeps its water cost.
+static func _spawn_prologue(field: BattlefieldArea, passable_cells: Dictionary, floor_a: int,
+		floor_b: int, reset_water: bool) -> Array:
+	PathCost.set_door_penalty(0)
+	if reset_water:
+		PathCost.set_water_cost(null, null)
+	var center_a := Vector3i(field.spawn_center_a.x, field.spawn_center_a.y, floor_a)
+	var center_b := Vector3i(field.spawn_center_b.x, field.spawn_center_b.y, floor_b)
+	var reach_a := PathTargeter.reachable_from(center_a, field, passable_cells, 1.0, false, true, 0, 1)
+	var reach_b := PathTargeter.reachable_from(center_b, field, passable_cells, 1.0, false, true, 0, 1)
+	field.generation_log.append("SPAWN CENTER: Team 0 F%d (%d,%d)" % [center_a.z, center_a.x, center_a.y])
+	field.generation_log.append("SPAWN CENTER: Team 1 F%d (%d,%d)" % [center_b.z, center_b.x, center_b.y])
+	return [center_a, center_b, reach_a, reach_b, {}]
 
 
 #One team placed around its spawn centre, two RNG offsets drawn per merc in team order.
 static func _place_team(state: BattleState, field: BattlefieldArea, passable_cells: Dictionary,
 		team: Array[MercenaryData], center: Vector3i, enemy_reach: Dictionary,
-		taken: Dictionary) -> void:
+		taken: Dictionary, zone: Dictionary = {}) -> void:
 	for merc: MercenaryData in team:
-		var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
-		var offset := Vector2i(randi_range(-2, 2), randi_range(-2, 2))
-		var start := field.clamp_position(Vector2i(center.x, center.y) + offset)
-		var pos := _find_free_cell(field, passable_cells, Vector3i(start.x, start.y, center.z),
-			center, enemy_reach, taken, merc_size, merc.merc_name)
-		taken[pos] = true
-		_log_unreachable_spawn(field, pos, enemy_reach, merc.merc_name)
-		state.positions[merc] = Vector2i(pos.x, pos.y)
-		state.heights[merc] = 0
-		state.floors[merc] = pos.z
+		_place_one(state, field, passable_cells, merc, center, center.z, enemy_reach, taken, zone)
+
+
+#One merc placed around a spawn centre; the two offset draws stay in caller order.
+static func _place_one(state: BattleState, field: BattlefieldArea, passable_cells: Dictionary,
+		merc: MercenaryData, center: Vector3i, target_floor: int, enemy_reach: Dictionary,
+		taken: Dictionary, zone: Dictionary = {}) -> Vector3i:
+	var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
+	var offset := Vector2i(randi_range(-2, 2), randi_range(-2, 2))
+	var start := field.clamp_position(Vector2i(center.x, center.y) + offset)
+	var pos := _find_free_cell(field, passable_cells, Vector3i(start.x, start.y, target_floor),
+		center, enemy_reach, taken, merc_size, merc.merc_name, zone)
+	taken[pos] = true
+	_log_unreachable_spawn(field, pos, enemy_reach, merc.merc_name)
+	state.positions[merc] = Vector2i(pos.x, pos.y)
+	state.heights[merc] = 0
+	state.floors[merc] = pos.z
+	return pos
+
+
+#Moves one already-placed merc to a free cell touching the anchor; false when no such cell exists.
+static func place_adjacent(state: BattleState, merc: MercenaryData, anchor: MercenaryData) -> bool:
+	if state == null or merc == null or anchor == null:
+		return false
+	var field := state.battlefield
+	if field == null:
+		return false
+	var passable_cells: Dictionary = field.get_nav_passable_cells()
+	var anchor_cell := state.pos3(anchor)
+	var taken: Dictionary = {}
+	for other: MercenaryData in state.positions.keys():
+		if other != merc:
+			taken[state.pos3(other)] = true
+	var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
+	var cell := _find_free_cell(field, passable_cells, anchor_cell, anchor_cell,
+		{anchor_cell: true}, taken, merc_size, merc.merc_name, {})
+	if cell == anchor_cell or taken.has(cell):
+		return false
+	state.set_pos3(merc, cell)
+	state.set_height(merc, 0)
+	return true
 
 
 #Top half of the floors for team A, bottom half for team B; an odd middle floor belongs to both.
@@ -112,17 +305,8 @@ static func _place_team_split(state: BattleState, field: BattlefieldArea, passab
 		var merc: MercenaryData = team[i]
 		var f: int = order[i % order.size()]
 		var center: Vector3i = centers[f]
-		var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
-		var offset := Vector2i(randi_range(-2, 2), randi_range(-2, 2))
-		var start := field.clamp_position(Vector2i(center.x, center.y) + offset)
-		var pos := _find_free_cell(field, passable_cells, Vector3i(start.x, start.y, f),
-			center, enemy_reach, taken, merc_size, merc.merc_name)
-		taken[pos] = true
-		_log_unreachable_spawn(field, pos, enemy_reach, merc.merc_name)
+		var pos := _place_one(state, field, passable_cells, merc, center, f, enemy_reach, taken)
 		field.generation_log.append("SPAWN CENTER: %s F%d (%d,%d)" % [merc.merc_name, pos.z, pos.x, pos.y])
-		state.positions[merc] = Vector2i(pos.x, pos.y)
-		state.heights[merc] = 0
-		state.floors[merc] = pos.z
 
 
 #Spawn the opposing team cannot walk to; enemy_reach is empty on exterior fallbacks.
@@ -149,6 +333,9 @@ static func _spawnable(field: BattlefieldArea, passable_cells: Dictionary, cell:
 	if PathCost.is_landing_alias(cell, field):
 		return false
 	if PathCost.under_stair_blocked(cell, field, merc_size):
+		return false
+	#Nobody starts an encounter in a pool or bent double under a low roof.
+	if field.is_cavern and (field.is_water(c2) or field.clearance(c2) < float(merc_size)):
 		return false
 	if field.jagged_cells.has(c2):
 		return false
@@ -180,9 +367,17 @@ static func _touches_set(cell: Vector3i, required_nb_set: Dictionary) -> bool:
 	return false
 
 
+#True when no zone was given or the cell belongs to it.
+static func _in_zone(cell: Vector3i, zone: Dictionary) -> bool:
+	if zone.is_empty():
+		return true
+	return zone.has(Vector2i(cell.x, cell.y))
+
+
 #Unbounded BFS on the floor of start for a spawnable cell; (-1,-1,-1) when none.
+#A non-empty zone narrows which cells may be returned, never which cells are searched through.
 static func _bfs_spawnable(field: BattlefieldArea, passable_cells: Dictionary, start: Vector3i,
-		taken: Dictionary, merc_size: int) -> Vector3i:
+		taken: Dictionary, merc_size: int, zone: Dictionary = {}) -> Vector3i:
 	var visited: Dictionary = {start: true}
 	var queue: Array[Vector3i] = [start]
 	var qi := 0
@@ -196,7 +391,7 @@ static func _bfs_spawnable(field: BattlefieldArea, passable_cells: Dictionary, s
 			if visited.has(nb):
 				continue
 			visited[nb] = true
-			if _spawnable(field, passable_cells, nb, taken, merc_size):
+			if _in_zone(nb, zone) and _spawnable(field, passable_cells, nb, taken, merc_size):
 				return nb
 			queue.append(nb)
 	return Vector3i(-1, -1, -1)
@@ -204,18 +399,29 @@ static func _bfs_spawnable(field: BattlefieldArea, passable_cells: Dictionary, s
 
 static func _find_free_cell(field: BattlefieldArea, passable_cells: Dictionary, start: Vector3i,
 		fallback: Vector3i, required_nb_set: Dictionary = {}, taken: Dictionary = {},
-		merc_size: int = 1, merc_name: String = "") -> Vector3i:
-	if _spawnable(field, passable_cells, start, taken, merc_size) and _touches_set(start, required_nb_set):
+		merc_size: int = 1, merc_name: String = "", zone: Dictionary = {}) -> Vector3i:
+	if _in_zone(start, zone) and _spawnable(field, passable_cells, start, taken, merc_size) \
+			and _touches_set(start, required_nb_set):
 		return start
 	for radius: int in range(1, 5):
 		for dx: int in range(-radius, radius + 1):
 			for dy: int in range(-radius, radius + 1):
 				var c2 := field.clamp_position(Vector2i(start.x + dx, start.y + dy))
 				var candidate := Vector3i(c2.x, c2.y, start.z)
+				if not _in_zone(candidate, zone):
+					continue
 				if not _spawnable(field, passable_cells, candidate, taken, merc_size):
 					continue
 				if _touches_set(candidate, required_nb_set):
 					return candidate
+	if not zone.is_empty():
+		var zoned := _bfs_spawnable(field, passable_cells, start, taken, merc_size, zone)
+		if zoned.x >= 0:
+			return zoned
+		field.generation_log.append("[SPAWN] spawn zone full for %s near (%d,%d) F%d" % [
+			merc_name, start.x, start.y, start.z])
+		return _find_free_cell(field, passable_cells, start, fallback, required_nb_set, taken,
+			merc_size, merc_name, {})
 	if not required_nb_set.is_empty():
 		field.generation_log.append("[SPAWN] enemy-adjacency rule dropped for %s near (%d,%d) F%d" % [
 			merc_name, start.x, start.y, start.z])

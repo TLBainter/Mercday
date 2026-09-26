@@ -6,16 +6,6 @@ extends RefCounted
 
 static func decide_action(
 		merc: MercenaryData,
-		state: BattleState,
-		ctx: Dictionary) -> Dictionary:
-	var enemies: Array = ctx.get("enemies", [])
-	var attack_base_cost: int = ctx.get("attack_base_ap", 3)
-	var movement_blocked: bool = ctx.get("movement_blocked", false)
-	return _decide_weapon_action(merc, enemies, state, attack_base_cost, movement_blocked)
-
-
-static func _decide_weapon_action(
-		merc: MercenaryData,
 		enemies: Array,
 		state: BattleState,
 		attack_base_cost: int,
@@ -90,8 +80,8 @@ static func _decide_weapon_action(
 			return no_action
 		return {"type": "draw", "action_name": "Draw", "target": null, "weapon": best}
 	var current := merc.equipped_weapon
-	var swap := _should_holster_vs_drop(merc, current, best, enemies, state, attack_base_cost)
-	if grip_frees and swap == "drop" and _is_worth_keeping(merc, current, best, enemies, state):
+	var swap := should_holster_vs_drop(merc, current, best, enemies, state, attack_base_cost)
+	if grip_frees and swap == "drop" and is_worth_keeping(merc, current, best, enemies, state):
 		swap = "keep"
 	var best_draw := state.get_cost(merc, "Draw", WeaponActionExecutor.get_draw_cost(merc, best))
 	if swap == "stow":
@@ -116,9 +106,6 @@ static func _decide_weapon_action(
 
 
 #A ranged plan that walks first becomes a Move toward the firing cell instead of a Draw.
-
-
-#A ranged plan that walks first becomes a Move toward the firing cell instead of a Draw.
 static func _plan_move_decision(plan: Dictionary, movement_blocked: bool) -> Dictionary:
 	var mode := str(plan.get("mode", "none"))
 	if movement_blocked or mode == "now" or mode == "none":
@@ -138,20 +125,16 @@ static func _plan_move_decision(plan: Dictionary, movement_blocked: bool) -> Dic
 
 #Two hands on a flexible weapon add a damage die; the off hand keeps a second weapon only
 #when that weapon is worth more than the die.
-
-
-#Two hands on a flexible weapon add a damage die; the off hand keeps a second weapon only
-#when that weapon is worth more than the die.
 static func prefer_two_hands(
 		merc: MercenaryData,
 		main: WeaponData,
 		candidate: WeaponData,
 		enemies: Array,
 		state: BattleState,
-		log: bool = false) -> bool:
+		do_log: bool = false) -> bool:
 	if main == null or candidate == null or main == candidate:
 		return false
-	if not WeaponArmorPerkLibrary.is_flex_grip(main):
+	if not WeaponArmorPerkLibrary.is_flex_grip(main, merc):
 		return false
 	var parsed := AttackSystem._parse_damage_formula(main.damage_formula_1)
 	if bool(parsed["is_todo"]):
@@ -168,12 +151,13 @@ static func prefer_two_hands(
 		complement = "ranged"
 	elif main.is_ranged and not candidate.is_ranged:
 		hold = true
+	#A Thrown-property off-hand weapon earns its place when it can answer an enemy out of melee reach.
 	elif candidate.is_throwable and WeaponEvaluator._thrown_complement(merc, candidate, enemies, state):
 		hold = true
 		complement = "thrown"
 	else:
 		hold = offhand_value >= die_value
-	if log and EncounterLogger.is_active():
+	if do_log and EncounterLogger.is_active():
 		if hold:
 			EncounterLogger.log_verbose("GRIP: %s holds %s in the off hand (offhand=%.2f vs die=%.1f complement=%s)" % [
 				merc.merc_name, candidate.item_name, offhand_value, die_value, complement])
@@ -181,9 +165,6 @@ static func prefer_two_hands(
 			EncounterLogger.log_verbose("GRIP: %s two-hands %s over holding %s (die=%.1f vs offhand=%.2f)" % [
 				merc.merc_name, main.item_name, candidate.item_name, die_value, offhand_value])
 	return not hold
-
-
-#A Thrown-property off-hand weapon earns its place when it can answer an enemy out of melee reach.
 
 
 static func _should_draw_now_vs_move(
@@ -196,28 +177,20 @@ static func _should_draw_now_vs_move(
 	if weapon.is_ranged:
 		var rp := RangedDrawPlanner.plan(merc, weapon, enemies, state, attack_base_cost)
 		return str(rp.get("mode", "none")) == "now"
-	var ap_after_draw := (merc.current_ap + merc.excess_ap) - draw_cost
-	if ap_after_draw >= attack_base_cost:
+	if state.can_afford(merc, draw_cost + attack_base_cost):
 		return true
 	if state.battlefield == null:
 		return true
 	for enemy: MercenaryData in enemies:
 		var d := state.distance_to(merc, enemy)
-		var in_range: bool
-		if weapon.is_ranged:
-			in_range = weapon.ranged_extended_range <= 0 or d <= weapon.ranged_extended_range
-		else:
-			in_range = d <= weapon.melee_range
+		var in_range := d <= weapon.melee_range
 		if not in_range:
 			return false
 	return true
 
 
 #Stowing costs the weapon's Draw again, dropping is free: pick by AP left and by what the weapon is worth.
-
-
-#Stowing costs the weapon's Draw again, dropping is free: pick by AP left and by what the weapon is worth.
-static func _should_holster_vs_drop(
+static func should_holster_vs_drop(
 		merc: MercenaryData,
 		current: WeaponData,
 		best: WeaponData,
@@ -226,7 +199,7 @@ static func _should_holster_vs_drop(
 		attack_base_cost: int,
 		log_decision: bool = true,
 		prior_draws: int = 0) -> String:
-	var ap: int = merc.current_ap + merc.excess_ap
+	var ap: int = state.spendable_ap(merc)
 	var stow_cost := 0
 	if not current.is_virtual:
 		stow_cost = state.get_cost_after(merc, "Draw", WeaponActionExecutor.get_draw_cost(merc, current), prior_draws)
@@ -240,7 +213,7 @@ static func _should_holster_vs_drop(
 			_log_swap_decision(merc, "keep", current, best, "bare_hands", ap, stow_cost, draw_cost, attack_cost)
 		return "keep"
 
-	var worth_keeping := _is_worth_keeping(merc, current, best, enemies, state)
+	var worth_keeping := is_worth_keeping(merc, current, best, enemies, state)
 	var result := "keep"
 	var reason := "ap_too_low_to_swap"
 	if worth_keeping and ap - stow_cost - draw_after_stow >= attack_cost:
@@ -279,7 +252,7 @@ static func _log_swap_decision(
 		ap, stow_cost, draw_cost, attack_cost])
 
 
-static func _is_worth_keeping(
+static func is_worth_keeping(
 		merc: MercenaryData,
 		current: WeaponData,
 		best: WeaponData,

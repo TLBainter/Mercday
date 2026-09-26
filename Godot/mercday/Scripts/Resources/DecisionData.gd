@@ -12,6 +12,11 @@ func evaluate_verbose(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
 	return _run(merc, ctx, details)
 
 
+#Score and the required-facet verdict without the per-facet details.
+func run_plain(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
+	return _run(merc, ctx, null)
+
+
 #Weighted sum with a required-facet veto and an early prune; details stays null for the plain path.
 func _run(merc: MercenaryData, ctx: Dictionary, details: Variant) -> Dictionary:
 	if facets.is_empty():
@@ -51,6 +56,6 @@ func _run(merc: MercenaryData, ctx: Dictionary, details: Variant) -> Dictionary:
 
 #Class name of the facet script, falling back to the script file name.
 func _facet_name(f: DecisionFacet) -> String:
-	return f.get_script().get_global_name() \
-		if f.get_script() and not f.get_script().get_global_name().is_empty() \
-		else f.get_script().resource_path.get_file().get_basename()
+	var sc: Script = f.get_script() as Script
+	return String(sc.get_global_name()) if not sc.get_global_name().is_empty() \
+		else sc.resource_path.get_file().get_basename()

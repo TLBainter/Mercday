@@ -1,8 +1,28 @@
 class_name InteriorGenerator
 
+const WING_ONE := 45
+const WING_TWO := 85
+const WING_TRIES := 20
+const WING_GAP := 3
+#Obstacle size the interior wall cells are placed with.
+const WALL_SZ: int = 4
+const WING_LEN_MIN := 5
+const REGION_PASSES := 12
+const DIRS4: Array[Vector2i] = [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]
+const OFF4: Array[Vector3i] = [Vector3i(-1, 0, 0), Vector3i(1, 0, 0), Vector3i(0, -1, 0), Vector3i(0, 1, 0)]
 
-static func generate_interior(area: BattlefieldArea, area_data: Dictionary, ctx: GenerationContext) -> void:
-	var _gen_start := Time.get_ticks_msec()
+
+#Legacy rows keep the original generator; every Buildings.tsv row goes through the planned path.
+static func generate_interior(area: BattlefieldArea, area_data: Dictionary, ctx: GenerationContext,
+		front: String = "", fh_forced: int = 0, site: Dictionary = {}) -> void:
+	if BuildingRules.is_legacy(area_data):
+		_generate_legacy(area, area_data, ctx)
+		return
+	_generate_planned(area, area_data, ctx, front, fh_forced, site)
+
+
+static func _generate_legacy(area: BattlefieldArea, area_data: Dictionary, ctx: GenerationContext) -> void:
+	var gen_start := Time.get_ticks_msec()
 	area.reset_generated_state()
 	area.spawn_zone_a.clear()
 	area.spawn_zone_b.clear()
@@ -18,9 +38,13 @@ static func generate_interior(area: BattlefieldArea, area_data: Dictionary, ctx:
 	var floor_d: int = randi_range(min_sz, max_sz)
 	var floor_w: int = randi_range(min_sz, max_sz)
 	var street: int = randi_range(3, 5)
+	var bld_x: int = street
+	var wings: Array[Dictionary] = _roll_wings(bld_x, floor_w)
+	var north_ext: int = _wing_ext(wings, "n")
+	var south_ext: int = _wing_ext(wings, "s")
 
 	area.width = floor_w + 2 + 2 * street
-	area.length = floor_d + 1 + 2 * street
+	area.length = floor_d + 1 + 2 * street + north_ext + south_ext
 	area.height = randi_range(20, 40)
 	area.cover_amount = 2
 	area.is_interior_map = true
@@ -28,8 +52,6 @@ static func generate_interior(area: BattlefieldArea, area_data: Dictionary, ctx:
 	area.interior_floor_height = fh
 	area.interior_floor_depth = floor_d
 	area.area_name = area_data.get("name", "Unknown")
-
-	var bld_x: int = street
 
 	#floors sorted from lowest to highest: -fm, ..., 0, ..., fp
 	var floor_list: Array[int] = []
@@ -41,15 +63,15 @@ static func generate_interior(area: BattlefieldArea, area_data: Dictionary, ctx:
 		area.interior_floor_elevations[f] = fi * fh
 
 	#One well per building: every floor is partitioned around the same column pair.
-	var _sx: int = bld_x + 2 + (randi() % maxi(1, floor_w - 3))
-	var _tdx: int = -1 if (_sx % 2 == 1 and _sx - 1 >= bld_x + 1) else 1
-	if _tdx > 0 and _sx + 1 > bld_x + floor_w:
-		_tdx = -1
+	var sx: int = bld_x + 2 + (randi() % maxi(1, floor_w - 3))
+	var tdx: int = -1 if (sx % 2 == 1 and sx - 1 >= bld_x + 1) else 1
+	if tdx > 0 and sx + 1 > bld_x + floor_w:
+		tdx = -1
 	var stairwell_xs: Dictionary = {}
 	var stairwell_adj_xs: Dictionary = {}
 	for f: int in range(fp, -fm, -1):
-		stairwell_xs[f] = _sx
-		stairwell_adj_xs[f] = _sx + _tdx
+		stairwell_xs[f] = sx
+		stairwell_adj_xs[f] = sx + tdx
 
 	var wall_data: ObstacleData = DataManager.get_obstacle_by_name("Wall")
 	if wall_data == null:
@@ -58,14 +80,18 @@ static func generate_interior(area: BattlefieldArea, area_data: Dictionary, ctx:
 	var stairs_data: ObstacleData = DataManager.get_obstacle_by_name("Stairs")
 	var window_data: ObstacleData = DataManager.get_obstacle_by_name("Window")
 
-	var top_y: int = street
+	var top_y: int = street + north_ext
 	area.interior_top_y = top_y
 
 	var all_rooms: Array[Dictionary] = []
 
 	for f: int in range(fp, -(fm + 1), -1):
 		_place_floor_shell(area, f, bld_x, top_y, floor_w, floor_d, wall_data, fh)
-	area.building_footprint = Rect2i(bld_x, top_y, floor_w + 2, floor_d + 2)
+		if f < 0:
+			continue
+		for wing: Dictionary in wings:
+			_place_wing_shell(area, f, wing, top_y, floor_d, wall_data, fh)
+	_apply_masks(area, fp, fm, bld_x, top_y, floor_w, floor_d, wings)
 
 	_mark_ceiling_cells(area, fp, fm, bld_x, floor_w, floor_d, top_y)
 
@@ -84,6 +110,12 @@ static func generate_interior(area: BattlefieldArea, area_data: Dictionary, ctx:
 		all_rooms.append_array(rooms)
 		floor_v_cors[f] = v_cors_out
 		_place_exterior_rooms(area, f, bld_x, top_y, floor_w, floor_d, area_data, wall_data, fh, street, all_rooms)
+		if f < 0:
+			continue
+		for wing: Dictionary in wings:
+			var wrect: Rect2i = _wing_rect(wing, top_y, floor_d)
+			all_rooms.append_array(_partition_rooms(area, f, wrect.position.x, wrect.position.y,
+				int(wing["len"]), int(wing["depth"]), area_data, wall_data, fh))
 
 	if num_floors > 1:
 		_build_stairwells(area, floor_v_cors, fp, fm, bld_x, floor_w, floor_d, top_y,
@@ -91,7 +123,12 @@ static func generate_interior(area: BattlefieldArea, area_data: Dictionary, ctx:
 
 	_open_entrance_cells(area, bld_x, floor_w, ent_y, fh)
 
-	_place_windows(area, fp, fm, bld_x, floor_w, floor_d, window_data, stairwell_xs, top_y, fh)
+	for f: int in range(fp, -1, -1):
+		_place_wing_doors(area, wings, f, top_y, floor_d, stairwell_xs, fh)
+	for f: int in range(fp, -(fm + 1), -1):
+		_connect_floor_regions(area, f, fh)
+
+	_place_windows(area, fp, window_data, stairwell_xs, fh)
 	_fix_blind_doors(area)
 	_place_furniture_in_rooms(area, all_rooms)
 	_assign_spawns(area, ctx, bld_x, floor_w, floor_d, top_y)
@@ -100,26 +137,515 @@ static func generate_interior(area: BattlefieldArea, area_data: Dictionary, ctx:
 	area.build_drop_links()
 	area._rebuild_cover_obstacles()
 	area._rebuild_droppable_obs_map()
+	RoofBuilder.build(area, RoofBuilder.shape_of(area_data), "W")
+	var legacy_b: Dictionary = area_data.get("building", {}) as Dictionary
+	RoofBuilder.place_objects(area, RoofBuilder.shape_of(area_data), legacy_b.get("roof_objects", []) as Array)
+	#Roof edges carry drop links, so the table is rebuilt once the roof exists.
+	area.build_drop_links()
 
-	var total_ms: int = Time.get_ticks_msec() - _gen_start
-	_log_generation(area, total_ms, num_floors, floor_w, fh, floor_d)
+	var total_ms: int = Time.get_ticks_msec() - gen_start
+	_log_generation(area, total_ms, num_floors, floor_w, fh, floor_d, wings)
+
+
+#Rolls a plan and builds it, retrying while the validator still reports issues.
+static func _generate_planned(area: BattlefieldArea, area_data: Dictionary, ctx: GenerationContext,
+		front: String = "", fh_forced: int = 0, site: Dictionary = {}) -> void:
+	var gen_start := Time.get_ticks_msec()
+	var want_front: String = front
+	var want_fh: int = fh_forced
+	if ctx != null:
+		if want_front == "":
+			want_front = ctx.building_front
+		if want_fh <= 0:
+			want_fh = ctx.floor_height
+	var plan: Dictionary = {}
+	var state: Dictionary = {}
+	var all_rooms: Array[Dictionary] = []
+	var issues: Array[String] = []
+	var retry_notes: Array[String] = []
+	var tries: int = 0
+	for attempt: int in range(maxi(1, BuildingRules.TRIES)):
+		tries = attempt + 1
+		area.reset_generated_state()
+		area.spawn_zone_a.clear()
+		area.spawn_zone_b.clear()
+		area.interior_rooms.clear()
+		state = {}
+		plan = BuildingRules.roll_plan(area_data, want_front, want_fh, site)
+		all_rooms = _build_planned(area, area_data, plan, state)
+		issues = BuildingRules.validate(area)
+		if issues.is_empty():
+			break
+		retry_notes.append("[GEN] try %d: %s" % [tries, "; ".join(issues)])
+	area.building_plan["tries"] = tries
+	area.building_plan["issues"] = issues
+	var wings: Array[Dictionary] = []
+	if state.has("wings"):
+		wings.assign(state["wings"] as Array)
+	var geo: Dictionary = state.get("geo", {}) as Dictionary
+	_place_furniture_in_rooms(area, all_rooms)
+	_assign_spawns_planned(area, ctx, plan, geo)
+	area.build_stair_links()
+	area.build_drop_links()
+	area._rebuild_cover_obstacles()
+	area._rebuild_droppable_obs_map()
+	RoofBuilder.build(area, String(area.building_plan.get("roof", "Flat")),
+		String(area.building_plan.get("front", "")), String(area.building_plan.get("main_room", "")))
+	RoofBuilder.place_objects(area, String(area.building_plan.get("roof", "Flat")),
+		area.building_plan.get("roof_objects", []) as Array)
+	#Roof edges carry drop links, so the table is rebuilt once the roof exists.
+	area.build_drop_links()
+	var fp: int = int(plan.get("fp", 0))
+	var fm: int = int(plan.get("fm", 0))
+	var total_ms: int = Time.get_ticks_msec() - gen_start
+	_log_generation(area, total_ms, fp + fm + 1, int(plan.get("floor_w", 0)), int(plan.get("fh", 3)),
+		int(plan.get("floor_d", 0)), wings)
+	area.generation_log.append("[GEN] building %s front=%s %dx%d floors +%d/-%d layout=%s/%s band=%s tries=%d issues=%d"
+		% [String(plan.get("name", "?")), String(plan.get("front", "?")), int(plan.get("floor_w", 0)),
+		int(plan.get("floor_d", 0)), fp, fm, String(plan.get("layout_f0", "?")),
+		String(plan.get("layout_other", "?")), String(plan.get("band_side", "")), tries, issues.size()])
+	for note: String in retry_notes:
+		area.generation_log.append(note)
+	for text: String in issues:
+		area.generation_log.append("[GEN] issue: %s" % text)
+
+
+#Builds one attempt at the rolled plan and returns its room records.
+static func _build_planned(area: BattlefieldArea, area_data: Dictionary, plan: Dictionary,
+		out_state: Dictionary = {}) -> Array[Dictionary]:
+	var all_rooms: Array[Dictionary] = []
+	var fp: int = maxi(0, int(plan.get("fp", 0)))
+	var fm: int = maxi(0, int(plan.get("fm", 0)))
+	var fh: int = maxi(3, int(plan.get("fh", 3)))
+	var floor_w: int = maxi(3, int(plan.get("floor_w", 3)))
+	var floor_d: int = maxi(3, int(plan.get("floor_d", 3)))
+	var street: int = maxi(1, int(plan.get("street", 3)))
+	var front: String = String(plan.get("front", "W"))
+	var band_side: String = String(plan.get("band_side", ""))
+	var num_floors: int = fp + fm + 1
+	var bld_x: int = street
+	var ix0: int = bld_x + 1
+	var ix1: int = bld_x + floor_w
+	var band_x0: int = -1
+	if band_side == "W":
+		band_x0 = ix0
+	elif band_side == "E":
+		band_x0 = ix1 - 1
+	var wall_data: ObstacleData = DataManager.get_obstacle_by_name("Wall")
+	if wall_data == null:
+		push_error("InteriorGenerator: Wall obstacle missing")
+		return all_rooms
+	var stairs_data: ObstacleData = DataManager.get_obstacle_by_name("Stairs")
+	var window_data: ObstacleData = DataManager.get_obstacle_by_name("Window")
+	var open_shell: bool = String(plan.get("shell", "Walled")) == "Open"
+	var wings: Array[Dictionary] = []
+	if not open_shell:
+		wings = _roll_wings_planned(bld_x, floor_w, plan)
+	var north_ext: int = _wing_ext(wings, "n")
+	var south_ext: int = _wing_ext(wings, "s")
+	var top_y: int = street + north_ext
+	area.width = floor_w + 2 + 2 * street
+	area.length = floor_d + 2 + 2 * street + north_ext + south_ext
+	area.height = randi_range(20, 40)
+	area.cover_amount = 2
+	area.is_interior_map = true
+	area.unevenness = 6
+	area.interior_floor_height = fh
+	area.interior_floor_depth = floor_d
+	area.interior_top_y = top_y
+	area.area_name = String(area_data.get("name", "Unknown"))
+	var floor_list: Array[int] = []
+	for f: int in range(-fm, fp + 1):
+		floor_list.append(f)
+	floor_list.sort()
+	for fi: int in range(floor_list.size()):
+		area.interior_floor_elevations[floor_list[fi]] = fi * fh
+	area.building_plan = plan.duplicate(true)
+	area.building_plan["front_door"] = Vector3i(-1, -1, 0)
+	area.building_plan["back_door"] = Vector3i(-1, -1, 0)
+	area.building_plan["band_x0"] = band_x0
+	area.building_plan["tries"] = 0
+	area.building_plan["issues"] = []
+	var we: bool = front == "W" or front == "E"
+	var iy0: int = top_y + 1
+	var iy1: int = top_y + floor_d
+	var ux0: int = ix0 + (2 if band_x0 == ix0 else 0)
+	var ux1: int = ix1 - (2 if band_x0 == ix1 - 1 else 0)
+	var geo: Dictionary = {
+		"front": front, "bld_x": bld_x, "top_y": top_y, "floor_w": floor_w, "floor_d": floor_d,
+		"ix0": ix0, "ix1": ix1, "iy0": iy0, "iy1": iy1, "ux0": ux0, "ux1": ux1,
+		"band_x0": band_x0, "rows": _run_rows(top_y, floor_d, fh), "top_floor": fp,
+		"ent_row": _entrance_row(area, top_y, floor_d, fh, num_floors), "street": street,
+		"t0": iy0 if we else ux0, "t1": iy1 if we else ux1,
+		"s_size": (ux1 - ux0 + 1) if we else (iy1 - iy0 + 1), "used": {}, "t_door": -1,
+	}
+	out_state["wings"] = wings
+	out_state["geo"] = geo
+	if open_shell:
+		all_rooms.append_array(BuildingLayouts.open_shell(area, plan, geo))
+		return all_rooms
+	if band_x0 >= 0:
+		for bx: int in [band_x0, band_x0 + 1]:
+			for by: int in range(iy0, iy1 + 1):
+				area.reserved_corridor_cells[Vector2i(bx, by)] = true
+	for f: int in range(fp, -(fm + 1), -1):
+		_place_floor_shell(area, f, bld_x, top_y, floor_w, floor_d, wall_data, fh)
+		if f < 0:
+			continue
+		for wing: Dictionary in wings:
+			_place_wing_shell(area, f, wing, top_y, floor_d, wall_data, fh)
+	_apply_masks(area, fp, fm, bld_x, top_y, floor_w, floor_d, wings)
+	_mark_ceiling_cells(area, fp, fm, bld_x, floor_w, floor_d, top_y)
+	var stairwell_xs: Dictionary = {}
+	var stairwell_adj_xs: Dictionary = {}
+	var fixed_pair: Array[int] = []
+	if num_floors > 1:
+		var sx: int = band_x0
+		var adj: int = band_x0 + 1
+		if band_x0 >= 0:
+			fixed_pair = [band_x0, band_x0 + 1]
+		else:
+			var sx_lo: int = bld_x + 2
+			var sx_n: int = floor_w - 3
+			#A corridor floor keeps the stair hall off the front wall so a room can stand behind the street door.
+			if String(plan.get("layout_f0", "")) == "Corridor" and floor_w >= BuildingRules.CORRIDOR_MIN:
+				if front == "W":
+					sx_lo += 5
+					sx_n -= 5
+				elif front == "E":
+					sx_n -= 5
+			sx = sx_lo + (randi() % maxi(1, sx_n))
+			var tdx: int = -1 if (sx % 2 == 1 and sx - 1 >= bld_x + 1) else 1
+			if tdx > 0 and sx + 1 > bld_x + floor_w:
+				tdx = -1
+			adj = sx + tdx
+		for f: int in range(fp, -fm, -1):
+			stairwell_xs[f] = sx
+			stairwell_adj_xs[f] = adj
+	var layout_other: String = String(plan.get("layout_other", ""))
+	if layout_other == "":
+		layout_other = String(plan.get("layout_f0", "Open"))
+	var floor_v_cors: Dictionary = {}
+	for f: int in range(fp, -(fm + 1), -1):
+		var layout: String = String(plan.get("layout_f0", "Open")) if f == 0 else layout_other
+		var fill_data: Dictionary = _fill_data(area_data, plan, f, fp)
+		var v_cors_out: Array = []
+		if layout == "Corridor":
+			var sx_below: int = stairwell_xs.get(f, -1)
+			var sx_above: int = stairwell_xs.get(f + 1, -1)
+			var ax_below: int = stairwell_adj_xs.get(f, -1)
+			var ax_above: int = stairwell_adj_xs.get(f + 1, -1)
+			var rooms_f: Array[Dictionary] = _partition_rooms(
+				area, f, bld_x, top_y, floor_w, floor_d, fill_data, wall_data, fh,
+				sx_below, sx_above, ax_below, ax_above, v_cors_out)
+			if rooms_f.is_empty():
+				rooms_f = BuildingLayouts.open_floor(area, f, plan, geo, wall_data, fh)
+			all_rooms.append_array(rooms_f)
+		elif layout == "Shop":
+			all_rooms.append_array(BuildingLayouts.shop_floor(area, f, plan, geo, wall_data, fh))
+		elif layout == "Hall":
+			all_rooms.append_array(BuildingLayouts.hall_floor(area, f, plan, geo, wall_data, fh))
+		else:
+			all_rooms.append_array(BuildingLayouts.open_floor(area, f, plan, geo, wall_data, fh))
+		floor_v_cors[f] = v_cors_out
+		if f < 0:
+			continue
+		for wing: Dictionary in wings:
+			var wrect: Rect2i = _wing_rect(wing, top_y, floor_d)
+			all_rooms.append_array(_partition_rooms(area, f, wrect.position.x, wrect.position.y,
+				int(wing["len"]), int(wing["depth"]), fill_data, wall_data, fh))
+		_ext_room_planned(area, f, bld_x, top_y, floor_w, floor_d, area_data, plan, wall_data, fh,
+			street, all_rooms)
+	if num_floors > 1:
+		_build_stairwells(area, floor_v_cors, fp, fm, bld_x, floor_w, floor_d, top_y,
+			stairs_data, stairwell_xs, stairwell_adj_xs, fixed_pair)
+	BuildingLayouts.place_doors(area, plan, geo, all_rooms, fh, wings)
+	BuildingLayouts.label_rooms(area, plan, all_rooms, geo)
+	for f: int in range(fp, -1, -1):
+		_place_wing_doors(area, wings, f, top_y, floor_d, stairwell_xs, fh)
+	for f: int in range(fp, -(fm + 1), -1):
+		_connect_floor_regions(area, f, fh)
+	_place_windows(area, fp, window_data, stairwell_xs, fh, String(plan.get("windows", "Normal")),
+		plan.get("window_rooms", {}) as Dictionary)
+	_fix_blind_doors(area)
+	return all_rooms
+
+
+#Wings on the north or south side only, never on the front and never across the stair band.
+static func _roll_wings_planned(bld_x: int, floor_w: int, plan: Dictionary) -> Array[Dictionary]:
+	var wings: Array[Dictionary] = []
+	var want: int = int(plan.get("wing_count", 0))
+	if want <= 0 or floor_w < WING_LEN_MIN + 2:
+		return wings
+	var front: String = String(plan.get("front", "W"))
+	var sides: Array[String] = []
+	for side: String in ["n", "s"]:
+		if (side == "n" and front == "N") or (side == "s" and front == "S"):
+			continue
+		sides.append(side)
+	if sides.size() > 1 and want < 2:
+		var only: String = sides[randi() % sides.size()]
+		sides.clear()
+		sides.append(only)
+	var band_side: String = String(plan.get("band_side", ""))
+	var band_x0: int = -1
+	if band_side == "W":
+		band_x0 = bld_x + 1
+	elif band_side == "E":
+		band_x0 = bld_x + floor_w - 1
+	for side: String in sides:
+		if wings.size() >= want:
+			break
+		for _try: int in range(WING_TRIES):
+			var wing: Dictionary = _roll_one_wing(wings, side, bld_x, floor_w)
+			if wing.is_empty():
+				break
+			if band_x0 >= 0 and int(wing["x0"]) <= band_x0 + 2 \
+					and int(wing["x0"]) + int(wing["len"]) - 1 >= band_x0 - 1:
+				continue
+			wings.append(wing)
+			break
+	return wings
+
+
+#Room fill list for one floor: other rooms first, then the required ones, then everything named.
+static func _fill_data(area_data: Dictionary, plan: Dictionary, f: int, top_floor: int) -> Dictionary:
+	var out: Dictionary = area_data.duplicate()
+	out["top_floor"] = top_floor
+	var others: Array[String] = _plan_names(plan.get("other_rooms", []))
+	out["rooms_list"] = others
+	if not DataManager.get_rooms_for_floor(out, f).is_empty():
+		return out
+	var wider: Array[String] = _plan_names(plan.get("required_rooms", []))
+	wider.append_array(others)
+	out["rooms_list"] = wider
+	if not DataManager.get_rooms_for_floor(out, f).is_empty():
+		return out
+	var every: Array[String] = [String(plan.get("main_room", ""))]
+	every.append_array(wider)
+	out["rooms_list"] = every
+	return out
+
+
+static func _plan_names(raw: Variant) -> Array[String]:
+	var out: Array[String] = []
+	for entry: Variant in (raw as Array):
+		var name_text: String = String(entry)
+		if name_text != "":
+			out.append(name_text)
+	return out
+
+
+#Half the time an eligible floor gets a walled exterior room on a side the front and band leave free.
+static func _ext_room_planned(area: BattlefieldArea, f: int, bld_x: int, top_y: int, floor_w: int,
+		floor_d: int, area_data: Dictionary, plan: Dictionary, wall_data: ObstacleData, fh: int,
+		street: int, all_rooms: Array[Dictionary]) -> void:
+	if f < 0:
+		return
+	if bool(plan.get("no_ext_rooms", false)):
+		return
+	var ext_data: Dictionary = area_data.duplicate()
+	ext_data["top_floor"] = int(plan.get("fp", 0))
+	var every: Array[String] = [String(plan.get("main_room", ""))]
+	every.append_array(_plan_names(plan.get("required_rooms", [])))
+	every.append_array(_plan_names(plan.get("other_rooms", [])))
+	ext_data["rooms_list"] = every
+	if DataManager.get_exterior_rooms_for_floor(ext_data, f).is_empty():
+		return
+	if randi() % 2 != 0:
+		return
+	var front: String = String(plan.get("front", "W"))
+	var band_side: String = String(plan.get("band_side", ""))
+	var sides: Array[String] = []
+	for side: String in ["W", "E"]:
+		if side == front or side == band_side:
+			continue
+		sides.append(side)
+	if sides.is_empty():
+		return
+	_place_exterior_rooms(area, f, bld_x, top_y, floor_w, floor_d, ext_data, wall_data, fh, street,
+		all_rooms, sides[randi() % sides.size()])
+
+
+#Spawns for a planned building: team A behind the front door, team B at the far end of floor 0.
+static func _assign_spawns_planned(area: BattlefieldArea, ctx: GenerationContext, plan: Dictionary,
+		geo: Dictionary) -> void:
+	if geo.is_empty():
+		return
+	var floor_w: int = int(geo.get("floor_w", 1))
+	var floor_d: int = int(geo.get("floor_d", 1))
+	var max_team: int = 4 if ctx == null else maxi(ctx.team_size_a, ctx.team_size_b)
+	area.spawn_radius = maxf(3.0, float(max_team))
+	area.spawn_radius = minf(area.spawn_radius, minf(float(floor_w), float(floor_d)) / 2.0)
+	var front: String = String(plan.get("front", "W"))
+	var ix0: int = int(geo.get("ix0", 1))
+	var ix1: int = int(geo.get("ix1", 1))
+	var iy0: int = int(geo.get("iy0", 1))
+	var iy1: int = int(geo.get("iy1", 1))
+	var mid_x: int = (ix0 + ix1) >> 1
+	var mid_y: int = (iy0 + iy1) >> 1
+	var near: Vector2i = Vector2i(ix0 + (floor_w >> 2), mid_y)
+	var far: Vector2i = Vector2i(ix1 - (floor_w >> 2), mid_y)
+	if front == "E":
+		near = Vector2i(ix1 - (floor_w >> 2), mid_y)
+		far = Vector2i(ix0 + (floor_w >> 2), mid_y)
+	elif front == "N":
+		near = Vector2i(mid_x, iy0 + (floor_d >> 2))
+		far = Vector2i(mid_x, iy1 - (floor_d >> 2))
+	elif front == "S":
+		near = Vector2i(mid_x, iy1 - (floor_d >> 2))
+		far = Vector2i(mid_x, iy0 + (floor_d >> 2))
+	area.spawn_center_a = near
+	area.spawn_center_b = far
+	for key: Variant in area.building_interiors.keys():
+		var c: Vector3i = key as Vector3i
+		if c.z != 0 or area._obs_map.has(c):
+			continue
+		var flat := Vector2i(c.x, c.y)
+		if flat.distance_squared_to(near) <= flat.distance_squared_to(far):
+			area.spawn_zone_a[flat] = true
+		else:
+			area.spawn_zone_b[flat] = true
+	var span: Vector2i = BuildingLayouts._wall_t_range(geo, front)
+	var t_mid: int = (span.x + span.y) >> 1
+	var door: Vector3i = area.building_plan.get("front_door", Vector3i(-1, -1, 0))
+	var anchor_a: Vector2i = BuildingLayouts._wall_cell(geo, front, t_mid)
+	if door.x >= 0:
+		anchor_a = Vector2i(door.x, door.y)
+	var anchor_b: Vector2i = BuildingLayouts._wall_cell(geo, BuildingLayouts._opposite(front), t_mid)
+	if area.spawn_zone_a.size() < 4:
+		_add_street_cells(area, area.spawn_zone_a, area.spawn_zone_b, anchor_a)
+	if area.spawn_zone_b.size() < 4:
+		_add_street_cells(area, area.spawn_zone_b, area.spawn_zone_a, anchor_b)
+
+
+#Free floor 0 street cells within 3 cells of the anchor join a zone that is too small to hold a team.
+static func _add_street_cells(area: BattlefieldArea, zone: Dictionary, other: Dictionary, anchor: Vector2i) -> void:
+	for dx: int in range(-3, 4):
+		for dy: int in range(-3, 4):
+			var flat := Vector2i(anchor.x + dx, anchor.y + dy)
+			if flat.x < 0 or flat.y < 0 or flat.x >= area.width or flat.y >= area.length:
+				continue
+			var c := Vector3i(flat.x, flat.y, 0)
+			if area.in_footprint(flat) or area.building_interiors.has(c) or area._obs_map.has(c) or other.has(flat):
+				continue
+			zone[flat] = true
 
 
 static func _place_floor_shell(area: BattlefieldArea, f: int, bld_x: int, top_y: int, floor_w: int, floor_d: int, wall_data: ObstacleData, fh: int) -> void:
-	var wall_sz: int = 4
 	var bot_y: int = top_y + floor_d + 1
 
 	for x: int in range(bld_x, bld_x + floor_w + 2):
-		_place_wall_if_empty(area, Vector3i(x, top_y, f), wall_sz, wall_data, fh)
-		_place_wall_if_empty(area, Vector3i(x, bot_y, f), wall_sz, wall_data, fh)
+		_place_wall_if_empty(area, Vector3i(x, top_y, f), WALL_SZ, wall_data, fh)
+		_place_wall_if_empty(area, Vector3i(x, bot_y, f), WALL_SZ, wall_data, fh)
 
 	for y: int in range(top_y + 1, bot_y):
-		_place_wall_if_empty(area, Vector3i(bld_x, y, f), wall_sz, wall_data, fh)
-		_place_wall_if_empty(area, Vector3i(bld_x + floor_w + 1, y, f), wall_sz, wall_data, fh)
+		_place_wall_if_empty(area, Vector3i(bld_x, y, f), WALL_SZ, wall_data, fh)
+		_place_wall_if_empty(area, Vector3i(bld_x + floor_w + 1, y, f), WALL_SZ, wall_data, fh)
 
 	for iy: int in range(top_y + 1, bot_y):
 		for ix: int in range(bld_x + 1, bld_x + floor_w + 1):
 			area.building_interiors[Vector3i(ix, iy, f)] = true
+
+
+#One to three wings on the north and south walls; each one stays inside the main block's side walls.
+static func _roll_wings(bld_x: int, floor_w: int) -> Array[Dictionary]:
+	var roll: int = randi() % 100
+	var want: int = 1
+	if roll >= WING_ONE:
+		want = 2
+	if roll >= WING_TWO:
+		want = 3
+	var sides: Array[String] = []
+	for _i: int in range(want):
+		sides.append("n" if randi() % 2 == 0 else "s")
+	if want == 3 and not (sides.has("n") and sides.has("s")):
+		sides[randi() % 3] = "s" if sides[0] == "n" else "n"
+	var wings: Array[Dictionary] = []
+	for side: String in sides:
+		var w: Dictionary = _roll_one_wing(wings, side, bld_x, floor_w)
+		if not w.is_empty():
+			wings.append(w)
+	if wings.is_empty():
+		wings.append({"side": "n", "x0": bld_x + 1 + maxi(0, (floor_w - WING_LEN_MIN) >> 1),
+			"len": WING_LEN_MIN, "depth": 3})
+	return wings
+
+
+#One wing roll: length, depth and column start clear of the wings already taken on that side.
+static func _roll_one_wing(wings: Array[Dictionary], side: String, bld_x: int, floor_w: int) -> Dictionary:
+	var max_len: int = floor_w - 4
+	if max_len < WING_LEN_MIN:
+		return {}
+	for _t: int in range(WING_TRIES):
+		var wlen: int = randi_range(WING_LEN_MIN, max_len)
+		var depth: int = randi_range(3, 6)
+		var x0: int = randi_range(bld_x + 1, bld_x + floor_w + 1 - wlen)
+		var clash: bool = false
+		for other: Dictionary in wings:
+			if String(other["side"]) != side:
+				continue
+			var ox0: int = int(other["x0"])
+			var olen: int = int(other["len"])
+			if not (x0 >= ox0 + olen + WING_GAP + 2 or ox0 >= x0 + wlen + WING_GAP + 2):
+				clash = true
+		if not clash:
+			return {"side": side, "x0": x0, "len": wlen, "depth": depth}
+	return {}
+
+
+#Rows the map gains beyond the main block on one side: the deepest wing plus its outer wall.
+static func _wing_ext(wings: Array[Dictionary], side: String) -> int:
+	var best: int = 0
+	for w: Dictionary in wings:
+		if String(w["side"]) == side:
+			best = maxi(best, int(w["depth"]) + 1)
+	return best
+
+
+#Wing rect with its walls: the row shared with the main block is the rect edge nearest the block.
+static func _wing_rect(wing: Dictionary, top_y: int, floor_d: int) -> Rect2i:
+	var wlen: int = int(wing["len"])
+	var depth: int = int(wing["depth"])
+	var x0: int = int(wing["x0"]) - 1
+	var y0: int = top_y - depth - 1 if String(wing["side"]) == "n" else top_y + floor_d + 1
+	return Rect2i(x0, y0, wlen + 2, depth + 2)
+
+
+#Wall ring on the wing's three outer sides; the shared wall row keeps the main block wall.
+static func _place_wing_shell(area: BattlefieldArea, f: int, wing: Dictionary, top_y: int,
+		floor_d: int, wall_data: ObstacleData, fh: int) -> void:
+	var rect: Rect2i = _wing_rect(wing, top_y, floor_d)
+	var x1: int = rect.end.x - 1
+	var y1: int = rect.end.y - 1
+	var out_y: int = rect.position.y if String(wing["side"]) == "n" else y1
+	for x: int in range(rect.position.x, x1 + 1):
+		_place_wall_if_empty(area, Vector3i(x, out_y, f), WALL_SZ, wall_data, fh)
+	for y: int in range(rect.position.y, y1 + 1):
+		_place_wall_if_empty(area, Vector3i(rect.position.x, y, f), WALL_SZ, wall_data, fh)
+		_place_wall_if_empty(area, Vector3i(x1, y, f), WALL_SZ, wall_data, fh)
+	for iy: int in range(rect.position.y + 1, y1):
+		for ix: int in range(rect.position.x + 1, x1):
+			area.building_interiors[Vector3i(ix, iy, f)] = true
+
+
+#Per-floor footprint masks: the main block on every floor, the wings on floor 0 and above.
+static func _apply_masks(area: BattlefieldArea, fp: int, fm: int, bld_x: int, top_y: int,
+		floor_w: int, floor_d: int, wings: Array[Dictionary]) -> void:
+	var main := Rect2i(bld_x, top_y, floor_w + 2, floor_d + 2)
+	for f: int in range(fp, -(fm + 1), -1):
+		_mask_rect(area, f, main)
+		if f < 0:
+			continue
+		for wing: Dictionary in wings:
+			_mask_rect(area, f, _wing_rect(wing, top_y, floor_d))
+	area.set_footprint_from_cells()
+
+
+static func _mask_rect(area: BattlefieldArea, f: int, rect: Rect2i) -> void:
+	for ix: int in range(rect.position.x, rect.end.x):
+		for iy: int in range(rect.position.y, rect.end.y):
+			area.footprint_cells[Vector3i(ix, iy, f)] = true
 
 
 static func _mark_ceiling_cells(area: BattlefieldArea, fp: int, fm: int, bld_x: int, floor_w: int, floor_d: int, top_y: int) -> void:
@@ -144,101 +670,17 @@ static func _partition_rooms(area: BattlefieldArea, f: int, bld_x: int, top_y: i
 
 
 static func _partition_corridor(area: BattlefieldArea, f: int, bld_x: int, top_y: int, floor_w: int, floor_d: int, eligible: Array[ObstacleData], wall_data: ObstacleData, fh: int, door_data: ObstacleData, result: Array[Dictionary], stairwell_x_below: int = -1, stairwell_x_above: int = -1, adj_x_below: int = -1, adj_x_above: int = -1, v_cors_out: Array = []) -> void:
-	var wall_sz: int = 4
 	var ix0: int = bld_x + 1
 	var iy0: int = top_y + 1
 	var ix1: int = bld_x + floor_w
 	var iy1: int = top_y + floor_d
 
-	var max_room_sz_x: int = 0
-	var max_room_sz_y: int = 0
-	for r: ObstacleData in eligible:
-		max_room_sz_x = maxi(max_room_sz_x, ceili(r.size_x))
-		max_room_sz_y = maxi(max_room_sz_y, ceili(r.size_y))
-	if max_room_sz_x == 0:
-		max_room_sz_x = 4
-	if max_room_sz_y == 0:
-		max_room_sz_y = 4
-
-	var floor_h_depth: int = iy1 - iy0
-	var min_strip: int = maxi(3, mini(max_room_sz_y, (floor_h_depth >> 1) - 1))
-	var min_v_strip: int = maxi(3, max_room_sz_x)
-	var h_min: int = iy0 + min_strip
-	var h_max: int = iy1 - min_strip
-	var v_min: int = ix0 + min_v_strip
-	var v_max: int = ix1 - min_v_strip
-	var can_h: bool = h_min <= h_max
-	var can_v: bool = v_min <= v_max
-
 	var h_cors: Array[int] = []
 	var v_cors: Array[int] = []
-
-	if not can_h and not can_v:
+	if not _corridor_lines(ix0, iy0, ix1, iy1, top_y, floor_d, fh, eligible,
+			stairwell_x_below, stairwell_x_above, adj_x_below, adj_x_above, h_cors, v_cors):
 		_partition_strip(area, f, ix0, iy0, floor_w, floor_d, eligible, wall_data, fh, result, stairwell_x_above, adj_x_above, true)
 		return
-
-	var sw_covers_v: bool = false
-	for _swx: int in [stairwell_x_below, stairwell_x_above, adj_x_below, adj_x_above]:
-		if _swx >= ix0 and _swx <= ix1:
-			sw_covers_v = true
-			break
-
-	var run_rows: Vector2i = _run_rows(top_y, floor_d, fh)
-	var well_band: bool = sw_covers_v and run_rows.x - 1 >= iy0 and run_rows.y + 1 <= iy1
-	if well_band:
-		#A corridor at each end of the run band reaches the landing and the run top; nothing crosses the band.
-		h_cors.append(run_rows.x - 1)
-		h_cors.append(run_rows.y + 1)
-		for band: Array in [[iy0, run_rows.x - 2], [run_rows.y + 2, iy1]]:
-			var by0: int = band[0] as int
-			var by1: int = band[1] as int
-			if by1 - by0 + 1 >= min_strip * 2 + 1:
-				h_cors.append(randi_range(by0 + min_strip, by1 - min_strip))
-		if can_v:
-			var v_cands: Array[int] = []
-			for vx: int in range(v_min, v_max + 1):
-				var far_enough: bool = true
-				for _swx3: int in [stairwell_x_below, stairwell_x_above, adj_x_below, adj_x_above]:
-					if _swx3 >= 0 and absi(vx - _swx3) < 4:
-						far_enough = false
-				if far_enough:
-					v_cands.append(vx)
-			if not v_cands.is_empty():
-				v_cors.append(v_cands[randi() % v_cands.size()])
-	else:
-		var valid_pats: Array[int] = []
-		if can_h:
-			valid_pats.append(0)
-			valid_pats.append(0)
-		if can_v and not sw_covers_v:
-			valid_pats.append(1)
-		if can_h and can_v and not sw_covers_v:
-			valid_pats.append(2)
-		if can_h and h_max - h_min >= min_strip * 2 + 1:
-			valid_pats.append(3)
-		if valid_pats.is_empty():
-			_partition_strip(area, f, ix0, iy0, floor_w, floor_d, eligible, wall_data, fh, result, stairwell_x_above, adj_x_above, true)
-			return
-		var pat: int = valid_pats[randi() % valid_pats.size()]
-		match pat:
-			0:
-				h_cors.append(randi_range(h_min, h_max))
-			1:
-				v_cors.append(randi_range(v_min, v_max))
-			2:
-				h_cors.append(randi_range(h_min, h_max))
-				v_cors.append(randi_range(v_min, v_max))
-			3:
-				var mid: int = (h_min + h_max) >> 1
-				var cy1: int = randi_range(h_min, maxi(h_min, mid - min_strip))
-				var cy2: int = randi_range(mini(h_max, mid + min_strip), h_max)
-				if cy1 < cy2:
-					h_cors.append(cy1)
-					h_cors.append(cy2)
-				else:
-					h_cors.append(randi_range(h_min, h_max))
-		if h_cors.is_empty() and sw_covers_v and can_h:
-			h_cors.append(randi_range(h_min, h_max))
 
 	for sw_x: int in [stairwell_x_below, stairwell_x_above]:
 		if sw_x >= ix0 and sw_x <= ix1 and not v_cors.has(sw_x):
@@ -309,38 +751,145 @@ static func _partition_corridor(area: BattlefieldArea, f: int, bld_x: int, top_y
 	for cx: int in v_cors:
 		v_cor_set[cx] = true
 	var stairwell_v_set: Dictionary = {}
-	for _swx2: int in [stairwell_x_below, stairwell_x_above, adj_x_below, adj_x_above]:
-		if _swx2 >= ix0 and _swx2 <= ix1:
-			stairwell_v_set[_swx2] = true
-	var accessible_rects: Dictionary = {}
-	for _are: Dictionary in result:
-		if (_are["floor"] as int) != f:
-			continue
-		var _ar: Rect2i = _are["rect"] as Rect2i
-		var _arhc: bool = h_cor_set.has(_ar.position.y - 1) or h_cor_set.has(_ar.end.y)
-		var _arns: bool = (v_cor_set.has(_ar.position.x - 1) and not stairwell_v_set.has(_ar.position.x - 1)) or (v_cor_set.has(_ar.end.x) and not stairwell_v_set.has(_ar.end.x))
-		if _arhc or _arns:
-			accessible_rects[_ar.position] = true
-	var _arc: bool = true
-	while _arc:
-		_arc = false
-		for _are: Dictionary in result:
-			if (_are["floor"] as int) != f:
-				continue
-			var _ar: Rect2i = _are["rect"] as Rect2i
-			if accessible_rects.has(_ar.position):
-				continue
-			for _are2: Dictionary in result:
-				if (_are2["floor"] as int) != f:
-					continue
-				var _ar2: Rect2i = _are2["rect"] as Rect2i
-				if not accessible_rects.has(_ar2.position):
-					continue
-				if _ar2.position.x == _ar.position.x and _ar2.end.x == _ar.end.x and ((_ar.end.y + 1 == _ar2.position.y) or (_ar2.end.y + 1 == _ar.position.y)):
-					accessible_rects[_ar.position] = true
-					_arc = true
-					break
+	for swx2: int in [stairwell_x_below, stairwell_x_above, adj_x_below, adj_x_above]:
+		if swx2 >= ix0 and swx2 <= ix1:
+			stairwell_v_set[swx2] = true
+	var accessible_rects: Dictionary = _mark_accessible_rects(result, f, h_cor_set, v_cor_set, stairwell_v_set)
+	_cut_region_doors(area, f, result, h_cor_set, v_cor_set, stairwell_v_set, accessible_rects,
+		WALL_SZ, wall_data, fh, door_data)
 
+
+#Corridor rows and columns for one floor, written into h_cors and v_cors.
+#Returns false when no corridor fits and the caller must fill the floor with one strip.
+static func _corridor_lines(ix0: int, iy0: int, ix1: int, iy1: int, top_y: int, floor_d: int, fh: int,
+		eligible: Array[ObstacleData], stairwell_x_below: int, stairwell_x_above: int,
+		adj_x_below: int, adj_x_above: int, h_cors: Array[int], v_cors: Array[int]) -> bool:
+	var max_room_sz_x: int = 0
+	var max_room_sz_y: int = 0
+	for r: ObstacleData in eligible:
+		max_room_sz_x = maxi(max_room_sz_x, ceili(r.size_x))
+		max_room_sz_y = maxi(max_room_sz_y, ceili(r.size_y))
+	if max_room_sz_x == 0:
+		max_room_sz_x = 4
+	if max_room_sz_y == 0:
+		max_room_sz_y = 4
+
+	var floor_h_depth: int = iy1 - iy0
+	var min_strip: int = maxi(3, mini(max_room_sz_y, (floor_h_depth >> 1) - 1))
+	var min_v_strip: int = maxi(3, max_room_sz_x)
+	var h_min: int = iy0 + min_strip
+	var h_max: int = iy1 - min_strip
+	var v_min: int = ix0 + min_v_strip
+	var v_max: int = ix1 - min_v_strip
+	var can_h: bool = h_min <= h_max
+	var can_v: bool = v_min <= v_max
+
+	if not can_h and not can_v:
+		return false
+
+	var sw_covers_v: bool = false
+	for swx: int in [stairwell_x_below, stairwell_x_above, adj_x_below, adj_x_above]:
+		if swx >= ix0 and swx <= ix1:
+			sw_covers_v = true
+			break
+
+	var run_rows: Vector2i = _run_rows(top_y, floor_d, fh)
+	var well_band: bool = sw_covers_v and run_rows.x - 1 >= iy0 and run_rows.y + 1 <= iy1
+	if well_band:
+		#A corridor at each end of the run band reaches the landing and the run top; nothing crosses the band.
+		h_cors.append(run_rows.x - 1)
+		h_cors.append(run_rows.y + 1)
+		for band: Array in [[iy0, run_rows.x - 2], [run_rows.y + 2, iy1]]:
+			var by0: int = band[0] as int
+			var by1: int = band[1] as int
+			if by1 - by0 + 1 >= min_strip * 2 + 1:
+				h_cors.append(randi_range(by0 + min_strip, by1 - min_strip))
+		if can_v:
+			var v_cands: Array[int] = []
+			for vx: int in range(v_min, v_max + 1):
+				var far_enough: bool = true
+				for swx3: int in [stairwell_x_below, stairwell_x_above, adj_x_below, adj_x_above]:
+					if swx3 >= 0 and absi(vx - swx3) < 4:
+						far_enough = false
+				if far_enough:
+					v_cands.append(vx)
+			if not v_cands.is_empty():
+				v_cors.append(v_cands[randi() % v_cands.size()])
+	else:
+		var valid_pats: Array[int] = []
+		if can_h:
+			valid_pats.append(0)
+			valid_pats.append(0)
+		if can_v and not sw_covers_v:
+			valid_pats.append(1)
+		if can_h and can_v and not sw_covers_v:
+			valid_pats.append(2)
+		if can_h and h_max - h_min >= min_strip * 2 + 1:
+			valid_pats.append(3)
+		if valid_pats.is_empty():
+			return false
+		var pat: int = valid_pats[randi() % valid_pats.size()]
+		match pat:
+			0:
+				h_cors.append(randi_range(h_min, h_max))
+			1:
+				v_cors.append(randi_range(v_min, v_max))
+			2:
+				h_cors.append(randi_range(h_min, h_max))
+				v_cors.append(randi_range(v_min, v_max))
+			3:
+				var mid: int = (h_min + h_max) >> 1
+				var cy1: int = randi_range(h_min, maxi(h_min, mid - min_strip))
+				var cy2: int = randi_range(mini(h_max, mid + min_strip), h_max)
+				if cy1 < cy2:
+					h_cors.append(cy1)
+					h_cors.append(cy2)
+				else:
+					h_cors.append(randi_range(h_min, h_max))
+		if h_cors.is_empty() and sw_covers_v and can_h:
+			h_cors.append(randi_range(h_min, h_max))
+	return true
+
+
+#Rooms that already touch a corridor edge, grown through the rooms stacked against them.
+static func _mark_accessible_rects(result: Array[Dictionary], f: int, h_cor_set: Dictionary,
+		v_cor_set: Dictionary, stairwell_v_set: Dictionary) -> Dictionary:
+	var accessible_rects: Dictionary = {}
+	for are: Dictionary in result:
+		if (are["floor"] as int) != f:
+			continue
+		var ar: Rect2i = are["rect"] as Rect2i
+		var arhc: bool = h_cor_set.has(ar.position.y - 1) or h_cor_set.has(ar.end.y)
+		var arns: bool = (v_cor_set.has(ar.position.x - 1) and not stairwell_v_set.has(ar.position.x - 1)) or (v_cor_set.has(ar.end.x) and not stairwell_v_set.has(ar.end.x))
+		if arhc or arns:
+			accessible_rects[ar.position] = true
+	var arc: bool = true
+	while arc:
+		arc = false
+		for are: Dictionary in result:
+			if (are["floor"] as int) != f:
+				continue
+			var ar: Rect2i = are["rect"] as Rect2i
+			if accessible_rects.has(ar.position):
+				continue
+			for are2: Dictionary in result:
+				if (are2["floor"] as int) != f:
+					continue
+				var ar2: Rect2i = are2["rect"] as Rect2i
+				if not accessible_rects.has(ar2.position):
+					continue
+				if ar2.position.x == ar.position.x and ar2.end.x == ar.end.x and ((ar.end.y + 1 == ar2.position.y) or (ar2.end.y + 1 == ar.position.y)):
+					accessible_rects[ar.position] = true
+					arc = true
+					break
+	return accessible_rects
+
+
+#Wall runs and one door on every room edge that meets a corridor.
+static func _cut_region_doors(area: BattlefieldArea, f: int, result: Array[Dictionary],
+		h_cor_set: Dictionary, v_cor_set: Dictionary, stairwell_v_set: Dictionary,
+		accessible_rects: Dictionary, wall_sz: int, wall_data: ObstacleData, fh: int,
+		door_data: ObstacleData) -> void:
 	for entry: Dictionary in result:
 		if (entry["floor"] as int) != f:
 			continue
@@ -349,34 +898,34 @@ static func _partition_corridor(area: BattlefieldArea, f: int, bld_x: int, top_y
 		var door_y: int = rect.position.y + (rect.size.y >> 1)
 
 		if h_cor_set.has(rect.position.y - 1):
-			var _hx_t: int = door_x
+			var hx_t: int = door_x
 			if _well_row_blocked(area, rect.position.y - 1):
-				_hx_t = _door_col_clear(stairwell_v_set, rect.position.x, rect.end.x, door_x)
+				hx_t = _door_col_clear(stairwell_v_set, rect.position.x, rect.end.x, door_x)
 			_place_edge_doors(area, f, "h", rect.position.y, rect.position.x, rect.end.x,
-				_hx_t, false, wall_sz, wall_data, fh, door_data)
+				hx_t, false, wall_sz, wall_data, fh, door_data)
 
 		if h_cor_set.has(rect.end.y):
-			var _hx_b: int = door_x
+			var hx_b: int = door_x
 			if _well_row_blocked(area, rect.end.y):
-				_hx_b = _door_col_clear(stairwell_v_set, rect.position.x, rect.end.x, door_x)
+				hx_b = _door_col_clear(stairwell_v_set, rect.position.x, rect.end.x, door_x)
 			_place_edge_doors(area, f, "h", rect.end.y - 1, rect.position.x, rect.end.x,
-				_hx_b, false, wall_sz, wall_data, fh, door_data)
+				hx_b, false, wall_sz, wall_data, fh, door_data)
 
 		if v_cor_set.has(rect.position.x - 1):
-			var _skip_l: bool = stairwell_v_set.has(rect.position.x - 1) and accessible_rects.has(rect.position)
-			var _vy_l: int = door_y
+			var skip_l: bool = stairwell_v_set.has(rect.position.x - 1) and accessible_rects.has(rect.position)
+			var vy_l: int = door_y
 			if stairwell_v_set.has(rect.position.x - 1):
-				_vy_l = _door_row_clear(area, rect.position.y, rect.end.y, door_y)
+				vy_l = _door_row_clear(area, rect.position.y, rect.end.y, door_y)
 			_place_edge_doors(area, f, "v", rect.position.x, rect.position.y, rect.end.y,
-				_vy_l, _skip_l, wall_sz, wall_data, fh, door_data)
+				vy_l, skip_l, wall_sz, wall_data, fh, door_data)
 
 		if v_cor_set.has(rect.end.x):
-			var _skip_r: bool = stairwell_v_set.has(rect.end.x) and accessible_rects.has(rect.position)
-			var _vy_r: int = door_y
+			var skip_r: bool = stairwell_v_set.has(rect.end.x) and accessible_rects.has(rect.position)
+			var vy_r: int = door_y
 			if stairwell_v_set.has(rect.end.x):
-				_vy_r = _door_row_clear(area, rect.position.y, rect.end.y, door_y)
+				vy_r = _door_row_clear(area, rect.position.y, rect.end.y, door_y)
 			_place_edge_doors(area, f, "v", rect.end.x - 1, rect.position.y, rect.end.y,
-				_vy_r, _skip_r, wall_sz, wall_data, fh, door_data)
+				vy_r, skip_r, wall_sz, wall_data, fh, door_data)
 
 
 #One room edge: a wall run along "axis" with a single door at door_i unless skip_door.
@@ -395,7 +944,6 @@ static func _place_edge_doors(area: BattlefieldArea, f: int, axis: String, fixed
 static func _partition_strip(area: BattlefieldArea, f: int, sx0: int, sy0: int, sw: int, sh: int, rooms: Array[ObstacleData], wall_data: ObstacleData, fh: int, result: Array[Dictionary], stairwell_x: int = -1, adj_x: int = -1, expand_right: bool = false) -> void:
 	if rooms.is_empty():
 		return
-	var wall_sz: int = 4
 	var x_off: int = 0
 	var room_idx: int = 0
 	var sw_limit: int = sw if expand_right else sw - 1
@@ -406,9 +954,9 @@ static func _partition_strip(area: BattlefieldArea, f: int, sx0: int, sy0: int, 
 		var rw: int = mini(clamp(base_w + randi_range(-1, 1), 3, sw_limit), sw_limit - x_off)
 		if rw < 3 or x_off + rw > sw_limit:
 			break
-		for _sx: int in [stairwell_x, adj_x]:
-			if _sx >= sx0 and _sx < sx0 + sw_limit:
-				var dist: int = _sx - (sx0 + x_off)
+		for sx: int in [stairwell_x, adj_x]:
+			if sx >= sx0 and sx < sx0 + sw_limit:
+				var dist: int = sx - (sx0 + x_off)
 				if dist > 0 and dist <= rw:
 					rw = dist
 		if rw < 3:
@@ -418,69 +966,15 @@ static func _partition_strip(area: BattlefieldArea, f: int, sx0: int, sy0: int, 
 			has_div = false
 			rw = sw - x_off
 		if not expand_right and has_div and x_off + rw == sw_limit - 1:
-			var _div_x: int = sx0 + x_off + rw
-			if _div_x != stairwell_x and _div_x != adj_x:
+			var div_x: int = sx0 + x_off + rw
+			if div_x != stairwell_x and div_x != adj_x:
 				has_div = false
 				rw = sw_limit - x_off
-		var y_slots: Array = []
-		var y_off: int = 0
-		var y_room_idx: int = room_idx - 1
-		while y_off < sh:
-			var yroom: ObstacleData = rooms[y_room_idx % rooms.size()]
-			y_room_idx += 1
-			var sh_rem: int = sh - y_off
-			var aspect_ratio: float = yroom.size_y / yroom.size_x if yroom.size_x > 0.0 else 1.0
-			var target_rh: int = maxi(3, roundi(float(rw) * aspect_ratio))
-			var rh: int = mini(clamp(target_rh + randi_range(-1, 1), 3, sh_rem), sh_rem)
-			if rh < 3:
-				break
-			var has_h_div: bool = sh_rem - rh - 1 >= 3
-			if not has_h_div:
-				rh = sh_rem
-			y_slots.append([y_off, rh, has_h_div, yroom])
-			y_off += rh + (1 if has_h_div else 0)
+		var y_slots: Array = _strip_y_slots(rooms, room_idx, sh, rw)
 		if has_div:
-			var div_x: int = sx0 + x_off + rw
-			if div_x == stairwell_x or div_x == adj_x:
-				for iy: int in range(sy0, sy0 + sh):
-					area.reserved_corridor_cells[Vector2i(div_x, iy)] = true
-			else:
-				var mid_y: int = sy0 + (sh >> 1)
-				var door_iy: int = -1
-				for slot: Array in y_slots:
-					var sly0: int = sy0 + (slot[0] as int)
-					var sly1: int = sly0 + (slot[1] as int)
-					if mid_y >= sly0 and mid_y < sly1:
-						door_iy = mid_y
-						break
-				if door_iy == -1 and not y_slots.is_empty():
-					var s0: Array = y_slots[0]
-					door_iy = sy0 + (s0[0] as int) + ((s0[1] as int) >> 1)
-				var div_door_data: ObstacleData = BuildingGenerator._get_door_template()
-				for iy: int in range(sy0, sy0 + sh):
-					if iy == door_iy:
-						_place_door_at(area, Vector3i(div_x, iy, f), div_door_data, fh, "v")
-					else:
-						_place_wall_if_empty(area, Vector3i(div_x, iy, f), wall_sz, wall_data, fh)
-						area.building_interiors.erase(Vector3i(div_x, iy, f))
-		for slot: Array in y_slots:
-			var slot_y_off: int = slot[0] as int
-			var slot_rh: int = slot[1] as int
-			var slot_has_h_div: bool = slot[2] as bool
-			var slot_room: ObstacleData = slot[3] as ObstacleData
-			if slot_has_h_div:
-				var div_y: int = sy0 + slot_y_off + slot_rh
-				var door_ix: int = sx0 + x_off + (rw >> 1)
-				var h_div_door: ObstacleData = BuildingGenerator._get_door_template()
-				for ix: int in range(sx0 + x_off, sx0 + x_off + rw):
-					if ix == door_ix:
-						_place_door_at(area, Vector3i(ix, div_y, f), h_div_door, fh, "h")
-					else:
-						_place_wall_if_empty(area, Vector3i(ix, div_y, f), wall_sz, wall_data, fh)
-						area.building_interiors.erase(Vector3i(ix, div_y, f))
-			var room_rect := Rect2i(sx0 + x_off, sy0 + slot_y_off, rw, slot_rh)
-			result.append({"room": slot_room, "rect": room_rect, "floor": f})
-			area.interior_rooms.append({"rect": room_rect, "name": slot_room.obstacle_name, "floor": f})
+			_cut_strip_divider(area, f, sy0, sh, sx0 + x_off + rw, y_slots, stairwell_x, adj_x,
+				WALL_SZ, wall_data, fh)
+		_emit_strip_rooms(area, f, sx0, sy0, x_off, rw, y_slots, WALL_SZ, wall_data, fh, result)
 		x_off += rw + (1 if has_div else 0)
 		if x_off >= sw:
 			break
@@ -491,9 +985,83 @@ static func _partition_strip(area: BattlefieldArea, f: int, sx0: int, sy0: int, 
 				area.reserved_corridor_cells[Vector2i(col_x, iy)] = true
 		elif x_off == sw - 1 and not expand_right:
 			for iy: int in range(sy0, sy0 + sh):
-				_place_wall_if_empty(area, Vector3i(col_x, iy, f), wall_sz, wall_data, fh)
+				_place_wall_if_empty(area, Vector3i(col_x, iy, f), WALL_SZ, wall_data, fh)
 				area.building_interiors.erase(Vector3i(col_x, iy, f))
 		x_off += 1
+
+
+#Row slots for one room column: each entry is [y offset, height, divider below, room].
+static func _strip_y_slots(rooms: Array[ObstacleData], room_idx: int, sh: int, rw: int) -> Array:
+	var y_slots: Array = []
+	var y_off: int = 0
+	var y_room_idx: int = room_idx - 1
+	while y_off < sh:
+		var yroom: ObstacleData = rooms[y_room_idx % rooms.size()]
+		y_room_idx += 1
+		var sh_rem: int = sh - y_off
+		var aspect_ratio: float = yroom.size_y / yroom.size_x if yroom.size_x > 0.0 else 1.0
+		var target_rh: int = maxi(3, roundi(float(rw) * aspect_ratio))
+		var rh: int = mini(clamp(target_rh + randi_range(-1, 1), 3, sh_rem), sh_rem)
+		if rh < 3:
+			break
+		var has_h_div: bool = sh_rem - rh - 1 >= 3
+		if not has_h_div:
+			rh = sh_rem
+		y_slots.append([y_off, rh, has_h_div, yroom])
+		y_off += rh + (1 if has_h_div else 0)
+	return y_slots
+
+
+#The divider column on the right of one room column: a reservation at a stair hall, else a walled door.
+static func _cut_strip_divider(area: BattlefieldArea, f: int, sy0: int, sh: int, div_x: int,
+		y_slots: Array, stairwell_x: int, adj_x: int, wall_sz: int, wall_data: ObstacleData,
+		fh: int) -> void:
+	if div_x == stairwell_x or div_x == adj_x:
+		for iy: int in range(sy0, sy0 + sh):
+			area.reserved_corridor_cells[Vector2i(div_x, iy)] = true
+	else:
+		var mid_y: int = sy0 + (sh >> 1)
+		var door_iy: int = -1
+		for slot: Array in y_slots:
+			var sly0: int = sy0 + (slot[0] as int)
+			var sly1: int = sly0 + (slot[1] as int)
+			if mid_y >= sly0 and mid_y < sly1:
+				door_iy = mid_y
+				break
+		if door_iy == -1 and not y_slots.is_empty():
+			var s0: Array = y_slots[0]
+			door_iy = sy0 + (s0[0] as int) + ((s0[1] as int) >> 1)
+		var div_door_data: ObstacleData = BuildingGenerator._get_door_template()
+		for iy: int in range(sy0, sy0 + sh):
+			if iy == door_iy:
+				_place_door_at(area, Vector3i(div_x, iy, f), div_door_data, fh, "v")
+			else:
+				_place_wall_if_empty(area, Vector3i(div_x, iy, f), wall_sz, wall_data, fh)
+				area.building_interiors.erase(Vector3i(div_x, iy, f))
+
+
+#Rooms of one column plus the horizontal divider under each slot that has one.
+static func _emit_strip_rooms(area: BattlefieldArea, f: int, sx0: int, sy0: int, x_off: int,
+		rw: int, y_slots: Array, wall_sz: int, wall_data: ObstacleData, fh: int,
+		result: Array[Dictionary]) -> void:
+	for slot: Array in y_slots:
+		var slot_y_off: int = slot[0] as int
+		var slot_rh: int = slot[1] as int
+		var slot_has_h_div: bool = slot[2] as bool
+		var slot_room: ObstacleData = slot[3] as ObstacleData
+		if slot_has_h_div:
+			var div_y: int = sy0 + slot_y_off + slot_rh
+			var door_ix: int = sx0 + x_off + (rw >> 1)
+			var h_div_door: ObstacleData = BuildingGenerator._get_door_template()
+			for ix: int in range(sx0 + x_off, sx0 + x_off + rw):
+				if ix == door_ix:
+					_place_door_at(area, Vector3i(ix, div_y, f), h_div_door, fh, "h")
+				else:
+					_place_wall_if_empty(area, Vector3i(ix, div_y, f), wall_sz, wall_data, fh)
+					area.building_interiors.erase(Vector3i(ix, div_y, f))
+		var room_rect := Rect2i(sx0 + x_off, sy0 + slot_y_off, rw, slot_rh)
+		result.append({"room": slot_room, "rect": room_rect, "floor": f})
+		area.interior_rooms.append({"rect": room_rect, "name": slot_room.obstacle_name, "floor": f})
 
 
 static func _place_door_at(area: BattlefieldArea, pos: Vector3i, door_data: ObstacleData, fh: int, orientation: String = "v") -> void:
@@ -658,6 +1226,245 @@ static func _place_stairwells(area: BattlefieldArea, fp: int, fm: int, bld_x: in
 				_add_obstacle(area, lo_obs, lower)
 
 
+#Cell flags of one room for the furniture pass; index = (x - rect.position.x) * h + (y - rect.position.y).
+class FurnGrid:
+	var rect: Rect2i = Rect2i()
+	var f: int = 0
+	var w: int = 0
+	var h: int = 0
+	var walk: PackedByteArray = PackedByteArray()
+	var free: PackedByteArray = PackedByteArray()
+	var entry: PackedByteArray = PackedByteArray()
+	var ap: PackedByteArray = PackedByteArray()
+	var walk_count: int = 0
+	var free_count: int = 0
+	var ap_fresh: bool = false
+	var accessible: bool = false
+
+
+#Builds the flags from _obs_map; the furniture pass keeps them in step through _grid_mark.
+static func _furn_grid(area: BattlefieldArea, rect: Rect2i, f: int) -> FurnGrid:
+	var g := FurnGrid.new()
+	g.rect = rect
+	g.f = f
+	g.w = maxi(0, rect.size.x)
+	g.h = maxi(0, rect.size.y)
+	var n: int = g.w * g.h
+	var walk := PackedByteArray()
+	walk.resize(n)
+	walk.fill(0)
+	var free := PackedByteArray()
+	free.resize(n)
+	free.fill(0)
+	var entry := PackedByteArray()
+	entry.resize(n)
+	entry.fill(0)
+	var ap := PackedByteArray()
+	ap.resize(n)
+	ap.fill(0)
+	var i: int = 0
+	for ix: int in range(rect.position.x, rect.end.x):
+		for iy: int in range(rect.position.y, rect.end.y):
+			var p3 := Vector3i(ix, iy, f)
+			var ct: String = (area._obs_map.get(p3, {}) as Dictionary).get("cell_type", "") as String
+			var near_door: bool = false
+			for off: Vector3i in OFF4:
+				if (area._obs_map.get(p3 + off, {}) as Dictionary).get("cell_type", "") == "door" \
+						or area.gate_cells.has(p3 + off):
+					near_door = true
+					break
+			if not ct in ["wall", "fence", "furniture", "reserved"]:
+				walk[i] = 1
+				g.walk_count += 1
+				if near_door:
+					entry[i] = 1
+			if not near_door and not area._obs_map.has(p3) and not area.reserved_corridor_cells.has(Vector2i(ix, iy)):
+				free[i] = 1
+				g.free_count += 1
+			i += 1
+	g.walk = walk
+	g.free = free
+	g.entry = entry
+	g.ap = ap
+	return g
+
+
+#Free cells in x then y order, the order the furniture shuffles depend on.
+static func _grid_free_list(g: FurnGrid, skip_ap: bool) -> Array[Vector3i]:
+	var out: Array[Vector3i] = []
+	var free: PackedByteArray = g.free
+	var ap: PackedByteArray = g.ap
+	var i: int = 0
+	for ix: int in range(g.rect.position.x, g.rect.end.x):
+		for iy: int in range(g.rect.position.y, g.rect.end.y):
+			if free[i] == 1 and not (skip_ap and ap[i] == 1):
+				out.append(Vector3i(ix, iy, g.f))
+			i += 1
+	return out
+
+
+#Sets or clears a furniture footprint; every cell of it was free, so it was walkable too.
+static func _grid_mark(g: FurnGrid, pos: Vector3i, pw: int, ph: int, value: int) -> void:
+	var walk: PackedByteArray = g.walk
+	var free: PackedByteArray = g.free
+	for dx: int in range(pw):
+		for dy: int in range(ph):
+			var i: int = (pos.x + dx - g.rect.position.x) * g.h + (pos.y + dy - g.rect.position.y)
+			walk[i] = value
+			free[i] = value
+	g.walk = walk
+	g.free = free
+	var cells: int = pw * ph
+	if value == 1:
+		g.walk_count += cells
+		g.free_count += cells
+	else:
+		g.walk_count -= cells
+		g.free_count -= cells
+
+
+#Walk cells reached from the seeds over 4-neighbours.
+static func _grid_flood(g: FurnGrid, seeds: PackedInt32Array) -> int:
+	var n: int = g.w * g.h
+	var h: int = g.h
+	var walk: PackedByteArray = g.walk
+	var seen := PackedByteArray()
+	seen.resize(n)
+	seen.fill(0)
+	var stack := PackedInt32Array()
+	var reached: int = 0
+	for s: int in seeds:
+		if seen[s] == 0:
+			seen[s] = 1
+			stack.push_back(s)
+			reached += 1
+	while not stack.is_empty():
+		var top: int = stack.size() - 1
+		var u: int = stack[top]
+		stack.remove_at(top)
+		var row: int = u % h
+		var v: int = u + h
+		if v < n and walk[v] == 1 and seen[v] == 0:
+			seen[v] = 1
+			stack.push_back(v)
+			reached += 1
+		v = u - h
+		if v >= 0 and walk[v] == 1 and seen[v] == 0:
+			seen[v] = 1
+			stack.push_back(v)
+			reached += 1
+		if row != h - 1:
+			v = u + 1
+			if walk[v] == 1 and seen[v] == 0:
+				seen[v] = 1
+				stack.push_back(v)
+				reached += 1
+		if row != 0:
+			v = u - 1
+			if walk[v] == 1 and seen[v] == 0:
+				seen[v] = 1
+				stack.push_back(v)
+				reached += 1
+	return reached
+
+
+#Every walk cell is reached from the door cells, and parts touching only a shared door force one region.
+static func _grid_accessible(g: FurnGrid) -> bool:
+	if g.walk_count == 0:
+		return true
+	var walk: PackedByteArray = g.walk
+	var entry: PackedByteArray = g.entry
+	var first: int = -1
+	var entries := PackedInt32Array()
+	for i: int in range(g.w * g.h):
+		if walk[i] == 0:
+			continue
+		if first < 0:
+			first = i
+		if entry[i] == 1:
+			entries.push_back(i)
+	var one := PackedInt32Array([first])
+	if entries.is_empty():
+		return _grid_flood(g, one) == g.walk_count
+	if _grid_flood(g, entries) != g.walk_count:
+		return false
+	return _grid_flood(g, one) == g.walk_count
+
+
+#Articulation points of the walk cells, written to g.ap.
+static func _grid_articulation(g: FurnGrid) -> void:
+	var n: int = g.w * g.h
+	var h: int = g.h
+	var walk: PackedByteArray = g.walk
+	var ap := PackedByteArray()
+	ap.resize(n)
+	ap.fill(0)
+	var disc := PackedInt32Array()
+	disc.resize(n)
+	disc.fill(-1)
+	var low := PackedInt32Array()
+	low.resize(n)
+	low.fill(0)
+	var parent := PackedInt32Array()
+	parent.resize(n)
+	parent.fill(-1)
+	var next_dir := PackedByteArray()
+	next_dir.resize(n)
+	next_dir.fill(0)
+	var stack := PackedInt32Array()
+	var timer: int = 0
+	for root: int in range(n):
+		if walk[root] == 0 or disc[root] != -1:
+			continue
+		disc[root] = timer
+		low[root] = timer
+		timer += 1
+		var root_children: int = 0
+		stack.push_back(root)
+		while not stack.is_empty():
+			var top: int = stack.size() - 1
+			var u: int = stack[top]
+			var dir: int = next_dir[u]
+			if dir < 4:
+				next_dir[u] = dir + 1
+				var v: int = -1
+				if dir == 0:
+					if u + h < n:
+						v = u + h
+				elif dir == 1:
+					if u - h >= 0:
+						v = u - h
+				elif dir == 2:
+					if u % h != h - 1:
+						v = u + 1
+				elif u % h != 0:
+					v = u - 1
+				if v < 0 or walk[v] == 0:
+					continue
+				if disc[v] == -1:
+					parent[v] = u
+					disc[v] = timer
+					low[v] = timer
+					timer += 1
+					if u == root:
+						root_children += 1
+					stack.push_back(v)
+				elif v != parent[u] and disc[v] < low[u]:
+					low[u] = disc[v]
+			else:
+				stack.remove_at(top)
+				var p: int = parent[u]
+				if p >= 0:
+					if low[u] < low[p]:
+						low[p] = low[u]
+					if p != root and low[u] >= disc[p]:
+						ap[p] = 1
+		if root_children > 1:
+			ap[root] = 1
+	g.ap = ap
+	g.ap_fresh = true
+
+
 static func _place_furniture_in_rooms(area: BattlefieldArea, room_list: Array[Dictionary]) -> void:
 	var total_cells: int = 0
 	for entry: Dictionary in room_list:
@@ -671,7 +1478,10 @@ static func _place_furniture_in_rooms(area: BattlefieldArea, room_list: Array[Di
 		var rect: Rect2i = entry["rect"] as Rect2i
 		var f: int = entry.get("floor", 0) as int
 
-		var base_free: Array[Vector3i] = _room_free_cells(area, rect, f)
+		var g: FurnGrid = _furn_grid(area, rect, f)
+		g.accessible = _grid_accessible(g)
+
+		var base_free: Array[Vector3i] = _grid_free_list(g, false)
 		var wadj: Dictionary = _wall_adj_set(area, base_free)
 		var corners: Dictionary = _corner_set(area, base_free, wadj)
 		var wadjwin: Dictionary = _window_adj_set(area, base_free)
@@ -680,28 +1490,22 @@ static func _place_furniture_in_rooms(area: BattlefieldArea, room_list: Array[Di
 		var placed_alike: Dictionary = {}
 
 		for sname: String in room.guaranteed_structures:
-			var pick: Dictionary = _free_non_articulation(area, rect, f)
-			var ap_set: Dictionary = pick["ap"]
-			var pfree: Array[Vector3i] = pick["free"]
+			var pfree: Array[Vector3i] = _free_non_articulation(g)
 			pfree.shuffle()
-			_place_pref(area, sname, pfree, rect, f, wadj, corners, wadjwin, obj_adj, placed_alike, ap_set)
+			_place_pref(area, sname, pfree, g, wadj, corners, wadjwin, obj_adj, placed_alike)
 
 		if not room.possible_structures.is_empty():
-			var avail: int = _room_free_cells(area, rect, f).size()
+			var avail: int = g.free_count
 			for _i: int in range(maxi(0, floori(float(avail) / 3.0))):
-				var pick: Dictionary = _free_non_articulation(area, rect, f)
-				var ap_set: Dictionary = pick["ap"]
-				var pfree: Array[Vector3i] = pick["free"]
+				var pfree: Array[Vector3i] = _free_non_articulation(g)
 				pfree.shuffle()
 				var sname: String = room.possible_structures[randi() % room.possible_structures.size()]
-				_place_pref(area, sname, pfree, rect, f, wadj, corners, wadjwin, obj_adj, placed_alike, ap_set)
+				_place_pref(area, sname, pfree, g, wadj, corners, wadjwin, obj_adj, placed_alike)
 
 		if room.possible_scatter.is_empty() or scatter_left <= 0:
 			continue
 
-		var init_pick: Dictionary = _free_non_articulation(area, rect, f)
-		var ap2_init: Dictionary = init_pick["ap"]
-		var free2_init: Array[Vector3i] = init_pick["free"]
+		var free2_init: Array[Vector3i] = _free_non_articulation(g)
 		if free2_init.is_empty():
 			continue
 
@@ -717,93 +1521,28 @@ static func _place_furniture_in_rooms(area: BattlefieldArea, room_list: Array[Di
 		var wadjwin2: Dictionary = _window_adj_set(area, free2_init)
 
 		for _s: int in range(count):
-			var loop_pick: Dictionary = _free_non_articulation(area, rect, f)
-			var ap2: Dictionary = loop_pick["ap"]
-			var free2: Array[Vector3i] = loop_pick["free"]
+			var free2: Array[Vector3i] = _free_non_articulation(g)
 			if free2.is_empty():
 				break
 			free2.shuffle()
 			var sname: String = room.possible_scatter[randi() % room.possible_scatter.size()]
-			if _place_pref(area, sname, free2, rect, f, wadj2, corners2, wadjwin2, obj_adj, placed_alike, ap2):
+			if _place_pref(area, sname, free2, g, wadj2, corners2, wadjwin2, obj_adj, placed_alike):
 				scatter_left -= 1
 			if scatter_left <= 0:
 				break
 
 
-#Room cells free for furniture minus the articulation points, with that point set: {"ap", "free"}.
-static func _free_non_articulation(area: BattlefieldArea, rect: Rect2i, f: int) -> Dictionary:
-	var ap_set: Dictionary = _find_articulation_points(_room_walkable_set(area, rect, f))
-	var free: Array[Vector3i] = _room_free_cells(area, rect, f)
-	return {"ap": ap_set, "free": free.filter(func(p: Vector3i) -> bool: return not ap_set.has(p))}
-
-
-static func _ap_dfs(u: Vector3i, parent: Vector3i, cell_set: Dictionary, visited: Dictionary, disc: Dictionary, low: Dictionary, ap: Dictionary, timer: Array) -> void:
-	visited[u] = true
-	disc[u] = timer[0]
-	low[u] = timer[0]
-	timer[0] += 1
-	var child_count: int = 0
-	for off: Vector3i in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
-		var v := u + off
-		if not cell_set.has(v):
-			continue
-		if not visited.has(v):
-			child_count += 1
-			_ap_dfs(v, u, cell_set, visited, disc, low, ap, timer)
-			low[u] = mini(low[u] as int, low[v] as int)
-			if parent == Vector3i(-9999, -9999, -9999) and child_count > 1:
-				ap[u] = true
-			if parent != Vector3i(-9999, -9999, -9999) and (low[v] as int) >= (disc[u] as int):
-				ap[u] = true
-		elif v != parent:
-			low[u] = mini(low[u] as int, disc[v] as int)
-
-
-static func _find_articulation_points(cell_set: Dictionary) -> Dictionary:
-	var visited: Dictionary = {}
-	var disc: Dictionary = {}
-	var low: Dictionary = {}
-	var ap: Dictionary = {}
-	var timer: Array = [0]
-	for node: Variant in cell_set.keys():
-		var u := node as Vector3i
-		if not visited.has(u):
-			_ap_dfs(u, Vector3i(-9999, -9999, -9999), cell_set, visited, disc, low, ap, timer)
-	return ap
-
-
-static func _room_free_cells(area: BattlefieldArea, rect: Rect2i, f: int) -> Array[Vector3i]:
-	var result: Array[Vector3i] = []
-	for ix: int in range(rect.position.x, rect.end.x):
-		for iy: int in range(rect.position.y, rect.end.y):
-			var p3 := Vector3i(ix, iy, f)
-			if area._obs_map.has(p3) or area.reserved_corridor_cells.has(Vector2i(ix, iy)):
-				continue
-			var near_door := false
-			for off: Vector3i in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
-				if (area._obs_map.get(p3 + off, {}) as Dictionary).get("cell_type", "") == "door":
-					near_door = true
-					break
-			if not near_door:
-				result.append(p3)
-	return result
-
-
-static func _room_walkable_set(area: BattlefieldArea, rect: Rect2i, f: int) -> Dictionary:
-	var result: Dictionary = {}
-	for ix: int in range(rect.position.x, rect.end.x):
-		for iy: int in range(rect.position.y, rect.end.y):
-			var p3 := Vector3i(ix, iy, f)
-			var ct: String = (area._obs_map.get(p3, {}) as Dictionary).get("cell_type", "") as String
-			if not ct in ["wall", "fence", "furniture", "reserved"]:
-				result[p3] = true
-	return result
+#Free cells minus the articulation points; the point set is reused until a placement changes the room.
+static func _free_non_articulation(g: FurnGrid) -> Array[Vector3i]:
+	if not g.ap_fresh:
+		_grid_articulation(g)
+	return _grid_free_list(g, true)
 
 
 static func _wall_adj_set(area: BattlefieldArea, free: Array[Vector3i]) -> Dictionary:
 	var result: Dictionary = {}
 	for p: Vector3i in free:
-		for off: Vector3i in [Vector3i(-1, 0, 0), Vector3i(1, 0, 0), Vector3i(0, -1, 0), Vector3i(0, 1, 0)]:
+		for off: Vector3i in OFF4:
 			if (area._obs_map.get(p + off, {}) as Dictionary).get("cell_type", "") == "wall":
 				result[p] = true
 				break
@@ -827,7 +1566,7 @@ static func _corner_set(area: BattlefieldArea, free: Array[Vector3i], wadj: Dict
 static func _window_adj_set(area: BattlefieldArea, free: Array[Vector3i]) -> Dictionary:
 	var result: Dictionary = {}
 	for p: Vector3i in free:
-		for off: Vector3i in [Vector3i(-1, 0, 0), Vector3i(1, 0, 0), Vector3i(0, -1, 0), Vector3i(0, 1, 0)]:
+		for off: Vector3i in OFF4:
 			var e: Dictionary = area._obs_map.get(p + off, {}) as Dictionary
 			var d2: ObstacleData = e.get("data", null)
 			if d2 != null and d2.obstacle_name == "Window":
@@ -836,72 +1575,26 @@ static func _window_adj_set(area: BattlefieldArea, free: Array[Vector3i]) -> Dic
 	return result
 
 
-static func _room_still_connected(area: BattlefieldArea, rect: Rect2i, f: int) -> bool:
-	var walkable := _room_walkable_set(area, rect, f)
-	if walkable.is_empty():
-		return false
-	var start: Vector3i = walkable.keys()[0] as Vector3i
-	var visited: Dictionary = {}
-	var stack: Array[Vector3i] = [start]
-	visited[start] = true
-	while not stack.is_empty():
-		var curr: Vector3i = stack.pop_back() as Vector3i
-		for off: Vector3i in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
-			var nb := curr + off
-			if walkable.has(nb) and not visited.has(nb):
-				visited[nb] = true
-				stack.append(nb)
-	return visited.size() == walkable.size()
-
-
 static func _room_accessible_from_doors(area: BattlefieldArea, rect: Rect2i, f: int) -> bool:
-	var walkable := _room_walkable_set(area, rect, f)
-	if walkable.is_empty():
-		return true
-	var entry_points: Array[Vector3i] = []
-	for p: Vector3i in walkable.keys():
-		for off: Vector3i in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
-			if (area._obs_map.get(p + off, {}) as Dictionary).get("cell_type", "") == "door":
-				entry_points.append(p)
-				break
-	if entry_points.is_empty():
-		return _room_still_connected(area, rect, f)
-	var visited: Dictionary = {}
-	var stack: Array[Vector3i] = []
-	for ep: Vector3i in entry_points:
-		if not visited.has(ep):
-			visited[ep] = true
-			stack.append(ep)
-	while not stack.is_empty():
-		var curr: Vector3i = stack.pop_back() as Vector3i
-		for off: Vector3i in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
-			var nb := curr + off
-			if walkable.has(nb) and not visited.has(nb):
-				visited[nb] = true
-				stack.append(nb)
-	#Parts that only touch a shared door are unreachable from the corridor, so the room must stay one region.
-	return visited.size() == walkable.size() and _room_still_connected(area, rect, f)
+	return _grid_accessible(_furn_grid(area, rect, f))
 
 
-static func _footprint_free(area: BattlefieldArea, rect: Rect2i, origin: Vector3i, pw: int, ph: int, ap_set: Dictionary) -> bool:
+static func _footprint_free(g: FurnGrid, origin: Vector3i, pw: int, ph: int) -> bool:
 	for dx: int in range(pw):
 		for dy: int in range(ph):
-			var p := Vector3i(origin.x + dx, origin.y + dy, origin.z)
-			if not rect.has_point(Vector2i(p.x, p.y)):
+			var lx: int = origin.x + dx - g.rect.position.x
+			var ly: int = origin.y + dy - g.rect.position.y
+			if lx < 0 or ly < 0 or lx >= g.w or ly >= g.h:
 				return false
-			if area._obs_map.has(p) or area.reserved_corridor_cells.has(Vector2i(p.x, p.y)):
+			var i: int = lx * g.h + ly
+			if g.free[i] == 0 or g.ap[i] == 1:
 				return false
-			if ap_set.has(p):
-				return false
-			for off: Vector3i in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
-				if (area._obs_map.get(p + off, {}) as Dictionary).get("cell_type", "") == "door":
-					return false
 	return true
 
 
 #Wall hugging footprints for one furniture size; restrict, when non empty, limits the cells scanned.
-static func _wall_candidates(area: BattlefieldArea, rect: Rect2i, free: Array[Vector3i], ceil_x: int,
-		ceil_y: int, kinds: Array, ap_set: Dictionary, restrict: Dictionary) -> Array:
+static func _wall_candidates(area: BattlefieldArea, g: FurnGrid, free: Array[Vector3i], ceil_x: int,
+		ceil_y: int, kinds: Array, restrict: Dictionary) -> Array:
 	var out: Array = []
 	var pw_wide: int = maxi(ceil_x, ceil_y)
 	var ph_wide: int = mini(ceil_x, ceil_y)
@@ -915,19 +1608,19 @@ static func _wall_candidates(area: BattlefieldArea, rect: Rect2i, free: Array[Ve
 		var has_px: bool = (area._obs_map.get(p + Vector3i(1, 0, 0), {}) as Dictionary).get("cell_type", "") in kinds
 		if has_ny:
 			var o := Vector3i(p.x, p.y, p.z)
-			if _footprint_free(area, rect, o, pw_wide, ph_wide, ap_set):
+			if _footprint_free(g, o, pw_wide, ph_wide):
 				out.append([o, pw_wide, ph_wide])
 		if has_py:
 			var o := Vector3i(p.x, p.y - ph_wide + 1, p.z)
-			if _footprint_free(area, rect, o, pw_wide, ph_wide, ap_set):
+			if _footprint_free(g, o, pw_wide, ph_wide):
 				out.append([o, pw_wide, ph_wide])
 		if has_nx:
 			var o := Vector3i(p.x, p.y, p.z)
-			if _footprint_free(area, rect, o, ph_wide, pw_wide, ap_set):
+			if _footprint_free(g, o, ph_wide, pw_wide):
 				out.append([o, ph_wide, pw_wide])
 		if has_px:
 			var o := Vector3i(p.x - ph_wide + 1, p.y, p.z)
-			if _footprint_free(area, rect, o, ph_wide, pw_wide, ap_set):
+			if _footprint_free(g, o, ph_wide, pw_wide):
 				out.append([o, ph_wide, pw_wide])
 	return out
 
@@ -936,24 +1629,26 @@ static func _place_pref(
 	area: BattlefieldArea,
 	obs_name: String,
 	free: Array[Vector3i],
-	rect: Rect2i,
-	_f: int,
+	g: FurnGrid,
 	wadj: Dictionary,
 	corners: Dictionary,
 	wadjwin: Dictionary,
 	obj_adj: Dictionary,
-	placed_alike: Dictionary,
-	ap_set: Dictionary
+	placed_alike: Dictionary
 ) -> bool:
 	var d: ObstacleData = DataManager.get_obstacle_by_name(obs_name)
 	if d == null:
 		return false
+	var rect: Rect2i = g.rect
 	var pref: String = d.preferred_position
 	var ceil_x: int = ceili(d.size_x)
 	var ceil_y: int = ceili(d.size_y)
 	var no_fallback: bool = pref == "Align Alike" and placed_alike.has(obs_name)
 	var narrow_short: int = mini(rect.size.x, rect.size.y) - 2
 	var force_wall: bool = (pref == "Anywhere" or pref == "") and (mini(ceil_x, ceil_y) >= maxi(1, narrow_short))
+	#An open shell has no wall to hug.
+	if force_wall and String(area.building_plan.get("shell", "")) == "Open":
+		force_wall = false
 	var candidates: Array = []
 
 	match pref:
@@ -970,10 +1665,10 @@ static func _place_pref(
 					var ox: int = p.x if has_nx else (p.x - pw + 1)
 					var oy: int = p.y if has_ny else (p.y - ph + 1)
 					var origin := Vector3i(ox, oy, p.z)
-					if _footprint_free(area, rect, origin, pw, ph, ap_set):
+					if _footprint_free(g, origin, pw, ph):
 						candidates.append([origin, pw, ph])
 		"Any Wall":
-			candidates = _wall_candidates(area, rect, free, ceil_x, ceil_y, ["wall"], ap_set, wadj)
+			candidates = _wall_candidates(area, g, free, ceil_x, ceil_y, ["wall"], wadj)
 		"Window":
 			for p: Vector3i in free:
 				if not wadjwin.has(p):
@@ -982,7 +1677,7 @@ static func _place_pref(
 				for orient in orient_list:
 					var pw: int = orient[0] as int
 					var ph: int = orient[1] as int
-					if _footprint_free(area, rect, p, pw, ph, ap_set):
+					if _footprint_free(g, p, pw, ph):
 						candidates.append([p, pw, ph])
 						break
 		"By Object", "On Object":
@@ -1004,13 +1699,13 @@ static func _place_pref(
 				for orient in orders:
 					var pw: int = orient[0] as int
 					var ph: int = orient[1] as int
-					if _footprint_free(area, rect, p, pw, ph, ap_set):
+					if _footprint_free(g, p, pw, ph):
 						candidates.append([p, pw, ph])
 						break
 		"Align Alike":
 			if not placed_alike.has(obs_name):
 				for p: Vector3i in free:
-					if _footprint_free(area, rect, p, ceil_x, ceil_y, ap_set):
+					if _footprint_free(g, p, ceil_x, ceil_y):
 						candidates.append([p, ceil_x, ceil_y])
 			else:
 				var cset: Dictionary = {}
@@ -1028,22 +1723,21 @@ static func _place_pref(
 						var dims: Array = cset[p] as Array
 						var pw: int = dims[0] as int
 						var ph: int = dims[1] as int
-						if _footprint_free(area, rect, p, pw, ph, ap_set):
+						if _footprint_free(g, p, pw, ph):
 							candidates.append([p, pw, ph])
 		_:
 			if force_wall:
-				candidates = _wall_candidates(area, rect, free, ceil_x, ceil_y, ["wall", "fence"],
-					ap_set, {})
+				candidates = _wall_candidates(area, g, free, ceil_x, ceil_y, ["wall", "fence"], {})
 			else:
 				for p: Vector3i in free:
-					if _footprint_free(area, rect, p, ceil_x, ceil_y, ap_set):
+					if _footprint_free(g, p, ceil_x, ceil_y):
 						candidates.append([p, ceil_x, ceil_y])
 
 	if candidates.is_empty():
 		if no_fallback or force_wall:
 			return false
 		for p: Vector3i in free:
-			if _footprint_free(area, rect, p, ceil_x, ceil_y, ap_set):
+			if _footprint_free(g, p, ceil_x, ceil_y):
 				candidates.append([p, ceil_x, ceil_y])
 		if candidates.is_empty():
 			return false
@@ -1064,12 +1758,20 @@ static func _place_pref(
 				if not area._obs_map.has(extra):
 					area._obs_map[extra] = {"cell_type": "reserved", "floor": pos.z}
 					extra_cells.append(extra)
-		if not _room_accessible_from_doors(area, rect, pos.z):
+		_grid_mark(g, pos, pw, ph, 0)
+		var fits: bool = true
+		#A lone cell that is no articulation point cannot split a room that was whole.
+		if pw * ph > 1 or not g.accessible:
+			fits = _grid_accessible(g)
+		if not fits:
+			_grid_mark(g, pos, pw, ph, 1)
 			area.obstacles.pop_back()
 			area._obs_map.erase(pos)
 			for ep: Vector3i in extra_cells:
 				area._obs_map.erase(ep)
 			continue
+		g.accessible = true
+		g.ap_fresh = false
 		for dx: int in range(-1, pw + 1):
 			obj_adj[Vector3i(pos.x + dx, pos.y - 1, pos.z)] = {"pw": pw, "ph": ph}
 			obj_adj[Vector3i(pos.x + dx, pos.y + ph, pos.z)] = {"pw": pw, "ph": ph}
@@ -1092,19 +1794,19 @@ static func _assign_spawns(area: BattlefieldArea, ctx: GenerationContext, bld_x:
 	var half: int = maxi(1, floor_w >> 1)
 	area.spawn_center_a = Vector2i(bld_x + 1 + (half >> 1), top_y + 1 + (floor_d >> 1))
 	area.spawn_center_b = Vector2i(bld_x + 1 + half + ((floor_w - half) >> 1), top_y + 1 + (floor_d >> 1))
-	for ix: int in range(bld_x + 1, bld_x + 1 + half):
-		for iy: int in range(top_y + 1, top_y + 1 + floor_d):
-			var p := Vector2i(ix, iy)
-			if not area._obs_map.has(Vector3i(ix, iy, 0)):
-				area.spawn_zone_a[p] = true
-	for ix: int in range(bld_x + 1 + half, bld_x + floor_w + 1):
-		for iy: int in range(top_y + 1, top_y + 1 + floor_d):
-			var p := Vector2i(ix, iy)
-			if not area._obs_map.has(Vector3i(ix, iy, 0)):
-				area.spawn_zone_b[p] = true
+	var split: int = bld_x + 1 + half
+	for key: Variant in area.building_interiors.keys():
+		var c: Vector3i = key as Vector3i
+		if c.z != 0 or area._obs_map.has(c):
+			continue
+		var p := Vector2i(c.x, c.y)
+		if c.x < split:
+			area.spawn_zone_a[p] = true
+		else:
+			area.spawn_zone_b[p] = true
 
 
-static func _place_exterior_rooms(area: BattlefieldArea, f: int, bld_x: int, top_y: int, floor_w: int, floor_d: int, area_data: Dictionary, wall_data: ObstacleData, fh: int, street: int, all_rooms: Array[Dictionary]) -> void:
+static func _place_exterior_rooms(area: BattlefieldArea, f: int, bld_x: int, top_y: int, floor_w: int, floor_d: int, area_data: Dictionary, wall_data: ObstacleData, fh: int, street: int, all_rooms: Array[Dictionary], side: String = "") -> void:
 	if f < 0:
 		return
 	var eligible: Array[ObstacleData] = DataManager.get_exterior_rooms_for_floor(area_data, f)
@@ -1116,7 +1818,11 @@ static func _place_exterior_rooms(area: BattlefieldArea, f: int, bld_x: int, top
 	if max_ext_w < 2:
 		return
 	var ext_w: int = randi_range(2, max_ext_w)
-	var use_right: bool = (f == 0) or (randi() % 2 == 0)
+	var use_right: bool
+	if side == "":
+		use_right = (f == 0) or (randi() % 2 == 0)
+	else:
+		use_right = side == "E"
 	var fence_data: ObstacleData = DataManager.get_obstacle_by_name("Fence")
 	if fence_data == null:
 		fence_data = wall_data
@@ -1149,6 +1855,7 @@ static func _place_exterior_rooms(area: BattlefieldArea, f: int, bld_x: int, top
 	var door_y: int = top_y + 2 + (floor_d >> 1)
 	for iy: int in range(top_y, top_y + floor_d + 2):
 		if f == 0 and iy == door_y:
+			area.gate_cells[Vector3i(far_wall_x, iy, f)] = true
 			continue
 		_place_fence_if_empty(area, Vector3i(far_wall_x, iy, f), fence_data, f)
 
@@ -1225,6 +1932,150 @@ static func _door_sides_open(area: BattlefieldArea, pos: Vector3i, across: Vecto
 	return true
 
 
+#One door through the wall a wing shares with the main block, a second at 40% on a long wing.
+static func _place_wing_doors(area: BattlefieldArea, wings: Array[Dictionary], f: int, top_y: int,
+		floor_d: int, stairwell_xs: Dictionary, fh: int) -> void:
+	var door_data: ObstacleData = BuildingGenerator._get_door_template()
+	var sw: Dictionary = {}
+	for v: Variant in stairwell_xs.values():
+		sw[int(v)] = true
+	for wing: Dictionary in wings:
+		var north: bool = String(wing["side"]) == "n"
+		var row: int = top_y if north else top_y + floor_d + 1
+		var in_y: int = row - 1 if north else row + 1
+		var main_y: int = row + 1 if north else row - 1
+		var x0: int = int(wing["x0"])
+		var wlen: int = int(wing["len"])
+		var mid: int = x0 + (wlen >> 1)
+		var open_c: Array[int] = []
+		var any_c: Array[int] = []
+		for dx: int in range(wlen):
+			var x: int = x0 + dx
+			if sw.has(x):
+				continue
+			any_c.append(x)
+			if not area._obs_map.has(Vector3i(x, in_y, f)) and not area._obs_map.has(Vector3i(x, main_y, f)):
+				open_c.append(x)
+		var picks: Array[int] = any_c
+		if not open_c.is_empty():
+			picks = open_c
+		if picks.is_empty():
+			continue
+		picks.sort_custom(func(a: int, b: int) -> bool: return absi(a - mid) < absi(b - mid))
+		_cut_wing_door(area, picks[0], row, in_y, main_y, f, door_data, fh)
+		if wlen < 9 or randi() % 100 >= 40:
+			continue
+		for x2: int in picks:
+			if absi(x2 - picks[0]) >= 3:
+				_cut_wing_door(area, x2, row, in_y, main_y, f, door_data, fh)
+				break
+
+
+#Opens the two cells across a shared wall and cuts the door between them.
+static func _cut_wing_door(area: BattlefieldArea, x: int, row: int, in_y: int, main_y: int, f: int,
+		door_data: ObstacleData, fh: int) -> void:
+	_open_wing_cell(area, Vector3i(x, in_y, f))
+	_open_wing_cell(area, Vector3i(x, main_y, f))
+	_place_door_at(area, Vector3i(x, row, f), door_data, fh, "h")
+
+
+static func _open_wing_cell(area: BattlefieldArea, pos: Vector3i) -> void:
+	var ct: String = String((area._obs_map.get(pos, {}) as Dictionary).get("cell_type", ""))
+	if ct != "" and ct != "wall":
+		return
+	_clear_cell(area, pos)
+	area.building_interiors[pos] = true
+
+
+#Cuts doors into shared walls until the open cells of one floor form a single region.
+static func _connect_floor_regions(area: BattlefieldArea, f: int, fh: int) -> void:
+	var door_data: ObstacleData = BuildingGenerator._get_door_template()
+	for _pass: int in range(REGION_PASSES):
+		var reg: Dictionary = _floor_regions(area, f)
+		var count: int = int(reg["count"])
+		if count <= 1:
+			return
+		var ids: Dictionary = reg["ids"] as Dictionary
+		var sizes: Dictionary = reg["sizes"] as Dictionary
+		var best := Vector3i(0, 0, 0)
+		var best_orient: String = "v"
+		var best_score: int = -1
+		for key: Variant in area._obs_map.keys():
+			var c: Vector3i = key as Vector3i
+			if c.z != f:
+				continue
+			if String((area._obs_map[c] as Dictionary).get("cell_type", "")) != "wall":
+				continue
+			if _on_mask_edge(area, c):
+				continue
+			for pair: int in range(2):
+				var d := Vector2i(1, 0) if pair == 0 else Vector2i(0, 1)
+				var a := Vector3i(c.x - d.x, c.y - d.y, f)
+				var b := Vector3i(c.x + d.x, c.y + d.y, f)
+				if not ids.has(a) or not ids.has(b) or int(ids[a]) == int(ids[b]):
+					continue
+				var score: int = maxi(int(sizes[int(ids[a])]), int(sizes[int(ids[b])]))
+				if score > best_score:
+					best_score = score
+					best = c
+					best_orient = "v" if pair == 0 else "h"
+		if best_score < 0:
+			area.generation_log.append("[GEN] F%d: %d regions left" % [f, count])
+			return
+		_place_door_at(area, best, door_data, fh, best_orient)
+
+
+#True when the cell has a 4-neighbour outside its own floor mask, so it carries the outside wall.
+static func _on_mask_edge(area: BattlefieldArea, c: Vector3i) -> bool:
+	for d: Vector2i in DIRS4:
+		if not area.in_footprint_floor(Vector2i(c.x + d.x, c.y + d.y), c.z):
+			return true
+	return false
+
+
+#Open cells of one floor: floor cells with no obstacle, plus doors, stairs and stair markers.
+static func _floor_open_cells(area: BattlefieldArea, f: int) -> Dictionary:
+	var out: Dictionary = {}
+	for key: Variant in area.building_interiors.keys():
+		var c: Vector3i = key as Vector3i
+		if c.z == f and not area._obs_map.has(c):
+			out[c] = true
+	for key2: Variant in area._obs_map.keys():
+		var c2: Vector3i = key2 as Vector3i
+		if c2.z != f:
+			continue
+		var ct: String = String((area._obs_map[c2] as Dictionary).get("cell_type", ""))
+		if ct == "door" or ct == "stairs" or ct == "stair_run" or ct == "reserved_stairwell":
+			out[c2] = true
+	return out
+
+
+#4-connected regions of one floor: {"ids": cell -> region, "sizes": region -> cells, "count": int}.
+static func _floor_regions(area: BattlefieldArea, f: int) -> Dictionary:
+	var open_cells: Dictionary = _floor_open_cells(area, f)
+	var ids: Dictionary = {}
+	var sizes: Dictionary = {}
+	var n: int = 0
+	for key: Variant in open_cells.keys():
+		var s: Vector3i = key as Vector3i
+		if ids.has(s):
+			continue
+		var queue: Array[Vector3i] = [s]
+		ids[s] = n
+		var qi: int = 0
+		while qi < queue.size():
+			var cur: Vector3i = queue[qi]
+			qi += 1
+			for d: Vector2i in DIRS4:
+				var nb := Vector3i(cur.x + d.x, cur.y + d.y, f)
+				if open_cells.has(nb) and not ids.has(nb):
+					ids[nb] = n
+					queue.append(nb)
+		sizes[n] = queue.size()
+		n += 1
+	return {"ids": ids, "sizes": sizes, "count": n}
+
+
 static func _place_wall_if_empty(area: BattlefieldArea, pos: Vector3i, wall_sz: int, wall_data: ObstacleData, fh: int) -> void:
 	if area._obs_map.has(pos):
 		return
@@ -1256,67 +2107,132 @@ static func _replace_wall_with(area: BattlefieldArea, pos: Vector3i, obs: Dictio
 	_add_obstacle(area, obs, pos)
 
 
-static func _place_windows(area: BattlefieldArea, fp: int, fm: int, bld_x: int, floor_w: int, floor_d: int, window_data: ObstacleData, stairwell_xs: Dictionary, top_y: int, fh: int) -> void:
+#Windows walk the outside wall of every floor mask: every other cell out from each segment midpoint.
+static func _place_windows(area: BattlefieldArea, fp: int, window_data: ObstacleData,
+		stairwell_xs: Dictionary, fh: int, level: String = "Normal",
+		room_levels: Dictionary = {}) -> void:
 	if window_data == null:
 		return
-	var win_sz: int = window_data.size
 	var stairwell_x_set: Dictionary = {}
 	for v: Variant in stairwell_xs.values():
-		stairwell_x_set[v as int] = true
-	for f: int in range(fp, -(fm + 1), -1):
-		if f < 0:
+		stairwell_x_set[int(v)] = true
+	var opts: Dictionary = {}
+	var planned: bool = not area.building_plan.is_empty()
+	if planned or level != "Normal" or not room_levels.is_empty():
+		var band_xs: Dictionary = {}
+		var band_x0: int = int(area.building_plan.get("band_x0", -1))
+		if band_x0 >= 0:
+			band_xs[band_x0] = true
+			band_xs[band_x0 + 1] = true
+		opts = {"level": level, "rooms": room_levels, "planned": planned, "band": band_xs}
+	for f: int in range(fp, -1, -1):
+		var segs: Dictionary = _wall_segments(area, f)
+		for key: Variant in segs.keys():
+			var k: Vector2i = key as Vector2i
+			var vals: Array = segs[k] as Array
+			vals.sort()
+			var run: Array[int] = []
+			for i: int in range(vals.size()):
+				var v: int = int(vals[i])
+				if not run.is_empty() and v != run[run.size() - 1] + 1:
+					_window_run(area, f, k, run, stairwell_x_set, window_data, fh, opts)
+					run = []
+				run.append(v)
+			_window_run(area, f, k, run, stairwell_x_set, window_data, fh, opts)
+
+
+#Outside wall cells of one floor grouped by side and fixed coordinate: Vector2i(side, fixed) -> Array.
+static func _wall_segments(area: BattlefieldArea, f: int) -> Dictionary:
+	var out: Dictionary = {}
+	for key: Variant in area.footprint_cells.keys():
+		var c: Vector3i = key as Vector3i
+		if c.z != f:
 			continue
-		var mid_y: int = top_y + 1 + (floor_d >> 1)
-		for wx: int in [bld_x, bld_x + floor_w + 1]:
-			for wy: int in range(top_y + 1, top_y + floor_d + 1):
-				var dist: int = absi(wy - mid_y)
-				if dist % 2 != 0:
-					continue
-				var adj_door := false
-				for adj_wy: int in [wy - 1, wy + 1]:
-					if (area._obs_map.get(Vector3i(wx, adj_wy, f), {}) as Dictionary).get("cell_type", "") == "door":
-						adj_door = true
-						break
-				if adj_door:
-					continue
-				var int_x: int = wx + 1 if wx == bld_x else wx - 1
-				if (area._obs_map.get(Vector3i(int_x, wy, f), {}) as Dictionary).get("cell_type", "") == "wall":
-					continue
-				var pos := Vector3i(wx, wy, f)
-				var w_obs := {"pos": pos, "size": win_sz, "data": window_data, "cell_type": "window", "orientation": "v",
-					"height": float(fh), "floor": f}
-				_replace_wall_with(area, pos, w_obs)
-	#north wall of the top floor and south wall shared by all floors are at fixed Y
-	var ns_wall_ys: Array[int] = [top_y, top_y + floor_d + 1]
-	for wy: int in ns_wall_ys:
-		var candidates: Array[int] = []
-		for wx: int in range(bld_x + 1, bld_x + floor_w + 1):
-			if not stairwell_x_set.has(wx):
-				candidates.append(wx)
-		if candidates.is_empty():
+		if String((area._obs_map.get(c, {}) as Dictionary).get("cell_type", "")) != "wall":
 			continue
-		var mid_x: int = bld_x + 1 + (floor_w >> 1)
-		for f: int in range(fp, -(fm + 1), -1):
-			if f < 0:
+		var side: int = -1
+		var outside: int = 0
+		for i: int in range(DIRS4.size()):
+			if not area.footprint_union.has(Vector2i(c.x + DIRS4[i].x, c.y + DIRS4[i].y)):
+				outside += 1
+				side = i
+		if outside != 1:
+			continue
+		var k := Vector2i(side, c.x if side <= 1 else c.y)
+		var vals: Array = out.get(k, []) as Array
+		vals.append(c.y if side <= 1 else c.x)
+		out[k] = vals
+	return out
+
+
+#One straight wall segment: keeps every other cell measured from the segment midpoint.
+static func _window_run(area: BattlefieldArea, f: int, k: Vector2i, run: Array[int],
+		stairwell_x_set: Dictionary, window_data: ObstacleData, fh: int,
+		opts: Dictionary = {}) -> void:
+	if run.is_empty():
+		return
+	var side: int = k.x
+	var mid: int = run[run.size() >> 1]
+	var inward: Vector2i = -DIRS4[side]
+	var along: Vector2i = Vector2i(0, 1) if side <= 1 else Vector2i(1, 0)
+	var def_level: String = String(opts.get("level", "Normal"))
+	var room_levels: Dictionary = opts.get("rooms", {}) as Dictionary
+	var planned: bool = bool(opts.get("planned", false))
+	var band_xs: Dictionary = opts.get("band", {}) as Dictionary
+	var kept: int = 0
+	for v: int in run:
+		var spaced: bool = absi(v - mid) % 2 == 0
+		var kept_i: int = kept
+		if spaced:
+			kept += 1
+		var p: Vector2i = Vector2i(k.y, v) if side <= 1 else Vector2i(v, k.y)
+		var inn: Vector3i = Vector3i(p.x + inward.x, p.y + inward.y, f)
+		var cell_level: String = def_level
+		if not room_levels.is_empty():
+			cell_level = _room_window_level(area, f, inn, room_levels, def_level)
+		if cell_level == "None":
+			continue
+		if cell_level != "Many":
+			if not spaced:
 				continue
-			for wx: int in candidates:
-				var dist: int = absi(wx - mid_x)
-				if dist % 2 != 0:
-					continue
-				var adj_door := false
-				for adj_wx: int in [wx - 1, wx + 1]:
-					if (area._obs_map.get(Vector3i(adj_wx, wy, f), {}) as Dictionary).get("cell_type", "") == "door":
-						adj_door = true
-						break
-				if adj_door:
-					continue
-				var int_y: int = wy + 1 if wy == top_y else wy - 1
-				if (area._obs_map.get(Vector3i(wx, int_y, f), {}) as Dictionary).get("cell_type", "") == "wall":
-					continue
-				var pos := Vector3i(wx, wy, f)
-				var w_obs := {"pos": pos, "size": win_sz, "data": window_data, "cell_type": "window", "orientation": "h",
-					"height": float(fh), "floor": f}
-				_replace_wall_with(area, pos, w_obs)
+			if cell_level == "Few" and kept_i % 4 != 0:
+				continue
+		if stairwell_x_set.has(p.x):
+			continue
+		var adj_door: bool = false
+		for step: int in [-1, 1]:
+			var q: Vector2i = p + along * step
+			if String((area._obs_map.get(Vector3i(q.x, q.y, f), {}) as Dictionary).get("cell_type", "")) == "door":
+				adj_door = true
+		if adj_door:
+			continue
+		var inn_type: String = String((area._obs_map.get(inn, {}) as Dictionary).get("cell_type", ""))
+		if inn_type == "wall":
+			continue
+		if planned:
+			if band_xs.has(inn.x):
+				continue
+			if inn_type == "stair_run" or inn_type == "reserved_stairwell":
+				continue
+		var pos := Vector3i(p.x, p.y, f)
+		_replace_wall_with(area, pos, {"pos": pos, "size": window_data.size, "data": window_data,
+			"cell_type": "window", "orientation": "v" if side <= 1 else "h", "height": float(fh),
+			"floor": f})
+
+
+#Window level of the room behind one wall cell; the building level when no room names that cell.
+static func _room_window_level(area: BattlefieldArea, f: int, inn: Vector3i,
+		room_levels: Dictionary, def_level: String) -> String:
+	var flat := Vector2i(inn.x, inn.y)
+	for label: Dictionary in area.interior_rooms:
+		if int(label.get("floor", 0)) != f:
+			continue
+		var room_name: String = String(label.get("name", ""))
+		if not room_levels.has(room_name):
+			continue
+		if (label["rect"] as Rect2i).grow(1).has_point(flat):
+			return String(room_levels[room_name])
+	return def_level
 
 
 #Cuts the two street level doors into the end walls and returns the row they share.
@@ -1335,9 +2251,10 @@ static func _place_entrance_doors(area: BattlefieldArea, bld_x: int, top_y: int,
 #Chooses the shared stair columns, builds the runs and reserves both columns on every floor.
 static func _build_stairwells(area: BattlefieldArea, floor_v_cors: Dictionary, fp: int, fm: int,
 		bld_x: int, floor_w: int, floor_d: int, top_y: int, stairs_data: ObstacleData,
-		stairwell_xs: Dictionary, stairwell_adj_xs: Dictionary) -> void:
-	var stair_pair: Array[int] = _pick_stair_columns(area, floor_v_cors, fp, fm, bld_x, floor_w,
-		top_y, floor_d, stairwell_xs.get(fp, bld_x + 1) as int, stairwell_adj_xs.get(fp, bld_x + 2) as int)
+		stairwell_xs: Dictionary, stairwell_adj_xs: Dictionary, fixed_pair: Array[int] = []) -> void:
+	var stair_pair: Array[int] = fixed_pair if fixed_pair.size() == 2 else _pick_stair_columns(
+		area, floor_v_cors, fp, fm, bld_x, floor_w, top_y, floor_d,
+		stairwell_xs.get(fp, bld_x + 1) as int, stairwell_adj_xs.get(fp, bld_x + 2) as int)
 	for f: int in range(fp, -fm, -1):
 		stairwell_xs[f] = stair_pair[0]
 		stairwell_adj_xs[f] = stair_pair[1]
@@ -1361,27 +2278,40 @@ static func _build_stairwells(area: BattlefieldArea, floor_v_cors: Dictionary, f
 static func _open_entrance_cells(area: BattlefieldArea, bld_x: int, floor_w: int, ent_y: int,
 		fh: int) -> void:
 	var ent_rx: int = bld_x + floor_w + 1
-	var _edt := BuildingGenerator._get_door_template()
-	var _el := Vector3i(bld_x + 1, ent_y, 0)
-	if (area._obs_map.get(_el, {}) as Dictionary).get("cell_type", "") == "wall":
-		_place_door_at(area, _el, _edt, fh, "h")
+	var edt := BuildingGenerator._get_door_template()
+	var el := Vector3i(bld_x + 1, ent_y, 0)
+	if (area._obs_map.get(el, {}) as Dictionary).get("cell_type", "") == "wall":
+		_place_door_at(area, el, edt, fh, "h")
 	else:
-		_clear_cell(area, _el)
-		area.building_interiors[_el] = true
-	var _er := Vector3i(ent_rx - 1, ent_y, 0)
-	if (area._obs_map.get(_er, {}) as Dictionary).get("cell_type", "") == "wall":
-		_place_door_at(area, _er, _edt, fh, "h")
+		_clear_cell(area, el)
+		area.building_interiors[el] = true
+	var er := Vector3i(ent_rx - 1, ent_y, 0)
+	if (area._obs_map.get(er, {}) as Dictionary).get("cell_type", "") == "wall":
+		_place_door_at(area, er, edt, fh, "h")
 	else:
-		_clear_cell(area, _er)
-		area.building_interiors[_er] = true
+		_clear_cell(area, er)
+		area.building_interiors[er] = true
 
 
 #Writes the interior header lines to the generation log and prints the total.
 static func _log_generation(area: BattlefieldArea, total_ms: int, num_floors: int, floor_w: int,
-		fh: int, floor_d: int) -> void:
+		fh: int, floor_d: int, wings: Array[Dictionary]) -> void:
+	var north: int = 0
+	var south: int = 0
+	for w: Dictionary in wings:
+		if String(w["side"]) == "n":
+			north += 1
+		else:
+			south += 1
+	var mask_f0: int = 0
+	for key: Variant in area.footprint_cells.keys():
+		if (key as Vector3i).z == 0:
+			mask_f0 += 1
 	area.generation_log.append("Area: %s  terrain: %s" % [area.area_name, BattlefieldArea.UNEVENNESS_NAMES[6]])
 	area.generation_log.append("[GEN] interior floors: %d  floor_w: %d  fh: %d  floor_d: %d  map: %dx%d" % [
 		num_floors, floor_w, fh, floor_d, area.width, area.length])
-	area.generation_log.append("[GEN] TOTAL: %dms  -  %s" % [total_ms, area.to_header_string()])
-	print("[GEN] interior TOTAL: %dms  -  %s" % [total_ms, area.to_header_string()])
+	area.generation_log.append("[GEN] wings=%d north=%d south=%d mask_f0=%d" % [
+		wings.size(), north, south, mask_f0])
+	area.generation_log.append("[GEN] TOTAL: %dms  -  %s" % [total_ms, BattlefieldRender.to_header_string(area)])
+	print("[GEN] interior TOTAL: %dms  -  %s" % [total_ms, BattlefieldRender.to_header_string(area)])
 

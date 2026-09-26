@@ -45,11 +45,11 @@ static func build_option_pool(result: Dictionary, merc: MercenaryData, check_def
 				continue
 		elif not formula.contains(formula_req):
 			continue
-		if entry["frequency"] == "Once" and merc.acquired_critical_successes.has(entry["effect_dsl"]):
+		if entry["frequency"] == "Once" and merc.acquired_critical_successes.has(_once_key(entry)):
 			continue
-		if entry["frequency"] == "Once" and _is_pending(merc, entry["effect_dsl"]):
+		if entry["frequency"] == "Once" and _is_pending(merc, _once_key(entry)):
 			continue
-		if not _is_effect_feasible(merc, entry["effect_dsl"]):
+		if not _is_effect_feasible(merc, entry["effect_dsl"], check_def):
 			continue
 		pool.append(entry)
 	return pool
@@ -85,21 +85,23 @@ static func _formula_uses(formula: String, required: String) -> bool:
 
 #Rolls one reward for a critical success and either banks it or applies it now.
 static func on_critical(merc: MercenaryData, result: Dictionary, check_def: Dictionary) -> String:
-	var entry: Dictionary = pick(merc, build_option_pool(result, merc, check_def))
+	var entry: Dictionary = _pick(build_option_pool(result, merc, check_def)).duplicate()
+	#The weapon rides along on the entry so a banked used_weapon reward still knows what was swung.
+	entry["weapon"] = check_def.get("weapon", null)
 	if banking:
 		merc.pending_crit_rewards.append(entry)
 		return "banked " + str(entry.get("effect_dsl", ""))
-	return apply_entry(merc, entry)
+	return _apply_entry(merc, entry)
 
 
 #Picks one entry from the pool; an empty pool means a level up. A Once reward is marked when applied.
-static func pick(_merc: MercenaryData, pool: Array) -> Dictionary:
+static func _pick(pool: Array) -> Dictionary:
 	if pool.is_empty():
 		return {"effect_dsl": "level_up", "frequency": "", "stat": ""}
 	return pool[randi() % pool.size()] as Dictionary
 
 
-static func apply_entry(merc: MercenaryData, entry: Dictionary) -> String:
+static func _apply_entry(merc: MercenaryData, entry: Dictionary) -> String:
 	StatCalculator.prime(merc)
 	var description: String = _apply_entry_effect(merc, entry)
 	StatCalculator.refresh(merc)
@@ -119,27 +121,34 @@ static func apply_pending(merc: MercenaryData) -> Array[String]:
 	return out
 
 
-static func _is_pending(merc: MercenaryData, dsl: String) -> bool:
+static func _is_pending(merc: MercenaryData, key: String) -> bool:
 	for entry: Dictionary in merc.pending_crit_rewards:
-		if str(entry.get("effect_dsl", "")) == dsl:
+		if _once_key(entry) == key:
 			return true
 	return false
 
 
+#The Once lock key of an entry; repeated sheet rows carry their own key so each is earned once.
+static func _once_key(entry: Dictionary) -> String:
+	var key: String = str(entry.get("once_key", ""))
+	return key if key != "" else str(entry.get("effect_dsl", ""))
+
+
 static func _apply_entry_effect(merc: MercenaryData, entry: Dictionary) -> String:
 	var dsl: String = str(entry.get("effect_dsl", ""))
-	if str(entry.get("frequency", "")) == "Once" and not merc.acquired_critical_successes.has(dsl):
-		merc.acquired_critical_successes.append(dsl)
+	var lock: String = _once_key(entry)
+	if str(entry.get("frequency", "")) == "Once" and not merc.acquired_critical_successes.has(lock):
+		merc.acquired_critical_successes.append(lock)
 	if dsl == "level_up":
 		var lines: Array[String] = ExperienceSystem.award(merc, ExperienceSystem.XP_PER_LEVEL, "critical success")
 		lines.append_array(ExperienceSystem.resolve_level_ups(merc))
 		if lines.is_empty():
 			return "Level Up reward: no campaign identity, no XP"
 		return "; ".join(lines)
-	return _apply_critical_effect(merc, dsl)
+	return _apply_critical_effect(merc, dsl, entry.get("weapon", null) as WeaponData)
 
 
-static func _apply_critical_effect(merc: MercenaryData, dsl: String) -> String:
+static func _apply_critical_effect(merc: MercenaryData, dsl: String, weapon: WeaponData = null) -> String:
 	if dsl.begins_with("stat:max_"):
 		var parts: PackedStringArray = dsl.split(":")
 		if parts.size() == 3:
@@ -182,7 +191,38 @@ static func _apply_critical_effect(merc: MercenaryData, dsl: String) -> String:
 			if granted.is_empty():
 				return "Circumstance (none available)"
 			return "Circumstance: %s" % ", ".join(granted)
+	elif dsl.begins_with("grant:weapon_perk:used_weapon:"):
+		var parts: PackedStringArray = dsl.split(":")
+		if parts.size() == 4:
+			var count: int = int(parts[3])
+			var pool: Array[TraitData] = _used_weapon_perk_pool(merc, weapon)
+			if count <= 0 or pool.is_empty():
+				return "Weapon Perk (none available)"
+			pool.shuffle()
+			var granted: Array[String] = []
+			for i: int in range(mini(count, pool.size())):
+				WeaponArmorPerkLibrary.grant_weapon_perk(merc, pool[i], "critical success")
+				granted.append(WeaponArmorPerkLibrary.perk_display_name(pool[i]))
+			return "Weapon Perk: %s" % ", ".join(granted)
 	return dsl
+
+
+#Rows of the swung weapon's type the merc does not already own; an Action row counts as a perk here.
+static func _used_weapon_perk_pool(merc: MercenaryData, weapon: WeaponData) -> Array[TraitData]:
+	var pool: Array[TraitData] = []
+	var key: String = WeaponArmorPerkLibrary.weapon_type_key(weapon)
+	if key == "":
+		return pool
+	var held: Dictionary = {}
+	for owned: TraitData in merc.weapon_perks:
+		if owned != null:
+			held[owned.trait_name] = true
+	for entry: Variant in (DataManager.weapon_trait_library.get(key, []) as Array):
+		var td: TraitData = entry as TraitData
+		if td == null or held.has(td.trait_name):
+			continue
+		pool.append(td)
+	return pool
 
 
 static func _build_circumstance_pool(filter_key: String) -> Array[String]:
@@ -207,7 +247,9 @@ static func _build_circumstance_pool(filter_key: String) -> Array[String]:
 	return pool
 
 
-static func _is_effect_feasible(merc: MercenaryData, dsl: String) -> bool:
+static func _is_effect_feasible(merc: MercenaryData, dsl: String, check_def: Dictionary = {}) -> bool:
+	if dsl.begins_with("grant:weapon_perk:used_weapon:"):
+		return not _used_weapon_perk_pool(merc, check_def.get("weapon", null) as WeaponData).is_empty()
 	if dsl.begins_with("stat:") and not dsl.begins_with("stat:max_") and not dsl.begins_with("stat:min_"):
 		var parts: PackedStringArray = dsl.split(":")
 		if parts.size() == 3 and CORE_STAT_KEYS.has(parts[1]):

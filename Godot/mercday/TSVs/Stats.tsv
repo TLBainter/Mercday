@@ -5,8 +5,8 @@ Vigor	clamp(floor(max_vigor / 2.0) + stat_bonus_vigor, 0, max_vigor)	floor	core	
 Wile	clamp(floor(max_wile / 2.0) + stat_bonus_wile, 0, max_wile)	floor	core	Mental Stat. Used for personality and spirit.
 Level	0	floor	level	An entity's level. Determines progression.
 Size	0	floor	ancestry	How big a creature is.
-Weight Limit	vigor + size + 1	floor	derived	How much weight a creature can carry.
-Speed	(dexterity - size * 10.0) + level	floor	derived	How fast a creature moves in battle.
+Weight Limit	max(1, vigor + size + 1)	floor	derived	How much weight a creature can carry.
+Speed	(dexterity - size * 10.0) + level	signed	derived	How fast a creature moves in battle.
 Maximum Hit Points	1 + size + max(vigor, wile)	floor	derived	How many hits a creature can take before dying.
 Maximum Endurance Points	1 + vigor	floor	derived	How much energy a creature can spend before being exhausted.
 Maximum Magic Points	1 + max(cognition, wile)	floor	derived	How much magical power a creature can put into effects and abilities.
@@ -34,10 +34,10 @@ Thrown Range	((vigor * 10) - (object_weight * 10)) if object_weight > 0 else ((v
 Damage Melee	melee_accuracy / 10.0	floor	derived	The base damage this creature will deal with a melee attack.
 Damage Ranged	ranged_accuracy / 10.0	floor	derived	The base damage this creature will deal with a ranged attack.
 Damage Thrown	thrown_accuracy / 10.0	floor	derived	The base damage this creature will deal with a thrown attack.
-Healthiness	(vigor * 15.0) + luck + avoid	none	derived	How healthy a creature is.
-Tolerance	(healthiness / 2.0) + vigor	none	derived	A creature's willingness to tolerate pain.
-Rest Recovery	healthiness / 100.0	none	derived	Affects the resource recovery a creature experiences while resting.
-Base Success Chance	level	none	derived	A flat value added to all of this merc's stats for a given contract.
+Healthiness	(vigor * 15.0) + luck - 50.0	signed	derived	How healthy a creature is.
+Tolerance	(healthiness / 2.0) + vigor + 25	none	derived	A creature's willingness to tolerate pain.
+Rest Recovery	healthiness	signed	derived	Affects the resource recovery a creature experiences while resting.
+Base Success Chance	level	none	derived	A flat value added to this merc's success chance on every check.
 Assassinate	(dexterity * 2.0) + (grace + speech + performance_wile + attack_dexterity) * 1.25	none	derived	A creature's ability to discretely kill important targets.
 Espionage	social + (wile_circumstance_count * 5.0)	none	derived	A creature's skills in the field of stealth
 Explosives	cognition + dexterity + luck	none	derived	A creature's ability to utilize explosive devices like grenades.
@@ -72,3 +72,4 @@ Max Reputation Points	10	floor	granted	The maximum amount of Reputation Points t
 Jump	(vigor / 2.0) + (parkour / 10.0) + (athletics_vigor / 10.0)	floor	derived	The maximum height/distance a merc can jump.
 Pain Limit	vigor + 1	floor	derived	The maximum amount of pain a creature can tolerate.
 Raw Strength	(vigor * 10.0) + (power_vigor) + (athletics_vigor / 2.0)	none	derived	A character's raw strength; used for pushing around objects.
+Flee	avoid - (max(0, healthiness) * max(1, wile))	signed	derived	Base value; battles add the team HP swing.

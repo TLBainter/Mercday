@@ -5,13 +5,17 @@ const ROUNDS_PER_MINUTE := 6
 const ROUNDS_PER_HOUR := 360
 #Resist (Stat) is the flat Resist action (Actions.tsv: 15) plus the Resist (Stat) circumstance bonus when held.
 const RESIST_FORMULA := "15"
+#Stat added to the Resist threshold for the states ConstStates.TOLERANCE_RESIST_STATES names.
+const TOLERANCE_STAT := "tolerance"
+#Share of Tolerance that reaches the Resist threshold; the designer halved it on 2026-09-11.
+const TOLERANCE_SHARE := 0.5
 const ATTEMPT_END_TURN := "end_turn"
 const ATTEMPT_INTERACT := "interact"
 
 
 #Accepts "Resist:Vigor:2:End Turn" and its normalized form "resist:vigor:2:end_turn".
 static func parse_resist(spec: String) -> Dictionary:
-	var parts := ConstStates.normalize_token(spec).split(":")
+	var parts := StateTokens.normalize_token(spec).split(":")
 	if parts.size() < 3 or parts[0] != "resist":
 		return {}
 	var stat := parts[1]
@@ -83,13 +87,16 @@ static func infliction_def(merc: MercenaryData, stat: String, state_name: String
 	def["enhancements"] = int(bias["enhancements"])
 	def["flaws"] = int(bias["flaws"]) + maxi(0, extra_flaws)
 	def["bias"] = str(bias["token"])
+	if state_name in ConstStates.TOLERANCE_RESIST_STATES:
+		def["flat_threshold_bonus"] = float(merc.stats.get(TOLERANCE_STAT, 0.0)) * TOLERANCE_SHARE
 	return def
 
 
 #A named state rolls with its bias; a critical success passes whatever the trial is.
+#A subject other than the roller owns the bias and the Tolerance, as on an aid roll.
 static func resist_check(merc: MercenaryData, spec: Dictionary, state_name: String = "",
-		extra_flaws: int = 0, extra_enh: int = 0) -> Dictionary:
-	var def := _check_def(merc, spec, state_name, extra_flaws, extra_enh)
+		extra_flaws: int = 0, extra_enh: int = 0, subject: MercenaryData = null) -> Dictionary:
+	var def := _check_def(merc, spec, state_name, extra_flaws, extra_enh, subject)
 	var result := CheckSystem.make_check(merc, def)
 	result["passed"] = int(result["successes"]) >= int(spec["trial"]) or bool(result.get("critical", false))
 	result["bias"] = str(def.get("bias", ""))
@@ -99,15 +106,16 @@ static func resist_check(merc: MercenaryData, spec: Dictionary, state_name: Stri
 
 #Chance the same roll resist_check would make meets the spec trial, without rolling.
 static func resist_chance(merc: MercenaryData, spec: Dictionary, state_name: String = "",
-		extra_flaws: int = 0, extra_enh: int = 0) -> float:
+		extra_flaws: int = 0, extra_enh: int = 0, subject: MercenaryData = null) -> float:
 	return CheckSystem.expected_success_chance(merc,
-		_check_def(merc, spec, state_name, extra_flaws, extra_enh), int(spec["trial"]))
+		_check_def(merc, spec, state_name, extra_flaws, extra_enh, subject), int(spec["trial"]))
 
 
 static func _check_def(merc: MercenaryData, spec: Dictionary, state_name: String,
-		extra_flaws: int, extra_enh: int = 0) -> Dictionary:
+		extra_flaws: int, extra_enh: int = 0, subject: MercenaryData = null) -> Dictionary:
 	var stat: String = str(spec["stat"])
-	var def: Dictionary = resist_def(stat) if state_name == "" else infliction_def(merc, stat, state_name, extra_flaws)
+	var owner: MercenaryData = subject if subject != null else merc
+	var def: Dictionary = resist_def(stat) if state_name == "" else infliction_def(owner, stat, state_name, extra_flaws)
 	if extra_enh != 0:
 		def["enhancements"] = int(def.get("enhancements", 0)) + extra_enh
 	return def
@@ -196,7 +204,7 @@ static func end_of_turn(merc: MercenaryData, state: BattleState) -> Array[String
 		var timer: Dictionary = state.get_state_timer(merc, state_name)
 		var spec := parse_resist(str(timer.get("remove", "")))
 		if not spec.is_empty() and str(spec["attempt"]) == ATTEMPT_END_TURN:
-			var result := resist_check(merc, spec)
+			var result := resist_check(merc, spec, state_name)
 			_log_check(merc, state_name, spec, result, ATTEMPT_END_TURN)
 			if result["passed"]:
 				lines.append_array(remove_timed(merc, state_name, state, "resisted",
@@ -229,7 +237,7 @@ static func attempt_interact(merc: MercenaryData, state_name: String, state: Bat
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("BEAU SUPPORT: %s +%d for %s" % [
 				roller.merc_name, extra_enh, merc.merc_name])
-	var result := resist_check(roller, spec, "", 0, extra_enh)
+	var result := resist_check(roller, spec, state_name, 0, extra_enh, merc)
 	_log_check(merc, state_name, spec, result,
 		"aid" if actor != null else ATTEMPT_INTERACT,
 		roller.merc_name if actor != null else "")
@@ -269,6 +277,26 @@ static func note_removed(merc: MercenaryData, state_name: String, state: BattleS
 	_log_removed(merc, state_name, state, reason)
 
 
+#A dead source lets go: every Grappled that names it ends, and a registered kidnap pair with it.
+static func release_held_by(dead: MercenaryData, state: BattleState, lines: Array[String]) -> void:
+	if dead == null or state == null:
+		return
+	for team: Variant in state.teams:
+		for m: Variant in (team as Array):
+			if not (m is MercenaryData):
+				continue
+			var merc := m as MercenaryData
+			if merc == dead or not ConstStates.has_state(merc, ConstStates.GRAPPLED):
+				continue
+			if ConstStates.get_source(merc, ConstStates.GRAPPLED) != dead:
+				continue
+			if ConstStates.remove_state(merc, ConstStates.GRAPPLED)["removed"]:
+				note_removed(merc, ConstStates.GRAPPLED, state, "source_death")
+				lines.append("  %s is no longer grappled: %s is dead" % [
+					BattleState.colored_name(merc, state), BattleState.colored_name(dead, state)])
+	KidnapSystem.unregister(dead, state)
+
+
 static func _log_removed(merc: MercenaryData, state_name: String, state: BattleState, reason: String) -> void:
 	if not EncounterLogger.is_active():
 		return
@@ -280,7 +308,7 @@ static func _log_removed(merc: MercenaryData, state_name: String, state: BattleS
 static func narrate(merc: MercenaryData, state_name: String, source: MercenaryData,
 		state: BattleState, key: String) -> String:
 	var source_name: String = "" if source == null else BattleState.colored_name(source, state)
-	return ConstStates.narrate_text(state_name, key, BattleState.colored_name(merc, state), source_name,
+	return StateText.narrate_text(state_name, key, BattleState.colored_name(merc, state), source_name,
 		BeauSystem.beau_name(merc, {"state": state}))
 
 

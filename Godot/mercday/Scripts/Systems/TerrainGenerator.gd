@@ -73,10 +73,9 @@ static func _gen_mountainous(area: BattlefieldArea) -> void:
 	_clamp_all(area, base_h)
 	for _i: int in range(3):
 		smooth(area.terrain_heights, area.width, area.length, area.reserved_corridor_cells)
-	@warning_ignore("integer_division")
 	var n_mountains := randi_range(
-		maxi(1, (area.width * area.length) / 600),
-		maxi(2, (area.width * area.length) / 300))
+		maxi(1, int(float(area.width * area.length) / 600.0)),
+		maxi(2, int(float(area.width * area.length) / 300.0)))
 	var plateau_cells: Dictionary = {}
 	for _i: int in range(n_mountains):
 		_place_mountain(area, plateau_cells)
@@ -166,41 +165,36 @@ static func _carve_cave(area: BattlefieldArea, cx: int, cy: int, base_r: float) 
 	if randi() % 2 == 0:
 		var offset := randi_range(-int(base_r * 0.3), int(base_r * 0.3))
 		var cave_cy: int = clampi(cy + offset, buf + 2, area.length - buf - 3)
-		var wy_vals: Array[int] = [cave_cy - wall_t, cave_cy + wall_t]
-		for x: int in range(area.width):
-			var can := true
-			for wy: int in wy_vals:
-				if wy < 0 or wy >= area.length:
-					can = false
-					break
-				if area.terrain_heights.get(Vector2i(x, wy), 0.0) < min_wall_h:
-					can = false
-					break
-			if not can:
-				continue
-			for w: int in range(-cave_w, cave_w + 1):
-				var cp := Vector2i(x, cave_cy + w)
-				if cp.y >= 0 and cp.y < area.length and not area.reserved_corridor_cells.has(cp):
-					area.terrain_heights[cp] = cave_h
+		_carve_cave_axis(area, true, cave_cy, wall_t, cave_w, cave_h, min_wall_h, 0, area.width)
 	else:
 		var offset := randi_range(-int(base_r * 0.3), int(base_r * 0.3))
 		var cave_cx: int = clampi(cx + offset, wall_t + 1, area.width - wall_t - 2)
-		var wx_vals: Array[int] = [cave_cx - wall_t, cave_cx + wall_t]
-		for y: int in range(buf, area.length - buf):
-			var can := true
-			for wx: int in wx_vals:
-				if wx < 0 or wx >= area.width:
-					can = false
-					break
-				if area.terrain_heights.get(Vector2i(wx, y), 0.0) < min_wall_h:
-					can = false
-					break
-			if not can:
-				continue
-			for w: int in range(-cave_w, cave_w + 1):
-				var cp := Vector2i(cave_cx + w, y)
-				if cp.x >= 0 and cp.x < area.width and not area.reserved_corridor_cells.has(cp):
-					area.terrain_heights[cp] = cave_h
+		_carve_cave_axis(area, false, cave_cx, wall_t, cave_w, cave_h, min_wall_h, buf, area.length - buf)
+
+
+#One cave run along a fixed line: the two walls must stand high enough before the floor is cut.
+#The caller passes its own clamped centre and its own loop range, so both runs keep their bounds.
+static func _carve_cave_axis(area: BattlefieldArea, horizontal: bool, cave_c: int, wall_t: int,
+		cave_w: int, cave_h: float, min_wall_h: float, from_i: int, to_i: int) -> void:
+	var cross_limit: int = area.length if horizontal else area.width
+	var wall_vals: Array[int] = [cave_c - wall_t, cave_c + wall_t]
+	for i: int in range(from_i, to_i):
+		var can := true
+		for wv: int in wall_vals:
+			if wv < 0 or wv >= cross_limit:
+				can = false
+				break
+			var probe := Vector2i(i, wv) if horizontal else Vector2i(wv, i)
+			if area.terrain_heights.get(probe, 0.0) < min_wall_h:
+				can = false
+				break
+		if not can:
+			continue
+		for w: int in range(-cave_w, cave_w + 1):
+			var cp := Vector2i(i, cave_c + w) if horizontal else Vector2i(cave_c + w, i)
+			var cross: int = cp.y if horizontal else cp.x
+			if cross >= 0 and cross < cross_limit and not area.reserved_corridor_cells.has(cp):
+				area.terrain_heights[cp] = cave_h
 
 
 static func _seed_peaks(area: BattlefieldArea, count: int, h_range: Vector2, r_min: float, r_max: float) -> void:

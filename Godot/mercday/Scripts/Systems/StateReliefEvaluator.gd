@@ -4,16 +4,19 @@ class_name StateReliefEvaluator
 const HORIZON_ROUNDS := 3
 const INTERACT_AP := 2
 
-const RELIEF_TOKENS := {
-	"get_up": "action:get_up",
-	"break_free": "action:break_free",
-	"end_burning": "interact:end_burning",
+#Relief action key -> the removal token it satisfies and the cost key it is charged under.
+const RELIEF_ACTIONS := {
+	"get_up": {"token": "action:get_up", "cost_key": "get_up"},
+	"break_free": {"token": "action:break_free", "cost_key": "break_free"},
+	"end_burning": {"token": "interact:end_burning", "cost_key": "Interact"},
 }
-const RELIEF_COST_KEYS := {
-	"get_up": "get_up",
-	"break_free": "break_free",
-	"end_burning": "Interact",
-}
+
+#merc -> {"ctx": Dictionary, "verdict": Dictionary}: the scoring pass and the dispatch pass share one scan.
+static var _aid_cache: Dictionary = {}
+
+
+static func clear_aid_cache() -> void:
+	_aid_cache.clear()
 
 
 #Share of a turn this one state costs the merc each round, 0..1.
@@ -23,7 +26,7 @@ static func per_round_hindrance(merc: MercenaryData, state_name: String, ctx: Di
 	var stacks := maxi(1, ConstStates.get_count(merc, state_name))
 	var total := 0.0
 	for token: String in ConstStates.DATA[state_name]["effects"]:
-		var parts := ConstStates.token_parts(token)
+		var parts := StateTokens.token_parts(token)
 		if parts.is_empty():
 			continue
 		var w := _token_weight(merc, parts, ctx)
@@ -42,7 +45,9 @@ static func _token_weight(merc: MercenaryData, parts: PackedStringArray, ctx: Di
 		"dot":
 			if parts.size() < 3:
 				return 0.0
-			return clampf(ConstStates._num(parts, 2) / maxf(1.0, float(merc.current_hp)), 0.0, 1.0)
+			return clampf(StateTokens.num(parts, 2) / maxf(1.0, float(merc.current_hp)), 0.0, 1.0)
+		"suffocate":
+			return clampf(1.0 / maxf(1.0, float(merc.current_hp)), 0.0, 1.0)
 		"check":
 			return _check_weight(parts)
 		"attack":
@@ -72,7 +77,7 @@ static func _token_weight(merc: MercenaryData, parts: PackedStringArray, ctx: Di
 		"damage_taken":
 			if parts.size() >= 2 and parts[1] == "direct":
 				return 0.4
-			return 0.15 * ConstStates._num(parts, 1)
+			return 0.15 * StateTokens.num(parts, 1)
 		"target":
 			if parts.size() >= 3 and parts[1] == "block" and parts[2] == "source":
 				return 0.3
@@ -109,16 +114,16 @@ static func _check_weight(parts: PackedStringArray) -> float:
 		"auto_fail":
 			return 0.3
 		"flaw":
-			return 0.15 * ConstStates._num(parts, 3)
+			return 0.15 * StateTokens.num(parts, 3)
 		"enhance":
-			return -0.1 * ConstStates._num(parts, 3)
-	return -0.005 * ConstStates._num(parts, 2)
+			return -0.1 * StateTokens.num(parts, 3)
+	return -0.005 * StateTokens.num(parts, 2)
 
 
 static func _attack_weight(merc: MercenaryData, parts: PackedStringArray) -> float:
 	if parts.size() < 4 or parts[2] != "flaw" or not _holds_kind(merc, parts[1]):
 		return 0.0
-	return 0.25 * ConstStates._num(parts, 3)
+	return 0.25 * StateTokens.num(parts, 3)
 
 
 static func _attack_vs_weight(merc: MercenaryData, parts: PackedStringArray, ctx: Dictionary) -> float:
@@ -126,9 +131,9 @@ static func _attack_vs_weight(merc: MercenaryData, parts: PackedStringArray, ctx
 		return 0.0
 	var base := 0.0
 	if parts[2] == "enhance":
-		base = 0.25 * ConstStates._num(parts, 3)
+		base = 0.25 * StateTokens.num(parts, 3)
 	elif parts[2] == "flaw":
-		base = -0.1 * ConstStates._num(parts, 3)
+		base = -0.1 * StateTokens.num(parts, 3)
 	else:
 		return 0.0
 	return base * _vs_scale(merc, parts[1], ctx)
@@ -213,7 +218,7 @@ static func end_turn_chance(merc: MercenaryData, state_name: String, state: Batt
 	var spec := StateInfliction.parse_resist(str(timer.get("remove", "")))
 	if spec.is_empty() or str(spec["attempt"]) != StateInfliction.ATTEMPT_END_TURN:
 		return 0.0
-	return StateInfliction.resist_chance(merc, spec)
+	return StateInfliction.resist_chance(merc, spec, state_name)
 
 
 static func hindrance(merc: MercenaryData, state_name: String, state: BattleState, ctx: Dictionary) -> float:
@@ -229,20 +234,32 @@ static func hindrance(merc: MercenaryData, state_name: String, state: BattleStat
 
 
 #Chance this relief attempt ends the state; the actor is the helper when aiding.
+#A state the cavern holds up ends by leaving the cell, never by an action.
 static func removal_chance(actor: MercenaryData, target: MercenaryData, state_name: String,
 		state: BattleState) -> float:
+	if CavernRules.is_cavern_sourced(target, state_name):
+		return 0.0
 	if ConstStates.has_removal(state_name, "action:get_up"):
 		return 1.0
 	if ConstStates.has_removal(state_name, "action:break_free"):
-		var check_def := SpecialActionSystem.break_free_def(target, state_name)
+		var check_def := SpecialActionSystem.break_free_def()
+		var source := SpecialActionSystem.break_free_opponent(target, state_name, state)
+		if source != null:
+			return CheckSystem.opposed_win_chance(target, check_def, source,
+				SpecialActionSystem.break_free_def())
+		var default_spec := ConstStates.inflict_default(state_name)
+		if not default_spec.is_empty():
+			var spec := StateInfliction.parse_resist(str(default_spec["inflict"]))
+			if not spec.is_empty():
+				return StateInfliction.resist_chance(target, spec, state_name)
 		return CheckSystem.expected_success_chance(target, check_def, 1)
 	if ConstStates.has_removal(state_name, "interact:"):
 		var spec := StateInfliction.parse_resist(
 			str(state.get_state_timer(target, state_name).get("remove", "")))
 		if spec.is_empty():
 			return 1.0
-		return StateInfliction.resist_chance(actor, spec, "", 0,
-			StateInfliction.support_enhancements(actor, target, spec))
+		return StateInfliction.resist_chance(actor, spec, state_name, 0,
+			StateInfliction.support_enhancements(actor, target, spec), target)
 	return 0.0
 
 
@@ -257,7 +274,7 @@ static func alternative(merc: MercenaryData, ctx: Dictionary, relief_cost: int) 
 			and state.can_afford(merc, attack_cost):
 		var best := 0.0
 		for t: MercenaryData in valid:
-			best = maxf(best, CombatDecision._estimate_kill_likelihood(merc, t))
+			best = maxf(best, CombatDecision.estimate_kill_likelihood(merc, t))
 		var base := 0.35 + 0.35 * best
 		if merc.current_ap + merc.excess_ap - relief_cost >= attack_cost:
 			base *= 0.25
@@ -310,7 +327,7 @@ static func _has_exposure_token(state_name: String) -> bool:
 	if not ConstStates.DATA.has(state_name):
 		return false
 	for token: String in ConstStates.DATA[state_name]["effects"]:
-		var parts := ConstStates.token_parts(token)
+		var parts := StateTokens.token_parts(token)
 		if parts.is_empty():
 			continue
 		if parts[0] == "damage_taken":
@@ -323,9 +340,9 @@ static func _has_exposure_token(state_name: String) -> bool:
 #Verdict on the merc removing its own state with get_up, break_free or end_burning.
 static func self_relief(merc: MercenaryData, action_key: String, ctx: Dictionary) -> Dictionary:
 	var state: BattleState = ctx.get("state")
-	if state == null or not RELIEF_TOKENS.has(action_key):
+	if state == null or not RELIEF_ACTIONS.has(action_key):
 		return {}
-	var token := str(RELIEF_TOKENS[action_key])
+	var token := str(RELIEF_ACTIONS[action_key]["token"])
 	var best_name := ""
 	var best_hind := -1.0
 	for key: Variant in merc.active_states.keys():
@@ -334,13 +351,15 @@ static func self_relief(merc: MercenaryData, action_key: String, ctx: Dictionary
 		var sname: String = key
 		if not ConstStates.has_state(merc, sname) or not ConstStates.has_removal(sname, token):
 			continue
+		if CavernRules.is_cavern_sourced(merc, sname):
+			continue
 		var h := hindrance(merc, sname, state, ctx)
 		if h > best_hind:
 			best_hind = h
 			best_name = sname
 	if best_name == "":
 		return {}
-	var cost := state.get_cost(merc, str(RELIEF_COST_KEYS[action_key]), INTERACT_AP)
+	var cost := state.get_cost(merc, str(RELIEF_ACTIONS[action_key]["cost_key"]), INTERACT_AP)
 	if not state.can_afford(merc, cost):
 		return {}
 	var chance := removal_chance(merc, merc, best_name, state)
@@ -361,6 +380,16 @@ static func best_aid(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
 
 
 static func _best_aid_verdict(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
+	var cached: Dictionary = _aid_cache.get(merc, {})
+	if is_same(cached.get("ctx"), ctx):
+		var hit: Dictionary = cached["verdict"]
+		return hit
+	var fresh := _scan_aid_verdict(merc, ctx)
+	_aid_cache[merc] = {"ctx": ctx, "verdict": fresh}
+	return fresh
+
+
+static func _scan_aid_verdict(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
 	var state: BattleState = ctx.get("state")
 	if state == null:
 		return {}
@@ -375,7 +404,7 @@ static func _best_aid_verdict(merc: MercenaryData, ctx: Dictionary) -> Dictionar
 	var my_floor := state.get_floor(merc)
 	var best: Dictionary = {}
 	for ally: MercenaryData in allies:
-		if ally == null or ally == merc or ally.is_dead:
+		if ally == null or ally == merc or ally.is_dead or ally.off_field:
 			continue
 		if state.get_floor(ally) != my_floor:
 			continue
@@ -396,10 +425,13 @@ static func _best_aid_verdict(merc: MercenaryData, ctx: Dictionary) -> Dictionar
 			if not (key is String) or not ConstStates.DATA.has(key):
 				continue
 			var sname: String = key
-			if not ConstStates.has_state(ally, sname) or not ConstStates.has_removal(sname, "interact:"):
+			var flee_hold := sname == ConstStates.TERRIFIED and FleeSystem.is_flee_terrified(ally)
+			if not ConstStates.has_state(ally, sname) or (not flee_hold and not ConstStates.has_removal(sname, "interact:")):
 				continue
-			var h := hindrance(ally, sname, state, ctx)
-			var chance := removal_chance(merc, ally, sname, state)
+			if CavernRules.is_cavern_sourced(ally, sname):
+				continue
+			var h := 1.0 if flee_hold else hindrance(ally, sname, state, ctx)
+			var chance := 1.0 if flee_hold else removal_chance(merc, ally, sname, state)
 			var score := (h * ally_value + setup_ally) * chance - reach
 			if best.is_empty() or score > float(best["score"]):
 				best = {"ally": ally, "state": sname, "hindrance": h, "chance": chance,

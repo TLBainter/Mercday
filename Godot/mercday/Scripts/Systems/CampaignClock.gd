@@ -51,9 +51,9 @@ static func minutes_of(n: int, unit: String) -> int:
 static func stamp(minute: int = -1) -> String:
 	var m: int = minutes if minute < 0 else minute
 	m = maxi(0, m)
-	var day: int = m / MINUTES_PER_DAY + 1
+	var day: int = int(m / float(MINUTES_PER_DAY)) + 1
 	var rest: int = m % MINUTES_PER_DAY
-	return "D%d %02d:%02d" % [day, rest / MINUTES_PER_HOUR, rest % MINUTES_PER_HOUR]
+	return "D%d %02d:%02d" % [day, int(rest / float(MINUTES_PER_HOUR)), rest % MINUTES_PER_HOUR]
 
 
 #"CLOCK: travel out +8 h -> D1 08:00"; the caller advances first, this only reports.
@@ -61,10 +61,20 @@ static func line(tag: String, delta: int) -> String:
 	return "CLOCK: %s %s -> %s" % [tag, delta_text(delta), stamp()]
 
 
-#"+6 h" for whole hours, "+90 min" otherwise.
+#The sign then every non-zero unit largest first: "+8 d 8 h", "+1 h 30 min", "+10 min", "+0 min".
 static func delta_text(delta: int) -> String:
 	var sign_text: String = "+" if delta >= 0 else "-"
 	var size: int = absi(delta)
-	if size >= MINUTES_PER_HOUR and size % MINUTES_PER_HOUR == 0:
-		return "%s%d h" % [sign_text, size / MINUTES_PER_HOUR]
-	return "%s%d min" % [sign_text, size]
+	var parts: Array[String] = []
+	var days: int = int(size / float(MINUTES_PER_DAY))
+	if days > 0:
+		parts.append("%d d" % days)
+	var hours: int = int((size % MINUTES_PER_DAY) / float(MINUTES_PER_HOUR))
+	if hours > 0:
+		parts.append("%d h" % hours)
+	var mins: int = size % MINUTES_PER_HOUR
+	if mins > 0:
+		parts.append("%d min" % mins)
+	if parts.is_empty():
+		parts.append("0 min")
+	return sign_text + " ".join(parts)

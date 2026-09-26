@@ -21,18 +21,27 @@ const STAT_SUBJECTS: Dictionary = {
 const HOME_TOKEN: String = "[MERC HOME]"
 const ENVIRON_TOKEN: String = "[ENVIRON]"
 const TYPE_TOKEN: String = "[Type]"
-const SUBJECTS: Array[String] = ["State Immune", "Contract Success", "Contract Type",
-	"Contract Location", "Contract Event", "Merc Relationship", "Succeeded Check",
+const BASE_SUBJECTS: Array[String] = ["State Immune", "Contract Success", "Contract Type",
+	"Contract Location", "Contract Event", "Merc Relationship", "Betrayer Relationship", "Succeeded Check",
 	"Success Count", "Failed Check", "Dead Mercs", "Damage Dealt", "Used Item Type",
-	"Surviving Mercs", "WIL", "CGN", "Level", "Speed", "Max HP", "Knowledge Count",
+	"Surviving Mercs", "Knowledge Count",
 	"Has Knowledge", "Lifepath", "Weapon Perk Count", "Damage Taken", "Damage Type",
 	"Reroll", "Target Creature", "Target Failed Check", "State Inflicted", "Count", "Age"]
+#Every subject a requirement cell may name; the stat subjects are added from STAT_SUBJECTS.
+static var SUBJECTS: Array[String] = _all_subjects()
 
 #The three age bands merc.age_category may hold; MercGenerator writes it once at generation.
 const AGE_VALUES: Array[String] = ["young", "adult", "elder"]
 
 #Stats.tsv var names, filled on first use; stays empty until DataManager has loaded the table.
 static var _stat_tokens: Dictionary = {}
+
+
+static func _all_subjects() -> Array[String]:
+	var out: Array[String] = BASE_SUBJECTS.duplicate()
+	for subject: String in STAT_SUBJECTS:
+		out.append(subject)
+	return out
 
 
 static func allows(merc: MercenaryData, lp: LifepathData, run: ContractRun = null) -> bool:
@@ -105,6 +114,8 @@ static func _value_supported(subject: String, op: String, value: String) -> bool
 		return false
 	if value.contains("[") and not _bracket_allowed(subject, value):
 		return false
+	if STAT_SUBJECTS.has(subject):
+		return value.is_valid_int()
 	match subject:
 		"State Immune":
 			return op == "IS" or op == "IS NOT"
@@ -116,7 +127,7 @@ static func _value_supported(subject: String, op: String, value: String) -> bool
 			return _is_bool(value)
 		"Contract Type", "Contract Event", "Contract Location":
 			return value != ""
-		"Merc Relationship", "Dead Mercs", "Surviving Mercs":
+		"Merc Relationship", "Betrayer Relationship", "Dead Mercs", "Surviving Mercs":
 			return value.is_valid_int()
 		"Succeeded Check":
 			return _all_check_tokens(value)
@@ -127,14 +138,14 @@ static func _value_supported(subject: String, op: String, value: String) -> bool
 		"Success Count":
 			return value.is_valid_int() or _all_check_tokens(value)
 		"Damage Dealt":
-			if ConstStates.normalize_token(value) == "tolerance":
+			if StateTokens.normalize_token(value) == "tolerance":
 				return true
 			if value.begins_with("self."):
 				return value.length() > 5
 			return value.is_valid_int()
 		"Used Item Type":
 			return _all_tokens_in(value, ITEM_TYPES)
-		"WIL", "CGN", "Level", "Speed", "Max HP", "Knowledge Count", "Weapon Perk Count", "Count":
+		"Knowledge Count", "Weapon Perk Count", "Count":
 			return value.is_valid_int()
 		"Has Knowledge":
 			return (op == "IS" or op == "ONE OF") and value != ""
@@ -143,13 +154,13 @@ static func _value_supported(subject: String, op: String, value: String) -> bool
 		"Damage Taken":
 			if _is_damage_type(value):
 				return op == "IS" or op == "CONTAINS"
-			if ConstStates.normalize_token(value) == "tolerance":
+			if StateTokens.normalize_token(value) == "tolerance":
 				return op == "IS >="
 			return value.is_valid_int()
 		"Damage Type":
 			return (op == "IS" or op == "CONTAINS") and _is_damage_type(value)
 		"Reroll":
-			return op == "IS" and ConstStates.normalize_token(value) == "success"
+			return op == "IS" and StateTokens.normalize_token(value) == "success"
 		"Target Creature":
 			if value == TYPE_TOKEN:
 				return true
@@ -169,11 +180,11 @@ static func _bracket_allowed(subject: String, value: String) -> bool:
 
 
 static func _is_damage_type(value: String) -> bool:
-	var wanted: String = ConstStates.normalize_token(value)
+	var wanted: String = StateTokens.normalize_token(value)
 	if wanted == "":
 		return false
 	for type_name: String in DataManager.type_columns.get("DAMAGES", []) as Array:
-		if ConstStates.normalize_token(type_name) == wanted:
+		if StateTokens.normalize_token(type_name) == wanted:
 			return true
 	return false
 
@@ -217,7 +228,7 @@ static func _all_tokens_in(value: String, allowed: Array[String]) -> bool:
 static func _tokens(value: String) -> Array[String]:
 	var out: Array[String] = []
 	for raw: String in value.split(","):
-		var t := ConstStates.normalize_token(raw)
+		var t := StateTokens.normalize_token(raw)
 		if t != "":
 			out.append(t)
 	return out
@@ -246,14 +257,16 @@ static func _evaluate(merc: MercenaryData, entry: Dictionary, ctx: Dictionary) -
 			var crun := _run(ctx)
 			if crun == null or crun.contract == null:
 				return false
-			return ConstStates.normalize_token(crun.contract.contract_type) \
-				== ConstStates.normalize_token(value)
+			return StateTokens.normalize_token(crun.contract.contract_type) \
+				== StateTokens.normalize_token(value)
 		"Contract Location":
 			return _contract_location(merc, ctx, value)
 		"Contract Event":
-			return _contract_event(ctx, value)
+			return _contract_event(ctx, value, merc)
 		"Merc Relationship":
 			return _compare_int(_best_relationship(merc, ctx), op, value.to_int())
+		"Betrayer Relationship":
+			return _betrayer_relationship(merc, op, value, ctx)
 		"Succeeded Check":
 			return _succeeded_check(merc, value, ctx)
 		"Success Count":
@@ -325,7 +338,7 @@ static func _state_immune(merc: MercenaryData, op: String, value: String) -> boo
 			return immune
 		"IS NOT":
 			return not immune
-	return true
+	return false
 
 
 static func _contract_success(ctx: Dictionary) -> bool:
@@ -333,15 +346,35 @@ static func _contract_success(ctx: Dictionary) -> bool:
 	return run != null and run.verdict == "Succeeded"
 
 
-static func _contract_event(ctx: Dictionary, value: String) -> bool:
+#Reads outcomes, then team marks, then the merc's own marks; a matched Competition outcome leaves its
+#best rounds_won in ctx so a following Success Count entry scores the wins.
+static func _contract_event(ctx: Dictionary, value: String, merc: MercenaryData = null) -> bool:
 	var run := _run(ctx)
 	if run == null:
 		return false
 	var wanted := _tokens(value)
+	var found := false
+	var competition_seen := false
+	var best_wins := 0
 	for outcome: Dictionary in run.outcomes:
-		if wanted.has(ConstStates.normalize_token(str(outcome.get("event", "")))):
-			return true
-	return false
+		var event_key := StateTokens.normalize_token(str(outcome.get("event", "")))
+		if not wanted.has(event_key):
+			continue
+		found = true
+		if event_key == "competition":
+			var wins := int(outcome.get("rounds_won", 0))
+			best_wins = maxi(best_wins, wins) if competition_seen else wins
+			competition_seen = true
+	if competition_seen:
+		ctx["competition_wins"] = best_wins
+	for mark: String in run.event_marks:
+		if wanted.has(StateTokens.normalize_token(mark)):
+			found = true
+	if merc != null:
+		for mark in run.merc_marks.get(merc, []):
+			if wanted.has(StateTokens.normalize_token(str(mark))):
+				found = true
+	return found
 
 
 #Type, name and resolved environment of a location; the words a sheet cell may name it by.
@@ -350,7 +383,7 @@ static func _location_tokens(loc: LocationData) -> Array[String]:
 	if loc == null:
 		return out
 	for raw: String in [loc.location_type, loc.location_name, _environment_of(loc)]:
-		var t := ConstStates.normalize_token(raw)
+		var t := StateTokens.normalize_token(raw)
 		if t != "" and not out.has(t):
 			out.append(t)
 	return out
@@ -374,7 +407,7 @@ static func _contract_location(merc: MercenaryData, ctx: Dictionary, value: Stri
 		return _is_merc_home(merc, run.location)
 	if value == ENVIRON_TOKEN:
 		return _environment_of(run.location) != ""
-	return _location_tokens(run.location).has(ConstStates.normalize_token(value))
+	return _location_tokens(run.location).has(StateTokens.normalize_token(value))
 
 
 #True when the contract sits on the merc's home or on anything the home answers to.
@@ -392,18 +425,18 @@ static func _is_merc_home(merc: MercenaryData, loc: LocationData) -> bool:
 static func _has_knowledge(merc: MercenaryData, value: String) -> bool:
 	var wanted := _tokens(value)
 	for k: UtilityTraitData in merc.knowledges:
-		if k != null and wanted.has(ConstStates.normalize_token(k.utility_name)):
+		if k != null and wanted.has(StateTokens.normalize_token(k.utility_name)):
 			return true
 	return false
 
 
 #Tolerance keeps the old per-hit meaning; a number or a self.<stat> reads the contract total.
 static func _damage_dealt(merc: MercenaryData, op: String, value: String) -> bool:
-	if ConstStates.normalize_token(value) == "tolerance":
+	if StateTokens.normalize_token(value) == "tolerance":
 		return LifepathTally.damage_met_tolerance(merc, "")
 	var want: int = 0
 	if value.begins_with("self."):
-		want = int(merc.stats.get(ConstStates.normalize_token(value.substr(5)), 0))
+		want = int(merc.stats.get(StateTokens.normalize_token(value.substr(5)), 0))
 	elif value.is_valid_int():
 		want = value.to_int()
 	else:
@@ -414,7 +447,7 @@ static func _damage_dealt(merc: MercenaryData, op: String, value: String) -> boo
 static func _damage_taken(merc: MercenaryData, op: String, value: String) -> bool:
 	if _is_damage_type(value):
 		return LifepathTally.took_damage_type(merc, value)
-	if ConstStates.normalize_token(value) == "tolerance":
+	if StateTokens.normalize_token(value) == "tolerance":
 		return LifepathTally.damage_taken_max(merc) >= int(merc.stats.get("tolerance", 0))
 	if not value.is_valid_int():
 		return false
@@ -428,17 +461,17 @@ static func _target_creature(ctx: Dictionary, op: String, value: String) -> bool
 	var tags: Array = run.target_record.get("tags", []) as Array
 	if value == TYPE_TOKEN:
 		for creature: String in DataManager.type_columns.get("CREATURES", []) as Array:
-			if tags.has(ConstStates.normalize_token(creature)):
+			if tags.has(StateTokens.normalize_token(creature)):
 				return true
 		return false
 	if op != "HAS TAG" and op != "IS":
 		return false
-	return tags.has(ConstStates.normalize_token(value))
+	return tags.has(StateTokens.normalize_token(value))
 
 
 #Remembers the state named here so a following Count entry scores that same state.
 static func _state_inflicted(merc: MercenaryData, value: String, ctx: Dictionary) -> bool:
-	var key := ConstStates.normalize_token(value)
+	var key := StateTokens.normalize_token(value)
 	if LifepathTally.inflicted_count(merc, key) <= 0:
 		return false
 	ctx["state"] = key
@@ -454,6 +487,23 @@ static func _best_relationship(merc: MercenaryData, ctx: Dictionary) -> int:
 	for other: MercenaryData in run.team:
 		best = maxi(best, RelationshipSystem.value(merc, other))
 	return best
+
+
+#The strongest feeling this merc held toward any merc that switched sides this contract, dead or alive.
+static func _betrayer_relationship(merc: MercenaryData, op: String, value: String, ctx: Dictionary) -> bool:
+	var run := _run(ctx)
+	if run == null:
+		return false
+	var found: bool = false
+	var best: int = -1
+	for betrayer: MercenaryData in run.betrayers:
+		if betrayer == null or betrayer == merc:
+			continue
+		found = true
+		best = maxi(best, RelationshipSystem.value(merc, betrayer))
+	if not found:
+		return false
+	return _compare_int(best, op, value.to_int())
 
 
 #Remembers the stat named here so a following Success Count entry scores that same stat.
@@ -473,10 +523,14 @@ static func _succeeded_check(merc: MercenaryData, value: String, ctx: Dictionary
 
 static func _success_count(merc: MercenaryData, value: String, ctx: Dictionary) -> bool:
 	var need: int = value.to_int() if value.is_valid_int() \
-		else int(merc.stats.get(ConstStates.normalize_token(value), 0))
-	var stat: String = str(ctx.get("stat", ""))
-	var have: int = LifepathTally.success_count(merc, stat) if stat != "" \
-		else LifepathTally.best_success_count(merc)
+		else int(merc.stats.get(StateTokens.normalize_token(value), 0))
+	var have: int = 0
+	if ctx.has("competition_wins"):
+		have = int(ctx["competition_wins"])
+	else:
+		var stat: String = str(ctx.get("stat", ""))
+		have = LifepathTally.success_count(merc, stat) if stat != "" \
+			else LifepathTally.best_success_count(merc)
 	return have >= need
 
 

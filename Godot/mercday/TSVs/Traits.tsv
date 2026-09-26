@@ -1,6 +1,6 @@
-Trait Type	Trait Category	Trait Type	Trait Name	Trait Description	Trait Effect	Trait Rarity	Bad	Logline A	Logline B	
+Trait Source	Trait Category	Trait Type	Trait Name	Trait Description	Trait Effect	Trait Rarity	Bad	Logline A	Logline B	Perk Groups
 Merc	Ancestral	Descriptor	Daemonborn	This merc is a Daemonborn; they have an ancestral legacy that links them to the immortal and unknowable beings of this world.		Common	FALSE			
-Merc	Ancestral	Perk	Daemon's Blood	This merc's Daemonborn ancestry grants them unique protections.	grant:random:esoteric:1	Very Rare	FALSE			
+Merc	Ancestral	Perk	Daemon's Blood	This merc's Daemonborn ancestry grants them unique protections.	grant:random:protection:esoteric:1	Very Rare	FALSE			
 Merc	Ancestral	Perk	Natural Flight	This merc's ancestry grants them the ability to fly indefinitely thanks to natural wings that have grown on their body.	grant:ability:flying_pace	Rare	FALSE			
 Merc	Ancestral	Perk	Suryphian	This merc's ancestry links them to the horrific Unknowables. Due to their terrifying descendancy, nothing can frighten them.	immune:terrified	Rare	FALSE			
 Merc	Ancestral	Perk	Veins Aflame	This merc's ancestry causes magma-like blood to course through their veins, making fire a non-issue.	immune:fire	Rare	FALSE			
@@ -13,7 +13,7 @@ Merc	Ancestral	Perk	Averse Blood	This merc has a strong immune system that prote
 Merc	Ancestral	Drawback	Photosensitive	This merc's eyes are extremely sensitive to light.	susceptible:blinded	Uncommon	TRUE			
 Merc	Ancestral	Perk	Darksight	This merc can see in the dark.	grant:ability:darksight	Uncommon	FALSE			
 Merc	Ancestral	Descriptor	Elf	This merc is of the pointy-eared, narrow-faced group of hominids that makes up the oldest and longest-lived ancestry in the known world.		Common	FALSE			
-Merc	Ancestral	Perk	Of the Meadow	This merc has an affinity for the natural world, being inclined toward protecting and understanding the environment around them.	grant:knowledge:beast|grant:knowledge:plant	Uncommon	FALSE			
+Merc	Ancestral	Perk	Of the Meadow	This merc has an affinity for the natural world, being inclined toward protecting and understanding the environment around them.	grant:knowledge:zoology|grant:knowledge:plant	Uncommon	FALSE			
 Merc	Ancestral	Perk	Heat Resistant	This merc can withstand extremely high temperatures without suffering averse effects.	immune:heat_exhaustion	Uncommon	FALSE			
 Merc	Ancestral	Perk	Arcane Blood	Magic courses through the blood of this merc, enabling their spells to surpass those of their peers.	stat:max_mp:+3	Uncommon	FALSE			
 Merc	Ancestral	Descriptor	Fairy	This merc is born of the Weird Domain, a strange realm with unpredictable rules and unique cultures.		Common	FALSE			
@@ -49,7 +49,7 @@ Merc	Ancestral	Perk	Mutt	The bloodline of this merc is impossible to trace, havi
 Merc	Ancestral	Perk	Adaptive Resistance	This merc has learned to protect themselves in a particular way, perhaps through hardship or necessity.	grant:random:circumstance:resist:1	Uncommon	FALSE			
 Merc	Ancestral	Perk	Adaptive Studies	This merc has hyperfixated on a particular area of focus, making them an expert in a given field.	grant:random:knowledge:1	Uncommon	FALSE			
 Merc	Ancestral	Perk	Adaptive Training	This merc took to weapons with ease, allowing them to pick up and master a method of killing with little issue.	grant:random:any_weapon_perk:1	Uncommon	FALSE			
-Merc	Ancestral	Descriptor	Moet	Only discovered shortly after the Reckoning, the Moets are tiny people somewhat resembling insects, arachnids, or rodents of varying kinds.	grant:random:bloodline_traits:Daemonborn,Dwarf,Elf,Gaian,Gnome,Hibridia:2	Common	FALSE			
+Merc	Ancestral	Descriptor	Moet	Only discovered shortly after the Reckoning, the Moets are tiny people somewhat resembling insects, arachnids, or rodents of varying kinds.		Common	FALSE			
 Merc	Ancestral	Drawback	Lightweight	This merc cannot carry very much, being rather weak or small.	stat:weight_limit:-2	Uncommon	TRUE			
 Merc	Ancestral	Perk	Agile	This merc's size and mobility makes them naturally agile, allowing them to move about with ease in ways that others train for years to master.	stat:max_dexterity:+1	Uncommon	FALSE			
 Merc	Ancestral	Perk	Cling	This merc has an unusual ability to walk along walls with as much ease as anyone else may walk on the ground.	grant:ability:climbing_pace	Uncommon	FALSE			
@@ -92,18 +92,18 @@ Merc	Lifepath	Drawback	Devout	This merc is on a holy mission and they absolutely
 Merc	Lifepath	Perk	Divine Quest	This merc has spent quite a bit of time studying and learning at one of the many temples in the world, granting them unique abilities.	grant:random:lifepath:experienced:begins_with:temple_of:1	Very Rare	FALSE			
 Merc	Lifepath	Drawback	Seeing Red	This merc goes into an unstoppable battle-rage during combat, preventing them seeing reason or even recovering until the job is done.	grant:passive:combat:none:cannot_be_targeted:healing	Rare	TRUE	[Merc] is seeing red and refuses to accept healing!		
 Merc	Lifepath	Perk	Fearless	This merc lives for the violence and bloodshed of battle; while in the field, they're an unstoppable force... that is, until they're stopped.	immune:terrified|stat:avoid:+50	Very Rare	FALSE			
-Merc	Lifepath	Perk	Talk My Way Out	 This merc can talk their way out of just about anything... they may be trouble for HR, but they could still be useful on certain missions.	grant:knowledge:Diplomacy	Uncommon	FALSE			
+Merc	Lifepath	Perk	Talk My Way Out	This merc can talk their way out of just about anything... they may be trouble for HR, but they could still be useful on certain missions.	grant:knowledge:Diplomacy	Uncommon	FALSE			
 Merc	Lifepath	Drawback	Legacy's Weight	This merc is clearly burdened by something quite brutal. The weight of it is heavy on their shoulders.	stat:max_wile:-1|block_and_replace:circumstance:resist_wile	Very Rare	TRUE			
 Merc	Lifepath	Perk	Legacy Bearer	This merc is clearly from some sort of high-ranking station, though you're not sure what that may be. They carry themselves well and have the imposing presence of nobility, even if that seems to weigh them down at times.	grant:circumstance:performance_wile|grant:circumstance:speech_wile	Rare	FALSE			
 Merc	Lifepath	Perk	With Reckless Abandon	This merc has legendary aspirations... aspirations that tend to get them put right in the path of danger.	stat:avoid:-50%	Rare	TRUE			
 Merc	Lifepath	Perk	Legend in the Making	This merc has been training for this their entire life. They really think they're going places, don't they?	grant:circumstance:attack_all	Uncommon	FALSE			
-Merc	Lifepath	Drawback	Nightmares	This merc struggles with horrible nightmares that keep them up at night, making rest difficult to come by.	stat:rest_recovery:-25%	Rare	TRUE			
+Merc	Lifepath	Drawback	Nightmares	This merc struggles with horrible nightmares that keep them up at night, making rest difficult to come by.	stat:rest_recovery:-25	Rare	TRUE			
 Merc	Lifepath	Perk	Iron Will	This merc faces the most horrifying things within themselves, not without - they have no issue with ghosts and monsters.	immune:terrified	Uncommon	FALSE			
 Merc	Lifepath	Perk	No Tears Left	This merc has aleady been through it; good luck upsetting them.	grant:circumstance:resist_wile	Common	FALSE			
 Merc	Lifepath	Drawback	Madness	There's somethign wrong with this merc... they've got crazy eyes and they can sometimes be seen talking to the wall and chuckling.	stat:min_state_madness:1	Rare	TRUE			
 Merc	Lifepath	Perk	Already Mad	This merc is already a little off, so messing around with cursed artifacts or augmentations that muddle their mind doesn't do much harm.	stat:max_symbiosis:+2	Rare	FALSE			
 Merc	Lifepath	Drawback	Not What I Was	This merc isn't as agile or strong as they used to be, and it shows.	stat:random:max_dexterity:max_vigor:-1	Rare	TRUE			
-Merc	Lifepath	Perk	Homebody	This merc is great at resting; they relax heavily when it's time to clock out.	stat:rest_recovery:+2.5|stat:rest_recovery:+25%	Rare	FALSE			
+Merc	Lifepath	Perk	Homebody	This merc is great at resting; they relax heavily when it's time to clock out.	stat:rest_recovery:+25	Rare	FALSE			
 Merc	Lifepath	Drawback	Unfamiliar Territory	This merc isn't sure they're supposed to be here... they're really not cut out for this work.	block:random:circumstance:unselected:4	Uncommon	TRUE			
 Merc	Lifepath	Perk	Quick Thinking	This merc may not be totally cut out for mercenary work, but they got through the interview process, so they're at least quick on their feet in some respects.	grant:random:circumstance:from:intuition_all,speech_wile:2	Rare	FALSE			
 Merc	Lifepath	Perk	Oath	This merc has taken up mercenary work as part of some sort of promise they made to someone... or something.	grant:random:lifepath:experienced:from:solemn_vow,pact:2	Rare	FALSE			
@@ -111,7 +111,7 @@ Merc	Lifepath	Perk	Already Got It	This merc came prepared! They've already got s
 Merc	Lifepath	Perk	I Feel So Seen	This merc knows how to connect with those who are used to being overlooked by others, which comes in handy when gleaning intel.	stat:urban:+15	Uncommon	FALSE			
 Merc	Lifepath	Perk	Less Than Important	This merc doesn't come off as terribly important to enemies, making it easy for them survive otherwise deadly encounters.	while:always:per:conscious_ally:stat:avoid:+30%	Uncommon	FALSE	[Merc] doesn't seem very important compared to the [Mercs-1] other mercs on the contract...	SPECIAL: Avoid +30% for each other conscious merc on a contract.	
 Merc	Lifepath	Perk	On the Lookout	This merc's head is on a swivel and their eyes are ever-watchful, always looking for something out of the ordinary.	grant:random:circumstance:from:notice_cognition,intuition_wile:1	Common	FALSE			
-Merc	Lifepath	Drawback	Sickly Trauma	This merc has seen someone they love fall gravely ill due to a virulent disease of some form, leading to ongoing trauma.	on:state_gained:poisoned:always:apply:fatigued|on:ally_state_gained:poisoned:always:apply:fatigued	Rare	TRUE	[Merc] was exhausted by poison!	[Merc] was exhausted by seeing [Poisoned Merc] get Poisoned!	SPECIAL: 1 Fatigue tier when they or another merc become Poisoned.
+Merc	Lifepath	Drawback	Sickly Trauma	This merc has seen someone they love fall gravely ill due to a virulent disease of some form, leading to ongoing trauma.	on:state_gained:poisoned:always:apply:fatigued|on:ally_state_gained:poisoned:always:apply:fatigued	Rare	TRUE	[Merc] was exhausted by poison!	[Merc] was exhausted by seeing [Poisoned Merc] get Poisoned!	
 Merc	Lifepath	Perk	Determined Healer	This merc has seen people die - or get close to it - and is unwilling to let that happen again.	stat:rescue:+15	Very Rare	FALSE			
 Merc	Lifepath	Perk	Naval Haggle	This merc has been part of seafaring crews before and knows how much it really costs to travel by water. They can get you a good deal.	cost:sea_travel:-25%	Rare	FALSE	[Merc] haggles a boatman and reduced travel costs by [Amount]!		
 Merc	Lifepath	Drawback	Shaky Hands	This merc has the shakes, and it makes it difficult for them to take precise shots.	stat:accuracy:-25%	Uncommon	TRUE			
@@ -135,7 +135,7 @@ Merc	Lifepath	Perk	Improvised Weapons	This merc is used to thinking on their fee
 Merc	Lifepath	Perk	Tavern Brawler	This merc's affinity for getting into fights that are dangerous but not deadly has given them a knack for reacting quickly with whatever is in their hands at the time, even if it's nothing.	stat:accuracy:+15%|while:unarmed:stat:accuracy:+15%|while:wielding:makeshift:stat:accuracy:+15%	Uncommon	FALSE			
 Merc	Lifepath	Drawback	Closed Off	This merc has been hurt by some form of betrayal in their past, making them closed off to others around them.	stat:max_wile:-1	Uncommon	TRUE			
 Merc	Lifepath	Perk	Untrusting	This merc's lack of trust in others as a result of hurt and betrayal in the past makes them cautious around others, which could prove useful.	grant:random:circumstance:from:intuition_cognition,intuition_wile:2	Uncommon	FALSE			
-Merc	Lifepath	Perk	Fast Clotting	This merc has bled so much their blood now clots faster than is typical.	grant:passive:field:contract_complete_combat:self:excess:hp:+1	Uncommon	FALSE			
+Merc	Lifepath	Perk	Fast Clotting	This merc has bled so much their blood now clots faster than is typical.	on:contract_complete_combat:always:resource:excess_hp:+1	Uncommon	FALSE			
 Merc	Lifepath	Drawback	Missing Your Pal	This merc is really attached to someone else; they'll be upset if they're on a contract without them.	while:buddy_absent:stat:base_success_chance:-7	Rare	TRUE	[Merc] is depressed because [Buddy] isn't here...		
 Merc	Lifepath	Perk	Companion Combo	This merc's attachment to their pal makes them more effective while on a contract with that merc.	while:buddy_present:stat:base_success_chance:+4	Very Rare	FALSE	[Merc] and [Buddy] are excited to be on a contract together!		
 Merc	Lifepath	Drawback	Fear the Flame	This merc has suffered intense damage from fire that has left them both physically and mentally scarred.	SPECIAL: Take 1 Will when Burning.	Uncommon	TRUE	[Merc] is experience traumatic flashbacks due to being on fire! Who wouldn't?		
@@ -174,15 +174,15 @@ Merc	Lifepath	Drawback	Claustrophobic	This merc doesn't like confined spaces!	on
 Merc	Lifepath	Perk	Release Me!	This merc's fear of confinement makes it tougher to confine them; funny how that works.	grant:passive:combat:check_vs_grappled:stat:avoid:+50|grant:passive:combat:check_vs_inhibited:stat:avoid:+50	Uncommon	FALSE			
 Merc	Lifepath	Drawback	Not a Melee Fighter	This merc is primarily focused on fighting from a distance; if forced to fight up close, they'll fumble.	stat:melee_accuracy:-50%	Uncommon	TRUE			
 Merc	Lifepath	Perk	Incredible Marksmanship	This merc's amazing marksmanship is really handy; they can hit a target from a great distance!	stat:ranged_accuracy:+35	Rare	FALSE			
-Merc	Lifepath	Drawback	Longing Yearning	This merc is deeply infatuated with another merc and will experience great withdrawals when away from them.	SPECIAL: Once every 10 days the merc is away from Beau, they take 1 Will, which reduces their Maximum HP. This reduction is reset when they see their Beau again (either on a contract or in the tavern).	Legendary	TRUE	[Merc] is longing for [Beau]...		
-Merc	Lifepath	Perk	Heart-Eyed Bushy-Tailed	This merc's love for another merc is practically troubling; they just don't seem like themselves without the subject of their affections around!	SPECIAL: Upon seeing their Beau, the merc gains 1 Excess HP.	Very Rare	FALSE	[Merc] is so happy to see [Beau]!		
+Merc	Lifepath	Drawback	Longing Yearning	This merc is deeply infatuated with another merc and will experience great withdrawals when away from them.	on:beau_apart:beau_absent:lasting:bond:stat:max_hp:-1	Legendary	TRUE	[Merc] is longing for [Beau]...		
+Merc	Lifepath	Perk	Heart-Eyed Bushy-Tailed	This merc's love for another merc is practically troubling; they just don't seem like themselves without the subject of their affections around!	on:beau_seen:always:resource:excess_hp:+1	Very Rare	FALSE	[Merc] is so happy to see [Beau]!		
 Merc	Lifepath	Drawback	Hyper-Focused	This merc is extremely focused on their own progression, having little time to develop connections with others.	stat:max_wile:-1	Very Rare	TRUE			
 Merc	Lifepath	Perk	Journeyman's Knack	This merc has focused entirely on one area of expertise, making them an expert with a very particular set of skills.	SPECIAL: 3 random Skills with the same tag.	Legendary	FALSE			
 Merc	Lifepath	Drawback	Threat of Capture	This merc is absolutely terrified of being captured... again.	on:targeted_melee:always:damage:will:1	Rare	TRUE	[Merc] freaks out when threatened!		
 Merc	Lifepath	Perk	Eyes in the Back of My Head	This merc is constantly on the alert, expecting danger to be around every corner or sneaking up behind them.	stat:avoid:+40	Very Rare	FALSE			
 Merc	Lifepath	Drawback	Other Side of the Ambush	This merc has laid ambushes before and knows how devastating they are; they don't want to be on the receiving end of that.	on:state_gained:surprised:always:damage:will:1	Rare	TRUE	[Merc] is mortified to find themselves ambushed!		
 Merc	Lifepath	Perk	End This Quickly	This merc is determined to put an end to combat encounters as quickly as possible!	SPECIAL:Ambusher's Rush Skill	Rare	FALSE			
-Merc	Lifepath	Perk	Inspire Follower	This merc gives the best pep talks - just ask anybody who has received one!	grant:passive:field:contract_start:random_ally:excess:ep:+1	Uncommon	FALSE	[Merc] gave [Target Merc] a pep talk!		
+Merc	Lifepath	Perk	Inspire Follower	This merc gives the best pep talks - just ask anybody who has received one!	on:contract_start:always:to:random_ally:resource:excess_ep:+1	Uncommon	FALSE	[Merc] gave [Target Merc] a pep talk!		
 Merc	Lifepath	Perk	Disguised	This merc is an absolute master of disguise, allowing them to take on the persona of anyone they choose, given enough time and materials to do so.	stat:espionage:+35	Very Rare	FALSE			
 Merc	Lifepath	Perk	Another Miracle	This merc has survived death before... who's to say they can't do it again?	stat:cheat_death:+5	Legendary	FALSE			
 Merc	Lifepath	Perk	Do a Barrel Roll	This merc can get out of the way of dangerous effects targeting broad areas with remarkable ease.	stat:avoid_aoe:+30	Rare	FALSE			
@@ -192,7 +192,7 @@ Merc	Lifepath	Drawback	Gotta Go Fastest	This merc is dead certain they're the fa
 Merc	Lifepath	Perk	Gotta Go Fast	This merc is incredibly speedy.	stat:speed:+10	Rare	FALSE			
 Merc	Lifepath	Perk	Evasive and Slippery	This merc has gotten out of many scraps and scrapes by being a tough bugger to catch.	SPECIAL:Escape Artist Skill	Rare	FALSE			
 Merc	Lifepath	Perk	Pact of the Bleeding	This merc has made a pact with a powerful entity known only as the Bleeding.	SPECIAL:1 random Hemomancy Spell	Very Rare	FALSE			
-Merc	Lifepath	Perk	Pact of the Brain	This merc has made a pact with a powerful entity known only as the Brain.	stat:max_cognition:+1|SPECIAL:Cognition +1	Very Rare	FALSE			
+Merc	Lifepath	Perk	Pact of the Brain	This merc has made a pact with a powerful entity known only as the Brain.	stat:max_cognition:+1	Very Rare	FALSE			
 Merc	Lifepath	Perk	Pact of the Buried	This merc has made a pact with a powerful entity known only as the Buried.	SPECIAL:1 random Geomancy Spell	Very Rare	FALSE			
 Merc	Lifepath	Perk	Pact of the Celestial	This merc has made a pact with a powerful entity known only as the Celestial.	SPECIAL:1 random Theomancy Spell	Very Rare	FALSE			
 Merc	Lifepath	Perk	Pact of the Fey	This merc has made a pact with a powerful entity known only as the Fey.	SPECIAL:1 random Spatiomancy Spell	Very Rare	FALSE			
@@ -204,7 +204,7 @@ Merc	Lifepath	Perk	Pact of the Unknowable	This merc has made a pact with a power
 Merc	Lifepath	Perk	Expert Driver	When assigned as the [Vehicle Driver Type] of a [Vehicle Type] on a mission, this merc greatly reduces travel time!	SPECIAL:1 random [Vehicle Speed] +10%	Rare	FALSE	[Merc] is a great [Vehicle Driver Type]!		
 Merc	Lifepath	Drawback	Regression	This merc has gone back to their roots and unfortunately experienced some mental and emotional regression as a result.	stat:random:max_cognition:max_wile:-1	Rare	TRUE			
 Merc	Lifepath	Perk	Family Ties	This merc returned to their roots and got in touch with their ancestry, which has expanded their ancestral capabilities.	SPECIAL:3 random Ancestral Skills	Very Rare	FALSE			
-Merc	Lifepath	Perk	Zen	This merc can take a meditative rest between contracts, leaving them more refreshed than others when they're ready to get back out there.	grant:passive:rest:rest_complete:self:excess:ep_or_mp:+1	Rare	FALSE			
+Merc	Lifepath	Perk	Zen	This merc can take a meditative rest between contracts, leaving them more refreshed than others when they're ready to get back out there.	on:rest_complete:always:resource:excess_ep_or_mp:+1	Rare	FALSE			
 Merc	Lifepath	Perk	Trained by a Wise One	This merc has been trained by a sage who called them a prodigy. Let's see if that's true.	SPECIAL:2 random Spell Skills	Legendary	FALSE			
 Merc	Lifepath	Drawback	Visibly Marred	This merc's practice of the dark arts has left visible marks on their flesh.	stat:max_wile:-1	Rare	FALSE			
 Merc	Lifepath	Perk	Creative Cutting	When this merc pays a Blood Toll, they tend to do so in creative ways that intimidate their enemies.	SPECIAL: Paying a Blood Toll has a 25% chance to inflict 1 Will on 1 random enemy.	Very Rare	FALSE	[Merc] has paid the price for their magic in a manner [Enemy] finds gruesome!		
@@ -215,12 +215,12 @@ Merc	Lifepath	Perk	Vow of Perseverance	This merc has taken a vow of perseverance
 Merc	Lifepath	Perk	Vow of Spirit	This merc has taken a vow of spirit.	stat:max_wile:+1|grant:circumstance:resist_wile	Very Rare	FALSE			
 Merc	Lifepath	Drawback	Shockingly Vicious and Vile	This merc's kills tend to be so brutally violent even they are shocked by their actions.	on:kill:always:damage:will:1	Very Rare	TRUE			
 Merc	Lifepath	Perk	Expert in Violence	This merc knows how to go for the jugular. It's brutal, yet effective.	on:hit_dealt:always:damage_dealt:+1	Legendary	FALSE			
-Merc	Lifepath	Drawback	Honeymoon Phase	This merc and [Beau] have recently wed and are deeply in love. That could be distracting...	SPECIAL: On the first round of a combat encounter, this merc and [Beau] will skip their turns.	Very Rare	TRUE	[Merc] is too busy admiring [Beau] to act!		
-Merc	Lifepath	Perk	Something to Hold Onto	This merc is determined to aid and adore [Beau]. How cute!	SPECIAL: When giving any support to [Beau], it increases by 50%.	Very Rare	FALSE			
+Merc	Lifepath	Drawback	Honeymoon Phase	This merc and [Beau] have recently wed and are deeply in love. That could be distracting...	on:round_start:first_round+beau_present:apply:distracted:1:round|on:round_start:first_round+beau_present:to:beau:apply:distracted:1:round	Very Rare	TRUE	[Merc] is too busy admiring [Beau] to act!		
+Merc	Lifepath	Perk	Something to Hold Onto	This merc is determined to aid and adore [Beau]. How cute!	grant:passive:always:none:support_given:beau:+50%	Very Rare	FALSE			
 Merc	Lifepath	Perk	Something to Live For	This merc is determined to live to spend another day with [Beau]. So sweet!	stat:defend:+1	Very Rare	FALSE			
-Merc	Lifepath	Perk	Something to Wake Up To	This merc loves waking up to [Beau]. Aww!	SPECIAL:The Excess HP gained from the Heart-Eyed and Busy-Tailed perk increases by 1	Very Rare	FALSE			
+Merc	Lifepath	Perk	Something to Wake Up To	This merc loves waking up to [Beau]. Aww!	on:beau_seen:has_trait:Heart-Eyed Bushy-Tailed:resource:excess_hp:+1	Very Rare	FALSE			
 Merc	Lifepath	Perk	Fable Mind	This merc has entered the bizarre realm of the Weird-Domain and it has sincerely warped their mind.	stat:weird:+25	Very Rare	FALSE			
-Merc	Lifepath	Perk	Literary Expert	This merc is extremely well-read, particularly in regard to works of fiction!	stat:max_cognition:+1|SPECIAL:Cognition +1. Knowledge +15%	Very Rare	FALSE			
+Merc	Lifepath	Perk	Literary Expert	This merc is extremely well-read, particularly in regard to works of fiction!	stat:max_cognition:+1	Very Rare	FALSE			
 Merc	Lifepath	Perk	Polemologist	This merc is extremely well-read, particularly in regard to works of war!	stat:max_cognition:+1|grant:knowledge:Tactics	Very Rare	FALSE			
 Merc	Lifepath	Perk	Historian	This merc is extremely well-read, particularly in regard to works of history!	stat:max_cognition:+1|grant:knowledge:History	Very Rare	FALSE			
 Merc	Lifepath	Perk	Omnimancer	This merc is extremely well-read, particularly in regard to works of magical intrigue!	stat:max_cognition:+1|grant:knowledge:Magic	Very Rare	FALSE			
@@ -239,10 +239,10 @@ Merc	Lifepath	Perk	Scholarly Insight	This merc has gained insight afforded only 
 Merc	Lifepath	Perk	Merciful One's Insight	This merc has gained insight afforded only to those who have studied at the Temple of Life.	stat:max_cognition:+1|stat:max_wile:+1	Very Rare	FALSE			
 Merc	Lifepath	Perk	Dark Knowledge	This merc has gained insight afforded only to those who have studied at the Temple of Shadows.	stat:max_cognition:+1|stat:max_dexterity:+1	Very Rare	FALSE			
 Merc	Lifepath	Perk	Cosmic Insight	This merc has gained insight afforded only to those who have studied at the Temple of Stars.	stat:max_cognition:+1|stat:max_wile:+1	Very Rare	FALSE			
-Merc	Lifepath	Perk	Blade Master's Insight	This merc has gained insight afforded only to those who have studied at the Temple of War.	stat:max_dexterity:+1|SPECIAL:2 random Melee Weapon Perks	Very Rare	FALSE			
+Merc	Lifepath	Perk	Blade Master's Insight	This merc has gained insight afforded only to those who have studied at the Temple of War.	stat:max_dexterity:+1|grant:random:perk_group:melee:2	Very Rare	FALSE			
 Merc	Lifepath	Drawback	No One Escapes Me	This merc hates it when their prey gets away!	on:miss_dealt:always:chance:25%:damage:will:1	Uncommon	TRUE	[Merc] grits their teeth after missing an attack!		
 Merc	Lifepath	Perk	Gotcha!	This merc is so dedicated to ensuring their prey is taken down that they ensure every attack hits.	stat:accuracy:+30	Rare	FALSE			
-Merc	Lifepath	Perk	In Plain Sight	This merc is so good at hiding, they can do it in plain sight through successful forgery of disguises and papers allowing them to infiltrate places they really shouldn't be.	SPECIAL:Forgery Perk	Rare	FALSE			
+Merc	Lifepath	Perk	In Plain Sight	This merc is so good at hiding, they can do it in plain sight through successful forgery of disguises and papers allowing them to infiltrate places they really shouldn't be.	grant:random:tool:from:forger:1	Rare	FALSE			
 Merc	Lifepath	Perk	Scrap Upcycler	The environment seems to be pretty important to his merc! They like to upcycle scrap into something new.	SPECIAL:Scrap Hack Perk	Rare	FALSE			
 Merc	Lifepath	Perk	Something Different	Serious mental trauma has impacted this merc in a manner that has resulted in a personality shift of some kind.	SPECIAL: Swap Cognition and Wile. +1 to one of those attributes at random.	Rare	FALSE			
 Merc	Lifepath	Perk	Recognize Me?	This merc has a chance to be recognized by potential fans while out and about, which could be either good or bad...	stat:social:+50|stat:espionage:-75%|grant:circumstance:presence_wile	Very Rare	FALSE			
@@ -369,7 +369,6 @@ Weapon	Specialized	Perk	Scythe|Scythe Sweep	When you roll 4 or more successes wi
 Weapon	Specialized	Perk	Whip|Whip Choke	When you Grapple a Size 5 or smaller creature while holding your whip, you may use your whip to perform the grapple. A creature grappled in this way takes 1 direct damage each time it fails to escape the grapple and you may spend 1 AP to deal an additional 1 direct damage to it on your turn.	on_grapple:size_5_or_less:use_whip:direct_1_on_escape_fail|spend:ap:1:direct:1:grappled_target	Common	FALSE			
 Weapon	Specialized	Perk	Whip|Whip Lunge	When you hit a creature or object with a Size equal to or greater than your own, you may use a Reactive Action to pull yourself 1 Pace toward it.	reactive_action:on_hit:size_gte_self:pull_self:1	Common	FALSE			
 Weapon	Specialized	Perk	Whip|Whip Pull	When you hit a creature or object with a Size equal to or less than your own, you may use a Reactive Action to pull the target 1 Pace toward you.	reactive_action:on_hit:size_lte_self:pull_target:1	Common	FALSE			
-Weapon	Specialized	Perk	Whip|Whip Grapple	When you deal 1 or more damage to a Size 5 or smaller creature with a whip, you may choose to Grapple the creature instead of dealing damage.	on_hit:size_5_or_less:choose:grapple,damage	Common	FALSE			
 Weapon	Great	Action	Colossal Sword|Colossal Sword Arc	For 3 AP, swing your colossal sword in an arc targeting 2-3 creatures within the colossal sword's Reach who are each adjacent to each other. The attack requires no Attack Check and deals 1 direct damage to each creature. At 20th level, this becomes 2 direct damage.	action:3:direct_1_all:2_to_3_adjacent:no_check	Common	FALSE			
 Weapon	Great	Action	Colossal Sword|Colossal Sword Drag	After missing with a melee attack using a colossal sword, you may use a Reactive Action to deal 1 direct damage to the target. At 20th level, this becomes 2 direct damage.	reactive_action:on_miss:direct:1	Common	FALSE			
 Weapon	Great	Action	Colossal Sword|Colossal Sword Shadow	After hitting with a melee attack using a colossal sword, you may use a Reactive Action to move to an unoccupied space you choose within 1 Pace of the target without provoking Advantage Attacks. At 20th level, this becomes 2 Paces.	reactive_action:on_hit:any:move_self:within_1_of_target:no_advantage_attacks	Common	FALSE			
@@ -404,9 +403,9 @@ Weapon	Firearm	Action	Handgun|Handgun Headshot	When you deal 1 or more damage to
 Weapon	Firearm	Action	Handgun|Handgun Rapid-Fire	For 1 AP, attack with a fully-loaded handgun.	action:1:attack_fully_loaded	Common	FALSE			
 Weapon	Firearm	Action	Handgun|Handgun Reactive Fire	When you draw a handgun, you may use a Reactive Action to make an attack with it. The attack is +1 Enhanced.	reactive_action:on_draw:attack:+1_enhanced	Common	FALSE			
 Weapon	Firearm	Perk	Rifle|Rifle Crook-Shot	You can wield two-handed rifles with one hand. Wielding a rifle in this way imposes +1 Flaw on attacks made with the rifle and prevents the rifle from firing beyond its Intended Range.	weapon_passive:one_handed:allowed|weapon_passive:one_handed:flaw:+1|weapon_passive:one_handed:no_extended_range	Common	FALSE			
-Weapon	Firearm	Perk	Rifle|Rifle Infallible	2s you roll on the core die for Attack Checks made with a rifle are treated as successes.	weapon_passive:twos_as_successes	Common	FALSE			
+Weapon	Firearm	Perk	Rifle|Rifle Infallible	Attack Checks made with a rifle have their odds of success raised by 10%.	weapon_passive:attack_threshold:+10	Common	FALSE			
 Weapon	Firearm	Perk	Rifle|Rifle Long-Shot	When you attack with a rifle and the attack is Enhanced by the Aim action, the Intended and Extended Ranges of the rifle are doubled.	SPECIAL: weapon_passive:aimed_doubled_range	Common	FALSE			
-Weapon	Firearm	Perk	Shotgun|Shotgun Bludgeon	You may treat your shotgun as a makeshift melee weapon. When wielded in this way, it always deals 2 Strike when damaging a creature.	weapon_passive:melee_makeshift:strike:2	Common	FALSE			
+Weapon	Firearm	Perk	Shotgun|Shotgun Bludgeon	You may treat your shotgun as a makeshift melee weapon. When wielded in this way, it always deals 2 Strike when damaging a creature.	weapon_passive:melee_makeshift:strike:2	Common	FALSE			Melee
 Weapon	Firearm	Perk	Shotgun|Shotgun Overcharge	When you load your shotgun, you can choose to overcharge it. The next attack made with an overcharged shotgun has an additional 4d4 weapon die but cannot hit creatures outside of its Intended Range. If an overcharged shotgun Misfires, the gun explodes, dealing 2 direct Fire to you and (if it is non-magical) destroying the gun.	SPECIAL: on_load:overcharge_option:4d4_bonus:intended_only:misfire_explodes	Common	FALSE			
 Weapon	Firearm	Perk	Shotgun|Shotgun Peppering	Creatures within 2 Paces of you damaged by a shell from your shotgun always suffer a Pain Response regardless of the amount of damage taken. At 20th level, the range for this effect becomes 4 Paces.	weapon_passive:force_pain_response_within:2	Common	FALSE			
 Armor	Light	Perk	Lightweight Adept	Speed +3.	stat:speed:+3	Common	FALSE			
@@ -424,7 +423,7 @@ Armor	Bulky	Perk	Weight Adjusted (Bulky)	Ignore the EP cost increases associated
 Merc	Lifepath	Perk	Undergrad Studies	This merc completed a course of study and kept something useful from it.	grant:random:knowledge:1	Common	FALSE			
 Merc	Lifepath	Drawback	Grief Stricken	This merc lost their closest companion on a contract and has not recovered.	stat:base_success_chance:-3	Common	TRUE			
 Merc	Lifepath	Drawback	Unrequited Heart	This merc gave their heart to someone who did not take it, and the ache stayed.	stat:base_success_chance:-2	Common	TRUE			
-							FALSE			
+NPC	Lifepath	Perk	Leadership	This leader rallies nearby allies who can see or hear them.	aura:emboldened:5:sight_or_hearing	Uncommon	FALSE			
 							FALSE			
 							FALSE			
 							FALSE			

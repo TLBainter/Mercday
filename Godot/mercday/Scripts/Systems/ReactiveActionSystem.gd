@@ -8,6 +8,8 @@ static func get_triggered_reactions(
 		new_pos: Vector2i,
 		state: BattleState) -> Array:
 	var result := []
+	if RescueSystem.shelters(state, mover):
+		return result
 	for reactor: MercenaryData in state.get_enemies(mover):
 		if not BattleState._is_alive(reactor):
 			continue
@@ -28,8 +30,8 @@ static func get_triggered_reactions(
 				"valid_targets": [],
 				"current_target": mover,
 				"movement_blocked": false,
-				"attack_base_ap": 3,
-				"move_base_ap": 2,
+				"attack_base_ap": AutoBattle.ATTACK_BASE_AP,
+				"move_base_ap": AutoBattle.MOVE_BASE_AP,
 			}
 			if not action.can_execute(reactor, ctx):
 				continue

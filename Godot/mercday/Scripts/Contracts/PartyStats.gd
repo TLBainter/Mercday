@@ -4,15 +4,6 @@ class_name PartyStats
 
 
 
-static func top_level(team: Array[MercenaryData]) -> int:
-	var best: int = 0
-	for merc: MercenaryData in team:
-		if merc == null:
-			continue
-		best = maxi(best, int(merc.stats.get("level", 0)))
-	return best
-
-
 static func average_stat(team: Array[MercenaryData], key: String) -> float:
 	var total: float = 0.0
 	var count: int = 0

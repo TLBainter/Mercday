@@ -4,6 +4,7 @@ class_name EventData extends Resource
 
 @export var event_name: String = ""
 @export var event_type: String = ""
+@export var trigger: String = ""
 @export var check_stats: Array[String] = []
 @export var circumstances: Array[String] = []
 @export var knowledges: Array[String] = []
@@ -18,3 +19,7 @@ class_name EventData extends Resource
 
 func is_battle() -> bool:
 	return success_formula == "Battle"
+
+
+func is_competition() -> bool:
+	return success_formula == "Competition"

@@ -1,0 +1,51 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Metrics/TypeSelector.gd" id="1"]
+
+[node name="TypeSelector" type="Button"]
+custom_minimum_size = Vector2(0, 44)
+script = ExtResource("1")
+
+[node name="Row" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 4.0
+offset_right = -10.0
+offset_bottom = -4.0
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="Caption" type="Label" parent="Row"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_type_variation = &"TitleLabel"
+theme_override_font_sizes/font_size = 11
+clip_text = true
+text_overrun_behavior = 3
+text = "All Contract Types"
+
+[node name="Sub" type="Label" parent="Row"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_type_variation = &"SmallLabel"
+clip_text = true
+text_overrun_behavior = 3
+text = "Showing totals across every type"
+
+[node name="Menu" type="PopupPanel" parent="."]
+size = Vector2i(260, 120)
+
+[node name="Margin" type="MarginContainer" parent="Menu"]
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="List" type="VBoxContainer" parent="Menu/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 2

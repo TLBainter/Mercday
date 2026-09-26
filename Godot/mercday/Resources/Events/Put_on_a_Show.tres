@@ -6,6 +6,7 @@
 script = ExtResource("1_EventData")
 event_name = "Put on a Show"
 event_type = "Primary"
+trigger = ""
 check_stats = Array[String](["Wile", "Dexterity"])
 circumstances = Array[String](["Performance (Dexterity)", "Performance (Wile)", "Grace (Dexterity)", "Presence (Wile)", "Speech (Wile)"])
 knowledges = Array[String](["Comedy", "Dancing", "Dramaturgy", "Music", "Illustromancy", "Magic"])

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+html,body{margin:0;background:transparent}
+@keyframes ndRing{0%{opacity:0}8%{opacity:1}55%{opacity:0}100%{opacity:0}}
+@keyframes ndBlink{0%{filter:brightness(0.95)}100%{filter:brightness(1.4)}}
+</style>
+</helmet>
+<div style="position:relative;width:28px;height:28px;pointer-events:none;image-rendering:pixelated">{{ dot }}</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;80px&quot;,&quot;height&quot;:&quot;80px&quot;},&quot;color&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#e8583f&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#e8583f&quot;,&quot;#f2b33d&quot;,&quot;#6cc36a&quot;,&quot;#5aa6e8&quot;]},&quot;pulse&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;blink&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  dotMap = ['..####..', '.######.', '########', '########', '########', '########', '.######.', '..####..'];
+  // Pixel ring of n×n cells. Rings never scale (stay crisp); smoothness comes from overlapping, continuously fading frames.
+  ringMap(n) { const c = (n - 1) / 2, rows = []; for (let y = 0; y < n; y++) { let row = ''; for (let x = 0; x < n; x++) row += Math.abs(Math.hypot(x - c, y - c) - c) < 0.6 ? '#' : '.'; rows.push(row); } return rows; }
+  grid(map, color, px) { const h = React.createElement;
+    return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(' + map[0].length + ',' + px + 'px)', gridAutoRows: px + 'px' } },
+      map.join('').split('').map((ch, i) => h('div', { key: i, style: { background: ch === '#' ? color : 'transparent' } }))); }
+  renderVals() {
+    const h = React.createElement, color = this.props.color ?? '#e8583f', pulse = this.props.pulse ?? true, blink = this.props.blink ?? true;
+    const period = 1.6, sizes = [[8, 0.9], [10, 0.75], [12, 0.55], [14, 0.35]];
+    const rings = pulse ? sizes.map(([n, peak], i) => h('div', { key: 'r' + n, style: { position: 'absolute', left: 14 - n, top: 14 - n, opacity: peak } },
+      h('div', { style: { opacity: 0, animation: 'ndRing ' + period + 's linear infinite', animationDelay: (i * period / 6).toFixed(3) + 's', willChange: 'opacity' } }, this.grid(this.ringMap(n), color, 2)))) : [];
+    const dot = h('div', { key: 'd', style: { position: 'absolute', left: 6, top: 6, filter: 'drop-shadow(2px 0 0 #0a0f1c) drop-shadow(-2px 0 0 #0a0f1c) drop-shadow(0 2px 0 #0a0f1c) drop-shadow(0 -2px 0 #0a0f1c)' } },
+      h('div', { style: { animation: blink ? 'ndBlink ' + (period / 2) + 's ease-in-out infinite alternate' : 'none', willChange: 'filter' } }, this.grid(this.dotMap, color, 2)));
+    return { dot: [...rings, dot] };
+  }
+}
+</script>
+</body>
+</html>

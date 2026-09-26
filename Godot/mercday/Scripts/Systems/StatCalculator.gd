@@ -32,6 +32,8 @@ static var _var_names: PackedStringArray = PackedStringArray()
 static var _var_index: Dictionary = {}
 #Stat var name -> parsed Expression; a formula that failed to parse is absent.
 static var _expr_cache: Dictionary = {}
+#Var names whose Stats.tsv Round cell is signed; a percent bonus on these scales the magnitude.
+static var _signed_vars: Dictionary = {}
 static var _cached_def_count: int = -1
 
 
@@ -60,11 +62,18 @@ static func add_percent(merc: MercenaryData, key: String, fraction: float) -> vo
 	merc.stat_multipliers[key] = float(merc.stat_multipliers.get(key, 0.0)) + fraction
 
 
-#The single recalculation point; merges the formula change so direct merc.stats writes survive.
+#The single recalculation point; merges the formula change so direct merc.stats writes survive a later pass.
 static func refresh(merc: MercenaryData) -> void:
 	if merc == null:
 		return
 	var fresh: Dictionary = calculate_all(merc)
+	#Glaive Rend holds a maximum HP penalty until furlough; the baseline carries it so it never stacks.
+	if merc.max_hp_penalty > 0 and fresh.has("maximum_hit_points"):
+		fresh["maximum_hit_points"] = maxi(1, int(fresh["maximum_hit_points"]) - merc.max_hp_penalty)
+	if merc.max_ep_penalty > 0 and fresh.has("maximum_endurance_points"):
+		fresh["maximum_endurance_points"] = maxi(1, int(fresh["maximum_endurance_points"]) - merc.max_ep_penalty)
+	if merc.max_mp_penalty > 0 and fresh.has("maximum_magic_points"):
+		fresh["maximum_magic_points"] = maxi(0, int(fresh["maximum_magic_points"]) - merc.max_mp_penalty)
 	var base: Dictionary = merc.stats_baseline
 	for key: String in fresh:
 		if key == "level":
@@ -82,6 +91,17 @@ static func refresh(merc: MercenaryData) -> void:
 		else:
 			merc.stats[key] = float(merc.stats[key]) + delta
 	merc.stats_baseline = fresh
+	var capped: int = maxi(1, int(merc.stats.get("maximum_hit_points", 1)))
+	if merc.current_hp > capped:
+		merc.current_hp = capped
+	if merc.stats.has("maximum_endurance_points"):
+		var ep_cap: int = maxi(1, int(merc.stats["maximum_endurance_points"]))
+		if merc.current_ep > ep_cap:
+			merc.current_ep = ep_cap
+	if merc.stats.has("maximum_magic_points"):
+		var mp_cap: int = maxi(0, int(merc.stats["maximum_magic_points"]))
+		if merc.current_mp > mp_cap:
+			merc.current_mp = mp_cap
 	apply_ability_grants(merc)
 
 
@@ -136,7 +156,11 @@ static func _fold(merc: MercenaryData, var_name: String, value: float, folded: D
 	folded[var_name] = true
 	var flat: float = float(merc.stat_flat_bonuses.get(var_name, 0.0)) + legacy
 	var mult: float = float(merc.stat_multipliers.get(var_name, 0.0))
-	return (value + flat) * maxf(0.0, 1.0 + mult)
+	var base: float = value + flat
+	#A signed stat can sit below zero, so the bonus scales the magnitude and always helps.
+	if base < 0.0 and _signed_vars.has(var_name):
+		return base * maxf(0.0, 1.0 - mult)
+	return base * maxf(0.0, 1.0 + mult)
 
 
 #Parses every Stats.tsv formula once against a fixed var name order and reuses the Expression.
@@ -145,6 +169,10 @@ static func _ensure_cache() -> void:
 		return
 	_cached_def_count = DataManager.stat_definitions.size()
 	_expr_cache.clear()
+	_signed_vars.clear()
+	for stat_def: Dictionary in DataManager.stat_definitions:
+		if str(stat_def["round"]) == "signed":
+			_signed_vars[str(stat_def["var_name"])] = true
 	var seeds: Array[String] = ["size", "level", "max_cognition", "max_dexterity", "max_vigor", "max_wile", "luck_roll"]
 	for core: String in CORE_STATS:
 		seeds.append("stat_bonus_" + core)
@@ -161,6 +189,11 @@ static func _ensure_cache() -> void:
 	_var_index = {}
 	for i: int in range(_var_names.size()):
 		_var_index[_var_names[i]] = i
+	#Encumbrance reads weight_limit while pace, dodge and action points are computed, so it must come first.
+	var weight_idx: int = int(_var_index.get("weight_limit", -1))
+	for later_name: String in ["pace", "dodge", "action_points"]:
+		if _var_index.has(later_name) and weight_idx > int(_var_index[later_name]):
+			push_error("StatCalculator: Stats.tsv orders weight_limit after %s" % later_name)
 	for stat_def: Dictionary in DataManager.stat_definitions:
 		var stat_type: String = stat_def["type"]
 		if stat_type == "ancestry" or stat_type == "level":
@@ -184,9 +217,22 @@ static func calculate_all(merc: MercenaryData) -> Dictionary:
 	for name: String in _var_names:
 		vars[name] = 0.0
 	var folded: Dictionary = {}
+	var carried: int = Encumbrance.carried_weight(merc)
+	var held_bonuses: Dictionary = WeaponArmorPerkLibrary.held_stat_bonuses(merc)
 
 	#Level is stored in merc.stats, so the folded value feeds the formulas and the raw one is returned.
 	var raw_level: float = float(merc.stats.get("level", 0))
+	_seed_vars(merc, vars, folded, raw_level)
+	var values: Array = vars.values()
+	_run_formula_loop(merc, vars, values, folded, carried, held_bonuses)
+	_sweep_leftovers(merc, vars, folded)
+	vars["level"] = raw_level
+	return vars
+
+
+#Seeds the ancestry, level, core bonus and circumstance vars, folding each through the token stores.
+static func _seed_vars(merc: MercenaryData, vars: Dictionary, folded: Dictionary,
+		raw_level: float) -> void:
 	vars["size"] = _fold(merc, "size", float(merc.max_stats.get("size", 0)), folded)
 	vars["level"] = _fold(merc, "level", raw_level, folded)
 	vars["max_cognition"] = _fold(merc, "max_cognition", float(merc.max_stats.get("max_cognition", 0)), folded)
@@ -214,7 +260,10 @@ static func calculate_all(merc: MercenaryData) -> Dictionary:
 	vars["object_size"] = _fold(merc, "object_size", 0.0, folded)
 	vars["object_weight"] = _fold(merc, "object_weight", 0.0, folded)
 
-	var values: Array = vars.values()
+
+#Runs every Stats.tsv formula in row order, then clamps, encumbers and adds the held gear bonus.
+static func _run_formula_loop(merc: MercenaryData, vars: Dictionary, values: Array,
+		folded: Dictionary, carried: int, held_bonuses: Dictionary) -> void:
 	for stat_def: Dictionary in DataManager.stat_definitions:
 		var var_name: String = stat_def["var_name"]
 		var stat_type: String = stat_def["type"]
@@ -227,44 +276,64 @@ static func calculate_all(merc: MercenaryData) -> Dictionary:
 		var idx: int = _var_index[var_name]
 		var expr: Expression = _expr_cache.get(var_name, null)
 		if expr == null:
-			vars[var_name] = 0.0
-			values[idx] = 0.0
+			_set_var(vars, values, idx, var_name, 0.0)
 			continue
 
 		var raw: Variant = expr.execute(values)
 		if expr.has_execute_failed():
 			push_error("StatCalculator: failed to execute formula '%s' for stat '%s'" % [stat_def["formula"], stat_def["stat"]])
-			vars[var_name] = 0.0
-			values[idx] = 0.0
+			_set_var(vars, values, idx, var_name, 0.0)
 			continue
 
 		var value: float = _fold(merc, var_name, float(raw), folded)
 		if stat_type == "core" and vars.has("max_" + var_name):
 			value = clampf(value, 0.0, float(vars["max_" + var_name]))
+		#Carried weight bites after the fold, so a percent bonus never scales the penalty away.
+		value = _encumber(vars, var_name, value, carried)
+		#A drawn weapon's passive bonus rides on top; holstering it takes the bonus back off.
+		value += float(held_bonuses.get(var_name, 0))
 
 		if round_mode == "floor":
 			var int_val: int = int(floor(value))
 			if stat_type != "boolean":
 				int_val = max(0, int_val)
-			vars[var_name] = int_val
-			values[idx] = float(int_val)
+			_set_var(vars, values, idx, var_name, int_val)
+		elif round_mode == "signed":
+			#signed keeps the folded value as is: no rounding and no clamp at 0.
+			_set_var(vars, values, idx, var_name, value)
 		else:
 			if round_mode == "ceil":
 				value = ceil(value)
 			if stat_type != "boolean":
 				value = max(0.0, value)
-			vars[var_name] = value
-			values[idx] = value
+			_set_var(vars, values, idx, var_name, value)
 
+
+#Folds the flat and multiplier keys the formula loop never produced.
+static func _sweep_leftovers(merc: MercenaryData, vars: Dictionary, folded: Dictionary) -> void:
 	for key: String in merc.stat_flat_bonuses:
 		_fold_leftover(merc, vars, folded, key)
 	for key: String in merc.stat_multipliers:
 		_fold_leftover(merc, vars, folded, key)
 
-	#TODO: armor weight encumbrance penalty is not applied yet; Weight Limit exists as a stat
 
-	vars["level"] = raw_level
-	return vars
+#The one paired write, so the vars dictionary and the values array cannot drift apart.
+static func _set_var(vars: Dictionary, values: Array, idx: int, name: String, value: Variant) -> void:
+	vars[name] = value
+	values[idx] = float(value)
+
+
+#Subtracts the encumbrance penalty from pace, dodge and action points; other stats pass through.
+static func _encumber(vars: Dictionary, var_name: String, value: float, carried: int) -> float:
+	if var_name != "pace" and var_name != "dodge" and var_name != "action_points":
+		return value
+	var pen: Dictionary = Encumbrance.penalties_for(carried, int(vars["weight_limit"]))
+	var out: float = value - float(pen[var_name])
+	if var_name == "pace":
+		return maxf(out, float(Encumbrance.PACE_FLOOR))
+	if var_name == "action_points":
+		return maxf(out, float(Encumbrance.ACTION_POINTS_FLOOR))
+	return out
 
 
 #Folds a key the formula loop never produced, or reports it once when no Stats.tsv row owns it.

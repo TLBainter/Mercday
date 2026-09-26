@@ -129,7 +129,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "DROP MERCS"
 
-[node name="GenOuthouseMap" type="Button" parent="ButtonBar" unique_id=303030303]
+[node name="GenOuthouseMap" type="Button" parent="ButtonBar" unique_id=1895964275]
 self_modulate = Color(0.7, 0.5, 0.2, 1)
 layout_mode = 2
 size_flags_horizontal = 3

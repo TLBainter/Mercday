@@ -1,7 +1,7 @@
 class_name OpenExitsFacet extends DecisionFacet
 
-# Returns low score when the merc's retreat direction leads into a map corner.
-# Penalises Move Far when continuing to back away would box the merc in.
+#Returns low score when the merc's retreat direction leads into a map corner.
+#Penalises Move Far when continuing to back away would box the merc in.
 
 func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var state: BattleState = ctx.get("state")

@@ -1,6 +1,6 @@
 Type (Category)	Weapon Name	Rarity	Weight	Cost	Damage Formula 1	Damage Type 1	Damage Formula 2	Damage Type 2	Draw	Load	Chamber	Ranged	Thrown	Misfire	Misc Properties	Versatile	Effect	Class	Resonance	Resonance Requirement	Symbiosis	Symbiosis Requirement	Fuel Type	Fuel Max	Inflict
 Whip (Specialized)	Petal Whip	Ordinary	2	35	2d6	Lacerate			2						Extend, One-Handed		SPECIAL: Add 1d6 Weapon Die when attack an unarmored opponent.	Mundane							
-Whip (Specialized)	Chain Whip	Ordinary	2	10	2d6	Lacerate, Strike			2						Extend, One-Handed			Mndane							
+Whip (Specialized)	Chain Whip	Ordinary	2	10	2d6	Lacerate, Strike			2						Extend, One-Handed			Mundane							
 Artillery (Firearm)	Grenade Launcher	Uncommon	3	630	3d6	Strike			2	3	10	45/200		5	Two-Handed		SPECIAL: This weapon uses grenades as ammunition. | SPECIAL: When shooting this weapon, the grenade first deals Strike to the target as normal, then the grenade's effects trigger in the space where it impacted.	Mundane							
 Artillery (Firearm)	Microgatling	Uncommon	5	1300	4d6	Varies			5	4	100	300/3000		6	Heavy, Two-Handed		SPECIAL: This weapon uses bullets as ammunition. | SPECIAL: Treat Covered (Full) as though it were Covered (Partial). | SPECIAL: Each attack with this weapon costs 5 rounds of ammunition.	Mundane							
 Artillery (Firearm)	Sonic Cannon	Common	1	130	3d4	Varies			4	3	3	20/75			Two-Handed		SPECIAL: This weapon uses shells as ammunition. | SPECIAL: Before attacking with this cannon, you may expend 1 Fuel to double the cannon's Intended Range for the attack. | SPECIAL: Before attacking with this cannon, you may expend 1 Fuel to add +1 Sonic to the damage dealt.	Magical					Arcanum	5	
@@ -30,7 +30,7 @@ Dagger (Basic)	Flashback Dagger	Uncommon	0	640	1d12	Impale, Lacerate			1				10/2
 Dagger (Basic)	Gambler's Bodkin	Uncommon	0	785	1d12 + 2	Impale, Lacerate			1				2/5		One-Handed, Light, Small		SPECIAL: When you roll 1 or more successes on an Attack Check using this weapon, you may expend any number of successes to magically take 25n from the target creature for each successes expended (up to an amount the creature is carrying), adding it to your own person. | SPECIAL: Curse: When you roll no successes on an Attack Check with this weapon, 10n is magically taken from you and deposited into an inaccessible domain. | SPECIAL: If you cannot pay this amount, take 1 Rot, instead.	Magical			1				
 Dagger (Basic)	Knitting Needle	Common	0	8	1d12	Impale, Lacerate			1				5/12		One-Handed, Light, Small	Rapier (Specialized)	SPECIAL: Can only be wielded by a Size 0 creature.	Mundane							
 Dagger (Basic)	Matronfang	Unique	0	630	1d12	Impale, Lacerate	1	Toxic	1				10/20		One-Handed, Light, Small		SPECIAL: The maximum time a poison applied to this weapon remains potent is doubled.	Mundane							Poisoned
-Dagger (Basic)	Parrying Dagger	Ordinary	0	3	1d12	Impale			1				10/20		One-Handed, Light, Small		SPECIAL: #ERROR!	Mundane							
+Dagger (Basic)	Parrying Dagger	Ordinary	0	3	1d12	Impale			1				10/20		One-Handed, Light, Small		SPECIAL: +1 Defense (Armored and Unarmored)	Mundane							
 Dagger (Basic)	Plumbata	Common	0	7	1d12	Impale, Lacerate			1				20/55		One-Handed, Light	Spear (Specialized)		Mundane							
 Dagger (Basic)	Scorch Knife	Uncommon	0	300	1d12	Impale, Lacerate	1	Fire	1				5/12		One-Handed, Light, Small			Magical							
 Dagger (Basic)	Shuriken	Ordinary	0	2	1d12	Impale			1				10/20		One-Handed, Light, Small		SPECIAL: Melee Attack Checks with this weapon are +1 Flawed, but Thrown Attack Checks with this weapon are +1 Enhanced.	Mundane							
@@ -106,7 +106,6 @@ Maul (Great)	Siegemaker	Ordinary	3	65	3d4	Strike			3						Two-Handed, Heavy		SPE
 Maul (Great)	Sledgehammer	Ordinary	2	45	3d4	Strike			3						Two-Handed, Heavy			Mundane							
 Maul (Great)	Splitmaul	Ordinary	2	55	3d4	Lacerate, Strike			3						Two-Handed, Heavy			Mundane							
 Maul (Great)	Warhammer	Ordinary	2	65	3d4	Impale, Strike			3						Extend, Two-Handed, Heavy			Mundane							
-Pike (Specialized)	Cavalry Spear	Common	0	70	1d12	Impale, Lacerate			2				22/45		Protean	Short Sword (Basic)	SPECIAL: While mounted and wielding this weapon as a Spear, attacks are +1 Enhanced. | SPECIAL: While unmounted and wielding this weapon as a Short Sword, attacks are +1 Enhanced.	Mundane							
 Pike (Specialized)	Interlance	Uncommon	2	395	2d6	Impale, Lacerate			2						Extend, One-Handed	Whip (Specialized)	SPECIAL: When you use a weapon perk with this weapon, gain 1 ReP (combat only).	Mundane							
 Pike (Specialized)	Ji	Ordinary	1	20	2d6	Impale, Lacerate			3						Extend, Two-Handed			Mundane							
 Pike (Specialized)	Lance	Ordinary	1	25	2d6	Impale			3						Extend, Two-Handed		SPECIAL: While mounted, attacks with this weapon are +1 Enhanced.	Mundane							
@@ -148,13 +147,12 @@ Shotgun (Firearm)	Coach Gun	Common	1	325	6d4	Varies			2	3	2	5/20		2	Two-Handed		
 Shotgun (Firearm)	Musketoon	Common	1	220	6d4	Varies			2	3	1	5/20		3	Two-Handed			Mundane							
 Shotgun (Firearm)	Sawed-Off	Uncommon	1	310	6d4	Varies			1	3	2	4/12		3	Two-Handed			Mundane							
 Spear (Specialized)	Angon	Ordinary	1	10	1d12	Impale			2				40/100		One-Handed, Light	Handgun (Firearm)		Mundane							
-Spear (Specialized)	Cattle Staff	Common	1	55	1d12	Strike	1	Electric	2						Extend, Protean, Heavy		SPECIAL: Pain Responses triggered by this staff inflict Shocked until the end of the target's next turn, instead of the target's usual Pain Response.	Mundane							
 Spear (Specialized)	Cavalry Spear	Common	1	70	1d12	Impale, Lacerate			2				22/45		Protean, Light		SPECIAL: This weapon may be wielded as both a Short Sword and a Spear. | SPECIAL: While wielded as a spear, mounted attacks are +1 Enhanced. | SPECIAL: While wielded as a short sword, unmounted attacks are +1 Enhanced.	Mundane							
 Spear (Specialized)	Javelin	Ordinary	0	15	1d12	Impale			2				40/100		One-Handed, Light	Short Sword (Basic)		Mundane							
 Spear (Specialized)	Pilum	Ordinary	1	18	1d12	Impale			2				15/40		One-Handed		SPECIAL: When thrown within its Intended Range, this weapon deals an additional 1 damage. | SPECIAL: Otherwise, it deals 1 less damage.	Mundane							
 Spear (Specialized)	Trident	Ordinary	0	20	1d12	Impale			2				40/100		One-Handed, Light		SPECIAL: The Thrown range of this weapon is unaffected by water.	Mundane							
 Staff (Basic)	Bo Staff	Ordinary	1	10	1d12	Strike			2						Protean			Mundane							
-Staff (Basic)	Cattle Staff	Common	1	55	1d12	Strike	1	Electric	2						Protean, Heavy		SPECIAL: Pain Responses triggered by bullets fired from this handgun inflict Shocked until the end of the target's next turn, instead of the target's usual Pain Response.	Mundane							
+Staff (Basic)	Cattle Staff	Common	1	55	1d12	Strike	1	Electric	2						Protean, Heavy		SPECIAL: Pain Responses triggered by this staff inflict Shocked until the end of the target's next turn, instead of the target's usual Pain Response.	Mundane							
 Staff (Basic)	Polepoint	Common	1	80	1d12	Impale, Lacerate, Strike			1								SPECIAL: You may change this weapon's form for 1 AP. | SPECIAL: While wielded as a Staff, this weapon has the Extend Property. | SPECIAL: While wielded as a Dagger, it has the Flourish and Small Properties.	Mundane							
 Staff (Basic)	Quarterstaff	Ordinary	1	22	1d12	Strike			1						Protean	Dagger (Basic)		Mundane							
 Staff (Basic)	Wizard's Staff, Amethyst	Uncommon	1	300	1d12	Strike			2						Protean, Light		SPECIAL: If you cast a spell that deals Will while resonating with and holding this staff, deal an additional +1 Will.	Magical	1						

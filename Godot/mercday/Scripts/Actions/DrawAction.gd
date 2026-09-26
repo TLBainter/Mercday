@@ -36,7 +36,7 @@ func _resolve_draw_weapon(merc: MercenaryData) -> WeaponData:
 	if not current_is_useless:
 		var result := super._resolve_draw_weapon(merc)
 		return result if result != null else DataManager.fight_weapon
-	# Current ranged weapon is out of ammo with no reload option -- find a better alternative.
+	#The ranged weapon in hand is empty with no reload, so look for a better alternative.
 	if merc.offhand_weapon != null and not merc.offhand_weapon.is_ranged:
 		return merc.offhand_weapon
 	var fallback: WeaponData = null

@@ -51,7 +51,48 @@ static func shove(
 	if shove_dist == 0:
 		lines.append("  %s holds their ground!" % BattleState.colored_name(shoved, state))
 		return lines
+	#forcible_move fires on_shove_seen once the shoved merc actually moves.
 	lines.append_array(forcible_move(shover, shoved, shove_dist, state))
+	return lines
+
+
+#Unit step from one cell toward another; two bodies in one cell push east.
+static func _push_dir(from: Vector2i, toward: Vector2i) -> Vector2i:
+	var dir := Vector2i(signi(toward.x - from.x), signi(toward.y - from.y))
+	return Vector2i(1, 0) if dir == Vector2i.ZERO else dir
+
+
+#Glaive Redirect: the target is walked sideways off the attacker-target line.
+static func lateral_move(mover: MercenaryData, target: MercenaryData, paces: int,
+		state: BattleState) -> Array[String]:
+	var lines: Array[String] = []
+	if target == null or state == null or state.battlefield == null or paces <= 0:
+		return lines
+	if ConstStates.has_state(target, ConstStates.CLIMBING):
+		return forcible_move(mover, target, paces, state)
+	var old_pos := state.get_position(target)
+	var floor_num := state.get_floor(target)
+	var mover_pos := state.get_position(mover)
+	var along := _push_dir(mover_pos, old_pos)
+	var left := Vector2i(-along.y, along.x)
+	var right := Vector2i(along.y, -along.x)
+	var push: Dictionary = walk_push(state, old_pos, left, paces, floor_num, target)
+	if int(push["paces"]) <= 0:
+		push = walk_push(state, old_pos, right, paces, floor_num, target)
+	var moved: int = int(push["paces"])
+	if moved <= 0:
+		lines.append("  %s cannot be moved!" % BattleState.colored_name(target, state))
+		return lines
+	var current: Vector2i = push["cell"]
+	state.set_pos3(target, Vector3i(current.x, current.y, floor_num))
+	target.aim_active = false
+	var drop := state.battlefield.surface_height(old_pos) - state.battlefield.surface_height(current)
+	if drop >= 1.0:
+		lines.append_array(CombatApplicator.resolve_fall(target, int(floor(drop)), state))
+	lines.append("  %s is shifted %d Pace%s!  ([color=orange]%d,%d -> %d,%d[/color])" % [
+		BattleState.colored_name(target, state), moved, "s" if moved != 1 else "",
+		old_pos.x, old_pos.y, current.x, current.y])
+	lines.append_array(WeaponReactiveSystem.fire_shove_seen(target, state))
 	return lines
 
 
@@ -64,8 +105,7 @@ static func shove_obstacle(
 	if obs_data == null or not obs_data.moveable:
 		lines.append("  %s cannot be moved." % (obs_data.obstacle_name if obs_data != null else "obstacle"))
 		return
-	var cells_occupied := 1
-	var target_number: int = obs_data.size * cells_occupied
+	var target_number: int = obs_data.size
 	var result := CheckSystem.make_check(shover, {
 		"stat_keys": ["vigor", "raw_power"],
 		"formula": "melee_accuracy",
@@ -85,11 +125,7 @@ static func shove_obstacle(
 	var obs_pos: Vector2i = Vector2i((_raw_shv as Vector3i).x, (_raw_shv as Vector3i).y) if is_pos_3d else _raw_shv as Vector2i
 	var floor_num: int = (_raw_shv as Vector3i).z if is_pos_3d else state.get_floor(shover)
 	var shover_pos := state.get_position(shover)
-	var raw_dx := obs_pos.x - shover_pos.x
-	var raw_dy := obs_pos.y - shover_pos.y
-	var push_dir := Vector2i(signi(raw_dx), signi(raw_dy))
-	if push_dir == Vector2i.ZERO:
-		push_dir = Vector2i(1, 0)
+	var push_dir := _push_dir(shover_pos, obs_pos)
 	var push := walk_push(state, obs_pos, push_dir, shove_distance, floor_num, null)
 	var current: Vector2i = push["cell"]
 	var moved: int = push["paces"]
@@ -126,7 +162,7 @@ static func walk_push(state: BattleState, from: Vector2i, dir: Vector2i, max_pac
 				break
 		var occupied := false
 		for m: MercenaryData in state.positions.keys():
-			if m == ignore:
+			if m == ignore or m.off_field:
 				continue
 			if state.get_position(m) != next or state.get_floor(m) != floor_num:
 				continue
@@ -159,11 +195,7 @@ static func forcible_move(
 	var old_pos := state.get_position(shoved)
 	var floor_num := state.get_floor(shoved)
 	var shover_pos := state.get_position(shover)
-	var dx := old_pos.x - shover_pos.x
-	var dy := old_pos.y - shover_pos.y
-	var dir := Vector2i(signi(dx), signi(dy))
-	if dir == Vector2i.ZERO:
-		dir = Vector2i(1, 0)
+	var dir := _push_dir(shover_pos, old_pos)
 	var push := walk_push(state, old_pos, dir, paces, floor_num, shoved)
 	var current: Vector2i = push["cell"]
 	var paces_moved: int = push["paces"]
@@ -175,12 +207,13 @@ static func forcible_move(
 	if paces_moved > 0:
 		state.set_pos3(shoved, Vector3i(current.x, current.y, floor_num))
 		shoved.aim_active = false
-		var terrain_drop := state.battlefield.get_terrain_height(old_pos) - state.battlefield.get_terrain_height(current)
+		var terrain_drop := state.battlefield.surface_height(old_pos) - state.battlefield.surface_height(current)
 		if terrain_drop >= 1.0:
 			lines.append_array(CombatApplicator.resolve_fall(shoved, int(floor(terrain_drop)), state))
 		lines.append("  %s is pushed %d Pace%s!  ([color=orange]%d,%d -> %d,%d[/color])" % [
 			BattleState.colored_name(shoved, state), paces_moved, "s" if paces_moved != 1 else "",
 			old_pos.x, old_pos.y, current.x, current.y])
+		lines.append_array(WeaponReactiveSystem.fire_shove_seen(shoved, state))
 	else:
 		lines.append("  %s cannot be moved!" % BattleState.colored_name(shoved, state))
 	if paces_moved >= ConstStates.knockdown_size(shoved):
@@ -208,17 +241,13 @@ static func _should_accept_shove(
 
 	var shoved_pos := state.get_position(shoved)
 	var shover_pos := state.get_position(shover)
-	var dx := shoved_pos.x - shover_pos.x
-	var dy := shoved_pos.y - shover_pos.y
-	var dir := Vector2i(signi(dx), signi(dy))
-	if dir == Vector2i.ZERO:
-		dir = Vector2i(1, 0)
+	var dir := _push_dir(shover_pos, shoved_pos)
 	var push := walk_push(state, shoved_pos, dir, shover_size, state.get_floor(shoved), shoved, false)
 	var paces_moved: int = push["paces"]
 	var slammed: bool = push["blocked"]
 	var dest: Vector2i = push["cell"]
 
-	var terrain_drop := state.battlefield.get_terrain_height(shoved_pos) - state.battlefield.get_terrain_height(dest)
+	var terrain_drop := state.battlefield.surface_height(shoved_pos) - state.battlefield.surface_height(dest)
 	if terrain_drop >= 1.0:
 		return false
 

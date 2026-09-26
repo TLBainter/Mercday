@@ -5,13 +5,14 @@ class_name BadLuckRoll
 static var forced_d100: int = -1
 
 
+#The single forced slot a test set, else a fresh d100; the caller clears its own slot afterwards.
+static func forced_or_d100(forced: int) -> int:
+	return forced if forced >= 1 else randi_range(1, 100)
+
+
 static func roll(team: Array[MercenaryData], step: int) -> Dictionary:
-	var d100: int = 0
-	if forced_d100 >= 1:
-		d100 = forced_d100
-		forced_d100 = -1
-	else:
-		d100 = randi_range(1, 100)
+	var d100: int = forced_or_d100(forced_d100)
+	forced_d100 = -1
 	var avg: float = PartyStats.average_stat(team, "luck")
 	var extra: int = maxi(0, int(floor((float(d100) - avg) / float(maxi(1, step)))))
 	return {

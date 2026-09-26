@@ -63,9 +63,15 @@ description_template = "Assist the [location_a.demonym] Military in an Operation
 target_categories = Array[String](["Facility", "Group", "Leader"])
 possible_traits = Array[String]([])
 possible_locations = Array[String]([])
+terrain_odds = Array[Dictionary]([{
+"area": "Cavern",
+"percent": 15
+}])
 reward_notes = 0
 max_mercs = 0
 difficulty = 0.0
+contract_level = 0
+unsavory = false
 assigned_primary_event = ""
 rolled_mishaps = Array[String]([])
 location_a = ""
@@ -73,3 +79,6 @@ location_b = ""
 description = ""
 team_uids = Array[int]([])
 status = "Type"
+rescue_merc_uid = 0
+rescue_kind = ""
+rescue_merc_name = ""

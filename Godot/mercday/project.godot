@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Mercday"
-run/main_scene="uid://b8kiaiogthu1x"
+run/main_scene="res://Scenes/GUI/HUD/GameHUD.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -19,12 +19,26 @@ config/icon="res://icon.svg"
 
 DataManager="*res://Scripts/Autoloads/DataManager.gd"
 CampaignKnowledge="*res://Scripts/Autoloads/CampaignKnowledge.gd"
+MercPool="*res://Scripts/Autoloads/MercPool.gd"
+MetricsHistory="*res://Scripts/GUI/Autoloads/MetricsHistory.gd"
+SubscriptionManager="*res://Scripts/GUI/Autoloads/SubscriptionManager.gd"
+GameState="*res://Scripts/GUI/Autoloads/GameState.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
 
 [file_customization]
 
 folder_colors={
 "res://Art/": "yellow"
 }
+
+[gui]
+
+theme/custom="res://Resources/GUI/Theme/guild_theme.tres"
 
 [physics]
 

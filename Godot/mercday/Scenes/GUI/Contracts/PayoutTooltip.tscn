@@ -1,0 +1,63 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TooltipPanel.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Contracts/PayoutTooltip.gd" id="2"]
+
+[node name="PayoutTooltip" instance=ExtResource("1")]
+script = ExtResource("2")
+
+[node name="Grid" type="GridContainer" parent="Rows" index="1"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 2
+
+[node name="RewardName" type="Label" parent="Rows/Grid"]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"
+text = "Reward"
+
+[node name="RewardValue" type="Label" parent="Rows/Grid"]
+layout_mode = 2
+size_flags_horizontal = 10
+theme_type_variation = &"SmallLabel"
+text = "0 N"
+
+[node name="ExpensesName" type="Label" parent="Rows/Grid"]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"
+text = "Expenses"
+
+[node name="ExpensesValue" type="Label" parent="Rows/Grid"]
+layout_mode = 2
+size_flags_horizontal = 10
+theme_type_variation = &"SmallLabel"
+text = "0 N"
+
+[node name="TotalName" type="Label" parent="Rows/Grid"]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"
+text = "Expected Total"
+
+[node name="TotalValue" type="Label" parent="Rows/Grid"]
+layout_mode = 2
+size_flags_horizontal = 10
+theme_type_variation = &"SmallLabel"
+theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
+text = "0 N"
+
+[node name="PaydayName" type="Label" parent="Rows/Grid"]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"
+text = "Estimated Payday"
+
+[node name="PaydayValue" type="Label" parent="Rows/Grid"]
+layout_mode = 2
+size_flags_horizontal = 10
+theme_type_variation = &"SmallLabel"
+
+[node name="Relative" type="Label" parent="Rows" index="2"]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"
+theme_override_colors/font_color = Color(0.541176, 0.592157, 0.678431, 1)
+text = "1 Day From Now"

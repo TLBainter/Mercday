@@ -6,6 +6,7 @@
 script = ExtResource("1_EventData")
 event_name = "Battle"
 event_type = "Primary"
+trigger = ""
 check_stats = Array[String](["Cognition", "Dexterity", "Vigor"])
 circumstances = Array[String](["Athletics (Vigor)", "Attack (Dexterity)", "Attack (Vigor)", "Clever (Cognition)", "Grace (Dexterity)", "Search (Cognition)", "Notice (Cognition)"])
 knowledges = Array[String](["Dueling", "Tactics", "Colosseum"])

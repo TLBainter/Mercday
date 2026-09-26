@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" uid="uid://dwcg7h68jvfcy" path="res://Scripts/Resources/EventData.gd" id="1_EventData"]
+
+[resource]
+script = ExtResource("1_EventData")
+event_name = "Competition of Strength"
+event_type = "Secondary"
+trigger = ""
+check_stats = Array[String](["Vigor"])
+circumstances = Array[String](["Athletics (Vigor)", "Power (Vigor)"])
+knowledges = Array[String](["Dueling"])
+tools = Array[String]([])
+success_formula = "15"
+possible_contracts = Array[String](["Entertain"])
+possible_locations = Array[String]([])
+enemy = ""
+enemy_counter = ""
+map_rule = ""

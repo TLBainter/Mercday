@@ -8,9 +8,13 @@ static func execute_attack(
 		extra_flaws: int = 0,
 		target: MercenaryData = null,
 		is_throw: bool = false,
-		state: BattleState = null) -> Dictionary:
+		state: BattleState = null,
+		melee_override: bool = false,
+		success_penalty: int = 0) -> Dictionary:
 	var weapon := attacker.equipped_weapon
-	var is_ranged := weapon != null and weapon.is_ranged
+	LevelUpSystem.note_weapon_use(attacker, weapon)
+	var is_ranged := weapon != null and weapon.is_ranged and not melee_override
+	var makeshift := melee_makeshift(attacker) if melee_override else {}
 
 	if is_ranged:
 		if attacker.ammo_loaded <= 0:
@@ -46,6 +50,9 @@ static func execute_attack(
 
 	var total_flaws := extra_flaws
 	var flat_threshold_bonus := 0.0
+	#The defender's on_incoming_attack perks answer before the roll is made.
+	if target != null and state != null:
+		total_flaws += WeaponReactiveSystem.incoming_attack_flaws(attacker, target, state)
 
 	var kind := "thrown" if is_throw else ("ranged" if is_ranged else "melee")
 	var atk_mod := ConstStates.attack_modifier(attacker, kind)
@@ -71,26 +78,11 @@ static func execute_attack(
 			EncounterLogger.log_verbose("TARGET STATE MOD: %s %s flaws=%d enh=%d states=%s" % [
 				target.merc_name, kind, int(tgt_mod["flaws"]), int(tgt_mod["enhancements"]), tgt_states_text])
 
-	if is_throw and weapon != null:
-		flat_threshold_bonus += float(-weapon.size * 10)
+	#A weapon perk raises the threshold of every attack made with the weapon it belongs to.
+	flat_threshold_bonus += WeaponArmorPerkLibrary.attack_threshold_bonus(attacker)
 
-	var accuracy_formula: String
-	if is_throw:
-		accuracy_formula = "thrown_accuracy"
-	elif is_ranged:
-		accuracy_formula = "ranged_accuracy"
-	else:
-		accuracy_formula = "melee_accuracy"
-	var check_def := {
-		"stat_keys": stat_keys,
-		"circumstances": circumstances,
-		"knowledges": [],
-		"tools": [],
-		"formula": accuracy_formula,
-		"enhancements": total_enhancements,
-		"flaws": total_flaws,
-		"flat_threshold_bonus": flat_threshold_bonus,
-	}
+	var check_def := _build_attack_check(stat_keys, circumstances, weapon, is_throw, is_ranged,
+		total_enhancements, total_flaws, flat_threshold_bonus)
 
 	var check_result := CheckSystem.make_check(attacker, check_def)
 	var core_successes := int(check_result["successes"])
@@ -113,7 +105,7 @@ static func execute_attack(
 		if not parsed["is_todo"]:
 			var num_dice: int = parsed["num_dice"]
 			#Both hands on a flexible melee weapon add one damage die.
-			if not is_ranged and not is_throw and WeaponArmorPerkLibrary.is_flex_grip(weapon) \
+			if not is_ranged and not is_throw and WeaponArmorPerkLibrary.is_flex_grip(weapon, attacker) \
 					and WeaponArmorPerkLibrary.is_wielding_two_handed(attacker):
 				num_dice += 1
 				if EncounterLogger.is_active():
@@ -124,47 +116,41 @@ static func execute_attack(
 			for _d: int in range(num_dice):
 				if randi_range(1, parsed["die_sides"]) <= die_threshold:
 					weapon_die_successes += 1
+		#Perk dice granted before the swing are spent by this attack.
+		var extra_dice: Array = attacker.active_states.get("extra_weapon_dice", []) as Array
+		if not extra_dice.is_empty():
+			attacker.active_states.erase("extra_weapon_dice")
+			var extra_hits := 0
+			var extra_threshold := float(check_result["threshold"])
+			for sides: int in extra_dice:
+				if sides > 0 and randi_range(1, sides) <= floori(extra_threshold / 100.0 * float(sides)):
+					extra_hits += 1
+			weapon_die_successes += extra_hits
+			if EncounterLogger.is_active():
+				EncounterLogger.log_verbose("EXTRA DICE: %s rolls %d extra dice for %d successes" % [
+					attacker.merc_name, extra_dice.size(), extra_hits])
+
+	#A firearm swung as a club rolls melee accuracy and hits for a flat amount.
+	if not makeshift.is_empty():
+		weapon_die_successes = 0
+		flat_bonus = 0
+		damage_type = str(makeshift["type"])
 
 	var ammo_name: String = attacker.ammo_loaded_type if is_ranged else ""
 
-	if is_ranged:
-		attacker.ammo_loaded -= 1
-		if weapon.chamber <= 0 and attacker.ammo_loaded_type != "":
-			var _inv: int = attacker.ammo_inventory.get(attacker.ammo_loaded_type, 0)
-			if _inv > 0:
-				attacker.ammo_inventory[attacker.ammo_loaded_type] = _inv - 1
-				if attacker.ammo_inventory[attacker.ammo_loaded_type] <= 0:
-					attacker.ammo_inventory.erase(attacker.ammo_loaded_type)
-		if weapon.misfire > 0 and core_successes < weapon.misfire and not critical:
-			EncounterLogger.log_misfire_check(attacker.merc_name, weapon.item_name, weapon.misfire, core_successes, true)
-			attacker.weapon_misfired = true
-			return {
-				"damage": 0,
-				"damage_type": damage_type,
-				"core_successes": 0,
-				"weapon_die_successes": 0,
-				"flat_bonus": 0,
-				"dmg_formula": dmg_formula,
-				"check_result": check_result,
-				"stat_used": check_result["stat_used"],
-				"threshold": check_result["threshold"],
-				"misfired": true,
-				"no_ammo": false,
-				"weapon_broke": false,
-				"no_los": false,
-				"window_lines": [] as Array[String],
-				"enhancements": total_enhancements,
-				"flaws": total_flaws,
-				"is_throw": is_throw,
-				"critical": critical,
-				"ammo_name": ammo_name,
-			}
-		elif weapon.misfire > 0:
-			var crit_saved := critical and core_successes < weapon.misfire
-			EncounterLogger.log_misfire_check(attacker.merc_name, weapon.item_name, weapon.misfire, core_successes, false, crit_saved)
-			if crit_saved and EncounterLogger.is_active():
-				EncounterLogger.log_verbose("MISFIRE SAVED: %s %s crit successes=%d need=%d" % [
-					attacker.merc_name, weapon.item_name, core_successes, weapon.misfire])
+	if is_ranged and _spend_ammo_and_check_misfire(attacker, weapon, core_successes, critical):
+		var misfire_result := _empty_attack_result(damage_type, false, true, is_throw)
+		misfire_result["dmg_formula"] = dmg_formula
+		misfire_result["check_result"] = check_result
+		misfire_result["check_def"] = check_def
+		misfire_result["stat_used"] = check_result["stat_used"]
+		misfire_result["threshold"] = check_result["threshold"]
+		misfire_result["enhancements"] = total_enhancements
+		misfire_result["flaws"] = total_flaws
+		misfire_result["critical"] = critical
+		misfire_result["ammo_name"] = ammo_name
+		misfire_result["called_shot"] = success_penalty > 0
+		return misfire_result
 
 	var window_lines: Array[String] = []
 	for wp: Vector3i in los_windows:
@@ -182,13 +168,22 @@ static func execute_attack(
 				weapon.item_name, weapon.current_fragility, weapon.fragility,
 				"BROKE" if weapon_broke else "survived"])
 
+	#A called shot removes successes from the core roll only; the misfire check above read the unreduced value.
+	var penalty_applied := 0
+	if success_penalty > 0 and not critical:
+		penalty_applied = mini(success_penalty, core_successes)
+		core_successes -= penalty_applied
+
 	var result := _empty_attack_result(damage_type, false, false, is_throw)
 	result["damage"] = core_successes + weapon_die_successes + flat_bonus
+	if not makeshift.is_empty():
+		result["damage"] = int(makeshift["amount"]) if core_successes > 0 else 0
 	result["core_successes"] = core_successes
 	result["weapon_die_successes"] = weapon_die_successes
 	result["flat_bonus"] = flat_bonus
 	result["dmg_formula"] = dmg_formula
 	result["check_result"] = check_result
+	result["check_def"] = check_def
 	result["stat_used"] = check_result["stat_used"]
 	result["threshold"] = check_result["threshold"]
 	result["weapon_broke"] = weapon_broke
@@ -197,7 +192,57 @@ static func execute_attack(
 	result["flaws"] = total_flaws
 	result["critical"] = critical
 	result["ammo_name"] = ammo_name
+	result["success_penalty"] = penalty_applied
+	result["called_shot"] = success_penalty > 0
 	return result
+
+
+#The accuracy check an attack rolls; the formula follows the throw, the shot or the swing being made.
+static func _build_attack_check(stat_keys: Array[String], circumstances: Array[String], weapon: WeaponData,
+		is_throw: bool, is_ranged: bool, enhancements: int, flaws: int,
+		flat_threshold_bonus: float) -> Dictionary:
+	var accuracy_formula: String
+	if is_throw:
+		accuracy_formula = "thrown_accuracy"
+	elif is_ranged:
+		accuracy_formula = "ranged_accuracy"
+	else:
+		accuracy_formula = "melee_accuracy"
+	return {
+		"stat_keys": stat_keys,
+		"circumstances": circumstances,
+		"knowledges": [],
+		"tools": [],
+		"formula": accuracy_formula,
+		"enhancements": enhancements,
+		"flaws": flaws,
+		"flat_threshold_bonus": flat_threshold_bonus,
+		"weapon": weapon,
+	}
+
+
+#The shot spends its round and rolls for a jam; true when it misfired and the attack ends there.
+static func _spend_ammo_and_check_misfire(attacker: MercenaryData, weapon: WeaponData,
+		core_successes: int, critical: bool) -> bool:
+	attacker.ammo_loaded -= 1
+	if weapon.chamber <= 0 and attacker.ammo_loaded_type != "":
+		var _inv: int = attacker.ammo_inventory.get(attacker.ammo_loaded_type, 0)
+		if _inv > 0:
+			attacker.ammo_inventory[attacker.ammo_loaded_type] = _inv - 1
+			if attacker.ammo_inventory[attacker.ammo_loaded_type] <= 0:
+				attacker.ammo_inventory.erase(attacker.ammo_loaded_type)
+	if weapon.misfire <= 0:
+		return false
+	if core_successes < weapon.misfire and not critical:
+		EncounterLogger.log_misfire_check(attacker.merc_name, weapon.item_name, weapon.misfire, core_successes, true)
+		attacker.weapon_misfired = true
+		return true
+	var crit_saved := critical and core_successes < weapon.misfire
+	EncounterLogger.log_misfire_check(attacker.merc_name, weapon.item_name, weapon.misfire, core_successes, false, crit_saved)
+	if crit_saved and EncounterLogger.is_active():
+		EncounterLogger.log_verbose("MISFIRE SAVED: %s %s crit successes=%d need=%d" % [
+			attacker.merc_name, weapon.item_name, core_successes, weapon.misfire])
+	return false
 
 
 static func _roll_fragility(weapon: WeaponData) -> bool:
@@ -222,6 +267,7 @@ static func _empty_attack_result(damage_type: String, no_ammo: bool, misfired: b
 		"flat_bonus": 0,
 		"dmg_formula": "",
 		"check_result": {},
+		"check_def": {},
 		"stat_used": "",
 		"threshold": 0.0,
 		"misfired": misfired,
@@ -234,7 +280,27 @@ static func _empty_attack_result(damage_type: String, no_ammo: bool, misfired: b
 		"is_throw": is_throw,
 		"critical": false,
 		"ammo_name": "",
+		"success_penalty": 0,
+		"called_shot": false,
 	}
+
+
+#Shotgun Bludgeon: the flat damage a firearm deals when it is swung instead of fired.
+static func melee_makeshift(merc: MercenaryData) -> Dictionary:
+	for perk: TraitData in WeaponArmorPerkLibrary.get_weapon_passive_perks(merc):
+		if not perk.effect_dsl.begins_with("weapon_passive:melee_makeshift:"):
+			continue
+		var parts := perk.effect_dsl.split(":")
+		if parts.size() >= 4:
+			return {"type": str(parts[2]).capitalize(), "amount": maxi(1, int(parts[3]))}
+	return {}
+
+
+#Damage type a weapon deals outside an attack roll, for callers that only hold the weapon.
+static func damage_type_of(weapon: WeaponData) -> String:
+	if weapon == null:
+		return "Strike"
+	return _pick_damage_type(weapon.damage_types_1)
 
 
 static func _pick_damage_type(types: Array[String]) -> String:
@@ -322,10 +388,14 @@ static func compute_attack_flaws(
 	var weapon := attacker.equipped_weapon
 	if weapon == null:
 		return flaws
+	#A two-handed weapon held in one hand by perk shoots worse.
+	if WeaponArmorPerkLibrary.held_one_handed_by_perk(attacker, weapon):
+		flaws += 1
 	var dist := state.distance_to(attacker, target)
 	var ignore_ext_range: bool = WeaponArmorPerkLibrary.has_weapon_passive(attacker, "weapon_passive:ignore_flaw_extended_range")
 	if weapon.is_ranged and weapon.ranged_intended_range > 0:
-		if dist > weapon.ranged_intended_range and not ignore_ext_range:
+		var r_ranges := WeaponArmorPerkLibrary.ranged_ranges(attacker, weapon)
+		if dist > int(r_ranges["intended"]) and not ignore_ext_range:
 			return flaws + 1
 	elif weapon.is_throwable:
 		var t_ranges := ThrownWeaponRules.thrown_ranges(attacker, weapon)

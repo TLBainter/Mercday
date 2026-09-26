@@ -6,6 +6,7 @@
 script = ExtResource("1_EventData")
 event_name = "Poison the Target"
 event_type = "Primary"
+trigger = ""
 check_stats = Array[String](["Dexterity", "Wile"])
 circumstances = Array[String](["Finesse (Dexterity)", "Performance (Wile)"])
 knowledges = Array[String](["Toxicology", "Tactics", "Botany"])

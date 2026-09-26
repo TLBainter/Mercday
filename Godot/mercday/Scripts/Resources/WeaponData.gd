@@ -2,7 +2,6 @@ class_name WeaponData extends ItemData
 
 var weapon_type: String
 var weight: int
-var size: int = 0
 var cost: int
 var damage_formula_1: String
 var damage_types_1: Array[String]
@@ -39,27 +38,31 @@ var is_virtual: bool = false   # always-available pseudo-weapon; never stored in
 var fragility: int = 0           # 0 = indestructible; >0 = makeshift weapon, rolls fragility dice on each use
 var current_fragility: int = 0   # runtime counter; decrements on survival roll; 0 = broken (when fragility > 0)
 var base_weapon: WeaponData = null
+#A cut bowstring stops the weapon shooting until it is repaired.
+var string_snapped: bool = false
+#AP already spent toward the repair of this weapon.
+var repair_ap_paid: int = 0
+
+
+#Per-merc instance of a shared weapon resource; runtime flags on it never touch the template.
+static func instance_copy(base: WeaponData) -> WeaponData:
+	var copy := WeaponData.new()
+	if base == null:
+		return copy
+	for entry: Dictionary in base.get_property_list():
+		if (int(entry["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE) == 0:
+			continue
+		var value: Variant = base.get(str(entry["name"]))
+		if value is Array or value is Dictionary:
+			copy.set(str(entry["name"]), value.duplicate())
+		else:
+			copy.set(str(entry["name"]), value)
+	return copy
 
 
 #Fresh instance of a makeshift template: the fields a dropped copy needs, with its own fragility counter.
 static func duplicate_template(base: WeaponData) -> WeaponData:
-	var copy := WeaponData.new()
-	copy.item_name = base.item_name
-	copy.item_type = base.item_type
-	copy.item_rarity = base.item_rarity
-	copy.weapon_type = base.weapon_type
-	copy.damage_formula_1 = base.damage_formula_1
-	copy.damage_types_1 = base.damage_types_1.duplicate()
-	copy.is_ranged = base.is_ranged
-	copy.is_throwable = base.is_throwable
-	copy.has_heavy = base.has_heavy
-	copy.has_light = base.has_light
-	copy.has_extend = base.has_extend
-	copy.melee_range = base.melee_range
-	copy.range_thrown = base.range_thrown
-	copy.thrown_intended_range = base.thrown_intended_range
-	copy.thrown_extended_range = base.thrown_extended_range
-	copy.fragility = base.fragility
+	var copy := instance_copy(base)
 	copy.current_fragility = base.fragility
 	return copy
 

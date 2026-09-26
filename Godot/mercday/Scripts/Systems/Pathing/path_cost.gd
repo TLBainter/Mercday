@@ -9,10 +9,159 @@ const VAULT_COST := 2
 #with; -1 keeps closed doors impassable. Set per mover from door_penalty().
 static var door_pace_penalty: int = -1
 
+#How the mover gets through a locked door: not at all, by picking it, or with a key.
+const LOCK_NONE := 0
+const LOCK_PICK := 1
+const LOCK_KEYS := 2
+
+#Set per mover with the door penalty; the surcharge prices the picks a locked door is expected to cost.
+static var lock_mode: int = LOCK_NONE
+static var lock_pace_penalty: int = 0
+
+#The locked doors this mover may route through; every other locked door is a wall to it.
+static var wanted_locks: Array[Dictionary] = []
+static var wanted_sig: String = ""
+
+
+#Pace a cavern water cell costs the mover, and how deep below the surface a sunk mover stands.
+static var water_cost: int = 2
+static var sunk_depth: int = 0
+
+
+#Climb routing of the mover: false keeps every climb link out of its graph, as it was before R3a.
+static var link_climbs: bool = false
+static var climb_pace: int = 1
+static var climb_hp: int = 0
+
+
+#Roof jump routing of the mover: 0 keeps every cross level roof leap out of its graph, as before R3b.
+static var jump_roofs: int = 0
+static var jump_fall: float = 1.0
+
 
 #The only writer of door_pace_penalty; 0 plans every openable door free.
 static func set_door_penalty(value: int) -> void:
 	door_pace_penalty = value
+	lock_mode = LOCK_NONE
+	lock_pace_penalty = 0
+	wanted_locks = []
+	wanted_sig = ""
+	clear_climb()
+
+
+#Every per-mover routing surcharge at once: shut doors, locked doors and cavern water.
+#warm skips the lock plan: its expected-chance formula draws the RNG, and a spawn warm-up must not.
+static func set_mover_doors(merc: MercenaryData, state: BattleState, warm: bool = false) -> void:
+	set_door_penalty(door_penalty(merc))
+	set_water_cost(merc, state)
+	set_climb(merc)
+	if warm or state == null or state.battlefield == null or not state.battlefield.is_dungeon:
+		return
+	if DungeonLocks.can_pick(merc, state):
+		lock_mode = LOCK_PICK
+		lock_pace_penalty = DungeonLocks.plan_lock_penalty(merc, state.battlefield)
+		_fill_wanted(merc, state)
+	elif DungeonLocks.holds_keys(merc, state):
+		lock_mode = LOCK_KEYS
+		lock_pace_penalty = 0
+
+
+#The locked doors this mover has a reason to pick, and a signature the reach cache keys on.
+static func _fill_wanted(merc: MercenaryData, state: BattleState) -> void:
+	var parts := PackedStringArray()
+	var reasons := PackedStringArray()
+	for row: Dictionary in DungeonLocks.locked_doors(state.battlefield):
+		var obs: Dictionary = row["obs"] as Dictionary
+		var cell: Vector3i = row["cell"] as Vector3i
+		var why: String = DungeonLocks.wanted_reason(merc, obs, cell, state)
+		if why == "":
+			continue
+		wanted_locks.append(obs)
+		parts.append("%d,%d,%d" % [cell.x, cell.y, cell.z])
+		reasons.append("(%d,%d) F%d %s" % [cell.x, cell.y, cell.z, why])
+	wanted_sig = "|".join(parts)
+	DungeonLocks.log_wanted(merc, reasons)
+
+
+#The only writer of water_cost and sunk_depth; both are read at cost time, never cached.
+static func set_water_cost(merc: MercenaryData, state: BattleState) -> void:
+	if merc == null:
+		water_cost = 2
+		sunk_depth = 0
+		return
+	water_cost = CavernRules.water_pace_cost(merc)
+	sunk_depth = 0
+	if state != null and state.is_sunk(merc):
+		water_cost = 2
+		sunk_depth = state.sunk_depth(merc)
+
+
+#Unset: no climb link is a route edge and the mover plans exactly as it did before R3a.
+static func clear_climb() -> void:
+	link_climbs = false
+	climb_pace = 1
+	climb_hp = 0
+	jump_roofs = 0
+	jump_fall = 1.0
+
+
+#The only writer of the climb routing values; every walker the Climb action would take routes over
+#climb links, at the pace its own climb stat, Deposed and Athletics Vigor buy. Call after
+#set_water_cost, which is what tells a sunk mover apart from a dry one.
+static func set_climb(merc: MercenaryData) -> void:
+	clear_climb()
+	if merc == null or sunk_depth > 0:
+		return
+	#The gates ClimbAction and execute_climb refuse on: no body to grab with, and no Move to spend.
+	if int(merc.stats.get("size", 0)) <= 0:
+		return
+	if MovementExecutor.pace_per_move(merc) <= 0 or ConstStates.is_blocked(merc, "action:move"):
+		return
+	link_climbs = true
+	climb_pace = maxi(1, MovementExecutor.climb_pace_cost(merc))
+	climb_hp = maxi(1, merc.current_hp)
+	jump_roofs = maxi(0, int(merc.stats.get("jump", 0)))
+	jump_fall = PathTargeter.fall_tolerance(merc)
+
+
+#The five values set_climb and clear_climb write, so a probe can borrow them and hand them back.
+static func climb_snapshot() -> Array:
+	return [link_climbs, climb_pace, climb_hp, jump_roofs, jump_fall]
+
+
+static func restore_climb(snap: Array) -> void:
+	if snap.size() < 5:
+		return
+	link_climbs = bool(snap[0])
+	climb_pace = int(snap[1])
+	climb_hp = int(snap[2])
+	jump_roofs = int(snap[3])
+	jump_fall = float(snap[4])
+
+
+#True when this mover prices climb links into its route graph at all; false costs nothing further.
+static func climbs_links(field: BattlefieldArea, is_flying: bool) -> bool:
+	return link_climbs and not is_flying and not field.climb_links.is_empty()
+
+
+#True when the rock ceiling leaves a mover of merc_size too little room to walk upright here.
+static func crawl_cell(field: BattlefieldArea, cell: Vector2i, merc_size: int) -> bool:
+	return field.is_cavern and field.clearance(cell) < float(merc_size)
+
+
+#Water and crawl surcharges of one cavern step, on top of the base pace of the cell entered.
+static func cavern_step_cost(field: BattlefieldArea, from: Vector3i, to: Vector3i,
+		merc_size: int, base_cost: int) -> int:
+	var to2d := Vector2i(to.x, to.y)
+	var from2d := Vector2i(from.x, from.y)
+	var cost: int = water_cost if field.is_water(to2d) else base_cost
+	var crawl_to := crawl_cell(field, to2d, merc_size)
+	var crawl_from := crawl_cell(field, from2d, merc_size)
+	if crawl_to:
+		cost += 1
+	if crawl_to != crawl_from:
+		cost += 1
+	return cost
 
 
 #Pace the mover trades for the AP an Interact would cost on the way through: one Move of
@@ -28,12 +177,31 @@ static func door_penalty(merc: MercenaryData) -> int:
 	return int(ceil(2.0 / float(move_ap))) * pace
 
 
-#True when a merc could open this obstacle with the Interact action.
-static func is_interactable_door(obs: Dictionary) -> bool:
+#True when the obstacle is a door an Interact could work at all, lock aside.
+static func is_openable_door(obs: Dictionary) -> bool:
 	if obs.get("cell_type", "") != "door":
 		return false
 	var data: ObstacleData = obs.get("data") as ObstacleData
 	return data != null and data.interactable and data.interaction_result == "Open/Close"
+
+
+#True when the mover's lock mode gets it through this door's lock.
+static func lock_passable(obs: Dictionary) -> bool:
+	if not DungeonLocks.is_locked(obs):
+		return true
+	if lock_mode == LOCK_PICK:
+		for entry: Dictionary in wanted_locks:
+			if is_same(entry, obs):
+				return true
+		return false
+	if lock_mode == LOCK_KEYS:
+		return DungeonLocks.is_keyed(obs) and not DungeonLocks.keep_shut(obs)
+	return false
+
+
+#True when a merc could open this obstacle with the Interact action.
+static func is_interactable_door(obs: Dictionary) -> bool:
+	return is_openable_door(obs) and lock_passable(obs)
 
 
 #True when this cell holds a shut door a merc could open with the Interact action.
@@ -50,7 +218,7 @@ static func is_shut_door(field: BattlefieldArea, cell: Vector3i) -> bool:
 static func shut_door_cost(obs: Dictionary) -> int:
 	if door_pace_penalty < 0 or not is_interactable_door(obs):
 		return -1
-	return 1 + door_pace_penalty
+	return 1 + door_pace_penalty + (lock_pace_penalty if DungeonLocks.is_locked(obs) else 0)
 
 const DIRS8: Array[Vector2i] = [
 	Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
@@ -64,8 +232,8 @@ static func to2(p: Vector3i) -> Vector2i:
 
 static func floor_exists(field: BattlefieldArea, f: int) -> bool:
 	if not field.is_interior_map:
-		return f == 0
-	return field.interior_floor_elevations.has(f)
+		return f == 0 or (f >= 1 and field.has_roof_level(f))
+	return field.interior_floor_elevations.has(f) or field.has_roof_level(f)
 
 
 #Walkable neighbours of node: the in-bounds same-floor cells plus any stair, well or drop link.
@@ -90,6 +258,13 @@ static func neighbors(node: Vector3i, field: BattlefieldArea) -> Array[Vector3i]
 	if field.drop_links.has(node):
 		for dl: Dictionary in (field.drop_links[node] as Array):
 			result.append(dl["to"] as Vector3i)
+	if field.roof_fly_links.has(node):
+		for rlink: Vector3i in (field.roof_fly_links[node] as Array):
+			result.append(rlink)
+	#Mover independent: only cell_pace_cost decides whether this mover may climb the link.
+	if field.climb_links.has(node):
+		for cl: Dictionary in (field.climb_links[node] as Array):
+			result.append(cl["top"] as Vector3i)
 	field.neighbor_cache[node] = result
 	return result
 
@@ -102,7 +277,9 @@ static func is_landing_alias(cell: Vector3i, field: BattlefieldArea) -> bool:
 		return false
 	if field.stairwell_connections.has(cell):
 		return false
-	var run: Dictionary = field.stair_runs[cell.z] as Dictionary
+	var run: Dictionary = field.stair_run_at(Vector2i(cell.x, cell.y), cell.z)
+	if run.is_empty():
+		return false
 	return cell.y == BattlefieldArea.run_bottom_y(run) and absi(cell.x - (run["sx"] as int)) <= 1
 
 
@@ -110,7 +287,11 @@ static func is_landing_alias(cell: Vector3i, field: BattlefieldArea) -> bool:
 static func under_stair_blocked(cell: Vector3i, field: BattlefieldArea, merc_size: int) -> bool:
 	if merc_size <= 0:
 		return false
-	return field.stair_headroom(Vector2i(cell.x, cell.y), cell.z) < float(merc_size)
+	var cell2d := Vector2i(cell.x, cell.y)
+	#Only solid rock stops a cavern walker; a low ceiling is crawled under instead.
+	if field.is_cavern:
+		return field.clearance(cell2d) < 1.0
+	return field.stair_headroom(cell2d, cell.z) < float(merc_size)
 
 
 static func _stair_link_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea) -> int:
@@ -130,13 +311,29 @@ static func is_well_link(from: Vector3i, to: Vector3i, field: BattlefieldArea) -
 
 #Pace cost of flying up or down the stair well; -1 for a walker or a pair that is no well link.
 static func _well_link_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea, is_flying: bool,
-		altitude: int, _merc_size: int) -> int:
+		altitude: int) -> int:
 	if not is_flying or not is_well_link(from, to, field):
 		return -1
 	if to.z > from.z:
 		var from_e: float = field.cell_base_elevation(Vector2i(from.x, from.y), from.z) + float(altitude)
-		return 1 + maxi(0, int(ceil(field.floor_base_elevation(to.z) - from_e)))
+		return 1 + maxi(0, int(ceil(field.floor_elevation_at(Vector2i(to.x, to.y), to.z) - from_e)))
 	return 1
+
+
+#True when the pair is a flyer's rise from a drop landing back up onto the roof over it.
+static func is_roof_fly_link(from: Vector3i, to: Vector3i, field: BattlefieldArea) -> bool:
+	if field == null or not field.roof_fly_links.has(from):
+		return false
+	return (field.roof_fly_links[from] as Array).has(to)
+
+
+#Pace cost of flying up onto a roof; -1 for a walker or a pair that is no roof fly link.
+static func _roof_fly_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea, is_flying: bool,
+		altitude: int) -> int:
+	if not is_flying or not is_roof_fly_link(from, to, field):
+		return -1
+	var from_e: float = field.cell_base_elevation(Vector2i(from.x, from.y), from.z) + float(altitude)
+	return 1 + maxi(0, int(ceil(field.cell_base_elevation(Vector2i(to.x, to.y), to.z) - from_e)))
 
 
 #The drop edge from -> to, or {} when the pair is not a drop link.
@@ -149,8 +346,20 @@ static func drop_link(from: Vector3i, to: Vector3i, field: BattlefieldArea) -> D
 	return {}
 
 
+#The climb edge from -> to, or {} when the pair is not a climb link.
+static func climb_link(from: Vector3i, to: Vector3i, field: BattlefieldArea) -> Dictionary:
+	if not field.climb_links.has(from):
+		return {}
+	for cl: Dictionary in (field.climb_links[from] as Array):
+		if (cl["top"] as Vector3i) == to:
+			return cl
+	return {}
+
+
 #True when an obstacle is low enough for a merc of merc_size to vault it.
 static func can_vault(obs: Dictionary, merc_size: int) -> bool:
+	if obs.get("rubble", false):
+		return false
 	if merc_size < 2:
 		return false
 	return BattlefieldArea.obstacle_height(obs) <= float(merc_size) - 1.0
@@ -165,10 +374,13 @@ static func _fall_cost(paces: int, tol: float) -> int:
 
 #Pace cost of a deliberate drop; -1 when there is no link, the vault fails, or the fall is too severe.
 static func _drop_link_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea,
-		merc_fall_tolerance: float, merc_size: int) -> int:
+		merc_fall_tolerance: float, merc_size: int, is_flying: bool = false) -> int:
 	var dl := drop_link(from, to, field)
 	if dl.is_empty():
 		return -1
+	#A flyer passes over the vault cell and descends the edge under control, so no fall and no refusal.
+	if is_flying:
+		return 1
 	var vault: Vector3i = dl["vault"] as Vector3i
 	if vault.x >= 0:
 		var vobs: Dictionary = field.get_obs(Vector2i(vault.x, vault.y), vault.z)
@@ -179,6 +391,46 @@ static func _drop_link_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea
 	if fall < 0:
 		return -1
 	return fall + 1
+
+
+#Pace cost of climbing one link, up or down; -1 when the link is empty or its vault cell blocks the mover.
+static func _link_climb_cost(link: Dictionary, field: BattlefieldArea, merc_size: int) -> int:
+	if link.is_empty():
+		return -1
+	var vault: Vector3i = link["vault"] as Vector3i
+	if vault.x >= 0:
+		var vobs: Dictionary = field.get_obs(Vector2i(vault.x, vault.y), vault.z)
+		if not vobs.is_empty() and not can_vault(vobs, merc_size):
+			return -1
+	return 1 + int(link["paces"]) * climb_pace
+
+
+#True when a climber would rather climb this drop down than fall it; the one test ClimbAction shares.
+static func prefers_down_climb(paces: int, tol: float, hp: int) -> bool:
+	return _fall_cost(paces, tol) < 0 or paces * 4 >= hp
+
+
+#The climb this mover takes over the pair instead of walking it: {} for none, else {link, down}.
+static func climb_step(from: Vector3i, to: Vector3i, field: BattlefieldArea, is_flying: bool,
+		merc_fall_tolerance: float, merc_size: int) -> Dictionary:
+	if from.z == to.z or not climbs_links(field, is_flying):
+		return {}
+	#A pair the stairs already serve is walked, whatever link table it also sits in.
+	if _stair_link_cost(from, to, field) >= 0:
+		return {}
+	var up := climb_link(from, to, field)
+	if not up.is_empty():
+		if _link_climb_cost(up, field, merc_size) < 0:
+			return {}
+		return {"link": up, "down": false}
+	if to.z >= from.z:
+		return {}
+	var dl := drop_link(from, to, field)
+	if dl.is_empty() or not prefers_down_climb(int(dl["paces"]), merc_fall_tolerance, climb_hp):
+		return {}
+	if _link_climb_cost(dl, field, merc_size) < 0:
+		return {}
+	return {"link": dl, "down": true}
 
 
 #True when the only way into the cell is a vault; a merc may cross it but not stop on it or vault again from it.
@@ -222,17 +474,23 @@ static func is_flyover_cell(cell: Vector3i, field: BattlefieldArea) -> bool:
 const NO_CEILING := 1.0e9
 
 static func slab_above(pos: Vector2i, f: int, field: BattlefieldArea) -> float:
-	if not field.is_interior_map:
+	if not field.is_interior_map and field.roof_cells.is_empty():
 		return NO_CEILING
 	var best := NO_CEILING
-	for other: int in field.interior_floor_elevations.keys():
-		if other <= f:
-			continue
-		if not field.has_slab(pos, other):
-			continue
-		var e := field.floor_base_elevation(other)
-		if e < best:
-			best = e
+	if field.is_interior_map:
+		for other: int in field.interior_floor_elevations.keys():
+			if other <= f:
+				continue
+			if not field.has_slab(pos, other):
+				continue
+			var e := field.floor_elevation_at(pos, other)
+			if e < best:
+				best = e
+	#The roof plane over pos is a ceiling for every floor under it; a flyer on the roof has none.
+	if field.roof_elevations.has(pos):
+		var roof_f: int = field.roof_level_at(pos)
+		if roof_f > f:
+			best = minf(best, float(field.roof_elevations[pos]))
 	return best
 
 
@@ -244,8 +502,12 @@ static func fly_cell_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea,
 	var to2d := Vector2i(to.x, to.y)
 	var from2d := Vector2i(from.x, from.y)
 	var to_base: float = field.cell_base_elevation(to2d, to.z)
+	#A cavern cell too low to fly through is entered on the ground at the crawling price.
+	var cavern_crawl: bool = crawl_cell(field, to2d, merc_size)
+	if cavern_crawl and field.clearance(to2d) < 1.0:
+		return -1
 	#The underside of a run overhead is a ceiling: the flyer's top must clear it.
-	if merc_size > 0 and float(altitude + merc_size) > field.stair_headroom(to2d, to.z):
+	if not cavern_crawl and merc_size > 0 and float(altitude + merc_size) > field.stair_headroom(to2d, to.z):
 		return -1
 	var top := to_base
 	var obs: Dictionary = field.get_obs(to2d, to.z)
@@ -266,6 +528,13 @@ static func fly_cell_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea,
 			var ceiling := slab_above(to2d, to.z, field)
 			if ceiling < NO_CEILING and top + float(maxi(1, merc_size)) >= ceiling:
 				return -1
+	if cavern_crawl:
+		if top > to_base:
+			return -1
+		return cavern_step_cost(field, from, to, merc_size, 1)
+	#A flyer skims a pool only while it has height; on the surface it pays the swim price.
+	if altitude < 1 and field.is_water(to2d):
+		return cavern_step_cost(field, from, to, merc_size, 1)
 	var from_z: float = field.cell_base_elevation(from2d, from.z) + float(altitude)
 	#Terrain and stair rises cost the flat pace; only an obstacle top charges the climb.
 	var cost := 1 + door_extra
@@ -287,12 +556,16 @@ static func fly_cell_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea,
 
 #Altitude a flyer has on arriving at `to`, given the altitude it left `from` with.
 #It never drops during a move: the flyer stays at the highest top it crossed.
-static func fly_arrival_altitude(from: Vector3i, to: Vector3i, field: BattlefieldArea, altitude: int) -> int:
+static func fly_arrival_altitude(from: Vector3i, to: Vector3i, field: BattlefieldArea, altitude: int,
+		merc_size: int = 1) -> int:
 	if from.z != to.z:
-		if to.z > from.z and is_well_link(from, to, field):
+		if to.z > from.z and (is_well_link(from, to, field) or is_roof_fly_link(from, to, field)):
 			return 0
 		return altitude
 	var to2d := Vector2i(to.x, to.y)
+	#A cavern cell too low to fly through is entered on the ground.
+	if crawl_cell(field, to2d, merc_size):
+		return 0
 	if field.is_stair_cell(to2d, to.z):
 		return altitude
 	var obs: Dictionary = field.get_obs(to2d, to.z)
@@ -345,7 +618,7 @@ const KIND_VAULT := 3
 
 
 #Per-cell walk facts that hold for a given merc_size until path_version is bumped.
-#Door open state is never baked; it is read live from the stored obstacle.
+#Door open state and the lock are never baked; both are read live from the stored obstacle.
 static func static_entry(field: BattlefieldArea, cell: Vector3i, merc_size: int) -> Array:
 	if not field.path_static.has(merc_size):
 		field.path_static[merc_size] = {}
@@ -361,11 +634,13 @@ static func static_entry(field: BattlefieldArea, cell: Vector3i, merc_size: int)
 	var door_ok: bool = false
 	if not on_stairs and not obs.is_empty():
 		var cell_type: String = obs.get("cell_type", "")
-		if cell_type == "wall":
+		if obs.get("rubble", false):
+			kind = KIND_WALL
+		elif cell_type == "wall":
 			kind = KIND_WALL
 		elif cell_type == "door":
 			kind = KIND_DOOR
-			door_ok = is_interactable_door(obs)
+			door_ok = is_openable_door(obs)
 		else:
 			var data: ObstacleData = obs.get("data") as ObstacleData
 			if data == null:
@@ -378,6 +653,9 @@ static func static_entry(field: BattlefieldArea, cell: Vector3i, merc_size: int)
 				base = 10
 			else:
 				base = 2 if data.rugged else 1
+	#A sloping roof cell is rugged footing and costs a walker what rugged ground costs.
+	if kind == KIND_OPEN and base == 1 and not field.rugged_cells.is_empty() and field.rugged_cells.has(cell):
+		base = 2
 	var entry: Array = [
 		is_landing_alias(cell, field) or not field.has_walkable_surface(cell2d, cell.z),
 		field.jagged_cells.has(cell2d),
@@ -415,10 +693,25 @@ static func cell_pace_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea,
 		var stair_cost := _stair_link_cost(from, to, field)
 		if stair_cost >= 0:
 			return stair_cost
-		var well_cost := _well_link_cost(from, to, field, is_flying, altitude, merc_size)
+		var well_cost := _well_link_cost(from, to, field, is_flying, altitude)
 		if well_cost >= 0:
 			return well_cost
-		return _drop_link_cost(from, to, field, merc_fall_tolerance, merc_size)
+		var roof_cost := _roof_fly_cost(from, to, field, is_flying, altitude)
+		if roof_cost >= 0:
+			return roof_cost
+		var climbs: bool = climbs_links(field, is_flying)
+		if climbs:
+			var up := climb_link(from, to, field)
+			if not up.is_empty():
+				return _link_climb_cost(up, field, merc_size)
+		var drop_cost := _drop_link_cost(from, to, field, merc_fall_tolerance, merc_size, is_flying)
+		if climbs and to.z < from.z:
+			var dl := drop_link(from, to, field)
+			if not dl.is_empty() and prefers_down_climb(int(dl["paces"]), merc_fall_tolerance, climb_hp):
+				var down_cost := _link_climb_cost(dl, field, merc_size)
+				if down_cost >= 0:
+					return down_cost
+		return drop_cost
 
 	var entry: Array = static_entry(field, to, merc_size)
 	var blocked: bool = entry[SE_BLOCKED]
@@ -432,6 +725,11 @@ static func cell_pace_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea,
 	var walk_blocked: bool = entry[SE_WALK_BLOCKED]
 	if walk_blocked:
 		return -1
+	var cavern: bool = field.is_cavern
+	#A mover sunk to the pool floor leaves the water by climbing out, never on foot.
+	if cavern and sunk_depth > 0 and field.is_water(Vector2i(from.x, from.y)):
+		if not field.is_water(Vector2i(to.x, to.y)):
+			return -1
 
 	var from_entry: Array = p_from_entry
 	if from_entry.is_empty():
@@ -458,6 +756,8 @@ static func cell_pace_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea,
 				return -1
 		elif absf(h_diff) > 0.25 and not (on_stairs or has_stairs):
 			return -1
+		if cavern:
+			return cavern_step_cost(field, from, to, merc_size, 1)
 		return 1
 
 	var kind: int = entry[SE_KIND]
@@ -472,13 +772,18 @@ static func cell_pace_cost(from: Vector3i, to: Vector3i, field: BattlefieldArea,
 			var door_ok: bool = entry[SE_DOOR_OK]
 			if door_pace_penalty < 0 or not door_ok:
 				return -1
-			base_cost = 1 + door_pace_penalty
+			if not lock_passable(obs):
+				return -1
+			base_cost = 1 + door_pace_penalty + (lock_pace_penalty if DungeonLocks.is_locked(obs) else 0)
 	elif kind == KIND_VAULT:
 		var vaultable: bool = entry[SE_CAN_VAULT]
 		var from_vault: bool = from_entry[SE_VAULT_CELL]
 		if not vaultable or from_vault:
 			return -1
 		base_cost = VAULT_COST
+
+	if cavern:
+		base_cost = cavern_step_cost(field, from, to, merc_size, base_cost)
 
 	if h_diff > 0.5:
 		if h_diff <= 1.0:
@@ -521,15 +826,14 @@ const JUMP_DEST_OK := 1
 const JUMP_DEST_DOOR := 2
 
 
-static func jump_dest_kind(pos: Vector3i, field: BattlefieldArea, merc_size: int = 0) -> int:
+#The size independent half of the landing test; the headroom test lives in jump_dest_kind.
+static func jump_dest_kind_base(pos: Vector3i, field: BattlefieldArea) -> int:
 	if pos.x < 0 or pos.x >= field.width or pos.y < 0 or pos.y >= field.length:
 		return JUMP_DEST_NONE
 	if not floor_exists(field, pos.z):
 		return JUMP_DEST_NONE
 	var pos2d := Vector2i(pos.x, pos.y)
 	if not field.has_walkable_surface(pos2d, pos.z):
-		return JUMP_DEST_NONE
-	if under_stair_blocked(pos, field, merc_size):
 		return JUMP_DEST_NONE
 	if field.is_stair_cell(pos2d, pos.z):
 		return JUMP_DEST_NONE if is_landing_alias(pos, field) else JUMP_DEST_OK
@@ -548,6 +852,23 @@ static func jump_dest_kind(pos: Vector3i, field: BattlefieldArea, merc_size: int
 	return JUMP_DEST_NONE
 
 
+static func jump_dest_kind(pos: Vector3i, field: BattlefieldArea, merc_size: int = 0) -> int:
+	var base := jump_dest_kind_base(pos, field)
+	if base == JUMP_DEST_NONE:
+		return JUMP_DEST_NONE
+	if under_stair_blocked(pos, field, merc_size):
+		return JUMP_DEST_NONE
+	return base
+
+
+static func _jump_kind_cached(field: BattlefieldArea, pos: Vector3i) -> int:
+	if field.jump_kind_static.has(pos):
+		return field.jump_kind_static[pos] as int
+	var kind := jump_dest_kind_base(pos, field)
+	field.jump_kind_static[pos] = kind
+	return kind
+
+
 static func is_valid_jump_dest(pos: Vector3i, field: BattlefieldArea, merc_size: int = 0) -> bool:
 	var kind := jump_dest_kind(pos, field, merc_size)
 	if kind == JUMP_DEST_DOOR:
@@ -555,8 +876,119 @@ static func is_valid_jump_dest(pos: Vector3i, field: BattlefieldArea, merc_size:
 	return kind == JUMP_DEST_OK
 
 
-#Jump landings from `cell` for one range and size: [landing, paces, door obstacle or {}] rows.
+#Cells a leap crosses between take-off and landing, the landing included, in order.
+static func leap_line(from: Vector3i, to: Vector3i) -> Array[Vector3i]:
+	var out: Array[Vector3i] = []
+	for step: Dictionary in LineOfSight._steps(Vector2i(from.x, from.y), Vector2i(to.x, to.y)):
+		var c: Vector2i = step["c"] as Vector2i
+		out.append(Vector3i(c.x, c.y, to.z))
+	return out
+
+
+#True when the cell holds a wall or an unbroken window: too tall to clear in a leap.
+static func _leap_solid(field: BattlefieldArea, cell: Vector3i) -> bool:
+	var obs: Dictionary = field.get_obs(Vector2i(cell.x, cell.y), cell.z)
+	if obs.is_empty():
+		return false
+	var ct: String = obs.get("cell_type", "")
+	if ct == "wall":
+		return true
+	return ct == "window" and not (obs.get("broken", false) as bool)
+
+
+#True when a wall, an unbroken window or a diagonal wall corner stands in the leap's way.
+static func leap_wall_blocked(field: BattlefieldArea, from: Vector3i, to: Vector3i) -> bool:
+	if field == null:
+		return false
+	var steps: Array[Dictionary] = LineOfSight._steps(Vector2i(from.x, from.y), Vector2i(to.x, to.y))
+	var last: int = steps.size() - 1
+	for i: int in range(steps.size()):
+		var step: Dictionary = steps[i]
+		var c: Vector2i = step["c"] as Vector2i
+		if i < last and _leap_solid(field, Vector3i(c.x, c.y, to.z)):
+			return true
+		var ortho: Array = step["o"] as Array
+		if ortho.size() < 2:
+			continue
+		var a: Vector2i = ortho[0] as Vector2i
+		var b: Vector2i = ortho[1] as Vector2i
+		if _leap_solid(field, Vector3i(a.x, a.y, to.z)) \
+				and _leap_solid(field, Vector3i(b.x, b.y, to.z)):
+			return true
+	return false
+
+
+#Door obstacles the leap crosses, the landing door included; the caller reads their open state.
+static func leap_doors(field: BattlefieldArea, from: Vector3i, to: Vector3i) -> Array:
+	var out: Array = []
+	if field == null:
+		return out
+	for cell: Vector3i in leap_line(from, to):
+		var obs: Dictionary = field.get_obs(Vector2i(cell.x, cell.y), cell.z)
+		if not obs.is_empty() and obs.get("cell_type", "") == "door":
+			out.append(obs)
+	return out
+
+
+#True when the leap cannot be made: a wall in the way, or a shut door on the line.
+static func leap_blocked(field: BattlefieldArea, from: Vector3i, to: Vector3i) -> bool:
+	if leap_wall_blocked(field, from, to):
+		return true
+	for obs: Dictionary in leap_doors(field, from, to):
+		if not OpenCloseState.is_open(obs):
+			return true
+	return false
+
+
+#True when a jump_dests row cannot be used now: a shut door on the line or at the landing.
+static func jump_row_blocked(dest: Array) -> bool:
+	var door: Dictionary = dest[2] as Dictionary
+	if not door.is_empty() and not OpenCloseState.is_open(door):
+		return true
+	if dest.size() < 4:
+		return false
+	for obs: Dictionary in (dest[3] as Array):
+		if not OpenCloseState.is_open(obs):
+			return true
+	return false
+
+
+#Size independent landing table of `cell`, built once at the widest range asked for so far:
+#[landing, paces, door obstacle or {}, crossed doors, chebyshev distance] rows.
+static func _jump_geom(field: BattlefieldArea, cell: Vector3i, jump_range: int) -> Array:
+	if field.jump_geom.has(cell):
+		var entry: Array = field.jump_geom[cell]
+		if (entry[0] as int) >= jump_range:
+			var kept: Array = entry[1]
+			return kept
+	var rows: Array = []
+	var cell_h: float = field.cell_base_elevation(Vector2i(cell.x, cell.y), cell.z)
+	for dx: int in range(-jump_range, jump_range + 1):
+		for dy: int in range(-jump_range, jump_range + 1):
+			var cdist := maxi(abs(dx), abs(dy))
+			if cdist == 0 or cdist > jump_range:
+				continue
+			var jcell := Vector3i(cell.x + dx, cell.y + dy, cell.z)
+			var kind := _jump_kind_cached(field, jcell)
+			if kind == JUMP_DEST_NONE:
+				continue
+			var h_cost := int(ceil(maxf(0.0, field.cell_base_elevation(Vector2i(jcell.x, jcell.y), jcell.z) - cell_h)))
+			if cdist + h_cost > jump_range:
+				continue
+			if leap_wall_blocked(field, cell, jcell):
+				continue
+			var door: Dictionary = {}
+			if kind == JUMP_DEST_DOOR:
+				door = field.get_obs(Vector2i(jcell.x, jcell.y), jcell.z)
+			rows.append([jcell, cdist + h_cost, door, leap_doors(field, cell, jcell), cdist])
+	field.jump_geom[cell] = [jump_range, rows]
+	return rows
+
+
+#Jump landings from `cell` for one range and size: [landing, paces, door obstacle or {},
+#crossed doors] rows.
 #Cached on the field until path_version is bumped; the caller reads the door open state live.
+#The rows are filtered out of the shared size independent landing table of the cell.
 static func jump_dests(field: BattlefieldArea, cell: Vector3i, jump_range: int, merc_size: int) -> Array:
 	var key: Array = [merc_size, jump_range]
 	if not field.jump_static.has(key):
@@ -566,22 +998,81 @@ static func jump_dests(field: BattlefieldArea, cell: Vector3i, jump_range: int, 
 		var hit: Array = by_cell[cell]
 		return hit
 	var out: Array = []
-	var cell_h: float = field.cell_base_elevation(Vector2i(cell.x, cell.y), cell.z)
-	for dx: int in range(-jump_range, jump_range + 1):
-		for dy: int in range(-jump_range, jump_range + 1):
-			var cdist := maxi(abs(dx), abs(dy))
-			if cdist == 0 or cdist > jump_range:
-				continue
-			var jcell := Vector3i(cell.x + dx, cell.y + dy, cell.z)
-			var kind := jump_dest_kind(jcell, field, merc_size)
-			if kind == JUMP_DEST_NONE:
-				continue
-			var h_cost := int(ceil(maxf(0.0, field.cell_base_elevation(Vector2i(jcell.x, jcell.y), jcell.z) - cell_h)))
-			if cdist + h_cost > jump_range:
-				continue
-			var door: Dictionary = {}
-			if kind == JUMP_DEST_DOOR:
-				door = field.get_obs(Vector2i(jcell.x, jcell.y), jcell.z)
-			out.append([jcell, cdist + h_cost, door])
+	for g: Array in _jump_geom(field, cell, jump_range):
+		if (g[4] as int) > jump_range:
+			continue
+		if (g[1] as int) > jump_range:
+			continue
+		if under_stair_blocked(g[0] as Vector3i, field, merc_size):
+			continue
+		out.append([g[0], g[1], g[2], g[3]])
 	by_cell[cell] = out
 	return out
+
+
+#Cross level roof leaps out of `cell`: [landing, paces] rows, empty for every mover without a jump
+#stat and on every map without roofs. Geometry only, like jump_dests; the caller tests occupancy.
+#Cached on the field per [size, jump range, fall tolerance] until path_version is bumped.
+static func roof_jumps(cell: Vector3i, field: BattlefieldArea, merc_size: int) -> Array:
+	if jump_roofs <= 0 or field == null or field.roof_cells.is_empty():
+		return []
+	var cell2 := Vector2i(cell.x, cell.y)
+	if not field.is_roof_footing(cell2, cell.z):
+		return []
+	var key: Array = [merc_size, jump_roofs, jump_fall]
+	if not field.roof_jump_cache.has(key):
+		field.roof_jump_cache[key] = {}
+	var by_cell: Dictionary = field.roof_jump_cache[key]
+	if by_cell.has(cell):
+		var hit: Array = by_cell[cell]
+		return hit
+	var rows: Array = []
+	var from_e: float = field.cell_base_elevation(cell2, cell.z)
+	for dx: int in range(-jump_roofs, jump_roofs + 1):
+		for dy: int in range(-jump_roofs, jump_roofs + 1):
+			var cdist := maxi(abs(dx), abs(dy))
+			if cdist == 0 or cdist > jump_roofs:
+				continue
+			var land2 := Vector2i(cell2.x + dx, cell2.y + dy)
+			if land2.x < 0 or land2.x >= field.width or land2.y < 0 or land2.y >= field.length:
+				continue
+			var lz: int = field.roof_level_at(land2)
+			if lz < 0 or lz == cell.z or not field.is_roof_footing(land2, lz):
+				continue
+			var land := Vector3i(land2.x, land2.y, lz)
+			#A pair the climb or drop links already serve is taken by the Climb action, never leapt.
+			if not climb_link(cell, land, field).is_empty() or not drop_link(cell, land, field).is_empty():
+				continue
+			if not is_valid_jump_dest(land, field, merc_size) or not PathHelper.is_standable(land, field, merc_size):
+				continue
+			if not has_exit_neighbor(land, field, {}, 1.0, false, false, merc_size):
+				continue
+			var land_e: float = field.cell_base_elevation(land2, lz)
+			var rise: int = int(ceil(maxf(0.0, land_e - from_e)))
+			if cdist + rise > jump_roofs:
+				continue
+			if leap_wall_blocked(field, cell, Vector3i(land2.x, land2.y, cell.z)):
+				continue
+			if JumpAction._roof_in_way(field, cell2, land2, maxf(from_e, land_e)):
+				continue
+			var cost: int = cdist + rise
+			var drop: float = from_e - land_e
+			if drop >= 1.0:
+				var fall: int = _fall_cost(int(floor(drop)), jump_fall)
+				if fall < 0:
+					continue
+				cost += fall
+			rows.append([land, cost])
+	by_cell[cell] = rows
+	return rows
+
+
+#The roof leap this mover takes over the pair instead of walking it: {} for none, else {to, paces}.
+static func roof_jump_step(from: Vector3i, to: Vector3i, field: BattlefieldArea, is_flying: bool,
+		merc_size: int) -> Dictionary:
+	if is_flying or from.z == to.z or jump_roofs <= 0 or field.roof_cells.is_empty():
+		return {}
+	for row: Array in roof_jumps(from, field, merc_size):
+		if (row[0] as Vector3i) == to:
+			return {"to": to, "paces": row[1] as int}
+	return {}

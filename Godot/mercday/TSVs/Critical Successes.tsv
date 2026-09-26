@@ -1,10 +1,10 @@
 Stat	Option Effect	Selection Frequency	Success Formula Stat Required
 Dexterity	stat:dexterity:+1	Unlimited	
 Dexterity	stat:max_dexterity:+1	Once	
-Dexterity	grant:random:circumstance:dexterity_all:1	Once	Combat
-Dexterity	grant:random:circumstance:dexterity_all:1	Once	Combat
-Dexterity	grant:random:circumstance:dexterity_all:1	Once	Combat
-Dexterity	grant:random:circumstance:dexterity_all:1	Once	Combat
+Dexterity	grant:weapon_perk:used_weapon:1	Once	Combat
+Dexterity	grant:weapon_perk:used_weapon:1	Once	Combat
+Dexterity	grant:weapon_perk:used_weapon:1	Once	Combat
+Dexterity	grant:weapon_perk:used_weapon:1	Once	Combat
 Dexterity	grant:random:circumstance:dexterity_all:1	Once	
 Dexterity	grant:random:circumstance:dexterity_all:1	Once	
 Dexterity	stat:dodge:+2.5%	Unlimited	Dodge
@@ -35,7 +35,7 @@ Wile	stat:luck:+1.2%	Unlimited	Luck
 Wile	stat:negotiate:+3.5%	Unlimited	Negotiate
 Wile	stat:social:+4.7%	Unlimited	Social
 Wile	stat:support:+5.2%	Unlimited	Support
-Vigor	stat:support:+4%	Unlimited	
+Vigor	stat:support:+4%	Unlimited	Support
 Vigor	stat:vigor:+1	Unlimited	
 Vigor	stat:max_vigor:+1	Once	
 Vigor	grant:random:circumstance:vigor_all:1	Once	
@@ -45,7 +45,7 @@ Vigor	stat:cheat_death:+0.25%	Unlimited	Cheat Death
 Vigor	stat:combat:+3%	Unlimited	Combat
 Vigor	stat:defend:+6%	Unlimited	Defend
 Vigor	stat:escort:+4%	Unlimited	Escort
-Vigor	stat:healthiness:+9%	Unlimited	Healthiness
+Vigor	stat:healthiness:+9	Unlimited	Healthiness
 Vigor	stat:melee_accuracy:+1.3%	Unlimited	Melee Accuracy
 Vigor	stat:parkour:+2.9%	Unlimited	Parkour
 Vigor	stat:rescue:+4%	Unlimited	Rescue

@@ -1,4 +1,4 @@
-Name	Type	Size X	Size Y	Size Z	Narrow	THd+	THd-	Moveable	Climbable	Climb Difficulty	Health	Susceptible To	Rugged	Passthrough	Is Building	Building Only	Is Room	Room Type	PT->Harm	PT<-Harm	PT Harm Type	Growth %	Ramp	Covers	Drops	Guaranteed Structures	Possible Structures	Possible Scatter	Preferred Position	Interactable	Interaction Result
+Name	Type	Size X	Size Y	Size Z	Narrow	THd+	THd-	Moveable	Climbable	Climb Difficulty	Health	Susceptible To	Rugged	Passthrough	Is Building	Building Only	Is Room	Room Type	PT->Harm	PT<-Harm	PT Harm Type	Growth %	Ramp	Covers	Drops	Guaranteed Structures	Possible Structures	Possible Scatter	Preferred Position	Interactable	Interaction Result	Immune To	City	Sight
 Aspen Tree	Vegetation	2	2	5	FALSE	0	0	FALSE	TRUE	Average	4	Lacerate	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		15	FALSE	TRUE	Big Stick						
 Brambles	Vegetation	2	2	2	TRUE	0	0	FALSE	FALSE		3	Lacerate	TRUE	TRUE	FALSE	FALSE	FALSE		1	1	Lacerate	40	FALSE	TRUE							
 Pine Tree	Vegetation	3	3	6	FALSE	0	0	FALSE	TRUE	Difficult	5	Lacerate	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		10	FALSE	TRUE	Big Stick						
@@ -16,13 +16,13 @@ Bar	Furniture	4	1	1.5	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FAL
 Table	Furniture	2	2	1.5	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Table Leg, Wooden Plank			Utensil, Plate	Anywhere		
 Desk	Furniture	3	1	1.5	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Table Leg				Anywhere		
 Sofa	Furniture	3	2	1.75	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Any Wall		
-Bookshelf	Furniture	2	1	4	FALSE	0	0	TRUE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Bookshelf	Furniture	2	1	3	FALSE	0	0	TRUE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
 Bed	Furniture	3	1	1.25	FALSE	0	0	TRUE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Any Wall		
 Cabinet	Furniture	2	2	3	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
-Wardrobe	Furniture	4	2	4	FALSE	0	0	TRUE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Wardrobe	Furniture	4	2	3	FALSE	0	0	TRUE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
 Stool	Furniture	1	1	1.75	FALSE	0	0	TRUE	FALSE		1	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Chair Leg				By Object		
-Bench	Furniture	2	1	1	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere		
-Chest	Furniture	2	1	1	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Anywhere		
+Bench	Furniture	2	1	1	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere				Sidewalk
+Chest	Furniture	2	1	1	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Anywhere	TRUE	Loot
 Boulder	Terrain	4	4	4	FALSE	0	0	TRUE	TRUE	Average	41	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		10	FALSE	TRUE				Rock			
 Cliff Edge	Terrain	6	1	6	FALSE	-20	-5	FALSE	FALSE		0		FALSE	FALSE	FALSE	FALSE	FALSE		0	0		15	FALSE	TRUE							
 River	Terrain	1	1	0	FALSE	0	0	FALSE	FALSE		0		TRUE	TRUE	FALSE	FALSE	FALSE		0	0		60	FALSE	FALSE							
@@ -42,21 +42,71 @@ Bridge	Structure	2	1	0.1	FALSE	0	0	FALSE	FALSE		51	Strike	FALSE	TRUE	FALSE	FALSE
 Gate	Structure	2	1	1	FALSE	0	0	FALSE	FALSE		51	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE							
 Shed	Structure	6	3	4	FALSE	0	0	FALSE	FALSE		61	Strike	FALSE	FALSE	TRUE	FALSE	FALSE		0	0		0	FALSE	TRUE							
 Barn	Structure	12	7	15	FALSE	0	0	FALSE	FALSE		81	Strike	FALSE	FALSE	TRUE	FALSE	FALSE		0	0		0	FALSE	TRUE				Pitchfork			
-Pillar	Furniture	1	1	3	TRUE	0	0	FALSE	TRUE	Difficult	31	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		5	FALSE	TRUE	Rock				Align Alike		
-Well	Structure	2	2	1.25	FALSE	0	0	FALSE	FALSE		21	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Rock, Brick						
-Statue	Structure	3	3	6	FALSE	0	0	FALSE	FALSE		31	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Rock				Anywhere		
+Pillar	Furniture	1	1	3	TRUE	0	0	FALSE	TRUE	Difficult	31	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		5	FALSE	TRUE	Rock				Align Alike					Cover
+Well	Structure	2	2	1.25	FALSE	0	0	FALSE	FALSE		21	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Rock, Brick								Square
+Statue	Structure	3	3	3	FALSE	0	0	FALSE	FALSE		31	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Rock				Anywhere		
 Stairs	Structure	1	0.25	0.25	FALSE	0	0	FALSE	TRUE	Easy	13	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	TRUE	TRUE	Brick, Rock, Wooden Plank						
 Toilet	Furniture	1	1	1.15	TRUE	0	0	FALSE	FALSE		2	Strike	TRUE	TRUE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Toilet Tank Cover				Corner		
 Outhouse	Structure	4	4	5	FALSE	0	0	FALSE	TRUE	Average	9	Strike	FALSE	FALSE	TRUE	FALSE	FALSE		0	0		0	FALSE	TRUE		Toilet					
-Bedroom	Structure	8	12		FALSE	0	0	FALSE	FALSE				FALSE	FALSE	FALSE	FALSE	TRUE	Interior Any	0	0		5	FALSE	FALSE		Bed	Sofa, Desk, Chest, Cabinet, Bookshelf	Potted Plant			
-Dining Area	Structure	12	12		FALSE	0	0	FALSE	FALSE				FALSE	FALSE	FALSE	FALSE	TRUE	Interior Any	0	0		15	FALSE	FALSE		Bar, Table, Stool	Sofa, Pillar	Potted Plant, Broken Bottle			
-Kitchen	Structure	8	12		FALSE	0	0	FALSE	FALSE				FALSE	FALSE	FALSE	FALSE	TRUE	Interior F0	0	0		5	FALSE	FALSE		Cabinet					
-Pantry	Structure	1	2		FALSE	0	0	FALSE	FALSE				FALSE	FALSE	FALSE	FALSE	TRUE	Interior F0	0	0		2	FALSE	FALSE			Bookshelf				
-Bathroom	Structure	4	4		FALSE	0	0	FALSE	FALSE				FALSE	FALSE	FALSE	FALSE	TRUE	Interior Any	0	0		2	FALSE	FALSE		Toilet		Potted Plant			
-Patio	Structure	9	5		FALSE	0	0	FALSE	FALSE				FALSE	FALSE	FALSE	FALSE	TRUE	Exterior F0	0	0		10	FALSE	FALSE			Statue, Table, Stool, Bench	Potted Plant			
-Balcony	Structure	6	3		FALSE	0	0	FALSE	FALSE				FALSE	FALSE	FALSE	FALSE	TRUE	Exterior F+	0	0		7	FALSE	FALSE			Bench, Table, Stool	Potted Plant			
-Basement	Structure	16	16		FALSE	0	0	FALSE	FALSE				FALSE	FALSE	FALSE	FALSE	TRUE	Interior F-	0	0		10	FALSE	FALSE		Crate, Chest	Cabinet, Bookshelf, Pillar, Wardrobe				
-Crate	Furniture	1	1		FALSE	0	0	TRUE	TRUE	Easy	3	Strike, Lacerate	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere		
+Crate	Furniture	1	1	1	FALSE	0	0	TRUE	TRUE	Easy	3	Strike, Lacerate	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere				Alley
 Window	Structure	1	1	1	FALSE	0	0	FALSE	FALSE		1	Strike, Impale	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Any Wall		
 Potted Plant	Vegetation	1	1	1	TRUE	0	0	TRUE	FALSE		1	Lacerate	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		5	FALSE	TRUE							
 Broken Bottle	Terrain	1	1	0.1	TRUE	0	0	TRUE	FALSE		1	Strike	TRUE	TRUE	FALSE	TRUE	FALSE		1	0	Lacerate	0	FALSE	FALSE							
+Stalagmite	Terrain	1	1	2	FALSE	0	0	FALSE	TRUE	Difficult	25	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		5	FALSE	TRUE	Rock Spike						
+Stalactite	Terrain	1	1	2	FALSE	0	0	FALSE	FALSE	Average	20	Strike	FALSE	TRUE	FALSE	FALSE	FALSE		0	0		5	FALSE	FALSE	Rock Spike						
+Column	Terrain	1	1	3	FALSE	0	0	FALSE	TRUE	Difficult	28	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		5	FALSE	TRUE	Rock Spike						
+Cave-In Rubble	Terrain	1	1	1	FALSE	0	0	FALSE	FALSE	Average	35	Strike, Acid	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE								Lacerate, Impale, Esoteric, Toxic
+Cot	Furniture	2	1	1	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Barrel	Furniture	1	1	1.5	FALSE	0	0	TRUE	TRUE	Easy	3	Strike, Lacerate	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere				Alley
+Bucket	Furniture	1	1	0.75	FALSE	0	0	TRUE	FALSE		1	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Corner		
+Weapon Rack	Furniture	2	1	2	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Torture Rack	Furniture	3	1	1.25	FALSE	0	0	FALSE	FALSE		5	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere		
+Brazier	Furniture	1	1	1.25	FALSE	0	0	TRUE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Corner		
+Altar	Furniture	2	1	1.25	FALSE	0	0	FALSE	FALSE		8	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Brick				Any Wall		
+Cage	Furniture	1	1	2	FALSE	0	0	FALSE	FALSE		12	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Corner		
+Iron Bar Door	Structure	1	0.25	2	FALSE	0	0	FALSE	FALSE		25	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE						TRUE	Open/Close
+Anvil	Furniture	1	1	1	FALSE	0	0	FALSE	FALSE		12	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					By Object		
+Forge	Furniture	2	2	2	FALSE	0	0	FALSE	FALSE		20	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Brick				Any Wall		
+Quench Trough	Furniture	2	1	1	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				By Object		
+Workbench	Furniture	3	1	1.5	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Table Leg, Wooden Plank				Any Wall		
+Tool Rack	Furniture	2	1	2	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Coal Bin	Furniture	1	1	1	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Corner		
+Armor Stand	Furniture	1	1	2	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Shop Counter	Furniture	3	1	1.5	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere		
+Display Shelf	Furniture	2	1	3	FALSE	0	0	TRUE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Display Case	Furniture	2	1	1.5	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Oven	Furniture	2	2	2	FALSE	0	0	FALSE	FALSE		20	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Brick				Any Wall		
+Sack	Furniture	1	1	0.75	FALSE	0	0	TRUE	FALSE		1	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Anywhere				Alley
+Basket	Furniture	1	1	0.5	FALSE	0	0	TRUE	FALSE		1	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Anywhere		
+Alchemy Bench	Furniture	3	1	1.5	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Table Leg, Broken Bottle				Any Wall		
+Herb Rack	Furniture	2	1	2	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Chopping Block	Furniture	1	1	1	FALSE	0	0	TRUE	TRUE	Easy	3	Strike, Lacerate	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere		
+Meat Rack	Furniture	2	1	2.5	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Lectern	Furniture	1	1	1.5	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere		
+Long Table	Furniture	4	2	1.5	FALSE	0	0	TRUE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Table Leg, Wooden Plank				Anywhere		
+Scroll Rack	Furniture	2	1	3	FALSE	0	0	TRUE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Notice Board	Furniture	2	1	2	FALSE	0	0	FALSE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall				Sidewalk
+Hearth	Furniture	2	1	2	FALSE	0	0	FALSE	FALSE		20	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Brick				Any Wall		
+Signal Bell	Furniture	1	1	2	FALSE	0	0	FALSE	FALSE		8	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Anywhere		
+Cradle	Furniture	1	1	1	FALSE	0	0	TRUE	FALSE		1	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				By Object		
+Wooden Tub	Furniture	2	2	1	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere		
+Awning Post	Furniture	1	1	3	TRUE	0	0	FALSE	TRUE	Difficult	5	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Corner					Cover
+Pew	Furniture	3	1	1	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Align Alike		
+Basin	Furniture	1	1	1.25	FALSE	0	0	FALSE	FALSE		8	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Brick				Anywhere		
+Sarcophagus	Furniture	3	1	1.25	FALSE	0	0	FALSE	FALSE		20	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Brick				Align Alike		
+Training Dummy	Furniture	1	1	2	FALSE	0	0	TRUE	FALSE		3	Strike, Lacerate	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere		
+Storage Rack	Furniture	3	1	3	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Hay Bale	Furniture	1	1	1	FALSE	0	0	TRUE	TRUE	Easy	2	Strike, Lacerate	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE					Anywhere		
+Water Trough	Furniture	2	1	1	FALSE	0	0	FALSE	FALSE		3	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Lumber Pile	Furniture	2	1	1	FALSE	0	0	FALSE	FALSE		5	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Any Wall		
+Sawhorse	Furniture	2	1	1	FALSE	0	0	TRUE	FALSE		2	Strike	FALSE	FALSE	FALSE	TRUE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere		
+Grass	Vegetation	1	1	0.25	TRUE	0	0	FALSE	FALSE		1	Lacerate	FALSE	TRUE	FALSE	FALSE	FALSE		0	0		40	FALSE	FALSE									Only
+Lamp Post	Structure	1	1	4	TRUE	0	0	FALSE	TRUE	Difficult	21	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE					Align Alike				Lamp, Only	Cover
+Trash Can	Structure	1	1	1	FALSE	0	0	TRUE	TRUE	Easy	3	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE					Anywhere				Alley, Only
+Cart	Structure	2	1	1.5	FALSE	0	0	TRUE	TRUE	Easy	12	Strike, Lacerate	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank				Anywhere				Sidewalk, Only
+City Statue	Structure	3	3	6	FALSE	0	0	FALSE	FALSE		31	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Rock				Anywhere				Square, Only
+Parapet	Structure	1	1	0.75	FALSE	0	0	FALSE	FALSE		8	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Rock								Only	
+Merlon	Structure	1	1	2	FALSE	0	0	FALSE	FALSE		31	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Rock								Only	
+Chimney	Structure	1	1	2	FALSE	0	0	FALSE	FALSE		31	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Rock								Only	
+Large Chimney	Structure	2	2	2	FALSE	0	0	FALSE	FALSE		31	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Rock								Only	
+Dormer	Structure	1	1	1.5	FALSE	0	0	FALSE	FALSE		8	Strike	FALSE	FALSE	FALSE	FALSE	FALSE		0	0		0	FALSE	TRUE	Wooden Plank								Only	

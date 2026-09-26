@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./fit-frame.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="./legal-data.js"></script>
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+input{font:inherit}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 2px 0 0 #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-button{display:none}
+::-webkit-scrollbar-button:horizontal:start:decrement{display:block;width:14px;background:#0a0f1c url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' shape-rendering='crispEdges'><rect x='3' y='5' width='2' height='2' fill='%23f28c28'/><rect x='5' y='3' width='2' height='6' fill='%23f28c28'/><rect x='7' y='1' width='2' height='10' fill='%23f28c28'/></svg>") center no-repeat;box-shadow:inset 0 2px 0 #1f3560}
+::-webkit-scrollbar-button:horizontal:end:increment{display:block;width:14px;background:#0a0f1c url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' shape-rendering='crispEdges'><rect x='7' y='5' width='2' height='2' fill='%23f28c28'/><rect x='5' y='3' width='2' height='6' fill='%23f28c28'/><rect x='3' y='1' width='2' height='10' fill='%23f28c28'/></svg>") center no-repeat;box-shadow:inset 0 2px 0 #1f3560}
+::-webkit-scrollbar-button:horizontal:hover{background-color:#15223d}
+::-webkit-scrollbar-track:horizontal{box-shadow:inset 0 2px 0 #1f3560}
+</style>
+</helmet>
+<div style="display:none" aria-hidden="true"><dc-import name="Tab Button" hint-size="0px,0px"></dc-import><dc-import name="Feature Lock" hint-size="0px,0px"></dc-import><dc-import name="Quantity Stepper" hint-size="0px,0px"></dc-import><dc-import name="Notification Dot" hint-size="0px,0px"></dc-import><dc-import name="Odd Job Crew" hint-size="0px,0px"></dc-import></div>
+<div style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Legal" style="position:relative;width:1280px;height:720px;flex:none;background:#101a30;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px);padding:20px;display:flex;flex-direction:column;box-shadow:0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000">
+
+    <div style="position:relative;height:44px;flex:none;display:flex;justify-content:space-between;align-items:flex-end;padding:0 4px">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">LegalTabs (TabButton.tscn ×3)</div></sc-if>
+      <div style="height:44px;display:flex;flex-direction:row-reverse;justify-content:flex-end;gap:8px">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+          <dc-import name="Tab Button" label="{{ t.label }}" title="{{ t.label }}" icon="{{ t.icon }}" active="{{ t.active }}" dot="{{ t.dot }}" pad-x="16px" on-click="{{ t.onClick }}" style="flex:{{ t.flex }};align-self:flex-end;position:relative;z-index:{{ t.z }}" hint-size="52px,38px"></dc-import>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="position:relative;flex:1;min-height:0;padding:16px;background:#1a2b4d;box-shadow:inset 4px 0 0 #28447a,inset -4px -4px 0 #111c33,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,0 -4px 0 #f28c28">
+
+      <sc-if value="{{ isPermits }}" hint-placeholder-val="{{ true }}">
+        <div style="height:100%;display:flex;flex-direction:column;gap:12px">
+          <div style="flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+              <span style="font:700 16px Silkscreen;color:#f28c28">Permits</span>
+              <span style="font-size:14px;color:#9cc6ef">Buy Operation permits to expand your guild into different locations</span>
+            </div>
+          </div>
+          <div ref="{{ scrollRef }}" onWheel="{{ onWheel }}" style="flex:1;min-height:0;display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;padding:4px 4px 10px">
+            <sc-for list="{{ locs }}" as="p" hint-placeholder-count="4">
+              <div style="position:relative;width:330px;flex:none;height:100%;display:flex;flex-direction:column;gap:9px;padding:14px;background:#0e1628;box-shadow:inset 0 0 0 2px {{ p.ring }}">
+                <sc-if value="{{ p.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">LocationCard.tscn</span></sc-if>
+                <div style="position:relative;align-self:center;width:84px;height:84px;flex:none;background:#15223d;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.06) 0 4px,transparent 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6">
+                  <sc-if value="{{ p.home }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:4px;left:4px;padding:1px 4px;background:#f28c28;color:#0a0f1c;font:400 8px Silkscreen">Home</span></sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+                  <span style="font:700 15px/1.2 Silkscreen;color:#f3ead7">{{ p.name }}</span>
+                  <span style="font-size:13px;line-height:1;color:#9cc6ef">{{ p.nation }}</span>
+                </div>
+                <div style="height:2px;flex:none;background:#1f3560"></div>
+                <div style="display:flex;flex-direction:column;gap:5px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline">
+                    <span style="font:400 9px Silkscreen;color:#f28c28;letter-spacing:1px">Average Difficulty</span>
+                    <span style="font:700 11px Silkscreen;color:{{ p.diffColor }}">{{ p.diff }}</span>
+                  </div>
+                  <div style="display:flex;gap:3px"><sc-for list="{{ p.stars }}" as="st" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:repeat(9,3px);grid-auto-rows:3px"><sc-for list="{{ st }}" as="c" hint-placeholder-count="81"><span style="background:{{ c }}"></span></sc-for></div></sc-for></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <span style="font:400 9px Silkscreen;color:#f28c28;letter-spacing:1px">Rules</span>
+                  <sc-for list="{{ p.rules }}" as="r" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.1;color:#f3ead7"><span style="flex:none;width:6px;height:6px;background:#9cc6ef"></span>{{ r }}</div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <span style="font:400 9px Silkscreen;color:#f28c28;letter-spacing:1px">Your Permissions</span>
+                  <sc-for list="{{ p.perms }}" as="pm" hint-placeholder-count="3">
+                    <div style="display:flex;gap:9px;align-items:flex-start">
+                      <sc-if value="{{ pm.open }}" hint-placeholder-val="{{ true }}"><div style="flex:none;margin-top:1px;display:grid;grid-template-columns:repeat(9,2px);grid-auto-rows:2px;padding:2px;background:#0a0f1c"><sc-for list="{{ pm.icon }}" as="c" hint-placeholder-count="81"><span style="background:{{ c }}"></span></sc-for></div></sc-if>
+                      <sc-if value="{{ pm.locked }}" hint-placeholder-val="{{ false }}"><span style="flex:none;width:22px;display:flex;justify-content:center"><dc-import name="Feature Lock" verb="use" feature="{{ pm.feature }}" plan="Mercday Enterprise" upgrade="{{ pm.upgrade }}" upgrade-id="{{ pm.upgradeId }}" tier="{{ pm.tier }}" tiers="{{ 3 }}" px="{{ 2 }}" hint-size="18px,20px"></dc-import></span></sc-if>
+                      <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+                        <span style="font:700 10px/1.2 Silkscreen;color:{{ pm.color }}">{{ pm.title }}</span>
+                        <span style="font-size:12px;line-height:1.15;color:#9cc6ef">{{ pm.desc }}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ p.request }}" style="position:relative;height:34px;flex:none;background:#f28c28;color:#0a0f1c;font:400 11px Silkscreen;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Request</button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isFines }}" hint-placeholder-val="{{ false }}">
+        <div style="height:100%;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <span style="font:700 16px Silkscreen;color:#f28c28">Fines</span>
+              <span style="font-size:14px;color:#9cc6ef">{{ fineSummary }}</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <sc-for list="{{ fineFilters }}" as="o" hint-placeholder-count="2">
+                <button onClick="{{ o.onClick }}" style="height:30px;padding:0 12px;font:400 10px Silkscreen;white-space:nowrap;color:{{ o.fg }};background:{{ o.bg }};box-shadow:inset 0 3px 0 {{ o.hi }},inset 0 -3px 0 {{ o.lo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.12)">{{ o.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 150px 140px 150px;gap:14px;padding:0 14px;font:400 9px Silkscreen;color:#5e7699">
+            <span>Location · Crime</span><span>Total Due</span><span>{{ fineDueHead }}</span><span></span>
+          </div>
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;overflow-x:hidden;padding:14px 8px 2px 14px">
+            <sc-if value="{{ noFines }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;color:#9cc6ef">{{ noFinesMsg }}</div>
+            </sc-if>
+            <sc-for list="{{ fines }}" as="f" hint-placeholder-count="4">
+              <div style="position:relative;flex:none;display:grid;grid-template-columns:minmax(0,1fr) 150px 140px 150px;gap:14px;align-items:center;min-height:60px;padding:10px 14px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+                <sc-if value="{{ f.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">FineRow.tscn</span></sc-if>
+                <sc-if value="{{ f.unread }}" hint-placeholder-val="{{ false }}"><dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-14px;left:-14px;z-index:8;pointer-events:none"></dc-import></sc-if>
+                <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+                  <span style="font:700 12px/1.2 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.loc }}</span>
+                  <span style="font-size:13px;line-height:1.1;color:#9cc6ef">{{ f.crime }}</span>
+                  <sc-if value="{{ f.pending }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:2px"><span style="font:400 9px Silkscreen;color:#9cc6ef;white-space:nowrap">Renegotiating</span><div style="width:140px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:2px;height:10px;padding:2px;background:#0a0f1c"><sc-for list="{{ f.cells }}" as="cl" hint-placeholder-count="12"><div style="background:{{ cl }}"></div></sc-for></div></div>
+                  </sc-if>
+                  <sc-if value="{{ f.hasNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:1.1;color:{{ f.noteColor }}">{{ f.note }}</span></sc-if>
+                </div>
+                <span style="display:flex;align-items:center;gap:4px;font:700 15px/1 Silkscreen;color:#f3ead7">{{ f.total }}<span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></span>
+                <span style="font:400 11px Silkscreen;color:{{ f.dueColor }}">{{ f.due }}</span>
+                <div style="display:flex;justify-content:flex-end">
+                  <button onClick="{{ f.review }}" style="height:32px;padding:0 20px;font:400 10px Silkscreen;white-space:nowrap;background:#2b4f8a;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Review</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isBail }}" hint-placeholder-val="{{ false }}">
+        <div style="height:100%;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font:700 16px Silkscreen;color:#f28c28">Bailout</span>
+            <span style="font-size:14px;color:#9cc6ef">{{ bailSummary }}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:56px minmax(0,1fr) 120px 130px 130px 150px;gap:14px;padding:0 14px;font:400 9px Silkscreen;color:#5e7699">
+            <span></span><span>Merc · Location · Crime</span><span>Time Served</span><span>Time Remaining</span><span>Bail Due</span><span></span>
+          </div>
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;overflow-x:hidden;padding:14px 8px 2px 14px">
+            <sc-if value="{{ noCaptured }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+                <span style="font:700 14px Silkscreen;color:#f3ead7">No mercs in custody</span>
+                <span style="font-size:14px;color:#9cc6ef">Mercs captured by the law appear here.</span>
+              </div>
+            </sc-if>
+            <sc-for list="{{ captured }}" as="c" hint-placeholder-count="3">
+              <div style="position:relative;flex:none;display:grid;grid-template-columns:56px minmax(0,1fr) 120px 130px 130px 150px;gap:14px;align-items:center;padding:10px 14px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+                <sc-if value="{{ c.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">CapturedRow.tscn</span></sc-if>
+                <sc-if value="{{ c.unread }}" hint-placeholder-val="{{ false }}"><dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-14px;left:-14px;z-index:8;pointer-events:none"></dc-import></sc-if>
+                <div style="position:relative;width:56px;height:56px;background:#15223d;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.06) 0 4px,transparent 4px 8px);box-shadow:inset 0 0 0 2px #1f3560;overflow:hidden">
+                  <div style="position:absolute;inset:0;display:flex;justify-content:space-evenly"><span style="width:4px;background:#5e6b82"></span><span style="width:4px;background:#5e6b82"></span><span style="width:4px;background:#5e6b82"></span><span style="width:4px;background:#5e6b82"></span></div>
+                </div>
+                <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+                  <span style="font:700 12px/1.2 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+                  <span style="font-size:13px;line-height:1.1;color:#9cc6ef">{{ c.loc }} · {{ c.crime }}</span>
+                  <sc-if value="{{ c.pending }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:2px"><span style="font:400 9px Silkscreen;color:#9cc6ef;white-space:nowrap">Break out underway</span><div style="width:120px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:2px;height:10px;padding:2px;background:#0a0f1c"><sc-for list="{{ c.cells }}" as="cl" hint-placeholder-count="12"><div style="background:{{ cl }}"></div></sc-for></div></div>
+                  </sc-if>
+                  <sc-if value="{{ c.hasNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:1.1;color:#e8583f">{{ c.note }}</span></sc-if>
+                </div>
+                <span style="font:400 11px Silkscreen;color:#f3ead7">{{ c.served }}</span>
+                <span style="font:400 11px Silkscreen;color:#f2b33d">{{ c.remaining }}</span>
+                <span style="display:flex;align-items:center;gap:4px;font:700 15px/1 Silkscreen;color:#f3ead7">{{ c.total }}<span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></span>
+                <div style="display:flex;justify-content:flex-end">
+                  <button onClick="{{ c.review }}" style="height:32px;padding:0 20px;font:400 10px Silkscreen;white-space:nowrap;background:#2b4f8a;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Review</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ dlgRequest }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:620px;max-height:640px;padding:20px 22px 22px;display:flex;flex-direction:column;gap:14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">PermitRequestDialog.tscn</div></sc-if>
+          <button onClick="{{ back }}" title="Close" style="visibility:{{ underX }};position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55">X</button>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font:400 11px Silkscreen;color:#9cc6ef;letter-spacing:1px">Request · {{ rq.nation }}</span>
+            <span style="font:700 18px Silkscreen;color:#f28c28">{{ rq.name }}</span>
+          </div>
+          <sc-for list="{{ rq.permits }}" as="pr" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:14px;padding:12px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                <span style="font:700 12px Silkscreen;color:#f3ead7">{{ pr.title }}</span>
+                <span style="font-size:13px;line-height:1.2;color:#9cc6ef">{{ pr.desc }}</span>
+                <sc-if value="{{ pr.hasNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:1.2;color:{{ pr.noteColor }}">{{ pr.note }}</span></sc-if>
+              </div>
+              <sc-if value="{{ pr.owned }}" hint-placeholder-val="{{ false }}"><span style="flex:none;font:400 10px Silkscreen;color:{{ pr.ownedColor }}">{{ pr.ownedLabel }}</span></sc-if>
+              <sc-if value="{{ pr.locked }}" hint-placeholder-val="{{ false }}">
+                <dc-import name="Feature Lock" label="{{ pr.lockLabel }}" height="36px" font-size="11px" verb="request" feature="{{ pr.feature }}" plan="Mercday Enterprise" upgrade="{{ pr.upgrade }}" upgrade-id="{{ pr.upgradeId }}" tier="{{ pr.tier }}" tiers="{{ 3 }}" px="{{ 2 }}" style="flex:none;display:block;width:150px" hint-size="150px,36px"></dc-import>
+              </sc-if>
+              <sc-if value="{{ pr.open }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:none;display:flex;align-items:center;gap:12px">
+                  <span style="display:flex;align-items:center;gap:4px;font:700 14px/1 Silkscreen;color:{{ pr.priceColor }}">{{ pr.price }}<span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></span>
+                  <button onClick="{{ pr.buy }}" title="{{ pr.reason }}" style="height:32px;padding:0 14px;background:#3f9a4a;color:#f3ead7;text-shadow:2px 2px 0 #0a0f1c;font:400 10px Silkscreen;opacity:{{ pr.opacity }};cursor:{{ pr.cursor }};box-shadow:inset 0 3px 0 #6cc36a,inset 0 -3px 0 #2a6b32,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Request</button>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="display:flex;flex-direction:column;gap:8px;min-height:0">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px;white-space:nowrap">Good Standing</span>
+              <span style="font:400 10px Silkscreen;color:{{ rq.standColor }}">{{ rq.standLabel }}</span>
+            </div>
+            <sc-if value="{{ rq.clean }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#9cc6ef">No fines or captured mercs in this location.</span></sc-if>
+            <div style="min-height:0;max-height:220px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;overflow-x:hidden;padding:14px 6px 2px 14px">
+              <sc-for list="{{ rq.violations }}" as="v" hint-placeholder-count="2">
+                <div style="position:relative;flex:none;display:flex;align-items:center;gap:12px;padding:10px 12px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+                  <sc-if value="{{ v.unread }}" hint-placeholder-val="{{ false }}"><dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-14px;left:-14px;z-index:8;pointer-events:none"></dc-import></sc-if>
+                  <span style="flex:none;width:64px;padding:2px 0;text-align:center;font:400 8px Silkscreen;color:#0a0f1c;background:{{ v.kindColor }}">{{ v.kind }}</span>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                    <span style="font:700 11px Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.title }}</span>
+                    <span style="font-size:12px;color:#9cc6ef">{{ v.sub }}</span>
+                  </div>
+                  <button onClick="{{ v.review }}" style="flex:none;height:30px;padding:0 16px;font:400 10px Silkscreen;background:#2b4f8a;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Review</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ dlgReview }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:62;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:680px;padding:20px 22px 22px;display:flex;flex-direction:column;gap:12px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #e8583f,0 4px 0 #e8583f,-4px 0 0 #e8583f,4px 0 0 #e8583f,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">{{ rv.scene }}</div></sc-if>
+          <button onClick="{{ back }}" title="Close" style="visibility:{{ underX }};position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55">X</button>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font:400 11px Silkscreen;color:#9cc6ef;letter-spacing:1px">{{ rv.kicker }}</span>
+            <span style="font:700 18px Silkscreen;color:#f28c28">{{ rv.title }}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:12px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;align-items:center;gap:12px;padding:6px 10px;background:#0a0f1c">
+                <span style="flex:none;font:400 9px Silkscreen;color:#9cc6ef">{{ rv.crewLabel }}</span>
+                <div style="flex:1;display:flex;justify-content:flex-end;gap:4px">
+                  <sc-for list="{{ rv.crew }}" as="m" hint-placeholder-count="2">
+                    <div onMouseEnter="{{ m.onEnter }}" onMouseLeave="{{ m.onLeave }}" style="position:relative;width:46px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:default" style-hover="filter:brightness(1.2)">
+                      <span style="width:100%;height:12px;display:flex;align-items:center;justify-content:center;background:{{ m.roleBg }};color:{{ m.roleFg }};font:400 7px Silkscreen;white-space:nowrap;overflow:hidden">{{ m.role }}</span>
+                      <div style="width:34px;height:34px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px {{ m.ring }}"></div>
+                      <sc-if value="{{ m.tip }}" hint-placeholder-val="{{ false }}">
+                        <div style="position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:220px;padding:12px;display:flex;flex-direction:column;gap:8px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                          <div style="display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:8px;align-items:start">
+                            <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                              <span style="font:700 12px Silkscreen;color:#f28c28;line-height:1.2">{{ m.name }}</span>
+                              <div style="display:flex;align-items:center;gap:6px">
+                                <div style="flex:none;width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 1px {{ m.tradColor }}"><div style="display:grid;grid-template-columns:repeat(12,1px);grid-auto-rows:1px"><sc-for list="{{ m.sigil }}" as="px" hint-placeholder-count="144"><div style="background:{{ px }}"></div></sc-for></div></div>
+                                <span style="font-size:13px;color:{{ m.tradColor }}">{{ m.trad }}</span>
+                              </div>
+                            </div>
+                            <div style="width:36px;height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+                              <span style="font:400 7px Silkscreen">LVL</span>
+                              <span style="font:700 14px Silkscreen;line-height:1">{{ m.level }}</span>
+                            </div>
+                          </div>
+                          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:#0e1628">
+                            <span style="font:400 8px Silkscreen;color:#9cc6ef">Contract Match</span>
+                            <div style="display:flex;gap:2px"><sc-for list="{{ m.stars }}" as="s" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:repeat(9,2px);grid-auto-rows:2px"><sc-for list="{{ s }}" as="px" hint-placeholder-count="81"><div style="background:{{ px }}"></div></sc-for></div></sc-for></div>
+                          </div>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <sc-for list="{{ rv.facts }}" as="fa" hint-placeholder-count="5">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 10px;background:#0a0f1c">
+                  <span style="flex:none;font:400 9px Silkscreen;color:#9cc6ef">{{ fa.label }}</span>
+                  <span style="min-width:0;text-align:right;font-size:14px;line-height:1.2;color:{{ fa.color }}">{{ fa.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font:400 9px Silkscreen;color:#f28c28;letter-spacing:1px">Contract</span>
+              <div style="display:flex;flex-direction:column;gap:6px;padding:10px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+                <span style="font:700 11px Silkscreen;color:#f3ead7">{{ rv.contract.name }}</span>
+                <div style="display:flex;gap:2px"><sc-for list="{{ rv.contract.stars }}" as="st" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:repeat(9,2px);grid-auto-rows:2px"><sc-for list="{{ st }}" as="c" hint-placeholder-count="81"><span style="background:{{ c }}"></span></sc-for></div></sc-for></div>
+                <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:#9cc6ef">Reward {{ rv.contract.reward }}<span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></span>
+                <button onClick="{{ rv.openContract }}" style="align-self:flex-start;padding:2px 0;font:400 10px Silkscreen;color:#f28c28;text-decoration:underline;text-underline-offset:3px" style-hover="color:#ffb266">View Contract</button>
+              </div>
+              <span style="font:400 9px Silkscreen;color:#f28c28;letter-spacing:1px">Relationship</span>
+              <sc-if value="{{ rv.relOpen }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:2px;padding:10px 8px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+                  <sc-for list="{{ rv.faces }}" as="fc" hint-placeholder-count="11">
+                    <div style="display:grid;grid-template-columns:repeat(9,2px);grid-auto-rows:2px"><sc-for list="{{ fc }}" as="c" hint-placeholder-count="81"><div style="background:{{ c }}"></div></sc-for></div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ rv.relLocked }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;justify-content:center;padding:8px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560"><dc-import name="Feature Lock" verb="view" feature="Location relationships" plan="Mercday Enterprise" upgrade="Customer Satisfaction" upgrade-id="customer" tier="{{ 1 }}" tiers="{{ 1 }}" px="{{ 1 }}" hint-size="12px,12px"></dc-import></div>
+              </sc-if>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:#0e1628">
+            <sc-for list="{{ rv.money }}" as="mr" hint-placeholder-count="3">
+              <div style="min-height:20px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+                <span style="font-size:{{ mr.size }};line-height:1.3;color:{{ mr.lc }};white-space:nowrap">{{ mr.label }}</span>
+                <span style="display:flex;align-items:center;gap:4px;font:700 {{ mr.size }} Silkscreen;color:{{ mr.color }}">{{ mr.value }}<span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="px" hint-placeholder-count="63"><span style="background:{{ px }}"></span></sc-for></span></span>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ rv.pending }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#0a0f1c"><span style="font:400 10px Silkscreen;color:#9cc6ef;white-space:nowrap">{{ rv.pendingLabel }}</span><div style="flex:1;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:2px;height:10px;padding:2px;background:#15223d"><sc-for list="{{ rv.cells }}" as="cl" hint-placeholder-count="12"><div style="background:{{ cl }}"></div></sc-for></div></div>
+          </sc-if>
+          <sc-if value="{{ rv.actions }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <sc-if value="{{ oj.open }}" hint-placeholder-val="{{ true }}"><button onClick="{{ rv.odd }}" style="height:40px;font:400 11px Silkscreen;background:#2b4f8a;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">{{ rv.oddLabel }}</button></sc-if>
+              <sc-if value="{{ oj.locked }}" hint-placeholder-val="{{ false }}"><dc-import name="Feature Lock" label="{{ rv.oddLabel }}" height="40px" font-size="11px" verb="use" feature="Odd Jobs" plan="Mercday Enterprise" upgrade="Odd Jobs" upgrade-id="oddjobs" tier="{{ 1 }}" tiers="{{ 3 }}" px="{{ 2 }}" style="display:block;width:100%" hint-size="100%,40px"></dc-import></sc-if>
+              <button onClick="{{ rv.pay }}" title="{{ rv.payReason }}" style="height:40px;font:400 11px Silkscreen;color:#f3ead7;text-shadow:2px 2px 0 #0a0f1c;opacity:{{ rv.payOpacity }};cursor:{{ rv.payCursor }};background:#3f9a4a;box-shadow:inset 0 3px 0 #6cc36a,inset 0 -3px 0 #2a6b32,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">{{ rv.payLabel }}</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ rv.isPaid }}" hint-placeholder-val="{{ false }}"><span style="font:400 11px Silkscreen;color:#6cc36a;text-align:center">{{ rv.paidLabel }}</span></sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ cfOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:{{ cf.w }};padding:20px 22px 22px;display:flex;flex-direction:column;gap:14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ConfirmDialog.tscn</div></sc-if>
+          <button onClick="{{ cf.no }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 44px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c" style-hover="color:#ff6a55">X</button>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <sc-if value="{{ cf.hasKicker }}" hint-placeholder-val="{{ false }}"><span style="font:400 10px Silkscreen;color:#9cc6ef;letter-spacing:1px">{{ cf.kicker }}</span></sc-if>
+            <span style="font:700 18px Silkscreen;color:#f28c28">{{ cf.title }}</span>
+          </div>
+          <sc-if value="{{ cf.plain }}" hint-placeholder-val="{{ true }}"><span style="font-size:15px;line-height:1.4;color:#f3ead7;text-wrap:pretty">{{ cf.body }}</span></sc-if>
+          <sc-if value="{{ cf.rich }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:center;gap:12px;padding:8px 10px;background:#0a0f1c">
+                <span style="flex:none;font:400 9px Silkscreen;color:#9cc6ef;white-space:nowrap">{{ cf.crewLabel }}</span>
+                <div style="flex:1;display:flex;justify-content:flex-end;gap:6px">
+                  <sc-for list="{{ cf.crew }}" as="m" hint-placeholder-count="2">
+                    <div title="{{ m.name }}" style="width:46px;display:flex;flex-direction:column;align-items:center;gap:2px">
+                      <span style="width:100%;height:12px;display:flex;align-items:center;justify-content:center;background:{{ m.roleBg }};color:{{ m.roleFg }};font:400 7px Silkscreen;white-space:nowrap;overflow:hidden">{{ m.role }}</span>
+                      <div style="width:34px;height:34px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px {{ m.ring }}"></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:#0e1628">
+                <sc-for list="{{ cf.money }}" as="mr" hint-placeholder-count="3">
+                  <div style="min-height:20px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+                    <span style="font-size:{{ mr.size }};line-height:1.3;color:{{ mr.lc }};white-space:nowrap">{{ mr.label }}</span>
+                    <span style="display:flex;align-items:center;gap:4px;font:700 {{ mr.size }} Silkscreen;color:{{ mr.color }}">{{ mr.value }}<span style="display:inline-grid;grid-template-columns:repeat(7,1px);grid-auto-rows:1px"><sc-for list="{{ nGlyph }}" as="gp" hint-placeholder-count="63"><span style="background:{{ gp }}"></span></sc-for></span></span>
+                  </div>
+                </sc-for>
+              </div>
+                            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0e1628;box-shadow:inset 0 0 0 2px #3f8a3e">
+                <div style="flex:none;display:grid;grid-template-columns:repeat(9,2px);grid-auto-rows:2px"><sc-for list="{{ cf.check }}" as="px" hint-placeholder-count="81"><div style="background:{{ px }}"></div></sc-for></div>
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7;text-wrap:pretty">{{ cf.outcome }}</span>
+              </div>
+            </div>
+          </sc-if>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <button onClick="{{ cf.no }}" style="height:40px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Cancel</button>
+            <button onClick="{{ cf.yes }}" style="height:40px;display:flex;align-items:center;justify-content:center;gap:6px;color:#0a0f1c;background:#6cc36a;font:700 12px Silkscreen;box-shadow:inset 0 3px 0 #9be29a,inset 0 -3px 0 #3f8a3e,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">{{ cf.cta }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ dlgOdd }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:64;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:1000px;padding:18px 22px 20px;display:flex;flex-direction:column;gap:14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">OddJobWindow.tscn › OddJobCrew.tscn</div></sc-if>
+          <button onClick="{{ back }}" title="Close" style="visibility:{{ underX }};position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 48px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55">X</button>
+          <span style="font:700 18px Silkscreen;color:#f28c28">{{ od.title }}</span>
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:0 3px">
+            <sc-for list="{{ od.facts }}" as="fa" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;background:#15223d">
+                <span style="font:400 9px Silkscreen;color:#9cc6ef">{{ fa.label }}</span>
+                <span style="font:700 12px Silkscreen;color:{{ fa.color }};white-space:nowrap">{{ fa.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <dc-import name="Odd Job Crew" max="{{ od.max }}" team="{{ od.team }}" candidates="{{ od.cands }}" per="{{ od.per }}" def-pay="{{ od.defPay }}" money="{{ od.money }}" tip-kind="Odd Job" tip-text="{{ od.tipText }}" pick-desc="{{ od.pickDesc }}" on-team="{{ od.onTeam }}" on-per="{{ od.onPer }}" hint-size="100%,130px"></dc-import>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px">Success Odds</span><span style="font:700 20px/1 Silkscreen;color:{{ od.oddsColor }}">{{ od.odds }}</span></div>
+            <div style="display:flex;gap:2px;height:16px;padding:2px;background:#0a0f1c"><sc-for list="{{ od.cells }}" as="oc" hint-placeholder-count="20"><div style="flex:1;background:{{ oc }}"></div></sc-for></div>
+            <sc-if value="{{ od.hasBoost }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#6cc36a">{{ od.boost }}</span></sc-if>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <button onClick="{{ back }}" style="height:42px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Cancel</button>
+            <button onClick="{{ od.send }}" title="{{ od.reason }}" style="height:42px;opacity:{{ od.opacity }};filter:{{ od.filter }};cursor:{{ od.cursor }};background:#6cc36a;color:#0a0f1c;font:700 13px Silkscreen;box-shadow:inset 0 3px 0 #9be29a,inset 0 -3px 0 #3f8a3e,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">{{ od.cta }}</button>
+          </div>
+          <span style="margin-top:-4px;font-size:13px;color:#9cc6ef;text-align:center">{{ od.outcome }}</span>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <span style="font:700 18px Silkscreen;color:#f28c28">Scene map</span>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+              <span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span>
+              <span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span>
+            </div>
+            <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+            <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7">
+              <sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;permits&quot;,&quot;fines&quot;,&quot;bail&quot;],&quot;default&quot;:&quot;permits&quot;,&quot;tsType&quot;:&quot;'permits' | 'fines' | 'bail'&quot;},&quot;demoOddJobs&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:2,&quot;min&quot;:0,&quot;max&quot;:3,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Standalone preview&quot;},&quot;demoPermits&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:3,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Standalone preview&quot;},&quot;demoTeleport&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:3,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Standalone preview&quot;},&quot;demoCounsel&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:5,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Standalone preview&quot;},&quot;demoRelationship&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Standalone preview&quot;},&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;}}">
+class Component extends DCLogic {
+  state = { tab: null, fFilter: 'open', stack: [], pick: [], per: null };
+  scrollRef = React.createRef();
+  noteMap = ['...#...', '...#...', '.#.##..', '.###.#.', '.#.#.#.', '.#.#.#.', '.#.#.#.', '.#.#.#.', '...#...'];
+  checkMap = ['.........', '.......##', '......##.', '.....##..', '##..##...', '.####....', '..##.....', '.........', '.........'];
+  xMap = ['.........', '.##...##.', '..##.##..', '...###...', '...###...', '..##.##..', '.##...##.', '.........', '.........'];
+  bangMap = ['....#....', '....#....', '....#....', '....#....', '....#....', '.........', '....#....', '.........', '.........'];
+  starMap = ['....#....', '...###...', '...###...', '#########', '.#######.', '..#####..', '..#####..', '.###.###.', '.##...##.'];
+  diffColors = { 0.5: '#3fae5a', 1: '#6cc36a', 1.5: '#64b98c', 2: '#5fb0b8', 2.5: '#5aa6e8', 3: '#f2b33d', 3.5: '#f2a033', 4: '#f28c28', 4.5: '#ec6a36', 5: '#e8583f' };
+  tabIcons = {
+    permits: ['............', '.########...', '.#wwwwww#...', '.#w####w#...', '.#wwwwww#...', '.#w###ww#...', '.#wwwwww#...', '.#w##wooo...', '.#wwwooooo..', '.#####ooo...', '.......o.o..', '............'],
+    fines: ['............', '...######...', '..#wwwwww#..', '.#www##www#.', '.#www##www#.', '.#www##www#.', '.#www##www#.', '.#wwwwwwww#.', '.#www##www#.', '..#wwwwww#..', '...######...', '............'],
+    bail: ['............', 'oooooooooooo', '.w..w..w..w.', '.w..w..w..w.', '.w..w..w..w.', 'oooooooooooo', '.w..w..w..w.', '.w..w..w..w.', '.w..w..w..w.', '.w..w..w..w.', 'oooooooooooo', '............'],
+  };
+  // PLACEHOLDER locations. scope: tier of Operations/Teleportation Permits needed (1 most nations, 2 all nations, 3 other Domains).
+  locDefs = [['Location 1', 'Nation 1', 1, 0, 300, 1.5, 2], ['Location 2', 'Nation 1', 1, 400, 250, 2, 1], ['Location 3', 'Nation 2', 1, 650, 400, 2.5, 3], ['Location 4', 'Nation 2', 1, 900, 550, 3, -1], ['Location 5', 'Nation 3', 1, 1200, 700, 3, 0],
+    ['Location 6', 'Nation 4 · Restricted', 2, 1500, 900, 3.5, -3], ['Location 7', 'Nation 5 · Restricted', 2, 2000, 1200, 4, 1], ['Location 8', 'Domain 2 · Nation 6', 3, 2600, 1600, 4.5, 0], ['Location 9', 'Domain 2 · Nation 7', 3, 3400, 2000, 5, -1]];
+  // Location opinion of the guild: −5…+5 on the standard 11-face meter (same as Client Viewer › Relationship).
+  contractInfo = { 11: { name: 'Contract 12 Name', diff: 2, reward: 300 }, 12: { name: 'Contract 13 Name', diff: 1.5, reward: 260 }, 13: { name: 'Contract 14 Name', diff: 4, reward: 1900 } };
+  counselPct = [0, 5, 7, 9, 13, 15];
+  jobDays = 12; lateRate = 0.02; custodyFee = 5; // PLACEHOLDER: late fee 2% of base per overdue day; custody fee 5 notes per day served
+  sceneMap = [
+    { name: 'LegalViewer.tscn', uses: 'root (HUD › My Legal)', root: 'VBox › LegalTabs + Panel(PermitsPage | FinesPage | BailoutPage) + dialog stack', vars: ['@export var start_tab: Tab  # PERMITS, FINES, BAILOUT', '# tab dot = any unread fine / capture'] },
+    { name: 'LegalManager (autoload)', uses: 'data', root: 'Node', vars: ['var permits: Dictionary  # loc_id → {ops, tele} (kept even if upgrade lapses)', 'var fines: Array[FineData]  # loc, crime, mercs, contract, issued, due, amount, unread', 'var captured: Array[CaptureData]  # merc, loc, crime, contract, since, sentence, bail, unread', 'func late_fee(f) / custody_fee(c) -> int', 'signal odd_job_resolved(target, success)'] },
+    { name: 'LocationCard.tscn', uses: 'x N (HScroll, ~3.5 visible)', root: 'PanelContainer(330w) › VBox(Icon, Name, Difficulty PixelSlider, Rules, Permissions ×3, Request)', vars: ['@export var location: LocationData', '# permission states: ACTIVE ✓ · OWNED_INACTIVE ! · NONE ✗', 'signal request_pressed'] },
+    { name: 'PermitRequestDialog.tscn', uses: 'x1 (modal)', root: 'Panel › PermitRow ×2 + GoodStanding(ViolationRow ×N › Review)', vars: ['# PermitRow locked (FeatureLock) if opsPermits/teleport tier < location.scope', 'signal permit_requested(loc, kind)'] },
+    { name: 'FineRow / CapturedRow.tscn', uses: 'x N', root: 'PanelContainer › HBox(…, Review)', vars: ['@export var data: FineData | CaptureData', '# NotificationDot while unread; Review marks read'] },
+    { name: 'ReviewDialog.tscn', uses: 'x1 (modal)', root: 'Panel › Facts + ContractModule(link) + Relationship + Money + [Odd Job | Pay]', vars: ['@export var target: FineData | CaptureData', '# Relationship locked unless entitlements.clientOpinion', 'signal paid / odd_job_pressed'] },
+  ];
+  store() { const w = window.__mercStore; if (w) return w; if (!this.local) { const self = this; this.local = { money: 1000, active: {}, emit() { self.forceUpdate(); } }; } return this.local; }
+  lg() { const st = this.store(); if (!st.legal && window.mercLegalSeed) st.legal = window.mercLegalSeed(); return st.legal || { today: 540, permits: {}, fines: [], captured: [], jobs: {} }; }
+  ents() { const st = this.store(), p = this.props;
+    if (st.entitlements) { const e = st.entitlements(); return { odd: e.oddJobs || 0, ops: e.opsPermits || 0, tele: e.teleport || 0, counsel: e.counsel || 0, rel: !!e.clientOpinion }; }
+    return { odd: p.demoOddJobs ?? 2, ops: p.demoPermits ?? 1, tele: p.demoTeleport ?? 1, counsel: p.demoCounsel ?? 0, rel: p.demoRelationship ?? true }; }
+  // ConfirmDialog.tscn: every notes-spending action in Legal asks first.
+  ask(title, body, cta, yes, rich) { this.setState({ confirm: { title, body, cta, yes, rich } }); } // rich: { kicker, crewLabel, crew, money, from, to, outcome } → summary layout
+  commit() { const st = this.store(); if (st.emit) st.emit(); this.forceUpdate(); }
+  n(v) { return Math.round(v).toLocaleString('en-US'); }
+  day(d) { return 'Day ' + (d % 30 + 1) + ', Month ' + (Math.floor(d / 30) % 12 + 1); }
+  days(k) { return k + (k === 1 ? ' day' : ' days'); }
+  mname(id) { return 'FirstName' + (id + 1) + ' LastName' + (id + 1); }
+  guildDefs() { const B = '#f#fff#f#', N = '#fffffff#', E = '#ff#f#ff#';
+    return [[-5, '#e8583f', [B, '#f##f##f#', '#f#####f#', '#f#fff#f#']], [-4, '#ec6a36', [B, E, '#ff###ff#', '#f#fff#f#']], [-3, '#ef7c2f', [N, E, '#ff###ff#', '#f#fff#f#']], [-2, '#f28c28', [N, E, '#fff#fff#', '#ff#f#ff#']], [-1, '#f2a033', [N, E, '#fff##ff#', '#ff#ffff#']],
+      [0, '#f2b33d', [N, E, '#ff###ff#', N]], [1, '#5aa6e8', [N, E, '#ffff#ff#', '#ff##fff#']], [2, '#5fb0b8', [N, E, '#ff#f#ff#', '#fff#fff#']], [3, '#64b98c', [N, E, '#f#fff#f#', '#ff###ff#']], [4, '#6cc36a', [N, E, '#f#####f#', '#ff###ff#']], [5, '#3fae5a', ['#ff#f#ff#', '#f#fff#f#', '#f#####f#', '#ff###ff#']]]; }
+  faceCells(rows, color, on) { const ink = on ? '#0a0f1c' : '#2b4f8a', fill = on ? color : 'transparent';
+    return ['..#####..', '.#fffff#.', rows[0], rows[1], '#fffffff#', rows[2], rows[3], '.#fffff#.', '..#####..'].join('').split('').map(ch => ch === '#' ? ink : ch === 'f' ? fill : 'transparent'); }
+  // Mirrors Contract Viewer (MercData.level / tradition) for the crew modules.
+  levels = [7, 12, 3, 9, 15, 5, 11, 2, 8, 4];
+  traditions = [['Brave', '#5aa6e8'], ['Chymist', '#6cc36a'], ['Divine', '#f2d33d'], ['Hellion', '#a36ce8'], ['Honorable', '#f28c28'], ['Mage', '#a8385a'], ['Mystech', '#3fc9c0'], ['Performer', '#f07ab8'], ['Sorcerer', '#e8583f'], ['Warrior', '#a0a8b8']];
+  swordMap() { const g = Array.from({ length: 12 }, () => Array(12).fill('.'));
+    for (let r = 0; r <= 6; r++) { g[r][11 - r] = 'b'; if (r > 0) g[r][12 - r] = 'b'; }
+    [[5, 2], [6, 3], [7, 4], [8, 5], [9, 6], [10, 0], [11, 0], [11, 1]].forEach(([r, c]) => g[r][c] = 'b');
+    [[8, 3], [9, 2], [10, 1]].forEach(([r, c]) => g[r][c] = 'g'); return g.flat(); }
+  stars(v) { const col = this.diffColors[v] || '#f28c28'; return [0, 1, 2, 3, 4].map(k => { const full = v >= k + 1, half = !full && v >= k + 0.5; return this.starMap.join('').split('').map((ch, j) => ch !== '#' ? 'transparent' : (full || (half && j % 9 <= 4)) ? col : '#1f3560'); }); }
+  cells(map, col) { return map.join('').split('').map(ch => ch === '#' ? col : 'transparent'); }
+  lateFee(f, today) { return Math.max(0, today - f.due) * Math.ceil(f.amount * this.lateRate); }
+  custody(c, today) { return Math.max(0, today - c.since) * this.custodyFee; }
+  busyMercs() { const st = this.store(), L = this.lg(), s = new Set();
+    Object.values(st.active || {}).forEach(r => (r.team || []).forEach(t => s.add(t.id)));
+    L.captured.forEach(c => s.add(c.merc)); Object.values(L.jobs).forEach(j => j.team.forEach(i => s.add(i))); return s; }
+  push(d) { this.setState(s => ({ stack: [...s.stack, d], pick: d.kind === 'odd' ? [] : s.pick, per: d.kind === 'odd' ? null : s.per })); }
+  componentDidMount() { this.onStore = () => this.forceUpdate(); if (window.__mercStore && window.__mercStore.subs) window.__mercStore.subs.add(this.onStore);
+    if (!window.mercLegalSeed) this.seedWait = setInterval(() => { if (window.mercLegalSeed) { clearInterval(this.seedWait); this.forceUpdate(); } }, 100);
+    // Demo clock: one game day per second for running Odd Jobs (LegalManager resolves on GameClock.day_passed).
+    this.iv = setInterval(() => { const L = this.lg(); if (!Object.keys(L.jobs).length) return;
+      Object.entries(L.jobs).forEach(([key, j]) => { j.el += 1; if (j.el < this.jobDays) return; delete L.jobs[key];
+        const win = Math.random() * 100 < j.odds, [kind, id] = key.split(':'), idn = +id;
+        if (kind === 'fine') { const f = L.fines.find(x => x.id === idn); if (f) { f.was = f.amount; f.amount = Math.round(f.amount * (win ? 0.5 : 1.25)); f.note = win ? 'Renegotiated: fine cut in half.' : 'Renegotiation failed: fine raised 25%.'; f.win = win; f.unread = true; } }
+        else { const c = L.captured.find(x => x.id === idn); if (c) { if (win) L.captured = L.captured.filter(x => x.id !== idn); else { c.bail = Math.round(c.bail * 1.5); c.note = 'Break out failed: bail raised 50%.'; c.unread = true; } } } });
+      this.commit(); }, 1000); }
+  componentWillUnmount() { clearInterval(this.iv); clearInterval(this.seedWait); if (window.__mercStore && window.__mercStore.subs) window.__mercStore.subs.delete(this.onStore); }
+  renderVals() {
+    const s = this.state, show = this.props.showScenes ?? false, st = this.store(), L = this.lg(), E = this.ents(), money = st.money ?? 0, T = L.today;
+    const tab = s.tab ?? this.props.startTab ?? 'permits', glyph = this.noteMap.join('').split('').map(ch => ch === '#' ? 'currentColor' : 'transparent');
+    const open = L.fines.filter(f => !f.paid), paid = L.fines.filter(f => f.paid);
+    const top = s.stack[s.stack.length - 1], back = () => this.setState(p => ({ stack: p.stack.slice(0, -1) }));
+    const fineTotal = f => f.amount + this.lateFee(f, T), bailTotal = c => c.bail + this.custody(c, T);
+    const jobCells = el => Array.from({ length: 12 }, (_, j) => j < Math.round(el / this.jobDays * 12) ? '#9cc6ef' : '#1f3560');
+    const review = (kind, id) => { const it = (kind === 'fine' ? L.fines : L.captured).find(x => x.id === id); if (it && it.unread) { it.unread = false; this.commit(); } this.push({ kind: 'review', target: kind, id }); };
+    const violations = li => [...open.filter(f => f.loc === li).map(f => ({ kind: 'fine', it: f })), ...L.captured.filter(c => c.loc === li).map(c => ({ kind: 'bail', it: c }))];
+    const permState = (owned, tier, need, isHome) => owned ? ((isHome || tier >= need) ? 'on' : 'idle') : 'off';
+    const locs = this.locDefs.map(([nm, nat, scope, opsCost, teleCost, diff, rel], i) => { const P = L.permits[i] || {}, home = i === 0, vio = violations(i);
+      const ops = permState(P.ops, E.ops, scope, home), tele = permState(P.tele, E.tele, scope, false);
+      return { i, nm, nat, scope, opsCost, teleCost, diff, rel, P, home, vio, ops, tele }; });
+    // Locked (same Feature Lock as every other gated item) when the Customize tier for this location's scope isn't owned — even if the permit itself is kept on file.
+    const scopeTxt = n => n === 1 ? 'most nations' : n === 2 ? 'all nations' : 'other Domains';
+    const permRow = (state, title, desc, need, upg, upgId, ent, isHome) => { const locked = !!upg && !isHome && ent < need;
+      return { title, desc, locked, open: !locked, feature: title + 's in ' + scopeTxt(need), upgrade: upg, upgradeId: upgId, tier: need,
+        color: locked ? '#8a97ad' : state === 'on' ? '#6cc36a' : '#f3ead7', icon: state === 'on' ? this.cells(this.checkMap, '#6cc36a') : this.cells(this.xMap, '#e8583f') }; };
+    // Request dialog
+    let rq = { permits: [], violations: [] };
+    if (top && top.kind === 'request') { const Lc = locs[top.loc], mk = (key, title, desc, cost, entTier, upg, upgId) => { const owned = !!Lc.P[key] || (key === 'ops' && Lc.home), need = Lc.scope, gated = !(key === 'ops' && Lc.home) && entTier < need, locked = gated, ok = money >= cost;
+        return { title, desc, lockLabel: owned ? 'Owned' : 'Request', owned: owned && !gated, ownedLabel: owned ? (Lc.home && key === 'ops' ? 'Home' : (entTier >= need || (Lc.home && key === 'ops')) ? 'Active' : 'Owned · Inactive') : '', ownedColor: (entTier >= need || (Lc.home && key === 'ops')) ? '#6cc36a' : '#f2d33d',
+          hasNote: owned && gated, note: 'Permit kept on file. Usable again once the upgrade is restored.', noteColor: '#9cc6ef',
+          locked, open: !owned && !gated, feature: title + 's in ' + (need === 1 ? 'most nations' : need === 2 ? 'all nations' : 'other Domains'), upgrade: upg, upgradeId: upgId, tier: need,
+          price: this.n(cost), priceColor: ok ? '#f3ead7' : '#e8583f', opacity: ok ? 1 : 0.4, cursor: ok ? 'pointer' : 'not-allowed', reason: ok ? '' : 'Not enough notes',
+          buy: () => { if (!ok) return; this.ask('Request ' + title + '?', 'Pay ' + this.n(cost) + ' notes for the ' + title + ' in ' + Lc.nm + '. Permits are kept forever.', 'Request', () => { st.money = money - cost; L.permits = { ...L.permits, [Lc.i]: { ...Lc.P, [key]: true } }; this.commit(); }); } }; };
+      rq = { name: Lc.nm, nation: Lc.nat,
+        permits: [mk('ops', 'Operations Permit', 'Grants the right to conduct business in this location.', Lc.opsCost, E.ops, 'Operations Permits', 'opspermit'), mk('tele', 'Teleportation Permit', 'Grants the right to use a teleportation circle to venture to/from this location.', Lc.teleCost, E.tele, 'Teleportation Permit', 'teleport')],
+        clean: Lc.vio.length === 0, standLabel: Lc.vio.length ? this.days(Lc.vio.length).replace('day', 'violation') : 'In Good Standing', standColor: Lc.vio.length ? '#e8583f' : '#6cc36a',
+        violations: Lc.vio.map(v => v.kind === 'fine' ? { kind: 'Fine', kindColor: '#f2b33d', unread: !!v.it.unread, title: v.it.crime, sub: this.n(fineTotal(v.it)) + ' notes · ' + (T > v.it.due ? this.days(T - v.it.due) + ' past due' : 'Due ' + this.day(v.it.due)), review: () => review('fine', v.it.id) }
+          : { kind: 'Captured', kindColor: '#e8583f', unread: !!v.it.unread, title: this.mname(v.it.merc), sub: v.it.crime + ' · ' + this.days(Math.max(0, v.it.sentence - (T - v.it.since))) + ' remaining', review: () => review('bail', v.it.id) }) }; }
+    // Review dialog
+    let rv = { facts: [], money: [], contract: { stars: [] }, cells: [] };
+    if (top && top.kind === 'review') { const isF = top.target === 'fine', it = (isF ? L.fines : L.captured).find(x => x.id === top.id);
+      if (!it) { rv = { facts: [], money: [], contract: { stars: [] }, cells: [], isPaid: true, paidLabel: isF ? 'Resolved.' : 'Released.' }; }
+      else { const Lc = locs[it.loc], ci = this.contractInfo[it.contract] || { name: 'Contract', diff: 1, reward: 0 }, col = this.diffColors[ci.diff] || '#f28c28';
+        const stars = this.stars(ci.diff);
+        const job = L.jobs[top.target + ':' + it.id], total = isF ? fineTotal(it) : bailTotal(it), ok = money >= total;
+        const served = T - it.since, remain = isF ? 0 : Math.max(0, it.sentence - served), over = isF ? T - it.due : 0;
+        const facts = isF ? [{ label: 'Where', value: Lc.nm + ' · ' + Lc.nat, color: '#f3ead7' }, { label: 'Issued', value: this.day(it.issued), color: '#f3ead7' },
+            { label: 'Due', value: this.day(it.due), color: '#f3ead7' }, { label: 'Past Due', value: it.paid ? '—' : over > 0 ? this.days(over) : 'Not yet due (' + this.days(-over) + ' left)', color: over > 0 && !it.paid ? '#e8583f' : '#9cc6ef' }]
+          : [{ label: 'Held At', value: Lc.nm + ' · ' + Lc.nat, color: '#f3ead7' }, { label: 'Captured', value: this.day(it.since), color: '#f3ead7' },
+            { label: 'Time Served', value: this.days(served), color: '#f3ead7' }, { label: 'Time Remaining', value: this.days(remain) + ' of ' + this.days(it.sentence), color: '#f2b33d' }];
+        const fee = isF ? this.lateFee(it, T) : this.custody(it, T);
+        const rel = Lc.rel;
+        const ids = isF ? it.mercs : [it.merc], roles = ['Guide', 'Escort', 'Driver', 'Support'], sword = this.swordMap();
+        const crew = ids.map((id, k) => { const tr = this.traditions[id % 10], lead = isF && k === 0;
+          return { role: isF ? (lead ? 'Leader' : roles[(id + k) % roles.length]) : 'Captured', name: this.mname(id), level: String(this.levels[id % 10]).padStart(2, '0'), trad: tr[0], tradColor: tr[1],
+            sigil: sword.map(ch => ch === 'b' ? tr[1] : ch === 'g' ? '#f3ead7' : 'transparent'), stars: this.stars(Math.max(0.5, Math.min(5, ((id * 23 + it.contract) % 10) / 2 + 0.5))),
+            roleBg: lead ? '#f28c28' : isF ? '#2b4f8a' : '#e8583f', roleFg: lead || !isF ? '#0a0f1c' : '#f3ead7', ring: lead ? '#f28c28' : isF ? '#3b6fb6' : '#e8583f',
+            tip: s.crewTip === k, onEnter: () => this.setState({ crewTip: k }), onLeave: () => this.setState({ crewTip: null }) }; });
+        rv = { crew, crewLabel: isF ? 'Mercs Involved' : 'Captured Merc', scene: isF ? 'ReviewDialog.tscn (Fine)' : 'ReviewDialog.tscn (Captured)', kicker: isF ? 'Fine · ' + it.crime : 'Captured · ' + it.crime, title: isF ? Lc.nm : this.mname(it.merc), locName: Lc.nm, facts,
+          contract: { name: ci.name, stars, reward: this.n(ci.reward) }, openContract: () => { if (st.openContract) st.openContract(it.contract); },
+          relOpen: E.rel, relLocked: !E.rel, faces: this.guildDefs().map(([v, c, rows]) => this.faceCells(rows, c, v === rel)),
+          money: [{ label: isF ? 'Base Fine' : 'Bail', value: this.n(isF ? (it.paid || it.amount) : it.bail), size: '13px', lc: '#9cc6ef', color: '#f3ead7' },
+            { label: isF ? 'Late Fees' + (over > 0 && !it.paid ? ' (' + this.days(over) + ' × ' + Math.ceil(it.amount * this.lateRate) + ')' : '') : 'Custody Fees (' + this.days(served) + ' × ' + this.custodyFee + ')', value: this.n(it.paid ? 0 : fee), size: '13px', lc: '#9cc6ef', color: fee && !it.paid ? '#e8583f' : '#f3ead7' },
+            { label: 'Total Due', value: this.n(it.paid ? 0 : total), size: '15px', lc: '#f3ead7', color: '#f28c28' }],
+          pending: !!job, pendingLabel: job ? (isF ? 'Renegotiating' : 'Break out underway') + ' · ' + job.team.map(i => 'FirstName' + (i + 1)).join(', ') : '', cells: job ? jobCells(job.el) : [],
+          actions: !job && !it.paid, isPaid: !!it.paid, paidLabel: it.paid ? 'Paid ' + this.n(it.paid) + ' on ' + this.day(it.paidDay) : '',
+          oddLabel: isF ? 'Renegotiate' : 'Break Out', odd: () => { if (E.odd) this.push({ kind: 'odd', target: top.target, id: it.id }); },
+          payLabel: (isF ? 'Pay Fine' : 'Pay Bail'), payOpacity: ok ? 1 : 0.4, payCursor: ok ? 'pointer' : 'not-allowed', payReason: ok ? '' : 'Not enough notes',
+          pay: () => { if (!ok) return; const others = isF ? L.fines.filter(x => x.loc === it.loc && !x.paid && x.id !== it.id).length + L.captured.filter(x => x.loc === it.loc).length : L.captured.filter(x => x.loc === it.loc && x.id !== it.id).length + L.fines.filter(x => x.loc === it.loc && !x.paid).length;
+            this.ask(isF ? 'Pay this fine?' : 'Pay bail for ' + this.mname(it.merc) + '?', '', isF ? 'Pay ' + this.n(total) : 'Pay ' + this.n(total), () => { st.money = money - total; if (isF) { it.paid = total; it.paidDay = T; } else L.captured = L.captured.filter(x => x.id !== it.id); this.commit(); back(); },
+              { kicker: (isF ? 'Fine · ' : 'Bail · ') + it.crime + ' · ' + Lc.nm, crewLabel: rv.crewLabel, crew: rv.crew, money: rv.money, from: this.n(money), to: this.n(money - total),
+                outcome: (isF ? 'The fine is marked paid.' : this.mname(it.merc) + ' is released from ' + Lc.nm + ' and returns to your guild.') + (others ? ' You still have ' + others + ' open ' + (others === 1 ? 'issue' : 'issues') + ' in ' + Lc.nm + '.' : ' This clears your last open issue in ' + Lc.nm + ', restoring Good Standing there.') }); } }; } }
+    // Odd Job dialog
+    let od = { mercs: [] };
+    if (top && top.kind === 'odd') { const isF = top.target === 'fine', it = (isF ? L.fines : L.captured).find(x => x.id === top.id), Lc = it ? locs[it.loc] : locs[0];
+      const busy = this.busyMercs(), defPay = (st.benefits && st.benefits.odd) || 0, per = s.per ?? defPay, k = s.pick.length, total = per * k, cap = E.odd;
+      const boost = isF ? this.counselPct[Math.min(5, E.counsel)] : 0, odds = k ? Math.min(95, 30 + k * 20 + boost * k) : 0;
+      const reason = !k ? 'Choose at least one merc.' : total > money ? 'Not enough notes.' : '';
+      // Fit (0.5–5 stars) per merc for this job. PLACEHOLDER formula; odds = 20 + 6 × total fit stars (+ Advisory Counsel per merc on Renegotiate), 5–95%.
+      const fit = i => Math.max(0.5, Math.min(5, ((i * 37 + (isF ? 11 : 23)) % 10) / 2 + 0.5)), team = s.pick.filter(i => !busy.has(i)).slice(0, cap);
+      const oddsT = team.length ? Math.round(Math.max(5, Math.min(95, 20 + team.reduce((x, i) => x + fit(i), 0) * 6 + boost * team.length))) : 0, oc = oddsT >= 60 ? '#6cc36a' : oddsT >= 40 ? '#f2b33d' : '#e8583f';
+      const totalT = per * team.length, reasonT = !team.length ? 'Add at least one merc.' : totalT > money ? 'Not enough notes.' : '';
+      od = { title: isF ? 'Renegotiate Fine' : 'Break Out · ' + (it ? this.mname(it.merc) : ''),
+        facts: it ? (isF ? [{ label: 'Location', value: Lc.nm, color: '#f3ead7' }, { label: 'Crime', value: it.crime, color: '#f3ead7' }, { label: 'Total Due', value: this.n(fineTotal(it)), color: '#f28c28' }, { label: 'Duration', value: this.days(this.jobDays), color: '#f3ead7' }]
+          : [{ label: 'Held At', value: Lc.nm, color: '#f3ead7' }, { label: 'Crime', value: it.crime, color: '#f3ead7' }, { label: 'Time Remaining', value: this.days(Math.max(0, it.sentence - (T - it.since))), color: '#f2b33d' }, { label: 'Duration', value: this.days(this.jobDays), color: '#f3ead7' }]) : [],
+        max: cap, team, cands: Array.from({ length: 12 }, (_, i) => i).filter(i => !busy.has(i)).map(i => ({ id: i, name: this.mname(i), fit: fit(i) })),
+        per, defPay, money, onTeam: t => this.setState({ pick: t }), onPer: v => this.setState({ per: v }),
+        tipText: isF ? 'Send a merc to "renegotiate" this fine.' : 'Send a merc to break ' + (it ? this.mname(it.merc) : 'your merc') + ' out of custody.',
+        pickDesc: 'Sorted by best fit for this Odd Job.',
+        odds: team.length ? oddsT + '%' : '—', oddsColor: oc, cells: Array.from({ length: 20 }, (_, i) => (i + 1) * 5 <= oddsT + 2 ? oc : '#1f3560'),
+        hasBoost: boost > 0, boost: 'Advisory Counsel: +' + boost + '% per merc',
+        outcome: isF ? 'Success halves the fine. Failure raises it by 25%. Pay is due up front.' : 'Success frees the merc with no bail. Failure raises bail by 50%. Pay is due up front.',
+        cta: isF ? 'Renegotiate' : 'Break Out', reason: reasonT, opacity: reasonT ? 0.45 : 1, filter: reasonT ? 'grayscale(1)' : 'none', cursor: reasonT ? 'not-allowed' : 'pointer',
+        send: () => { if (reasonT || !it) return; st.money = money - totalT; L.jobs = { ...L.jobs, [top.target + ':' + it.id]: { team: [...team], pay: per, odds: oddsT, el: 0 } }; this.commit(); this.setState(p => ({ stack: p.stack.slice(0, -1), pick: [] })); } }; }
+    const shownFines = s.fFilter === 'open' ? [...open].sort((a, b) => a.due - b.due) : [...paid].sort((a, b) => b.paidDay - a.paidDay);
+    const unreadF = open.some(f => f.unread), unreadC = L.captured.some(c => c.unread);
+    const scrollBy = dir => { const el = this.scrollRef.current; if (el) el.scrollBy({ left: dir * 344, behavior: 'smooth' }); };
+    return {
+      showScenes: show, sceneMap: this.sceneMap, nGlyph: glyph, money: this.n(money), back,
+      tabs: [['bail', 'Bailout'], ['fines', 'Fines'], ['permits', 'Permits']].map(([k, l]) => { const on = tab === k, ic = this.tabIcons[k];
+        return { label: l, active: on, flex: on ? '0 0 auto' : '0 0 52px', dot: (k === 'fines' && unreadF) || (k === 'bail' && unreadC), z: ((k === 'fines' && unreadF) || (k === 'bail' && unreadC)) ? 3 : 1,
+          icon: ic.join('').split('').map(ch => ch === '.' ? 'transparent' : ch === '#' ? '#0a0f1c' : ch === 'o' ? '#f28c28' : on ? '#0a0f1c' : '#f3ead7'), onClick: () => this.setState({ tab: k, stack: [] }) }; }),
+      underX: s.confirm ? 'hidden' : 'visible', /* dialogs under a confirm hide their X */
+      cfOpen: !!s.confirm, cf: s.confirm ? { ...(s.confirm.rich || {}), rich: !!s.confirm.rich, plain: !s.confirm.rich, hasKicker: !!(s.confirm.rich && s.confirm.rich.kicker), w: s.confirm.rich ? '560px' : '520px',
+        check: ['.......##', '......###', '.....###.', '#...###..', '##.###...', '#####....', '.###.....', '..#......', '.........'].join('').split('').map(ch => ch === '#' ? '#6cc36a' : 'transparent'),
+        title: s.confirm.title, body: s.confirm.body, cta: s.confirm.cta, no: () => this.setState({ confirm: null }), yes: () => { const f = s.confirm.yes; this.setState({ confirm: null }); f(); } } : {},
+      isPermits: tab === 'permits', isFines: tab === 'fines', isBail: tab === 'bail',
+      oj: { open: !!E.odd, locked: !E.odd },
+      scrollRef: this.scrollRef,
+      onWheel: e => { const el = this.scrollRef.current; if (el && Math.abs(e.deltaY) > Math.abs(e.deltaX)) el.scrollLeft += e.deltaY; },
+      locs: locs.map(l => ({ tag: show && l.i === 1, name: l.nm, nation: l.nat, home: l.home, ring: l.ops === 'on' ? '#2a6b32' : '#1f3560',
+        diff: l.diff.toFixed(1), diffColor: this.diffColors[l.diff] || '#f28c28', stars: this.stars(l.diff), rules: ['Rule 1', 'Rule 2', 'Rule 3'],
+        perms: [permRow(l.home ? 'on' : l.ops, 'Operations Permit', 'Grants the right to conduct business in this location.', l.scope, 'Operations Permits', 'opspermit', E.ops, l.home),
+          permRow(l.tele, 'Teleportation Permit', 'Grants the right to use a teleportation circle to venture to/from this location.', l.scope, 'Teleportation Permit', 'teleport', E.tele, false),
+          permRow(l.vio.length ? 'off' : 'on', 'Good Standing', l.vio.length ? this.days(l.vio.length).replace('day', 'violation') + ' in this location.' : 'No fines or captured mercs.', 0, '', '', 0, false)],
+        request: () => this.push({ kind: 'request', loc: l.i }) })),
+      fineSummary: open.length ? open.length + ' outstanding · ' + this.n(open.reduce((a, f) => a + fineTotal(f), 0)) + ' notes owed' : 'No outstanding fines.',
+      fineFilters: [['open', 'Outstanding'], ['paid', 'Paid']].map(([k, l]) => { const on = s.fFilter === k; return { label: l, bg: on ? '#f28c28' : '#2b4f8a', fg: on ? '#0a0f1c' : '#f3ead7', hi: on ? '#ffb266' : '#3b6fb6', lo: on ? '#b85a12' : '#1f3560', onClick: () => this.setState({ fFilter: k }) }; }),
+      fineDueHead: s.fFilter === 'open' ? 'Due' : 'Paid On', noFines: shownFines.length === 0, noFinesMsg: s.fFilter === 'open' ? 'No outstanding fines.' : 'No paid fines yet.',
+      fines: shownFines.map((f, i) => { const j = L.jobs['fine:' + f.id], left = f.due - T;
+        return { tag: show && i === 0, unread: !!f.unread && !f.paid, loc: this.locDefs[f.loc][0], crime: f.crime, total: this.n(f.paid || fineTotal(f)),
+          hasNote: !!f.note && !f.paid, note: f.note || '', noteColor: f.win ? '#6cc36a' : '#e8583f',
+          due: f.paid ? this.day(f.paidDay) : left < 0 ? this.days(-left) + ' past due' : left === 0 ? 'Due today' : 'In ' + this.days(left), dueColor: f.paid ? '#9cc6ef' : left < 0 ? '#e8583f' : left <= 7 ? '#f2b33d' : '#f3ead7',
+          pending: !!j, cells: j ? jobCells(j.el) : [], review: () => review('fine', f.id) }; }),
+      bailSummary: L.captured.length ? this.days(L.captured.length).replace(/days?/, L.captured.length === 1 ? 'merc' : 'mercs') + ' in custody. Captured mercs can’t take contracts until released.' : 'All your mercs are free.',
+      noCaptured: L.captured.length === 0,
+      captured: L.captured.map((c, i) => { const j = L.jobs['bail:' + c.id], served = T - c.since;
+        return { tag: show && i === 0, unread: !!c.unread, name: this.mname(c.merc), loc: this.locDefs[c.loc][0], crime: c.crime, served: this.days(served), remaining: this.days(Math.max(0, c.sentence - served)),
+          total: this.n(bailTotal(c)), hasNote: !!c.note, note: c.note || '', pending: !!j, cells: j ? jobCells(j.el) : [], review: () => review('bail', c.id) }; }),
+      dlgRequest: !!top && top.kind === 'request', dlgReview: !!top && top.kind === 'review', dlgOdd: !!top && top.kind === 'odd', rq, rv, od,
+    };
+  }
+}
+</script>
+</body>
+</html>

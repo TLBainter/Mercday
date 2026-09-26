@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/StatusMark.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/IconRect.tscn" id="2"]
+
+[node name="StatusMark" type="Control"]
+script = ExtResource("1")
+
+[node name="Icon" parent="." instance=ExtResource("2")]
+layout_mode = 1
+pixel_scale = 2

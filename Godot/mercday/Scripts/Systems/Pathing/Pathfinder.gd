@@ -59,7 +59,7 @@ static func relax_neighbors(node: Vector3i, node_alt: int, node_g: int, node_ent
 			continue
 		var nb_alt: int = node_alt
 		if is_flying:
-			nb_alt = PathCost.fly_arrival_altitude(node, nb, field, node_alt)
+			nb_alt = PathCost.fly_arrival_altitude(node, nb, field, node_alt, merc_size)
 		var g: int = node_g + cost
 		if g_of.has(nb) and (g_of[nb] as int) <= g:
 			continue
@@ -68,6 +68,19 @@ static func relax_neighbors(node: Vector3i, node_alt: int, node_g: int, node_ent
 		if is_flying:
 			alt_of[nb] = nb_alt
 		heap_insert(heap, [g + chebyshev(nb, to), nb])
+	if is_flying or not can_climb:
+		return
+	#Roof to roof leaps are the walker's own edges: empty for a mover with no jump stat and off roofs.
+	for row: Array in PathCost.roof_jumps(node, field, merc_size):
+		var jnb: Vector3i = row[0] as Vector3i
+		if closed.has(jnb) or blocked_cells.has(jnb):
+			continue
+		var jg: int = node_g + (row[1] as int)
+		if g_of.has(jnb) and (g_of[jnb] as int) <= jg:
+			continue
+		g_of[jnb] = jg
+		parent_of[jnb] = node
+		heap_insert(heap, [jg + chebyshev(jnb, to), jnb])
 
 
 #2D Chebyshev; admissible because stair links cost 1 per cell of 2D movement.

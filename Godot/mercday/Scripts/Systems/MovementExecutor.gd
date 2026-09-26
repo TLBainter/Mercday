@@ -1,6 +1,7 @@
 class_name MovementExecutor
 
 const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
+const CLIMB_HOLD_MAX := 2
 
 static var _turn_path_cache: Dictionary = {}
 static var _blocked_path_goals: Dictionary = {}
@@ -31,7 +32,7 @@ static func _goal_adjust_reason(
 		field: BattlefieldArea,
 		state: BattleState,
 		merc: MercenaryData,
-		reach: Dictionary,
+		_reach: Dictionary,
 		blocked: bool) -> String:
 	if blocked:
 		return "blocked"
@@ -39,8 +40,6 @@ static func _goal_adjust_reason(
 		return "occupied"
 	if not PathHelper.is_standable(raw, field, int(merc.stats.get("size", 1))):
 		return "obstacle"
-	if not reach.has(raw):
-		return "unreachable"
 	return "unreachable"
 
 
@@ -56,6 +55,10 @@ static func _partial_reason(goal: Vector3i, reach: Dictionary) -> String:
 #Paces one Move action banks for this mover.
 static func pace_per_move(merc: MercenaryData) -> int:
 	var pace := maxi(1, int(merc.stats.get("pace", 1)))
+	var drag := KidnapSystem.drag_size(merc)
+	if drag > 0:
+		pace = maxi(1, pace - drag)
+	pace = maxi(1, pace + ConstStates.pace_modifier(merc))
 	var cap := ConstStates.max_paces(merc)
 	if cap == 0:
 		return 0
@@ -155,7 +158,7 @@ static func _refused_steps(merc: MercenaryData, state: BattleState, field: Battl
 		var cost := PathCost.cell_pace_cost(from_cell, cell, field, ally_passable, fall_tolerance, flying, can_climb,
 			merc_size, alt)
 		if flying:
-			alt = PathCost.fly_arrival_altitude(from_cell, cell, field, alt)
+			alt = PathCost.fly_arrival_altitude(from_cell, cell, field, alt, merc_size)
 		var end := "n"
 		if PathCost.is_shut_door(field, cell):
 			end = "door"
@@ -191,7 +194,12 @@ static func _route_summary(path: Array[Vector3i], field: BattlefieldArea) -> Str
 		var obs: Dictionary = field.get_obs(Vector2i(c.x, c.y), c.z)
 		var tag := ""
 		if i > 0 and path[i - 1].z != c.z:
-			tag = "well" if PathCost.is_well_link(path[i - 1], c, field) else "F"
+			if PathCost.is_well_link(path[i - 1], c, field):
+				tag = "well"
+			elif PathCost.is_roof_fly_link(path[i - 1], c, field):
+				tag = "roof"
+			else:
+				tag = "F"
 		elif not obs.is_empty():
 			tag = str(obs.get("cell_type", "obs"))
 		if tag != "":
@@ -228,13 +236,13 @@ static func fly_band_paces(path: Array[Vector3i], idx: int, entry_cost: int,
 		can_climb: bool, merc_size: int, altitude: int, is_free: Callable) -> int:
 	var need := entry_cost
 	var prev: Vector3i = path[idx]
-	var alt := PathCost.fly_arrival_altitude(path[idx - 1], path[idx], field, altitude)
+	var alt := PathCost.fly_arrival_altitude(path[idx - 1], path[idx], field, altitude, merc_size)
 	for j: int in range(idx + 1, path.size()):
 		var step := PathCost.cell_pace_cost(prev, path[j], field, passable, fall_tolerance, true, can_climb, merc_size, alt)
 		if step < 0:
 			return -1
 		need += step
-		alt = PathCost.fly_arrival_altitude(prev, path[j], field, alt)
+		alt = PathCost.fly_arrival_altitude(prev, path[j], field, alt, merc_size)
 		prev = path[j]
 		if PathHelper.is_standable(path[j], field, merc_size) and (is_free.call(path[j]) as bool):
 			return need
@@ -248,6 +256,7 @@ static func _can_end_on(cell: Vector3i, field: BattlefieldArea, merc_size: int, 
 	return flying and PathCost.is_flyover_cell(cell, field)
 
 
+#The three scans below share one shape: walk a merc pool, test the predicate, return the first merc on pos.
 static func _get_dead_body_at(pos: Vector3i, state: BattleState) -> MercenaryData:
 	for m: MercenaryData in state.positions.keys():
 		if m.is_dead and state.pos3(m) == pos:
@@ -282,6 +291,10 @@ static func compute_move_position(
 		enemies: Array[MercenaryData] = []) -> Vector3i:
 	if action_name == "Move Far":
 		return PathTargeter.best_retreat_cell(merc, enemies, state, move_target, valid_targets)
+	#A ranged unit that scored a roof post walks to its foot instead of closing on the enemy.
+	var post: Vector3i = RoofPostScore.goal_cell(merc, state)
+	if post != PathTargeter.NO_CELL and state.get_enemies(merc).has(move_target):
+		return post
 	return PathTargeter.best_approach_cell(merc, move_target, state, flank_ally, stop_dist_override, valid_targets, enemies)
 
 
@@ -335,7 +348,7 @@ static func _path_pace_cost(
 			c += 1
 		total += c
 		if flying:
-			alt = PathCost.fly_arrival_altitude(path[i - 1], path[i], field, alt)
+			alt = PathCost.fly_arrival_altitude(path[i - 1], path[i], field, alt, merc_size)
 	return total
 
 
@@ -452,31 +465,13 @@ static func _replan_move(
 static func _advantage_attacks(merc: MercenaryData, state: BattleState, from2d: Vector2i,
 		to2d: Vector2i, enhancements: int) -> Array[String]:
 	var lines: Array[String] = []
+	if merc.advantage_immune:
+		return lines
 	var triggered: Array = ReactiveActionSystem.get_triggered_reactions(
 		"enemy_leaves_melee_range", merc, from2d, to2d, state)
 	for entry: Dictionary in triggered:
 		var reactor: MercenaryData = entry["reactor"]
-		var def: ActionData = entry["reaction"]
-		var react_ep := CombatApplicator.state_ep_cost(reactor, def.ep_cost, "reaction")
-		if react_ep < 0 or ExcessPool.available_ep(reactor) < react_ep:
-			continue
-		var react_paid := ExcessPool.pay_ep(reactor, react_ep)
-		state.last_attacked[reactor] = merc
-		if reactor.equipped_weapon != null and reactor.equipped_weapon.is_ranged:
-			state.record_ranged_targeted(merc)
-		var atk_flaws := AttackSystem.compute_attack_flaws(reactor, merc, state)
-		var weapon_enh := AttackSystem.get_weapon_enhance_bonus(reactor)
-		var atk := AttackSystem.execute_attack(reactor, enhancements + weapon_enh, atk_flaws, merc)
-		lines.append("  %s takes an Advantage Attack against %s!" % [BattleState.colored_name(reactor, state), BattleState.colored_name(merc, state)])
-		if atk.get("misfired", false):
-			lines.append("  %s misfires!" % BattleState.colored_name(reactor, state))
-		elif atk.get("no_ammo", false):
-			lines.append("  %s has no ammo!" % BattleState.colored_name(reactor, state))
-			ExcessPool.refund_ep(reactor, int(react_paid["from_excess"]), int(react_paid["from_ep"]))
-		elif atk["damage"] > 0:
-			lines.append_array(CombatApplicator.apply_hit(reactor, merc, atk, atk["damage"], atk["damage_type"], state, enhancements))
-		else:
-			lines.append("  %s misses %s with the Advantage Attack." % [BattleState.colored_name(reactor, state), BattleState.colored_name(merc, state)])
+		lines.append_array(CombatApplicator.reaction_attack(reactor, merc, state, enhancements, 0))
 	return lines
 
 
@@ -515,6 +510,12 @@ static func _dry_walk_end(merc: MercenaryData, state: BattleState, field: Battle
 	for i: int in range(path_start_idx + 1, path.size()):
 		var from_cell: Vector3i = path[i - 1]
 		var cell: Vector3i = path[i]
+		#The Climb action takes the link, so the walk it is planned into ends on the foot cell.
+		if not PathCost.climb_step(from_cell, cell, field, flying, fall_tolerance, merc_size).is_empty():
+			break
+		#The Jump action takes the roof leap, so the walk it is planned into ends on the take-off cell.
+		if not PathCost.roof_jump_step(from_cell, cell, field, flying, merc_size).is_empty():
+			break
 		var price := _step_price(state, field, path, i, alt, ally_passable, fall_tolerance,
 			flying, can_climb, merc_size)
 		var cost := int(price["cost"])
@@ -541,7 +542,7 @@ static func _dry_walk_end(merc: MercenaryData, state: BattleState, field: Battle
 			sim["sim_ap"] = int(sim.get("sim_ap", 0)) + interact
 		budget -= cost
 		if flying:
-			alt = PathCost.fly_arrival_altitude(from_cell, cell, field, alt)
+			alt = PathCost.fly_arrival_altitude(from_cell, cell, field, alt, merc_size)
 		if _can_end_on(cell, field, merc_size, flying):
 			if state.is_position_occupied(Vector2i(cell.x, cell.y), merc, cell.z):
 				occ_seen = true
@@ -595,11 +596,27 @@ static func _walk_path(
 	var _flanked_abort_cell := PathTargeter.NO_CELL
 	#Shut door the walk halted in front of; the mover opens it with the Interact action.
 	var _door_stop := PathTargeter.NO_CELL
+	#The mover sank into a pool on this walk and stops where it stands.
+	var _sank := false
+	#Climb link the walk halted at the foot of, with that foot cell; the Climb action takes it.
+	var _climb_route: Dictionary = {}
+	#Roof leap the walk halted at the take-off of, with that cell; the Jump action takes it.
+	var _jump_route: Dictionary = {}
 	var _is_free := func(c: Vector3i) -> bool:
 		return not state.is_position_occupied(Vector2i(c.x, c.y), merc, c.z)
 	for i: int in range(path_start_idx + 1, path.size()):
 		var from_cell: Vector3i = path[i - 1]
 		var cell: Vector3i = path[i]
+		var climb_here: Dictionary = PathCost.climb_step(from_cell, cell, field, flying, fall_tolerance, merc_size)
+		if not climb_here.is_empty():
+			climb_here["foot"] = from_cell
+			_climb_route = climb_here
+			break
+		var jump_here: Dictionary = PathCost.roof_jump_step(from_cell, cell, field, flying, merc_size)
+		if not jump_here.is_empty():
+			jump_here["foot"] = from_cell
+			_jump_route = jump_here
+			break
 		var price := _step_price(state, field, path, i, cur_alt, ally_passable, fall_tolerance,
 			flying, can_climb, merc_size)
 		var cost := int(price["cost"])
@@ -639,7 +656,7 @@ static func _walk_path(
 				break
 		budget -= cost
 		if flying:
-			cur_alt = PathCost.fly_arrival_altitude(from_cell, cell, field, cur_alt)
+			cur_alt = PathCost.fly_arrival_altitude(from_cell, cell, field, cur_alt, merc_size)
 		if dead_body != null and int(dead_body.stats.get("size", 1)) >= merc_size:
 			body_traverse_lines.append("  %s moves through the body of %s." % [BattleState.colored_name(merc, state), dead_body.merc_name])
 			_body_at.append(traversed.size() - 1)
@@ -653,6 +670,16 @@ static func _walk_path(
 		last = cell
 		traversed.append(cell)
 		_cost_at.append(cost)
+		if field.is_cavern:
+			var cavern_lines: Array[String] = []
+			var sank := CavernRules.on_enter_cell(merc, Vector2i(from_cell.x, from_cell.y),
+				Vector2i(cell.x, cell.y), state, cavern_lines)
+			for cl: String in cavern_lines:
+				body_traverse_lines.append(cl)
+				_body_at.append(traversed.size() - 1)
+			if sank:
+				_sank = true
+				break
 		if from_cell.z != cell.z and floor_change_cell == PathTargeter.NO_CELL:
 			floor_change_cell = cell
 		var path_obs: Dictionary = field.get_obs(Vector2i(cell.x, cell.y), cell.z)
@@ -682,6 +709,9 @@ static func _walk_path(
 		"flanked_fired": _flanked_abort_fired,
 		"flanked_cell": _flanked_abort_cell,
 		"door_stop": _door_stop,
+		"sank": _sank,
+		"climb_route": _climb_route,
+		"jump_route": _jump_route,
 	}
 
 
@@ -843,7 +873,7 @@ static func _select_path(merc: MercenaryData, state: BattleState, field: Battlef
 						if _static_path.is_empty():
 							merc.active_states["_move_blocked_round"] = state.round_number
 							var _mb: Dictionary = state.movement_blocked.get(merc, {}) as Dictionary
-							_mb[move_target] = true
+							_mb[move_target] = state.round_number
 							state.movement_blocked[merc] = _mb
 						if EncounterLogger.is_active():
 							EncounterLogger.log_verbose("MOVE BLOCKED: no path (%d,%d)->(%d,%d)" % [
@@ -935,7 +965,7 @@ static func _finish_walk(merc: MercenaryData, state: BattleState, field: Battlef
 	var _rp_alt := altitude
 	if flying:
 		for _ri: int in range(1, traversed.size()):
-			_rp_alt = PathCost.fly_arrival_altitude(traversed[_ri - 1], traversed[_ri], field, _rp_alt)
+			_rp_alt = PathCost.fly_arrival_altitude(traversed[_ri - 1], traversed[_ri], field, _rp_alt, merc_size)
 	#One re-plan per Move: whatever halted the walk names the cells the new route
 	#must avoid and how much the alternative has to deliver before it is taken.
 	var _rp_reason := ""
@@ -958,13 +988,22 @@ static func _finish_walk(merc: MercenaryData, state: BattleState, field: Battlef
 	elif _pushed > 0 and drop_taken.is_empty():
 		_rp_reason = "pushback"
 		_rp_blocked = _rejected
+	#A mover on the bottom of a pool takes no further route this Move.
+	if _walk.get("sank", false):
+		_rp_reason = ""
+	#A walk halted at the foot of a climb ends here; the Climb action takes the link next.
+	if not (_walk.get("climb_route", {}) as Dictionary).is_empty():
+		_rp_reason = ""
+	#A walk halted on a roof leap take-off cell ends here; the Jump action takes the leap next.
+	if not (_walk.get("jump_route", {}) as Dictionary).is_empty():
+		_rp_reason = ""
 	if _rp_reason != "" and (budget <= 0 or new_pos == goal):
 		_rp_reason = ""
 	if _rp_reason == "drop":
 		#The fall lands before the re-plan so its damage and any Deposed count.
 		if EncounterLogger.is_active():
-			EncounterLogger.log_verbose("LEDGE DROP: %s %s F%d->F0 (%d,%d) paces=%d" % [
-				merc.merc_name, str(drop_taken["kind"]), old_pos.z, new_pos.x, new_pos.y,
+			EncounterLogger.log_verbose("LEDGE DROP: %s %s F%d->F%d (%d,%d) paces=%d" % [
+				merc.merc_name, str(drop_taken["kind"]), old_pos.z, new_pos.z, new_pos.x, new_pos.y,
 				int(drop_taken["paces"])])
 		_turn_path_cache.erase(merc)
 		drop_lines.append_array(CombatApplicator.resolve_fall(merc, int(drop_taken["paces"]), state))
@@ -1017,7 +1056,7 @@ static func _finish_walk(merc: MercenaryData, state: BattleState, field: Battlef
 	if flying and new_pos != old_pos and not PathHelper.is_standable(new_pos, field, merc_size):
 		_hover_alt = altitude
 		for _hi: int in range(1, traversed.size()):
-			_hover_alt = PathCost.fly_arrival_altitude(traversed[_hi - 1], traversed[_hi], field, _hover_alt)
+			_hover_alt = PathCost.fly_arrival_altitude(traversed[_hi - 1], traversed[_hi], field, _hover_alt, merc_size)
 	_pace_left = maxi(0, budget)
 	if flying and new_pos != old_pos:
 		for _fi2: int in range(1, traversed.size()):
@@ -1104,6 +1143,56 @@ static func _oscillation_flank(merc: MercenaryData, state: BattleState, field: B
 	return PathTargeter.NO_CELL
 
 
+#True when the mover can only strike in melee: no weapon, a melee weapon, or a ranged weapon with an empty chamber.
+static func _melee_only(merc: MercenaryData) -> bool:
+	var w: WeaponData = merc.equipped_weapon
+	if w == null:
+		return true
+	if w.is_throwable:
+		return false
+	return not w.is_ranged or merc.ammo_loaded <= 0
+
+
+#True when the shooter's chamber is empty but its inventory still holds the loaded ammo type.
+static func _carries_ammo(merc: MercenaryData) -> bool:
+	var w: WeaponData = merc.equipped_weapon
+	if w == null or not w.is_ranged or merc.ammo_loaded > 0:
+		return false
+	return int(merc.ammo_inventory.get(merc.ammo_loaded_type, 0)) > 0
+
+
+#Records that the mover cannot close on a target above it and logs the one MOVE UNREACHABLE line.
+static func _mark_unreachable(merc: MercenaryData, move_target: MercenaryData, state: BattleState,
+		reach: int, gap: int) -> void:
+	var reloadable := _carries_ammo(merc)
+	if not reloadable:
+		var blocked: Dictionary = state.movement_blocked.get(merc, {}) as Dictionary
+		blocked[move_target] = state.round_number
+		state.movement_blocked[merc] = blocked
+	merc.active_states["_move_blocked_round"] = state.round_number
+	if EncounterLogger.is_active():
+		EncounterLogger.log_verbose("MOVE UNREACHABLE: %s under %s h%d dist=%d reach=%d%s" % [
+			merc.merc_name, move_target.merc_name, state.absolute_height(move_target), gap, reach,
+			" reloadable" if reloadable else ""])
+
+
+#True while a stored move block still holds; a target now inside melee reach may be picked again.
+static func move_block_holds(merc: MercenaryData, target: MercenaryData, state: BattleState,
+		marked_round: int) -> bool:
+	if merc == null or target == null or state == null:
+		return true
+	if marked_round >= state.round_number:
+		return true
+	var mp := state.get_position(merc)
+	var tp := state.get_position(target)
+	if mp == Vector2i(-1, -1) or tp == Vector2i(-1, -1):
+		return true
+	var reach := WeaponArmorPerkLibrary.melee_reach(merc)
+	if maxi(absi(mp.x - tp.x), absi(mp.y - tp.y)) > reach:
+		return true
+	return absi(state.absolute_height(target) - state.absolute_height(merc)) > reach
+
+
 static func execute_move(
 		merc: MercenaryData,
 		action_name: String,
@@ -1120,11 +1209,24 @@ static func execute_move(
 		return []
 	if ConstStates.has_state(merc, ConstStates.CLIMBING):
 		return []
+	#A walker below a hovering flyer cannot close the height gap; mark the target blocked instead of a ring scan.
+	if goal_cell == PathTargeter.NO_CELL and not seeking and not PathTargeter.is_flying(merc) \
+			and PathTargeter.is_flying(move_target) and state.get_height(move_target) >= 1 \
+			and _melee_only(merc):
+		var reach := WeaponArmorPerkLibrary.melee_reach(merc)
+		var mp := state.get_position(merc)
+		var tp := state.get_position(move_target)
+		var gap := state.distance_to(merc, move_target)
+		if maxi(absi(mp.x - tp.x), absi(mp.y - tp.y)) <= reach and gap > reach:
+			_mark_unreachable(merc, move_target, state, reach, gap)
+			return []
 
 	var old_pos := state.pos3(merc)
 	var old_2d := Vector2i(old_pos.x, old_pos.y)
-	#Routing may cross a shut door this mover can open, at the pace its Interact costs.
-	PathCost.set_door_penalty(PathCost.door_penalty(merc))
+	#Cell a kidnapped captive is pulled into: the last cell the captor leaves on this move.
+	var drag_from: Vector3i = old_pos
+	#Routing may cross a shut door this mover can open, a locked one it can pick or unlock, and water is priced per mover.
+	PathCost.set_mover_doors(merc, state)
 	state.pending_interact.erase(merc)
 	#The executor must plan with the same capabilities the targeter scored with.
 	var flying := PathTargeter.is_flying(merc)
@@ -1138,7 +1240,7 @@ static func execute_move(
 		goal = compute_move_position(merc, move_target, action_name, state, flank_ally, stop_dist_override, valid_targets, enemies)
 	if goal == PathTargeter.NO_CELL:
 		var _mb: Dictionary = state.movement_blocked.get(merc, {}) as Dictionary
-		_mb[move_target] = true
+		_mb[move_target] = state.round_number
 		state.movement_blocked[merc] = _mb
 		merc.active_states["_move_blocked_round"] = state.round_number
 		if EncounterLogger.is_active():
@@ -1173,6 +1275,14 @@ static func execute_move(
 				skip_lines.append("  %s changes altitude ([color=orange]h%d -> h%d[/color])" % [
 					BattleState.colored_name(merc, state), skip_abs, state.absolute_height(merc)])
 				return skip_lines
+		#Fix round 2: a melee-only walker whose best cell is its own cannot reach a target standing above melee reach.
+		if goal_cell == PathTargeter.NO_CELL and not seeking and not flying and _melee_only(merc) \
+				and not state.get_allies(merc).has(move_target):
+			var up_reach := WeaponArmorPerkLibrary.melee_reach(merc)
+			var up_dz := state.absolute_height(move_target) - state.absolute_height(merc)
+			if up_dz > up_reach:
+				_mark_unreachable(merc, move_target, state, up_reach, state.distance_to(merc, move_target))
+				return []
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("MOVE SKIP: %s already at goal (%d,%d)" % [merc.merc_name, goal.x, goal.y])
 		return []
@@ -1242,6 +1352,29 @@ static func execute_move(
 			var _dry_end := _dry_walk_end(merc, state, field, path, path_start_idx, _pool_start, old_pos, cur_alt,
 				goal, ally_passable, fall_tolerance, flying, can_climb, merc_size, _buy, _known_enemies, _start_flanked)
 			if _dry_end == old_pos:
+				#The route's first step is the link itself, so the walk hands the foot to the Climb action.
+				var _foot_climb: Dictionary = PathCost.climb_step(old_pos, path[path_start_idx + 1],
+					field, flying, fall_tolerance, merc_size)
+				if not _foot_climb.is_empty():
+					state.set_climb_route(merc, _foot_climb["link"] as Dictionary,
+						bool(_foot_climb["down"]), old_pos)
+					_turn_path_cache.erase(merc)
+					if EncounterLogger.is_active():
+						EncounterLogger.log_verbose("MOVE CLIMB FOOT: %s foot=(%d,%d,%d) dir=%s" % [
+							merc.merc_name, old_pos.x, old_pos.y, old_pos.z,
+							"down" if bool(_foot_climb["down"]) else "up"])
+					return []
+				#The same handover for a route whose first step is a roof leap.
+				var _foot_jump: Dictionary = PathCost.roof_jump_step(old_pos, path[path_start_idx + 1],
+					field, flying, merc_size)
+				if not _foot_jump.is_empty():
+					state.set_jump_route(merc, _foot_jump["to"] as Vector3i, old_pos)
+					_turn_path_cache.erase(merc)
+					if EncounterLogger.is_active():
+						var _fj: Vector3i = _foot_jump["to"] as Vector3i
+						EncounterLogger.log_verbose("MOVE JUMP FOOT: %s foot=(%d,%d,%d) land=(%d,%d,%d)" % [
+							merc.merc_name, old_pos.x, old_pos.y, old_pos.z, _fj.x, _fj.y, _fj.z])
+					return []
 				var _dry_why := str(_buy.get("dry_why", ""))
 				#An AP-short walk whose next cell is a shut door opens it with the Interact action instead.
 				var _door_first := _dry_why != "occupied" and _dry_why != "no_step" \
@@ -1275,8 +1408,17 @@ static func execute_move(
 			fly_top = _fin["fly_top"] as float
 			_hover_alt = _fin["hover_alt"] as int
 			_pace_left = _fin["pace_left"] as int
+			var _cr: Dictionary = _walk["climb_route"] as Dictionary
+			if not _cr.is_empty() and new_pos == (_cr["foot"] as Vector3i):
+				state.set_climb_route(merc, _cr["link"] as Dictionary, bool(_cr["down"]), new_pos)
+			var _jr: Dictionary = _walk["jump_route"] as Dictionary
+			if not _jr.is_empty() and new_pos == (_jr["foot"] as Vector3i):
+				state.set_jump_route(merc, _jr["to"] as Vector3i, new_pos)
 			if _fin["abort"] as bool:
 				return []
+			var _drag_idx := path.find(new_pos)
+			if _drag_idx >= 1:
+				drag_from = path[_drag_idx - 1]
 
 	if new_pos == old_pos:
 		if EncounterLogger.is_active():
@@ -1300,7 +1442,7 @@ static func execute_move(
 		if _perm_block:
 			merc.active_states["_move_blocked_round"] = state.round_number
 			var _smb: Dictionary = state.movement_blocked.get(merc, {}) as Dictionary
-			_smb[move_target] = true
+			_smb[move_target] = state.round_number
 			state.movement_blocked[merc] = _smb
 			_blocked_path_goals[goal] = state.round_number + 1000
 			if EncounterLogger.is_active():
@@ -1336,6 +1478,7 @@ static func execute_move(
 			var _flank_ok := _flank_cell != PathTargeter.NO_CELL
 			if _flank_ok:
 				new_pos = _flank_cell
+				drag_from = old_pos
 				body_traverse_lines.clear()
 			if not _flank_ok:
 				_blocked_path_goals[goal] = state.round_number
@@ -1349,6 +1492,7 @@ static func execute_move(
 
 	state.escalation[merc]["last_move_from"] = old_pos
 	state.set_pos3(merc, new_pos)
+	KidnapSystem.drag(merc, state, drag_from)
 	if new_pos.z != old_pos.z and EncounterLogger.is_active():
 		var _fc: Vector3i = floor_change_cell if floor_change_cell != PathTargeter.NO_CELL else new_pos
 		EncounterLogger.log_verbose("FLOOR: %s %d->%d at (%d,%d)" % [
@@ -1362,8 +1506,9 @@ static func execute_move(
 	move_lines.append_array(drop_lines)
 	if not drop_taken.is_empty():
 		if EncounterLogger.is_active():
-			EncounterLogger.log_verbose("LEDGE DROP: %s %s F%d->F0 (%d,%d) paces=%d" % [
-				merc.merc_name, str(drop_taken["kind"]), old_pos.z, new_pos.x, new_pos.y, int(drop_taken["paces"])])
+			EncounterLogger.log_verbose("LEDGE DROP: %s %s F%d->F%d (%d,%d) paces=%d" % [
+				merc.merc_name, str(drop_taken["kind"]), old_pos.z, new_pos.z, new_pos.x, new_pos.y,
+				int(drop_taken["paces"])])
 		_turn_path_cache.erase(merc)
 		if flying:
 			move_lines.append(_descent_line(merc, int(drop_taken["paces"]), state))
@@ -1458,10 +1603,16 @@ static func execute_jump(
 	if state.battlefield != null:
 		_jtop = PathHelper.is_top_standable(_jcell, state.battlefield, _jsize)
 		var _jstand: bool = _jtop or PathHelper.is_standable(_jcell, state.battlefield, _jsize)
-		if not _jstand or not PathCost.has_exit_neighbor(_jcell, state.battlefield, {}, 1.0, false, false, _jsize):
+		var _jfrom := state.get_position(merc)
+		var _jwall: bool = PathCost.leap_blocked(state.battlefield,
+			Vector3i(_jfrom.x, _jfrom.y, merc_floor),
+			Vector3i(jump_target_pos.x, jump_target_pos.y, merc_floor))
+		if _jwall or not _jstand \
+				or not PathCost.has_exit_neighbor(_jcell, state.battlefield, {}, 1.0, false, false, _jsize):
 			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("JUMP REFUSED: %s (%d,%d) F%d why=no_landing" % [
-					merc.merc_name, jump_target_pos.x, jump_target_pos.y, jump_target_floor])
+				EncounterLogger.log_verbose("JUMP REFUSED: %s (%d,%d) F%d why=%s" % [
+					merc.merc_name, jump_target_pos.x, jump_target_pos.y, jump_target_floor,
+					"wall" if _jwall else "no_landing"])
 			return []
 
 	var lines: Array[String] = []
@@ -1518,6 +1669,20 @@ static func climb_pace_cost(merc: MercenaryData) -> int:
 
 #Banks Moves until the pool holds `need` paces; false when the AP cannot cover them.
 static func _climb_fund(merc: MercenaryData, state: BattleState, action_name: String, need: int) -> bool:
+	if not can_fund_climb(merc, state, action_name, need):
+		return false
+	var pool := state.get_pace_pool(merc)
+	if pool >= need:
+		return true
+	var pp := maxi(1, pace_per_move(merc))
+	var moves := int(ceil(float(need - pool) / float(pp)))
+	for k: int in range(moves):
+		_buy_move(merc, state, action_name)
+	return true
+
+
+#True when _climb_fund would succeed for `need` paces; spends nothing.
+static func can_fund_climb(merc: MercenaryData, state: BattleState, action_name: String, need: int) -> bool:
 	var pool := state.get_pace_pool(merc)
 	if pool >= need:
 		return true
@@ -1526,112 +1691,56 @@ static func _climb_fund(merc: MercenaryData, state: BattleState, action_name: St
 	var total := 0
 	for k: int in range(moves):
 		total += state.get_cost_after(merc, action_name, _CONFIG.move_base_ap, k)
-	if not state.can_afford(merc, total):
+	return state.can_afford(merc, total)
+
+
+static func climb_startable(merc: MercenaryData, state: BattleState) -> bool:
+	return ClimbExecutor.climb_startable(merc, state)
+
+
+static func climb_route_ready(merc: MercenaryData, state: BattleState) -> bool:
+	return ClimbExecutor.climb_route_ready(merc, state)
+
+
+static func post_climb_ready(merc: MercenaryData, state: BattleState) -> bool:
+	return ClimbExecutor.post_climb_ready(merc, state)
+
+
+#True when a pending roof leap can run now, so a Move on the take-off cell buys nothing.
+static func jump_route_ready(merc: MercenaryData, state: BattleState) -> bool:
+	if state == null or state.battlefield == null:
 		return false
-	for k: int in range(moves):
-		_buy_move(merc, state, action_name)
-	return true
+	var row: Dictionary = state.jump_route(merc)
+	if row.is_empty():
+		return false
+	if int(merc.stats.get("jump", 0)) <= 0 or ConstStates.has_state(merc, ConstStates.CLIMBING):
+		return false
+	var land: Vector3i = row["to"] as Vector3i
+	if state.is_position_occupied(Vector2i(land.x, land.y), merc, land.z):
+		return false
+	return state.can_afford(merc, state.get_cost(merc, "Jump", _CONFIG.move_base_ap))
 
 
-static func execute_climb(
-		merc: MercenaryData,
-		decision: Dictionary,
-		action_name: String,
+static func move_yields(merc: MercenaryData, state: BattleState, action_name: String) -> bool:
+	return MovementArms.move_yields(merc, state, action_name)
+
+
+static func execute_climb(merc: MercenaryData, decision: Dictionary, action_name: String,
 		state: BattleState) -> Array[String]:
-	var lines: Array[String] = []
-	var field := state.battlefield
-	var is_continuing: bool = ConstStates.has_state(merc, ConstStates.CLIMBING)
-
-	if not is_continuing:
-		var target_pos: Vector2i = decision.get("climb_target_pos", Vector2i(-1, -1))
-		if target_pos == Vector2i(-1, -1) or field == null:
-			return []
-		var merc_size := maxi(1, int(merc.stats.get("size", 0)))
-		var merc_floor_h := int(round(field.get_terrain_height(state.get_position(merc))))
-		#Climb height counts paces above the climber's own cell surface.
-		var init_target_h := int(round(field.get_terrain_height(target_pos))) - merc_floor_h
-		if init_target_h <= 0:
-			var _obs := field.get_obs(target_pos, 0)
-			if not _obs.is_empty() and _obs.get("cell_type", "") == "wall":
-				init_target_h = 2
-		var grab_h := merc_size
-		var init_c := climb_pace_cost(merc)
-		if not _climb_fund(merc, state, action_name, grab_h * init_c):
-			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("CLIMB REFUSED: %s reason=ap_short" % merc.merc_name)
-			return []
-		var init_pool := state.get_pace_pool(merc)
-		state.set_pace_pool(merc, init_pool - grab_h * init_c)
-		state.climbing_data[merc] = {
-			"wall_pos": target_pos,
-			"current_h": grab_h,
-			"target_h": init_target_h,
-			"top_pos": target_pos,
-		}
-		ConstStates.apply_state(merc, ConstStates.CLIMBING, null, "", "engine:climb")
-		state.set_height(merc, grab_h)
-		merc.aim_active = false
-		lines.append("  %s grabs the wall and begins climbing! (alt %d/%d)" % [
-			BattleState.colored_name(merc, state), grab_h, init_target_h])
-		if EncounterLogger.is_active():
-			EncounterLogger.log_verbose("CLIMB: %s +%d height (%d/%d) pool %d -> %d" % [
-				merc.merc_name, grab_h, grab_h, init_target_h, init_pool, state.get_pace_pool(merc)])
-		if grab_h >= init_target_h:
-			_complete_climb(merc, state, lines)
-		return lines
-
-	var cd: Dictionary = state.get_climbing_data(merc)
-	var current_h := int(cd.get("current_h", 0))
-	var target_h := int(cd.get("target_h", 0))
-
-	var climb_c := climb_pace_cost(merc)
-	var remaining := target_h - current_h
-	if remaining > 0 and state.get_pace_pool(merc) < climb_c:
-		if not _climb_fund(merc, state, action_name, climb_c):
-			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("CLIMB REFUSED: %s reason=ap_short" % merc.merc_name)
-			return []
-	var climb_pool := state.get_pace_pool(merc)
-	@warning_ignore("integer_division")
-	var gained := mini(climb_pool / climb_c, remaining)
-	if gained > 0:
-		state.set_pace_pool(merc, climb_pool - gained * climb_c)
-	var new_h := current_h + maxi(0, gained)
-	cd["current_h"] = new_h
-	state.climbing_data[merc] = cd
-	state.set_height(merc, new_h)
-	merc.aim_active = false
-	if gained > 0 and EncounterLogger.is_active():
-		EncounterLogger.log_verbose("CLIMB: %s +%d height (%d/%d) pool %d -> %d" % [
-			merc.merc_name, gained, new_h, target_h, climb_pool, state.get_pace_pool(merc)])
-
-	if new_h >= target_h:
-		_complete_climb(merc, state, lines)
-	else:
-		lines.append("  %s climbs to height %d/%d." % [BattleState.colored_name(merc, state), new_h, target_h])
-	return lines
+	return ClimbExecutor.execute_climb(merc, decision, action_name, state)
 
 
 static func _complete_climb(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
-	var cd: Dictionary = state.get_climbing_data(merc)
-	var top_pos: Vector2i = cd.get("top_pos", state.get_position(merc)) as Vector2i
-	var pit_pos := state.get_position(merc)
-	var merc_floor := state.get_floor(merc)
-	state.clear_climbing(merc)
-	ConstStates.remove_state(merc, ConstStates.CLIMBING)
-	if state.battlefield != null:
-		var _obs := state.battlefield.get_obs(top_pos, merc_floor)
-		if not _obs.is_empty() and _obs.get("cell_type", "") == "wall":
-			var wall_pos: Vector2i = cd.get("wall_pos", top_pos) as Vector2i
-			var _dir := Vector2i(signi(wall_pos.x - pit_pos.x), signi(wall_pos.y - pit_pos.y))
-			var _beyond := wall_pos + _dir
-			if state.battlefield.get_nav_passable_cells().has(_beyond) and not state.is_position_occupied(_beyond, merc, merc_floor):
-				top_pos = _beyond
-	if not state.is_position_occupied(top_pos, merc, merc_floor):
-		state.set_position(merc, top_pos)
-	if state.battlefield != null:
-		state.set_height(merc, 0)
-	lines.append("  %s hauls themselves up!" % BattleState.colored_name(merc, state))
+	ClimbExecutor._complete_climb(merc, state, lines)
+
+
+static func _complete_link_climb(merc: MercenaryData, state: BattleState, cd: Dictionary,
+		lines: Array[String]) -> void:
+	ClimbExecutor._complete_link_climb(merc, state, cd, lines)
+
+
+static func _abandon_climb(merc: MercenaryData, state: BattleState, lines: Array[String], held: int) -> void:
+	ClimbExecutor._abandon_climb(merc, state, lines, held)
 
 
 static func execute_move_to_pos(
@@ -1677,111 +1786,31 @@ static func execute_move_to_pos(
 	return move_lines
 
 
-#Move arm of the turn slot loop: prices the walk, runs it and updates the turn flags.
 static func run_move_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
 		enhancements: int, turn: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
-	var _is_seeking: bool = decision.get("seeking", false)
-	#What the decision priced this walk with: the Moves it may buy and the AP it must leave.
-	state.move_plan[merc] = {
-		"moves_allowed": maxi(1, int(decision.get("moves_allowed", 1))),
-		"reserve_ap": maxi(0, int(decision.get("reserve_ap", 0))),
-	}
-	var _pool_before := state.get_pace_pool(merc)
-	var move_lines := MovementExecutor.execute_move(merc, decision["action_name"], decision["target"], state,
-		decision.get("flank_ally"), enhancements, decision.get("move_stop_dist", -1), _is_seeking,
-		[], [], decision.get("goal_cell", PathTargeter.NO_CELL) as Vector3i)
-	state.move_plan.erase(merc)
-	if move_lines.is_empty():
-		if _pool_before > 0:
-			state.set_pace_pool(merc, 0)
-			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("POOL CLEARED: %s no step possible" % merc.merc_name)
-		turn["movement_blocked"] = true
-		state.record_action(merc, decision["action_name"])
-		if _is_seeking:
-			turn["seeking_failed"] = true
-			var _bt: MercenaryData = decision.get("target")
-			if _bt != null:
-				(turn["blocked_targets"] as Dictionary)[_bt] = true
-	else:
-		_movement_succeeded(merc, turn, move_lines, lines)
-		turn["current_target"] = decision["target"]
-		if _pool_before > 0:
-			var _pm_end := state.pos3(merc)
-			if _pm_end == turn["pool_move_cell"]:
-				state.set_pace_pool(merc, 0)
-				if EncounterLogger.is_active():
-					EncounterLogger.log_verbose("POOL CLEARED: %s no progress on the pool" % merc.merc_name)
-			turn["pool_move_cell"] = _pm_end
-		else:
-			turn["pool_move_cell"] = state.pos3(merc)
-	return lines
+	return MovementArms.run_move_arm(merc, decision, state, enhancements, turn)
 
 
-#Jump arm of the turn slot loop.
 static func run_jump_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
 		enhancements: int, turn: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
-	var jump_pos: Vector2i = decision.get("jump_target_pos", Vector2i(-1, -1))
-	var jump_floor: int = int(decision.get("jump_target_floor", state.get_floor(merc)))
-	var jump_why: String = str(decision.get("jump_why", ""))
-	var jump_lines := MovementExecutor.execute_jump(
-		merc, jump_pos, jump_floor, decision["action_name"], state, enhancements, jump_why)
-	if jump_lines.is_empty():
-		turn["movement_blocked"] = true
-	else:
-		_movement_succeeded(merc, turn, jump_lines, lines)
-		turn["current_target"] = decision["target"]
-	return lines
+	return MovementArms.run_jump_arm(merc, decision, state, enhancements, turn)
 
 
-#Climb arm of the turn slot loop.
 static func run_climb_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
 		turn: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
-	var climb_lines := MovementExecutor.execute_climb(merc, decision, decision["action_name"], state)
-	if climb_lines.is_empty():
-		turn["movement_blocked"] = true
-	else:
-		_movement_succeeded(merc, turn, climb_lines, lines)
-	return lines
+	return MovementArms.run_climb_arm(merc, decision, state, turn)
 
 
-#Walk toward a dropped weapon; a refusal blacklists the cell for the rest of the turn.
 static func run_move_to_pickup_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
 		enhancements: int, turn: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
-	var mv_lines := MovementExecutor.execute_move_to_pos(merc, decision["weapon_pos"], state, enhancements)
-	if mv_lines.is_empty():
-		turn["movement_blocked"] = true
-		merc.active_states["blocked_pickup_pos"] = decision["weapon_pos"]
-	else:
-		lines.append_array(mv_lines)
-		turn["movement_blocked"] = false
-		turn["weapon_action_taken"] = true
-	return lines
+	return MovementArms.run_move_to_pickup_arm(merc, decision, state, enhancements, turn)
 
 
-#Walk toward an obstacle the merc means to break.
 static func run_move_to_obstacle_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
 		enhancements: int, turn: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
-	var mo_lines := MovementExecutor.execute_move_to_pos(merc, decision["obstacle_pos"], state, enhancements)
-	if mo_lines.is_empty():
-		turn["movement_blocked"] = true
-	else:
-		lines.append_array(mo_lines)
-		turn["movement_blocked"] = false
-		turn["weapon_action_taken"] = true
-	return lines
+	return MovementArms.run_move_to_obstacle_arm(merc, decision, state, enhancements, turn)
 
 
-#Bookkeeping shared by the move, jump and climb arms once the movement produced lines.
 static func _movement_succeeded(merc: MercenaryData, turn: Dictionary, moved_lines: Array[String],
 		lines: Array[String]) -> void:
-	lines.append_array(moved_lines)
-	turn["movement_blocked"] = false
-	merc.active_states.erase("_move_blocked_round")
-	turn["has_moved"] = true
-	(turn["blocked_targets"] as Dictionary).clear()
+	MovementArms._movement_succeeded(merc, turn, moved_lines, lines)

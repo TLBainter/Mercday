@@ -27,26 +27,14 @@ static func _merc(name: String, wile: int) -> MercenaryData:
 	return m
 
 
-static func _reset() -> void:
-	CampaignKnowledge.clear()
-	RelationshipSystem.clear_tallies()
-	CheckSystem.forced_rolls.clear()
-
-
 #Fills the roll queue with failures so a case that is not testing the bond check cannot drift.
 static func _force_fail() -> void:
 	for i: int in range(400):
 		CheckSystem.forced_rolls.append(100)
 
 
-static func _run_for(team: Array[MercenaryData]) -> ContractRun:
-	var run := ContractRun.new()
-	run.team.assign(team)
-	return run
-
-
 static func _case_seed(res: Dictionary) -> void:
-	_reset()
+	TestFixtures.reset_campaign()
 	var a := _merc("Ada", 5)
 	var b := _merc("Bo", 8)
 	TestFixtures.check(res, "seed a to b", RelationshipSystem.value(a, b) == 6,
@@ -63,7 +51,7 @@ static func _case_seed(res: Dictionary) -> void:
 
 
 static func _case_clamp(res: Dictionary) -> void:
-	_reset()
+	TestFixtures.reset_campaign()
 	var a := _merc("Ada", 6)
 	var b := _merc("Bo", 6)
 	RelationshipSystem.adjust(a, b, 20)
@@ -75,7 +63,7 @@ static func _case_clamp(res: Dictionary) -> void:
 
 
 static func _case_directional(res: Dictionary) -> void:
-	_reset()
+	TestFixtures.reset_campaign()
 	var a := _merc("Ada", 4)
 	var b := _merc("Bo", 4)
 	RelationshipSystem.adjust(a, b, 3)
@@ -88,7 +76,7 @@ static func _case_directional(res: Dictionary) -> void:
 
 
 static func _case_untracked(res: Dictionary) -> void:
-	_reset()
+	TestFixtures.reset_campaign()
 	var a := _merc("Ada", 4)
 	var ghost := MercenaryData.new()
 	ghost.merc_name = "Ghost"
@@ -101,7 +89,7 @@ static func _case_untracked(res: Dictionary) -> void:
 
 
 static func _case_best_ally(res: Dictionary) -> void:
-	_reset()
+	TestFixtures.reset_campaign()
 	var a := _merc("Ada", 4)
 	var b := _merc("Bo", 4)
 	var c := _merc("Cai", 4)
@@ -116,7 +104,7 @@ static func _case_best_ally(res: Dictionary) -> void:
 
 
 static func _case_proximity(res: Dictionary) -> void:
-	_reset()
+	TestFixtures.reset_campaign()
 	var a := _merc("Ada", 4)
 	var b := _merc("Bo", 4)
 	var foe := _merc("Foe", 4)
@@ -131,12 +119,12 @@ static func _case_proximity(res: Dictionary) -> void:
 		state.end_of_turn(a)
 		state.end_of_turn(b)
 	_force_fail()
-	var lines: Array[String] = RelationshipSystem.end_contract(_run_for(team_a))
+	var lines: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team_a))
 	TestFixtures.check(res, "near tally raises", RelationshipSystem.value(a, b) == 5,
 		"seed 4 plus 1, got %d" % RelationshipSystem.value(a, b))
 	TestFixtures.check(res, "near tally is mutual", RelationshipSystem.value(b, a) == 5, "both directions moved")
 	TestFixtures.check(res, "near line emitted", lines.size() >= 1, "%d line(s)" % lines.size())
-	_reset()
+	TestFixtures.reset_campaign()
 	var c := _merc("Cai", 4)
 	var d := _merc("Dee", 4)
 	var foe2 := _merc("Foe", 4)
@@ -151,60 +139,60 @@ static func _case_proximity(res: Dictionary) -> void:
 		far_state.end_of_turn(c)
 		far_state.end_of_turn(d)
 	_force_fail()
-	var _far_lines: Array[String] = RelationshipSystem.end_contract(_run_for(team_c))
+	var _far_lines: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team_c))
 	TestFixtures.check(res, "far tally holds", RelationshipSystem.value(c, d) == 4,
 		"seed 4 unchanged, got %d" % RelationshipSystem.value(c, d))
 
 
 static func _case_aid(res: Dictionary) -> void:
-	_reset()
+	TestFixtures.reset_campaign()
 	var a := _merc("Ada", 4)
 	var b := _merc("Bo", 4)
 	RelationshipSystem.record_aid(a, b)
 	var team: Array[MercenaryData] = [a, b]
 	_force_fail()
-	var lines: Array[String] = RelationshipSystem.end_contract(_run_for(team))
+	var lines: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team))
 	TestFixtures.check(res, "aid raises helper", RelationshipSystem.value(a, b) == 5,
 		"seed 4 plus 1, got %d" % RelationshipSystem.value(a, b))
 	TestFixtures.check(res, "aid raises helped", RelationshipSystem.value(b, a) == 5, "both sides gain")
 	TestFixtures.check(res, "aid line emitted", lines.size() >= 1, "%d line(s)" % lines.size())
-	_reset()
+	TestFixtures.reset_campaign()
 	var c := _merc("Cai", 4)
 	var d := _merc("Dee", 4)
 	var team2: Array[MercenaryData] = [c, d]
 	_force_fail()
-	var _none: Array[String] = RelationshipSystem.end_contract(_run_for(team2))
+	var _none: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team2))
 	TestFixtures.check(res, "no aid no change", RelationshipSystem.value(c, d) == 4,
 		"seed 4 unchanged, got %d" % RelationshipSystem.value(c, d))
 
 
 static func _case_wile_roll(res: Dictionary) -> void:
-	_reset()
+	TestFixtures.reset_campaign()
 	var a := _merc("Ada", 1)
 	var b := _merc("Bo", 1)
 	var c := _merc("Cai", 1)
 	var team: Array[MercenaryData] = [a, b, c]
 	for i: int in range(24):
 		CheckSystem.forced_rolls.append(1)
-	var _lines: Array[String] = RelationshipSystem.end_contract(_run_for(team))
+	var _lines: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team))
 	CheckSystem.forced_rolls.clear()
 	TestFixtures.check(res, "wile pass raises toward roller", RelationshipSystem.value(a, b) == 2,
 		"seed 1 plus 1, got %d" % RelationshipSystem.value(a, b))
 	TestFixtures.check(res, "wile pass covers every pair", RelationshipSystem.value(b, c) == 2, "every survivor pair moved")
-	_reset()
+	TestFixtures.reset_campaign()
 	var d := _merc("Dee", 1)
 	var e := _merc("Eli", 1)
 	var team2: Array[MercenaryData] = [d, e]
 	for i: int in range(24):
 		CheckSystem.forced_rolls.append(100)
-	var _lines2: Array[String] = RelationshipSystem.end_contract(_run_for(team2))
+	var _lines2: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team2))
 	CheckSystem.forced_rolls.clear()
 	TestFixtures.check(res, "wile fail holds", RelationshipSystem.value(d, e) == 1,
 		"seed 1 unchanged, got %d" % RelationshipSystem.value(d, e))
 
 
 static func _case_forget(res: Dictionary) -> void:
-	_reset()
+	TestFixtures.reset_campaign()
 	var a := _merc("Ada", 4)
 	var b := _merc("Bo", 4)
 	var _v: int = RelationshipSystem.value(a, b)

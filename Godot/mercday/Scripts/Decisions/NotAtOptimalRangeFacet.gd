@@ -16,8 +16,8 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		var d: float = state.distance_to(merc, enemy)
 		if d < min_dist:
 			min_dist = d
-	# Already at or beyond intended range -- no need to reposition
+	#Already at or beyond intended range; no need to reposition
 	if min_dist >= float(intended):
 		return 0.0
-	# Score increases linearly as enemy closes in from intended range
+	#Score increases linearly as enemy closes in from intended range
 	return clampf(1.0 - min_dist / float(intended), 0.0, 1.0)

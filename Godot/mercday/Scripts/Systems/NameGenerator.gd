@@ -11,11 +11,18 @@ static var _pools: Dictionary = {}
 static var _prefab_pools: Dictionary = {}
 static var _recent_surnames: Dictionary = {}
 static var _recent_first_names: Dictionary = {}
-static var _loaded: bool = false
+
+
+#Receives the pools read from the TSV sheets; called once while the data loads.
+static func install_pools(excluded_words: Array[String], excluded_syllables: Array[String],
+		pools: Dictionary, prefab_pools: Dictionary) -> void:
+	_excluded_words = excluded_words
+	_excluded_syllables = excluded_syllables
+	_pools = pools
+	_prefab_pools = prefab_pools
 
 
 static func generate(location: LocationData) -> String:
-	_ensure_loaded()
 	var region: String = _find_region(location)
 	if region.is_empty():
 		return "Unknown"
@@ -23,12 +30,10 @@ static func generate(location: LocationData) -> String:
 
 
 static func generate_for_region(region: String) -> String:
-	_ensure_loaded()
 	return _make_full_name(region)
 
 
 static func get_regions() -> Array[String]:
-	_ensure_loaded()
 	var result: Array[String] = []
 	for k: String in _pools:
 		result.append(k)
@@ -44,6 +49,11 @@ static func _find_region(location: LocationData) -> String:
 	return ""
 
 
+#The finish chain every generated part runs through, written once for both callers.
+static func _finish_part(part: String, region: String) -> String:
+	return _fix_trailing_apos(_cap_first(_post_process(part, region)))
+
+
 #One finished name part: a prefab draw or a generated part run through the post steps.
 static func _resolve_name(region: String, is_surname: bool, prefab_out: Array = []) -> String:
 	var use_prefab: bool = _has_prefab(region, is_surname) and randf() < 0.5
@@ -53,9 +63,7 @@ static func _resolve_name(region: String, is_surname: bool, prefab_out: Array = 
 	var part: String = _generate_part(region, is_surname)
 	if part.is_empty():
 		return part
-	part = _post_process(part, region)
-	part = _cap_first(part)
-	part = _fix_trailing_apos(part)
+	part = _finish_part(part, region)
 	if not is_surname and region == "Cyfrolaef" and part.length() <= 3:
 		part = _cap_first(_reverse_string(part.to_lower()))
 	return part
@@ -68,12 +76,8 @@ static func _make_full_name(region: String) -> String:
 			var first_b: String = _generate_part(region, false)
 			if first_a.is_empty() or first_b.is_empty():
 				continue
-			first_a = _post_process(first_a, region)
-			first_b = _post_process(first_b, region)
-			first_a = _cap_first(first_a)
-			first_b = _cap_first(first_b)
-			first_a = _fix_trailing_apos(first_a)
-			first_b = _fix_trailing_apos(first_b)
+			first_a = _finish_part(first_a, region)
+			first_b = _finish_part(first_b, region)
 			if _is_excluded(first_a) or _is_excluded(first_b):
 				continue
 			while first_b.length() > 1 and (first_b.length() > 6 or not _is_v(first_b[first_b.length() - 1].to_lower(), false)):
@@ -141,29 +145,12 @@ static func _generate_part(region: String, is_surname: bool) -> String:
 	if prefixes.is_empty():
 		return ""
 
-	var mid_chance: float = 0.50 if is_surname else 0.25
-	var suf_chance: float = 0.60 if is_surname else 0.75
-
-	match region:
-		"Buern":
-			if not is_surname:
-				mid_chance = 0.50
-			else:
-				mid_chance = 0.75
-		"Vaernebo":
-			if not is_surname:
-				mid_chance = 0.0
-		"Kathaya":
-			if not is_surname:
-				mid_chance = 0.05
-				suf_chance = 0.25
+	var chances: Array[float] = _part_chances(region, is_surname)
+	var mid_chance: float = chances[0]
+	var suf_chance: float = chances[1]
 
 	if region == "Zukei" and not is_surname and not mids.is_empty() and randf() < 0.15:
-		var mid_start: String = _strip_markers(_pick(mids))
-		mid_start = mid_start.substr(0, 1).to_upper() + mid_start.substr(1)
-		if not sufs.is_empty() and randf() < suf_chance:
-			return _join(mid_start, _strip_markers(_pick(sufs)), region, is_surname)
-		return mid_start
+		return _zukei_mid_start(mids, sufs, suf_chance, region, is_surname)
 
 	var prefix: String = _strip_markers(_pick(prefixes))
 
@@ -174,29 +161,9 @@ static func _generate_part(region: String, is_surname: bool) -> String:
 		has_mid = true
 
 	if region == "Miliim":
-		var part: String = _join(prefix, mid, region, is_surname) if has_mid else prefix
-		if not has_mid and not sufs.is_empty() and randf() < suf_chance:
-			part = _join(part, _strip_markers(_pick(sufs)), region, is_surname)
-		return part
+		return _miliim_part(prefix, mid, has_mid, sufs, suf_chance, region, is_surname)
 
-	var suf: String = ""
-	if not sufs.is_empty():
-		var actual_suf: float = suf_chance
-		if region == "Buern" and not is_surname and not has_mid:
-			actual_suf -= 0.25
-		if region == "Kathaya" and not is_surname and has_mid:
-			actual_suf = 0.05
-		if randf() < actual_suf:
-			if region == "Suorr":
-				suf = _strip_markers(_pick_vowel_weighted(sufs))
-			elif region == "Rossade":
-				suf = _strip_markers(_pick_length_weighted(sufs))
-			elif region == "Aldurstein" and not is_surname:
-				suf = _strip_markers(_pick_target_ending_weighted(sufs, ["a", "y", "i"], 1.25))
-			else:
-				suf = _strip_markers(_pick(sufs))
-		if region == "Kathaya" and is_surname and has_mid:
-			suf = "i" if randf() < 0.5 else suf
+	var suf: String = _part_suffix(region, is_surname, has_mid, sufs, suf_chance)
 
 	var assembled: String = prefix
 	if not mid.is_empty():
@@ -204,6 +171,74 @@ static func _generate_part(region: String, is_surname: bool) -> String:
 	if not suf.is_empty():
 		assembled = _join(assembled, suf, region, is_surname)
 
+	return _part_tail(assembled, region, is_surname, has_mid, suf, sufs, pool)
+
+
+#The middlefix and suffix chances for one part; index 0 is the middlefix chance and 1 the suffix chance.
+static func _part_chances(region: String, is_surname: bool) -> Array[float]:
+	var mid_chance: float = 0.50 if is_surname else 0.25
+	var suf_chance: float = 0.60 if is_surname else 0.75
+	match region:
+		"Buern":
+			mid_chance = 0.75 if is_surname else 0.50
+		"Vaernebo":
+			if not is_surname:
+				mid_chance = 0.0
+		"Kathaya":
+			if not is_surname:
+				mid_chance = 0.05
+				suf_chance = 0.25
+	var out: Array[float] = [mid_chance, suf_chance]
+	return out
+
+
+#Zukei first names sometimes drop the prefix and open on a capitalised middlefix instead.
+static func _zukei_mid_start(mids: Array, sufs: Array, suf_chance: float, region: String,
+		is_surname: bool) -> String:
+	var mid_start: String = _strip_markers(_pick(mids))
+	mid_start = mid_start.substr(0, 1).to_upper() + mid_start.substr(1)
+	if not sufs.is_empty() and randf() < suf_chance:
+		return _join(mid_start, _strip_markers(_pick(sufs)), region, is_surname)
+	return mid_start
+
+
+#Miliim parts take a suffix only when no middlefix was drawn.
+static func _miliim_part(prefix: String, mid: String, has_mid: bool, sufs: Array,
+		suf_chance: float, region: String, is_surname: bool) -> String:
+	var part: String = _join(prefix, mid, region, is_surname) if has_mid else prefix
+	if not has_mid and not sufs.is_empty() and randf() < suf_chance:
+		part = _join(part, _strip_markers(_pick(sufs)), region, is_surname)
+	return part
+
+
+#Draws the suffix, with the per region chance shifts and weighted picks.
+static func _part_suffix(region: String, is_surname: bool, has_mid: bool, sufs: Array,
+		suf_chance: float) -> String:
+	var suf: String = ""
+	if sufs.is_empty():
+		return suf
+	var actual_suf: float = suf_chance
+	if region == "Buern" and not is_surname and not has_mid:
+		actual_suf -= 0.25
+	if region == "Kathaya" and not is_surname and has_mid:
+		actual_suf = 0.05
+	if randf() < actual_suf:
+		if region == "Suorr":
+			suf = _strip_markers(_pick_vowel_weighted(sufs))
+		elif region == "Rossade":
+			suf = _strip_markers(_pick_length_weighted(sufs))
+		elif region == "Aldurstein" and not is_surname:
+			suf = _strip_markers(_pick_target_ending_weighted(sufs, ["a", "y", "i"], 1.25))
+		else:
+			suf = _strip_markers(_pick(sufs))
+	if region == "Kathaya" and is_surname and has_mid:
+		suf = "i" if randf() < 0.5 else suf
+	return suf
+
+
+#The per region endings: the Kathaya tail, the Aldurstein trim and the Cyfrolaef two letter pad.
+static func _part_tail(assembled: String, region: String, is_surname: bool, has_mid: bool,
+		suf: String, sufs: Array, pool: Dictionary) -> String:
 	if region == "Kathaya" and not is_surname and not has_mid and suf.is_empty():
 		var lc: String = assembled[assembled.length() - 1].to_lower()
 		if not _is_v(lc, false):
@@ -371,41 +406,45 @@ static func _pp_rossade(name: String) -> String:
 	return result
 
 
-static func _fix_triple_vowels(name: String) -> String:
+#Splices out the middle character wherever three in a row answer the predicate.
+static func _collapse_triples(name: String, predicate: Callable) -> String:
 	var result: String = name
 	var i: int = 0
 	while i < result.length() - 2:
-		if _is_v(result[i].to_lower(), false) and _is_v(result[i+1].to_lower(), false) and _is_v(result[i+2].to_lower(), false):
+		if predicate.call(result[i].to_lower(), result[i + 1].to_lower(), result[i + 2].to_lower()):
 			result = result.substr(0, i + 1) + result.substr(i + 2)
 		else:
 			i += 1
 	return result
+
+
+static func _fix_triple_vowels(name: String) -> String:
+	return _collapse_triples(name, _three_vowels)
+
+
+static func _three_vowels(a: String, b: String, c: String) -> bool:
+	return _is_v(a, false) and _is_v(b, false) and _is_v(c, false)
 
 
 static func _fix_triple_consonants(name: String) -> String:
-	var result: String = name
-	var i: int = 0
-	while i < result.length() - 2:
-		var a: String = result[i].to_lower()
-		var b: String = result[i + 1].to_lower()
-		var cc: String = result[i + 2].to_lower()
-		if not _is_v(a, false) and a != "'" and not _is_v(b, false) and b != "'" and not _is_v(cc, false) and cc != "'":
-			result = result.substr(0, i + 1) + result.substr(i + 2)
-		else:
-			i += 1
-	return result
+	return _collapse_triples(name, _three_consonants)
+
+
+static func _three_consonants(a: String, b: String, c: String) -> bool:
+	return _is_hard(a) and _is_hard(b) and _is_hard(c)
 
 
 static func _fix_triple_same_consonant(name: String) -> String:
-	var result: String = name
-	var i: int = 0
-	while i < result.length() - 2:
-		var c: String = result[i].to_lower()
-		if c == result[i + 1].to_lower() and c == result[i + 2].to_lower() and not _is_v(c, false) and c != "'":
-			result = result.substr(0, i + 1) + result.substr(i + 2)
-		else:
-			i += 1
-	return result
+	return _collapse_triples(name, _three_same_consonants)
+
+
+static func _three_same_consonants(a: String, b: String, c: String) -> bool:
+	return a == b and a == c and _is_hard(a)
+
+
+#True for a consonant that is not the apostrophe.
+static func _is_hard(c: String) -> bool:
+	return not _is_v(c, false) and c != "'"
 
 
 static func _pick(pool: Array) -> String:
@@ -567,93 +606,3 @@ static func _collapse_repeating(s: String) -> String:
 			if changed:
 				break
 	return result
-
-
-static func _ensure_loaded() -> void:
-	if _loaded:
-		return
-	_loaded = true
-	_load_exclusions()
-	_load_prefab_names()
-	_load_names()
-
-
-static func _load_exclusions() -> void:
-	var file := FileAccess.open("res://TSVs/NameExclusions.txt", FileAccess.READ)
-	if not file:
-		push_error("NameGenerator: cannot open res://TSVs/NameExclusions.txt")
-		return
-	var section: String = ""
-	while not file.eof_reached():
-		var line: String = file.get_line().strip_edges()
-		if line.is_empty() or line.begins_with("#"):
-			continue
-		if line == "[words]":
-			section = "words"
-		elif line == "[syllables]":
-			section = "syllables"
-		elif section == "words":
-			_excluded_words.append(line.to_lower())
-		elif section == "syllables":
-			_excluded_syllables.append(line.to_lower())
-	file.close()
-
-
-static func _load_prefab_names() -> void:
-	var file := FileAccess.open("res://TSVs/Names_Prefab.tsv", FileAccess.READ)
-	if not file:
-		push_error("NameGenerator: cannot open res://TSVs/Names_Prefab.tsv")
-		return
-	file.get_csv_line("\t")
-	while not file.eof_reached():
-		var row: PackedStringArray = file.get_csv_line("\t")
-		if row.size() < 3:
-			continue
-		var region: String = row[0].strip_edges()
-		if region.is_empty():
-			continue
-		if not _prefab_pools.has(region):
-			_prefab_pools[region] = {"first": [], "last": []}
-		var fn: String = row[1].strip_edges()
-		var ln: String = row[2].strip_edges()
-		if not fn.is_empty():
-			(_prefab_pools[region]["first"] as Array).append(fn)
-		if not ln.is_empty():
-			(_prefab_pools[region]["last"] as Array).append(ln)
-	file.close()
-
-
-static func _load_names() -> void:
-	var file := FileAccess.open("res://TSVs/Names_Gen.tsv", FileAccess.READ)
-	if not file:
-		push_error("NameGenerator: cannot open res://TSVs/Names.tsv")
-		return
-	file.get_csv_line("\t")
-	while not file.eof_reached():
-		var row: PackedStringArray = file.get_csv_line("\t")
-		if row.size() < 7:
-			continue
-		var region: String = row[0].strip_edges()
-		if region.is_empty():
-			continue
-		if not _pools.has(region):
-			_pools[region] = {
-				"prefix1": [], "middlefix1": [], "suffix1": [],
-				"prefix2": [], "middlefix2": [], "suffix2": []
-			}
-		var pool: Dictionary = _pools[region]
-		_add_to_pool(pool, "prefix1",    row[1])
-		_add_to_pool(pool, "middlefix1", row[2])
-		_add_to_pool(pool, "suffix1",    row[3])
-		_add_to_pool(pool, "prefix2",    row[4])
-		_add_to_pool(pool, "middlefix2", row[5])
-		_add_to_pool(pool, "suffix2",    row[6])
-	file.close()
-
-
-static func _add_to_pool(pool: Dictionary, key: String, value: String) -> void:
-	var v: String = value.strip_edges()
-	if v.is_empty():
-		return
-	var arr: Array = pool[key] as Array
-	arr.append(v)

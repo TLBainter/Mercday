@@ -19,9 +19,6 @@ static func melee_reach_for(merc: MercenaryData, weapon: WeaponData) -> int:
 
 
 #Fight never counts: a backup is a real weapon the merc can bring to hand once the throw is gone.
-
-
-#Fight never counts: a backup is a real weapon the merc can bring to hand once the throw is gone.
 static func has_backup_weapon(merc: MercenaryData, thrown: WeaponData) -> bool:
 	var fight: WeaponData = DataManager.fight_weapon
 	var pool: Array[WeaponData] = []
@@ -48,11 +45,11 @@ static func _offhand_free_for(merc: MercenaryData, weapon: WeaponData) -> bool:
 
 
 #A ranged weapon is usable when the merc can feed it and it is not too likely to jam.
-
-
-#A ranged weapon is usable when the merc can feed it and it is not too likely to jam.
 static func is_ranged_usable(merc: MercenaryData, weapon: WeaponData) -> bool:
 	if weapon == null or not weapon.is_ranged:
+		return false
+	#A snapped bowstring makes the bow useless until the merc repairs it.
+	if weapon.string_snapped:
 		return false
 	var has_ammo := false
 	if merc.equipped_weapon == weapon:
@@ -71,6 +68,17 @@ static func is_ranged_usable(merc: MercenaryData, weapon: WeaponData) -> bool:
 	if weapon.misfire > 0 and _reliability_of(merc, weapon) < 0.50:
 		return false
 	return true
+
+
+#A merc whose equipped ranged weapon is the one it will actually shoot with.
+static func is_ranged_focused(merc: MercenaryData) -> bool:
+	if merc == null or merc.equipped_weapon == null:
+		return false
+	if not merc.equipped_weapon.is_ranged:
+		return false
+	if not is_ranged_usable(merc, merc.equipped_weapon):
+		return false
+	return not CombatDecision.is_melee_preferred(merc)
 
 
 static func _reliability_of(merc: MercenaryData, weapon: WeaponData) -> float:
@@ -118,7 +126,7 @@ static func score_weapon(
 				var acc := clampf(float(merc.stats.get("melee_accuracy", 50.0)) / 100.0, 0.01, 1.0)
 				var max_dmg := avg_dmg * 2.0
 				var weighted_per_use := 0.85 * (acc * avg_dmg) + 0.15 * max_dmg
-				if allow_two_hand_die and WeaponArmorPerkLibrary.is_flex_grip(weapon) \
+				if allow_two_hand_die and WeaponArmorPerkLibrary.is_flex_grip(weapon, merc) \
 						and _offhand_free_for(merc, weapon):
 					var flex := AttackSystem._parse_damage_formula(weapon.damage_formula_1)
 					if not bool(flex["is_todo"]):
@@ -134,73 +142,22 @@ static func score_weapon(
 				flaws = 0
 			var shot := expected_attack_damage(merc, weapon, flaws)
 			var punch := expected_attack_damage(merc, DataManager.fight_weapon, 0)
+			#Bludgeon: an empty or threatened gun still swings for its flat makeshift damage.
+			if weapon == merc.equipped_weapon and closest_dist <= 1 \
+					and (merc.ammo_loaded <= 0 or ConstStates.has_state(merc, ConstStates.THREATENED)):
+				var swing := AttackSystem.melee_makeshift(merc)
+				if not swing.is_empty():
+					var acc_m := clampf(float(merc.stats.get("melee_accuracy", 50.0)) / 100.0, 0.01, 1.0)
+					shot = maxf(shot, acc_m * float(int(swing["amount"])))
 			score += clampf(shot - punch, -1.0, 1.0)
 	else:
 		if weapon.is_ranged:
-			var in_range := 0
-			var in_intended := 0
-			for enemy: MercenaryData in enemies:
-				var d := state.distance_to(merc, enemy)
-				if weapon.ranged_extended_range <= 0 or d <= weapon.ranged_extended_range:
-					in_range += 1
-				if weapon.ranged_intended_range <= 0 or d <= weapon.ranged_intended_range:
-					in_intended += 1
-			var ranged_avg_dmg := parse_formula_for_avg(weapon.damage_formula_1)
-			var dmg_factor := clampf(ranged_avg_dmg / 7.0, 0.1, 2.0)
-			score += 1.5 * float(in_range) * dmg_factor
-			var melee_acc_r := maxf(1.0, float(merc.stats.get("melee_accuracy", 50.0)))
-			var ranged_acc_r := maxf(0.0, float(merc.stats.get("ranged_accuracy", 0.0)))
-			score *= clampf(ranged_acc_r / melee_acc_r, 0.1, 2.0)
-			score -= 0.4 * float(in_range - in_intended)
-			if weapon.misfire > 0:
-				var misfire_risk: float = clampf(float(weapon.misfire) * 0.35, 0.0, 2.5)
-				var accuracy_factor: float = clampf(1.0 - ranged_acc_r / 100.0, 0.0, 1.0)
-				score -= misfire_risk * (0.3 + accuracy_factor * 0.7)
+			score = _score_ranged(weapon, merc, enemies, state)
 		elif weapon.is_throwable:
-			var throw_avg := parse_formula_for_avg(weapon.damage_formula_1)
-			var throw_acc := clampf(ThrownWeaponRules.compute_thrown_accuracy(merc, weapon) / 100.0, 0.01, 1.0)
-			var weighted_throw := 0.85 * (throw_acc * throw_avg) + 0.15 * (throw_avg * 2.0)
-			var throw_uses := 6.0 if weapon.fragility <= 0 \
-					else clampf(float(weapon.current_fragility), 1.0, 6.0)
-			var throw_dmg_score: float = clampf(weighted_throw * throw_uses / 2.5, 0.0, 2.0) \
-					* ThrownWeaponRules._throw_replacement_factor(merc, weapon, state)
-			var t_ranges := ThrownWeaponRules.thrown_ranges(merc, weapon)
-			var ext_range: int = int(t_ranges["extended"])
-			var int_range: int = int(t_ranges["intended"])
-			if int_range <= 0:
-				int_range = ext_range
-			for enemy: MercenaryData in enemies:
-				var d := state.distance_to(merc, enemy)
-				if ext_range <= 0 or d > ext_range:
-					continue
-				var range_factor: float
-				if d <= int_range:
-					range_factor = 1.0
-				else:
-					range_factor = clampf(1.0 - 0.6 * float(d - int_range) / maxf(1.0, float(ext_range - int_range)), 0.4, 1.0)
-				score += throw_dmg_score * range_factor
+			score = _score_thrown(weapon, merc, enemies, state)
 			damage_fragility_handled = true
 		else:
-			var pace := maxf(1.0, float(merc.stats.get("pace", 1)))
-			var turns_to_close := float(closest_dist) / pace
-			if movement_blocked:
-				turns_to_close *= 3.0
-			var dist_factor := clampf((turns_to_close - 1.0) / 4.0, 0.0, 2.0)
-			var melee_acc := maxf(1.0, float(merc.stats.get("melee_accuracy", 50.0)))
-			var ranged_acc := maxf(0.0, float(merc.stats.get("ranged_accuracy", 0.0)))
-			var ranged_aptitude := clampf(ranged_acc / melee_acc, 0.0, 3.0)
-			score -= dist_factor * ranged_aptitude
-			var melee_preference := clampf(1.0 - ranged_aptitude, 0.0, 1.0)
-			var reachability := clampf(1.0 - (turns_to_close - 1.0) / 5.0, 0.0, 1.0)
-			score += melee_preference * reachability * 2.0
-			var melee_avg_dmg := parse_formula_for_avg(weapon.damage_formula_1)
-			var best_ranged_avg := 0.0
-			for w: WeaponData in get_available_weapons(merc):
-				if w.is_ranged:
-					best_ranged_avg = maxf(best_ranged_avg, parse_formula_for_avg(w.damage_formula_1))
-			if melee_avg_dmg > 0.0 or best_ranged_avg > 0.0:
-				var dmg_ratio := (melee_avg_dmg - best_ranged_avg) / maxf(1.0, melee_avg_dmg + best_ranged_avg)
-				score += clampf(dmg_ratio * 1.5, -0.5, 1.5) * reachability
+			score = _score_melee(weapon, merc, closest_dist, movement_blocked)
 	var all_types: Array = weapon.damage_types_1.duplicate()
 	all_types.append_array(weapon.damage_types_2)
 	if not all_types.is_empty() and not enemies.is_empty():
@@ -227,7 +184,84 @@ static func score_weapon(
 	return score
 
 
-#Expected damage of one attack: core dice and weapon dice at the accuracy, one core die lost per Flaw.
+#What a shot is worth beyond melee reach: how many enemies it covers, its accuracy and its jam risk.
+static func _score_ranged(weapon: WeaponData, merc: MercenaryData, enemies: Array, state: BattleState) -> float:
+	var score := 0.0
+	var in_range := 0
+	var in_intended := 0
+	for enemy: MercenaryData in enemies:
+		var d := state.distance_to(merc, enemy)
+		if weapon.ranged_extended_range <= 0 or d <= weapon.ranged_extended_range:
+			in_range += 1
+		if weapon.ranged_intended_range <= 0 or d <= weapon.ranged_intended_range:
+			in_intended += 1
+	var ranged_avg_dmg := parse_formula_for_avg(weapon.damage_formula_1)
+	var dmg_factor := clampf(ranged_avg_dmg / 7.0, 0.1, 2.0)
+	score += 1.5 * float(in_range) * dmg_factor
+	var melee_acc_r := maxf(1.0, float(merc.stats.get("melee_accuracy", 50.0)))
+	var ranged_acc_r := maxf(0.0, float(merc.stats.get("ranged_accuracy", 0.0)))
+	score *= clampf(ranged_acc_r / melee_acc_r, 0.1, 2.0)
+	score -= 0.4 * float(in_range - in_intended)
+	if weapon.misfire > 0:
+		var misfire_risk: float = clampf(float(weapon.misfire) * 0.35, 0.0, 2.5)
+		var accuracy_factor: float = clampf(1.0 - ranged_acc_r / 100.0, 0.0, 1.0)
+		score -= misfire_risk * (0.3 + accuracy_factor * 0.7)
+	return score
+
+
+#What a throw is worth beyond melee reach: its damage over the uses it has, fading past the intended range.
+static func _score_thrown(weapon: WeaponData, merc: MercenaryData, enemies: Array, state: BattleState) -> float:
+	var score := 0.0
+	var throw_avg := parse_formula_for_avg(weapon.damage_formula_1)
+	var throw_acc := clampf(ThrownWeaponRules.compute_thrown_accuracy(merc, weapon) / 100.0, 0.01, 1.0)
+	var weighted_throw := 0.85 * (throw_acc * throw_avg) + 0.15 * (throw_avg * 2.0)
+	var throw_uses := 6.0 if weapon.fragility <= 0 \
+			else clampf(float(weapon.current_fragility), 1.0, 6.0)
+	var throw_dmg_score: float = clampf(weighted_throw * throw_uses / 2.5, 0.0, 2.0) \
+			* ThrownWeaponRules._throw_replacement_factor(merc, weapon, state)
+	var t_ranges := ThrownWeaponRules.thrown_ranges(merc, weapon)
+	var ext_range: int = int(t_ranges["extended"])
+	var int_range: int = int(t_ranges["intended"])
+	if int_range <= 0:
+		int_range = ext_range
+	for enemy: MercenaryData in enemies:
+		var d := state.distance_to(merc, enemy)
+		if ext_range <= 0 or d > ext_range:
+			continue
+		var range_factor: float
+		if d <= int_range:
+			range_factor = 1.0
+		else:
+			range_factor = clampf(1.0 - 0.6 * float(d - int_range) / maxf(1.0, float(ext_range - int_range)), 0.4, 1.0)
+		score += throw_dmg_score * range_factor
+	return score
+
+
+#What a melee weapon is worth beyond its reach: the cost of closing against the damage it brings.
+static func _score_melee(weapon: WeaponData, merc: MercenaryData, closest_dist: int,
+		movement_blocked: bool) -> float:
+	var score := 0.0
+	var pace := maxf(1.0, float(merc.stats.get("pace", 1)))
+	var turns_to_close := float(closest_dist) / pace
+	if movement_blocked:
+		turns_to_close *= 3.0
+	var dist_factor := clampf((turns_to_close - 1.0) / 4.0, 0.0, 2.0)
+	var melee_acc := maxf(1.0, float(merc.stats.get("melee_accuracy", 50.0)))
+	var ranged_acc := maxf(0.0, float(merc.stats.get("ranged_accuracy", 0.0)))
+	var ranged_aptitude := clampf(ranged_acc / melee_acc, 0.0, 3.0)
+	score -= dist_factor * ranged_aptitude
+	var melee_preference := clampf(1.0 - ranged_aptitude, 0.0, 1.0)
+	var reachability := clampf(1.0 - (turns_to_close - 1.0) / 5.0, 0.0, 1.0)
+	score += melee_preference * reachability * 2.0
+	var melee_avg_dmg := parse_formula_for_avg(weapon.damage_formula_1)
+	var best_ranged_avg := 0.0
+	for w: WeaponData in get_available_weapons(merc):
+		if w.is_ranged:
+			best_ranged_avg = maxf(best_ranged_avg, parse_formula_for_avg(w.damage_formula_1))
+	if melee_avg_dmg > 0.0 or best_ranged_avg > 0.0:
+		var dmg_ratio := (melee_avg_dmg - best_ranged_avg) / maxf(1.0, melee_avg_dmg + best_ranged_avg)
+		score += clampf(dmg_ratio * 1.5, -0.5, 1.5) * reachability
+	return score
 
 
 #Expected damage of one attack: core dice and weapon dice at the accuracy, one core die lost per Flaw.
@@ -239,9 +273,6 @@ static func expected_attack_damage(merc: MercenaryData, weapon: WeaponData, flaw
 	var parsed := AttackSystem._parse_damage_formula(weapon.damage_formula_1 if weapon != null else "")
 	var dice := 0 if bool(parsed["is_todo"]) else int(parsed["num_dice"])
 	return (float(core) + float(dice)) * acc + float(parsed["flat_bonus"])
-
-
-#True for a carried ranged weapon that is not already in the main hand.
 
 
 #True for a carried ranged weapon that is not already in the main hand.
@@ -335,13 +366,7 @@ static func get_available_weapons(merc: MercenaryData) -> Array[WeaponData]:
 #Average damage of an "NdS + F" formula; 0.0 for an unauthored formula.
 static func parse_formula_for_avg(formula: String) -> float:
 	var parsed := AttackSystem._parse_damage_formula(formula)
-	return float(parsed["flat_bonus"]) 		+ float(parsed["num_dice"]) * float(parsed["die_sides"]) * 0.5
-
-
-#Returns a [-1.0, ~0.8] score for how well damage_types exploit this enemy's profile.
-#Negative = bad matchup (immune, protected by state); positive = good matchup.
-#Averages across all types in the list so multi-type weapons aren't over-rewarded.
-#Only passive tokens the viewer's team already knows about count toward the score.
+	return float(parsed["flat_bonus"]) + float(parsed["num_dice"]) * float(parsed["die_sides"]) * 0.5
 
 
 #Returns a [-1.0, ~0.8] score for how well damage_types exploit this enemy's profile.

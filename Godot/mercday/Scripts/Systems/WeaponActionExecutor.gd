@@ -5,20 +5,14 @@ const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
 
 #A virtual weapon takes no hands, a "Two-Handed" weapon takes both, anything else one.
 #Bare hands need one empty hand; Two-Handed needs both; One-Handed, Protean and unmarked weapons need one.
-static func hands_needed(w: WeaponData) -> int:
+static func hands_needed(w: WeaponData, merc: MercenaryData = null) -> int:
 	if w == null:
 		return 0
 	if w.is_virtual:
 		return 1
+	if merc != null and WeaponArmorPerkLibrary.is_protean(merc, w):
+		return 1
 	return 2 if w.misc_properties.has("Two-Handed") else 1
-
-
-static func hands_in_use(merc: MercenaryData) -> int:
-	var used := 0
-	if merc.equipped_weapon != null and merc.weapon_drawn:
-		used += hands_needed(merc.equipped_weapon)
-	used += hands_needed(merc.offhand_weapon)
-	return used
 
 
 static func get_draw_cost(merc: MercenaryData, weapon: WeaponData) -> int:
@@ -48,9 +42,10 @@ static func get_draw_urgency(merc: MercenaryData) -> int:
 	return int(merc.active_states.get("draw_urgency", 0))
 
 
-static func execute_reload(merc: MercenaryData, state: BattleState, enhancements: int = 0) -> Array[String]:
-	# weapon_misfired is NOT cleared here; it resets at turn start before decisions are evaluated,
-	# so reloading after a same-turn misfire is correctly allowed.
+static func execute_reload(merc: MercenaryData, state: BattleState, enhancements: int = 0,
+		free: bool = false, cost_override: int = -1) -> Array[String]:
+	#weapon_misfired is NOT cleared here; it resets at turn start before decisions are evaluated,
+	#so reloading after a same-turn misfire is correctly allowed.
 	var weapon := merc.equipped_weapon
 	if weapon == null or not weapon.is_ranged:
 		return []
@@ -65,12 +60,12 @@ static func execute_reload(merc: MercenaryData, state: BattleState, enhancements
 			return []
 		merc.ammo_loaded = available
 		var lines_q: Array[String] = ["  %s restocks quiver. (%d available)" % [BattleState.colored_name(merc, state), available]]
-		lines_q.append_array(WeaponReactiveSystem.fire_trigger(merc, "after_reload", null, {}, state, enhancements))
+		lines_q.append_array(_after_reload_triggers(merc, state, enhancements))
 		return lines_q
 	if merc.ammo_loaded >= weapon.chamber:
 		return []
-	var reload_cost := weapon.load_time
-	if reload_cost <= 0 or not state.can_afford(merc, reload_cost):
+	var reload_cost := 0 if free else (cost_override if cost_override >= 0 else weapon.load_time)
+	if not free and (reload_cost <= 0 or not state.can_afford(merc, reload_cost)):
 		return []
 	var to_load := mini(weapon.chamber - merc.ammo_loaded, available)
 	if to_load <= 0:
@@ -79,10 +74,21 @@ static func execute_reload(merc: MercenaryData, state: BattleState, enhancements
 	merc.ammo_inventory[ammo_type] -= to_load
 	if merc.ammo_inventory[ammo_type] <= 0:
 		merc.ammo_inventory.erase(ammo_type)
-	state.spend_ap(merc, reload_cost)
+	if reload_cost > 0:
+		state.spend_ap(merc, reload_cost)
 	var remaining: int = merc.ammo_inventory.get(ammo_type, 0)
 	var lines: Array[String] = ["  %s reloads. [%d+%d]" % [BattleState.colored_name(merc, state), merc.ammo_loaded, remaining]]
-	lines.append_array(WeaponReactiveSystem.fire_trigger(merc, "after_reload", null, {}, state, enhancements))
+	lines.append_array(_after_reload_triggers(merc, state, enhancements))
+	return lines
+
+
+#after_reload and on_load both fire once the ammunition is in place.
+static func _after_reload_triggers(merc: MercenaryData, state: BattleState, enhancements: int) -> Array[String]:
+	var lines: Array[String] = []
+	var foe := TargetSelector.nearest_visible_enemy(merc, state,
+			TargetSelector.weapon_target_range(merc))
+	lines.append_array(WeaponReactiveSystem.fire_trigger(merc, "after_reload", foe, {}, state, enhancements))
+	lines.append_array(WeaponReactiveSystem.fire_on_load(merc, state))
 	return lines
 
 
@@ -107,15 +113,15 @@ static func needs_free_hands(merc: MercenaryData, weapon: WeaponData) -> bool:
 		return false
 	if weapon == merc.equipped_weapon and merc.weapon_drawn:
 		return false
-	var capacity := 2 - hands_needed(weapon)
+	var capacity := 2 - hands_needed(weapon, merc)
 	var equipped: WeaponData = merc.equipped_weapon
 	var has_equipped := equipped != null and merc.weapon_drawn and not equipped.is_virtual
 	if has_equipped and merc.offhand_weapon != null:
 		return true
 	if has_equipped:
-		return hands_needed(equipped) > capacity
+		return hands_needed(equipped, merc) > capacity
 	if merc.offhand_weapon != null:
-		return hands_needed(merc.offhand_weapon) > capacity
+		return hands_needed(merc.offhand_weapon, merc) > capacity
 	return false
 
 
@@ -147,7 +153,7 @@ static func plan_free_hands(
 	var steps: Array[Dictionary] = []
 	var total := 0
 	#Hands left over once `weapon` is held; only one other weapon can stay, in the off hand.
-	var capacity := 2 - hands_needed(weapon)
+	var capacity := 2 - hands_needed(weapon, merc)
 	var equipped: WeaponData = merc.equipped_weapon
 	var offhand: WeaponData = merc.offhand_weapon
 	var has_equipped := equipped != null and equipped != weapon and merc.weapon_drawn \
@@ -156,11 +162,11 @@ static func plan_free_hands(
 	var must_go: Array[WeaponData] = []
 	if has_equipped and has_offhand:
 		must_go.append(equipped)
-		if hands_needed(offhand) > capacity:
+		if hands_needed(offhand, merc) > capacity:
 			must_go.append(offhand)
-	elif has_equipped and hands_needed(equipped) > capacity:
+	elif has_equipped and hands_needed(equipped, merc) > capacity:
 		must_go.append(equipped)
-	elif has_offhand and hands_needed(offhand) > capacity:
+	elif has_offhand and hands_needed(offhand, merc) > capacity:
 		must_go.append(offhand)
 	#Room for both, yet two hands on `weapon` beat the pair: the main-hand weapon goes or rides along.
 	var grip := false
@@ -170,9 +176,9 @@ static func plan_free_hands(
 		grip = true
 	var stows := 0
 	for held: WeaponData in must_go:
-		var mode := WeaponSwapDecider._should_holster_vs_drop(
+		var mode := WeaponSwapDecider.should_holster_vs_drop(
 			merc, held, weapon, enemies, state, attack_base_cost, log_decisions, stows)
-		if grip and mode == "drop" and WeaponSwapDecider._is_worth_keeping(merc, held, weapon, enemies, state):
+		if grip and mode == "drop" and WeaponSwapDecider.is_worth_keeping(merc, held, weapon, enemies, state):
 			mode = "keep"
 		if grip and mode == "keep":
 			continue
@@ -222,6 +228,7 @@ static func _release_hand(merc: MercenaryData, held: WeaponData) -> void:
 	elif merc.equipped_weapon == held:
 		merc.equipped_weapon = null
 		merc.weapon_drawn = false
+		WeaponArmorPerkLibrary.refresh_held_bonuses(merc)
 
 
 static func _drop_from_hand(
@@ -258,11 +265,18 @@ static func _switch_to_offhand(merc: MercenaryData, state: BattleState, enhancem
 		merc.offhand_weapon = prev
 	merc.equipped_weapon = weapon
 	merc.weapon_drawn = true
+	WeaponArmorPerkLibrary.refresh_held_bonuses(merc)
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("HANDS: %s switches to %s" % [merc.merc_name, weapon.item_name])
 	var lines: Array[String] = ["  %s switches to %s" % [BattleState.colored_name(merc, state), weapon.item_name]]
-	lines.append_array(WeaponReactiveSystem.fire_trigger(merc, "on_draw", null, {}, state, enhancements))
+	lines.append_array(_on_draw_triggers(merc, state, enhancements))
 	return lines
+
+
+static func _on_draw_triggers(merc: MercenaryData, state: BattleState, enhancements: int) -> Array[String]:
+	var foe := TargetSelector.nearest_visible_enemy(merc, state,
+			TargetSelector.weapon_target_range(merc))
+	return WeaponReactiveSystem.fire_trigger(merc, "on_draw", foe, {}, state, enhancements)
 
 
 #A one-handed weapon still in hand when another is drawn moves to the free hand.
@@ -313,6 +327,7 @@ static func execute_draw(merc: MercenaryData, weapon: WeaponData, state: BattleS
 		_keep_in_offhand(merc)
 		merc.equipped_weapon = weapon
 	merc.weapon_drawn = true
+	WeaponArmorPerkLibrary.refresh_held_bonuses(merc)
 	var own_cost := state.get_cost(merc, "Draw", get_draw_cost(merc, weapon))
 	state.spend_ap(merc, own_cost)
 	state.record_action(merc, "Draw")
@@ -320,7 +335,7 @@ static func execute_draw(merc: MercenaryData, weapon: WeaponData, state: BattleS
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("DRAW: %s draws %s [%dAP]" % [merc.merc_name, weapon.item_name, own_cost])
 	lines.append("  %s draws %s [%dAP]" % [BattleState.colored_name(merc, state), weapon.item_name, own_cost])
-	lines.append_array(WeaponReactiveSystem.fire_trigger(merc, "on_draw", null, {}, state, enhancements))
+	lines.append_array(_on_draw_triggers(merc, state, enhancements))
 	return lines
 
 
@@ -345,6 +360,7 @@ static func execute_holster(merc: MercenaryData, state: BattleState) -> Array[St
 		EncounterLogger.log_verbose("DRAW: %s stows %s [%dAP]" % [merc.merc_name, weapon.item_name, cost])
 	var lines: Array[String] = ["  %s stows %s [%dAP]" % [BattleState.colored_name(merc, state), weapon.item_name, cost]]
 	lines.append_array(promote_offhand(merc, state))
+	WeaponArmorPerkLibrary.refresh_held_bonuses(merc)
 	return lines
 
 
@@ -356,6 +372,7 @@ static func promote_offhand(merc: MercenaryData, state: BattleState) -> Array[St
 	merc.offhand_weapon = null
 	merc.equipped_weapon = oh
 	merc.weapon_drawn = true
+	WeaponArmorPerkLibrary.refresh_held_bonuses(merc)
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("HANDS: %s switches to %s" % [merc.merc_name, oh.item_name])
 	return ["  %s switches to %s" % [BattleState.colored_name(merc, state), oh.item_name]]
@@ -369,6 +386,7 @@ static func empty_main_hand(merc: MercenaryData, state: BattleState) -> Array[St
 		return promote_offhand(merc, state)
 	merc.equipped_weapon = DataManager.fight_weapon
 	merc.weapon_drawn = DataManager.fight_weapon != null
+	WeaponArmorPerkLibrary.refresh_held_bonuses(merc)
 	return []
 
 
@@ -407,6 +425,7 @@ static func execute_drop(merc: MercenaryData, state: BattleState, cause: String 
 	elif DataManager.fight_weapon != null:
 		merc.equipped_weapon = DataManager.fight_weapon
 		merc.weapon_drawn = true
+	StatCalculator.refresh(merc)
 	return lines
 
 
@@ -450,44 +469,64 @@ static func execute_pickup(
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("INTERACT: %s picks up %s [%dAP]" % [merc.merc_name, weapon.item_name, pickup_cost])
 	lines.append("  %s picks up %s. (AP: %d)" % [BattleState.colored_name(merc, state), weapon.item_name, pickup_cost])
+	StatCalculator.refresh(merc)
+	return lines
+
+
+#Shared tail of the turn slot arms: an executor that produced nothing ends the turn instead.
+static func _run_arm(turn: Dictionary, executor_lines: Array[String],
+		sets_weapon_action: bool) -> Array[String]:
+	var lines: Array[String] = []
+	if executor_lines.is_empty():
+		turn["stop"] = true
+		return lines
+	lines.append_array(executor_lines)
+	if sets_weapon_action:
+		turn["weapon_action_taken"] = true
 	return lines
 
 
 #Reload arm of the turn slot loop; a reload that produces nothing ends the turn.
 static func run_reload_arm(merc: MercenaryData, state: BattleState, enhancements: int,
 		turn: Dictionary) -> Array[String]:
+	var cost := CombatDecision.reload_ap_cost(merc, merc.equipped_weapon, state)
+	return _run_arm(turn, WeaponActionExecutor.execute_reload(merc, state, enhancements, false, cost), false)
+
+
+#Repair arm: AP goes into a snapped bowstring until the 4 AP of work is done.
+static func run_repair_arm(merc: MercenaryData, state: BattleState, turn: Dictionary) -> Array[String]:
 	var lines: Array[String] = []
-	var reload_lines := WeaponActionExecutor.execute_reload(merc, state, enhancements)
-	if reload_lines.is_empty():
+	var weapon := merc.equipped_weapon
+	if weapon == null or not weapon.string_snapped:
 		turn["stop"] = true
 		return lines
-	lines.append_array(reload_lines)
+	var owed := CombatDecision.REPAIR_AP - weapon.repair_ap_paid
+	var pay := mini(owed, merc.current_ap + merc.excess_ap)
+	if pay <= 0:
+		turn["stop"] = true
+		return lines
+	state.spend_ap(merc, pay)
+	weapon.repair_ap_paid += pay
+	if weapon.repair_ap_paid >= CombatDecision.REPAIR_AP:
+		weapon.string_snapped = false
+		weapon.repair_ap_paid = 0
+		lines.append("  %s restrings the %s." % [BattleState.colored_name(merc, state), weapon.item_name])
+	else:
+		lines.append("  %s works on the bowstring. [%d/%d]" % [
+			BattleState.colored_name(merc, state), weapon.repair_ap_paid, CombatDecision.REPAIR_AP])
+	turn["weapon_action_taken"] = true
 	return lines
 
 
 #Draw arm of the turn slot loop.
 static func run_draw_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
 		enhancements: int, turn: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
-	var draw_lines := WeaponActionExecutor.execute_draw(merc, decision["weapon"], state, enhancements)
-	if draw_lines.is_empty():
-		turn["stop"] = true
-		return lines
-	lines.append_array(draw_lines)
-	turn["weapon_action_taken"] = true
-	return lines
+	return _run_arm(turn, WeaponActionExecutor.execute_draw(merc, decision["weapon"], state, enhancements), true)
 
 
 #Holster arm of the turn slot loop.
 static func run_holster_arm(merc: MercenaryData, state: BattleState, turn: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
-	var holster_lines := WeaponActionExecutor.execute_holster(merc, state)
-	if holster_lines.is_empty():
-		turn["stop"] = true
-		return lines
-	lines.append_array(holster_lines)
-	turn["weapon_action_taken"] = true
-	return lines
+	return _run_arm(turn, WeaponActionExecutor.execute_holster(merc, state), true)
 
 
 #Drop arm of the turn slot loop, with the optional swap draw that follows it.
@@ -502,16 +541,31 @@ static func run_drop_arm(merc: MercenaryData, decision: Dictionary, state: Battl
 	return lines
 
 
+#Puts down the packed item the pickup decision chose to shed; free, and the ground keeps no ammo.
+static func _apply_shed(merc: MercenaryData, shed: Dictionary, state: BattleState) -> Array[String]:
+	if shed.is_empty():
+		return []
+	var shed_name: String = str(shed.get("name", ""))
+	var weight: int = int(shed.get("weight", 0))
+	var done := false
+	if str(shed.get("slot", "")) == "reserve":
+		done = state.drop_ammo_bundle(merc, str(shed.get("ammo", ""))) > 0
+	else:
+		done = state.drop_packed_weapon(merc, shed.get("weapon") as WeaponData)
+	if not done:
+		return []
+	StatCalculator.refresh(merc)
+	return ["  %s drops %s (wt %d, over weight)" % [BattleState.colored_name(merc, state), shed_name, weight]]
+
+
 #Pickup arm of the turn slot loop.
 static func run_pickup_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
 		turn: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
 	var pu_lines := WeaponActionExecutor.execute_pickup(merc, decision["weapon_entry"], decision["weapon_pos"], state)
-	if pu_lines.is_empty():
-		turn["stop"] = true
+	var lines := _run_arm(turn, pu_lines, true)
+	if lines.is_empty():
 		return lines
-	lines.append_array(pu_lines)
+	lines.append_array(_apply_shed(merc, decision.get("shed", {}) as Dictionary, state))
 	merc.active_states.erase("bfw_drop_pos")
 	merc.active_states.erase("target_weapon_pos")
-	turn["weapon_action_taken"] = true
 	return lines

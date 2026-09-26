@@ -1,0 +1,116 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mercs/GuildRelationshipCard.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodFace.tscn" id="2"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="3"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="4"]
+
+[node name="GuildRelationshipCard" type="PanelContainer"]
+script = ExtResource("1")
+
+[node name="Row" type="HBoxContainer" parent="."]
+mouse_filter = 2
+theme_override_constants/separation = 14
+
+[node name="PortraitBox" type="Control" parent="Row"]
+custom_minimum_size = Vector2(48, 48)
+size_flags_vertical = 4
+mouse_filter = 2
+clip_contents = true
+
+[node name="Names" type="VBoxContainer" parent="Row"]
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="Row/Names"]
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_font_sizes/font_size = 12
+theme_override_fonts/font = ExtResource("3")
+text = "GUILD"
+
+[node name="Caption" type="Label" parent="Row/Names"]
+theme_override_font_sizes/font_size = 10
+theme_override_fonts/font = ExtResource("4")
+text = "GUILD OPINION"
+
+[node name="Value" type="Label" parent="Row/Names"]
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_font_sizes/font_size = 10
+theme_override_fonts/font = ExtResource("4")
+text = "+0"
+
+[node name="Spacer" type="Control" parent="Row"]
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Faces" type="HBoxContainer" parent="Row"]
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Face0" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = -5
+pixel_scale = 3
+
+[node name="Face1" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = -4
+pixel_scale = 3
+
+[node name="Face2" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = -3
+pixel_scale = 3
+
+[node name="Face3" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = -2
+pixel_scale = 3
+
+[node name="Face4" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = -1
+pixel_scale = 3
+
+[node name="Face5" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = 0
+pixel_scale = 3
+
+[node name="Face6" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = 1
+pixel_scale = 3
+
+[node name="Face7" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = 2
+pixel_scale = 3
+
+[node name="Face8" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = 3
+pixel_scale = 3
+
+[node name="Face9" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = 4
+pixel_scale = 3
+
+[node name="Face10" parent="Row/Faces" instance=ExtResource("2")]
+layout_mode = 2
+guild = true
+opinion = 5
+pixel_scale = 3

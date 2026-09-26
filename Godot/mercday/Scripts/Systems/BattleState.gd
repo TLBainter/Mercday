@@ -4,12 +4,25 @@ var teams: Array = []
 var turn_queue: Array[MercenaryData] = []
 var escalation: Dictionary = {}
 var round_number: int = 0
+var cave_in_chance: int = 1        #percent; rises per round and per Strike or Sonic roll
+var cave_in_due: Array[int] = []   #round numbers whose end fires a cave-in
+var cave_in_count: int = 0
+var cave_in_buried: Dictionary = {}   #MercenaryData -> Vector2i cell under rubble
+var cave_in_marked: Dictionary = {}   #MercenaryData -> String reason (crushed, cut_off, separated)
+var kidnap_captor: Dictionary = {}    #captor MercenaryData -> captive MercenaryData
+var kidnap_taken: Dictionary = {}     #captive MercenaryData -> String captor name
+var kidnapped: Array[MercenaryData] = []   #left the field alive through remove_from_field, reason kidnapped
+var kidnap_triggered: bool = false
+var kidnap_closed: bool = false       #a failed or abandoned grapple ends kidnap rolls for this encounter
+var kidnap_pending: MercenaryData = null   #the enemy whose kidnap roll passed and has not grappled yet
+var kidnap_pending_target: MercenaryData = null
 var battlefield: BattlefieldArea   # null = no positioning active
 var positions: Dictionary = {}     # MercenaryData -> Vector2i
 var heights: Dictionary = {}       #MercenaryData -> int paces above the surface of its own cell
 var floors: Dictionary = {}        # MercenaryData -> int floor_num (interior maps; 0 for ground floor)
 var climbing_data: Dictionary = {} # MercenaryData -> {wall_pos, current_h, target_h, top_pos}
-# plain int/String fields only; no Vector2i to avoid Variant-inference warnings
+var sunk: Dictionary = {}          #MercenaryData -> int paces below the water surface of its own cell
+#plain int/String fields only; no Vector2i to avoid Variant-inference warnings
 var los_cache: Dictionary = {}                #LOS result cache; key includes battlefield.los_version
 var last_attacked: Dictionary = {}            # attacker -> last target attacked
 var dying_source: Dictionary = {}             #MercenaryData -> the merc who put them into Dying
@@ -28,14 +41,27 @@ var _merc_team_index: Dictionary = {}         # MercenaryData -> int; populated 
 var turn_ally_passable: Dictionary = {}       #MercenaryData -> Dictionary{Vector3i->true}; rebuilt per turn
 var turn_path_dist: Dictionary = {}           #"a|b" pair key -> int path distance; rebuilt per turn
 var movement_blocked: Dictionary = {}         # MercenaryData -> Dictionary{MercenaryData->true}; permanently unreachable enemies
+var far_full: Dictionary = {}                #MercenaryData -> true; its approach flood runs uncapped for the rest of the battle
 var team_blocked_round: Dictionary = {}      # MercenaryData (target) -> int (round of last block increment)
 var team_blocked_count: Dictionary = {}      # MercenaryData (target) -> int (allies blocked on this target in that round)
 var pending_interact: Dictionary = {}        #MercenaryData -> Vector3i; door cell a move stopped in front of
 var pace_pool: Dictionary = {}               #MercenaryData -> int paces banked by Move actions this turn
 var move_plan: Dictionary = {}               #MercenaryData -> {"moves_allowed": int, "reserve_ap": int} for the next Move
+var climb_routes: Dictionary = {}            #MercenaryData -> {"link": Dictionary, "down": bool, "foot": Vector3i}
+var jump_routes: Dictionary = {}             #MercenaryData -> {"to": Vector3i, "foot": Vector3i}; roof leap a walk stopped at
+var roof_posts: Dictionary = {}              #MercenaryData -> RoofPostScore row, {} for none; one score per turn
 var campaign_seeded: int = 0                 #knowledge tokens carried in from CampaignKnowledge at create()
 var casualties: Array[MercenaryData] = []    #Filled by AutoBattle._finalize with every merc dead at the end
 var carry_resources: bool = false            #When true create() keeps current hp, ep, mp and is_dead so damage carries between events
+var defected: Array[MercenaryData] = []      #mercs that switched sides during this battle
+var escaped: Array[MercenaryData] = []       #left the field alive through remove_from_field, reason fled
+var removed_from_field: Array[MercenaryData] = []  #left the field alive through remove_from_field, reason out
+var exited: Array[MercenaryData] = []        #walked out of a dungeon through remove_from_field, reason exit
+var rescue: Dictionary = {}                  #RescueSystem bookkeeping; empty when no rescue runs
+var priority_targets: Array[MercenaryData] = []    #quarries a pursuing team weighs above other targets
+var pre_battle_lines: Array[String] = []     #lines written before round 1, logged after the spawns
+var no_death_removal: bool = false           #when true a merc that would die leaves the field instead
+var flee_enabled: bool = true                #false turns off flee checks for this battle
 
 #Move-priced actions the pace pool never funds; they always pay their own AP.
 const POOL_EXEMPT: Array[String] = ["Jump"]
@@ -57,17 +83,15 @@ static func create(
 	var all_mercs: Array[MercenaryData] = []
 	all_mercs.assign(team_a + team_b)
 	for merc: MercenaryData in all_mercs:
+		for detail: String in MercGenerator.load_gear_perks(merc, MercGenerator.force_perk_load):
+			state.pre_battle_lines.append("PERK LOAD: %s %s" % [merc.merc_name, detail])
 		if not carry:
 			merc.current_hp = int(merc.stats.get("maximum_hit_points", 1))
 			merc.is_dead = false
 			merc.current_ep = int(merc.stats.get("maximum_endurance_points", 1))
-			# TODO: apply ArmorData.ep_cost penalty here once the mechanic is implemented.
-			# Guard: if equipped_armor and not has_perk_active(merc, "armor_ep_ignore:" + armor_class):
-			# merc.current_ep -= merc.equipped_armor.ep_cost
-			# TODO: apply ArmorData.fatigue penalty here once the mechanic is implemented.
-			# Guard: if equipped_armor and not has_perk_active(merc, "armor_fatigue_zero:" + armor_class):
-			# merc.current_ep -= merc.equipped_armor.fatigue
+			#TODO: apply the ArmorData.fatigue penalty, guarded by armor_fatigue_zero:<armor type>.
 			merc.current_mp = int(merc.stats.get("maximum_magic_points", 0))
+		LevelUpSystem.note_armor_use(merc)
 		merc.current_ap = 0
 		#Excess HP, EP and MP are not reset here; they are cleared on contract return (ExcessPool.clear)
 		merc.excess_ap = 0
@@ -76,6 +100,10 @@ static func create(
 		ConstStates.restore_campaign_states(merc, campaign_snap)
 		merc.death_test_hp_loss = 0
 		merc.rot_hp_loss = 0
+		merc.suffocation_hp_loss = 0
+		merc.suffocate_rounds = 0
+		merc.breath_clear_rounds = 0
+		merc.crawling = false
 		merc.aim_active = false
 		merc.weapon_misfired = false
 		if merc.offhand_weapon != null:
@@ -86,6 +114,11 @@ static func create(
 		merc.last_seen_position = Vector3i(-1, -1, -1)
 		merc.combat_idle_rounds = 0
 		merc.ap_debt = 0
+		merc.off_field = false
+		merc.flee_intent = false
+		merc.flee_abandons = false
+		merc.flee_escape_paces = 0
+		merc.advantage_immune = false
 		_randomize_starting_draw(merc)
 	_seed_team_knowledge(state)
 	_seed_campaign_knowledge(state)
@@ -93,6 +126,7 @@ static func create(
 	state.battlefield = field
 	if field != null:
 		SpawnPlacer.assign(state, team_a, team_b)
+		PathTargeter.warm_jumps(state)
 	return state
 
 
@@ -174,6 +208,7 @@ static func _randomize_starting_draw(merc: MercenaryData) -> void:
 	if all_weapons.is_empty():
 		merc.weapon_drawn = false
 		merc.equipped_weapon = null
+		WeaponArmorPerkLibrary.refresh_held_bonuses(merc)
 		return
 
 	var preferred: WeaponData = null
@@ -199,6 +234,7 @@ static func _randomize_starting_draw(merc: MercenaryData) -> void:
 		all_weapons.shuffle()
 	merc.equipped_weapon = all_weapons[0]
 	merc.weapon_drawn = true
+	WeaponArmorPerkLibrary.refresh_held_bonuses(merc)
 
 	var new_inventory: Array = []
 	for entry: Dictionary in merc.inventory:
@@ -228,7 +264,22 @@ static func _reset_starting_ammo(merc: MercenaryData) -> void:
 	var prev_equipped := merc.equipped_weapon
 	merc.equipped_weapon = ranged_w
 	MercGenerator._equip_starting_ammo(merc)
+	MercGenerator.cap_carried_ammo(merc, merc.max_ammo)
 	merc.equipped_weapon = prev_equipped
+
+
+#Puts a merc back to full hp, ep, ap and mp, clears the death flag and the ap debt, and reloads by default.
+static func restore_pools(merc: MercenaryData, ammo: bool = true) -> void:
+	merc.current_hp = int(merc.stats.get("maximum_hit_points", merc.current_hp))
+	merc.is_dead = false
+	merc.current_ep = int(merc.stats.get("maximum_endurance_points", merc.current_ep))
+	merc.current_ap = int(merc.stats.get("action_points", merc.current_ap))
+	var max_mp: int = int(merc.stats.get("maximum_magic_points", 0))
+	if max_mp > 0:
+		merc.current_mp = max_mp
+	merc.ap_debt = 0
+	if ammo:
+		_reset_starting_ammo(merc)
 
 
 func start_of_turn(merc: MercenaryData) -> void:
@@ -238,6 +289,9 @@ func start_of_turn(merc: MercenaryData) -> void:
 	escalation[merc] = {}
 	pace_pool.erase(merc)
 	move_plan.erase(merc)
+	climb_routes.erase(merc)
+	jump_routes.erase(merc)
+	roof_posts.erase(merc)
 	merc.active_states.erase("draw_refused_turn")
 	merc.active_states.erase("draw_priority_turn")
 
@@ -245,6 +299,9 @@ func start_of_turn(merc: MercenaryData) -> void:
 func end_of_turn(merc: MercenaryData, took_weapon_action: bool = false) -> void:
 	pace_pool.erase(merc)
 	move_plan.erase(merc)
+	climb_routes.erase(merc)
+	jump_routes.erase(merc)
+	roof_posts.erase(merc)
 	#Unspent AP is next turn's excess; excess still left from the previous turn is dropped.
 	merc.excess_ap = maxi(0, merc.current_ap)
 	merc.current_ap = 0
@@ -321,36 +378,16 @@ func any_timed_state_pending() -> bool:
 	return false
 
 
-#At battle end every held campaign state becomes a campaign-minute expiry; -1 marks one with no timer.
 func export_campaign_timers() -> void:
-	var now: int = CampaignClock.now()
-	var names: Array[String] = ConstStates.campaign_state_names()
-	for team: Array in teams:
-		for merc: MercenaryData in team:
-			for state_name: String in names:
-				if ConstStates.has_state(merc, state_name):
-					merc.campaign_states[state_name] = _campaign_expiry(merc, state_name, now)
-				else:
-					merc.campaign_states.erase(state_name)
+	CampaignTimers.export_campaign_timers(self)
 
 
 func _campaign_expiry(merc: MercenaryData, state_name: String, now: int) -> int:
-	var expires: int = int(get_state_timer(merc, state_name).get("expires", 0))
-	if expires > 0:
-		var rounds: int = expires - round_number
-		return now + maxi(1, int(ceil(float(rounds) / float(StateInfliction.ROUNDS_PER_MINUTE))))
-	var minutes: int = ConstStates.removal_minutes(state_name)
-	if minutes > 0:
-		return now + minutes
-	return -1
+	return CampaignTimers._campaign_expiry(self, merc, state_name, now)
 
 
 func get_timed_states(merc: MercenaryData) -> Array[String]:
-	var names: Array[String] = []
-	if state_timers.has(merc):
-		for k: String in (state_timers[merc] as Dictionary).keys():
-			names.append(k)
-	return names
+	return CampaignTimers.get_timed_states(self, merc)
 
 
 func set_pace_pool(merc: MercenaryData, paces: int) -> void:
@@ -383,14 +420,22 @@ func can_afford(merc: MercenaryData, cost: int) -> bool:
 	return (merc.excess_ap + merc.current_ap) >= cost
 
 
+func spendable_ap(merc: MercenaryData) -> int:
+	return merc.excess_ap + merc.current_ap
+
+
 func get_enemies(merc: MercenaryData) -> Array[MercenaryData]:
 	var i: int = _merc_team_index.get(merc, -1)
 	if i < 0:
 		return []
 	var result: Array[MercenaryData] = []
+	var guarded: bool = not rescue.is_empty()
 	for m: MercenaryData in teams[1 - i]:
-		if _is_alive(m):
-			result.append(m)
+		if not _is_alive(m):
+			continue
+		if guarded and RescueSystem.shelters(self, m):
+			continue
+		result.append(m)
 	return result
 
 
@@ -441,7 +486,68 @@ func clear_encounter_cache() -> void:
 
 
 static func _is_alive(merc: MercenaryData) -> bool:
-	return not merc.is_dead and (merc.current_hp > 0 or ConstStates.has_state(merc, ConstStates.DYING))
+	return not merc.is_dead and not merc.off_field \
+		and (merc.current_hp > 0 or ConstStates.has_state(merc, ConstStates.DYING))
+
+
+#Takes a living merc off the field: it stops acting, targeting and blocking but keeps its cell in positions.
+func remove_from_field(merc: MercenaryData, reason: String, lines: Array[String]) -> void:
+	if merc == null or merc.off_field:
+		return
+	var line: String = ""
+	match reason:
+		"fled":
+			escaped.append(merc)
+			line = "FLED: %s escapes the battle" % merc.merc_name
+		"out":
+			removed_from_field.append(merc)
+			line = "%s is out of the competition!" % merc.merc_name
+		"exit":
+			exited.append(merc)
+			line = "EXIT: %s leaves the dungeon." % merc.merc_name
+		"kidnapped":
+			kidnapped.append(merc)
+			line = "KIDNAPPED: %s is carried off the field by %s" % [merc.merc_name,
+					str(kidnap_taken.get(merc, "the enemy"))]
+		_:
+			push_warning("BattleState.remove_from_field: unknown reason '%s' for %s" % [reason, merc.merc_name])
+			return
+	merc.off_field = true
+	lines.append(line)
+
+
+#The only side-switch write path; the merc keeps its cell, its turn slot and its known immunities.
+func switch_team(merc: MercenaryData) -> int:
+	var from: int = int(_merc_team_index.get(merc, -1))
+	if from < 0 or teams.size() != 2:
+		return -1
+	var to: int = 1 - from
+	var old_side: Array = teams[from]
+	var new_side: Array = teams[to]
+	old_side.erase(merc)
+	new_side.append(merc)
+	_merc_team_index[merc] = to
+	for cache: Dictionary in [move_goals, move_targets, last_attacked, movement_blocked, no_target_turns,
+			team_blocked_round, team_blocked_count, pending_interact, pace_pool, move_plan,
+			climb_routes, jump_routes, roof_posts, no_progress_rounds, position_history, far_full]:
+		cache.erase(merc)
+	for cache: Dictionary in [move_targets, last_attacked]:
+		var pointing: Array = []
+		for key in cache:
+			if cache[key] == merc:
+				pointing.append(key)
+		for key in pointing:
+			cache.erase(key)
+	for blocked: Dictionary in movement_blocked.values():
+		blocked.erase(merc)
+	for side: Array in teams:
+		for other: MercenaryData in side:
+			if other != merc:
+				other.last_known_enemy_positions.erase(merc)
+	merc.last_known_enemy_positions = {}
+	if not defected.has(merc):
+		defected.append(merc)
+	return to
 
 
 func get_position(merc: MercenaryData) -> Vector2i:
@@ -472,7 +578,28 @@ func absolute_height(merc: MercenaryData) -> int:
 		return get_height(merc)
 	var ground_ref: float = battlefield.floor_base_elevation(0) if battlefield.is_interior_map else 0.0
 	var base: float = battlefield.cell_base_elevation(get_position(merc), get_floor(merc))
-	return int(floor(base - ground_ref)) + get_height(merc)
+	return int(floor(base - ground_ref)) + body_height(merc)
+
+
+#A merc that sank in a pool stands this many paces below the water surface of its cell.
+func is_sunk(merc: MercenaryData) -> bool:
+	return int(sunk.get(merc, 0)) > 0
+
+
+func sunk_depth(merc: MercenaryData) -> int:
+	return int(sunk.get(merc, 0))
+
+
+func set_sunk(merc: MercenaryData, depth: int) -> void:
+	if depth <= 0:
+		sunk.erase(merc)
+	else:
+		sunk[merc] = depth
+
+
+#Altitude of the body above its cell surface; a sunk merc stands its pool depth below the water.
+func body_height(merc: MercenaryData) -> int:
+	return get_height(merc) - sunk_depth(merc)
 
 
 #Full 3D path node for a merc: grid cell plus floor index.
@@ -517,6 +644,44 @@ func get_floor(merc: MercenaryData) -> int:
 	return floors.get(merc, 0)
 
 
+#The climb link a stopped walk left pending, {} when none; a move off the foot drops the record.
+func climb_route(merc: MercenaryData) -> Dictionary:
+	var row: Dictionary = climb_routes.get(merc, {}) as Dictionary
+	if row.is_empty():
+		return {}
+	if pos3(merc) != (row["foot"] as Vector3i):
+		climb_routes.erase(merc)
+		return {}
+	return row
+
+
+func set_climb_route(merc: MercenaryData, link: Dictionary, down: bool, foot: Vector3i) -> void:
+	climb_routes[merc] = {"link": link, "down": down, "foot": foot}
+
+
+func clear_climb_route(merc: MercenaryData) -> void:
+	climb_routes.erase(merc)
+
+
+#The roof leap a stopped walk left pending, {} when none; a move off the take-off drops the record.
+func jump_route(merc: MercenaryData) -> Dictionary:
+	var row: Dictionary = jump_routes.get(merc, {}) as Dictionary
+	if row.is_empty():
+		return {}
+	if pos3(merc) != (row["foot"] as Vector3i):
+		jump_routes.erase(merc)
+		return {}
+	return row
+
+
+func set_jump_route(merc: MercenaryData, to: Vector3i, foot: Vector3i) -> void:
+	jump_routes[merc] = {"to": to, "foot": foot}
+
+
+func clear_jump_route(merc: MercenaryData) -> void:
+	jump_routes.erase(merc)
+
+
 func get_climbing_data(merc: MercenaryData) -> Dictionary:
 	return climbing_data.get(merc, {}) as Dictionary
 
@@ -525,14 +690,14 @@ func clear_climbing(merc: MercenaryData) -> void:
 	climbing_data.erase(merc)
 
 
-# 3D Chebyshev distance: max(|dx|, |dy|, |dz|). Returns 0 when no battlefield.
+#3D Chebyshev distance: max(|dx|, |dy|, |dz|). Returns 0 when no battlefield.
 func distance_to(a: MercenaryData, b: MercenaryData) -> int:
 	if battlefield == null:
 		return 0
 	var pa := get_position(a)
 	var pb := get_position(b)
-	var ea := battlefield.cell_base_elevation(pa, get_floor(a)) + float(get_height(a))
-	var eb := battlefield.cell_base_elevation(pb, get_floor(b)) + float(get_height(b))
+	var ea := battlefield.cell_base_elevation(pa, get_floor(a)) + float(body_height(a))
+	var eb := battlefield.cell_base_elevation(pb, get_floor(b)) + float(body_height(b))
 	var dz := int(round(absf(ea - eb)))
 	return maxi(maxi(abs(pa.x - pb.x), abs(pa.y - pb.y)), dz)
 
@@ -551,7 +716,7 @@ func path_distance_to(a: MercenaryData, b: MercenaryData) -> int:
 	return result
 
 
-# 2D horizontal-only Chebyshev distance (used for cover angle and flanking checks).
+#2D horizontal-only Chebyshev distance (used for cover angle and flanking checks).
 func distance_2d(a: MercenaryData, b: MercenaryData) -> int:
 	if battlefield == null:
 		return 0
@@ -587,6 +752,8 @@ func record_ranged_targeted(target: MercenaryData) -> void:
 
 
 func record_damage_dealt(attacker: MercenaryData, target: MercenaryData, amount: int) -> void:
+	if attacker == null or target == null:
+		return
 	if amount <= 0:
 		return
 	if not damage_dealt_this_round.has(attacker):
@@ -619,61 +786,27 @@ func is_battle_over() -> bool:
 
 
 func drop_weapon(merc: MercenaryData) -> void:
-	var weapon := merc.equipped_weapon
-	if weapon == null:
-		return
-	var pos := get_position(merc)
-	if not dropped_weapons.has(pos):
-		dropped_weapons[pos] = []
-	(dropped_weapons[pos] as Array).append({
-		"weapon": weapon,
-		"ammo_loaded": merc.ammo_loaded,
-		"ammo_loaded_type": merc.ammo_loaded_type,
-		"floor": get_floor(merc),
-	})
-	merc.equipped_weapon = null
-	merc.weapon_drawn = false
-	merc.ammo_loaded = 0
-	merc.ammo_loaded_type = ""
+	DroppedItemStore.drop_weapon(self, merc)
 
 
-func retrieve_dropped_weapons_for(merc: MercenaryData) -> void:
-	if dropped_weapons.is_empty():
-		return
-	var merc_pos := get_position(merc)
-	var merc_floor := get_floor(merc)
-	for pos: Vector2i in dropped_weapons.keys().duplicate():
-		if maxi(abs(pos.x - merc_pos.x), abs(pos.y - merc_pos.y)) <= 1:
-			var kept: Array = []
-			for entry: Dictionary in dropped_weapons[pos]:
-				if int(entry.get("floor", merc_floor)) != merc_floor:
-					kept.append(entry)
-					continue
-				merc.inventory.append({"type": "weapon", "data": entry["weapon"]})
-			if kept.is_empty():
-				dropped_weapons.erase(pos)
-			else:
-				dropped_weapons[pos] = kept
+func retrieve_dropped_weapons_for(merc: MercenaryData) -> int:
+	return DroppedItemStore.retrieve_dropped_weapons_for(self, merc)
 
 
-#floor_num -1 keeps every entry; otherwise entries tagged with another floor are hidden.
+func drop_packed_weapon(merc: MercenaryData, weapon: WeaponData) -> bool:
+	return DroppedItemStore.drop_packed_weapon(self, merc, weapon)
+
+
+func drop_ammo_bundle(merc: MercenaryData, ammo_name: String) -> int:
+	return DroppedItemStore.drop_ammo_bundle(self, merc, ammo_name)
+
+
 func get_dropped_weapons_at(pos: Vector2i, floor_num: int = -1) -> Array:
-	var stack: Array = dropped_weapons.get(pos, [])
-	if floor_num < 0 or stack.is_empty():
-		return stack
-	var out: Array = []
-	for entry: Dictionary in stack:
-		if int(entry.get("floor", floor_num)) == floor_num:
-			out.append(entry)
-	return out
+	return DroppedItemStore.get_dropped_weapons_at(self, pos, floor_num)
 
 
 func remove_dropped_weapon(pos: Vector2i, entry: Dictionary) -> void:
-	if not dropped_weapons.has(pos):
-		return
-	(dropped_weapons[pos] as Array).erase(entry)
-	if (dropped_weapons[pos] as Array).is_empty():
-		dropped_weapons.erase(pos)
+	DroppedItemStore.remove_dropped_weapon(self, pos, entry)
 
 
 func is_position_occupied(pos: Vector2i, exclude_merc: MercenaryData, floor_num: int) -> bool:
@@ -695,7 +828,7 @@ func get_winner() -> int:
 	var winner := -1
 	for i: int in range(teams.size()):
 		for m: MercenaryData in teams[i]:
-			if m.current_hp > 0:
+			if m.current_hp > 0 and not m.off_field:
 				if winner >= 0:
 					return -1
 				winner = i

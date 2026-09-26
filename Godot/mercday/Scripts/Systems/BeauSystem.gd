@@ -10,6 +10,7 @@ const PASSIVE_SUPPORT_PREFIX := "grant:passive:always:none:support_given:beau"
 static var roster: Array[MercenaryData] = []
 
 
+#Distinct from GuildRoster.mercs, which answers who in the guild holds a Knowledge, Tool or Circumstance.
 #The mercs time apart is measured against; the harness and the campaign set it before any tick.
 static func set_roster(mercs: Array[MercenaryData]) -> void:
 	roster.clear()
@@ -142,7 +143,7 @@ static func _apart_block(merc: MercenaryData, beau: MercenaryData) -> Array[Stri
 	var lines: Array[String] = []
 	if not TraitRuntime.has(merc, "beau_apart"):
 		return lines
-	var days: int = TICK_MINUTES / CampaignClock.MINUTES_PER_DAY
+	var days: int = int(TICK_MINUTES / float(CampaignClock.MINUTES_PER_DAY))
 	if int(merc.stats.get("maximum_hit_points", 0)) <= 1:
 		lines.append("BEAU FLOOR: %s max HP already 1, no loss" % merc.merc_name)
 		return lines

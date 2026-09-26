@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>html,body{margin:0;background:transparent}</style>
+</helmet>
+<div ref="{{ rootRef }}" onPointerDown="{{ onDown }}" onPointerMove="{{ onMove }}" onPointerUp="{{ onUp }}" onPointerCancel="{{ onUp }}" style="position:relative;width:100%;height:22px;cursor:pointer;touch-action:none;user-select:none">
+  <div style="position:absolute;left:0;right:0;top:7px;height:8px;background:#0a0f1c;box-shadow:inset 0 0 0 2px #1f3560"></div>
+  <div style="position:absolute;left:0;top:7px;height:8px;width:{{ fillW }};background:{{ color }};box-shadow:inset 0 2px 0 rgba(255,255,255,0.28),inset 0 -2px 0 rgba(0,0,0,0.28)"></div>
+  <sc-for list="{{ marks }}" as="mk" hint-placeholder-count="0">
+    <div style="position:absolute;left:{{ mk.left }};top:2px;width:2px;height:18px;margin-left:-1px;background:#f3ead7;box-shadow:0 0 0 1px #0a0f1c"></div>
+  </sc-for>
+  <div style="position:absolute;left:{{ fillW }};top:1px;width:12px;height:20px;margin-left:-6px;background:{{ thumb }};box-shadow:inset -2px -2px 0 {{ thumbLo }},inset 2px 2px 0 #ffffff,0 0 0 2px #0a0f1c"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;320px&quot;,&quot;height&quot;:&quot;40px&quot;},&quot;min&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;},&quot;max&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:100,&quot;tsType&quot;:&quot;number&quot;},&quot;step&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:1,&quot;tsType&quot;:&quot;number&quot;},&quot;value&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:40,&quot;tsType&quot;:&quot;number&quot;},&quot;color&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#f28c28&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#f28c28&quot;,&quot;#6cc36a&quot;,&quot;#f2b33d&quot;,&quot;#e8583f&quot;]},&quot;markers&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number[]&quot;},&quot;snapTo&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number&quot;},&quot;snapRange&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number&quot;},&quot;onChange&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(value: number) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  num(v, d) { const n = Number(v); return isNaN(n) ? d : n; }
+  valueAt(clientX) {
+    const el = this.rootRef.current; if (!el) return null;
+    const r = el.getBoundingClientRect(), min = this.num(this.props.min, 0), max = this.num(this.props.max, 100), step = this.num(this.props.step, 1);
+    let v = min + Math.max(0, Math.min(1, (clientX - r.left) / (r.width || 1))) * (max - min);
+    v = Math.round((v - min) / step) * step + min;
+    const snap = this.props.snapTo; if (snap != null && Math.abs(v - snap) <= (max - min) * this.num(this.props.snapRange, 0.05)) v = snap;
+    return Math.max(min, Math.min(max, +v.toFixed(6)));
+  }
+  emit(e) { const v = this.valueAt(e.clientX); if (v != null && v !== this.last && this.props.onChange) { this.last = v; this.props.onChange(v); } }
+  renderVals() {
+    const min = this.num(this.props.min, 0), max = this.num(this.props.max, 100), val = this.num(this.props.value, min), span = max - min || 1;
+    const pct = v => (Math.max(0, Math.min(1, (v - min) / span)) * 100).toFixed(2) + '%';
+    const marks = [].concat(this.props.markers || []).map(Number).filter(v => !isNaN(v)).map(v => ({ left: pct(v) }));
+    return {
+      rootRef: this.rootRef, fillW: pct(val), marks,
+      color: this.props.color || '#f28c28', thumb: '#f3ead7', thumbLo: '#9cc6ef',
+      onDown: e => { this.drag = true; this.last = null; e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); this.emit(e); },
+      onMove: e => { if (this.drag) this.emit(e); },
+      onUp: e => { this.drag = false; },
+    };
+  }
+}
+</script>
+</body>
+</html>

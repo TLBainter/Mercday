@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" uid="uid://dwcg7h68jvfcy" path="res://Scripts/Resources/EventData.gd" id="1_EventData"]
+
+[resource]
+script = ExtResource("1_EventData")
+event_name = "Ambush"
+event_type = "Mishap"
+trigger = "respite:wilderness"
+check_stats = Array[String]([])
+circumstances = Array[String]([])
+knowledges = Array[String]([])
+tools = Array[String]([])
+success_formula = "Battle"
+possible_contracts = Array[String](["Assassinate", "Entertain", "Escort", "Investigate", "Military", "Monster Hunt", "Rescue", "Treasure Hunt"])
+possible_locations = Array[String]([])
+enemy = "Bandit Leader, Bandit Melee, Bandit Ranged"
+enemy_counter = "max(2, party.merc_count * difficulty_factor)"
+map_rule = "Location"

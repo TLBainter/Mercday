@@ -1,0 +1,27 @@
+Name	Size Class	Width	Depth	F+	F-	Layout F0	Layout Other	Shell	Wings	Entrances	Windows	Main Room	Required Rooms	Rooms	Environments	Roof	Roof Objects
+Market Stall	Small	3 to 5	2 to 3	0	0	Open	Open	Open	0	0	None	Stall				Awning	
+Small House	Small	5 to 7	6 to 9	0 to 1	0	Open	Open	Walled	0	1	Normal	Cottage Room	Loft			Gable	Chimney
+Cobbler	Small	5 to 8	7 to 9	0	0	Shop	Shop	Walled	0	1	Normal	Cobbler Shop	Cobbler Workroom	Bedroom, Stockroom		Gable	
+Watchtower	Small	9 to 10	9 to 10	2 to 4	0	Open	Open	Walled	0	1	Few, Lookout Many	Guard Room	Watch Room, Lookout			Battlement	
+Bakery	Small	6 to 8	7 to 9	0	0	Shop	Shop	Walled	0	1	Normal	Bakery Shop	Bakehouse	Pantry, Bedroom		Gable	Chimney
+Apothecary	Small	5 to 8	7 to 9	0	0	Shop	Shop	Walled	0	1	Normal	Apothecary Shop	Stillroom	Stockroom, Bedroom		Hip	
+Butcher	Small	6 to 8	7 to 9	0	0	Shop	Shop	Walled	0	1 to 2	Few	Butcher Shop	Cutting Room	Stockroom		Gable	
+Shrine	Small	4 to 6	5 to 7	0	0	Open	Open	Walled	0	1	Few	Shrine Room				Hip	
+Storage Shed	Small	4 to 7	4 to 6	0	0	Open	Open	Walled	0	1	None	Shed Storage				Lean-to	
+Smithy	Medium	9 to 12	9 to 13	0 to 1	0	Shop	Corridor	Walled	0	1 to 2	Few	Smithy Shop	Smithy Forge	Stockroom, Bedroom, Living Room, Kitchen		Gable	Large Chimney
+Library	Medium	10 to 14	10 to 14	0 to 2	0 to 1	Hall	Corridor	Walled	0	1	Many	Reading Hall	Stacks, Archive	Study, Scriptorium, Office, Bathroom		Hip	
+Inn	Medium	12 to 15	12 to 15	1 to 2	0 to 1	Hall	Corridor	Walled	0 to 1	2	Normal	Common Room	Kitchen, Guest Room, Cellar	Pantry, Innkeeper's Quarters, Bathroom, Guest Room, Patio, Balcony		Hip	Chimney
+Medium House	Medium	9 to 12	9 to 13	0 to 1	0 to 1	Corridor	Corridor	Walled	0	1 to 2	Normal	Living Room	Kitchen, Bedroom, Cellar	Bathroom, Pantry, Study, Bedroom, Patio		Gable	Chimney
+Chapel	Medium	9 to 12	12 to 15	0	0	Hall	Hall	Walled	0	1	Many	Nave	Vestry	Shrine Alcove, Priest's Cell		Steeple	
+Stable	Medium	10 to 14	9 to 12	0 to 1	0	Hall	Open	Walled	0	2	Few	Stalls	Tack Room, Hayloft	Feed Store		Gable	
+General Store	Medium	9 to 12	9 to 13	0 to 1	0	Shop	Corridor	Walled	0	1 to 2	Normal	Store Front	Stockroom	Office, Bedroom, Living Room, Kitchen		Flat	
+Bathhouse	Medium	10 to 14	10 to 14	0	0 to 1	Hall	Open	Walled	0	1	Few	Bath Hall	Changing Room, Boiler Room	Steam Room, Bathroom, Stockroom		Flat	
+Workshop	Medium	9 to 13	9 to 13	0 to 1	0	Hall	Corridor	Walled	0	1 to 2	Normal	Work Floor	Lumber Store	Office, Stockroom, Bedroom		Gable	
+Guild Hall	Large	16 to 22	16 to 22	1 to 2	0 to 1	Hall	Corridor	Walled	0 to 1	2	Normal	Great Hall	Office, Records Room, Meeting Room, Vault	Armory, Kitchen, Bedroom, Study, Bathroom, Cellar, Balcony		Hip	Dormer x4
+Large House	Large	16 to 20	16 to 20	1 to 2	0 to 1	Corridor	Corridor	Walled	0 to 1	2	Normal	Living Room	Kitchen, Dining Room, Bedroom, Cellar	Study, Parlor, Nursery, Bathroom, Pantry, Bedroom, Patio, Balcony		Hip	Chimney x2
+Manor	Large	18 to 24	18 to 24	1 to 2	1	Hall	Corridor	Walled	1 to 2	2	Many	Great Hall	Kitchen, Dining Room, Master Bedroom, Servants' Quarters, Cellar	Parlor, Study, Pantry, Bedroom, Nursery, Bathroom, Patio, Balcony		Hip	Chimney x2
+Temple	Large	16 to 22	20 to 24	0 to 1	0 to 1	Hall	Corridor	Walled	0 to 2	1	Many	Nave	Vestry, Shrine Alcove, Crypt	Reliquary, Priest's Cell, Study		Dome	
+Barracks	Large	16 to 22	16 to 20	0 to 1	0 to 1	Corridor	Corridor	Walled	0 to 1	2	Few	Mess Hall	Bunk Room, Armory, Officer's Quarters, Bathroom	Training Room, Guard Room, Stockroom, Bunk Room, Cellar		Flat	
+Warehouse	Large	16 to 24	16 to 24	0 to 1	0	Hall	Open	Walled	0	2	Few	Storage Floor	Office, Storage Loft	Loading Room		Gable	
+Town Hall	Large	18 to 24	18 to 22	1 to 2	0 to 1	Hall	Corridor	Walled	0 to 2	2	Normal	Assembly Hall	Office, Records Room, Meeting Room, Treasury	Study, Bathroom, Vault, Cellar, Balcony		Clock Tower	
+Tavern	Large	18 to 22	18 to 22	3	1									Balcony, Basement, Bathroom, Bedroom, Dining Area, Kitchen, Pantry, Patio		Hip	

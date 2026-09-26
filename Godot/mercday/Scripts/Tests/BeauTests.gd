@@ -32,6 +32,7 @@ static func run() -> bool:
 	_case_support(res)
 	_case_compound_condition(res)
 	_case_honeymoon(res)
+	_case_beau_text(res)
 	_reset()
 	return TestFixtures.summarize(res, "BEAU")
 
@@ -45,18 +46,7 @@ static func _reset() -> void:
 
 
 static func _merc(name: String) -> MercenaryData:
-	var m := MercenaryData.new()
-	m.merc_name = name
-	m.merc_uid = CampaignKnowledge.next_uid()
-	m.max_stats = {"max_vigor": 8, "max_dexterity": 8, "max_cognition": 8, "max_wile": 8, "size": 1}
-	m.luck_roll = 5.0
-	m.stats = {"level": 5}
-	m.stats = StatCalculator.calculate_all(m)
-	m.stats["pain_limit"] = 0
-	m.stats_baseline = StatCalculator.calculate_all(m)
-	m.current_hp = int(m.stats.get("maximum_hit_points", 1))
-	m.current_ep = 0
-	return m
+	return TestFixtures.level_merc(name)
 
 
 #Two mercs pointing at each other, seeded as the whole roster BeauSystem.tick walks.
@@ -67,6 +57,7 @@ static func _pair(a_name: String, b_name: String) -> Array[MercenaryData]:
 	b.beau_uid = a.merc_uid
 	var pair: Array[MercenaryData] = [a, b]
 	BeauSystem.set_roster(pair)
+	GuildRoster.set_roster(pair)
 	return pair
 
 
@@ -78,22 +69,8 @@ static func _give(merc: MercenaryData, name: String, cell: String) -> void:
 	merc.perks.append(td)
 
 
-static func _run_for(team: Array[MercenaryData]) -> ContractRun:
-	var run := ContractRun.new()
-	run.team.assign(team)
-	return run
-
-
 static func _max_hp(merc: MercenaryData) -> int:
 	return int(merc.stats.get("maximum_hit_points", 0))
-
-
-static func _count(lines: Array[String], needle: String) -> int:
-	var n: int = 0
-	for line: String in lines:
-		if line.contains(needle):
-			n += 1
-	return n
 
 
 #Cases
@@ -103,8 +80,8 @@ static func _case_partner(res: Dictionary) -> void:
 	var pair := _pair("Kael", "Mira")
 	var a: MercenaryData = pair[0]
 	var b: MercenaryData = pair[1]
-	var run := _run_for(pair)
-	TestFixtures.check(res, "partner reads the contract team", BeauSystem.partner(a, {"run": run}) == b,
+	var contract_run := TestFixtures.run_for(pair)
+	TestFixtures.check(res, "partner reads the contract team", BeauSystem.partner(a, {"run": contract_run}) == b,
 		"%s resolves to %s through run.team" % [a.merc_name, b.merc_name])
 	TestFixtures.check(res, "partner falls back to the roster", BeauSystem.partner(a, {}) == b,
 		"with no run in ctx the roster still holds %s" % b.merc_name)
@@ -120,20 +97,20 @@ static func _case_contract_sighting(res: Dictionary) -> void:
 	_reset()
 	var pair := _pair("Kael", "Mira")
 	var a: MercenaryData = pair[0]
-	var first := _run_for(pair)
+	var first := TestFixtures.run_for(pair)
 	var lines: Array[String] = BeauSystem.begin_contract(first)
-	TestFixtures.check(res, "deploying together is a sighting", _count(lines, "BEAU SEEN") == 2,
+	TestFixtures.check(res, "deploying together is a sighting", TestFixtures.count_lines(lines, "BEAU SEEN") == 2,
 		"expected one line per merc, got %d" % lines.size())
-	TestFixtures.check(res, "the sighting names the contract", _count(lines, "(contract)") == 2,
+	TestFixtures.check(res, "the sighting names the contract", TestFixtures.count_lines(lines, "(contract)") == 2,
 		"lines: %s" % ", ".join(lines))
 	TestFixtures.check(res, "the pair are marked together", a.beau_together,
 		"beau_together is true after a shared deployment")
-	var second := _run_for(pair)
+	var second := TestFixtures.run_for(pair)
 	var again: Array[String] = BeauSystem.begin_contract(second)
 	TestFixtures.check(res, "a second contract together is not a new sighting", again.is_empty(),
 		"expected no lines, got %d" % again.size())
 	var solo: Array[MercenaryData] = [a]
-	var apart_lines: Array[String] = BeauSystem.begin_contract(_run_for(solo))
+	var apart_lines: Array[String] = BeauSystem.begin_contract(TestFixtures.run_for(solo))
 	TestFixtures.check(res, "deploying without the beau separates the pair",
 		not a.beau_together and apart_lines.is_empty(),
 		"beau_together %s with %d lines" % [str(a.beau_together), apart_lines.size()])
@@ -149,7 +126,7 @@ static func _case_apart_blocks(res: Dictionary) -> void:
 	var first: Array[String] = BeauSystem.tick(CampaignClock.now())
 	TestFixtures.check(res, "ten days apart lands one block", a.beau_hp_ticks == 1,
 		"expected 1 block, got %d" % a.beau_hp_ticks)
-	TestFixtures.check(res, "a merc with no clause logs nothing", _count(first, "BEAU APART") == 0,
+	TestFixtures.check(res, "a merc with no clause logs nothing", TestFixtures.count_lines(first, "BEAU APART") == 0,
 		"the block still counts, but nothing was taken to report")
 	CampaignClock.advance(15 * CampaignClock.MINUTES_PER_DAY)
 	BeauSystem.tick(CampaignClock.now())
@@ -171,8 +148,8 @@ static func _case_bond_max_hp(res: Dictionary) -> void:
 	var first: Array[String] = BeauSystem.tick(CampaignClock.now())
 	TestFixtures.check(res, "a block apart costs one maximum hit point", _max_hp(a) == base - 1,
 		"max HP %d -> %d" % [base, _max_hp(a)])
-	TestFixtures.check(res, "the block is logged", _count(first, "BEAU APART") == 1,
-		"expected one BEAU APART line, got %d" % _count(first, "BEAU APART"))
+	TestFixtures.check(res, "the block is logged", TestFixtures.count_lines(first, "BEAU APART") == 1,
+		"expected one BEAU APART line, got %d" % TestFixtures.count_lines(first, "BEAU APART"))
 	CampaignClock.advance(BeauSystem.TICK_MINUTES)
 	BeauSystem.tick(CampaignClock.now())
 	TestFixtures.check(res, "a second block costs another", _max_hp(a) == base - 2,
@@ -183,9 +160,9 @@ static func _case_bond_max_hp(res: Dictionary) -> void:
 	TestFixtures.check(res, "a sighting reverts every block at once", _max_hp(a) == base,
 		"expected max HP back to %d, got %d" % [base, _max_hp(a)])
 	TestFixtures.check(res, "the counters reset on the sighting",
-		a.beau_hp_ticks == 0 and a.beau_apart_minutes == 0 and _count(seen, "BEAU SEEN") == 2,
+		a.beau_hp_ticks == 0 and a.beau_apart_minutes == 0 and TestFixtures.count_lines(seen, "BEAU SEEN") == 2,
 		"ticks %d, minutes %d, lines %d" % [a.beau_hp_ticks, a.beau_apart_minutes,
-		_count(seen, "BEAU SEEN")])
+		TestFixtures.count_lines(seen, "BEAU SEEN")])
 
 
 static func _case_hp_floor(res: Dictionary) -> void:
@@ -208,8 +185,8 @@ static func _case_hp_floor(res: Dictionary) -> void:
 	TestFixtures.check(res, "a block at the floor takes nothing",
 		_max_hp(a) == 1 and a.current_hp == 1,
 		"max HP %d, current HP %d" % [_max_hp(a), a.current_hp])
-	TestFixtures.check(res, "the floor is logged", _count(floored, "BEAU FLOOR") == 1,
-		"expected one BEAU FLOOR line, got %d" % _count(floored, "BEAU FLOOR"))
+	TestFixtures.check(res, "the floor is logged", TestFixtures.count_lines(floored, "BEAU FLOOR") == 1,
+		"expected one BEAU FLOOR line, got %d" % TestFixtures.count_lines(floored, "BEAU FLOOR"))
 
 
 static func _case_tavern_sighting(res: Dictionary) -> void:
@@ -221,19 +198,19 @@ static func _case_tavern_sighting(res: Dictionary) -> void:
 		merc.rest_lockout_until = 600
 		merc.rest_lockout_kind = RestSystem.KIND_RESPITE
 	var resting: Array[String] = BeauSystem.tick(CampaignClock.now())
-	TestFixtures.check(res, "two resting mercs do not meet", _count(resting, "BEAU SEEN") == 0,
+	TestFixtures.check(res, "two resting mercs do not meet", TestFixtures.count_lines(resting, "BEAU SEEN") == 0,
 		"a respite lockout keeps the pair apart")
 	CampaignClock.advance(600)
 	a.on_contract = true
 	var deployed: Array[String] = BeauSystem.tick(CampaignClock.now())
 	TestFixtures.check(res, "a deployed merc does not meet at the tavern",
-		_count(deployed, "BEAU SEEN") == 0, "one of the pair is away on a contract")
+		TestFixtures.count_lines(deployed, "BEAU SEEN") == 0, "one of the pair is away on a contract")
 	a.on_contract = false
 	CampaignClock.advance(10)
 	var met: Array[String] = BeauSystem.tick(CampaignClock.now())
-	TestFixtures.check(res, "both lockouts passed is a tavern sighting", _count(met, "BEAU SEEN") == 2,
-		"expected one line per merc, got %d" % _count(met, "BEAU SEEN"))
-	TestFixtures.check(res, "the sighting names the tavern", _count(met, "(tavern)") == 2,
+	TestFixtures.check(res, "both lockouts passed is a tavern sighting", TestFixtures.count_lines(met, "BEAU SEEN") == 2,
+		"expected one line per merc, got %d" % TestFixtures.count_lines(met, "BEAU SEEN"))
+	TestFixtures.check(res, "the sighting names the tavern", TestFixtures.count_lines(met, "(tavern)") == 2,
 		"lines: %s" % ", ".join(met))
 	TestFixtures.check(res, "both sides are marked together", a.beau_together and b.beau_together,
 		"the reunion sets the flag on each merc")
@@ -245,18 +222,18 @@ static func _case_seen_grants(res: Dictionary) -> void:
 	var a: MercenaryData = pair[0]
 	_give(a, HEART_EYED, HEART_EYED_CELL)
 	_give(a, WAKE_UP, WAKE_UP_CELL)
-	var run := _run_for(pair)
-	BeauSystem.begin_contract(run)
+	var contract_run := TestFixtures.run_for(pair)
+	BeauSystem.begin_contract(contract_run)
 	TestFixtures.check(res, "both beau_seen clauses grant excess HP", ExcessPool.amount(a, "hp") == 2,
 		"expected 2 Excess HP, got %d" % ExcessPool.amount(a, "hp"))
 	TestFixtures.check(res, "the grant is logged on the contract",
-		_count(run.log_lines, "gains 1 Excess HP (%s)" % HEART_EYED) == 1,
-		"log: %s" % ", ".join(run.log_lines))
+		TestFixtures.count_lines(contract_run.log_lines, "gains 1 Excess HP (%s)" % HEART_EYED) == 1,
+		"log: %s" % ", ".join(contract_run.log_lines))
 	_reset()
 	var solo := _pair("Odd", "Wren")
 	var c: MercenaryData = solo[0]
 	_give(c, WAKE_UP, WAKE_UP_CELL)
-	BeauSystem.begin_contract(_run_for(solo))
+	BeauSystem.begin_contract(TestFixtures.run_for(solo))
 	TestFixtures.check(res, "the second clause needs the first perk", ExcessPool.amount(c, "hp") == 0,
 		"expected 0 Excess HP without %s, got %d" % [HEART_EYED, ExcessPool.amount(c, "hp")])
 
@@ -317,10 +294,6 @@ static func _case_compound_condition(res: Dictionary) -> void:
 
 static func _case_honeymoon(res: Dictionary) -> void:
 	_reset()
-	var injected: bool = _ensure_distracted()
-	if ConstStates.state_from_token("distracted") == "":
-		print("WARN BEAU | no Distracted state definition, honeymoon case skipped")
-		return
 	var pair := _pair("Kael", "Mira")
 	var a: MercenaryData = pair[0]
 	var b: MercenaryData = pair[1]
@@ -349,29 +322,37 @@ static func _case_honeymoon(res: Dictionary) -> void:
 	TestFixtures.check(res, "round two does not distract again",
 		not ConstStates.has_state(a, DISTRACTED) and not ConstStates.has_state(b, DISTRACTED),
 		"first_round is false from round 2 on")
-	if injected:
-		_drop_distracted()
 
 
-#States.tsv carries no Distracted row yet; the case injects one and returns true when it did.
-static func _ensure_distracted() -> bool:
-	if ConstStates.DATA.has(DISTRACTED):
-		return false
-	var effects: Array[String] = ["skip_turn"]
-	var removals: Array[String] = ["time:1:round"]
-	ConstStates.DATA[DISTRACTED] = {
-		"effects": effects,
-		"removals": removals,
-		"afflict_text": "[Target] cannot look away.",
-		"remove_text": "[Target] gets back to work.",
-		"special": "",
-		"is_stacking": false,
-		"inflict_default": "",
-	}
-	ConstStates.ALL.append(DISTRACTED)
-	return true
-
-
-static func _drop_distracted() -> void:
-	ConstStates.DATA.erase(DISTRACTED)
-	ConstStates.ALL.erase(DISTRACTED)
+#The [Beau] placeholder: filled with the partner name, and the whole line dropped without one.
+static func _case_beau_text(res: Dictionary) -> void:
+	_reset()
+	var data: Dictionary = ConstStates.DATA[DISTRACTED]
+	var afflict_before: String = str(data.get("afflict_text", ""))
+	var remove_before: String = str(data.get("remove_text", ""))
+	data["afflict_text"] = "[Target] cannot take their eyes off [Beau]!"
+	data["remove_text"] = "[Target] gets back to work."
+	var filled: String = StateText.narrate_text(DISTRACTED, "afflict_text", "Ada", "", "Rin")
+	TestFixtures.check(res, "the beau placeholder takes the partner name",
+		filled == "Ada cannot take their eyes off Rin!", "text %s" % filled)
+	var dropped: String = StateText.narrate_text(DISTRACTED, "afflict_text", "Ada", "", "")
+	TestFixtures.check(res, "a beau line is skipped without a beau", dropped == "",
+		"text %s" % dropped)
+	var plain: String = StateText.narrate_text(DISTRACTED, "remove_text", "Ada", "", "")
+	TestFixtures.check(res, "a line without the placeholder still prints",
+		plain == "Ada gets back to work.", "text %s" % plain)
+	var pair := _pair("Ada", "Rin")
+	var a: MercenaryData = pair[0]
+	var b: MercenaryData = pair[1]
+	TestFixtures.check(res, "beau_name reads the roster partner",
+		BeauSystem.beau_name(a, {}) == b.merc_name,
+		"expected %s, got %s" % [b.merc_name, BeauSystem.beau_name(a, {})])
+	var lone := _merc("Toft")
+	TestFixtures.check(res, "beau_name is empty without a beau", BeauSystem.beau_name(lone, {}) == "",
+		"got %s" % BeauSystem.beau_name(lone, {}))
+	data["remove_text"] = "[Target] looks away from [Beau]."
+	var fallback: String = StateText.remove_line(lone, DISTRACTED)
+	TestFixtures.check(res, "a beau remove line falls back without a beau",
+		fallback == "Toft is no longer Distracted.", "line %s" % fallback)
+	data["afflict_text"] = afflict_before
+	data["remove_text"] = remove_before

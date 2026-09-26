@@ -4,8 +4,7 @@ class_name TargetSelector
 static func pick_target(
 		attacker: MercenaryData,
 		enemies: Array,
-		state: BattleState = null,
-		_weights: Dictionary = {}) -> MercenaryData:
+		state: BattleState = null) -> MercenaryData:
 	if enemies.is_empty():
 		return null
 	var barred := ConstStates.blocked_targets(attacker)
@@ -61,6 +60,9 @@ static func pick_target(
 
 		if state != null and _flank_ally_at_current_pos(attacker, enemy, allies, state) != null:
 			mult += 0.25
+
+		mult += AuraTactics.leader_bonus(enemy, state)
+		mult += FleeSystem.escaping_bonus(enemy, state)
 
 		if state != null and state.battlefield != null:
 			var att_pos := state.get_position(attacker)
@@ -158,7 +160,8 @@ static func pick_move_target(
 	var blocked: Dictionary = ctx.get("blocked_targets", {})
 	var perm: Dictionary = state.movement_blocked.get(merc, {}) as Dictionary
 	for pb: MercenaryData in perm.keys():
-		blocked[pb] = true
+		if MovementExecutor.move_block_holds(merc, pb, state, int(perm[pb])):
+			blocked[pb] = true
 
 	var enemies: Array = ctx.get("enemies", [])
 	var barred := ConstStates.blocked_targets(merc)
@@ -196,7 +199,7 @@ static func pick_move_target(
 				var d := state.path_distance_to(merc, enemy) if _interior else state.distance_to(merc, enemy)
 				var max_hp := float(enemy.stats.get("maximum_hit_points", 1))
 				var hp_ratio := clampf(float(enemy.current_hp) / max_hp, 0.0, 1.0)
-				var s := d - (1.0 - hp_ratio)
+				var s := d - (1.0 - hp_ratio) - FleeSystem.pursuit_paces(enemy, state)
 				if s < best_score:
 					best_score = s
 					nearest = enemy
@@ -226,6 +229,7 @@ static func pick_move_target(
 			var known_pos: Vector3i = merc.last_known_enemy_positions[enemy] as Vector3i
 			var d := float(maxi(absi(known_pos.x - merc_pos.x), absi(known_pos.y - merc_pos.y))
 				+ absi(known_pos.z - merc_pos.z) * 4)
+			d -= FleeSystem.pursuit_paces(enemy, state)
 			if d < best_dist:
 				best_dist = d
 				best_enemy = enemy
@@ -238,6 +242,7 @@ static func pick_move_target(
 		var best_dist := INF
 		for enemy: MercenaryData in candidates:
 			var d := float(state.path_distance_to(merc, enemy)) if _interior2 else float(state.distance_to(merc, enemy))
+			d -= FleeSystem.pursuit_paces(enemy, state)
 			if d < best_dist:
 				best_dist = d
 				nearest = enemy
@@ -292,3 +297,37 @@ static func _blocking_states(merc: MercenaryData, source: MercenaryData) -> Stri
 		if str(e["token"]).begins_with("target:block:source") and e["source"] == source:
 			names.append(str(e["state"]))
 	return CheckSystem.states_text(names)
+
+
+#Nearest living enemy with line of sight inside reach_or_range paces.
+static func nearest_visible_enemy(merc: MercenaryData, state: BattleState, reach_or_range: int) -> MercenaryData:
+	if merc == null or state == null:
+		return null
+	var best: MercenaryData = null
+	var best_d := 9999
+	for enemy: MercenaryData in state.get_enemies(merc):
+		if not BattleState._is_alive(enemy) or enemy.off_field:
+			continue
+		if state.battlefield == null:
+			return enemy
+		var dist := state.distance_to(merc, enemy)
+		if reach_or_range > 0 and dist > reach_or_range:
+			continue
+		if not (LineOfSight.check(state, merc, enemy)["visible"] as bool):
+			continue
+		if dist < best_d:
+			best_d = dist
+			best = enemy
+	return best
+
+
+#The reach or range the merc's drawn weapon reaches with right now.
+static func weapon_target_range(merc: MercenaryData) -> int:
+	var weapon: WeaponData = merc.equipped_weapon
+	if weapon == null:
+		return 1
+	if weapon.is_ranged:
+		return int(WeaponArmorPerkLibrary.ranged_ranges(merc, weapon)["extended"])
+	if weapon.is_throwable:
+		return int(ThrownWeaponRules.thrown_ranges(merc, weapon)["extended"])
+	return WeaponArmorPerkLibrary.get_effective_melee_range(merc)

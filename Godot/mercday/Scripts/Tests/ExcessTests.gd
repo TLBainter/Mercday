@@ -20,15 +20,7 @@ static func run() -> bool:
 
 #Stats come from the real Stats.tsv formulas so BattleState.create can order the merc.
 static func _merc(name: String) -> MercenaryData:
-	var m := MercenaryData.new()
-	m.merc_name = name
-	m.max_stats = {"max_vigor": 8, "max_dexterity": 8, "max_cognition": 8, "max_wile": 8, "size": 1}
-	m.luck_roll = 5.0
-	m.stats = {"level": 5}
-	m.stats = StatCalculator.calculate_all(m)
-	m.stats["pain_limit"] = 0
-	m.stats_baseline = StatCalculator.calculate_all(m)
-	m.current_hp = int(m.stats.get("maximum_hit_points", 1))
+	var m: MercenaryData = TestFixtures.level_merc(name, false)
 	m.current_ep = int(m.stats.get("maximum_endurance_points", 0))
 	return m
 
@@ -40,13 +32,6 @@ static func _trait(name: String, cell: String) -> TraitData:
 	td.trait_type = "Perk"
 	td.effect_dsl = cell
 	return td
-
-
-static func _has(lines: Array[String], text: String) -> bool:
-	for line: String in lines:
-		if line.contains(text):
-			return true
-	return false
 
 
 static func _case_add(res: Dictionary) -> void:
@@ -190,7 +175,7 @@ static func _case_dot(res: Dictionary) -> void:
 	TestFixtures.check(res, "dot drains excess before hp",
 		a.excess_hp == 1 and a.current_hp == 10 and lines.size() == 1,
 		"excess %d hp %d, %d lines" % [a.excess_hp, a.current_hp, lines.size()])
-	TestFixtures.check(res, "dot line notes the excess spent", _has(lines, "(1 ExHP)"),
+	TestFixtures.check(res, "dot line notes the excess spent", TestFixtures.has_line(lines, "(1 ExHP)"),
 		"lines: %s" % ", ".join(lines))
 
 
@@ -200,14 +185,14 @@ static func _case_trait_grant(res: Dictionary) -> void:
 	var lines: Array[String] = []
 	TraitRuntime.fire("contract_start", m, {"lines": lines})
 	TestFixtures.check(res, "resource leaf grants one excess hp",
-		m.excess_hp == 1 and _has(lines, "gains 1 Excess HP (Excess Probe Grant)"),
+		m.excess_hp == 1 and TestFixtures.has_line(lines, "gains 1 Excess HP (Excess Probe Grant)"),
 		"pool %d, lines: %s" % [m.excess_hp, ", ".join(lines)])
 	m.excess_hp = ExcessPool.CAP
 	var full: Array[String] = []
 	TraitRuntime.fire("contract_start", m, {"lines": full})
 	TestFixtures.check(res, "resource leaf at cap reports the full pool",
 		m.excess_hp == ExcessPool.CAP
-		and _has(full, "already holds %d Excess HP" % ExcessPool.CAP),
+		and TestFixtures.has_line(full, "already holds %d Excess HP" % ExcessPool.CAP),
 		"pool %d, lines: %s" % [m.excess_hp, ", ".join(full)])
 
 
@@ -216,16 +201,16 @@ static func _case_contract_grants(res: Dictionary) -> void:
 	var ally := _merc("Mira")
 	owner.perks.append(_trait("Excess Probe Ally",
 		"on:contract_start:always:to:random_ally:resource:excess_ep:+1"))
-	var run := ContractRun.new()
+	var contract_run := ContractRun.new()
 	var team: Array[MercenaryData] = [owner, ally]
-	run.team.assign(team)
-	TraitRuntime.begin_contract(run)
+	contract_run.team.assign(team)
+	TraitRuntime.begin_contract(contract_run)
 	TestFixtures.check(res, "random_ally grants to the ally, not the owner",
 		ally.excess_ep == 1 and owner.excess_ep == 0,
 		"owner %d, ally %d" % [owner.excess_ep, ally.excess_ep])
 	TestFixtures.check(res, "grant line reaches the run log",
-		_has(run.log_lines, "Mira gains 1 Excess EP"),
-		"%d log lines: %s" % [run.log_lines.size(), ", ".join(run.log_lines)])
+		TestFixtures.has_line(contract_run.log_lines, "Mira gains 1 Excess EP"),
+		"%d log lines: %s" % [contract_run.log_lines.size(), ", ".join(contract_run.log_lines)])
 	var vet := _merc("Nils")
 	vet.perks.append(_trait("Excess Probe Combat",
 		"on:contract_complete_combat:always:resource:excess_hp:+1"))
@@ -234,5 +219,5 @@ static func _case_contract_grants(res: Dictionary) -> void:
 	solo_run.team.assign(solo)
 	TraitRuntime.on_combat_complete(solo_run, "Skirmish")
 	TestFixtures.check(res, "contract_complete_combat grants excess",
-		vet.excess_hp == 1 and _has(solo_run.log_lines, "Nils gains 1 Excess HP"),
+		vet.excess_hp == 1 and TestFixtures.has_line(solo_run.log_lines, "Nils gains 1 Excess HP"),
 		"pool %d, %d log lines" % [vet.excess_hp, solo_run.log_lines.size()])

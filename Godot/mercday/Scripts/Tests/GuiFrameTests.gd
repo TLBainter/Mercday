@@ -1,0 +1,634 @@
+class_name GuiFrameTests
+
+#Frames, dialogs and menus: SubWindow, ConfirmDialog, SlotTooltip, SortButton, DirToggle,
+#FilterSortButton. Run: godot --headless --path . -- --gui-frame-tests
+
+const SUBWINDOW_SCENE := "res://Scenes/GUI/Shared/SubWindow.tscn"
+const CONFIRM_SCENE := "res://Scenes/GUI/Shared/ConfirmDialog.tscn"
+const SLOT_TOOLTIP_SCENE := "res://Scenes/GUI/Shared/SlotTooltip.tscn"
+const SORT_BUTTON_SCENE := "res://Scenes/GUI/Shared/SortButton.tscn"
+const DIR_TOGGLE_SCENE := "res://Scenes/GUI/Shared/DirToggle.tscn"
+const FILTER_SORT_SCENE := "res://Scenes/GUI/Shared/FilterSortButton.tscn"
+const FILTER_BUTTON_SCENE := "res://Scenes/GUI/Shared/FilterButton.tscn"
+
+
+static func run(host: Node) -> bool:
+	var res: Dictionary = {"pass": 0, "fail": 0}
+	await _case_sub_window(res, host)
+	await _case_frame_stack(res, host)
+	await _case_frame_stack_freed(res, host)
+	await _case_backdrop(res, host)
+	await _case_bottom_band(res, host)
+	await _case_viewport_resize(res, host)
+	await _case_confirm_dialog(res, host)
+	await _case_dialog_severity(res, host)
+	await _case_dialog_recap(res, host)
+	await _case_slot_tooltip(res, host)
+	await _case_sort_button(res, host)
+	await _case_dir_toggle(res, host)
+	await _case_filter_sort_button(res, host)
+	await _case_filter_button(res, host)
+	return TestFixtures.summarize(res, "GUI FRAME")
+
+
+static func _case_sub_window(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	GuiFrameStack.bottom_reserve = 0.0
+	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	host.add_child(win)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var view: Rect2 = host.get_viewport().get_visible_rect()
+	TestFixtures.check(res, "the window covers the viewport and stays top level",
+		win.top_level and win.size.is_equal_approx(view.size),
+		"top_level %s size %s expected %s" % [win.top_level, win.size, view.size])
+	var holder: Control = win.holder
+	var frame: Control = win.frame
+	TestFixtures.check(res, "the holder scales the canvas down",
+		holder.scale.is_equal_approx(Vector2(0.85, 0.85)), "got %s" % str(holder.scale))
+	var visual_size: Vector2 = Vector2(1280, 720) * 0.85
+	var expected_frame_pos: Vector2 = holder.position - Vector2(4, 4)
+	var expected_frame_size: Vector2 = visual_size + Vector2(8, 8)
+	TestFixtures.check(res, "the frame wraps the holder with a 4px margin",
+		frame.position.is_equal_approx(expected_frame_pos)
+			and frame.size.is_equal_approx(expected_frame_size),
+		"frame %s/%s expected %s/%s" % [frame.position, frame.size, expected_frame_pos,
+			expected_frame_size])
+	var x_centre: Vector2 = win.close_x.position + win.close_x.size / 2.0
+	var corner: Vector2 = Vector2(frame.position.x + frame.size.x, frame.position.y)
+	TestFixtures.check(res, "the close X centres on the frame's top-right corner",
+		x_centre.distance_to(corner) <= 1.0,
+		"centre %s corner %s" % [x_centre, corner])
+	TestFixtures.check(res, "the close X carries a 3 px ink outline",
+		win.close_x.get_theme_constant("outline_size") == 3
+			and win.close_x.get_theme_color("font_outline_color").is_equal_approx(Color("#0a0f1c")),
+		"size %d colour %s" % [win.close_x.get_theme_constant("outline_size"),
+			win.close_x.get_theme_color("font_outline_color")])
+	TestFixtures.check(res, "the close X is half size",
+		win.close_x.size.y <= 60.0 and win.close_x.size.x <= 60.0,
+		"size %s" % [win.close_x.size])
+
+	var content_root := Control.new()
+	content_root.name = "Content"
+	var packed := PackedScene.new()
+	packed.pack(content_root)
+	content_root.queue_free()
+
+	var setup_ran_detached: Array[bool] = [false]
+	var setup := func(node: Node) -> void: setup_ran_detached[0] = not node.is_inside_tree()
+	var instance: Node = win.open(packed, setup)
+	TestFixtures.check(res, "open returns the instance and runs setup before adding it",
+		instance != null and setup_ran_detached[0] and win.current() == instance and win.is_open(),
+		"instance %s setup_ran %s" % [instance, setup_ran_detached[0]])
+
+	var closed_fired: Array[bool] = [false]
+	win.closed.connect(func() -> void: closed_fired[0] = true)
+	win.close()
+	TestFixtures.check(res, "close frees the content, hides and emits closed",
+		closed_fired[0] and win.current() == null and not win.visible,
+		"closed %s current %s visible %s" % [closed_fired[0], win.current(), win.visible])
+
+	var nested_root := Control.new()
+	var nested_win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	nested_root.add_child(nested_win)
+	nested_win.owner = nested_root
+	var nested_packed := PackedScene.new()
+	nested_packed.pack(nested_root)
+	nested_root.queue_free()
+	var placed: Node = win.open(nested_packed)
+	await host.get_tree().process_frame
+	var placed_inner: SubWindow = placed.get_node("SubWindow")
+	var inner_scale: Vector2 = placed_inner.get_global_transform().get_scale()
+	TestFixtures.check(res, "a nested sub window stays at full screen scale",
+		placed_inner.size.is_equal_approx(view.size) and inner_scale.is_equal_approx(Vector2.ONE),
+		"size %s scale %s" % [placed_inner.size, inner_scale])
+
+	var kids: Array[Node] = win.get_children()
+	TestFixtures.check(res, "a scanline overlay sits after the holder and ignores the mouse",
+		win.scanline != null and win.scanline.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and kids.find(win.scanline) > kids.find(win.holder),
+		"overlay %s filter %s order %d/%d" % [win.scanline, win.scanline.mouse_filter,
+			kids.find(win.scanline), kids.find(win.holder)])
+
+	win.queue_free()
+
+
+static func _empty_scene() -> PackedScene:
+	var root := Control.new()
+	root.name = "Content"
+	var packed := PackedScene.new()
+	packed.pack(root)
+	root.queue_free()
+	return packed
+
+
+static func _left_click() -> InputEventMouseButton:
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	return click
+
+
+static func _push_escape(host: Node) -> void:
+	var event := InputEventAction.new()
+	event.action = &"ui_cancel"
+	event.pressed = true
+	host.get_viewport().push_input(event)
+
+
+static func _case_frame_stack(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	host.add_child(win)
+	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
+	host.add_child(dlg)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	win.open(_empty_scene())
+	dlg.ask("Stop?", "Stop the run?")
+	TestFixtures.check(res, "the dialog stacks above the open window",
+		GuiFrameStack.top() == dlg and GuiFrameStack.depth() == 2,
+		"top %s depth %d" % [GuiFrameStack.top(), GuiFrameStack.depth()])
+	_push_escape(host)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the first escape closes the dialog and leaves the window open",
+		not dlg.visible and win.visible and GuiFrameStack.top() == win,
+		"dialog %s window %s top %s" % [dlg.visible, win.visible, GuiFrameStack.top()])
+	_push_escape(host)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the second escape closes the window and empties the stack",
+		not win.visible and GuiFrameStack.depth() == 0,
+		"window %s depth %d" % [win.visible, GuiFrameStack.depth()])
+
+	win.open(_empty_scene())
+	var inner: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	win.holder.add_child(inner)
+	await host.get_tree().process_frame
+	inner.open(_empty_scene())
+	_push_escape(host)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "escape closes the nested window before the outer one",
+		not inner.visible and win.visible and GuiFrameStack.top() == win,
+		"inner %s outer %s top %s" % [inner.visible, win.visible, GuiFrameStack.top()])
+	win.close()
+	dlg.queue_free()
+	win.queue_free()
+
+
+static func _case_frame_stack_freed(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	var ghost := Control.new()
+	host.add_child(ghost)
+	await host.get_tree().process_frame
+	GuiFrameStack.push(ghost)
+	host.remove_child(ghost)
+	ghost.free()
+	TestFixtures.check(res, "a freed frame is pruned off the stack",
+		GuiFrameStack.top() == null and GuiFrameStack.depth() == 0,
+		"top %s depth %d" % [GuiFrameStack.top(), GuiFrameStack.depth()])
+
+	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	host.add_child(win)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	win.open(_empty_scene())
+	var lost := Control.new()
+	host.add_child(lost)
+	await host.get_tree().process_frame
+	GuiFrameStack.push(lost)
+	host.remove_child(lost)
+	lost.free()
+	TestFixtures.check(res, "a freed entry above a live frame does not hide it",
+		GuiFrameStack.top() == win and GuiFrameStack.depth() == 1,
+		"top %s depth %d" % [GuiFrameStack.top(), GuiFrameStack.depth()])
+	_push_escape(host)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "escape still closes the live frame under a freed entry",
+		not win.visible and GuiFrameStack.depth() == 0,
+		"window %s depth %d" % [win.visible, GuiFrameStack.depth()])
+	win.queue_free()
+
+
+static func _case_backdrop(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	host.add_child(win)
+	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
+	host.add_child(dlg)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	win.open(_empty_scene())
+	var closed_fired: Array[bool] = [false]
+	win.closed.connect(func() -> void: closed_fired[0] = true)
+	win.backdrop.gui_input.emit(_left_click())
+	TestFixtures.check(res, "a backdrop click closes the window",
+		closed_fired[0] and not win.visible,
+		"closed %s visible %s" % [closed_fired[0], win.visible])
+	dlg.ask("Stop?", "Stop the run?")
+	dlg.backdrop.gui_input.emit(_left_click())
+	TestFixtures.check(res, "the dialog backdrop click is inert", dlg.visible,
+		"visible %s" % dlg.visible)
+	dlg.press(0)
+	dlg.queue_free()
+	win.queue_free()
+
+
+static func _case_bottom_band(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	var bar: BottomBar = (load("res://Scenes/GUI/HUD/BottomBar.tscn") as PackedScene).instantiate()
+	var reserve: float = bar.custom_minimum_size.y
+	bar.queue_free()
+	TestFixtures.check(res, "the bottom bar reserves 76 px of the viewport",
+		is_equal_approx(reserve, 76.0), "got %.1f" % reserve)
+	GuiFrameStack.bottom_reserve = reserve
+
+	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	host.add_child(win)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	win.open(_empty_scene())
+	var view: Vector2 = host.get_viewport().get_visible_rect().size
+	var win_backdrop_bottom: float = win.backdrop.position.y + win.backdrop.size.y
+	var win_scanline_bottom: float = win.scanline.position.y + win.scanline.size.y
+	var win_frame_bottom: float = win.frame.position.y + win.frame.size.y
+	TestFixtures.check(res, "the sub window backdrop stops above the bottom bar",
+		absf(win_backdrop_bottom - (view.y - reserve)) <= 0.5,
+		"backdrop bottom %.1f expected %.1f" % [win_backdrop_bottom, view.y - reserve])
+	TestFixtures.check(res, "the scanline stops at the same edge as the backdrop",
+		absf(win_scanline_bottom - (view.y - reserve)) <= 0.5,
+		"scanline bottom %.1f expected %.1f" % [win_scanline_bottom, view.y - reserve])
+	TestFixtures.check(res, "the frame stays inside the band above the bar",
+		win_frame_bottom <= view.y - reserve + 0.5,
+		"frame bottom %.1f limit %.1f" % [win_frame_bottom, view.y - reserve])
+	TestFixtures.check(res, "the close X stays on screen",
+		win.close_x.position.y >= -0.5, "close x top %.1f" % win.close_x.position.y)
+	TestFixtures.check(res, "the sub window root ignores the mouse so clicks reach the bar",
+		win.mouse_filter == Control.MOUSE_FILTER_IGNORE, "filter %d" % win.mouse_filter)
+	var holder_centre_x: float = win.holder.position.x + win.holder.size.x * win.holder.scale.x / 2.0
+	TestFixtures.check(res, "the holder stays centred horizontally",
+		absf(holder_centre_x - view.x / 2.0) <= 1.0,
+		"centre %.1f expected %.1f" % [holder_centre_x, view.x / 2.0])
+	win.close()
+	win.queue_free()
+
+	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
+	host.add_child(dlg)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	dlg.ask("Stop?", "Stop the run?")
+	var dlg_backdrop_bottom: float = dlg.backdrop.position.y + dlg.backdrop.size.y
+	var dlg_box_bottom: float = dlg.box.position.y + dlg.box.size.y
+	TestFixtures.check(res, "the confirm dialog backdrop stops above the bottom bar",
+		absf(dlg_backdrop_bottom - (view.y - reserve)) <= 0.5,
+		"backdrop bottom %.1f expected %.1f" % [dlg_backdrop_bottom, view.y - reserve])
+	TestFixtures.check(res, "the confirm dialog box stays inside the band above the bar",
+		dlg_box_bottom <= view.y - reserve + 0.5,
+		"box bottom %.1f limit %.1f" % [dlg_box_bottom, view.y - reserve])
+	var dlg_band: float = GuiFrameStack.band_height(view.y)
+	var dlg_expected_top: float = (dlg_band - dlg.box.size.y) / 2.0
+	TestFixtures.check(res, "the confirm dialog box centres in the band",
+		absf(dlg.box.position.y - dlg_expected_top) <= 1.0,
+		"box top %.1f expected %.1f" % [dlg.box.position.y, dlg_expected_top])
+	TestFixtures.check(res, "the confirm dialog root ignores the mouse",
+		dlg.mouse_filter == Control.MOUSE_FILTER_IGNORE, "filter %d" % dlg.mouse_filter)
+	dlg.press(0)
+	dlg.queue_free()
+
+	var salary: SalaryDialog = (load("res://Scenes/GUI/Mercs/SalaryDialog.tscn") as PackedScene).instantiate()
+	host.add_child(salary)
+	await host.get_tree().process_frame
+	var probe_view := MercView.new()
+	probe_view.uid = 1
+	probe_view.name = "Probe"
+	probe_view.monthly_salary = 50
+	salary.open_for(probe_view)
+	var salary_backdrop_bottom: float = salary.backdrop.position.y + salary.backdrop.size.y
+	var salary_box_bottom: float = salary.box.position.y + salary.box.size.y
+	TestFixtures.check(res, "the salary dialog backdrop stops above the bottom bar",
+		absf(salary_backdrop_bottom - (view.y - reserve)) <= 0.5,
+		"backdrop bottom %.1f expected %.1f" % [salary_backdrop_bottom, view.y - reserve])
+	TestFixtures.check(res, "the salary dialog box stays inside the band above the bar",
+		salary_box_bottom <= view.y - reserve + 0.5,
+		"box bottom %.1f limit %.1f" % [salary_box_bottom, view.y - reserve])
+	TestFixtures.check(res, "the salary dialog root ignores the mouse",
+		salary.mouse_filter == Control.MOUSE_FILTER_IGNORE, "filter %d" % salary.mouse_filter)
+	salary.queue_free()
+
+	var hud: GameHUD = (load("res://Scenes/GUI/HUD/GameHUD.tscn") as PackedScene).instantiate()
+	hud.autostart = false
+	host.add_child(hud)
+	hud.wire_for_test()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "GameHUD sets the reserve to the bottom bar's height",
+		is_equal_approx(GuiFrameStack.bottom_reserve, hud.bottom_bar.custom_minimum_size.y),
+		"reserve %.1f bar %.1f" % [GuiFrameStack.bottom_reserve, hud.bottom_bar.custom_minimum_size.y])
+	hud.queue_free()
+
+	GuiFrameStack.bottom_reserve = 0.0
+	GuiFrameStack.clear()
+
+
+static func _case_viewport_resize(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	GuiFrameStack.bottom_reserve = 0.0
+	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	host.add_child(win)
+	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
+	host.add_child(dlg)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	win.open(_empty_scene())
+	dlg.ask("Stop?", "Stop the run?")
+	var view: Viewport = host.get_viewport()
+	var win_hooked: bool = view.size_changed.is_connected(Callable(win, "_on_viewport_resized"))
+	var dlg_hooked: bool = view.size_changed.is_connected(Callable(dlg, "_on_viewport_resized"))
+	TestFixtures.check(res, "the window and the dialog listen for a viewport resize",
+		win_hooked and dlg_hooked, "window %s dialog %s" % [win_hooked, dlg_hooked])
+	var game_window: Window = host.get_window()
+	var old_scale: Vector2i = game_window.content_scale_size
+	var rect_before: Vector2 = view.get_visible_rect().size
+	var frame_before: Vector2 = win.frame.position
+	var box_before: Vector2 = dlg.box.position
+	game_window.content_scale_size = Vector2i(1024, 600)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var rect_after: Vector2 = view.get_visible_rect().size
+	var moved: bool = not win.frame.position.is_equal_approx(frame_before)
+	if not dlg.box.position.is_equal_approx(box_before):
+		moved = true
+	TestFixtures.check(res, "a resize relayouts the frame and recentres the dialog box",
+		moved, "rect %s to %s frame %s to %s box %s to %s" % [rect_before, rect_after,
+			frame_before, win.frame.position, box_before, dlg.box.position])
+	var moved_centre: Vector2 = win.close_x.position + win.close_x.size / 2.0
+	var moved_corner: Vector2 = Vector2(win.frame.position.x + win.frame.size.x,
+		win.frame.position.y)
+	TestFixtures.check(res, "the close X follows the frame corner after a resize",
+		moved_centre.distance_to(moved_corner) <= 1.0,
+		"centre %s corner %s" % [moved_centre, moved_corner])
+	game_window.content_scale_size = old_scale
+	await host.get_tree().process_frame
+	dlg.press(0)
+	win.close()
+	dlg.queue_free()
+	win.queue_free()
+
+
+static func _case_confirm_dialog(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	GuiFrameStack.bottom_reserve = 0.0
+	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
+	host.add_child(dlg)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	dlg.ask("Reject?", "Reject this contract?")
+	TestFixtures.check(res, "ask shows the pair of buttons",
+		dlg.visible and dlg.button_count() == 2,
+		"visible %s count %d" % [dlg.visible, dlg.button_count()])
+	var labels: Array[String] = dlg.button_labels()
+	TestFixtures.check(res, "ask puts the cancel label first and confirms on button 1",
+		labels.size() == 2 and labels[0] == "No" and labels[1] == "Yes",
+		"labels %s" % str(labels))
+	var confirmed: Array[bool] = [false]
+	dlg.confirmed.connect(func() -> void: confirmed[0] = true)
+	dlg.press(1)
+	TestFixtures.check(res, "the confirm button emits confirmed and hides",
+		confirmed[0] and not dlg.visible, "confirmed %s visible %s" % [confirmed[0], dlg.visible])
+
+	dlg.ask("Reject?", "Reject this contract?")
+	var cancelled: Array[bool] = [false]
+	dlg.cancelled.connect(func() -> void: cancelled[0] = true)
+	dlg.press(0)
+	TestFixtures.check(res, "the cancel button emits cancelled and hides",
+		cancelled[0] and not dlg.visible, "cancelled %s visible %s" % [cancelled[0], dlg.visible])
+
+	dlg.ask_buttons("Clear team?", "Remove every merc from the slots.",
+		["Cancel", "Keep Leader", "Clear All"])
+	TestFixtures.check(res, "ask_buttons builds one button per label",
+		dlg.button_count() == 3, "got %d" % dlg.button_count())
+	var chosen_index: Array[int] = [-1]
+	dlg.chosen.connect(func(i: int) -> void: chosen_index[0] = i)
+	dlg.press(2)
+	TestFixtures.check(res, "pressing a labeled button emits chosen with its index",
+		chosen_index[0] == 2, "got %d" % chosen_index[0])
+
+	dlg.queue_free()
+
+
+static func _border_text(style: StyleBoxFlat) -> String:
+	if style == null:
+		return "no style"
+	return str(style.border_color)
+
+
+static func _case_dialog_severity(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
+	host.add_child(dlg)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	dlg.ask("Reject?", "Reject this contract?")
+	var style: StyleBoxFlat = dlg.box.get_theme_stylebox(&"panel") as StyleBoxFlat
+	TestFixtures.check(res, "the default ask keeps the orange border",
+		dlg.severity() == ConfirmDialog.Severity.ORANGE and style != null
+			and style.border_color.is_equal_approx(Color("#f28c28")),
+		"severity %d colour %s" % [dlg.severity(), _border_text(style)])
+	dlg.ask("Dismiss?", "Dismiss this merc?", "Yes", "No", ConfirmDialog.Severity.RED)
+	style = dlg.box.get_theme_stylebox(&"panel") as StyleBoxFlat
+	TestFixtures.check(res, "a red ask paints the box border red",
+		dlg.severity() == ConfirmDialog.Severity.RED and style != null
+			and style.border_color.is_equal_approx(Color("#e8583f")),
+		"severity %d colour %s" % [dlg.severity(), _border_text(style)])
+	dlg.ask_buttons("Clear team?", "Remove every merc.", ["Clear All", "Cancel"],
+		ConfirmDialog.Severity.INFO)
+	style = dlg.box.get_theme_stylebox(&"panel") as StyleBoxFlat
+	TestFixtures.check(res, "ask_buttons takes a severity and keeps its labels",
+		dlg.button_count() == 2 and style != null
+			and style.border_color.is_equal_approx(Color("#9cc6ef")),
+		"count %d colour %s" % [dlg.button_count(), _border_text(style)])
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the dialog box holds the prototype width",
+		dlg.box.size.x >= 460.0, "width %.1f" % dlg.box.size.x)
+	dlg.press(1)
+	dlg.queue_free()
+
+
+static func _case_dialog_recap(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
+	host.add_child(dlg)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var team: Array[Dictionary] = [{"name": "Rook", "role": "Leader"},
+		{"name": "Wren", "role": "Scout"}]
+	var stats: Array[Dictionary] = [{"label": "ODDS", "value": "72%", "color": Color("#6cc36a")},
+		{"label": "PAY", "value": "450", "color": Color("#f2d43d")},
+		{"label": "DAYS", "value": "6", "color": Color("#9cc6ef")}]
+	dlg.ask_recap("Dispatch", "Guard the Caravan", team, stats, ["Go Back", "Dispatch"])
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "ask_recap builds one node per team row",
+		dlg.team_row_count() == 2, "got %d" % dlg.team_row_count())
+	TestFixtures.check(res, "ask_recap builds one node per stat row",
+		dlg.stat_row_count() == 3, "got %d" % dlg.stat_row_count())
+	TestFixtures.check(res, "the first stat value reads back",
+		dlg.stat_value_text(0) == "72%", dlg.stat_value_text(0))
+	var style: StyleBoxFlat = dlg.box.get_theme_stylebox(&"panel") as StyleBoxFlat
+	TestFixtures.check(res, "the recap defaults to the green border",
+		dlg.severity() == ConfirmDialog.Severity.GREEN and style != null
+			and style.border_color.is_equal_approx(Color("#6cc36a")),
+		"severity %d colour %s" % [dlg.severity(), _border_text(style)])
+	var chosen_index: Array[int] = [-1]
+	dlg.chosen.connect(func(i: int) -> void: chosen_index[0] = i)
+	dlg.press(1)
+	TestFixtures.check(res, "the last recap button is the continue action",
+		chosen_index[0] == 1 and not dlg.visible,
+		"index %d visible %s" % [chosen_index[0], dlg.visible])
+	dlg.ask("Reject?", "Reject this contract?")
+	TestFixtures.check(res, "a plain ask frees the recap rows",
+		dlg.team_row_count() == 0 and dlg.stat_row_count() == 0,
+		"team %d stats %d" % [dlg.team_row_count(), dlg.stat_row_count()])
+	dlg.press(0)
+	dlg.queue_free()
+
+
+static func _case_slot_tooltip(res: Dictionary, host: Node) -> void:
+	var tip: SlotTooltip = (load(SLOT_TOOLTIP_SCENE) as PackedScene).instantiate()
+	host.add_child(tip)
+	await host.get_tree().process_frame
+	tip.set_slot("weapon", "Sword", "text")
+	var kind_text: String = tip.kind_field.text
+	var title_text: String = tip.title_label.text
+	var body_text: String = tip.body_label.text
+	TestFixtures.check(res, "set_slot uppercases the kind and sets the title and body",
+		kind_text == "WEAPON" and title_text == "Sword" and body_text == "text",
+		"kind %s title %s body %s" % [kind_text, title_text, body_text])
+
+	var anchor := Control.new()
+	anchor.position = Vector2(100, 100)
+	anchor.size = Vector2(50, 20)
+	host.add_child(anchor)
+	await host.get_tree().process_frame
+	tip.show_at(anchor, Rect2(0, 0, 1280, 720))
+	TestFixtures.check(res, "the tooltip opens below the anchor",
+		is_equal_approx(tip.global_position.y, 124.0)
+			and is_equal_approx(tip.global_position.x, 100.0),
+		"got %s" % str(tip.global_position))
+
+	var far_anchor := Control.new()
+	far_anchor.position = Vector2(390, 290)
+	far_anchor.size = Vector2(20, 20)
+	host.add_child(far_anchor)
+	await host.get_tree().process_frame
+	var bounds := Rect2(0, 0, 400, 300)
+	tip.show_at(far_anchor, bounds)
+	TestFixtures.check(res, "a bottom right anchor flips above and clamps inside the bounds",
+		tip.global_position.y < far_anchor.global_position.y
+			and tip.global_position.x >= bounds.position.x
+			and tip.global_position.x <= bounds.end.x,
+		"got %s" % str(tip.global_position))
+
+	tip.hide_tip()
+	TestFixtures.check(res, "hide_tip hides the tooltip", not tip.visible,
+		"visible %s" % tip.visible)
+
+	anchor.queue_free()
+	far_anchor.queue_free()
+	tip.queue_free()
+
+
+static func _case_sort_button(res: Dictionary, host: Node) -> void:
+	var btn: SortButton = (load(SORT_BUTTON_SCENE) as PackedScene).instantiate()
+	host.add_child(btn)
+	await host.get_tree().process_frame
+	btn.options = ["Level", "Guild Opinion"]
+	var picked: Array[int] = [-1]
+	btn.sort_changed.connect(func(i: int) -> void: picked[0] = i)
+	btn.pick(1)
+	TestFixtures.check(res, "pick emits sort_changed and the label reads the option upper case",
+		picked[0] == 1 and btn.text == "GUILD OPINION",
+		"picked %d text %s" % [picked[0], btn.text])
+	TestFixtures.check(res, "the sort button wears the drawn lines glyph",
+		btn.icon != null and btn.icon.get_size() == Vector2(10, 10),
+		"icon %s" % str(btn.icon))
+	var rows: Array[Node] = btn.list.get_children()
+	var picked_box: StyleBoxFlat = (rows[1] as Button).get_theme_stylebox("normal") as StyleBoxFlat
+	var idle_box: StyleBoxFlat = (rows[0] as Button).get_theme_stylebox("normal") as StyleBoxFlat
+	TestFixtures.check(res, "the popup fills the picked row orange and the others navy",
+		rows.size() == 2 and picked_box.bg_color.is_equal_approx(Color("#f28c28"))
+			and idle_box.bg_color.is_equal_approx(Color("#16233f")),
+		"rows %d picked %s idle %s" % [rows.size(), picked_box.bg_color, idle_box.bg_color])
+	btn.queue_free()
+
+
+static func _case_dir_toggle(res: Dictionary, host: Node) -> void:
+	var toggle_btn: DirToggle = (load(DIR_TOGGLE_SCENE) as PackedScene).instantiate()
+	host.add_child(toggle_btn)
+	await host.get_tree().process_frame
+	var seen: Array[bool] = []
+	toggle_btn.direction_changed.connect(func(descending: bool) -> void: seen.append(descending))
+	TestFixtures.check(res, "the toggle opens descending on the orange fill and draws no glyph",
+		toggle_btn.descending and toggle_btn.theme_type_variation == &"ButtonOrange"
+			and toggle_btn.text == "",
+		"descending %s variation %s text '%s'" % [toggle_btn.descending,
+			toggle_btn.theme_type_variation, toggle_btn.text])
+	toggle_btn.toggle()
+	TestFixtures.check(res, "toggle flips to ascending and drops the orange fill",
+		seen == [false] and not toggle_btn.descending and toggle_btn.theme_type_variation == &"",
+		"seen %s variation %s" % [str(seen), toggle_btn.theme_type_variation])
+	toggle_btn.toggle()
+	TestFixtures.check(res, "toggling again returns to descending and the orange fill",
+		seen == [false, true] and toggle_btn.descending
+			and toggle_btn.theme_type_variation == &"ButtonOrange",
+		"seen %s variation %s" % [str(seen), toggle_btn.theme_type_variation])
+	toggle_btn.queue_free()
+
+
+static func _case_filter_sort_button(res: Dictionary, host: Node) -> void:
+	var fsb: FilterSortButton = (load(FILTER_SORT_SCENE) as PackedScene).instantiate()
+	host.add_child(fsb)
+	await host.get_tree().process_frame
+	fsb.sort_options = ["Name", "Level", "Salary"]
+	fsb.filter_options = ["All", "Available", "Resting", "On a Contract"]
+	var events: Array[Vector2i] = []
+	fsb.changed.connect(func(sort: int, filter: int) -> void: events.append(Vector2i(sort, filter)))
+	fsb.pick_sort(1)
+	fsb.pick_filter(2)
+	TestFixtures.check(res, "picking sort then filter emits changed for each",
+		events == [Vector2i(1, 0), Vector2i(1, 2)], "got %s" % str(events))
+	fsb.set_selection(0, 1)
+	TestFixtures.check(res, "set_selection stores the pair without a signal",
+		events.size() == 2 and fsb.sort_index == 0 and fsb.filter_index == 1,
+		"events %d sort %d filter %d" % [events.size(), fsb.sort_index, fsb.filter_index])
+	fsb.queue_free()
+
+
+static func _case_filter_button(res: Dictionary, host: Node) -> void:
+	var btn: FilterButton = (load(FILTER_BUTTON_SCENE) as PackedScene).instantiate()
+	host.add_child(btn)
+	await host.get_tree().process_frame
+	var events: Array[Dictionary] = []
+	btn.changed.connect(func(states: Dictionary) -> void: events.append(states))
+	var shown: int = 0
+	for i: int in btn.labels().size():
+		if btn.is_on(i):
+			shown += 1
+	TestFixtures.check(res, "the filter popup lists nine statuses with five shown",
+		btn.labels().size() == 9 and shown == 5 and btn.text == "FILTER",
+		"labels %d shown %d text %s" % [btn.labels().size(), shown, btn.text])
+	TestFixtures.check(res, "the statuses read in the designer's order",
+		btn.labels()[0] == "Available" and btn.labels()[4] == "Pursuing a Loan"
+			and btn.labels()[8] == "Captured",
+		"labels %s" % str(btn.labels()))
+	btn.toggle(5)
+	TestFixtures.check(res, "toggling Dead turns it on and reports every state",
+		btn.is_on(5) and events.size() == 1 and bool(events[0]["Dead"])
+			and events[0].size() == 9,
+		"dead %s events %d" % [btn.is_on(5), events.size()])
+	btn.reset()
+	TestFixtures.check(res, "reset restores the defaults and reports once more",
+		not btn.is_on(5) and btn.is_on(0) and events.size() == 2
+			and bool(events[1]["Available"]),
+		"dead %s events %d" % [btn.is_on(5), events.size()])
+	TestFixtures.check(res, "the filter button wears the drawn funnel glyph",
+		btn.icon != null and btn.icon.get_size() == Vector2(10, 10),
+		"icon %s" % str(btn.icon))
+	btn.queue_free()

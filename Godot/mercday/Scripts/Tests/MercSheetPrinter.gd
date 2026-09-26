@@ -3,6 +3,10 @@ extends RefCounted
 
 #Formats and prints merc sheets, roll lines and the 100-merc batch analysis file.
 
+#Luck bucket rows of the batch analysis: the range label and the expected share, file and console alike.
+const LUCK_TABLE: Array[Array] = [[" 0- 5", "~45%"], [" 5-10", "~20%"], ["10-20", "~15%"],
+	["20-30", "~10%"], ["30-40", " ~9%"], ["40-50", " ~1%"], ["   50", "~0%"]]
+
 
 static func print_merc(merc: MercenaryData) -> void:
 	print_rich(merc_to_string(merc))
@@ -49,6 +53,8 @@ static func merc_to_string(merc: MercenaryData) -> String:
 	lines.append("Knowledges:   %s" % _name_list(merc.knowledges, "utility_name", ", "))
 	lines.append("Tools:        %s" % _name_list(merc.tools, "utility_name", ", "))
 	lines.append("Lifepath:     %s" % _name_list(merc.lifepaths, "event_name", ", "))
+	lines.append("Level Ups:    %s" % LevelUpSystem.summary(merc))
+	lines.append("Skill Points: %s" % LevelUpSystem.counters(merc))
 
 	lines.append("====EQUIPMENT====")
 
@@ -60,6 +66,8 @@ static func merc_to_string(merc: MercenaryData) -> String:
 			merc.equipped_armor.armor_bonus
 		]
 	lines.append("Armor:        %s" % armor_str)
+	if merc.armor_break > 0:
+		lines.append("Armor Break:  %d" % merc.armor_break)
 
 	var weapon_lines: Array[String] = []
 	if merc.equipped_weapon != null:
@@ -89,6 +97,7 @@ static func merc_to_string(merc: MercenaryData) -> String:
 	if merc.ammo_loaded > 0 and not shown_loaded:
 		ammo_parts.append("%s  (%d loaded, no reserve)" % [merc.ammo_loaded_type, merc.ammo_loaded])
 	lines.append("Ammo:         %s" % (", ".join(ammo_parts) if not ammo_parts.is_empty() else "(none)"))
+	lines.append("Weight:       %s" % Encumbrance.detail_text(merc))
 
 	var item_parts: Array[String] = []
 	for item in merc.items:
@@ -99,6 +108,8 @@ static func merc_to_string(merc: MercenaryData) -> String:
 	lines.append("Tradition:    %s" % (merc.tradition.tradition_name if merc.tradition else "(none)"))
 
 	lines.append("Perks:        %s" % _name_list(merc.perks, "trait_name", " | "))
+	lines.append("Weapon Perks: %s" % _name_list(merc.weapon_perks, "trait_name", " | "))
+	lines.append("Armor Perks:  %s" % _name_list(merc.armor_perks, "trait_name", " | "))
 	lines.append("Drawbacks:    %s" % _name_list(merc.drawbacks, "trait_name", " | "))
 
 	var immunity_parts: Array[String] = []
@@ -164,7 +175,8 @@ static func fmt_rolls(rolls: Array, threshold: float) -> String:
 
 
 static func fmt(value: float) -> String:
-	value = maxf(0.0, value)
+	if value < 0.0:
+		return "-" + fmt(-value)
 	var s: String = "%.2f" % value
 	var dot: int = s.find(".")
 	return s.left(dot).lpad(3, "0") + s.substr(dot)
@@ -172,7 +184,9 @@ static func fmt(value: float) -> String:
 
 static func fmt_val(val) -> String:
 	if val is int:
-		return str(maxi(0, val)).lpad(3, "0")
+		if val < 0:
+			return "-" + str(-val).lpad(3, "0")
+		return str(val).lpad(3, "0")
 	return fmt(float(val))
 
 
@@ -199,6 +213,7 @@ static func batch_analysis() -> void:
 	var luck_buckets: Array[int] = [0, 0, 0, 0, 0, 0, 0]
 	var merc_blocks := ""
 	for i: int in range(100):
+		TestFixtures.reset_generator_rolls()
 		var merc := MercGenerator.generate(i)
 		var trad_name: String = merc.tradition.tradition_name if merc.tradition else "(none)"
 		tally[trad_name] = tally.get(trad_name, 0) + 1
@@ -222,20 +237,17 @@ static func batch_analysis() -> void:
 	var sorted_keys: Array = tally.keys()
 	sorted_keys.sort_custom(func(a: String, b: String) -> bool: return tally[a] > tally[b])
 
+	var trad_rows: PackedStringArray = _tradition_rows(tally, sorted_keys)
+	var luck_rows: PackedStringArray = _luck_rows(luck_buckets, " ")
 	var summary := "BATCH ANALYSIS - 100 MERCS\n"
 	summary += "Generated: %s\n\n" % Time.get_datetime_string_from_system()
 	summary += "====== TRADITION TALLY ======\n"
-	for trad: String in sorted_keys:
-		summary += "  %-20s %d\n" % [trad + ":", tally[trad]]
+	for row: String in trad_rows:
+		summary += row + "\n"
 	summary += "\n"
 	summary += "====== LUCK ROLL DISTRIBUTION (expected) ======\n"
-	summary += "  0- 5:  %3d%%  (expected ~45%%)\n" % luck_buckets[0]
-	summary += "  5-10:  %3d%%  (expected ~20%%)\n" % luck_buckets[1]
-	summary += " 10-20:  %3d%%  (expected ~15%%)\n" % luck_buckets[2]
-	summary += " 20-30:  %3d%%  (expected ~10%%)\n" % luck_buckets[3]
-	summary += " 30-40:  %3d%%  (expected  ~9%%)\n" % luck_buckets[4]
-	summary += " 40-50:  %3d%%  (expected  ~1%%)\n" % luck_buckets[5]
-	summary += "    50:  %3d%%  (expected ~0%%)\n" % luck_buckets[6]
+	for row: String in luck_rows:
+		summary += row + "\n"
 	summary += "\n\n"
 
 	var path := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS) + "/merc_batch_analysis.txt"
@@ -248,13 +260,25 @@ static func batch_analysis() -> void:
 
 	print("Batch written to: " + path)
 	print("Tradition tally:")
-	for trad: String in sorted_keys:
-		print("  %-20s %d" % [trad + ":", tally[trad]])
+	for row: String in trad_rows:
+		print(row)
 	print("Luck roll distribution (expected):")
-	print("   0- 5:  %3d%%  (expected ~45%%)" % luck_buckets[0])
-	print("   5-10:  %3d%%  (expected ~20%%)" % luck_buckets[1])
-	print("  10-20:  %3d%%  (expected ~15%%)" % luck_buckets[2])
-	print("  20-30:  %3d%%  (expected ~10%%)" % luck_buckets[3])
-	print("  30-40:  %3d%%  (expected  ~9%%)" % luck_buckets[4])
-	print("  40-50:  %3d%%  (expected  ~1%%)" % luck_buckets[5])
-	print("     50:  %3d%%  (expected ~0%%)" % luck_buckets[6])
+	for row: String in _luck_rows(luck_buckets, "  "):
+		print(row)
+
+
+#One line per tradition, in the order of `keys`.
+static func _tradition_rows(tally: Dictionary, keys: Array) -> PackedStringArray:
+	var rows: PackedStringArray = []
+	for trad: String in keys:
+		rows.append("  %-20s %d" % [trad + ":", tally[trad]])
+	return rows
+
+
+#One line per luck bucket; `indent` sits in front of every range label.
+static func _luck_rows(buckets: Array[int], indent: String) -> PackedStringArray:
+	var rows: PackedStringArray = []
+	for i: int in range(LUCK_TABLE.size()):
+		rows.append("%s%s:  %3d%%  (expected %s)" % [indent, LUCK_TABLE[i][0], buckets[i],
+			LUCK_TABLE[i][1]])
+	return rows

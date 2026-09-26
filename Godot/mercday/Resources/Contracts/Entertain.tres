@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_ContractData")
 contract_type = "Entertain"
-primary_event_pool = Array[String](["Put on a Show"])
+primary_event_pool = Array[String](["Put on a Show", "Competition"])
 mishap_pool = Array[String](["Tavern Brawl"])
 stat_boosts = {
 "Cognition": 5.0,
@@ -69,9 +69,12 @@ description_template = "Entertain the [target.name] at [location_a.name]"
 target_categories = Array[String](["Group", "Leader"])
 possible_traits = Array[String]([])
 possible_locations = Array[String]([])
+terrain_odds = Array[Dictionary]([])
 reward_notes = 0
 max_mercs = 0
 difficulty = 0.0
+contract_level = 0
+unsavory = false
 assigned_primary_event = ""
 rolled_mishaps = Array[String]([])
 location_a = ""
@@ -79,3 +82,6 @@ location_b = ""
 description = ""
 team_uids = Array[int]([])
 status = "Type"
+rescue_merc_uid = 0
+rescue_kind = ""
+rescue_merc_name = ""

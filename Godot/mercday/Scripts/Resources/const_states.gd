@@ -10,11 +10,14 @@ const DEPOSED       := "Deposed"
 const DRENCHED      := "Drenched"
 const DROWNING      := "Drowning"
 const DYING         := "Dying"
+const EMBOLDENED    := "Emboldened"
 const FATIGUED      := "Fatigued"
 const FLANKED       := "Flanked"
 const FLYING        := "Flying"
 const GRAPPLED      := "Grappled"
 const GROUNDED      := "Grounded"
+const HIDDEN        := "Hidden"
+const HOBBLED       := "Hobbled"
 const INHIBITED     := "Inhibited"
 const INVISIBLE     := "Invisible"
 const MADNESS       := "Madness"
@@ -35,6 +38,9 @@ const STACKING_STATES: Array[String] = [FATIGUED, MADNESS]
 
 const SOURCE_STATES: Array[String] = [GRAPPLED, INHIBITED, SUFFOCATING, CHARMED, TERRIFIED, BURNING, DROWNING]
 
+#A Resist against an effect that inflicts one of these adds the target's Tolerance to the threshold.
+const TOLERANCE_RESIST_STATES: Array[String] = [BURNING, FATIGUED, MADNESS, POISONED]
+
 #Dying and Climbing can never be refused by an immunity token.
 const NEVER_IMMUNE: Array[String] = [DYING, CLIMBING]
 
@@ -50,16 +56,17 @@ const UNTIL_VERBS: Array[String] = ["respite", "furlough", "none"]
 #Units of a "time:N:<unit>" removal that run on the campaign clock instead of inside an encounter.
 const CAMPAIGN_UNITS: Array[String] = ["hour", "hours", "day", "days"]
 
+#A held state that would outlast its encounter ends this many minutes after it instead; Drenched gets one Breather (10).
+const AFTER_ENCOUNTER_MINUTES: Dictionary = {DRENCHED: 10}
+
 static var DATA: Dictionary = {}
 static var ALL: Array[String] = []
-static var _campaign_names: Array[String] = []
-static var _campaign_names_count: int = -1
 
 
 static func load_from_tsv(path: String) -> void:
 	DATA.clear()
 	ALL.clear()
-	_campaign_names_count = -1
+	StateCampaign.campaign_names_count = -1
 	var file := FileAccess.open(path, FileAccess.READ)
 	if not file:
 		push_error("ConstStates: cannot open %s" % path)
@@ -84,11 +91,11 @@ static func load_from_tsv(path: String) -> void:
 		var effects: Array[String] = []
 		for col: int in [1, 2, 3]:
 			var v: String = row[col] if col < row.size() else ""
-			effects.append_array(_parse_cell(v, EFFECT_VERBS, state_name, "Effect %d" % col))
+			effects.append_array(StateTokens.parse_cell(v, EFFECT_VERBS, state_name, "Effect %d" % col))
 		var removals: Array[String] = []
 		for col: int in [4, 5]:
 			var v: String = row[col] if col < row.size() else ""
-			removals.append_array(_parse_cell(v, REMOVAL_VERBS, state_name, "Removal %d" % (col - 3)))
+			removals.append_array(StateTokens.parse_cell(v, REMOVAL_VERBS, state_name, "Removal %d" % (col - 3)))
 		DATA[state_name] = {
 			"effects":      effects,
 			"removals":     removals,
@@ -132,7 +139,7 @@ static func get_source(merc: MercenaryData, state_name: String) -> MercenaryData
 static func immune_source(merc: MercenaryData, state_name: String) -> String:
 	if state_name in NEVER_IMMUNE:
 		return ""
-	var want := normalize_token(state_name)
+	var want := StateTokens.normalize_token(state_name)
 	if merc.passive_effects.has("immune:" + want):
 		return "passive"
 	for e: Dictionary in active_effects(merc, "immune"):
@@ -166,7 +173,7 @@ static func has_inflict_default(state_name: String) -> bool:
 
 #True when a passive_effects token or an active effect reads "<verb>:<state_name>".
 static func _has_state_token(merc: MercenaryData, verb: String, state_name: String) -> bool:
-	var want := normalize_token(state_name)
+	var want := StateTokens.normalize_token(state_name)
 	for tok: String in merc.passive_effects:
 		var pp := tok.split(":")
 		if pp.size() >= 2 and pp[0] == verb and pp[1].split(",").has(want):
@@ -212,27 +219,28 @@ static func immune_token_allowed(token: String, where: String) -> bool:
 
 #Matches a NEVER_IMMUNE state by token before States.tsv has finished filling ALL.
 static func _never_immune_name(spec: String) -> String:
-	var wanted := normalize_token(spec)
+	var wanted := StateTokens.normalize_token(spec)
 	for state_name: String in NEVER_IMMUNE:
-		if normalize_token(state_name) == wanted:
+		if StateTokens.normalize_token(state_name) == wanted:
 			return state_name
 	return ""
 
 
 #`root` names the state whose "apply:" token forces this one; "" is a direct application.
 #`origin` is "<kind>:<name>" for the caller and `removal` overrides the rest verbs that may end the source.
-#A direct application is refused when the merc is immune; cascade children always apply.
+#A direct application is refused when the merc is immune unless the merc chose it; cascade children always apply.
 static func apply_state(merc: MercenaryData, state_name: String, source: MercenaryData = null,
-		root: String = "", origin: String = "", removal: Array[String] = []) -> bool:
-	if root == "" and is_immune(merc, state_name):
+		root: String = "", origin: String = "", removal: Array[String] = [],
+		chosen: bool = false) -> bool:
+	if root == "" and not chosen and is_immune(merc, state_name):
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("STATE IMMUNE: %s %s" % [merc.merc_name, state_name])
 		return false
-	var src := _source_record(state_name, root, origin, removal)
+	var src := StateSources.source_record(state_name, root, origin, removal)
 	if state_name in STACKING_STATES:
 		var current: int = get_count(merc, state_name)
 		merc.active_states[state_name] = current + 1
-		var tier_entry := _record_entry(merc, state_name, root == "")
+		var tier_entry := StateSources.record_entry(merc, state_name, root == "")
 		(tier_entry["sources"] as Array).append(src)
 		_log_source(merc, state_name, src, current + 1)
 		return true
@@ -243,56 +251,12 @@ static func apply_state(merc: MercenaryData, state_name: String, source: Mercena
 			merc.active_states[state_name] = {"count": 1, "source": source}
 		else:
 			merc.active_states[state_name] = 1
-	var forced := _record_source(merc, state_name, root, was_active)
-	_add_source(merc, state_name, src, root == "")
+	var forced := StateSources.record_source(merc, state_name, root, was_active)
+	StateSources.add_source(merc, state_name, src, root == "")
 	_log_source(merc, state_name, src, 0)
 	if forced or root == "":
 		_apply_children(merc, state_name)
 	return true
-
-
-static func _source_record(state_name: String, root: String, origin: String,
-		removal: Array[String]) -> Dictionary:
-	var kind: String = "engine"
-	var name: String = ""
-	if root != "":
-		kind = "state"
-		name = root
-	elif origin != "":
-		var split_at: int = origin.find(":")
-		var head: String = origin.substr(0, split_at) if split_at >= 0 else origin
-		if SOURCE_KINDS.has(head):
-			kind = head
-			name = origin.substr(split_at + 1) if split_at >= 0 else ""
-		else:
-			name = origin
-	var verbs: Array[String] = []
-	if removal.is_empty():
-		verbs = removal_verbs(state_name)
-	else:
-		verbs.assign(removal)
-	return {"kind": kind, "name": name, "removal": verbs}
-
-
-static func _record_entry(merc: MercenaryData, state_name: String, direct: bool) -> Dictionary:
-	var record := _applied_by(merc)
-	if not record.has(state_name):
-		record[state_name] = {"direct": direct, "roots": [], "sources": []}
-	var entry: Dictionary = record[state_name]
-	if not entry.has("sources"):
-		entry["sources"] = []
-	return entry
-
-
-#One entry per kind and name; a repeat application only refreshes the removal verbs of the entry it matches.
-static func _add_source(merc: MercenaryData, state_name: String, src: Dictionary, direct: bool) -> void:
-	var entry := _record_entry(merc, state_name, direct)
-	var sources: Array = entry["sources"]
-	for held: Dictionary in sources:
-		if str(held.get("kind", "")) == str(src["kind"]) and str(held.get("name", "")) == str(src["name"]):
-			held["removal"] = src["removal"]
-			return
-	sources.append(src)
 
 
 static func _log_source(merc: MercenaryData, state_name: String, src: Dictionary, tier: int) -> void:
@@ -316,33 +280,10 @@ static func _apply_children(merc: MercenaryData, state_name: String) -> void:
 	for token: String in data.get("effects", []):
 		if not token.begins_with("apply:"):
 			continue
-		var parsed := parse_apply_token(token)
+		var parsed := StateTokens.parse_apply_token(token)
 		var child_removal: Array[String] = parsed["removal"]
 		for child: String in parsed["states"]:
 			apply_state(merc, child, null, state_name, "", child_removal)
-
-
-#True when a root not yet listed for the state was recorded.
-static func _record_source(merc: MercenaryData, state_name: String, root: String, was_active: bool) -> bool:
-	if root == "":
-		var existing = merc.active_states.get(APPLIED_BY_KEY)
-		if existing is Dictionary and existing.has(state_name):
-			existing[state_name]["direct"] = true
-		return false
-	var record := _applied_by(merc)
-	if not record.has(state_name):
-		record[state_name] = {"direct": was_active, "roots": []}
-	var roots: Array = record[state_name]["roots"]
-	if root in roots:
-		return false
-	roots.append(root)
-	return true
-
-
-static func _applied_by(merc: MercenaryData) -> Dictionary:
-	if not (merc.active_states.get(APPLIED_BY_KEY) is Dictionary):
-		merc.active_states[APPLIED_BY_KEY] = {}
-	return merc.active_states[APPLIED_BY_KEY]
 
 
 #The first ":" segment of every States.tsv Removal token, in cell order; [] for an unknown state.
@@ -367,112 +308,8 @@ static func until_removal(verb: String) -> Array[String]:
 	return out
 
 
-#Reads apply:<states>[:<n>:<unit>][:until:<verb>] into {"states", "duration", "removal", "error"}.
-static func parse_apply_token(token: String) -> Dictionary:
-	var states: Array[String] = []
-	var removal: Array[String] = []
-	var duration: String = ""
-	var error: String = ""
-	var parts := token.split(":")
-	var count: int = parts.size()
-	for spec: String in (parts[1] if count > 1 else "").split(","):
-		var named := state_from_token(spec)
-		if named != "":
-			states.append(named)
-	var has_until: bool = false
-	var verb: String = ""
-	if count == 2:
-		pass
-	elif count == 4 and parts[2] == "until":
-		has_until = true
-		verb = parts[3]
-	elif count == 4:
-		duration = parts[2] + " " + parts[3]
-	elif count == 6 and parts[4] == "until":
-		duration = parts[2] + " " + parts[3]
-		has_until = true
-		verb = parts[5]
-	else:
-		error = "unreadable duration"
-	if has_until:
-		if UNTIL_VERBS.has(verb):
-			removal = until_removal(verb)
-		else:
-			error = "unknown until"
-	return {"states": states, "duration": duration, "removal": removal, "error": error}
-
-
-#Copies of the source records of a held state; the caller cannot reach the record through them.
-static func state_sources(merc: MercenaryData, state_name: String) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	var record = merc.active_states.get(APPLIED_BY_KEY)
-	if not (record is Dictionary):
-		return out
-	var entry = (record as Dictionary).get(state_name)
-	if not (entry is Dictionary):
-		return out
-	for src in (entry as Dictionary).get("sources", []):
-		if src is Dictionary:
-			out.append((src as Dictionary).duplicate(true))
-	return out
-
-
-static func source_allows(src: Dictionary, verb: String) -> bool:
-	var verbs: Array = src.get("removal", [])
-	return verbs.has(verb)
-
-
-#A cascade source lasts as long as the root state does; every other kind is spent once it is recorded.
-static func source_ongoing(merc: MercenaryData, src: Dictionary) -> bool:
-	return str(src.get("kind", "")) == "state" and has_state(merc, str(src.get("name", "")))
-
-
-#A state held before the sources existed answers as one engine source with its own Removal verbs.
-static func _effective_sources(merc: MercenaryData, state_name: String) -> Array[Dictionary]:
-	var out := state_sources(merc, state_name)
-	if out.is_empty():
-		out.append({"kind": "engine", "name": "", "removal": removal_verbs(state_name)})
-	return out
-
-
-#The live source array of a held state; [] when nothing was recorded, and no record is created.
-static func _sources_ref(merc: MercenaryData, state_name: String) -> Array:
-	var record = merc.active_states.get(APPLIED_BY_KEY)
-	if not (record is Dictionary):
-		return []
-	var entry = (record as Dictionary).get(state_name)
-	if not (entry is Dictionary):
-		return []
-	var sources = (entry as Dictionary).get("sources")
-	if not (sources is Array):
-		return []
-	return sources
-
-
-#Why a rest with this verb leaves the state alone; "" when it takes a tier or the whole state.
-static func held_reason(merc: MercenaryData, state_name: String, verb: String) -> String:
-	if not has_state(merc, state_name):
-		return ""
-	var allowed: int = 0
-	var free: int = 0
-	for src: Dictionary in _effective_sources(merc, state_name):
-		if not source_allows(src, verb):
-			continue
-		allowed += 1
-		if not source_ongoing(merc, src):
-			free += 1
-	if allowed == 0:
-		return "no %s source" % verb
-	if free == 0:
-		return "ongoing source"
-	var roots := applied_roots(merc, state_name)
-	if not roots.is_empty():
-		return "kept by %s" % ",".join(PackedStringArray(roots))
-	return ""
-
-
 static func rest_removable(merc: MercenaryData, state_name: String, verb: String) -> bool:
-	return has_state(merc, state_name) and held_reason(merc, state_name, verb) == ""
+	return has_state(merc, state_name) and StateSources.held_reason(merc, state_name, verb) == ""
 
 
 #Ends what a rest of this verb may end: the newest free tier of a stacking state, else the whole state.
@@ -481,15 +318,15 @@ static func reduce_state_by(merc: MercenaryData, state_name: String, verb: Strin
 	if not has_state(merc, state_name):
 		return out
 	if state_name in STACKING_STATES:
-		var sources: Array = _sources_ref(merc, state_name)
+		var sources: Array = StateSources.sources_ref(merc, state_name)
 		var pick: int = -1
 		for i: int in range(sources.size() - 1, -1, -1):
 			var src: Dictionary = sources[i]
-			if source_allows(src, verb) and not source_ongoing(merc, src):
+			if StateSources.source_allows(src, verb) and not StateSources.source_ongoing(merc, src):
 				pick = i
 				break
 		if pick < 0 and not (sources.is_empty() and removal_verbs(state_name).has(verb)):
-			out["reason"] = held_reason(merc, state_name, verb)
+			out["reason"] = StateSources.held_reason(merc, state_name, verb)
 			return out
 		if pick >= 0:
 			out["kind"] = str(sources[pick].get("kind", ""))
@@ -502,20 +339,20 @@ static func reduce_state_by(merc: MercenaryData, state_name: String, verb: Strin
 			merc.active_states[state_name] = current - 1
 		out["removed"] = true
 		return out
-	for src: Dictionary in _effective_sources(merc, state_name):
-		if source_allows(src, verb) and not source_ongoing(merc, src):
+	for src: Dictionary in StateSources.effective_sources(merc, state_name):
+		if StateSources.source_allows(src, verb) and not StateSources.source_ongoing(merc, src):
 			out["kind"] = str(src.get("kind", ""))
 			out["name"] = str(src.get("name", ""))
 			out["removed"] = true
 			break
 	if not out["removed"]:
-		out["reason"] = held_reason(merc, state_name, verb)
+		out["reason"] = StateSources.held_reason(merc, state_name, verb)
 		return out
 	out["removed"] = bool(remove_state(merc, state_name)["removed"])
 	if not out["removed"]:
 		out["kind"] = ""
 		out["name"] = ""
-		out["reason"] = held_reason(merc, state_name, verb)
+		out["reason"] = StateSources.held_reason(merc, state_name, verb)
 	return out
 
 
@@ -535,7 +372,7 @@ static func applied_roots(merc: MercenaryData, state_name: String) -> Array[Stri
 #Ends the state unless a root still applies it; states it applied lose that source and end with their last one.
 static func remove_state(merc: MercenaryData, state_name: String) -> Dictionary:
 	var result := {"removed": false, "cascade": [] as Array[String], "kept": [] as Array[String]}
-	var record := _applied_by(merc)
+	var record := StateSources.applied_by(merc)
 	if record.has(state_name):
 		record[state_name]["direct"] = false
 		var roots: Array = record[state_name]["roots"]
@@ -561,13 +398,13 @@ static func remove_state(merc: MercenaryData, state_name: String) -> Dictionary:
 static func _remove_cascade(merc: MercenaryData, state_name: String, result: Dictionary) -> void:
 	merc.active_states.erase(state_name)
 	merc.campaign_states.erase(state_name)
-	var record := _applied_by(merc)
+	var record := StateSources.applied_by(merc)
 	record.erase(state_name)
 	for child: String in record.keys():
 		if not record.has(child):
 			continue
 		var entry: Dictionary = record[child]
-		var dropped: int = _drop_state_sources(entry, state_name)
+		var dropped: int = StateSources.drop_state_sources(entry, state_name)
 		if child in STACKING_STATES:
 			if dropped <= 0:
 				continue
@@ -590,26 +427,14 @@ static func _remove_cascade(merc: MercenaryData, state_name: String, result: Dic
 			_remove_cascade(merc, child, result)
 		else:
 			result["kept"].append(child)
-			if roots.is_empty():
+			if roots.is_empty() and (entry.get("sources", []) as Array).is_empty():
 				record.erase(child)
 
 
-#Drops every cascade source naming this root and answers how many tiers went with it.
-static func _drop_state_sources(entry: Dictionary, root: String) -> int:
-	var sources: Array = entry.get("sources", [])
-	var dropped: int = 0
-	for i: int in range(sources.size() - 1, -1, -1):
-		var src: Dictionary = sources[i]
-		if str(src.get("kind", "")) == "state" and str(src.get("name", "")) == root:
-			sources.remove_at(i)
-			dropped += 1
-	return dropped
-
-
 static func state_from_token(token: String) -> String:
-	var wanted := normalize_token(token)
+	var wanted := StateTokens.normalize_token(token)
 	for state_name: String in ALL:
-		if normalize_token(state_name) == wanted:
+		if StateTokens.normalize_token(state_name) == wanted:
 			return state_name
 	return ""
 
@@ -620,60 +445,17 @@ static func reduce_state(merc: MercenaryData, state_name: String) -> void:
 		remove_state(merc, state_name)
 	elif state_name in STACKING_STATES:
 		merc.active_states[state_name] = current - 1
-		_pop_source(merc, state_name)
+		StateSources.pop_source(merc, state_name)
 	else:
 		merc.active_states.erase(state_name)
-
-
-#Drops the newest recorded source of a state, the tier a plain reduce_state takes.
-static func _pop_source(merc: MercenaryData, state_name: String) -> void:
-	var record = merc.active_states.get(APPLIED_BY_KEY)
-	if not (record is Dictionary):
-		return
-	var entry = (record as Dictionary).get(state_name)
-	if not (entry is Dictionary):
-		return
-	var sources: Array = (entry as Dictionary).get("sources", [])
-	if not sources.is_empty():
-		sources.remove_at(sources.size() - 1)
 
 
 #Effect and Removal cells hold trait-style tokens: lowercase, ":"-separated, "_" for spaces, "|" between.
 const EFFECT_VERBS: Array[String] = ["check", "check_vs", "attack", "attack_vs", "protected", "immune",
 	"susceptible", "dot", "stat", "block", "move", "target", "defense", "damage_taken", "healing", "cost",
-	"apply", "death_test", "skip_turn"]
+	"apply", "death_test", "skip_turn", "suffocate"]
 const REMOVAL_VERBS: Array[String] = ["cause", "action", "interact", "damage", "effect", "time",
 	"death_test", "respite", "furlough", "auto", "resist"]
-
-
-static func normalize_token(text: String) -> String:
-	return text.strip_edges().to_lower().replace(" ", "_")
-
-
-static func _parse_cell(cell: String, verbs: Array[String], state_name: String, column: String) -> Array[String]:
-	var out: Array[String] = []
-	for raw: String in cell.split("|"):
-		var token := normalize_token(raw)
-		if token == "":
-			continue
-		if not verbs.has(token.get_slice(":", 0)):
-			push_warning("ConstStates: %s %s unknown token '%s'" % [state_name, column, token])
-		if token.begins_with("immune:") and not immune_token_allowed(token, "States.tsv " + state_name):
-			continue
-		out.append(token)
-	return out
-
-
-static func _num(parts: PackedStringArray, index: int) -> float:
-	if index >= parts.size():
-		return 0.0
-	return parts[index].trim_prefix("+").to_float()
-
-
-static func _spec_matches(spec: String, key: String) -> bool:
-	if spec == "all":
-		return true
-	return spec.split(",").has(key)
 
 
 #One entry per effect token of every active state: state, token, parts, count and source.
@@ -690,20 +472,9 @@ static func active_effects(merc: MercenaryData, verb: String = "") -> Array[Dict
 		for token: String in DATA[state_name]["effects"]:
 			if not verb.is_empty() and token != verb and not token.begins_with(verb + ":"):
 				continue
-			out.append({"state": state_name, "token": token, "parts": token_parts(token),
+			out.append({"state": state_name, "token": token, "parts": StateTokens.token_parts(token),
 				"count": count, "source": get_source(merc, state_name)})
 	return out
-
-
-#"tag:<name>" in the second slot collapses to one part; tags are not implemented yet and match nothing.
-static func token_parts(token: String) -> PackedStringArray:
-	var parts := token.split(":")
-	if parts.size() > 2 and parts[1] == "tag":
-		var merged := PackedStringArray([parts[0], "tag:" + parts[2]])
-		for i: int in range(3, parts.size()):
-			merged.append(parts[i])
-		return merged
-	return parts
 
 
 static func has_effect(merc: MercenaryData, prefix: String) -> bool:
@@ -718,20 +489,20 @@ static func check_modifier(merc: MercenaryData, stat_key: String) -> Dictionary:
 	var out := {"threshold": 0.0, "flaws": 0, "enhancements": 0, "auto_fail": false, "states": []}
 	for e: Dictionary in active_effects(merc, "check"):
 		var p: PackedStringArray = e["parts"]
-		if p.size() < 3 or not _spec_matches(p[1], stat_key):
+		if p.size() < 3 or not StateTokens.spec_matches(p[1], stat_key):
 			continue
 		var mult: int = int(e["count"]) if p.has("per_stack") else 1
 		match p[2]:
 			"flaw":
-				out["flaws"] += int(_num(p, 3)) * mult
+				out["flaws"] += int(StateTokens.num(p, 3)) * mult
 			"enhance":
-				out["enhancements"] += int(_num(p, 3)) * mult
+				out["enhancements"] += int(StateTokens.num(p, 3)) * mult
 			"auto_fail":
 				out["auto_fail"] = true
 			"vs_source":
 				continue
 			_:
-				out["threshold"] += _num(p, 2) * float(mult)
+				out["threshold"] += StateTokens.num(p, 2) * float(mult)
 		(out["states"] as Array).append(e["state"])
 	return out
 
@@ -750,12 +521,12 @@ static func _attack_tokens(merc: MercenaryData, verb: String, kind: String) -> D
 	var out := {"flaws": 0, "enhancements": 0, "states": []}
 	for e: Dictionary in active_effects(merc, verb):
 		var p: PackedStringArray = e["parts"]
-		if p.size() < 4 or not _spec_matches(p[1], kind):
+		if p.size() < 4 or not StateTokens.spec_matches(p[1], kind):
 			continue
 		if p[2] == "flaw":
-			out["flaws"] += int(_num(p, 3))
+			out["flaws"] += int(StateTokens.num(p, 3))
 		elif p[2] == "enhance":
-			out["enhancements"] += int(_num(p, 3))
+			out["enhancements"] += int(StateTokens.num(p, 3))
 		(out["states"] as Array).append(e["state"])
 	return out
 
@@ -766,7 +537,7 @@ static func damage_modifier(merc: MercenaryData, damage_type: String) -> String:
 	var found := "none"
 	for e: Dictionary in active_effects(merc):
 		var p: PackedStringArray = e["parts"]
-		if p.size() < 2 or not _spec_matches(p[1], type_lower):
+		if p.size() < 2 or not StateTokens.spec_matches(p[1], type_lower):
 			continue
 		match p[0]:
 			"immune":
@@ -784,7 +555,7 @@ static func cost_multiplier(merc: MercenaryData, resource: String) -> int:
 	var mult := 1
 	for e: Dictionary in active_effects(merc, "cost"):
 		var p: PackedStringArray = e["parts"]
-		if p.size() >= 3 and _spec_matches(p[1], resource) and p[2].begins_with("x"):
+		if p.size() >= 3 and StateTokens.spec_matches(p[1], resource) and p[2].begins_with("x"):
 			mult *= maxi(1, p[2].substr(1).to_int())
 	return mult
 
@@ -831,23 +602,41 @@ static func dot_effects(merc: MercenaryData) -> Array[Dictionary]:
 	for e: Dictionary in active_effects(merc, "dot"):
 		var p: PackedStringArray = e["parts"]
 		if p.size() >= 3:
-			out.append({"state": e["state"], "type": p[1].capitalize(), "amount": int(_num(p, 2))})
+			out.append({"state": e["state"], "type": p[1].capitalize(), "amount": int(StateTokens.num(p, 2))})
 	return out
 
 
+#The "suffocate" token shares one breath countdown between Suffocating and Drowning.
+static func is_suffocating(merc: MercenaryData) -> bool:
+	return not active_effects(merc, "suffocate").is_empty()
+
+
 #move:max_paces:<n> and stat:speed:=0; -1 when the merc's paces are not capped.
+#A crawling merc is Deposed for the combat modifiers only, so that state's pace cap is ignored.
 static func max_paces(merc: MercenaryData) -> int:
 	var cap := -1
 	for e: Dictionary in active_effects(merc):
 		var p: PackedStringArray = e["parts"]
 		var value := -1
 		if p[0] == "move" and p.size() >= 3 and p[1] == "max_paces":
-			value = int(_num(p, 2))
+			if merc.crawling and str(e["state"]) == DEPOSED:
+				continue
+			value = int(StateTokens.num(p, 2))
 		elif p[0] == "stat" and p.size() >= 3 and p[1] == "speed" and p[2] == "=0":
 			value = 0
 		if value >= 0 and (cap < 0 or value < cap):
 			cap = value
 	return cap
+
+
+#move:pace:<n> summed over the held states; 0 when none.
+static func pace_modifier(merc: MercenaryData) -> int:
+	var total := 0
+	for e: Dictionary in active_effects(merc, "move"):
+		var p: PackedStringArray = e["parts"]
+		if p.size() >= 3 and p[1] == "pace":
+			total += int(StateTokens.num(p, 2))
+	return total
 
 
 #damage_taken:direct and damage_taken:+n.
@@ -860,7 +649,7 @@ static func damage_taken(merc: MercenaryData) -> Dictionary:
 		if p[1] == "direct":
 			out["direct"] = true
 		else:
-			out["bonus"] += int(_num(p, 1))
+			out["bonus"] += int(StateTokens.num(p, 1))
 	return out
 
 
@@ -917,99 +706,31 @@ static func removal_minutes(state_name: String) -> int:
 	return 0
 
 
-#A state that outlives its encounter: a stacking tier, an hour or day timer, or a rest removal.
-static func is_campaign_state(state_name: String) -> bool:
-	if state_name in STACKING_STATES:
-		return true
-	if has_removal(state_name, "respite") or has_removal(state_name, "furlough"):
-		return true
-	return removal_minutes(state_name) > 0
+#Minutes a state may outlast its encounter; 0 when the full timer stands.
+static func after_encounter_minutes(state_name: String) -> int:
+	return int(AFTER_ENCOUNTER_MINUTES.get(state_name, 0))
+
+
+#Forwarders for the callers that still reach these through ConstStates.
+static func normalize_token(text: String) -> String:
+	return StateTokens.normalize_token(text)
+
+
+static func parse_apply_token(token: String) -> Dictionary:
+	return StateTokens.parse_apply_token(token)
 
 
 static func campaign_state_names() -> Array[String]:
-	if _campaign_names_count != ALL.size():
-		_campaign_names_count = ALL.size()
-		_campaign_names.clear()
-		for state_name: String in ALL:
-			if is_campaign_state(state_name):
-				_campaign_names.append(state_name)
-	return _campaign_names.duplicate()
+	return StateCampaign.campaign_state_names()
 
 
-#The campaign states a merc holds, with their APPLIED_BY_KEY record, so a new encounter can put them back.
 static func snapshot_campaign_states(merc: MercenaryData) -> Dictionary:
-	var states: Dictionary = {}
-	var applied: Dictionary = {}
-	var record = merc.active_states.get(APPLIED_BY_KEY)
-	for state_name: String in campaign_state_names():
-		if not merc.active_states.has(state_name):
-			continue
-		states[state_name] = _copy_entry(merc.active_states[state_name])
-		if record is Dictionary and (record as Dictionary).has(state_name):
-			applied[state_name] = _copy_entry((record as Dictionary)[state_name])
-	return {"states": states, "applied": applied}
+	return StateCampaign.snapshot_campaign_states(merc)
 
 
 static func restore_campaign_states(merc: MercenaryData, snap: Dictionary) -> void:
-	var states: Dictionary = snap.get("states", {})
-	for state_name: String in states.keys():
-		merc.active_states[state_name] = _copy_entry(states[state_name])
-	var applied: Dictionary = snap.get("applied", {})
-	if applied.is_empty():
-		return
-	var record := _applied_by(merc)
-	for state_name: String in applied.keys():
-		record[state_name] = _copy_entry(applied[state_name])
+	StateCampaign.restore_campaign_states(merc, snap)
 
 
-#An active_states value is a count, a {count, source} entry or an applied-by record; objects stay shared.
-static func _copy_entry(value: Variant) -> Variant:
-	if value is Dictionary:
-		return (value as Dictionary).duplicate(true)
-	return value
-
-
-#Ends every campaign state whose expiry minute has arrived; returns one Remove Text line each.
 static func expire_campaign_states(merc: MercenaryData, now: int) -> Array[String]:
-	var lines: Array[String] = []
-	if merc.campaign_states.is_empty():
-		return lines
-	for state_name: String in merc.campaign_states.keys():
-		if not merc.campaign_states.has(state_name):
-			continue
-		var expiry: int = int(merc.campaign_states[state_name])
-		if expiry < 0 or expiry > now:
-			continue
-		if not has_state(merc, state_name):
-			merc.campaign_states.erase(state_name)
-			continue
-		if not remove_state(merc, state_name)["removed"]:
-			continue
-		lines.append("  " + remove_line(merc, state_name))
-	return lines
-
-
-#The States.tsv Remove Text for a merc outside an encounter, with a plain fallback when the cell is blank.
-static func remove_line(merc: MercenaryData, state_name: String) -> String:
-	var short_name: String = merc.merc_name.get_slice(" ", 0)
-	var text := narrate_text(state_name, "remove_text", short_name, "", BeauSystem.beau_name(merc, {}))
-	if text == "":
-		text = "%s is no longer %s." % [short_name, state_name]
-	return text
-
-
-#Fills the [Target], [Enemy] and [Beau] placeholders of an Afflict Text or Remove Text cell.
-#"" when the cell is blank, and also when the text names [Beau] and the merc has no beau.
-static func narrate_text(state_name: String, key: String, target_name: String, source_name: String,
-		beau_name: String = "") -> String:
-	var data: Dictionary = DATA.get(state_name, {})
-	var text := str(data.get(key, ""))
-	if text == "":
-		return ""
-	text = text.replace("[Target]", target_name)
-	text = text.replace("[Enemy]", source_name if source_name != "" else "the enemy")
-	if text.contains("[Beau]"):
-		if beau_name == "":
-			return ""
-		text = text.replace("[Beau]", beau_name)
-	return text
+	return StateCampaign.expire_campaign_states(merc, now)

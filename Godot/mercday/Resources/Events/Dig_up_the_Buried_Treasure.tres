@@ -6,6 +6,7 @@
 script = ExtResource("1_EventData")
 event_name = "Dig up the Buried Treasure"
 event_type = "Primary"
+trigger = ""
 check_stats = Array[String](["Cognition", "Vigor"])
 circumstances = Array[String](["Athletics (Vigor)", "Clever (Cognition)", "Search (Cognition)", "Notice (Cognition)", "Power (Vigor)"])
 knowledges = Array[String](["Architecture", "Geomancy", "Reconnaissance", "Geology", "Travel"])

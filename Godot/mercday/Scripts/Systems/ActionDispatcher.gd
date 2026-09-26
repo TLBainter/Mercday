@@ -11,6 +11,9 @@ const TIER_SNAP_GATES: Dictionary = {
 	60: {"has_valid_target": true},
 }
 
+#Action effects that keep their preference while 2 or more enemies stand adjacent.
+const AOE_EFFECTS: Array[String] = ["attack_all_adjacent_max_1", "direct_1_all", "attack_up_to_3"]
+
 
 #The grappler holds the target with a drawn whip: Whip Choke perk, Size 5 or less, still within reach.
 static func is_whip_grappler(grappler: MercenaryData, target: MercenaryData, state: BattleState) -> bool:
@@ -76,65 +79,51 @@ static func cheapest_action_cost(merc: MercenaryData, state: BattleState) -> int
 			if cost > 0 and (cheapest == 0 or cost < cheapest):
 				cheapest = cost
 	for perk: TraitData in WeaponArmorPerkLibrary.get_weapon_actions(merc):
-		if not perk.effect_dsl.begins_with("action:"):
+		var perk_dsl := WeaponArmorPerkLibrary.action_dsl(perk)
+		if not perk_dsl.begins_with("action:"):
 			continue
-		var parts := perk.effect_dsl.split(":")
+		var parts := perk_dsl.split(":")
 		var perk_cost := int(parts[1]) if parts.size() > 1 else 0
 		if perk_cost > 0 and (cheapest == 0 or perk_cost < cheapest):
 			cheapest = perk_cost
 	return cheapest
 
 
+#D4: every action row of the held weapon is scored; the best feasible one comes back with its score.
 #can_attack false means no plain attack is open this turn, so one wile target is enough.
 static func choose_perk_action(merc: MercenaryData, target: MercenaryData, state: BattleState,
-		can_attack: bool = true) -> TraitData:
-	if target == null:
-		return null
-	var best: TraitData = null
+		can_attack: bool = true) -> Dictionary:
+	var best: Dictionary = {}
 	var best_is_aoe := false
-	var best_is_wile := false
 	var adj_enemy_count := CombatApplicator.get_enemies_within(merc, 1, state).size()
 	var candidates: Array[TraitData] = WeaponArmorPerkLibrary.get_weapon_actions(merc)
 	candidates.append_array(_holstered_draw_actions(merc))
 	for perk: TraitData in candidates:
-		var dsl := perk.effect_dsl
-		if not dsl.begins_with("action:"):
+		var dsl := WeaponArmorPerkLibrary.action_dsl(perk)
+		if dsl == "" or not dsl.begins_with("action:"):
 			continue
-		var parts := dsl.split(":")
-		var ap_cost := int(parts[1]) if parts.size() > 1 else 99
-		if not state.can_afford(merc, ap_cost):
+		var info := PerkValuation.parse_action(perk)
+		if dsl.contains("wile_check:"):
+			if not _wile_action_ready(merc, perk, _wile_spec(info["parts"] as PackedStringArray),
+					int(info["ap"]), state, 2 if can_attack else 1):
+				continue
+		var scored := PerkValuation.action_score(merc, perk, target, state)
+		if not bool(scored["ok"]):
 			continue
-		var ep_cost := 0
-		var rep_cost := 0
-		for idx in range(2, parts.size() - 1):
-			if parts[idx] == "ep":
-				ep_cost = int(parts[idx + 1])
-			elif parts[idx] == "rep":
-				rep_cost = int(parts[idx + 1])
-		var ep_need := CombatApplicator.state_ep_cost(merc, ep_cost, "reaction", 0)
-		if ExcessPool.available_ep(merc) < ep_need or merc.current_rep < rep_cost:
-			continue
-		var is_wile := dsl.contains("wile_check:")
-		if is_wile and not _wile_action_ready(merc, perk, _wile_spec(parts), ap_cost, state, 2 if can_attack else 1):
-			continue
-		var effect_start := 2
-		for idx in range(2, parts.size()):
-			if parts[idx] in ["ep", "rep", "once_per_combat"]:
-				if idx + 1 < parts.size():
-					effect_start = idx + 2
-		var effect := parts[effect_start] if parts.size() > effect_start else ""
-		if not is_wile and not (effect in ["attack_already_damaged", "attack_all_adjacent_max_1", "attack_fully_loaded"]):
-			continue
-		var is_aoe := effect == "attack_all_adjacent_max_1"
-		var take := best == null
-		if not take and is_aoe and not best_is_aoe and adj_enemy_count >= 2:
-			take = true
-		if not take and best_is_wile and not is_wile:
-			take = true
+		var is_aoe: bool = str(info["effect"]) in AOE_EFFECTS
+		var take := best.is_empty()
+		if not take:
+			if is_aoe and not best_is_aoe and adj_enemy_count >= 2:
+				take = true
+			elif not (best_is_aoe and not is_aoe and adj_enemy_count >= 2):
+				take = float(scored["score_per_ap"]) > float(best["score_per_ap"])
 		if take:
-			best = perk
+			best = scored
 			best_is_aoe = is_aoe
-			best_is_wile = is_wile
+	if not best.is_empty() and EncounterLogger.is_active():
+		EncounterLogger.log_verbose("PERK ACTION: %s %s score=%.2f per_ap=%.2f ap=%d" % [
+			merc.merc_name, PerkActionExecutor._perk_label(best["perk"] as TraitData), float(best["score"]),
+			float(best["score_per_ap"]), int(best["ap"])])
 	return best
 
 
@@ -144,19 +133,10 @@ static func _holstered_draw_actions(merc: MercenaryData) -> Array[TraitData]:
 	var weapon: WeaponData = merc.equipped_weapon
 	if weapon == null or merc.weapon_drawn or weapon.is_virtual or weapon.weapon_type == "":
 		return result
-	var key: String = weapon.weapon_type.get_slice(" (", 0).strip_edges()
-	var pool: Array[TraitData] = []
-	pool.append_array(merc.weapon_perks)
-	for entry: Variant in (DataManager.weapon_trait_library.get(key, []) as Array):
-		var lib_perk: TraitData = entry as TraitData
-		if lib_perk != null:
-			pool.append(lib_perk)
-	var seen: Dictionary = {}
-	for perk: TraitData in pool:
-		if perk == null or seen.has(perk.trait_name):
-			continue
-		seen[perk.trait_name] = true
-		if perk.effect_dsl.begins_with("action:") and perk.effect_dsl.contains(":on_draw:"):
+	var key: String = WeaponArmorPerkLibrary.weapon_type_key(weapon)
+	for perk: TraitData in WeaponArmorPerkLibrary.owned_for_key(merc.weapon_perks, key):
+		var draw_dsl := WeaponArmorPerkLibrary.action_dsl(perk)
+		if draw_dsl.begins_with("action:") and draw_dsl.contains(":on_draw:"):
 			result.append(perk)
 	return result
 
@@ -230,11 +210,6 @@ static func _perk_used_key(perk: TraitData) -> String:
 	return "perk_used_" + perk.trait_name
 
 
-static func _perk_label(perk: TraitData) -> String:
-	var pieces := perk.trait_name.split("|")
-	return pieces[pieces.size() - 1]
-
-
 #Great Club Terrorize and Auto-Rifle Bully: a Wile trial that leaves every failure Terrified.
 static func _do_wile_terror(merc: MercenaryData, perk: TraitData, spec: Dictionary,
 		state: BattleState, enhancements: int) -> Array[String]:
@@ -258,9 +233,9 @@ static func _do_wile_terror(merc: MercenaryData, perk: TraitData, spec: Dictiona
 		if bool(spec["flaw_per_5"]):
 			extra_flaws = int(float(bullets) / 5.0)
 		lines.append("  %s empties %d round%s with %s!" % [
-			BattleState.colored_name(merc, state), bullets, "s" if bullets != 1 else "", _perk_label(perk)])
+			BattleState.colored_name(merc, state), bullets, "s" if bullets != 1 else "", PerkActionExecutor._perk_label(perk)])
 	else:
-		lines.append("  %s uses %s!" % [BattleState.colored_name(merc, state), _perk_label(perk)])
+		lines.append("  %s uses %s!" % [BattleState.colored_name(merc, state), PerkActionExecutor._perk_label(perk)])
 	if bool(spec["once"]):
 		merc.active_states[_perk_used_key(perk)] = true
 	var resist_spec := "Resist:Wile:%d" % int(spec["trial"])
@@ -271,99 +246,123 @@ static func _do_wile_terror(merc: MercenaryData, perk: TraitData, spec: Dictiona
 			str(spec["duration"]), "", merc, state, extra_flaws))
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("TERRIFY: %s %s trial=%d targets=%d flaws=%d bullets=%d" % [
-			merc.merc_name, _perk_label(perk), int(spec["trial"]), targets.size(), extra_flaws, bullets])
+			merc.merc_name, PerkActionExecutor._perk_label(perk), int(spec["trial"]), targets.size(), extra_flaws, bullets])
 	return lines
 
 
-#Every abort path of execute_perk_action gives back what the token loop and spend_ap took.
-static func _abort_perk_action(merc: MercenaryData, ap_before: int, excess_before: int,
-		ep_excess: int, ep_real: int, rep_paid: int) -> Array[String]:
-	merc.current_ap = ap_before
-	merc.excess_ap = excess_before
-	ExcessPool.refund_ep(merc, ep_excess, ep_real)
-	merc.current_rep += rep_paid
-	return []
-
-
-static func execute_perk_action(
-		merc: MercenaryData,
-		perk: TraitData,
-		target: MercenaryData,
-		state: BattleState,
+#Spin arm: one roll per adjacent enemy for 1 damage each, stopping at the first misfire.
+static func _perk_spin(merc: MercenaryData, adj_enemies: Array[MercenaryData], state: BattleState,
 		enhancements: int) -> Array[String]:
-	var lines: Array[String] = []
-	var dsl := perk.effect_dsl
-	var parts := dsl.split(":")
-	var ap_cost := int(parts[1])
-	var ap_before := merc.current_ap
-	var excess_before := merc.excess_ap
-	state.spend_ap(merc, ap_cost)
-
-	var effect_start := 2
-	var j := 2
-	var ep_excess := 0
-	var ep_real := 0
-	var rep_paid := 0
-	while j < parts.size() - 1:
-		if parts[j] == "ep":
-			var ep_step := CombatApplicator.state_ep_cost(merc, int(parts[j + 1]), "reaction", 0)
-			var pay := ExcessPool.pay_ep(merc, ep_step)
-			ep_excess += int(pay["from_excess"])
-			ep_real += int(pay["from_ep"])
-			effect_start = j + 2
-			j += 2
-		elif parts[j] == "rep":
-			var rep_step := int(parts[j + 1])
-			merc.current_rep -= rep_step
-			rep_paid += rep_step
-			effect_start = j + 2
-			j += 2
-		elif parts[j] == "once_per_combat":
-			effect_start = j + 1
-			j += 1
-		else:
+	var out: Array[String] = []
+	out.append("  %s spins!" % BattleState.colored_name(merc, state))
+	for enemy: MercenaryData in adj_enemies:
+		var atk := AttackSystem.execute_attack(merc, enhancements, 0, enemy)
+		state.record_action(merc, "Attack")
+		if atk.get("misfired", false):
+			out.append("  %s misfires!" % BattleState.colored_name(merc, state))
 			break
+		elif atk.get("damage", 0) > 0:
+			out.append_array(CombatApplicator.apply_hit(merc, enemy, atk, 1, atk["damage_type"], state))
+		else:
+			out.append("  %s misses %s with the spin." % [BattleState.colored_name(merc, state), BattleState.colored_name(enemy, state)])
+	return out
 
-	if dsl.contains("wile_check:"):
-		var wile_lines := _do_wile_terror(merc, perk, _wile_spec(parts), state, enhancements)
-		if wile_lines.is_empty():
-			return _abort_perk_action(merc, ap_before, excess_before, ep_excess, ep_real, rep_paid)
-		return wile_lines
 
-	var effect := parts[effect_start] if parts.size() > effect_start else ""
-	match effect:
-		"attack_already_damaged":
-			var attacks_taken: int = state.escalation.get(merc, {}).get("Attack", 0)
-			if attacks_taken > 0 and target != null:
-				lines.append_array(_perk_single_attack(
-					merc, target, state, enhancements, "uses Uppercut!", "Uppercut"))
-			else:
-				return _abort_perk_action(merc, ap_before, excess_before, ep_excess, ep_real, rep_paid)
-		"attack_all_adjacent_max_1":
-			var adj_enemies := CombatApplicator.get_enemies_within(merc, 1, state)
-			if not adj_enemies.is_empty():
-				lines.append("  %s spins!" % BattleState.colored_name(merc, state))
-				for enemy: MercenaryData in adj_enemies:
-					var atk := AttackSystem.execute_attack(merc, enhancements, 0, enemy)
-					state.record_action(merc, "Attack")
-					if atk.get("misfired", false):
-						lines.append("  %s misfires!" % BattleState.colored_name(merc, state))
-						break
-					elif atk.get("damage", 0) > 0:
-						lines.append_array(CombatApplicator.apply_hit(merc, enemy, atk, 1, atk["damage_type"], state))
-					else:
-						lines.append("  %s misses %s with the spin." % [BattleState.colored_name(merc, state), BattleState.colored_name(enemy, state)])
-			else:
-				return _abort_perk_action(merc, ap_before, excess_before, ep_excess, ep_real, rep_paid)
-		"attack_fully_loaded":
-			if target != null and merc.equipped_weapon != null and merc.ammo_loaded >= merc.equipped_weapon.chamber:
-				lines.append_array(_perk_single_attack(
-					merc, target, state, enhancements, "fires rapidly!", "Rapid-Fire"))
-			else:
-				return _abort_perk_action(merc, ap_before, excess_before, ep_excess, ep_real, rep_paid)
-		_:
-			return _abort_perk_action(merc, ap_before, excess_before, ep_excess, ep_real, rep_paid)
+#Weapon stat arm: the reach or mow window the perk holds open; empty lines mean an unknown stat.
+static func _perk_weapon_stat(merc: MercenaryData, state: BattleState, stat_name: String,
+		label: String) -> Array[String]:
+	var out: Array[String] = []
+	if stat_name == "melee_range":
+		merc.active_states["weapon_stat_melee_range_bonus"] = \
+			int(merc.active_states.get("weapon_stat_melee_range_bonus", 0)) + 1
+		merc.active_states["reach_bonus_until_round"] = state.round_number + 1
+		out.append("  %s overextends their reach (%s)." % [BattleState.colored_name(merc, state), label])
+	elif stat_name == "extend":
+		merc.active_states["weapon_extend_active"] = true
+		merc.active_states["weapon_extend_until_round"] = state.round_number + 1
+		out.append("  %s sets the scythe to mow (%s)." % [BattleState.colored_name(merc, state), label])
+	return out
+
+
+#Stampede arm: the merc closes on the pulled cell and swings with a bonus per pace crossed.
+static func _perk_stampede(merc: MercenaryData, target: MercenaryData, dest: Vector3i,
+		state: BattleState, enhancements: int, perk: TraitData) -> Array[String]:
+	var out: Array[String] = []
+	var from := state.get_position(merc)
+	var paces := maxi(1, maxi(absi(dest.x - from.x), absi(dest.y - from.y)))
+	state.set_pos3(merc, dest)
+	merc.aim_active = false
+	out.append("  %s stampedes %d pace%s at %s!" % [
+		BattleState.colored_name(merc, state), paces, "s" if paces != 1 else "",
+		BattleState.colored_name(target, state)])
+	var charge := PerkActionExecutor._perk_attack(merc, target, state, enhancements + paces, 0, 0, 0, PerkActionExecutor._perk_announce(perk), "Stampede")
+	out.append_array(charge["lines"] as Array[String])
+	return out
+
+
+#Over-Extend arm: the long shot tops its hit up to the pain limit, or snaps the string on a miss.
+static func _perk_over_extend(merc: MercenaryData, target: MercenaryData, state: BattleState,
+		enhancements: int, perk: TraitData) -> Array[String]:
+	var out: Array[String] = []
+	var taken_before := int(state.damage_dealt_this_round.get(merc, {}).get(target, 0))
+	var over := PerkActionExecutor._perk_attack(merc, target, state, enhancements, 0, 0, 0, PerkActionExecutor._perk_announce(perk), "Over-Extend")
+	out.append_array(over["lines"] as Array[String])
+	var over_atk: Dictionary = over["atk"]
+	if bool(over_atk.get("no_ammo", false)) or bool(over_atk.get("no_los", false)):
+		return out
+	var over_dealt := int(state.damage_dealt_this_round.get(merc, {}).get(target, 0)) - taken_before
+	if over_dealt >= 1:
+		var extra := int(target.stats.get("pain_limit", 0)) - over_dealt
+		if extra > 0 and BattleState._is_alive(target):
+			out.append_array(CombatApplicator.deal_direct(
+				merc, target, extra, PerkActionExecutor._perk_damage_type(merc), state, "Recurve Bow Over-Extend"))
+	else:
+		PerkActionExecutor._snap_bowstring(merc, state, out)
+	return out
+
+
+#Longsword Impale: the cell straight behind the target takes 1 direct, ally or enemy.
+static func _direct_behind(merc: MercenaryData, target: MercenaryData, state: BattleState,
+		damage_type: String) -> Array[String]:
+	var lines: Array[String] = []
+	if target == null or state.battlefield == null:
+		return lines
+	var from := state.get_position(merc)
+	var at := state.get_position(target)
+	var behind := at + Vector2i(signi(at.x - from.x), signi(at.y - from.y))
+	if behind == at:
+		return lines
+	var floor_num := state.get_floor(target)
+	var pool: Array[MercenaryData] = []
+	pool.append_array(state.get_enemies(merc))
+	pool.append_array(state.get_allies(merc))
+	for other: MercenaryData in pool:
+		if other == merc or other == target or not BattleState._is_alive(other) or other.off_field:
+			continue
+		if state.get_floor(other) != floor_num or state.get_position(other) != behind:
+			continue
+		lines.append_array(CombatApplicator.deal_direct(merc, other, 1, damage_type, state, "Longsword Impale"))
+		break
 	return lines
+
+
+#True when the roll never happened: no ammo, a misfire or no line of sight to the target.
+static func _attack_refused(atk: Dictionary) -> bool:
+	return bool(atk.get("misfired", false)) or bool(atk.get("no_ammo", false)) \
+			or bool(atk.get("no_los", false))
+
+
+#The log lines a refused attack leaves; the no line of sight line needs a named target.
+static func _attack_refusal_lines(merc: MercenaryData, target: MercenaryData, state: BattleState,
+		atk: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	if atk.get("misfired", false):
+		out.append("  %s misfires!" % BattleState.colored_name(merc, state))
+	elif atk.get("no_ammo", false):
+		out.append("  %s has no ammo loaded!" % BattleState.colored_name(merc, state))
+	elif atk.get("no_los", false) and target != null:
+		out.append("  %s cannot see %s." % [BattleState.colored_name(merc, state), BattleState.colored_name(target, state)])
+	return out
 
 
 static func build_decision_snapshot(
@@ -407,28 +406,10 @@ static func snap_passes(snap: Dictionary, requirements: Dictionary) -> bool:
 	return true
 
 
-#One perk attack against a single target; announce is the merc line, label names the miss.
-static func _perk_single_attack(merc: MercenaryData, target: MercenaryData, state: BattleState,
-		enhancements: int, announce: String, label: String) -> Array[String]:
-	var out: Array[String] = []
-	var atk := AttackSystem.execute_attack(merc, enhancements, 0, target)
-	out.append("  %s %s" % [BattleState.colored_name(merc, state), announce])
-	state.record_action(merc, "Attack")
-	if atk.get("misfired", false):
-		out.append("  %s misfires!" % BattleState.colored_name(merc, state))
-	elif atk.get("no_ammo", false):
-		out.append("  %s has no ammo loaded!" % BattleState.colored_name(merc, state))
-	elif atk.get("damage", 0) > 0:
-		out.append_array(CombatApplicator.apply_hit(merc, target, atk, atk["damage"], atk["damage_type"], state))
-	else:
-		out.append("  %s misses with %s against %s." % [BattleState.colored_name(merc, state), label, BattleState.colored_name(target, state)])
-	return out
-
-
 #The chamber-empty reload injection; {} when the merc should not reload.
 static func _reload_injection(merc: MercenaryData, enemies: Array[MercenaryData],
 		valid_targets: Array[MercenaryData], state: BattleState, note: String) -> Dictionary:
-	if merc.ammo_loaded != 0 or not CombatDecision._should_reload(merc, enemies, valid_targets, state):
+	if merc.ammo_loaded != 0 or not CombatDecision.should_reload(merc, enemies, valid_targets, state):
 		return {}
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("INJECTED [reload]: %s (%s)" % [merc.merc_name, note])
@@ -447,13 +428,13 @@ static func _run_pre_move_injection(
 	if not reload_inj.is_empty():
 		return reload_inj
 	if not weapon_action_taken:
-		var wp := WeaponSwapDecider._decide_weapon_action(merc, enemies, state, _CONFIG.attack_base_ap, movement_blocked)
+		var wp := WeaponSwapDecider.decide_action(merc, enemies, state, _CONFIG.attack_base_ap, movement_blocked)
 		if wp["type"] != "none":
 			if EncounterLogger.is_active():
 				EncounterLogger.log_verbose("INJECTED [%s]: %s (weapon action, pre-40)" % [
 					str(wp.get("action_name", wp["type"])), merc.merc_name])
 			return wp
-		var pu := CombatDecision._decide_pickup_action(merc, enemies, state, _CONFIG.attack_base_ap, _CONFIG.move_base_ap)
+		var pu := PickupDecision.decide_pickup_action(merc, enemies, state, _CONFIG.attack_base_ap, _CONFIG.move_base_ap)
 		if pu["type"] != "none":
 			if EncounterLogger.is_active():
 				EncounterLogger.log_verbose("INJECTED [%s]: %s -> %s" % [
@@ -461,7 +442,7 @@ static func _run_pre_move_injection(
 					str(pu.get("weapon_pos", pu.get("weapon_entry", {}).get("weapon", "")))])
 			return pu
 	if not movement_blocked and not is_desperate and state.battlefield != null and valid_targets.is_empty():
-		var bfw := CombatDecision._decide_break_for_weapon(merc, enemies, state, _CONFIG.attack_base_ap, _CONFIG.move_base_ap)
+		var bfw := BreakForWeaponDecision.decide_break_for_weapon(merc, enemies, state, _CONFIG.attack_base_ap, _CONFIG.move_base_ap)
 		if bfw["type"] != "none":
 			return bfw
 	return {"type": "none"}
@@ -472,7 +453,7 @@ static func _run_pre_aim_injection(
 		enemies: Array[MercenaryData],
 		valid_targets: Array[MercenaryData],
 		state: BattleState) -> Dictionary:
-	if merc.ammo_loaded > 0 and CombatDecision._should_reload(merc, enemies, valid_targets, state):
+	if merc.ammo_loaded > 0 and CombatDecision.should_reload(merc, enemies, valid_targets, state):
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("INJECTED [reload]: %s (pre-attack tactical)" % merc.merc_name)
 		return {"type": "reload", "action_name": "reload", "target": null}
@@ -521,6 +502,18 @@ static func choose_from_action_set(
 	if not reload_now.is_empty():
 		return reload_now
 
+	var repair_now := CombatDecision.decide_repair_action(merc, enemies, state)
+	if repair_now["type"] != "none":
+		if EncounterLogger.is_active():
+			EncounterLogger.log_verbose("INJECTED [repair]: %s (snapped bowstring)" % merc.merc_name)
+		return repair_now
+
+	if valid_targets.is_empty() and not CaveInSystem.dig_target(merc, state).is_empty() \
+			and state.can_afford(merc, state.get_cost(merc, "attack_obstacle", _CONFIG.attack_base_ap)):
+		if EncounterLogger.is_active():
+			EncounterLogger.log_verbose("DIG: %s beside a buried ally" % merc.merc_name)
+		return {"type": "special", "action_name": "attack_obstacle", "target": null}
+
 	var _stuck_rounds := (state.no_progress_rounds.get(merc, 0) as int)
 	var _no_tgt_turns := (state.no_target_turns.get(merc, 0) as int)
 	var _fighting_alone := state.get_allies(merc).is_empty()
@@ -539,7 +532,7 @@ static func choose_from_action_set(
 	elif merc.active_states.has("_esc_logged"):
 		merc.active_states.erase("_esc_logged")
 	if _is_desperate and movement_blocked:
-		var _obs_result := CombatDecision.decide_obstacle_or_flank(merc, enemies, valid_targets, state, movement_blocked)
+		var _obs_result := ObstacleDecision.decide_obstacle_or_flank(merc, enemies, valid_targets, state, movement_blocked)
 		if EncounterLogger.is_active():
 			var _obs_type: String = _obs_result.get("type", "pass")
 			if _obs_type != "pass":
@@ -631,11 +624,12 @@ static func choose_from_action_set(
 					var score_str := "skipped" if fd.get("skipped", false) else "%.2f" % fd["score"]
 					EncounterLogger.log_verbose("    %s [%s]: %s" % [fd["name"], weight_str, score_str])
 			else:
-				score = minf(action.decision.evaluate(merc, ctx) + bonus, 1.0)
-				passed = true
+				var plain: Dictionary = action.decision.run_plain(merc, ctx)
+				score = minf(float(plain["score"]) + bonus, 1.0)
+				passed = bool(plain["passed"]) or bonus > 0.0
 			if passed and score >= action.decision.threshold:
 				if action.action_name == "attack_obstacle":
-					return CombatDecision.decide_obstacle_or_flank(merc, enemies, valid_targets, state, movement_blocked)
+					return ObstacleDecision.decide_obstacle_or_flank(merc, enemies, valid_targets, state, movement_blocked)
 				if action.action_name == "aid_ally":
 					var aid := StateReliefEvaluator.aid_decision(merc, ctx)
 					if str(aid.get("type", "none")) == "none":
@@ -668,6 +662,9 @@ static func _fallback_spend_ap(
 		action_name = "Move Far"
 		hurt = true
 	if not state.can_afford(merc, state.move_cost(merc, action_name, _CONFIG.move_base_ap)):
+		return {"type": "none"}
+	#The slot a walk would spend belongs to the climb or leap the route already planned.
+	if MovementExecutor.move_yields(merc, state, action_name):
 		return {"type": "none"}
 	var nearest := MovementDecider.closest_enemy(merc, enemies, state)
 	if nearest == null:

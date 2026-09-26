@@ -44,7 +44,7 @@ Experienced	Back to Haunt Me	This merc made a terrible mistake that came back to
 			Contract Success	IS	false					
 Experienced	Bar Fight	This merc got into a bar fight, which... they may have started.	Contract Event	IS	Tavern Brawl	You Guys Wanna Start a Fight?	Improvised Weapons, Tavern Brawler	Common		Damage Melee
 Experienced	Betrayed	This merc was betrayed by someone they trusted.	Contract Event	IS	Betrayal AND	Closed Off	Untrusting	Uncommon		Intellect, Social
-			Merc Relationship	IS >=	3					
+			Betrayer Relationship	IS >=	3					
 Experienced	Bled Out	This merc has cast so many hemomancy spells that have taken a toll on their body that they're practically used to the blood loss, by now.	Blood Toll Count	IS >=	3		Fast Clotting	Rare		Cheat Death
 Experienced	Buddy	This merc has become great pals with another merc! That's great, as long as it doesn't get in the way of their responsibilities.	Merc Relationship	IS >=	5	Missing Your Pal	Companion Combo	Common	Pair	Social
 Experienced	Burn Victim	This merc was horribly burned, resulting in permanent scarring and a twisted obsession with the very thing that harmed them.	Damage Taken	IS	Fire	Fear the Flame	Playing with Fire	Rare		Explosives

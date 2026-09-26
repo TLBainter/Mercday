@@ -1,2 +1,5 @@
-Title	Name	Origin	Ancestry	Heritage	Tradition	Level	sLE	eLE	LE #	Weapon	Armor	Loadout	Immunities
-Taverngoer	Random First		Any	Any	None	(party.average_level + party.merc_count) / randf(1.5, 3)	None	None	0	None, Dirk, Baton	None, Gambeson, Leather Coat	None, 1 Melee	None
+Title	Name	Origin	Ancestry	Heritage	Tradition	Level	sLE	eLE	LE #	Weapon	Armor	Loadout	Immunities	Traits	Max Ammo
+Taverngoer	Random First		Any	Any	None	(party.average_level + party.merc_count) / randf(1.5, 3)	None	None	0	None, Dirk, Baton	None, Gambeson, Leather Coat	None, 1 Melee	None		
+Bandit Melee	Random First		Any	Any	Warrior, Hellion	min(40, max(1, party.average_level * level_band))	Any	Any	min(8, 1 + floor(npc.level / 5))	Baselard, Gladius, Seax, Dirk, Stiletto, Switchblade	None, Gambeson, Leather Coat	1 Melee	None		
+Bandit Ranged	Random First		Any	Any	Warrior, Hellion	min(40, max(1, party.average_level * level_band))	Any	Any	min(8, 1 + floor(npc.level / 5))	Pistol Crossbow, Ram's Head Crossbow, Dirk, Stiletto	None, Gambeson	1 Ranged|1 Melee	None		10
+Bandit Leader	Random First		Any	Any	Brave, Performer	min(40, max(1, party.average_level * level_band))	Any	Any	min(8, 1 + floor(npc.level / 5))	Gladius, Baselard, Pistol Crossbow, Dirk	Gambeson, Leather Coat	1 Ranged|1 Melee, 1 Melee	None	Leadership	10

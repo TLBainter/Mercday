@@ -8,6 +8,18 @@ const TIER_WEIGHTS: Dictionary = {
 	"Legendary": 1.0,
 }
 
+#Turns a data list into weighted items; fixed_rarity is used when rarity_field is empty.
+static func items_from(list: Array, name_field: String, rarity_field: String = "",
+		fixed_rarity: String = "") -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	for entry: Object in list:
+		var rarity: String = fixed_rarity
+		if rarity_field != "":
+			rarity = str(entry.get(rarity_field))
+		items.append({"name": str(entry.get(name_field)), "rarity": rarity})
+	return items
+
+
 static func roll(
 	items: Array[Dictionary],
 	flat_boosts: Dictionary = {},
@@ -25,7 +37,7 @@ static func roll(
 		if roll_value <= cumulative:
 			return entry.get("name", "") as String
 
-	return table[-1].get("name", "") as String
+	return table[0].get("name", "") as String
 
 
 static func _build_table(
@@ -86,6 +98,13 @@ static func _build_table(
 	var total: float = 0.0
 	for pct: float in working.values():
 		total += pct
+	#A flat penalty can drive one entry far below zero and cancel the rest, which would skip the normalisation.
+	if total <= 0.0:
+		for key: String in working:
+			working[key] = maxf(0.0, working[key] as float)
+		total = 0.0
+		for pct: float in working.values():
+			total += pct
 	if total > 0.0:
 		for key: String in working:
 			working[key] = (working[key] as float) / total * 100.0
@@ -126,11 +145,4 @@ static func _redistribute(working: Dictionary, items: Array[Dictionary], item_na
 			var old: float = working.get(other_name, 0.0) as float
 			var share: float = (old / total_others) * taken
 			working[other_name] = maxf(0.1, old - share)
-
-
-static func _get_tier(item_name: String, items: Array[Dictionary]) -> String:
-	for item: Dictionary in items:
-		if str(item.get("name", "")) == item_name:
-			return str(item.get("rarity", "Common"))
-	return "Common"
 

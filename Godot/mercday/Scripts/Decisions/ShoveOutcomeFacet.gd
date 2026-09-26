@@ -61,7 +61,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 
 #Height the shove drops the target: 0.4 for two paces or more, 0.2 for one.
 static func terrain_drop_score(field: BattlefieldArea, from_pos: Vector2i, dest: Vector2i) -> float:
-	var terrain_drop := field.get_terrain_height(from_pos) - field.get_terrain_height(dest)
+	var terrain_drop := field.surface_height(from_pos) - field.surface_height(dest)
 	if terrain_drop >= 2.0:
 		return 0.4
 	elif terrain_drop >= 1.0:

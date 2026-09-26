@@ -171,7 +171,7 @@ static func _visible_enemy_from(
 		weapon: WeaponData,
 		enemies: Array) -> MercenaryData:
 	for enemy: MercenaryData in enemies:
-		if enemy == null or enemy.is_dead or enemy.current_hp <= 0:
+		if enemy == null or enemy.is_dead or enemy.current_hp <= 0 or enemy.off_field:
 			continue
 		var d := _cell_distance(state, cell, height, enemy)
 		if weapon.ranged_extended_range > 0 and d > weapon.ranged_extended_range:

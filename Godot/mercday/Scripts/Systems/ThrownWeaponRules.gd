@@ -4,14 +4,14 @@ extends RefCounted
 #Thrown weapon ranges, accuracy, landing prediction and the rules that allow or refuse a throw.
 
 
-static func compute_thrown_accuracy(merc: MercenaryData, weapon: WeaponData) -> float:
-	# thrown_accuracy stat = max(melee_acc, ranged_acc) + merc_size*10 + any stat bonus
-	return float(merc.stats.get("thrown_accuracy", 0.0)) - float(weapon.size * 10)
+static func compute_thrown_accuracy(merc: MercenaryData, _weapon: WeaponData) -> float:
+	#thrown_accuracy stat = max(melee_acc, ranged_acc) + merc_size*10 + any stat bonus
+	return float(merc.stats.get("thrown_accuracy", 0.0))
 
 
 static func compute_thrown_range(merc: MercenaryData, weapon: WeaponData) -> int:
-	# thrown_range stat is baseline with object_weight=0: vigor*20 + any stat bonus
-	# for weighted objects, adjust from that baseline back to (vigor-weight)*10 + bonus
+	#thrown_range stat is baseline with object_weight=0: vigor*20 + any stat bonus
+	#for weighted objects, adjust from that baseline back to (vigor-weight)*10 + bonus
 	var vigor: int = int(merc.stats.get("vigor", 0))
 	var stat_base: int = int(merc.stats.get("thrown_range", vigor * 20))
 	var bonus: int = stat_base - vigor * 20
@@ -21,9 +21,6 @@ static func compute_thrown_range(merc: MercenaryData, weapon: WeaponData) -> int
 	if effective_weight > 0:
 		return maxi(0, (vigor - effective_weight) * 10 + bonus)
 	return maxi(0, stat_base)
-
-
-#A weapon with the Thrown property throws on its own Intended/Extended; anything else is an object.
 
 
 #A weapon with the Thrown property throws on its own Intended/Extended; anything else is an object.
@@ -75,9 +72,6 @@ static func _throw_blocks(obs: Dictionary) -> bool:
 
 
 #A miss carries the weapon past the target along the throw line until a cell blocks entry.
-
-
-#A miss carries the weapon past the target along the throw line until a cell blocks entry.
 static func predict_landing(merc: MercenaryData, weapon: WeaponData, target: MercenaryData,
 		hit: bool, state: BattleState) -> Dictionary:
 	var t2 := state.get_position(target)
@@ -126,9 +120,6 @@ static func predict_landing(merc: MercenaryData, weapon: WeaponData, target: Mer
 
 
 #The thrown weapon becomes a ground pickup and may damage whatever stopped it.
-
-
-#The thrown weapon becomes a ground pickup and may damage whatever stopped it.
 static func land_thrown_weapon(merc: MercenaryData, weapon: WeaponData, target: MercenaryData,
 		hit: bool, damage: int, state: BattleState) -> Array[String]:
 	var lines: Array[String] = []
@@ -147,7 +138,8 @@ static func land_thrown_weapon(merc: MercenaryData, weapon: WeaponData, target: 
 			#A miss carries no attack damage, so the impact falls back to the weapon average.
 			var impact: int = damage if damage > 0 else maxi(
 				1, int(round(WeaponEvaluator.parse_formula_for_avg(weapon.damage_formula_1))))
-			var res := ObstacleUtils.apply_damage(blocker, impact, state, merc.merc_name)
+			var res := ObstacleUtils.apply_damage(blocker, impact, state, merc.merc_name,
+				AttackSystem.damage_type_of(weapon))
 			obj_name = bd.obstacle_name
 			obj_dmg = int(res.get("damage", impact))
 			lines.append_array(res.get("lines", [] as Array[String]) as Array[String])
@@ -162,9 +154,6 @@ static func land_thrown_weapon(merc: MercenaryData, weapon: WeaponData, target: 
 			merc.merc_name, weapon.item_name, cell.x, cell.y, floor_num,
 			"hit" if hit else "miss", int(land["remainder"]), extra])
 	return lines
-
-
-#An object throw is a last resort: nothing else can attack this turn and the weapon has no Thrown range.
 
 
 #An object throw is a last resort: nothing else can attack this turn and the weapon has no Thrown range.
@@ -190,25 +179,22 @@ static func object_throw_allowed(merc: MercenaryData, weapon: WeaponData, target
 
 
 #Throwing gives the weapon away: it needs a backup, a likely kill or a safe recovery.
-
-
-#Throwing gives the weapon away: it needs a backup, a likely kill or a safe recovery.
 static func should_throw(merc: MercenaryData, weapon: WeaponData, target: MercenaryData,
-		enemies: Array, state: BattleState, log: bool = false) -> Dictionary:
+		enemies: Array, state: BattleState, do_log: bool = false) -> Dictionary:
 	var mode := "object" if weapon == null or weapon.range_thrown == "" else "property"
 	var result := {"throw": false, "reason": "out_of_range", "mode": mode}
 	if weapon == null or target == null or state == null or state.battlefield == null:
-		_log_throw_refusal(merc, weapon, result, log)
+		_log_throw_refusal(merc, weapon, result, do_log)
 		return result
 	var dist := state.distance_to(merc, target)
 	if dist <= WeaponEvaluator.melee_reach_for(merc, weapon):
 		result["reason"] = "in_reach"
-		_log_throw_refusal(merc, weapon, result, log)
+		_log_throw_refusal(merc, weapon, result, do_log)
 		return result
 	var ext: int = int(thrown_ranges(merc, weapon)["extended"])
 	if ext <= 0 or dist > ext or not (LineOfSight.check(state, merc, target)["visible"] as bool):
 		result["reason"] = "out_of_range"
-		_log_throw_refusal(merc, weapon, result, log)
+		_log_throw_refusal(merc, weapon, result, do_log)
 		return result
 	var backup := WeaponEvaluator.has_backup_weapon(merc, weapon)
 	var kill := _throw_kill(merc, weapon, target, state)
@@ -241,9 +227,9 @@ static func should_throw(merc: MercenaryData, weapon: WeaponData, target: Mercen
 		result["throw"] = true
 		result["reason"] = "ok"
 	if not bool(result["throw"]):
-		_log_throw_refusal(merc, weapon, result, log)
+		_log_throw_refusal(merc, weapon, result, do_log)
 		return result
-	if log and EncounterLogger.is_active():
+	if do_log and EncounterLogger.is_active():
 		EncounterLogger.log_verbose("THROW PLAN: %s %s -> %s dist=%d backup=%s kill=%d%% recover=%d threat=%s -> throw" % [
 			merc.merc_name, weapon.item_name, target.merc_name, dist, str(backup),
 			100 if kill_likely else 0, recover_turns, str(threat)])
@@ -251,15 +237,15 @@ static func should_throw(merc: MercenaryData, weapon: WeaponData, target: Mercen
 
 
 static func _log_throw_refusal(merc: MercenaryData, weapon: WeaponData, result: Dictionary,
-		log: bool) -> void:
-	if not log or not EncounterLogger.is_active():
+		do_log: bool) -> void:
+	if not do_log or not EncounterLogger.is_active():
 		return
 	var wname: String = weapon.item_name if weapon != null else "nothing"
 	EncounterLogger.log_verbose("THROW REFUSED: %s %s reason=%s" % [
 		merc.merc_name, wname, str(result["reason"])])
 
 
-#A Protean weapon gains its extra die only when the off hand ends up empty.
+#How much a thrown weapon is worth giving up: a spare, a nearby drop or a breakable source keeps the score up.
 
 
 static func _throw_replacement_factor(merc: MercenaryData, weapon: WeaponData, state: BattleState) -> float:
@@ -284,8 +270,8 @@ static func _throw_replacement_factor(merc: MercenaryData, weapon: WeaponData, s
 		var d: ObstacleData = obs.get("data") as ObstacleData
 		if d == null or d.health == 0 or d.drops.is_empty():
 			continue
-		var _raw_wep = obs.get("pos", Vector2i(-1, -1))
-		var p: Vector2i = Vector2i((_raw_wep as Vector3i).x, (_raw_wep as Vector3i).y) if typeof(_raw_wep) == TYPE_VECTOR3I else _raw_wep as Vector2i
+		var raw_pos: Variant = obs.get("pos", Vector2i(-1, -1))
+		var p: Vector2i = Vector2i((raw_pos as Vector3i).x, (raw_pos as Vector3i).y) if typeof(raw_pos) == TYPE_VECTOR3I else raw_pos as Vector2i
 		if p.x < 0:
 			continue
 		if maxi(abs(p.x - merc_pos.x), abs(p.y - merc_pos.y)) <= 6:

@@ -1,0 +1,39 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/FilterSortButton.gd" id="1"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="2"]
+
+[node name="FilterSortButton" type="Button"]
+custom_minimum_size = Vector2(0, 26)
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_constants/h_separation = 8
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 10
+text = "FILTER / SORT"
+alignment = 0
+script = ExtResource("1")
+
+[node name="Menu" type="PopupPanel" parent="."]
+
+[node name="Columns" type="HBoxContainer" parent="Menu"]
+theme_override_constants/separation = 12
+
+[node name="SortColumn" type="VBoxContainer" parent="Menu/Columns"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Header" type="Label" parent="Menu/Columns/SortColumn"]
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 10
+text = "SORT BY"
+
+[node name="FilterColumn" type="VBoxContainer" parent="Menu/Columns"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Header" type="Label" parent="Menu/Columns/FilterColumn"]
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 10
+text = "FILTER"

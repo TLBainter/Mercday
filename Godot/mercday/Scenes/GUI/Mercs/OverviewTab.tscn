@@ -1,0 +1,296 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mercs/OverviewTab.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/AttributeBox.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ResourceBar.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/InfoField.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/SlotChip.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SlotTooltip.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TraditionModule.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LevelBadge.tscn" id="8"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="10"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_modebox"]
+bg_color = Color(0.054902, 0.086275, 0.156863, 1)
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_resources"]
+bg_color = Color(0.054902, 0.086275, 0.156863, 1)
+content_margin_left = 12.0
+content_margin_top = 12.0
+content_margin_right = 12.0
+content_margin_bottom = 12.0
+
+[node name="OverviewTab" type="ScrollContainer"]
+horizontal_scroll_mode = 0
+script = ExtResource("1")
+
+[node name="Rows" type="VBoxContainer" parent="."]
+size_flags_horizontal = 3
+theme_override_constants/separation = 18
+
+[node name="TitleRow" parent="Rows" instance=ExtResource("7")]
+layout_mode = 2
+
+[node name="Attributes" type="HBoxContainer" parent="Rows"]
+theme_override_constants/separation = 14
+
+[node name="Cognition" parent="Rows/Attributes" instance=ExtResource("2")]
+layout_mode = 2
+size_flags_horizontal = 3
+attribute_key = "cognition"
+
+[node name="Dexterity" parent="Rows/Attributes" instance=ExtResource("2")]
+layout_mode = 2
+size_flags_horizontal = 3
+attribute_key = "dexterity"
+
+[node name="Vigor" parent="Rows/Attributes" instance=ExtResource("2")]
+layout_mode = 2
+size_flags_horizontal = 3
+attribute_key = "vigor"
+
+[node name="Wile" parent="Rows/Attributes" instance=ExtResource("2")]
+layout_mode = 2
+size_flags_horizontal = 3
+attribute_key = "wile"
+
+[node name="Middle" type="HBoxContainer" parent="Rows"]
+theme_override_constants/separation = 18
+
+[node name="Left" type="VBoxContainer" parent="Rows/Middle"]
+custom_minimum_size = Vector2(112, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_constants/separation = 6
+
+[node name="Badge" parent="Rows/Middle/Left" instance=ExtResource("8")]
+layout_mode = 2
+size_flags_vertical = 0
+size_mode = 2
+
+[node name="Caption" type="Label" parent="Rows/Middle/Left"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
+theme_override_fonts/font = ExtResource("10")
+theme_override_font_sizes/font_size = 10
+text = "Level Up Mode"
+
+[node name="ModeBox" type="PanelContainer" parent="Rows/Middle/Left"]
+custom_minimum_size = Vector2(0, 48)
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_modebox")
+
+[node name="ModeScroll" type="ScrollContainer" parent="Rows/Middle/Left/ModeBox"]
+horizontal_scroll_mode = 0
+
+[node name="Resources" type="PanelContainer" parent="Rows/Middle"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_resources")
+
+[node name="Bars" type="VBoxContainer" parent="Rows/Middle/Resources"]
+theme_override_constants/separation = 14
+
+[node name="Hp" parent="Rows/Middle/Resources/Bars" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="Ep" parent="Rows/Middle/Resources/Bars" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="Mp" parent="Rows/Middle/Resources/Bars" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="Lifepath" type="VBoxContainer" parent="Rows/Middle"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Head" type="HBoxContainer" parent="Rows/Middle/Lifepath"]
+mouse_filter = 2
+
+[node name="Caption" type="Label" parent="Rows/Middle/Lifepath/Head"]
+mouse_filter = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PanelTitle"
+text = "Lifepath"
+
+[node name="Count" type="Label" parent="Rows/Middle/Lifepath/Head"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("10")
+theme_override_font_sizes/font_size = 11
+text = "0/8"
+horizontal_alignment = 2
+
+[node name="Scroll" type="ScrollContainer" parent="Rows/Middle/Lifepath"]
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Chips" type="VBoxContainer" parent="Rows/Middle/Lifepath/Scroll"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Chip1" parent="Rows/Middle/Lifepath/Scroll/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip2" parent="Rows/Middle/Lifepath/Scroll/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip3" parent="Rows/Middle/Lifepath/Scroll/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip4" parent="Rows/Middle/Lifepath/Scroll/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip5" parent="Rows/Middle/Lifepath/Scroll/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip6" parent="Rows/Middle/Lifepath/Scroll/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip7" parent="Rows/Middle/Lifepath/Scroll/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip8" parent="Rows/Middle/Lifepath/Scroll/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Fields" type="GridContainer" parent="Rows"]
+columns = 3
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+
+[node name="Employment" parent="Rows/Fields" instance=ExtResource("4")]
+layout_mode = 2
+size_flags_horizontal = 3
+caption = "Employment"
+
+[node name="Opinion" parent="Rows/Fields" instance=ExtResource("4")]
+layout_mode = 2
+size_flags_horizontal = 3
+caption = "Guild Opinion"
+
+[node name="Status" parent="Rows/Fields" instance=ExtResource("4")]
+layout_mode = 2
+size_flags_horizontal = 3
+caption = "Status"
+
+[node name="Groups" type="HBoxContainer" parent="Rows"]
+theme_override_constants/separation = 18
+
+[node name="Knowledges" type="VBoxContainer" parent="Rows/Groups"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Head" type="HBoxContainer" parent="Rows/Groups/Knowledges"]
+mouse_filter = 2
+
+[node name="Caption" type="Label" parent="Rows/Groups/Knowledges/Head"]
+mouse_filter = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PanelTitle"
+text = "Knowledges"
+
+[node name="Count" type="Label" parent="Rows/Groups/Knowledges/Head"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("10")
+theme_override_font_sizes/font_size = 11
+text = "0/6"
+horizontal_alignment = 2
+
+[node name="Chips" type="GridContainer" parent="Rows/Groups/Knowledges"]
+columns = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="Chip1" parent="Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip2" parent="Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip3" parent="Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip4" parent="Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip5" parent="Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip6" parent="Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Tools" type="VBoxContainer" parent="Rows/Groups"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Head" type="HBoxContainer" parent="Rows/Groups/Tools"]
+mouse_filter = 2
+
+[node name="Caption" type="Label" parent="Rows/Groups/Tools/Head"]
+mouse_filter = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PanelTitle"
+text = "Tools"
+
+[node name="Count" type="Label" parent="Rows/Groups/Tools/Head"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("10")
+theme_override_font_sizes/font_size = 11
+text = "0/6"
+horizontal_alignment = 2
+
+[node name="Chips" type="GridContainer" parent="Rows/Groups/Tools"]
+columns = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="Chip1" parent="Rows/Groups/Tools/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip2" parent="Rows/Groups/Tools/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip3" parent="Rows/Groups/Tools/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip4" parent="Rows/Groups/Tools/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip5" parent="Rows/Groups/Tools/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Chip6" parent="Rows/Groups/Tools/Chips" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Tip" parent="Rows" instance=ExtResource("6")]
+layout_mode = 2

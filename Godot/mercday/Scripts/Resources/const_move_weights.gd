@@ -12,6 +12,7 @@ const MOVE_CLOSE_WEIGHTS: Dictionary = {
 	"angle_diversity":       1.2,
 	"corridor_crowded":     -0.8,
 	"pace_block":           -1.2,
+	"leader_aura":           1.0,
 }
 
 const MOVE_FAR_WEIGHTS: Dictionary = {

@@ -1,4 +1,6 @@
-Area Name	Area Type	Flat %	Gentle %	Hilly %	Rough %	Extreme %	Mountainous %	F+	F-	Terrain	Vegetation	Furniture	Structures	Rooms	Terrain Amt	Vegetation Amt	Furniture Amt	Structure Amt	Min Size	Max Size
-Desert Plain	Exterior	25%	25%	25%	25%	0%	0%	0	0	Crevasse, Ditch, Sandbank, Rock Pile, Hill	Brambles, Cactus				Low	Sparse				
-Arctic Mountain	Exterior	0%	0%	0%	25%	25%	50%	0	0	Boulder, Cliff Edge, Crevasse, Pit, Rock Pile, Trench	Pine Tree				High	Low				
-Tavern	Interior	0%	0%	0%	0%	0%	0%	3	1			Table, Stool, Wooden Chair, Bench, Pillar		Balcony, Basement, Bathroom, Bedroom, Dining Area, Kitchen, Pantry, Patio			High		18	22
+Area Name	Area Type	Flat %	Gentle %	Hilly %	Rough %	Extreme %	Mountainous %	F+	F-	Terrain	Vegetation	Furniture	Structures	Rooms	Terrain Amt	Vegetation Amt	Furniture Amt	Structure Amt	Min Size	Max Size	Environments
+Desert Plain	Exterior	25%	25%	25%	25%	0%	0%	0	0	Crevasse, Ditch, Sandbank, Rock Pile, Hill	Brambles, Cactus				Low	Sparse					Desert 100, Plain 100, Volcanic 60, Marsh 40, Forest 40
+Arctic Mountain	Exterior	0%	0%	0%	25%	25%	50%	0	0	Boulder, Cliff Edge, Crevasse, Pit, Rock Pile, Trench	Pine Tree				High	Low					Snowy 100, Mountain 100, Forest 40, Volcanic 40
+Cavern	Cavern	0%	0%	0%	0%	0%	0%	0	0	Stalagmite, Stalactite, Column, Rock Pile, Boulder					Average				30	45	Cavern 100, Mountain 20, Volcanic 20, Snowy 10, Desert 5, Forest 5
+Dungeon	Dungeon	0%	0%	0%	0%	0%	0%	0	3					Dungeon Hall (Narrow), Dungeon Hall (Wide), Dungeon Cell, Dungeon Foyer, Dungeon Kitchen, Dungeon Bedchamber, Dungeon Latrine, Dungeon Cafeteria, Dungeon Storage, Dungeon Guard Room, Dungeon Armory, Dungeon Torture Chamber, Dungeon Shrine			Average		20	40	Dungeon 100
+City Block	City	0%	0%	0%	0%	0%	0%	0	0		Grass, Bush, Shrub, Fern, Hedge, Oak Tree, Aspen Tree, Stump					Many			48	200	

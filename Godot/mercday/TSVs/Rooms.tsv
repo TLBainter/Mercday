@@ -1,0 +1,88 @@
+Name	Size X	Size Y	Room Type	Guaranteed Structures	Possible Structures	Possible Scatter	Growth %
+Bedroom	8	12	Interior Any	Bed	Sofa, Desk, Chest, Cabinet, Bookshelf	Potted Plant	5
+Dining Area	12	12	Interior Any	Bar, Table, Stool	Sofa, Pillar	Potted Plant, Broken Bottle	15
+Kitchen	8	12	Interior F0	Cabinet	Oven, Table, Barrel, Sack		5
+Pantry	1	2	Interior F0		Bookshelf, Barrel, Sack, Crate, Storage Rack		2
+Bathroom	4	4	Interior Any	Toilet		Potted Plant	2
+Patio	9	5	Exterior F0		Statue, Table, Stool, Bench	Potted Plant	10
+Balcony	6	3	Exterior F+		Bench, Table, Stool	Potted Plant	7
+Basement	16	16	Interior F-	Crate, Chest	Cabinet, Bookshelf, Pillar, Wardrobe		10
+Dungeon Hall (Narrow)	1	6	Dungeon Any				0
+Dungeon Hall (Wide)	2	8	Dungeon Any				0
+Dungeon Cell	2	2	Dungeon Any	Cot			50
+Dungeon Foyer	6	6	Dungeon F0		Pillar, Bench	Broken Bottle	20
+Dungeon Kitchen	6	8	Dungeon Any	Table, Cabinet	Barrel, Crate, Stool	Broken Bottle	15
+Dungeon Bedchamber	6	6	Dungeon Any	Bed	Chest, Wardrobe, Desk, Wooden Chair		15
+Dungeon Latrine	3	3	Dungeon Any	Toilet	Bucket		10
+Dungeon Cafeteria	8	10	Dungeon Any	Table, Bench	Stool, Barrel	Broken Bottle	15
+Dungeon Storage	5	6	Dungeon Any	Crate, Barrel	Chest, Bookshelf, Cabinet		20
+Dungeon Guard Room	5	6	Dungeon Any	Table	Weapon Rack, Stool, Wooden Chair, Chest	Broken Bottle	15
+Dungeon Armory	5	5	Dungeon Any	Weapon Rack	Chest, Crate, Barrel		15
+Dungeon Torture Chamber	6	7	Dungeon F-	Torture Rack	Brazier, Cage, Table		15
+Dungeon Shrine	5	7	Dungeon F-	Altar	Brazier, Pillar, Statue		15
+Stall	4	3	Interior F0	Shop Counter	Crate, Barrel, Basket, Sack		
+Cottage Room	10	12	Interior F0	Bed, Table, Hearth	Wooden Chair, Chest, Cabinet, Stool, Barrel, Wardrobe	Potted Plant	
+Loft	10	12	Interior F+	Bed	Chest, Crate, Wardrobe, Cradle, Desk		
+Living Room	10	10	Interior F0	Hearth, Table, Wooden Chair	Sofa, Bookshelf, Cabinet, Bench, Chest	Potted Plant	
+Dining Room	10	8	Interior F0	Long Table, Wooden Chair, Wooden Chair	Cabinet, Display Case, Bench, Wooden Chair	Potted Plant	
+Parlor	8	8	Interior Any	Sofa, Table	Bookshelf, Wooden Chair, Display Case, Hearth	Potted Plant	
+Study	6	8	Interior Any	Desk, Wooden Chair, Bookshelf	Bookshelf, Chest, Cabinet, Lectern	Potted Plant	
+Nursery	6	8	Interior F+	Cradle, Bed	Chest, Wardrobe, Wooden Chair	Potted Plant	
+Master Bedroom	10	12	Interior F+	Bed, Wardrobe, Chest	Sofa, Desk, Cabinet, Bookshelf, Wooden Tub	Potted Plant	
+Servants' Quarters	6	8	Interior Any	Cot, Cot	Chest, Stool, Bucket		
+Cellar	12	12	Interior F-	Barrel, Crate	Storage Rack, Sack, Chest, Barrel, Pillar		
+Smithy Shop	8	8	Interior F0	Shop Counter, Weapon Rack	Armor Stand, Weapon Rack, Display Shelf, Barrel, Stool		
+Smithy Forge	10	10	Interior F0	Forge, Anvil, Quench Trough, Workbench	Tool Rack, Coal Bin, Barrel, Crate, Weapon Rack, Bucket		
+Cobbler Shop	6	6	Interior F0	Shop Counter, Display Shelf	Stool, Bench, Display Shelf, Basket		
+Cobbler Workroom	6	6	Interior F0	Workbench, Stool	Tool Rack, Storage Rack, Crate, Barrel, Sack		
+Bakery Shop	6	6	Interior F0	Shop Counter, Display Shelf	Basket, Table, Stool, Barrel		
+Bakehouse	8	8	Interior F0	Oven, Table	Sack, Barrel, Storage Rack, Bucket, Crate		
+Apothecary Shop	6	6	Interior F0	Shop Counter, Herb Rack	Display Shelf, Cabinet, Stool, Basket	Potted Plant	
+Stillroom	6	8	Interior F0	Alchemy Bench	Herb Rack, Barrel, Cabinet, Bucket, Brazier, Crate	Potted Plant, Broken Bottle	
+Butcher Shop	6	6	Interior F0	Shop Counter, Meat Rack	Barrel, Basket, Chopping Block		
+Cutting Room	6	8	Interior F0	Chopping Block, Meat Rack, Table	Barrel, Bucket, Crate, Tool Rack		
+Store Front	8	10	Interior F0	Shop Counter, Display Shelf, Display Shelf	Barrel, Crate, Sack, Basket, Display Case, Table		
+Stockroom	6	8	Interior Any	Crate, Storage Rack	Barrel, Sack, Crate, Chest		
+Office	6	6	Interior Any	Desk, Wooden Chair	Bookshelf, Chest, Cabinet	Potted Plant	
+Reading Hall	12	12	Interior F0	Long Table, Wooden Chair, Lectern, Bookshelf, Bookshelf	Bookshelf, Table, Wooden Chair, Desk, Pillar, Display Case	Potted Plant	
+Stacks	8	10	Interior Any	Bookshelf, Bookshelf, Bookshelf	Bookshelf, Scroll Rack, Stool		
+Scriptorium	8	8	Interior Any	Desk, Desk, Wooden Chair	Scroll Rack, Lectern, Bookshelf, Cabinet		
+Archive	10	10	Interior F-	Scroll Rack, Chest	Bookshelf, Scroll Rack, Crate, Cabinet, Desk		
+Great Hall	14	16	Interior F0	Long Table, Bench, Bench, Hearth	Long Table, Bench, Pillar, Display Case, Notice Board, Statue, Wooden Chair	Potted Plant	
+Records Room	6	8	Interior Any	Bookshelf, Scroll Rack, Desk	Cabinet, Chest, Bookshelf		
+Meeting Room	8	10	Interior Any	Long Table, Wooden Chair, Wooden Chair	Wooden Chair, Cabinet, Notice Board, Bookshelf	Potted Plant	
+Armory	6	8	Interior Any	Weapon Rack, Armor Stand	Weapon Rack, Chest, Crate, Training Dummy		
+Vault	6	6	Interior F-	Chest, Chest	Crate, Cabinet, Display Case		
+Treasury	6	6	Interior Any	Chest, Desk	Chest, Cabinet, Display Case		
+Assembly Hall	14	16	Interior F0	Lectern, Pew, Pew, Pew, Pew	Pew, Pillar, Statue, Long Table, Notice Board	Potted Plant	
+Common Room	12	12	Interior F0	Bar, Table, Stool, Hearth	Table, Stool, Bench, Wooden Chair, Pillar, Barrel	Potted Plant, Broken Bottle	
+Guest Room	6	8	Interior F+	Bed, Chest	Wardrobe, Desk, Wooden Chair, Stool	Potted Plant	
+Innkeeper's Quarters	8	8	Interior Any	Bed, Desk	Chest, Wardrobe, Cabinet, Bookshelf		
+Guard Room	8	8	Interior F0	Table, Stool, Weapon Rack	Barrel, Crate, Bench, Chest, Brazier	Broken Bottle	
+Watch Room	8	8	Interior F+	Cot, Weapon Rack	Crate, Barrel, Cot, Stool, Chest		
+Lookout	8	8	Interior Top	Signal Bell, Brazier	Crate, Barrel, Stool		
+Nave	12	18	Interior F0	Altar, Pew, Pew, Pew, Pew, Lectern	Pew, Pillar, Brazier, Statue, Basin	Potted Plant	
+Vestry	6	6	Interior Any	Wardrobe, Chest	Cabinet, Desk, Bookshelf		
+Priest's Cell	5	6	Interior Any	Cot	Desk, Chest, Bookshelf, Stool		
+Shrine Alcove	5	5	Interior Any	Altar	Brazier, Bench, Basin		
+Reliquary	5	5	Interior Any	Display Case, Chest	Display Case, Brazier		
+Crypt	12	12	Interior F-	Sarcophagus, Sarcophagus	Sarcophagus, Pillar, Brazier, Altar		
+Shrine Room	5	6	Interior F0	Altar, Brazier	Bench, Basin, Statue	Potted Plant	
+Bunk Room	8	10	Interior Any	Cot, Cot, Cot, Cot, Chest	Cot, Chest, Weapon Rack, Stool		
+Mess Hall	12	12	Interior F0	Long Table, Bench, Bench	Long Table, Bench, Barrel, Hearth, Cabinet	Broken Bottle	
+Officer's Quarters	8	8	Interior Any	Bed, Desk, Chest	Wardrobe, Bookshelf, Weapon Rack, Armor Stand, Wooden Chair		
+Training Room	10	10	Interior F0	Training Dummy, Training Dummy, Weapon Rack	Training Dummy, Bench, Armor Stand, Barrel		
+Storage Floor	16	16	Interior F0	Crate, Crate, Crate, Barrel, Barrel, Storage Rack, Storage Rack	Crate, Barrel, Sack, Storage Rack, Pillar		
+Storage Loft	16	16	Interior F+	Crate, Sack	Crate, Barrel, Sack, Storage Rack		
+Loading Room	8	8	Interior F0	Crate, Barrel	Crate, Sack, Bench		
+Stalls	12	10	Interior F0	Water Trough, Hay Bale, Hay Bale, Bucket	Hay Bale, Water Trough, Barrel, Bucket, Sack		
+Tack Room	6	6	Interior Any	Tool Rack, Chest	Bench, Barrel, Crate, Sack		
+Feed Store	6	6	Interior F0	Sack, Hay Bale	Barrel, Crate, Sack		
+Hayloft	12	10	Interior F+	Hay Bale, Hay Bale, Hay Bale	Hay Bale, Sack, Crate		
+Bath Hall	12	12	Interior F0	Wooden Tub, Wooden Tub, Bench	Wooden Tub, Bench, Brazier, Bucket, Pillar	Potted Plant	
+Changing Room	6	8	Interior Any	Bench, Wardrobe	Cabinet, Stool, Bench		
+Steam Room	6	6	Interior Any	Brazier, Bench	Bench, Bucket		
+Boiler Room	8	8	Interior F-	Oven, Coal Bin	Barrel, Bucket, Crate		
+Work Floor	12	12	Interior F0	Workbench, Workbench, Sawhorse, Tool Rack	Workbench, Sawhorse, Lumber Pile, Crate, Barrel, Stool		
+Lumber Store	6	8	Interior F0	Lumber Pile, Lumber Pile	Lumber Pile, Crate, Sack		
+Shed Storage	6	5	Interior F0	Crate, Barrel	Sack, Tool Rack, Crate, Bucket, Storage Rack		
