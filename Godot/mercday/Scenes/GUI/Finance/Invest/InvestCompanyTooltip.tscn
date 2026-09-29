@@ -1,0 +1,161 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Finance/Invest/InvestCompanyTooltip.gd" id="1"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="2"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="3"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres" id="4"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/invest_face_box.tres" id="5"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/invest_contract_row.tres" id="6"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/invest_contract_row_hover.tres" id="7"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/StatTile.tscn" id="8"]
+
+[node name="InvestCompanyTooltip" type="Control"]
+custom_minimum_size = Vector2(290, 0)
+mouse_filter = 0
+script = ExtResource("1")
+
+[node name="Frame" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="Col" type="VBoxContainer" parent="Frame"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="TypeLabel" type="Label" parent="Frame/Col"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 8
+
+[node name="NameLabel" type="Label" parent="Frame/Col"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 14
+clip_text = true
+
+[node name="FaceBox" type="PanelContainer" parent="Frame/Col"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/panel = ExtResource("5")
+
+[node name="FaceSlot" type="CenterContainer" parent="Frame/Col/FaceBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="StatsRow" type="HBoxContainer" parent="Frame/Col"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Taken" parent="Frame/Col/StatsRow" instance=ExtResource("8")]
+layout_mode = 2
+size_flags_horizontal = 3
+compact = true
+show_glyph = false
+
+[node name="Succeeded" parent="Frame/Col/StatsRow" instance=ExtResource("8")]
+layout_mode = 2
+size_flags_horizontal = 3
+compact = true
+show_glyph = false
+
+[node name="Failed" parent="Frame/Col/StatsRow" instance=ExtResource("8")]
+layout_mode = 2
+size_flags_horizontal = 3
+compact = true
+show_glyph = false
+
+[node name="AcceptedLabel" type="Label" parent="Frame/Col"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 8
+text = "Last Accepted Contract"
+
+[node name="EmptyBox" type="MarginContainer" parent="Frame/Col"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="EmptyLabel" type="Label" parent="Frame/Col/EmptyBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("4")
+theme_override_font_sizes/font_size = 13
+text = "No accepted contracts yet."
+
+[node name="ContractRow" type="Button" parent="Frame/Col"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_styles/normal = ExtResource("6")
+theme_override_styles/hover = ExtResource("7")
+theme_override_styles/pressed = ExtResource("7")
+theme_override_styles/focus = ExtResource("6")
+
+[node name="Row" type="HBoxContainer" parent="Frame/Col/ContractRow"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = -6.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Hatch" type="TextureRect" parent="Frame/Col/ContractRow/Row"]
+custom_minimum_size = Vector2(40, 40)
+size_flags_vertical = 0
+mouse_filter = 2
+
+[node name="TextCol" type="VBoxContainer" parent="Frame/Col/ContractRow/Row"]
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="NameLabel" type="Label" parent="Frame/Col/ContractRow/Row/TextCol"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 11
+clip_text = true
+
+[node name="StatusLabel" type="Label" parent="Frame/Col/ContractRow/Row/TextCol"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("4")
+theme_override_font_sizes/font_size = 12
+clip_text = true
+
+[node name="ViewLabel" type="Label" parent="Frame/Col/ContractRow/Row/TextCol"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 8
+text = "View Contract >"
+
+[node name="HideTimer" type="Timer" parent="."]
+one_shot = true
+wait_time = 0.22

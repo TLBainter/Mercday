@@ -1,0 +1,40 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/OddJobCrew.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SendMercsPanel.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/PayMercsPanel.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/CrewMercPicker.tscn" id="4"]
+
+[node name="OddJobCrew" type="Control"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("1")
+
+[node name="Pad" type="MarginContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 3
+theme_override_constants/margin_bottom = 0
+
+[node name="Cols" type="HBoxContainer" parent="Pad"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="SendMercsPanel" parent="Pad/Cols" instance=ExtResource("2")]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
+
+[node name="PayCol" type="MarginContainer" parent="Pad/Cols"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.0
+
+[node name="PayMercsPanel" parent="Pad/Cols/PayCol" instance=ExtResource("3")]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Picker" parent="." instance=ExtResource("4")]

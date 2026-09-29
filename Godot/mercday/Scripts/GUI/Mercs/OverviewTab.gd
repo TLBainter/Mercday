@@ -1,8 +1,10 @@
 class_name OverviewTab extends ScrollContainer
 
-#The first tab: the tradition title row, the four attributes, one middle row holding the level
-#badge over its mode list, the resource bars and the scrolling lifepath list, then the captioned
-#info rows and the knowledge and tool chips. Lineage and salary live on the MercHeader.
+#The first tab: the tradition title row, the four attributes, one middle row holding the level badge
+#over the Coaching box, the resource bars and the scrolling lifepath list, then the captioned info
+#rows and the knowledge and tool chips. Lineage and salary live on the MercHeader. Three of these
+#sections are sold by an upgrade, so each keeps a LockBlock beside it: the block decides for itself
+#whether its key is met, and this page only swaps the real list for it.
 
 const EMPTY_TEXT: String = "None"
 const LIFEPATH_SLOTS: int = 8
@@ -14,35 +16,38 @@ const LIFEPATH_KIND: String = "Lifepath Event"
 const KNOWLEDGE_KIND: String = "Knowledge"
 const TOOL_KIND: String = "Tool"
 
-const MODE_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/LevelModeList.tscn")
+signal coach_pressed
 
-signal level_mode_chosen(mode: String)
+@onready var title_row: TraditionModule = $Pad/Rows/TitleRow
+@onready var sigil_box: PanelContainer = $Pad/Rows/TitleRow/Row/SigilBox
+@onready var sigil: TraditionSigil = $Pad/Rows/TitleRow/Row/SigilBox/Center/Sigil
+@onready var tradition_label: Label = $Pad/Rows/TitleRow/Row/Name
+@onready var attributes: HBoxContainer = $Pad/Rows/Attributes
+@onready var middle: HBoxContainer = $Pad/Rows/Middle
+@onready var badge: LevelBadge = $Pad/Rows/Middle/Left/Badge
+@onready var coaching: CoachingBox = $Pad/Rows/Middle/Left/Coaching
+@onready var hp_bar: ResourceBar = $Pad/Rows/Middle/Resources/Bars/Hp
+@onready var ep_bar: ResourceBar = $Pad/Rows/Middle/Resources/Bars/Ep
+@onready var mp_bar: ResourceBar = $Pad/Rows/Middle/Resources/Bars/Mp
+@onready var fields: GridContainer = $Pad/Rows/Fields
+@onready var employment_field: InfoField = $Pad/Rows/Fields/Employment
+@onready var opinion_field: InfoField = $Pad/Rows/Fields/Opinion
+@onready var status_field: InfoField = $Pad/Rows/Fields/Status
+@onready var lifepath_scroll: ScrollContainer = $Pad/Rows/Middle/Lifepath/Scroll
+@onready var lifepath_lock: LockBlock = $Pad/Rows/Middle/Lifepath/Lock
+@onready var lifepath_list: VBoxContainer = $Pad/Rows/Middle/Lifepath/Scroll/Pad/Chips
+@onready var lifepath_count: Label = $Pad/Rows/Middle/Lifepath/Head/Count
+@onready var knowledge_grid: GridContainer = $Pad/Rows/Groups/Knowledges/Chips
+@onready var knowledge_lock: LockBlock = $Pad/Rows/Groups/Knowledges/Lock
+@onready var knowledge_count: Label = $Pad/Rows/Groups/Knowledges/Head/Count
+@onready var tool_grid: GridContainer = $Pad/Rows/Groups/Tools/Chips
+@onready var tool_lock: LockBlock = $Pad/Rows/Groups/Tools/Lock
+@onready var tool_count: Label = $Pad/Rows/Groups/Tools/Head/Count
+@onready var tip: SlotTooltip = $Pad/Rows/Tip
 
-@onready var title_row: TraditionModule = $Rows/TitleRow
-@onready var sigil_box: PanelContainer = $Rows/TitleRow/Row/SigilBox
-@onready var sigil: TraditionSigil = $Rows/TitleRow/Row/SigilBox/Center/Sigil
-@onready var tradition_label: Label = $Rows/TitleRow/Row/Name
-@onready var attributes: HBoxContainer = $Rows/Attributes
-@onready var middle: HBoxContainer = $Rows/Middle
-@onready var badge: LevelBadge = $Rows/Middle/Left/Badge
-@onready var mode_scroll: ScrollContainer = $Rows/Middle/Left/ModeBox/ModeScroll
-@onready var hp_bar: ResourceBar = $Rows/Middle/Resources/Bars/Hp
-@onready var ep_bar: ResourceBar = $Rows/Middle/Resources/Bars/Ep
-@onready var mp_bar: ResourceBar = $Rows/Middle/Resources/Bars/Mp
-@onready var fields: GridContainer = $Rows/Fields
-@onready var employment_field: InfoField = $Rows/Fields/Employment
-@onready var opinion_field: InfoField = $Rows/Fields/Opinion
-@onready var status_field: InfoField = $Rows/Fields/Status
-@onready var lifepath_list: VBoxContainer = $Rows/Middle/Lifepath/Scroll/Chips
-@onready var lifepath_count: Label = $Rows/Middle/Lifepath/Head/Count
-@onready var knowledge_grid: GridContainer = $Rows/Groups/Knowledges/Chips
-@onready var knowledge_count: Label = $Rows/Groups/Knowledges/Head/Count
-@onready var tool_grid: GridContainer = $Rows/Groups/Tools/Chips
-@onready var tool_count: Label = $Rows/Groups/Tools/Head/Count
-@onready var tip: SlotTooltip = $Rows/Tip
-
-var mode_list: LevelModeList = null
 var view: MercView = null
+#An applicant is not on the payroll, so coaching is on the page but out of reach.
+var applicant_mode: bool = false
 
 
 func _ready() -> void:
@@ -50,13 +55,20 @@ func _ready() -> void:
 	ep_bar.fill_color = EP_COLOR
 	mp_bar.fill_color = MP_COLOR
 	title_row.empty_text = EMPTY_TEXT
-	mode_list = MODE_SCENE.instantiate()
-	mode_scroll.add_child(mode_list)
-	mode_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mode_list.mode_chosen.connect(_on_mode_chosen)
+	coaching.coach_pressed.connect(_on_coach_pressed)
+	coaching.hover_started.connect(_on_coach_entered)
+	coaching.hover_ended.connect(_on_chip_exited)
+	if not SubscriptionManager.changed.is_connected(_apply_locks):
+		SubscriptionManager.changed.connect(_apply_locks)
 	_wire_chips(lifepath_list)
 	_wire_chips(knowledge_grid)
 	_wire_chips(tool_grid)
+	_apply_locks()
+
+
+func _exit_tree() -> void:
+	if SubscriptionManager.changed.is_connected(_apply_locks):
+		SubscriptionManager.changed.disconnect(_apply_locks)
 
 
 func set_view(new_view: MercView) -> void:
@@ -70,6 +82,7 @@ func set_view(new_view: MercView) -> void:
 	badge.level = view.level
 	badge.current_xp = view.xp
 	badge.next_level_xp = ExperienceSystem.xp_for_level(view.level + 1)
+	coaching.set_merc(view.uid, not applicant_mode)
 	for box: AttributeBox in attribute_boxes():
 		var entry: Dictionary = view.attributes.get(box.attribute_key, {})
 		box.set_attribute(box.attribute_key, entry)
@@ -79,11 +92,34 @@ func set_view(new_view: MercView) -> void:
 	employment_field.value = employment_text(view.employment_months)
 	opinion_field.value = "%+d" % view.guild_opinion
 	status_field.value = status_text(view)
-	mode_list.set_mode(view.level_mode)
 	_fill_chips(lifepath_list, view.lifepaths, LIFEPATH_KIND)
 	_fill_names(knowledge_grid, view.knowledges, KNOWLEDGE_KIND)
 	_fill_names(tool_grid, view.tools, TOOL_KIND)
 	_update_counts()
+	_apply_locks()
+
+
+#Greys the Coaching box and takes it out of reach; the rest of the page reads the same.
+func set_applicant_mode(on: bool) -> void:
+	applicant_mode = on
+	if not is_node_ready():
+		return
+	coaching.greyed = on
+	coaching.employed = not on
+
+
+func coaching_box() -> CoachingBox:
+	return coaching
+
+
+func locks() -> Array[LockBlock]:
+	var out: Array[LockBlock] = []
+	if not is_node_ready():
+		return out
+	out.append(lifepath_lock)
+	out.append(knowledge_lock)
+	out.append(tool_lock)
+	return out
 
 
 #An empty roster leaves the page readable: the title row and the badge fall back to their blanks.
@@ -92,6 +128,24 @@ func _clear_view() -> void:
 	badge.level = 1
 	badge.current_xp = 0
 	badge.next_level_xp = 1
+	coaching.set_merc(0, not applicant_mode)
+
+
+#A sold section keeps its caption and its lock; the list and its count leave the page together.
+func _apply_locks() -> void:
+	if not is_node_ready():
+		return
+	var rows: Array = [
+		[lifepath_lock, lifepath_scroll, lifepath_count],
+		[knowledge_lock, knowledge_grid, knowledge_count],
+		[tool_lock, tool_grid, tool_count],
+	]
+	for row: Array in rows:
+		var block: LockBlock = row[0] as LockBlock
+		block.refresh()
+		var shut: bool = block.is_locked()
+		(row[1] as Control).visible = not shut
+		(row[2] as Control).visible = not shut
 
 
 func _update_counts() -> void:
@@ -195,5 +249,11 @@ func _on_chip_exited() -> void:
 	tip.hide_tip()
 
 
-func _on_mode_chosen(mode: String) -> void:
-	level_mode_chosen.emit(mode)
+func _on_coach_entered(box: CoachingBox) -> void:
+	tip.set_slot(box.tip_kind(), box.tip_title(), box.tip_desc())
+	tip.show_at(box, get_global_rect())
+
+
+func _on_coach_pressed() -> void:
+	tip.hide_tip()
+	coach_pressed.emit()

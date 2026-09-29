@@ -2,7 +2,8 @@ class_name MetricList extends VBoxContainer
 
 #The metric toggles of one source, in MetricsHistory.defs order. Each source keeps its own active
 #set, so switching the graph tab back restores what was plotted there. The Contract source breaks
-#its rows into titled groups; the other two stay flat.
+#its rows into titled groups; the other two stay flat. A metric whose upgrade the guild has not
+#bought cannot be switched on, sinks to the bottom of its source and shows the lock on its row.
 
 const TOGGLE_SCENE := preload("res://Scenes/GUI/Metrics/MetricToggle.tscn")
 #README metric line palette; the def index within the source picks the colour.
@@ -29,6 +30,7 @@ var _focus_key: String = ""
 
 
 func _ready() -> void:
+	SubscriptionManager.changed.connect(_on_subscription_changed)
 	_rebuild()
 
 
@@ -42,6 +44,8 @@ func active_keys(source_name: String) -> Array[String]:
 
 func set_active(source_name: String, key: String, on: bool) -> void:
 	_ensure(source_name)
+	if on and locked_key(source_name, key):
+		return
 	var keys: Array[String] = _active[source_name]
 	if on and not keys.has(key):
 		keys.append(key)
@@ -61,7 +65,8 @@ func set_all(source_name: String, on: bool) -> void:
 	var keys: Array[String] = []
 	if on:
 		for def: MetricDef in defs_for(source_name):
-			keys.append(def.key)
+			if not MetricsLocks.metric_locked(def):
+				keys.append(def.key)
 	_active[source_name] = keys
 	if source_name == source:
 		for row: MetricToggle in _rows():
@@ -107,6 +112,31 @@ static func defs_for(source_name: String) -> Array[MetricDef]:
 	return out
 
 
+#One def of one source by key; null when the source does not carry it.
+static func def_for(source_name: String, key: String) -> MetricDef:
+	for def: MetricDef in defs_for(source_name):
+		if def.key == key:
+			return def
+	return null
+
+
+static func locked_key(source_name: String, key: String) -> bool:
+	return MetricsLocks.metric_locked(def_for(source_name, key))
+
+
+#The keys of one source in row order: the open rows in def order, then the locked ones.
+static func row_order(source_name: String) -> Array[String]:
+	var open_keys: Array[String] = []
+	var shut_keys: Array[String] = []
+	for def: MetricDef in defs_for(source_name):
+		if MetricsLocks.metric_locked(def):
+			shut_keys.append(def.key)
+		else:
+			open_keys.append(def.key)
+	open_keys.append_array(shut_keys)
+	return open_keys
+
+
 static func color_for(index: int) -> Color:
 	return Color(PALETTE[index % PALETTE.size()])
 
@@ -134,9 +164,32 @@ func _ensure(source_name: String) -> void:
 		return
 	var keys: Array[String] = []
 	for def: MetricDef in defs_for(source_name):
-		if keys.size() < DEFAULT_ACTIVE:
+		if keys.size() < DEFAULT_ACTIVE and not MetricsLocks.metric_locked(def):
 			keys.append(def.key)
 	_active[source_name] = keys
+
+
+#Drops every key the subscription closed from the plotted set of one source.
+func _prune(source_name: String) -> bool:
+	_ensure(source_name)
+	var keys: Array[String] = _active[source_name]
+	var kept: Array[String] = []
+	for key: String in keys:
+		if not locked_key(source_name, key):
+			kept.append(key)
+	if kept.size() == keys.size():
+		return false
+	_active[source_name] = kept
+	return true
+
+
+func _on_subscription_changed() -> void:
+	var dropped: bool = false
+	for source_name: Variant in _active.keys():
+		dropped = _prune(String(source_name)) or dropped
+	_rebuild()
+	if dropped:
+		metrics_changed.emit(source)
 
 
 func _order(source_name: String) -> void:
@@ -165,8 +218,13 @@ func _rebuild() -> void:
 		child.queue_free()
 	var keys: Array[String] = _active[source]
 	var defs: Array[MetricDef] = defs_for(source)
+	var order: Array[String] = row_order(source)
 	var last_group: String = ""
-	for i: int in defs.size():
+	for key: String in order:
+		var i: int = _index_of(defs, key)
+		if i < 0:
+			continue
+		var shut: bool = MetricsLocks.metric_locked(defs[i])
 		var group: String = group_of(source, defs[i].key)
 		if group != "" and group != last_group:
 			add_child(_header(group))
@@ -174,10 +232,18 @@ func _rebuild() -> void:
 		var row: MetricToggle = TOGGLE_SCENE.instantiate()
 		add_child(row)
 		row.set_metric(defs[i].key, defs[i].label, color_for(i), defs[i].description)
-		row.set_on(keys.has(defs[i].key))
+		row.set_locked(shut, MetricsLocks.metric_lock(defs[i]))
+		row.set_on(keys.has(defs[i].key) and not shut)
 		row.set_focused(defs[i].key == _focus_key)
 		row.toggled.connect(_on_row_toggled.bind(defs[i].key))
 		row.focus_requested.connect(_on_row_focus.bind(defs[i].key))
+
+
+static func _index_of(defs: Array[MetricDef], key: String) -> int:
+	for i: int in defs.size():
+		if defs[i].key == key:
+			return i
+	return -1
 
 
 func _on_row_toggled(on: bool, key: String) -> void:

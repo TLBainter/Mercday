@@ -14,10 +14,10 @@ const QUIVER_FIRST: int = 6
 const QUIVER_COUNT: int = 2
 const SLOT_COUNT: int = 32
 
-@onready var worn_grid: GridContainer = $Rows/TopRow/Worn/Grid
-@onready var container_grid: GridContainer = $Rows/TopRow/Containers/Grid
-@onready var carried_grid: GridContainer = $Rows/Carried/Grid
-@onready var weight_bar: WeightBar = $Rows/Weight
+@onready var worn_grid: GridContainer = $Pad/Rows/TopRow/Worn/Grid
+@onready var container_grid: GridContainer = $Pad/Rows/TopRow/Containers/Grid
+@onready var carried_grid: GridContainer = $Pad/Rows/Carried/Grid
+@onready var weight_bar: WeightBar = $Pad/Rows/Weight
 
 var view: MercView = null
 var dropped: int = 0

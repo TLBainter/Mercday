@@ -9,7 +9,7 @@ const CHIP_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/SlotChip.tscn")
 
 @onready var caption_label: Label = $Caption
 @onready var scroll: ScrollContainer = $Scroll
-@onready var rows: VBoxContainer = $Scroll/Rows
+@onready var rows: VBoxContainer = $Scroll/Pad/Rows
 @onready var empty_label: Label = $Empty
 
 var caption: String = ""

@@ -1,0 +1,65 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mercs/CoachingBox.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/IconRect.tscn" id="2"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="4"]
+
+[node name="CoachingBox" type="VBoxContainer"]
+mouse_filter = 1
+theme_override_constants/separation = 4
+script = ExtResource("1")
+
+[node name="Caption" type="Label" parent="."]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 9
+text = "Coaching"
+
+[node name="Coach" parent="." instance=ExtResource("4")]
+custom_minimum_size = Vector2(0, 40)
+min_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_vertical = 0
+kind = &"blue"
+text = ""
+
+[node name="Row" type="HBoxContainer" parent="Coach"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="Icon" parent="Coach/Row" instance=ExtResource("2")]
+layout_mode = 2
+mouse_filter = 2
+size_flags_vertical = 4
+pixel_scale = 2
+
+[node name="Text" type="Label" parent="Coach/Row"]
+layout_mode = 2
+mouse_filter = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 11
+text = "Coach"
+
+[node name="Plan" type="HBoxContainer" parent="."]
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Prefix" type="Label" parent="Plan"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_font_sizes/font_size = 12
+text = "Plan:"
+
+[node name="Mode" type="Label" parent="Plan"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_font_sizes/font_size = 12
+text = "Auto"

@@ -1,0 +1,35 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Clients/ClientFilterButton.gd" id="1"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="2"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/client_popup.tres" id="3"]
+
+[node name="ClientFilterButton" type="Button"]
+custom_minimum_size = Vector2(0, 26)
+theme_override_constants/h_separation = 8
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 10
+text = "Filter"
+script = ExtResource("1")
+
+[node name="Menu" type="PopupPanel" parent="."]
+theme_override_styles/panel = ExtResource("3")
+
+[node name="Box" type="VBoxContainer" parent="Menu"]
+theme_override_constants/separation = 8
+
+[node name="Scroll" type="ScrollContainer" parent="Menu/Box"]
+custom_minimum_size = Vector2(210, 0)
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Menu/Box/Scroll"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Reset" type="Button" parent="Menu/Box"]
+custom_minimum_size = Vector2(60, 24)
+size_flags_horizontal = 0
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 10
+text = "RESET"

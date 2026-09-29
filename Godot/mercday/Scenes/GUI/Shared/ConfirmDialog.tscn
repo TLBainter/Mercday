@@ -20,10 +20,10 @@ theme_type_variation = &"PopupBox"
 custom_minimum_size = Vector2(460, 0)
 
 [node name="Pad" type="MarginContainer" parent="Box"]
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
 
 [node name="Rows" type="VBoxContainer" parent="Box/Pad"]
 theme_override_constants/separation = 14

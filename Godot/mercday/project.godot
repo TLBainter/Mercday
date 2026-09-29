@@ -23,6 +23,15 @@ MercPool="*res://Scripts/Autoloads/MercPool.gd"
 MetricsHistory="*res://Scripts/GUI/Autoloads/MetricsHistory.gd"
 SubscriptionManager="*res://Scripts/GUI/Autoloads/SubscriptionManager.gd"
 GameState="*res://Scripts/GUI/Autoloads/GameState.gd"
+PulseClock="*res://Scripts/GUI/Autoloads/PulseClock.gd"
+NotificationCenter="*res://Scripts/GUI/Autoloads/NotificationCenter.gd"
+BazaarManager="*res://Scripts/GUI/Autoloads/BazaarManager.gd"
+LegalManager="*res://Scripts/GUI/Autoloads/LegalManager.gd"
+FinanceManager="*res://Scripts/GUI/Autoloads/FinanceManager.gd"
+PromotionsManager="*res://Scripts/GUI/Autoloads/PromotionsManager.gd"
+FinanceLedger="*res://Scripts/GUI/Autoloads/FinanceLedger.gd"
+BenefitsManager="*res://Scripts/GUI/Autoloads/BenefitsManager.gd"
+StockMarket="*res://Scripts/GUI/Autoloads/StockMarket.gd"
 
 [display]
 

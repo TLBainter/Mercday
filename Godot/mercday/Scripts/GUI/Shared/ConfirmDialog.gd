@@ -7,18 +7,18 @@ class_name ConfirmDialog extends Control
 signal confirmed
 signal cancelled
 signal chosen(index: int)
+signal shown
+signal dialog_hidden
 
 enum Severity {ORANGE, RED, GREEN, INFO}
 enum Kind {GO, BAD, WARN, NEUTRAL}
 
 const BUTTON_SIZE := Vector2(96.0, 32.0)
 const BOX_WIDTH := 460.0
-const DARK_INK := Color("#0a0f1c")
 const KIND_FILL: Array[Color] = [Color("#6cc36a"), Color("#e8583f"), Color("#2b4f8a"),
 	Color("#2b4f8a")]
-const BUTTON_EDGE := 3
-const BUTTON_PAD_X := 8.0
-const BUTTON_PAD_Y := 6.0
+#The shading palette of BevelButton each dialog kind is built from.
+const KIND_SHADE: Array[StringName] = [&"go", &"danger", &"blue", &"neutral"]
 const BOX_INSET := 4.0
 const BOX_BORDER := 4
 const BOX_BG := Color("#1a2b4d")
@@ -34,6 +34,8 @@ const ROLE_COLOR := Color("#f28c28")
 const STAT_LABEL_COLOR := Color("#9cc6ef")
 const SEVERITY_COLORS: Array[Color] = [Color("#f28c28"), Color("#e8583f"), Color("#6cc36a"),
 	Color("#9cc6ef")]
+const KICKER_COLOR := Color("#9cc6ef")
+const OUTCOME_BORDER := 3
 
 const FONT_BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
 const FONT_SMALL: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
@@ -66,6 +68,14 @@ var _stat_values: Array[Label] = []
 var _stat_glyphs: Array[NoteIcon] = []
 var _viewport_hook: Viewport = null
 var _base_box: StyleBoxFlat = null
+var _rich: ConfirmRich = null
+var _rich_box: VBoxContainer = null
+var _kicker_label: Label = null
+var _crew_box: VBoxContainer = null
+var _money_box: VBoxContainer = null
+var _money_labels: Array[Label] = []
+var _outcome_box: PanelContainer = null
+var _outcome_label: Label = null
 
 
 func _ready() -> void:
@@ -101,9 +111,11 @@ func ask(new_title: String, new_message: String, new_confirm_label: String = "Ye
 	_severity = new_severity
 	_team_rows = []
 	_stat_rows = []
+	_rich = null
 	_rebuild()
 	show()
 	GuiFrameStack.push(self)
+	shown.emit()
 
 
 func ask_buttons(new_title: String, new_message: String, labels: Array[String],
@@ -115,9 +127,11 @@ func ask_buttons(new_title: String, new_message: String, labels: Array[String],
 	_severity = new_severity
 	_team_rows = []
 	_stat_rows = []
+	_rich = null
 	_rebuild()
 	show()
 	GuiFrameStack.push(self)
+	shown.emit()
 
 
 #The dispatch recap: the team above the numbers, then the buttons. The last one continues.
@@ -131,9 +145,32 @@ func ask_recap(new_title: String, new_message: String, team_rows: Array[Dictiona
 	_severity = new_severity
 	_team_rows = team_rows
 	_stat_rows = stat_rows
+	_rich = null
 	_rebuild()
 	show()
 	GuiFrameStack.push(self)
+	shown.emit()
+
+
+#The rich recap for a spend or legal outcome: a kicker line, crew and money rows and an outcome
+#box, above the standard cancel and cta pair. cta carries the full button text the caller composed.
+func ask_rich(new_title: String, new_message: String, cta: String, rich: ConfirmRich,
+		kind: int = Kind.GO) -> void:
+	title = new_title
+	message = new_message
+	confirm_label = cta
+	cancel_label = "Cancel"
+	buttons = []
+	kinds = []
+	_confirm_kind = kind
+	_severity = Severity.ORANGE
+	_team_rows = []
+	_stat_rows = []
+	_rich = rich
+	_rebuild()
+	show()
+	GuiFrameStack.push(self)
+	shown.emit()
 
 
 func button_count() -> int:
@@ -189,6 +226,24 @@ func stat_has_glyph(i: int) -> bool:
 	return _stat_glyphs[i] != null
 
 
+func rich_kicker_text() -> String:
+	return _kicker_label.text if _kicker_label != null else ""
+
+
+func money_row_count() -> int:
+	if _money_box == null:
+		return 0
+	return _money_box.get_child_count()
+
+
+func outcome_text() -> String:
+	return _outcome_label.text if _outcome_label != null else ""
+
+
+func has_outcome_box() -> bool:
+	return _outcome_box != null
+
+
 func _rebuild() -> void:
 	if not is_node_ready():
 		return
@@ -198,6 +253,8 @@ func _rebuild() -> void:
 	_apply_severity()
 	_clear_recap()
 	_build_recap()
+	_clear_rich()
+	_build_rich()
 	for child: Node in button_row.get_children():
 		button_row.remove_child(child)
 		child.queue_free()
@@ -284,6 +341,94 @@ func _new_block() -> VBoxContainer:
 	return block
 
 
+func _clear_rich() -> void:
+	_money_labels.clear()
+	if _rich_box != null:
+		rows.remove_child(_rich_box)
+		_rich_box.queue_free()
+		_rich_box = null
+	_kicker_label = null
+	_crew_box = null
+	_money_box = null
+	_outcome_box = null
+	_outcome_label = null
+
+
+func _build_rich() -> void:
+	if _rich == null:
+		return
+	_rich_box = VBoxContainer.new()
+	_rich_box.add_theme_constant_override(&"separation", BLOCK_GAP)
+	if not _rich.kicker.is_empty():
+		_kicker_label = _row_label(_rich.kicker, FONT_SMALL, 9, KICKER_COLOR)
+		_rich_box.add_child(_kicker_label)
+	if not _rich.crew.is_empty():
+		_crew_box = _new_block()
+		for row: Dictionary in _rich.crew:
+			_crew_box.add_child(_team_row(row))
+		_rich_box.add_child(_crew_box)
+	if not _rich.money.is_empty():
+		_money_box = _new_block()
+		for row: Dictionary in _rich.money:
+			_money_box.add_child(_money_row(row))
+		_rich_box.add_child(_money_box)
+	if not _rich.outcome.is_empty():
+		_outcome_box = _build_outcome(_rich.outcome, _rich.outcome_ok)
+		_rich_box.add_child(_outcome_box)
+	rows.add_child(_rich_box)
+	rows.move_child(button_row, rows.get_child_count() - 1)
+
+
+func _money_row(row: Dictionary) -> PanelContainer:
+	var panel: PanelContainer = _row_panel(STAT_ROW_BG)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override(&"separation", ROW_GAP)
+	var caption: Label = _row_label(str(row.get("label", "")), FONT_SMALL, 9, STAT_LABEL_COLOR)
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(caption)
+	var tint: Color = NAME_COLOR
+	if row.get("tint") is Color:
+		tint = row["tint"]
+	var amount: Label = _row_label(str(int(row.get("amount", 0))), FONT_BODY, 14, tint)
+	line.add_child(amount)
+	_money_labels.append(amount)
+	var glyph := NoteIcon.new()
+	glyph.pixel_scale = 1
+	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(glyph)
+	panel.add_child(line)
+	return panel
+
+
+func _build_outcome(text: String, ok: bool) -> PanelContainer:
+	var tint: Color = KIND_FILL[Kind.GO] if ok else KIND_FILL[Kind.BAD]
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = STAT_ROW_BG
+	style.border_width_left = OUTCOME_BORDER
+	style.border_width_top = OUTCOME_BORDER
+	style.border_width_right = OUTCOME_BORDER
+	style.border_width_bottom = OUTCOME_BORDER
+	style.border_color = tint
+	style.content_margin_left = 10.0
+	style.content_margin_right = 10.0
+	style.content_margin_top = 8.0
+	style.content_margin_bottom = 8.0
+	panel.add_theme_stylebox_override(&"panel", style)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override(&"separation", ROW_GAP)
+	var icon := TextureRect.new()
+	icon.texture = GuiGlyphs.check(tint)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	icon.custom_minimum_size = Vector2(GuiGlyphs.CHECK_SIZE, GuiGlyphs.CHECK_SIZE)
+	line.add_child(icon)
+	_outcome_label = _row_label(text, FONT_BODY, 12, NAME_COLOR)
+	_outcome_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(_outcome_label)
+	panel.add_child(line)
+	return panel
+
+
 func _team_row(row: Dictionary) -> PanelContainer:
 	var panel: PanelContainer = _row_panel(TEAM_ROW_BG)
 	var line := HBoxContainer.new()
@@ -353,39 +498,18 @@ func _draw_edges() -> void:
 	edges.draw_rect(Rect2(span.x - EDGE_PX, 0.0, EDGE_PX, span.y), EDGE_LO)
 
 
+#Every dialog button is the core BevelButton scene, so the shading is the one the whole game uses.
 func _add_button(label: String, kind: int, target: Callable) -> void:
-	var b := Button.new()
-	b.text = label
-	b.custom_minimum_size = BUTTON_SIZE
-	if kind == Kind.GO:
-		b.theme_type_variation = &"ButtonGo"
-	elif kind != Kind.NEUTRAL:
-		var fill: Color = KIND_FILL[kind]
-		b.add_theme_stylebox_override(&"normal", _button_box(fill))
-		b.add_theme_stylebox_override(&"hover", _button_box(fill.lightened(0.12)))
-		b.add_theme_stylebox_override(&"pressed", _button_box(fill.darkened(0.15)))
-	var ink: Color = NAME_COLOR if kind == Kind.NEUTRAL else DARK_INK
-	b.add_theme_color_override(&"font_color", ink)
-	b.add_theme_color_override(&"font_hover_color", ink)
-	b.add_theme_color_override(&"font_pressed_color", ink)
+	var b: BevelButton = BevelButton.make(label, _shade_of(kind), BUTTON_SIZE)
 	b.pressed.connect(target)
 	button_row.add_child(b)
 	_button_kinds.append(kind)
 
 
-func _button_box(fill: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = DARK_INK
-	style.border_width_left = BUTTON_EDGE
-	style.border_width_top = BUTTON_EDGE
-	style.border_width_right = BUTTON_EDGE
-	style.border_width_bottom = BUTTON_EDGE
-	style.content_margin_left = BUTTON_PAD_X
-	style.content_margin_right = BUTTON_PAD_X
-	style.content_margin_top = BUTTON_PAD_Y
-	style.content_margin_bottom = BUTTON_PAD_Y
-	return style
+func _shade_of(kind: int) -> StringName:
+	if kind < 0 or kind >= KIND_SHADE.size():
+		return &"neutral"
+	return KIND_SHADE[kind]
 
 
 func _on_confirm() -> void:
@@ -406,6 +530,7 @@ func _on_choice(i: int) -> void:
 func _dismiss() -> void:
 	hide()
 	GuiFrameStack.remove(self)
+	dialog_hidden.emit()
 
 
 func _on_viewport_resized() -> void:

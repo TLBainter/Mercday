@@ -1,6 +1,10 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/SalaryDialog.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/PayrollStepper.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/FireConfirmDialog.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="4"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="5"]
 
 [node name="SalaryDialog" type="Control"]
 visible = false
@@ -14,75 +18,84 @@ anchor_bottom = 1.0
 theme_type_variation = &"BackdropPanel"
 
 [node name="Box" type="PanelContainer" parent="."]
-custom_minimum_size = Vector2(420, 0)
-offset_right = 420.0
+custom_minimum_size = Vector2(520, 0)
+offset_right = 520.0
 theme_type_variation = &"PopupBox"
 
 [node name="Pad" type="MarginContainer" parent="Box"]
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
 
 [node name="Rows" type="VBoxContainer" parent="Box/Pad"]
-theme_override_constants/separation = 8
+theme_override_constants/separation = 14
 
-[node name="Title" type="Label" parent="Box/Pad/Rows"]
-theme_type_variation = &"PanelTitle"
-horizontal_alignment = 1
-text = "Manage Salary"
+[node name="Kicker" type="Label" parent="Box/Pad/Rows"]
+text = "Adjust Salary"
 
 [node name="MercName" type="Label" parent="Box/Pad/Rows"]
-horizontal_alignment = 1
 
-[node name="Current" type="Label" parent="Box/Pad/Rows"]
-theme_type_variation = &"SmallLabel"
-horizontal_alignment = 1
-text = "Current: 0"
+[node name="Employed" type="Label" parent="Box/Pad/Rows"]
 
-[node name="Stepper" type="HBoxContainer" parent="Box/Pad/Rows"]
+[node name="Vacation" type="Label" parent="Box/Pad/Rows"]
+
+[node name="Faces" type="HBoxContainer" parent="Box/Pad/Rows"]
 alignment = 1
-theme_override_constants/separation = 12
+theme_override_constants/separation = 6
 
-[node name="Minus" type="Button" parent="Box/Pad/Rows/Stepper"]
-custom_minimum_size = Vector2(40, 40)
-theme_type_variation = &"ButtonNeutral"
-text = "-"
+[node name="Step" parent="Box/Pad/Rows" instance=ExtResource("2")]
+layout_mode = 2
 
-[node name="Value" type="Label" parent="Box/Pad/Rows/Stepper"]
-custom_minimum_size = Vector2(96, 0)
-theme_type_variation = &"BigNumber"
-horizontal_alignment = 1
-text = "0"
-
-[node name="Plus" type="Button" parent="Box/Pad/Rows/Stepper"]
-custom_minimum_size = Vector2(40, 40)
-theme_type_variation = &"ButtonNeutral"
-text = "+"
-
-[node name="Opinion" type="Label" parent="Box/Pad/Rows"]
-horizontal_alignment = 1
-text = "Opinion +0"
-
-[node name="Note" type="Label" parent="Box/Pad/Rows"]
-custom_minimum_size = Vector2(380, 0)
-theme_type_variation = &"SmallLabel"
-horizontal_alignment = 1
+[node name="LockLine" type="Label" parent="Box/Pad/Rows"]
 autowrap_mode = 3
+text = "Salary can only be changed while this merc is Available or Resting."
 
 [node name="Buttons" type="HBoxContainer" parent="Box/Pad/Rows"]
-alignment = 1
 theme_override_constants/separation = 12
 
-[node name="Confirm" type="Button" parent="Box/Pad/Rows/Buttons"]
-custom_minimum_size = Vector2(120, 34)
-theme_type_variation = &"ButtonGo"
+[node name="Cancel" parent="Box/Pad/Rows/Buttons" instance=ExtResource("4")]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 36)
+min_size = Vector2(0, 36)
+size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("5")
+theme_override_font_sizes/font_size = 12
+kind = &"blue"
+text = "Cancel"
+
+[node name="Confirm" parent="Box/Pad/Rows/Buttons" instance=ExtResource("4")]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 36)
+min_size = Vector2(0, 36)
+size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("5")
+theme_override_font_sizes/font_size = 12
+kind = &"orange"
 text = "Confirm"
 
-[node name="Cancel" type="Button" parent="Box/Pad/Rows/Buttons"]
-custom_minimum_size = Vector2(120, 34)
-theme_type_variation = &"ButtonNeutral"
-text = "Cancel"
+[node name="FireRow" type="HBoxContainer" parent="Box/Pad/Rows"]
+alignment = 2
+
+[node name="Fire" type="LinkButton" parent="Box/Pad/Rows/FireRow"]
+text = "Fire"
+
+[node name="Overlay" type="Control" parent="Box"]
+mouse_filter = 2
+
+[node name="Close" type="Button" parent="Box/Overlay"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -56.0
+offset_bottom = 56.0
+grow_horizontal = 0
+text = "X"
 
 [node name="Edges" type="Control" parent="Box"]
 mouse_filter = 2
+
+[node name="Fire" parent="." instance=ExtResource("3")]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0

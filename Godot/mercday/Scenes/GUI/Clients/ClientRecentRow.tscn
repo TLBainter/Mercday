@@ -1,0 +1,90 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Clients/ClientRecentRow.gd" id="1"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres" id="4"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_face"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.231373, 0.435294, 0.713725, 1)
+
+[node name="ClientRecentRow" type="Button"]
+custom_minimum_size = Vector2(0, 65)
+script = ExtResource("1")
+
+[node name="Row" type="HBoxContainer" parent="."]
+mouse_filter = 2
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = -6.0
+offset_bottom = -6.0
+theme_override_constants/separation = 8
+
+[node name="FaceHolder" type="Control" parent="Row"]
+custom_minimum_size = Vector2(40, 40)
+mouse_filter = 2
+size_flags_vertical = 4
+
+[node name="Fill" type="TextureRect" parent="Row/FaceHolder"]
+texture_filter = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Frame" type="Panel" parent="Row/FaceHolder"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_face")
+
+[node name="Names" type="VBoxContainer" parent="Row"]
+mouse_filter = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/separation = 4
+
+[node name="RowName" type="Label" parent="Row/Names"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 11
+clip_text = true
+text_overrun_behavior = 3
+
+[node name="Result" type="Label" parent="Row/Names"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.352941, 0.650980, 0.909804, 1)
+theme_override_fonts/font = ExtResource("4")
+theme_override_font_sizes/font_size = 12
+clip_text = true
+
+[node name="Link" type="HBoxContainer" parent="Row/Names"]
+mouse_filter = 2
+size_flags_horizontal = 0
+size_flags_vertical = 4
+theme_override_constants/separation = 4
+
+[node name="LinkText" type="Label" parent="Row/Names/Link"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 8
+text = "View Contract"
+vertical_alignment = 1
+
+[node name="Arrow" type="TextureRect" parent="Row/Names/Link"]
+custom_minimum_size = Vector2(14, 14)
+texture_filter = 1
+mouse_filter = 2
+size_flags_vertical = 4
+expand_mode = 1
+stretch_mode = 5

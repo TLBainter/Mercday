@@ -1,0 +1,34 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Promotions/UnitDropdown.gd" id="1"]
+
+[node name="UnitDropdown" type="Button"]
+custom_minimum_size = Vector2(128, 38)
+focus_mode = 0
+text = ""
+script = ExtResource("1")
+
+[node name="Row" type="HBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_right = -10.0
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="UnitName" type="Label" parent="Row"]
+mouse_filter = 2
+size_flags_horizontal = 3
+vertical_alignment = 1
+
+[node name="Caret" type="Label" parent="Row"]
+mouse_filter = 2
+vertical_alignment = 1
+
+[node name="Menu" type="PopupPanel" parent="."]
+
+[node name="List" type="VBoxContainer" parent="Menu"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0

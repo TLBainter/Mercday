@@ -4,6 +4,9 @@ class_name TooltipPanel extends PanelContainer
 #bounds. A viewer keeps one instance and moves it between anchors; subclasses add rows under Rows.
 
 const GAP: int = 4
+#A tooltip is the top of the whole z order: above every frame of GuiFrameStack and above the
+#money flight at 200.
+const TOOLTIP_Z: int = 250
 
 @onready var title_label: Label = $Rows/Title
 @onready var body_label: Label = $Rows/Body
@@ -12,7 +15,7 @@ const GAP: int = 4
 func _ready() -> void:
 	top_level = true
 	mouse_filter = MOUSE_FILTER_IGNORE
-	z_index = 100
+	z_index = TOOLTIP_Z
 	hide()
 
 

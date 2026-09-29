@@ -15,9 +15,9 @@ signal merc_selected(uid: int)
 @onready var title_label: Label = $Rows/Head/Title
 @onready var count_label: Label = $Rows/Head/Count
 @onready var sort_button: SortButton = $Rows/SortRow/Sort
-@onready var dir_toggle: DirToggle = $Rows/SortRow/Dir
+@onready var dir_toggle: SortDirToggle = $Rows/SortRow/Dir
 @onready var filter: FilterButton = $Rows/SortRow/Filter
-@onready var items: VBoxContainer = $Rows/Scroll/Items
+@onready var items: VBoxContainer = $Rows/Scroll/Pad/Items
 
 var views: Array[MercView] = []
 var selected_uid: int = 0

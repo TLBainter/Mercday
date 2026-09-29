@@ -1,7 +1,8 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/AttributeBox.gd" id="1"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FeatureLock.tscn" id="3"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_box"]
 bg_color = Color(0.054902, 0.086275, 0.156863, 1)
@@ -52,6 +53,17 @@ theme_override_font_sizes/font_size = 26
 text = "0"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="LockBox" type="PanelContainer" parent="Row"]
+visible = false
+custom_minimum_size = Vector2(56, 56)
+mouse_filter = 2
+size_flags_vertical = 4
+
+[node name="Lock" parent="Row/LockBox" instance=ExtResource("3")]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 
 [node name="Abbr" type="Label" parent="Row"]
 mouse_filter = 2

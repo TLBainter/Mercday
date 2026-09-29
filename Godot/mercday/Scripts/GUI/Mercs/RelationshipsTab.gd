@@ -16,7 +16,7 @@ const LAST_KEY: int = 1 << 30
 @onready var guild: GuildRelationshipCard = $GuildCard
 @onready var count_label: Label = $Head/Count
 @onready var sort_button: SortButton = $Head/Sort
-@onready var grid: GridContainer = $Scroll/Grid
+@onready var grid: GridContainer = $Scroll/Pad/Grid
 
 var view: MercView = null
 

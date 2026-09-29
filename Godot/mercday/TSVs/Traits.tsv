@@ -220,7 +220,7 @@ Merc	Lifepath	Perk	Something to Hold Onto	This merc is determined to aid and ado
 Merc	Lifepath	Perk	Something to Live For	This merc is determined to live to spend another day with [Beau]. So sweet!	stat:defend:+1	Very Rare	FALSE			
 Merc	Lifepath	Perk	Something to Wake Up To	This merc loves waking up to [Beau]. Aww!	on:beau_seen:has_trait:Heart-Eyed Bushy-Tailed:resource:excess_hp:+1	Very Rare	FALSE			
 Merc	Lifepath	Perk	Fable Mind	This merc has entered the bizarre realm of the Weird-Domain and it has sincerely warped their mind.	stat:weird:+25	Very Rare	FALSE			
-Merc	Lifepath	Perk	Literary Expert	This merc is extremely well-read, particularly in regard to works of fiction!	stat:max_cognition:+1	Very Rare	FALSE			
+Merc	Lifepath	Perk	Literary Expert	This merc is extremely well-read, particularly in regard to works of fiction!	stat:max_cognition:+1|grant:knowledge:Literature	Very Rare	FALSE			
 Merc	Lifepath	Perk	Polemologist	This merc is extremely well-read, particularly in regard to works of war!	stat:max_cognition:+1|grant:knowledge:Tactics	Very Rare	FALSE			
 Merc	Lifepath	Perk	Historian	This merc is extremely well-read, particularly in regard to works of history!	stat:max_cognition:+1|grant:knowledge:History	Very Rare	FALSE			
 Merc	Lifepath	Perk	Omnimancer	This merc is extremely well-read, particularly in regard to works of magical intrigue!	stat:max_cognition:+1|grant:knowledge:Magic	Very Rare	FALSE			

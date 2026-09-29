@@ -39,7 +39,14 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="Cards" type="GridContainer" parent="Rows/Scroll"]
+[node name="Pad" type="MarginContainer" parent="Rows/Scroll"]
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="Cards" type="GridContainer" parent="Rows/Scroll/Pad"]
 size_flags_horizontal = 3
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12

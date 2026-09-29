@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#060a14}a{color:#5aa6e8}a:hover{color:#f28c28}</style>
+</helmet>
+<div style="min-height:100vh;background:#060a14;color:#f3ead7;font-family:'Pixelify Sans',sans-serif;padding:28px;box-sizing:border-box;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:6px;max-width:760px">
+      <div style="font:700 24px Silkscreen;color:#f28c28">Icon Map</div>
+      <div style="font-size:15px;color:#a0a8b8;text-wrap:pretty">New atlas <span style="color:#f3ead7">merc-manager_ICON-COLLECTION.png</span> (16×40 cells of 16 px) against the old <span style="color:#f3ead7">icon_atlas_1x_16px_grid.png</span>. Each row: new icon, where it is used, and the old icon(s) it replaces. Orange rows need your confirmation.</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;flex-direction:column;gap:2px;padding:8px 12px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560"><span style="font:700 18px Silkscreen;color:#f3ead7">{{ nNew }}</span><span style="font-size:12px;color:#8a97ad">new icons</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px;padding:8px 12px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560"><span style="font:700 18px Silkscreen;color:#6cc36a">{{ nOk }}</span><span style="font-size:12px;color:#8a97ad">mapped</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px;padding:8px 12px;background:#0e1628;box-shadow:inset 0 0 0 2px #f28c28"><span style="font:700 18px Silkscreen;color:#f28c28">{{ nCheck }}</span><span style="font-size:12px;color:#8a97ad">to confirm</span></div>
+      <div style="display:flex;flex-direction:column;gap:2px;padding:8px 12px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560"><span style="font:700 18px Silkscreen;color:#e8583f">{{ nOrphan }}</span><span style="font-size:12px;color:#8a97ad">old, no match</span></div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+    <span style="font:400 11px Silkscreen;color:#8a97ad">Show</span>
+    <sc-for list="{{ filters }}" as="f" hint-placeholder-count="2">
+      <button onClick="{{ f.pick }}" style="height:30px;padding:0 12px;border:none;cursor:pointer;font:400 11px Silkscreen;background:{{ f.bg }};color:{{ f.fg }};box-shadow:inset 0 0 0 2px {{ f.ring }}">{{ f.label }}</button>
+    </sc-for>
+  </div>
+
+  <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="3">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:baseline;gap:10px;padding-bottom:4px;box-shadow:inset 0 -2px 0 #1f3560">
+        <span style="font:700 14px Silkscreen;color:#9cc6ef">{{ sec.title }}</span>
+        <span style="font-size:12px;color:#5e7699">{{ sec.sub }}</span>
+      </div>
+      <sc-for list="{{ sec.items }}" as="e" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:minmax(210px,1.1fr) minmax(0,1.6fr) minmax(0,1.4fr);gap:14px;align-items:start;padding:10px 12px;background:#0e1628;box-shadow:inset 3px 0 0 {{ e.accent }}">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0">
+            <div style="flex:none;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:#1a2440">
+              <div style="width:32px;height:32px;background-image:url(icon_sheet/merc-manager_ICON-COLLECTION.png);background-size:512px 1280px;background-position:{{ e.pos }};image-rendering:pixelated"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+              <span style="font-size:15px;color:#f3ead7">{{ e.name }}</span>
+              <span style="font:400 10px Silkscreen;color:#5e7699">cell {{ e.cell }}</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+            <span style="font:400 10px Silkscreen;color:#5e7699">Used on</span>
+            <span style="font-size:14px;color:#c8cdd8;text-wrap:pretty">{{ e.used }}</span>
+            <sc-if value="{{ e.hasNote }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size:13px;color:{{ e.noteColor }};text-wrap:pretty">{{ e.note }}</span>
+            </sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+            <span style="font:400 10px Silkscreen;color:#5e7699">Replaces</span>
+            <sc-if value="{{ e.noOld }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size:14px;color:#8a97ad">Nothing (new icon)</span>
+            </sc-if>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <sc-for list="{{ e.old }}" as="o" hint-placeholder-count="1">
+                <div style="display:flex;align-items:center;gap:6px;padding:3px 8px 3px 3px;background:#15223d">
+                  <div style="flex:none;width:32px;height:32px;background-image:url(icon_sheet/icon_atlas_1x_16px_grid.png);background-size:512px 1280px;background-position:{{ o.pos }};image-rendering:pixelated"></div>
+                  <div style="display:flex;flex-direction:column">
+                    <span style="font-size:13px;color:#f3ead7">{{ o.name }}</span>
+                    <span style="font:400 9px Silkscreen;color:#5e7699">old {{ o.cell }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-for>
+
+  <sc-if value="{{ showOrphans }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:baseline;gap:10px;padding-bottom:4px;box-shadow:inset 0 -2px 0 #1f3560">
+        <span style="font:700 14px Silkscreen;color:#e8583f">Old icons with no new match</span>
+        <span style="font-size:12px;color:#5e7699">Tell me which new icon to use, or if these are retired.</span>
+      </div>
+      <sc-for list="{{ orphans }}" as="o" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#0e1628;box-shadow:inset 3px 0 0 #e8583f">
+          <div style="flex:none;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:#1a2440"><div style="width:32px;height:32px;background-image:url(icon_sheet/icon_atlas_1x_16px_grid.png);background-size:512px 1280px;background-position:{{ o.pos }};image-rendering:pixelated"></div></div>
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+            <span style="font-size:15px;color:#f3ead7">{{ o.name }} <span style="font:400 10px Silkscreen;color:#5e7699">old {{ o.cell }}</span></span>
+            <span style="font-size:13px;color:#f28c28;text-wrap:pretty">{{ o.note }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { filter: 'all' };
+  // Old atlas names by cell (icon_sheet/ICON_INDEX.md).
+  oldNames = (() => {
+    const o = {}, add = (r, names) => names.forEach((n, c) => { if (n) o[c + ',' + r] = n; });
+    add(0, ['My Mercs', 'My Contracts', 'My Clients', 'My Promotions', 'My Mercday', 'My Finance', 'My Legal', 'My Bazaar', 'My Metrics']);
+    add(1, ['Notification bell', 'Settings gear', 'Speed · Slow Down', 'Speed · Pause', 'Speed · Play', 'Speed · Fast Forward', 'Speed · Faster']);
+    add(2, ['Window close']);
+    add(3, ['Merc · Overview', 'Merc · Skills', 'Merc · Perks', 'Merc · Drawbacks', 'Merc · Equipment', 'Merc · Relationships', 'Merc · Actions', 'Merc · Metrics']);
+    add(4, ['Metrics · Guild', 'Metrics · Contract', 'Metrics · Merc']);
+    add(5, ['Client · People', 'Client · Places', 'Client · Orgs']);
+    add(6, ['Finance · Overview', 'Finance · Payroll', 'Finance · Hiring', 'Finance · Invest', 'Finance · Loans']);
+    add(7, ['Free plan', 'Pro plan', 'Enterprise plan', 'Customize']);
+    add(8, ['Bazaar · Shop', 'Bazaar · Cart', 'Bazaar · Orders']);
+    add(9, ['Legal · Permits', 'Legal · Fines', 'Legal · Bailout']);
+    add(10, ['Job Ads', 'Guild Ads']);
+    add(11, ['Mercday logo', 'Base Plan (alt)']);
+    add(12, ['Limits (category)', 'Seats', 'Contracts (limit)']);
+    add(13, ['Coaching (category)', 'Perf. Improvement Plan', 'Combat PIP', 'Skill PIP', 'Magic PIP']);
+    add(14, ['Testing (category)', 'Aptitude Test', 'Brawn Test', 'Readiness Test', 'Personality Test', 'Skill Test', 'Education Exam']);
+    add(15, ['Insights (category)', 'Background Check', 'Criminal Bkg Check', 'Employee Survey', 'Peer Review', 'Customer Satisfaction', 'Rapid Survey', 'Contract Metrics', 'Merc Metrics', 'Metrics (old category)']);
+    add(16, ['Less Legal (category)', 'Discrimination', 'Odd Jobs', 'Who Knows a Guy']);
+    add(17, ['Legal (category)', 'Operations Permits', 'Teleportation Permit', 'Representation', 'Advisory Counsel']);
+    add(18, ['Bazaar (category)', 'Bazaar', 'Better Items', 'Faster Items']);
+    add(19, ['Promotions (category)', 'Promotions', 'Promo Methods', 'Long Promos', 'Marketing Agency', 'Guild Promo']);
+    add(20, ['−5', '−4', '−3', '−2', '−1', '±0 Neutral', '+1', '+2', '+3', '+4', '+5']);
+    add(21, ['Mood · Angry', 'Mood · Frustrated', 'Mood · Neutral', 'Mood · Okay', 'Mood · Happy']);
+    add(22, ['Face · unselected']);
+    add(23, ['PIP · Auto', 'PIP · Random', 'PIP · Utility', 'PIP · Stats']);
+    add(24, ['PIP · Support', 'PIP · Defensive', 'PIP · Offensive']);
+    add(25, ['PIP · Skills', 'PIP · Existing Skills', 'PIP · New Skills', 'PIP · Universal', 'PIP · Ancestral', 'PIP · Tradition', 'PIP · Spell']);
+    add(26, ['Coach whistle']);
+    add(27, ['Word of Mouth', 'Flyers', 'Direct Sale', 'Radio', 'Sponsorship']);
+    add(28, ['Applicants (orange)', 'View applicant (eye)']);
+    add(29, ['Status · Completed', 'Status · Rejected', 'Status · Expired']);
+    add(30, ['Check 9×9', 'Check 9×9 (confirm)', 'Check 7×7', 'X 10×10', 'X 9×9', 'X 7×7', 'Alert (!)']);
+    add(31, ['Lock']);
+    add(32, ['Notification dot', 'Pulse ring 8', 'Pulse ring 10', 'Pulse ring 12', 'Pulse ring 14']);
+    add(33, ['Arrow up', 'Arrow diagonal']);
+    add(34, ['Note (currency)', 'Star 9×9', 'Star 7×7']);
+    add(35, ['Tradition sigil (sword)', 'Crew slot · required', 'Crew slot · optional', 'Crew slot · unavailable']);
+    add(36, ['Scroll', 'Search']);
+    add(37, ['Dropdown caret', 'Sort ascending', 'Sort descending', 'Filter', 'Group expand ▶', 'Group collapse ▼']);
+    add(38, ['Plus', 'Minus']);
+    add(39, ['Results ready “!”', 'Failed (skull)', 'Deceased overlay', 'Captured overlay']);
+    return o;
+  })();
+  // [col, row, name, used on, [old cells], note, status] · status: 'check' needs confirmation.
+  map = [
+    [0, 0, 'Mercs', 'Game HUD menu 1 · My Mercs; Metrics Viewer › Merc tab', ['0,0', '2,4']],
+    [1, 0, 'Contracts', 'Game HUD menu 2 · My Contracts; Metrics Viewer › Contract tab', ['1,0', '1,4']],
+    [2, 0, 'Clients', 'Game HUD menu 3 · My Clients', ['2,0']],
+    [3, 0, 'Promotions (orange megaphone)', 'Game HUD menu 4 · My Promotions', ['3,0']],
+    [4, 0, 'Mercday', 'Game HUD menu 5 · My Mercday; Customize tree › Base Plan node and Mercday branding', ['4,0', '0,11']],
+    [5, 0, 'Finance', 'Game HUD menu 6 · My Finance (replaces the scaled-up Note glyph)', ['5,0']],
+    [6, 0, 'Legal (gavel)', 'Game HUD menu 7 · My Legal', ['6,0']],
+    [7, 0, 'Bazaar (stall)', 'Game HUD menu 8 · My Bazaar', ['7,0']],
+    [8, 0, 'Metrics', 'Game HUD menu 9 · My Metrics; Merc Viewer › Metrics tab', ['8,0', '7,3']],
+    [9, 0, 'Notification bell', 'Game HUD top bar', ['0,1']],
+    [10, 0, 'Settings gear', 'Game HUD top bar', ['1,1']],
+    [11, 0, 'Notification dot', 'Notification Dot (tinted)', ['0,32']],
+    [12, 0, 'Pulse ring 8', 'Notification Dot pulse frame', ['1,32']],
+    [13, 0, 'Pulse ring 10', 'Notification Dot pulse frame', ['2,32']],
+    [14, 0, 'Pulse ring 12', 'Notification Dot pulse frame', ['3,32']],
+    [15, 0, 'Pulse ring 14', 'Notification Dot pulse frame', ['4,32']],
+    [0, 1, 'Speed · Slow Down', 'Game HUD bottom bar', ['2,1']],
+    [1, 1, 'Speed · Pause', 'Game HUD bottom bar', ['3,1']],
+    [2, 1, 'Speed · Play', 'Game HUD bottom bar', ['4,1']],
+    [3, 1, 'Speed · Fast Forward', 'Game HUD bottom bar', ['5,1']],
+    [4, 1, 'Speed · Faster', 'Game HUD bottom bar', ['6,1']],
+    [5, 1, 'Caret down', 'All dropdowns; sort toggle descending (orange tint); filter group collapse ▼', ['0,37', '2,37', '5,37']],
+    [6, 1, 'Caret up', 'Sort toggle ascending (blue tint)', ['1,37']],
+    [7, 1, 'Caret right', 'Filter group expand ▶ (Promotions, Hiring)', ['4,37']],
+    [8, 1, 'Caret left', 'Left scroll arrow on horizontal scrollbars (only use)', [], 'New. No old equivalent.'],
+    [9, 1, 'Filter', 'All filter buttons', ['3,37']],
+    [10, 1, 'Plus', 'Quantity Stepper; New Campaign; Request a Loan', ['0,38']],
+    [11, 1, 'Minus', 'Quantity Stepper', ['1,38']],
+    [12, 1, 'Trend up', 'Finance Viewer trends', ['0,33']],
+    [13, 1, 'Trend diagonal up', 'Finance Viewer trends', ['1,33']],
+    [14, 1, 'Trend diagonal down', 'Finance Viewer trends (was a runtime flip of the diagonal)', ['1,33']],
+    [15, 1, 'Trend down', 'Finance Viewer trends (was a runtime flip of Arrow up)', ['0,33']],
+    [0, 2, 'X (large)', 'Window close on all windows; Contract Viewer X; Contract Viewer › status Completed (Failed)', ['0,2', '3,30', '1,39'], 'Replaces the skull as the claimed-Failed contract mark.'],
+    [1, 2, 'Check (large)', 'Contract Viewer › status Completed (Success)', ['0,29']],
+    [2, 2, 'X (small)', 'Legal X; Subscription Viewer feature X', ['4,30', '5,30']],
+    [3, 2, 'Check (small)', 'Legal check + confirm; Subscription Viewer feature check', ['0,30', '1,30', '2,30']],
+    [4, 2, 'Alert “!”', 'Legal alerts; unclaimed Completed/Failed contract mark (Contract Viewer, HUD notifications)', ['6,30', '0,39']],
+    [5, 2, 'Thumbs down', 'Contract Viewer › status Rejected', ['1,29']],
+    [6, 2, 'Thumbs up', 'Not used yet', [], 'Reserved. No use yet.'],
+    [7, 2, 'Prohibited', 'Contract Viewer › status Expired', ['2,29']],
+    [8, 2, 'Skull', 'Contract results › Deceased overlay on merc portrait (only use)', ['2,39']],
+    [9, 2, 'Bars', 'Contract results › Captured overlay', ['3,39']],
+    [14, 2, 'Note (currency)', 'Every money amount (now 5×9, was 7×9)', ['0,34']],
+    [15, 2, 'Lock', 'Feature Lock; locked tabs', ['0,31']],
+    [0, 3, 'Eye', 'Merc Viewer › Overview tab; Finance › Overview tab; Promotions › View applicant', ['0,3', '0,6', '1,28']],
+    [1, 3, 'Tree', 'Merc Viewer › Skills tab', ['1,3']],
+    [2, 3, 'Arrow up (green)', 'Merc Viewer › Perks tab', ['2,3']],
+    [3, 3, 'Arrow down (red)', 'Merc Viewer › Drawbacks tab', ['3,3']],
+    [4, 3, 'Backpack', 'Merc Viewer › Equipment tab', ['4,3']],
+    [5, 3, 'Smiley', 'Merc Viewer › Relationships tab', ['5,3']],
+    [6, 3, 'Fist', 'Merc Viewer › Actions tab', ['6,3']],
+    [7, 3, 'Whistle', 'Merc Viewer › Coach button', ['0,26']],
+    [8, 3, 'Guild banner', 'Metrics Viewer › Guild tab', ['0,4']],
+    [9, 3, 'PIP · Auto', 'Merc Viewer › Standard PIP', ['0,23']],
+    [10, 3, 'PIP · Random', 'Merc Viewer › Standard PIP', ['1,23']],
+    [11, 3, 'PIP · Utility', 'Merc Viewer › Standard PIP', ['2,23']],
+    [12, 3, 'PIP · Stats', 'Merc Viewer › Standard PIP', ['3,23']],
+    [13, 3, 'PIP · Support', 'Merc Viewer › Combat PIP', ['0,24']],
+    [14, 3, 'PIP · Defensive', 'Merc Viewer › Combat PIP', ['1,24']],
+    [15, 3, 'PIP · Offensive', 'Merc Viewer › Combat PIP', ['2,24']],
+    [0, 4, 'Person (outline)', 'Contract Viewer › crew slot unavailable', ['3,35']],
+    [1, 4, 'Person', 'Client Viewer › People tab; Contract Viewer › crew slot required / optional (tinted)', ['0,5', '1,35', '2,35']],
+    [2, 4, 'House', 'Client Viewer › Places tab', ['1,5']],
+    [3, 4, 'Building', 'Client Viewer › Orgs tab', ['2,5']],
+    [4, 4, 'Word of Mouth', 'Promotions › campaign type', ['0,27']],
+    [5, 4, 'Flyers', 'Promotions › campaign type', ['1,27']],
+    [6, 4, 'Direct Sale', 'Promotions › campaign type', ['2,27']],
+    [7, 4, 'Radio', 'Promotions › campaign type', ['3,27']],
+    [8, 4, 'Sponsorship', 'Promotions › campaign type', ['4,27']],
+    [9, 4, 'PIP · Skills', 'Merc Viewer › Skill PIP', ['0,25']],
+    [10, 4, 'PIP · Existing Skills', 'Merc Viewer › Skill PIP', ['1,25']],
+    [11, 4, 'PIP · New Skills', 'Merc Viewer › Skill PIP', ['2,25']],
+    [12, 4, 'PIP · Universal', 'Merc Viewer › Skill PIP', ['3,25']],
+    [13, 4, 'PIP · Ancestral', 'Merc Viewer › Skill PIP', ['4,25']],
+    [14, 4, 'PIP · Tradition', 'Merc Viewer › Skill PIP', ['5,25']],
+    [15, 4, 'PIP · Spell', 'Merc Viewer › Skill PIP', ['6,25']],
+    [0, 5, 'Money bag', 'Finance › Payroll tab', ['1,6']],
+    [1, 5, 'Add person', 'Finance › Hiring tab; Promotions › Applicants', ['2,6', '0,28']],
+    [2, 5, 'Rising chart', 'Finance › Invest tab', ['3,6']],
+    [3, 5, 'Piggy bank', 'Finance › Loans tab', ['4,6']],
+    [4, 5, 'Sun · low', 'Mercday › Free plan', ['0,7']],
+    [5, 5, 'Sun · rising', 'Mercday › Pro plan', ['1,7']],
+    [6, 5, 'Sun · full', 'Mercday › Enterprise plan', ['2,7']],
+    [7, 5, 'Customize (sliders)', 'Mercday › Customize tab', ['3,7']],
+    [8, 5, 'Shop', 'Bazaar › Shop tab', ['0,8']],
+    [9, 5, 'Cart', 'Bazaar › Cart tab', ['1,8']],
+    [10, 5, 'Parcel', 'Bazaar › Orders tab', ['2,8']],
+    [11, 5, 'Permit', 'Legal › Permits tab', ['0,9']],
+    [12, 5, 'Coin', 'Legal › Fines tab', ['1,9']],
+    [13, 5, 'Bars (orange)', 'Legal › Bailout tab', ['2,9']],
+    [14, 5, 'Megaphone', 'Promotions › Job Ads tab', ['0,10']],
+    [15, 5, 'Billboard', 'Promotions › Guild Ads tab', ['1,10']],
+    [0, 7, 'Face · neutral (unscored)', 'Spare neutral face (filled)', []],
+    [1, 7, 'Face −5', 'Guild Opinion / Relationship; Merc Mood · Angry', ['0,20', '0,21'], 'White, tinted in engine. Mood mapping: Angry −5, Frustrated −3, Neutral ±0, Okay +3, Happy +5.'],
+    [2, 7, 'Face −4', 'Guild Opinion / Relationship', ['1,20']],
+    [3, 7, 'Face −3', 'Guild Opinion / Relationship; Merc Mood · Frustrated', ['2,20', '1,21']],
+    [4, 7, 'Face −2', 'Guild Opinion / Relationship', ['3,20']],
+    [5, 7, 'Face −1', 'Guild Opinion / Relationship', ['4,20']],
+    [6, 7, 'Face ±0', 'Guild Opinion / Relationship; Merc Mood · Neutral', ['5,20', '2,21']],
+    [7, 7, 'Face +1', 'Guild Opinion / Relationship', ['6,20']],
+    [8, 7, 'Face +2', 'Guild Opinion / Relationship', ['7,20']],
+    [9, 7, 'Face +3', 'Guild Opinion / Relationship; Merc Mood · Okay', ['8,20', '3,21']],
+    [10, 7, 'Face +4', 'Guild Opinion / Relationship', ['9,20']],
+    [11, 7, 'Face +5', 'Guild Opinion / Relationship; Merc Mood · Happy', ['10,20', '4,21']],
+    [0, 8, 'Face · neutral (unscored) (outline)', 'Spare neutral face (outline)', []],
+    [1, 8, 'Face −5 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', ['0,22'], 'Replaces the single generic unselected face: each unselected face now keeps its own expression.'],
+    [2, 8, 'Face −4 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [3, 8, 'Face −3 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [4, 8, 'Face −2 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [5, 8, 'Face −1 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [6, 8, 'Face ±0 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [7, 8, 'Face +1 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [8, 8, 'Face +2 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [9, 8, 'Face +3 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [10, 8, 'Face +4 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [11, 8, 'Face +5 (outline)', 'Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)', []],
+    [0, 9, 'Square', 'Customize tree › Base Plan', ['1,11']],
+    [2, 9, 'Arrow up from box', 'Customize tree › Limits (category)', ['0,12']],
+    [3, 9, 'Person (small)', 'Customize tree › Seats', ['1,12']],
+    [4, 9, 'Document', 'Customize tree › Contracts (limit)', ['2,12']],
+    [5, 9, 'Eye (outline)', 'Customize tree › Insights (category)', ['0,15']],
+    [7, 9, 'Whistle (outline)', 'Customize tree › Coaching (category)', ['0,13']],
+    [8, 9, 'Clipboard', 'Customize tree › Performance Improvement Plan', ['1,13']],
+    [9, 9, 'Sword', 'Customize tree › Combat PIP', ['2,13']],
+    [10, 9, 'Star', 'Customize tree › Skill PIP', ['3,13']],
+    [11, 9, 'Wand', 'Customize tree › Magic PIP', ['4,13']],
+    [0, 10, 'Flask', 'Customize tree › Testing (category)', ['0,14']],
+    [1, 10, 'Brain bulb', 'Customize tree › Aptitude Test', ['1,14']],
+    [2, 10, 'Raised fist', 'Customize tree › Brawn Test', ['2,14']],
+    [3, 10, 'Lightning', 'Customize tree › Readiness Test', ['3,14']],
+    [4, 10, 'Face', 'Customize tree › Personality Test', ['4,14']],
+    [5, 10, 'Pencil', 'Customize tree › Skill Test', ['5,14']],
+    [6, 10, 'Open book', 'Customize tree › Education Exam', ['6,14']],
+    [8, 10, 'Domino mask', 'Customize tree › Less Legal (category)', ['0,16']],
+    [9, 10, 'Shushing face', 'Customize tree › Discrimination', ['1,16']],
+    [10, 10, 'Loot bag', 'Customize tree › Odd Jobs', ['2,16']],
+    [11, 10, 'Hat and beard', 'Customize tree › Who Knows a Guy', ['3,16']],
+    [13, 10, 'Scroll', 'Client Viewer › scroll', ['0,36']],
+    [0, 11, 'Magnifier', 'Every magnifier: Customize tree › Background Check; Bazaar › search field and search button', ['1,15', '1,36'], 'One magnifier for all uses.'],
+    [1, 11, 'Barred window', 'Customize tree › Criminal Background Check', ['2,15']],
+    [2, 11, 'Survey sheet', 'Customize tree › Employee Survey', ['3,15']],
+    [3, 11, 'Two at a desk', 'Customize tree › Peer Review', ['4,15']],
+    [4, 11, 'Customer at counter', 'Customize tree › Customer Satisfaction', ['5,15']],
+    [5, 11, 'Chart with arrow', 'Customize tree › Rapid Survey; Customize tree › Metrics (category)', ['6,15', '9,15']],
+    [6, 11, 'Stacked sheets', 'Customize tree › Contract Metrics', ['7,15']],
+    [7, 11, 'Person over bars', 'Customize tree › Merc Metrics', ['8,15']],
+    [9, 11, 'Stall (outline)', 'Customize tree › Bazaar (category)', ['0,18']],
+    [10, 11, 'Box', 'Customize tree › Bazaar', ['1,18']],
+    [11, 11, 'Diamond', 'Customize tree › Better Items', ['2,18']],
+    [12, 11, 'Fast box', 'Customize tree › Faster Items', ['3,18']],
+    [0, 12, 'Courthouse', 'Customize tree › Legal (category)', ['0,17'], 'Redrawn (was a lamp).'],
+    [1, 12, 'Stamped form', 'Customize tree › Operations Permits', ['1,17']],
+    [2, 12, 'Teleport portal', 'Customize tree › Teleportation Permit', ['2,17'], 'Redrawn (was a target).'],
+    [3, 12, 'Briefcase', 'Customize tree › Representation', ['3,17']],
+    [4, 12, 'Scales', 'Customize tree › Advisory Counsel', ['4,17']],
+    [6, 12, 'Megaphone (outline)', 'Customize tree › Promotions (category)', ['0,19'], 'Updated to a cleaner outline.'],
+    [7, 12, 'Sheet', 'Customize tree › Promotions', ['1,19']],
+    [8, 12, 'Signal tower', 'Customize tree › Promo Methods', ['2,19']],
+    [9, 12, 'Hourglass', 'Customize tree › Long Promos', ['3,19']],
+    [10, 12, 'Guild banner +', 'Customize tree › Guild Promo', ['5,19'], 'Redrawn: the Guild tab banner with a plus (was a shield).'],
+    [11, 12, 'Billboard (white)', 'Customize tree › Marketing Agency', ['4,19']],
+    [0, 13, 'Star (large, outlined)', 'Difficulty stars that are set: Contract Viewer (list, tooltip, detail, results), HUD notifications, Legal (Average Difficulty, review), Client Viewer avg difficulty', ['1,34']],
+    [1, 13, 'Star (large)', 'Difficulty stars that are unused (same places); half star = left 8 columns of 0,13 + right 8 of 1,13', ['1,34']],
+    [2, 13, 'Star 9×9', 'Contract Viewer › crew match and other star ratings (half-star = left 5 columns)', ['1,34'], 'Difficulty now uses the large stars (0,13 and 1,13).'],
+    [3, 13, 'Star 7×7', 'Not used after the difficulty change (Client Viewer avg difficulty moved to the large stars)', ['2,34']],
+    [0, 14, 'Sigil · Divine', 'Every merc card, tooltip and tradition list', ['0,35']],
+    [1, 14, 'Sigil · Mage', 'Every merc card, tooltip and tradition list', ['0,35']],
+    [2, 14, 'Sigil · Mystech', 'Every merc card, tooltip and tradition list', ['0,35']],
+    [3, 14, 'Sigil · Performer', 'Every merc card, tooltip and tradition list', ['0,35']],
+    [4, 14, 'Sigil · Sorcerer', 'Every merc card, tooltip and tradition list', ['0,35']],
+    [5, 14, 'Sigil · Brave', 'Every merc card, tooltip and tradition list', ['0,35']],
+    [6, 14, 'Sigil · Chymist', 'Every merc card, tooltip and tradition list', ['0,35']],
+    [7, 14, 'Sigil · Hellion', 'Every merc card, tooltip and tradition list', ['0,35']],
+    [8, 14, 'Sigil · Honorable', 'Every merc card, tooltip and tradition list', ['0,35']],
+    [9, 14, 'Sigil · Warrior', 'Every merc card, tooltip and tradition list', ['0,35']]
+  ];
+  sectionDefs = [[0, 1, 'HUD & controls', 'Rows 0–1'], [2, 2, 'Status & feedback', 'Row 2'], [3, 3, 'Merc Viewer, coaching PIPs', 'Row 3'], [4, 4, 'Clients, campaign types, skill PIPs', 'Row 4'], [5, 5, 'Finance, Mercday, Bazaar, Legal, Promotions tabs', 'Row 5'], [7, 7, 'Opinion faces', 'Row 7 · single-color, tinted in engine'], [8, 11, 'Customize upgrade tree', 'Rows 8–11'], [12, 12, 'Rating stars', 'Row 12'], [13, 13, 'Tradition sigils', 'Row 13 · full color, not tinted']];
+  orphanDefs = [];
+  pos(c, r) { return (-c * 32) + 'px ' + (-r * 32) + 'px'; }
+  renderVals() {
+    const f = this.state.filter;
+    const entries = this.map.map(([c, r, name, used, old, note, status]) => {
+      const chk = status === 'check';
+      return { c, r, name, used, cell: c + ',' + r, pos: this.pos(c, r), chk,
+        accent: chk ? '#f28c28' : old.length ? '#6cc36a' : '#5aa6e8', note: note || '', hasNote: !!note, noteColor: chk ? '#f28c28' : '#8a97ad',
+        noOld: !old.length, old: old.map(k => { const [oc, orr] = k.split(',').map(Number); return { cell: k, name: this.oldNames[k] || k, pos: this.pos(oc, orr) }; }) };
+    });
+    const sections = this.sectionDefs.map(([a, b, title, sub]) => ({ title, sub, items: entries.filter(e => e.r >= a && e.r <= b && (f === 'all' || e.chk)) })).filter(s => s.items.length);
+    const orphans = this.orphanDefs.map(([k, name, note]) => { const [oc, orr] = k.split(',').map(Number); return { cell: k, name, note, pos: this.pos(oc, orr) }; });
+    const mk = (k, label) => ({ label, pick: () => this.setState({ filter: k }), bg: f === k ? '#2b4f8a' : '#0e1628', fg: f === k ? '#f3ead7' : '#8a97ad', ring: f === k ? '#3b6fb6' : '#1f3560' });
+    return { sections, orphans, showOrphans: orphans.length > 0, filters: [mk('all', 'All icons'), mk('check', 'Needs confirmation')],
+      nNew: entries.length, nOk: entries.filter(e => !e.chk).length, nCheck: entries.filter(e => e.chk).length, nOrphan: orphans.length };
+  }
+}
+</script>
+</body>
+</html>

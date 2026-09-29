@@ -14,8 +14,8 @@ const TURN_UNIT: String = "AP"
 const REACTIVE_UNIT: String = "EP"
 
 @onready var sort_button: SortButton = $Head/Sort
-@onready var turn_list: VBoxContainer = $Columns/Turn/Scroll/List
-@onready var reactive_list: VBoxContainer = $Columns/Reactive/Scroll/List
+@onready var turn_list: VBoxContainer = $Columns/Turn/Scroll/Pad/List
+@onready var reactive_list: VBoxContainer = $Columns/Reactive/Scroll/Pad/List
 @onready var turn_group: VBoxContainer = $Columns/Turn
 @onready var reactive_group: VBoxContainer = $Columns/Reactive
 @onready var turn_unit: Label = $Columns/Turn/GroupHead/Unit

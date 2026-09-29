@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>html,body{margin:0;background:transparent}
+@keyframes stepShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}</style>
+<script src="./merc-icons.js"></script>
+</helmet>
+<sc-if value="{{ isField }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;gap:8px;padding:0 3px;opacity:{{ lockOpacity }}" title="{{ lockTitle }}">
+    <button onPointerDown="{{ minusDown }}" onPointerUp="{{ holdStop }}" onPointerLeave="{{ holdStop }}" onPointerCancel="{{ holdStop }}" style="flex:none;width:38px;height:38px;padding:0;background:{{ minusBg }};animation:{{ minusAnim }};cursor:{{ lockCursor }};font:700 20px Silkscreen;color:#f3ead7;box-shadow:inset 0 3px 0 {{ minusHi }},inset 0 -3px 0 {{ minusLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c;user-select:none;touch-action:none" style-hover="filter:brightness(1.25)">−</button>
+    <input value="{{ text }}" onChange="{{ onType }}" onBlur="{{ onBlur }}" inputmode="numeric" disabled="{{ locked }}" style="flex:1;min-width:0;height:38px;padding:0 8px;text-align:center;background:#0a0f1c;color:{{ valColor }};animation:{{ valAnim }};font:700 16px Silkscreen;border:0;outline:none;box-shadow:inset 0 0 0 2px {{ ring }}">
+    <button onPointerDown="{{ plusDown }}" onPointerUp="{{ holdStop }}" onPointerLeave="{{ holdStop }}" onPointerCancel="{{ holdStop }}" style="flex:none;width:38px;height:38px;padding:0;background:{{ plusBg }};animation:{{ plusAnim }};cursor:{{ lockCursor }};font:700 20px Silkscreen;color:#f3ead7;box-shadow:inset 0 3px 0 {{ plusHi }},inset 0 -3px 0 {{ plusLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c;user-select:none;touch-action:none" style-hover="filter:brightness(1.25)">+</button>
+    <sc-if value="{{ showMax }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ toMax }}" title="{{ maxTitle }}" style="flex:none;width:56px;height:38px;padding:0;background:{{ maxBg }};animation:{{ maxAnim }};cursor:{{ lockCursor }};font:400 11px Silkscreen;color:#f3ead7;box-shadow:inset 0 3px 0 {{ maxHi }},inset 0 -3px 0 {{ maxLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.25)">Max</button>
+    </sc-if>
+  </div>
+</sc-if>
+<sc-if value="{{ isCompact }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;gap:6px;padding:0 2px;opacity:{{ lockOpacity }}" title="{{ lockTitle }}">
+    <button onPointerDown="{{ minusDown }}" onPointerUp="{{ holdStop }}" onPointerLeave="{{ holdStop }}" onPointerCancel="{{ holdStop }}" style="flex:none;width:28px;height:28px;padding:0;background:{{ minusBg }};animation:{{ minusAnim }};cursor:{{ lockCursor }};font:700 15px Silkscreen;color:#f3ead7;box-shadow:inset 0 2px 0 {{ minusHi }},inset 0 -2px 0 {{ minusLo }},0 -2px 0 #0a0f1c,0 2px 0 #0a0f1c,-2px 0 0 #0a0f1c,2px 0 0 #0a0f1c;user-select:none;touch-action:none" style-hover="filter:brightness(1.25)">−</button>
+    <input value="{{ text }}" onChange="{{ onType }}" onBlur="{{ onBlur }}" inputmode="numeric" disabled="{{ locked }}" style="flex:1;min-width:0;height:28px;padding:0 4px;text-align:center;background:#0a0f1c;color:{{ valColor }};animation:{{ valAnim }};font:700 13px Silkscreen;border:0;outline:none;box-shadow:inset 0 0 0 2px {{ ring }}">
+    <button onPointerDown="{{ plusDown }}" onPointerUp="{{ holdStop }}" onPointerLeave="{{ holdStop }}" onPointerCancel="{{ holdStop }}" style="flex:none;width:28px;height:28px;padding:0;background:{{ plusBg }};animation:{{ plusAnim }};cursor:{{ lockCursor }};font:700 15px Silkscreen;color:#f3ead7;box-shadow:inset 0 2px 0 {{ plusHi }},inset 0 -2px 0 {{ plusLo }},0 -2px 0 #0a0f1c,0 2px 0 #0a0f1c,-2px 0 0 #0a0f1c,2px 0 0 #0a0f1c;user-select:none;touch-action:none" style-hover="filter:brightness(1.25)">+</button>
+    <sc-if value="{{ showMax }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ toMax }}" title="{{ maxTitle }}" style="flex:none;width:44px;height:28px;padding:0;background:{{ maxBg }};animation:{{ maxAnim }};cursor:{{ lockCursor }};font:400 9px Silkscreen;color:#f3ead7;box-shadow:inset 0 2px 0 {{ maxHi }},inset 0 -2px 0 {{ maxLo }},0 -2px 0 #0a0f1c,0 2px 0 #0a0f1c,-2px 0 0 #0a0f1c,2px 0 0 #0a0f1c" style-hover="filter:brightness(1.25)">Max</button>
+    </sc-if>
+  </div>
+</sc-if>
+<sc-if value="{{ isDisplay }}" hint-placeholder-val="{{ false }}">
+  <div style="display:grid;grid-template-columns:56px minmax(0,1fr) 56px;gap:12px;align-items:center" title="{{ lockTitle }}">
+    <button onPointerDown="{{ minusDown }}" onPointerUp="{{ holdStop }}" onPointerLeave="{{ holdStop }}" onPointerCancel="{{ holdStop }}" style="height:56px;padding:0;background:{{ minusBg }};animation:{{ minusAnim }};opacity:{{ lockOpacity }};cursor:{{ lockCursor }};font:700 28px Silkscreen;color:#f3ead7;box-shadow:inset 0 4px 0 {{ minusHi }},inset 0 -4px 0 {{ minusLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c;user-select:none;touch-action:none" style-hover="filter:brightness(1.25)">−</button>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;background:#0e1628">
+      <span style="font:400 10px Silkscreen;color:#9cc6ef">{{ label }}</span>
+      <span style="display:flex;align-items:center;gap:6px;font:700 26px Silkscreen;color:{{ valColor }};line-height:1;animation:{{ valAnim }}">{{ display }}<sc-if value="{{ hasGlyph }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:15px;height:27px;background:currentColor;-webkit-mask:url({{ glyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ glyph.px5 }}) 0 0/100% 100% no-repeat"></span></sc-if></span>
+      <sc-if value="{{ hasSub }}" hint-placeholder-val="{{ false }}"><span style="font:700 14px Silkscreen;color:{{ subColor }}">{{ sub }}</span></sc-if>
+      <sc-if value="{{ hasNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#5e7699">{{ note }}</span></sc-if>
+    </div>
+    <button onPointerDown="{{ plusDown }}" onPointerUp="{{ holdStop }}" onPointerLeave="{{ holdStop }}" onPointerCancel="{{ holdStop }}" style="height:56px;padding:0;background:{{ plusBg }};animation:{{ plusAnim }};opacity:{{ lockOpacity }};cursor:{{ lockCursor }};font:700 28px Silkscreen;color:#f3ead7;box-shadow:inset 0 4px 0 {{ plusHi }},inset 0 -4px 0 {{ plusLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c;user-select:none;touch-action:none" style-hover="filter:brightness(1.25)">+</button>
+  </div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;360px&quot;,&quot;height&quot;:&quot;160px&quot;},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;field&quot;,&quot;display&quot;],&quot;default&quot;:&quot;field&quot;,&quot;tsType&quot;:&quot;'field' | 'display'&quot;},&quot;value&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1,&quot;tsType&quot;:&quot;number&quot;},&quot;min&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1,&quot;tsType&quot;:&quot;number&quot;},&quot;max&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:10,&quot;tsType&quot;:&quot;number&quot;},&quot;step&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1,&quot;tsType&quot;:&quot;number&quot;},&quot;showMax&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;hold&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;disabled&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;label&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;displayValue&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;sub&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;subColor&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;note&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;maxTitle&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;disabledTitle&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;onChange&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(value: number) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  // Shared +/− stepper. Any attempt to go below min or above max is rejected: the pressed control
+  // and the value flash red and shake (0.4s), and hold-to-repeat stops. Values are clamped, never wrapped.
+  state = { rej: null, draft: null };
+  num(v, d) { const n = Number(v); return v == null || v === '' || isNaN(n) ? d : n; }
+  bounds() { const min = this.num(this.props.min, 1), max = Math.max(min, this.num(this.props.max, Infinity)); return { min, max }; }
+  cur() { return this.props.onChange ? this.num(this.props.value, null) : (this.state.local ?? this.num(this.props.value, null)); }
+  val() { const { min, max } = this.bounds(); return Math.max(min, Math.min(max, this.cur() ?? min)); }
+  emit(v) { if (v === this.cur()) return; if (this.props.onChange) this.props.onChange(v); else this.setState({ local: v }); }
+  reject(side) { this.stopHold(); clearTimeout(this.rejT);
+    this.setState({ rej: null }, () => requestAnimationFrame(() => this.setState({ rej: side })));
+    this.rejT = setTimeout(() => this.setState({ rej: null }), 420); }
+  // Try to move to v; clamp and reject if out of range. Returns false when rejected at the edge.
+  attempt(v, side) { const { min, max } = this.bounds();
+    if (v > max) { this.emit(max); this.reject(side || 'hi'); return false; }
+    if (v < min) { this.emit(min); this.reject(side || 'lo'); return false; }
+    this.emit(v); return true; }
+  step(dir, n = 1) { const s = this.num(this.props.step, 1); return this.attempt(this.val() + dir * s * n); }
+  startHold(dir) { if (this.props.disabled) return; this.stopHold(); if (!this.step(dir)) return;
+    if (this.props.hold === false) return;
+    // Hold: after 0.35s, tick every 80ms; per-tick amount ramps +1 every 0.2s held, peaking at 10/tick.
+    const t0 = Date.now(), PEAK = this.num(this.props.holdPeak, 10);
+    this.holdT = setInterval(() => { const t = (Date.now() - t0) / 1000; if (t < 0.35) return;
+      const n = Math.min(PEAK, 1 + Math.floor((t - 0.35) / 0.2)); if (!this.step(dir, n)) this.stopHold(); }, 80); }
+  stopHold() { clearInterval(this.holdT); this.holdT = null; }
+  componentWillUnmount() { this.stopHold(); clearTimeout(this.rejT); }
+  renderVals() {
+    const p = this.props, r = this.state.rej, locked = !!p.disabled, v = this.val(), shake = 'stepShake 0.4s steps(5) 1';
+    const { min, max } = this.bounds();
+    return {
+      isField: (p.variant || 'field') === 'field', isDisplay: p.variant === 'display', isCompact: p.variant === 'compact', locked,
+      text: this.state.draft ?? String(v), display: p.displayValue ?? String(v),
+      label: p.label || '', sub: p.sub || '', hasSub: !!p.sub, subColor: p.subColor || '#9cc6ef', note: p.note || '', hasNote: !!p.note,
+      showMax: !!p.showMax, hasGlyph: Array.isArray(p.glyph) && p.glyph.length > 0, glyph: p.glyph || [], maxTitle: p.maxTitle || 'Maximum',
+      lockOpacity: locked ? 0.35 : 1, lockCursor: locked ? 'not-allowed' : 'pointer', lockTitle: locked ? (p.disabledTitle || '') : '',
+      minusBg: r === 'lo' ? '#e8583f' : '#2b4f8a', plusBg: r === 'hi' ? '#e8583f' : '#2b4f8a',
+      minusAnim: r === 'lo' ? shake : 'none', minusHi: r === 'lo' ? '#ff8a70' : '#3b6fb6', minusLo: r === 'lo' ? '#a83a28' : '#1f3560', maxBg: r === 'max' ? '#e8583f' : '#2b4f8a', maxAnim: r === 'max' ? shake : 'none', maxHi: r === 'max' ? '#ff8a70' : '#3b6fb6', maxLo: r === 'max' ? '#a83a28' : '#1f3560', plusHi: r === 'hi' ? '#ff8a70' : '#3b6fb6', plusLo: r === 'hi' ? '#a83a28' : '#1f3560', plusAnim: r === 'hi' ? shake : 'none',
+      valColor: r ? '#e8583f' : '#f3ead7', valAnim: r ? shake : 'none', ring: r ? '#e8583f' : '#3b6fb6',
+      minusDown: e => { e.preventDefault(); this.startHold(-1); }, plusDown: e => { e.preventDefault(); this.startHold(1); }, holdStop: () => this.stopHold(),
+      toMax: () => { if (locked) return; if (v >= max) this.reject('max'); else this.emit(max); },
+      // Typing: over max clamps + rejects at once; under min waits for blur so the field can be cleared to retype.
+      onType: e => { const s = String(e.target.value).replace(/\D/g, ''), n = parseInt(s, 10);
+        if (s === '' || n < min) { this.setState({ draft: s }); return; }
+        this.setState({ draft: null }); this.attempt(n); },
+      onBlur: () => { if (this.state.draft == null) return; const n = parseInt(this.state.draft, 10); this.setState({ draft: null }); this.attempt(isNaN(n) ? min - 1 : n, 'lo'); },
+    };
+  }
+}
+</script>
+</body>
+</html>

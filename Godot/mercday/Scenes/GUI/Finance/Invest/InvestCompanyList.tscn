@@ -1,0 +1,57 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Finance/Invest/InvestCompanyList.gd" id="1"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/invest_roster.tres" id="2"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
+
+[node name="InvestCompanyList" type="PanelContainer"]
+custom_minimum_size = Vector2(272, 0)
+mouse_filter = 2
+theme_override_styles/panel = ExtResource("2")
+script = ExtResource("1")
+
+[node name="Col" type="VBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="Header" type="HBoxContainer" parent="Col"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="TitleLabel" type="Label" parent="Col/Header"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 13
+text = "Companies"
+
+[node name="CountLabel" type="Label" parent="Col/Header"]
+layout_mode = 2
+mouse_filter = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 11
+
+[node name="Scroll" type="ScrollContainer" parent="Col"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Pad" type="MarginContainer" parent="Col/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 4
+
+[node name="Items" type="VBoxContainer" parent="Col/Scroll/Pad"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 8

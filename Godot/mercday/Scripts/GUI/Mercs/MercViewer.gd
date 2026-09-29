@@ -1,10 +1,15 @@
 class_name MercViewer extends Control
 
 #The Merc Viewer screen: the roster column, the merc card and the eight tabs. With hide_roster the
-#list drops out and the screen narrows to the width the Contract Viewer opens it at.
+#list drops out and the screen narrows to the width the Contract Viewer opens it at. Four tabs are
+#sold by an upgrade, so each button wears a lock and its page takes the LockedPage over it. The
+#screen also serves the hiring pool: show_applicant puts a candidate in the card, drops the roster
+#and puts coaching, the wage chip and the metrics tab out of reach.
 
 const TAB_LABELS: Array[String] = ["Overview", "Equipment", "Relationships", "Actions", "Perks",
 	"Drawbacks", "Skills", "Metrics"]
+const TAB_NAMES: Array[StringName] = [&"overview", &"equipment", &"relationships", &"actions",
+	&"perks", &"drawbacks", &"skills", &"metrics"]
 const TAB_ICONS: Array[String] = ["tab_overview", "tab_equipment", "tab_relationships",
 	"tab_actions", "tab_perks", "tab_drawbacks", "tab_skills", "tab_metrics"]
 const TAB_TIPS: Array[String] = [
@@ -37,9 +42,8 @@ const BODY_EDGE_PX: float = 4.0
 const FULL_WIDTH: int = 1280
 const NO_ROSTER_WIDTH: int = 988
 const SCREEN_HEIGHT: int = 720
-const RAISE_TITLE: String = "Raise Salary"
-const CUT_TITLE: String = "Lower Salary"
-const SALARY_MESSAGE: String = "Pay %d notes a month? Guild opinion %+d."
+const GREY_TINT: Color = Color(GuiColors.GRAY_ICON_BRIGHTNESS, GuiColors.GRAY_ICON_BRIGHTNESS,
+	GuiColors.GRAY_ICON_BRIGHTNESS, 0.4)
 
 const TAB_BUTTON_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/TabButton.tscn")
 const OVERVIEW_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/OverviewTab.tscn")
@@ -48,6 +52,7 @@ const RELATIONSHIPS_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/Relatio
 const ACTIONS_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/ActionsTab.tscn")
 const TRAIT_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/TraitTab.tscn")
 const METRICS_TAB_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/MetricsTab.tscn")
+const LOCKED_PAGE_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/LockedPage.tscn")
 
 @export var hide_roster: bool = false:
 	set(value):
@@ -60,15 +65,22 @@ const METRICS_TAB_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/MetricsTa
 @onready var body: PanelContainer = $Margin/Columns/Content/Body
 @onready var confirm: ConfirmDialog = $Confirm
 @onready var salary: SalaryDialog = $Salary
+@onready var coach: CoachDialog = $Coach
 
+#ApplicantData is a RefCounted candidate record, not a Resource, so it cannot be an editor export;
+#the hiring screen hands one over through show_applicant.
+var applicant: ApplicantData = null
 var selected_uid: int = 0
 var pages: Array[Control] = []
 var tab_buttons: Array[TabButton] = []
 
 var _tab: int = TAB_OVERVIEW
 var _dirty: Array[bool] = []
-var _pending_salary: int = 0
-var _pending_uid: int = 0
+var _applicant_view: MercView = null
+var _locked_page: LockedPage = null
+var _metrics_filter: int = Control.MOUSE_FILTER_STOP
+#What hide_roster read before a candidate took the card, so an employee brings the column back.
+var _roster_pinned: bool = false
 
 
 func _ready() -> void:
@@ -76,15 +88,24 @@ func _ready() -> void:
 	body.draw.connect(_draw_body_edges)
 	_build_tabs()
 	_build_pages()
+	_build_locked_page()
 	list.merc_selected.connect(_on_merc_selected)
 	GameState.roster_changed.connect(_rebuild)
 	GameState.money_changed.connect(_on_money_changed)
 	salary.confirmed.connect(_on_salary_confirmed)
-	confirm.confirmed.connect(_apply_salary)
-	confirm.cancelled.connect(_on_salary_cancelled)
+	salary.fired.connect(_on_salary_fired)
+	coach.confirmed.connect(_on_coach_confirmed)
+	if not SubscriptionManager.changed.is_connected(_apply_tab_locks):
+		SubscriptionManager.changed.connect(_apply_tab_locks)
 	_apply_roster_mode()
 	select_tab(TAB_OVERVIEW)
 	_rebuild()
+	_apply_pending_applicant()
+
+
+func _exit_tree() -> void:
+	if SubscriptionManager.changed.is_connected(_apply_tab_locks):
+		SubscriptionManager.changed.disconnect(_apply_tab_locks)
 
 
 #The content panel's edges: the orange lip the tab bar sits on, the ink frame and the inner bevel.
@@ -103,17 +124,56 @@ func _draw_body_edges() -> void:
 
 
 func show_merc(uid: int) -> void:
+	if applicant != null:
+		hide_roster = _roster_pinned
+	applicant = null
+	_applicant_view = null
 	var view: MercView = _view_of(uid)
 	if view == null:
 		view = _first_view()
 	selected_uid = view.uid if view != null else 0
 	list.select(selected_uid)
+	_apply_applicant_mode()
 	header.set_view(view)
 	_mark_dirty()
 	_refresh_page(_tab)
 
 
+#The hiring pool view: one candidate, no roster, no wage chip and no coaching. A null candidate is
+#no candidate at all: the employee view comes back with the roster column it had.
+func show_applicant(candidate: ApplicantData) -> void:
+	if candidate == null:
+		if is_node_ready():
+			show_merc(selected_uid)
+			return
+		if applicant != null:
+			hide_roster = _roster_pinned
+		applicant = null
+		_applicant_view = null
+		return
+	if applicant == null:
+		_roster_pinned = hide_roster
+	applicant = candidate
+	_applicant_view = MercView.from_applicant(candidate)
+	selected_uid = _applicant_view.uid
+	hide_roster = true
+	if not is_node_ready():
+		return
+	if _tab == TAB_METRICS:
+		select_tab(TAB_OVERVIEW)
+	_apply_applicant_mode()
+	header.set_view(_applicant_view)
+	_mark_dirty()
+	_refresh_page(_tab)
+
+
+func applicant_mode() -> bool:
+	return applicant != null
+
+
 func selected() -> MercView:
+	if _applicant_view != null:
+		return _applicant_view
 	return _view_of(selected_uid)
 
 
@@ -130,6 +190,18 @@ func select_tab(index: int) -> void:
 	for i: int in pages.size():
 		pages[i].visible = i == index
 	_refresh_page(index)
+	_apply_page_lock()
+
+
+#The tab keys the rest of the GUI names a tab by, so a caller needs no index.
+func open_tab(key: StringName) -> void:
+	var index: int = TAB_NAMES.find(key)
+	if index >= 0:
+		select_tab(index)
+
+
+func tab_key(index: int) -> StringName:
+	return TAB_NAMES[index] if index >= 0 and index < TAB_NAMES.size() else &""
 
 
 func tabs() -> Array[TabButton]:
@@ -148,6 +220,24 @@ func salary_dialog() -> SalaryDialog:
 	return salary
 
 
+func coach_dialog() -> CoachDialog:
+	return coach
+
+
+func locked_page() -> LockedPage:
+	return _locked_page
+
+
+#The entitlement key of a tab, or "" when the tab is free to read.
+func tab_lock_key(index: int) -> String:
+	return String(MercLocks.TAB_KEYS.get(tab_key(index), ""))
+
+
+func tab_locked(index: int) -> bool:
+	var key: String = tab_lock_key(index)
+	return key != "" and MercLocks.locked(key, SubscriptionManager.entitlements())
+
+
 func _build_tabs() -> void:
 	for i: int in TAB_LABELS.size():
 		var button: TabButton = TAB_BUTTON_SCENE.instantiate()
@@ -158,6 +248,7 @@ func _build_tabs() -> void:
 		button.set_icon_texture(_icon(TAB_ICONS[i]))
 		button.tab_pressed.connect(select_tab)
 		tab_buttons.append(button)
+	_metrics_filter = tab_buttons[TAB_METRICS].mouse_filter
 
 
 func _build_pages() -> void:
@@ -170,8 +261,16 @@ func _build_pages() -> void:
 	_add_trait_page(TraitTab.Kind.SKILLS)
 	_add_page(METRICS_TAB_SCENE.instantiate())
 	var first: OverviewTab = overview()
-	first.level_mode_chosen.connect(_on_level_mode_chosen)
+	first.coach_pressed.connect(_open_coach)
 	header.salary_clicked.connect(_open_salary)
+
+
+#The lock overlay is the last child of the body, so it covers whichever page is up.
+func _build_locked_page() -> void:
+	_locked_page = LOCKED_PAGE_SCENE.instantiate() as LockedPage
+	body.add_child(_locked_page)
+	_locked_page.visible = false
+	_apply_tab_locks()
 
 
 func _add_trait_page(kind: int) -> void:
@@ -201,10 +300,58 @@ func _apply_roster_mode() -> void:
 	custom_minimum_size = Vector2(NO_ROSTER_WIDTH if hide_roster else FULL_WIDTH, SCREEN_HEIGHT)
 
 
+#A sold tab wears the lock in place of its icon and its page takes the LockedPage over it.
+func _apply_tab_locks() -> void:
+	if not is_node_ready() or _locked_page == null:
+		return
+	for i: int in tab_buttons.size():
+		tab_buttons[i].locked = tab_locked(i)
+	_apply_page_lock()
+
+
+func _apply_page_lock() -> void:
+	if _locked_page == null:
+		return
+	var key: String = tab_lock_key(_tab)
+	var shut: bool = key != "" and MercLocks.locked(key, SubscriptionManager.entitlements())
+	if shut:
+		MercLocks.apply_page(_locked_page, key)
+	_locked_page.visible = shut
+
+
+#The candidate view greys what only an employee has: the coaching box, the wage chip, the metrics.
+func _apply_applicant_mode() -> void:
+	if not is_node_ready():
+		return
+	var on: bool = applicant_mode()
+	header.set_applicant_mode(on)
+	var first: OverviewTab = overview()
+	if first != null:
+		first.set_applicant_mode(on)
+	var button: TabButton = tab_buttons[TAB_METRICS]
+	button.modulate = GREY_TINT if on else Color.WHITE
+	button.mouse_filter = Control.MOUSE_FILTER_IGNORE if on else _metrics_filter
+
+
+#A candidate handed over before the card entered the tree: _rebuild leaves applicant mode alone,
+#so _ready ends here the way it repeats _apply_roster_mode.
+func _apply_pending_applicant() -> void:
+	if _applicant_view == null:
+		return
+	if _tab == TAB_METRICS:
+		select_tab(TAB_OVERVIEW)
+	_apply_applicant_mode()
+	header.set_view(_applicant_view)
+	_mark_dirty()
+	_refresh_page(_tab)
+
+
 func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	list.set_views(GameState.roster)
+	if applicant_mode():
+		return
 	if _view_of(selected_uid) == null:
 		var first: MercView = _first_view()
 		selected_uid = first.uid if first != null else 0
@@ -244,43 +391,51 @@ func _view_of(uid: int) -> MercView:
 
 
 func _open_salary() -> void:
+	if applicant_mode():
+		return
 	var view: MercView = selected()
 	if view != null:
 		salary.open_for(view)
 
 
-#Both directions ask first: the message names the new wage and what it costs or buys in guild
-#opinion. A wage the merc already earns changes nothing and asks nothing.
-func _on_salary_confirmed(new_salary: int, opinion_delta: int) -> void:
-	_pending_salary = 0
-	_pending_uid = 0
-	var view: MercView = _view_of(salary.merc_uid)
-	if view == null or new_salary == view.monthly_salary:
+func _open_coach() -> void:
+	if applicant_mode():
 		return
-	_pending_salary = new_salary
-	_pending_uid = view.uid
-	var is_raise: bool = new_salary > view.monthly_salary
-	confirm.ask(RAISE_TITLE if is_raise else CUT_TITLE,
-		SALARY_MESSAGE % [new_salary, opinion_delta], "Confirm", "Cancel",
-		ConfirmDialog.Severity.GREEN if is_raise else ConfirmDialog.Severity.RED)
+	var view: MercView = selected()
+	if view != null:
+		coach.open_for(view)
 
 
-#The wage lands on the merc it was typed for, not on whoever the roster selects by then.
-func _apply_salary() -> void:
-	if _pending_uid > 0 and _pending_salary > 0 and GameState.merc_by_uid(_pending_uid) != null:
-		GameState.set_salary(_pending_uid, _pending_salary)
-	_pending_salary = 0
-	_pending_uid = 0
+#The plan lands on the merc it was picked for; the Coaching box hears the change from GameState.
+func _on_coach_confirmed(_mode: StringName) -> void:
+	_mark_dirty()
+	_refresh_page(_tab)
 
 
-func _on_salary_cancelled() -> void:
-	_pending_salary = 0
-	_pending_uid = 0
+#The wage dialog is the confirm: it writes through BenefitsManager before it closes, so the viewer
+#only reads the new numbers back onto the card and the roster row.
+func _on_salary_confirmed(_new_salary: int, _opinion_delta: int) -> void:
+	_rebuild()
 
 
-func _on_level_mode_chosen(mode: String) -> void:
-	if selected_uid > 0:
-		GameState.set_level_mode(selected_uid, mode)
+#A fired merc stays in the roster with the status Fired, so the card moves off it here: onto the
+#first row of the rebuilt list that is not the fired merc, and it stays when that is the only row.
+func _on_salary_fired(uid: int) -> void:
+	_rebuild()
+	if not is_node_ready() or applicant_mode():
+		return
+	var next: int = selected_uid
+	for view: MercView in list.order():
+		if view != null and view.uid != uid:
+			next = view.uid
+			break
+	if next == selected_uid:
+		return
+	selected_uid = next
+	list.select(selected_uid)
+	header.set_view(selected())
+	_mark_dirty()
+	_refresh_page(_tab)
 
 
 func _on_merc_selected(uid: int) -> void:

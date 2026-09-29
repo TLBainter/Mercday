@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>html,body{margin:0;background:transparent}button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}</style>
+<script src="./merc-icons.js"></script>
+</helmet>
+<span style="position:relative;display:{{ wrapDisplay }};vertical-align:middle">
+  <sc-if value="{{ hasLabel }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ open }}" onMouseEnter="{{ enter }}" onMouseLeave="{{ leave }}" title="" style="width:100%;height:{{ btnH }};padding:0 14px;display:flex;align-items:center;justify-content:center;gap:10px;white-space:nowrap;font:400 {{ btnFont }} Silkscreen;color:#8a97ad;background:#27324a;box-shadow:inset 0 3px 0 #34415e,inset 0 -3px 0 #1c2540,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+      <span>{{ label }}</span>
+      <span style="display:inline-flex;padding:3px;background:#0a0f1c;box-shadow:0 0 0 1px #3b4d6e"><img alt="" src="{{ lockCells.px8 }}" style="display:block;flex:none;width:{{ lockW }};height:{{ lockH }};image-rendering:pixelated"></span>
+    </button>
+  </sc-if>
+  <sc-if value="{{ noLabel }}" hint-placeholder-val="{{ true }}">
+  <button onClick="{{ open }}" onMouseEnter="{{ enter }}" onMouseLeave="{{ leave }}" title="" style="display:inline-flex;align-items:center;justify-content:center;padding:2px;background:#0a0f1c;box-shadow:0 0 0 1px #3b4d6e" style-hover="filter:brightness(1.25)">
+    <img alt="" src="{{ lockCells.px8 }}" style="display:block;flex:none;width:{{ lockW }};height:{{ lockH }};image-rendering:pixelated">
+  </button>
+  </sc-if>
+  <sc-if value="{{ hover }}" hint-placeholder-val="{{ false }}">
+    <span style="position:absolute;top:calc(100% + 6px);right:0;z-index:60;width:260px;padding:7px 10px;display:flex;flex-direction:column;gap:3px;pointer-events:none;background:#1f3560;box-shadow:0 -2px 0 #f2d33d,0 2px 0 #f2d33d,-2px 0 0 #f2d33d,2px 0 0 #f2d33d,4px 4px 0 2px rgba(0,0,0,0.5)">
+      <span style="font:400 8px Silkscreen;color:#f2d33d">Locked</span>
+      <span style="display:flex;flex-direction:column;gap:3px;font-size:13px;line-height:1.35;color:#f3ead7;white-space:normal">
+        <sc-if value="{{ needUp }}" hint-placeholder-val="{{ false }}"><span>The <u>{{ feature }}</u> feature requires the <strong style="font-weight:700;color:{{ tierColor }}">{{ tierText }}</strong> <strong style="font-weight:700;color:#f2d33d">{{ upName }}</strong> upgrade!</span></sc-if>
+        <sc-if value="{{ needPlan }}" hint-placeholder-val="{{ true }}"><span>This feature of Mercday is not available on your plan!</span><span>Upgrade to <strong style="font-weight:700;color:#f2d33d">{{ plan }}</strong> to {{ verb }} <u>{{ feature }}</u>.</span></sc-if>
+      </span>
+    </span>
+  </sc-if>
+  <sc-if value="{{ isOpen }}" hint-placeholder-val="{{ false }}">
+    <span onClick="{{ close }}" style="position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72);cursor:default">
+      <span onClick="{{ stop }}" style="position:relative;width:520px;padding:26px 28px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;white-space:normal;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f2d33d,0 4px 0 #f2d33d,-4px 0 0 #f2d33d,4px 0 0 #f2d33d,10px 10px 0 4px rgba(0,0,0,0.5)">
+        <button onClick="{{ close }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 44px/1 Silkscreen;text-shadow:2px 0 0 #0a0f1c,-2px 0 0 #0a0f1c,0 2px 0 #0a0f1c,0 -2px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button>
+        <img alt="" src="{{ bigLock.px8 }}" style="display:block;flex:none;box-sizing:content-box;width:48px;height:54px;image-rendering:pixelated">
+        <span style="display:flex;flex-direction:column;gap:6px;font-size:17px;line-height:1.4;color:#f3ead7">
+          <sc-if value="{{ needUp }}" hint-placeholder-val="{{ false }}"><span>The <u>{{ feature }}</u> feature requires the <strong style="font-weight:700;color:{{ tierColor }}">{{ tierText }}</strong> <strong style="font-weight:700;color:#f2d33d">{{ upName }}</strong> upgrade!</span></sc-if>
+          <sc-if value="{{ needPlan }}" hint-placeholder-val="{{ true }}"><span>This feature of Mercday is not available on your plan!</span><span>Upgrade to <strong style="font-weight:700;color:#f2d33d">{{ plan }}</strong> to {{ verb }} <u>{{ feature }}</u>.</span></sc-if>
+        </span>
+        <button onClick="{{ go }}" style="height:42px;padding:0 26px;background:#f28c28;color:#0a0f1c;font:700 13px Silkscreen;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Take Me There</button>
+      </span>
+    </span>
+  </sc-if>
+</span>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;320px&quot;,&quot;height&quot;:&quot;200px&quot;},&quot;feature&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Criminality&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;plan&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Mercday Enterprise&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;upgrade&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Background Check&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;upgradeId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;background&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tier&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:5,&quot;tsType&quot;:&quot;number&quot;},&quot;px&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  mi() { const M = window.MercIcons; if (M) return M; if (!this._miWait) this._miWait = setInterval(() => { if (window.MercIcons) { clearInterval(this._miWait); this.forceUpdate(); } }, 50); return { cells: () => [], cell16: () => [], box: () => [], solid: () => [], diffStar: () => [], tabOn: () => [], mask: () => [''], w: () => 1, h: () => 1 }; }
+  // FeatureLock.tscn — inline lock for a single feature inside an unlocked tab. Hover = tooltip, click = dialog (same text), Take Me There = GameState.go_to_plans(target).
+  // Not on Enterprise → sells the plan. On Enterprise but missing the upgrade → "The X feature requires the Tier N Y upgrade!" and deep-links to that upgrade/tier.
+  state = { hover: false, open: false };
+  get lockMap() { return this.mi().mask('lock'); }
+  componentDidMount() { const st = window.__mercStore; if (st) { this.onStore = () => this.forceUpdate(); st.subs.add(this.onStore); } }
+  componentWillUnmount() { const st = window.__mercStore; if (st && this.onStore) st.subs.delete(this.onStore); }
+  renderVals() {
+    const p = this.props, st = window.__mercStore, ent = !!(st && st.sub && st.sub.plan === 'enterprise'), roman = n => ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][n - 1] || String(n);
+    const feature = p.feature || 'this', plan = p.plan || 'Mercday Enterprise', up = p.upgrade, tier = p.tier;
+    const needUp = ent && up;
+    const cells = c => this.mi().cells('lock', c);
+    return {
+      // label: renders the whole locked control as a disabled-looking button (label + lock); any click on it opens the lock dialog.
+      hasLabel: !!p.label, noLabel: !p.label, label: p.label || '', wrapDisplay: p.label ? 'flex' : 'inline-flex', btnH: p.height || '32px', btnFont: p.fontSize || '10px',
+      px: (p.px || 2) + 'px', lockW: 8 * (p.px || 2) + 'px', lockH: 9 * (p.px || 2) + 'px', lockCells: cells('#f2d33d'), bigLock: cells('#f2d33d'),
+      // Tier text uses that tier's color on the upgrade's red → green gradient (tiers = upgrade's tier count); upgrade name uses the plan-highlight yellow.
+      // verb: 'view' for informational features (stats, lineage…), 'use' for usable features (default).
+      verb: p.verb === 'view' ? 'view' : 'use', feature, plan, upName: up || '', tierText: 'Tier ' + roman(tier), needUp: !!needUp, needPlan: !needUp,
+      tierColor: (() => { const mx = p.tiers || tier || 1, fr = mx === 1 ? 1 : (tier - 1) / (mx - 1), A = [0xe8, 0x58, 0x3f], B = [0xf2, 0xd3, 0x3d], C = [0x4e, 0xe0, 0x6a], [a, b, u] = fr < 0.5 ? [A, B, fr * 2] : [B, C, (fr - 0.5) * 2]; return '#' + a.map((v, k) => Math.round(v + (b[k] - v) * u).toString(16).padStart(2, '0')).join(''); })(),
+      hover: this.state.hover && !this.state.open, isOpen: this.state.open,
+      enter: () => this.setState({ hover: true }), leave: () => this.setState({ hover: false }),
+      open: e => { e.stopPropagation(); this.setState({ open: true, hover: false }); }, close: e => { e && e.stopPropagation(); this.setState({ open: false }); }, stop: e => e.stopPropagation(),
+      go: e => { e.stopPropagation(); this.setState({ open: false }); if (st && st.goToPlans) st.goToPlans(needUp ? { tab: 'customize', upgrade: p.upgradeId, tier } : { tab: 'plans' }); },
+    };
+  }
+}
+</script>
+</body>
+</html>

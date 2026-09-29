@@ -1,0 +1,55 @@
+GIMP Palette
+Name: Mercenary Guild
+Columns: 8
+#
+ 10  15  28	Ink
+ 14  22  40	Deep
+ 21  34  61	Card
+ 26  43  77	Window
+ 31  53  96	Line
+243 234 215	Cream
+156 198 239	Sky
+ 94 118 153	Slate
+ 39  50  74	Lock Face
+ 52  65  94	Lock Hi
+138 151 173	Lock Text
+  0   0   0	Shadow
+ 43  79 138	Blue
+ 59 111 182	Blue Hi
+242 140  40	Orange
+255 178 102	Orange Hi
+184  90  18	Orange Lo
+122  74  26	Orange Dark
+108 195 106	Green
+155 226 154	Green Hi
+ 63 138  62	Green Lo
+ 18  51  33	Green Tint
+232  88  63	Red
+255 138 112	Red Hi
+168  58  40	Red Lo
+255  59  47	Alert
+ 42  26  36	Red Tint
+242 179  61	Yellow
+255 216 122	Yellow Hi
+184 131  26	Yellow Lo
+ 42  36  16	Yellow Tint
+163 108 232	Purple
+212 154 255	Purple Hi
+122  47 192	Purple Lo
+242 211  61	P50
+ 78 224 106	P100
+236 106  54	R2 (calc)
+239 124  47	R3 (calc)
+242 160  51	R5 (calc)
+ 90 166 232	R7
+ 95 176 184	R8
+100 185 140	R9 (calc)
+ 63 174  90	R11
+168  56  90	Mage
+ 63 201 192	Mystech
+240 122 184	Performer
+160 168 184	Warrior
+230 211 162	Tan Hi
+201 178 122	Tan
+143 124  76	Tan Lo
+138  90  42	Brown

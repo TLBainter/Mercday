@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>html,body{margin:0;background:transparent;color:#f3ead7;font-family:'Pixelify Sans',monospace}button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}*{box-sizing:border-box}</style>
+<script src="./merc-icons.js"></script>
+</helmet>
+<div style="position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:16px;padding:0 3px">
+  <div style="position:relative;min-width:0;display:flex;flex-direction:column;gap:8px;padding:12px;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+    <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px">Send Mercs</span>
+    <div style="display:flex;justify-content:center;gap:10px">
+      <sc-for list="{{ slots }}" as="sl" hint-placeholder-count="1">
+        <div onClick="{{ sl.onClick }}" onMouseEnter="{{ sl.onEnter }}" onMouseLeave="{{ sl.onLeave }}" title="{{ sl.name }}" style="position:relative;flex:none;width:84px;height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:6px;cursor:pointer;opacity:{{ sl.opacity }};outline:{{ sl.outline }};outline-offset:-3px;background:{{ sl.bg }};box-shadow:inset 0 0 0 {{ sl.ringW }} {{ sl.ring }}" style-hover="filter:brightness(1.15)">
+          <sc-if value="{{ sl.empty }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span style="font:700 22px/1 Silkscreen;color:#3b6fb6">+</span><span style="font-size:12px;color:#9cc6ef">Add Merc</span></div></sc-if>
+          <sc-if value="{{ sl.filled }}" hint-placeholder-val="{{ false }}">
+            <div style="width:40px;height:40px;flex:none;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6"></div>
+            <div style="width:100%;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="max-width:100%;font:700 8px/1 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sl.name }}</span>
+              <div style="display:flex;gap:1px"><sc-for list="{{ sl.stars }}" as="st" hint-placeholder-count="5"><img alt="" src="{{ st.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:16px;height:16px;image-rendering:pixelated"></sc-for></div>
+            </div>
+            <button onClick="{{ sl.onRemove }}" title="Remove" style="position:absolute;top:-2px;right:-2px;transform:translate(35%,-35%);padding:0;background:none;color:#ff3b2f;font:700 18px/1 Silkscreen;text-shadow:2px 0 0 #0a0f1c,-2px 0 0 #0a0f1c,0 2px 0 #0a0f1c,0 -2px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:10px;height:10px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -35px -35px / 256px 640px;image-rendering:pixelated;filter:drop-shadow(1px 0 0 #0a0f1c) drop-shadow(-1px 0 0 #0a0f1c) drop-shadow(0 1px 0 #0a0f1c) drop-shadow(0 -1px 0 #0a0f1c)"></span></button>
+          </sc-if>
+          <sc-if value="{{ sl.tip }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 6px);left:24px;z-index:80;width:320px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;pointer-events:none;text-align:left;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+              <span style="font:400 10px Silkscreen;color:#f28c28">{{ tipKind }}</span>
+              <span style="font:700 14px Silkscreen;color:#f3ead7">Add Merc</span>
+              <span style="font-size:14px;line-height:1.35;color:#9cc6ef">{{ tipText }}</span>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="grid-column:span 2;min-width:0;display:flex">
+    <sc-if value="{{ hasTeam }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative;min-width:0;display:flex;flex-direction:column;gap:8px;padding:12px;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c;flex:1">
+        <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px">Pay Mercs</span>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:16px">
+          <span title="Odd Job Default Bonus" style="display:flex;align-items:center;gap:4px;font:700 16px Silkscreen;color:#9cc6ef;white-space:nowrap">{{ def }}<span style="display:inline-block;flex:none;width:10px;height:18px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></span>
+          <span style="flex:none;width:170px"><dc-import name="Quantity Stepper" variant="field" value="{{ per }}" min="{{ 0 }}" on-change="{{ onPer }}" hint-size="170px,38px"></dc-import></span>
+          <span style="font-size:17px;color:#9cc6ef;white-space:nowrap">/ Merc</span>
+          <span style="display:flex;align-items:center;gap:4px;font:700 18px Silkscreen;color:{{ totalColor }};white-space:nowrap">Total {{ total }}<span style="display:inline-block;flex:none;width:15px;height:27px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></span>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePicker }}" style="position:fixed;inset:0;z-index:95;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.6)">
+      <div onClick="{{ stop }}" style="position:relative;width:400px;max-height:540px;padding:16px;display:flex;flex-direction:column;gap:10px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+        <button onClick="{{ closePicker }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);padding:0;background:none;color:#ff3b2f;font:700 40px/1 Silkscreen;text-shadow:2px 0 0 #0a0f1c,-2px 0 0 #0a0f1c,0 2px 0 #0a0f1c,0 -2px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button>
+        <span style="font:700 14px Silkscreen;color:#f28c28">Send a Merc</span>
+        <span style="font-size:13px;line-height:1.35;color:#9cc6ef">{{ pickDesc }}</span>
+        <div style="min-height:0;display:flex;flex-direction:column;gap:6px;overflow-y:auto;padding:4px 6px 4px 4px">
+          <sc-for list="{{ pickList }}" as="m" hint-placeholder-count="5">
+            <button onClick="{{ m.onClick }}" title="{{ m.fitTitle }}" style="flex:none;display:grid;grid-template-columns:40px minmax(0,1fr);gap:10px;align-items:center;padding:6px;text-align:left;background:#0e1628" style-hover="background:#15223d">
+              <div style="width:40px;height:40px;flex:none;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6"></div>
+              <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+                <span style="font:700 11px/1 Silkscreen;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</span>
+                <div style="display:flex;gap:2px"><sc-for list="{{ m.stars }}" as="st" hint-placeholder-count="5"><img alt="" src="{{ st.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:16px;height:16px;image-rendering:pixelated"></sc-for></div>
+              </div>
+            </button>
+          </sc-for>
+          <sc-if value="{{ pickEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:12px;text-align:center;font-size:14px;color:#9cc6ef">No available mercs.</div></sc-if>
+        </div>
+        <sc-if value="{{ canRemove }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ pickerRemove }}" style="height:30px;background:#2b4f8a;font:400 10px Silkscreen;color:#e8583f;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560" style-hover="background:#3b6fb6">Remove From Slot</button>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;1000px&quot;,&quot;height&quot;:&quot;180px&quot;},&quot;max&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:3,&quot;tsType&quot;:&quot;number&quot;},&quot;team&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number[]&quot;},&quot;candidates&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;{id:number,name:string,fit:number}[]&quot;},&quot;per&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;},&quot;defPay&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;},&quot;money&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number&quot;},&quot;tipKind&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Odd Job&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tipText&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Send a merc on this Odd Job.&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;pickDesc&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Sorted by best fit.&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onTeam&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(team: number[]) =&gt; void&quot;},&quot;onPer&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(n: number) =&gt; void&quot;}}">
+class Component extends DCLogic {
+  mi() { const M = window.MercIcons; if (M) return M; if (!this._miWait) this._miWait = setInterval(() => { if (window.MercIcons) { clearInterval(this._miWait); this.forceUpdate(); } }, 50); return { cells: () => [], cell16: () => [], box: () => [], solid: () => [], diffStar: () => [], tabOn: () => [], mask: () => [''], w: () => 1, h: () => 1 }; }
+  // OddJobCrew.tscn — the shared Odd Job setup (same as Finance › Request a Loan): EnvoySlot ×max + OddJobPay + MercPicker.
+  // Host owns the data: team (merc ids), candidates [{id, name, fit}] (fit 0.5–5 stars), per-merc pay (defaults to Benefits › Odd Job Default Bonus).
+  state = { picker: null, tip: null };
+  get noteMap() { return this.mi().mask('note'); }
+  get starMap() { return this.mi().mask('star9'); }
+  rateColors = { 0.5: '#e03829', 1: '#e05f29', 1.5: '#e08629', 2: '#e3b43b', 2.5: '#e3d83b', 3: '#cae33b', 3.5: '#a6e33b', 4: '#77e029', 4.5: '#50e029', 5: '#29e029' };
+  stars(v) { const col = this.rateColors[v] || '#f28c28'; return [0, 1, 2, 3, 4].map(i => { const full = v >= i + 1, half = !full && v >= i + 0.5; return this.mi().diffStar(full ? 1 : half ? 0.5 : 0, col); }); }
+  n(v) { return Math.round(v || 0).toLocaleString('en-US'); }
+  renderVals() {
+    const p = this.props, s = this.state, max = Math.max(1, p.max ?? 3), team = (p.team || []).slice(0, max), cands = p.candidates || [], byId = Object.fromEntries(cands.map(c => [c.id, c]));
+    const set = t => p.onTeam && p.onTeam(t.filter(x => x != null));
+    const shown = Math.min(max, team.length + 1), per = p.per ?? 0, total = per * team.length;
+    const slots = Array.from({ length: shown }, (_, i) => { const id = team[i], c = id != null ? byId[id] || { name: 'Merc', fit: 0.5 } : null;
+      return { empty: id == null, filled: id != null, name: c ? c.name : '', stars: c ? this.stars(c.fit) : [], tip: s.tip === i && id == null,
+        opacity: id == null ? 0.6 : 1, outline: id == null ? '2px dashed #3b6fb6' : 'none', ring: id == null ? 'transparent' : '#2b4f8a', ringW: id == null ? '0' : '2px', bg: id == null ? '#0e1628' : '#15223d',
+        onEnter: () => this.setState({ tip: i }), onLeave: () => this.setState({ tip: null }), onClick: () => this.setState({ picker: i, tip: null }),
+        onRemove: e => { e.stopPropagation(); set(team.filter((v, j) => j !== i)); } }; });
+    const pick = s.picker, list = cands.filter(c => !team.some((x, j) => x === c.id && j !== pick)).sort((a, b) => b.fit - a.fit);
+    return {
+      slots, tipKind: p.tipKind || 'Odd Job', tipText: p.tipText || 'Send a merc on this Odd Job.',
+      hasTeam: team.length > 0, def: this.n(p.defPay), per, onPer: v => p.onPer && p.onPer(v), total: this.n(total), totalColor: total <= (p.money ?? Infinity) ? '#f3ead7' : '#e8583f',
+      nGlyph: this.noteMap.join('').split('').map(ch => ch === '#' ? 'currentColor' : 'transparent'),
+      pickerOpen: pick != null, closePicker: () => this.setState({ picker: null }), stop: e => e.stopPropagation(), pickDesc: p.pickDesc || 'Sorted by best fit.',
+      pickEmpty: list.length === 0, canRemove: pick != null && team[pick] != null,
+      pickerRemove: () => { set(team.filter((v, j) => j !== pick)); this.setState({ picker: null }); },
+      pickList: list.map(c => ({ name: c.name, stars: this.stars(c.fit), fitTitle: 'Match: ' + c.fit + ' / 5',
+        onClick: () => { const a = team.map(v => v === c.id ? null : v); a[pick] = c.id; set(a); this.setState({ picker: null }); } })),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,13 +1,14 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/MercPicker.gd" id="1"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="3"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_box"]
-content_margin_left = 10.0
-content_margin_top = 10.0
-content_margin_right = 10.0
-content_margin_bottom = 10.0
+content_margin_left = 14.0
+content_margin_top = 14.0
+content_margin_right = 14.0
+content_margin_bottom = 14.0
 bg_color = Color(0.101961, 0.168627, 0.301961, 1)
 border_width_left = 3
 border_width_top = 3
@@ -76,14 +77,22 @@ layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="Items" type="VBoxContainer" parent="Center/Box/Rows/Scroll"]
+[node name="Pad" type="MarginContainer" parent="Center/Box/Rows/Scroll"]
+size_flags_horizontal = 3
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 14
+
+[node name="Items" type="VBoxContainer" parent="Center/Box/Rows/Scroll/Pad"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 4
 
-[node name="Remove" type="Button" parent="Center/Box/Rows"]
+[node name="Remove" parent="Center/Box/Rows" instance=ExtResource("3")]
 visible = false
 layout_mode = 2
-theme_type_variation = &"ButtonDanger"
+kind = &"danger"
 text = "Remove From Slot"

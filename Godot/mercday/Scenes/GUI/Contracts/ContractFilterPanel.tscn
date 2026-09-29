@@ -1,11 +1,12 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/ContractFilterPanel.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/RangeSlider.tscn" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FilterCheckRow.tscn" id="4"]
 
 [node name="ContractFilterPanel" type="PopupPanel"]
-size = Vector2i(300, 240)
+size = Vector2i(300, 400)
 script = ExtResource("1")
 
 [node name="Rows" type="VBoxContainer" parent="."]
@@ -18,9 +19,48 @@ theme_override_fonts/font = ExtResource("3")
 theme_override_font_sizes/font_size = 10
 text = "FILTER"
 
-[node name="ShowClosed" type="CheckBox" parent="Rows"]
+[node name="Statuses" type="VBoxContainer" parent="Rows"]
 layout_mode = 2
-text = "Show closed contracts"
+theme_override_constants/separation = 2
+
+[node name="Available" parent="Rows/Statuses" instance=ExtResource("4")]
+layout_mode = 2
+label = "Available"
+on = true
+
+[node name="Active" parent="Rows/Statuses" instance=ExtResource("4")]
+layout_mode = 2
+label = "Active"
+on = true
+
+[node name="Completed" parent="Rows/Statuses" instance=ExtResource("4")]
+layout_mode = 2
+label = "Completed"
+on = false
+
+[node name="Failed" parent="Rows/Statuses" instance=ExtResource("4")]
+layout_mode = 2
+label = "Failed"
+on = false
+
+[node name="UnclaimedWrap" type="MarginContainer" parent="Rows/Statuses"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+
+[node name="Unclaimed" parent="Rows/Statuses/UnclaimedWrap" instance=ExtResource("4")]
+layout_mode = 2
+label = "Unclaimed Results"
+on = true
+
+[node name="Rejected" parent="Rows/Statuses" instance=ExtResource("4")]
+layout_mode = 2
+label = "Rejected"
+on = false
+
+[node name="Expired" parent="Rows/Statuses" instance=ExtResource("4")]
+layout_mode = 2
+label = "Expired"
+on = false
 
 [node name="DifficultyMin" parent="Rows" instance=ExtResource("2")]
 layout_mode = 2

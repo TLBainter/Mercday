@@ -104,14 +104,16 @@ func scales(day_count: int) -> Array[String]:
 
 #Buckets one key of one source into {day, value} points; day is the first recorded day of the
 #bucket, counted from the start of the record. An EVENT_AVG bucket with no events carries the
-#previous value forward, and leading empty buckets take the first value that exists.
-func series(source: String, key: String, from_day: int, bucket_days: int) -> Array[Dictionary]:
+#previous value forward, and leading empty buckets take the first value that exists. day_count
+#windows the read to that many recorded days from from_day; -1 reads to the end of the record.
+func series(source: String, key: String, from_day: int, bucket_days: int,
+		day_count: int = -1) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var store: Dictionary = _store()
 	if not store.has(source):
 		return out
 	var keys: Array[String] = [key]
-	return _bucketed(store[source], keys, _agg_for(source, key), from_day, bucket_days)
+	return _bucketed(store[source], keys, _agg_for(source, key), from_day, bucket_days, day_count)
 
 
 #The same buckets over several contract types at once, plotted when more than one type is picked.
@@ -121,7 +123,7 @@ func series(source: String, key: String, from_day: int, bucket_days: int) -> Arr
 #type averages that are present. EVENT_AVG divides the summed values by the summed
 #"<key>_n" counts and carries the previous bucket value forward when a bucket holds none.
 func combined_series(source: String, key: String, types: Array[String], from_day: int,
-		bucket_days: int) -> Array[Dictionary]:
+		bucket_days: int, day_count: int = -1) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var store: Dictionary = _store()
 	if not store.has(source):
@@ -131,7 +133,7 @@ func combined_series(source: String, key: String, types: Array[String], from_day
 		keys.append("%s/%s" % [type_name, key])
 	if keys.is_empty():
 		keys.append(key)
-	return _bucketed(store[source], keys, _agg_for(source, key), from_day, bucket_days)
+	return _bucketed(store[source], keys, _agg_for(source, key), from_day, bucket_days, day_count)
 
 
 #The distinct merc uids the Merc keys of the store on show carry, ascending.
@@ -165,8 +167,8 @@ func hire_day(uid: int) -> int:
 
 #The mean of one merc metric over the mercs employed in each bucket, bucketed like series(). A
 #bucket no merc was hired in yet carries NAN, and exclude_uid is left out of the mean.
-func team_average(key: String, from_day: int, bucket_days: int,
-		exclude_uid: int = -1) -> Array[Dictionary]:
+func team_average(key: String, from_day: int, bucket_days: int, exclude_uid: int = -1,
+		day_count: int = -1) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var size: int = maxi(1, bucket_days)
 	var lists: Array[Array] = []
@@ -174,7 +176,7 @@ func team_average(key: String, from_day: int, bucket_days: int,
 	for uid: int in merc_uids():
 		if uid == exclude_uid:
 			continue
-		lists.append(series("Merc", "%d/%s" % [uid, key], from_day, size))
+		lists.append(series("Merc", "%d/%s" % [uid, key], from_day, size, day_count))
 		hires.append(hire_day(uid))
 	var count: int = 0
 	for list: Array in lists:
@@ -200,15 +202,18 @@ func team_average(key: String, from_day: int, bucket_days: int,
 
 
 func _bucketed(rows: Array[Dictionary], keys: Array[String], agg: String, from_day: int,
-		bucket_days: int) -> Array[Dictionary]:
+		bucket_days: int, day_count: int = -1) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var size: int = maxi(1, bucket_days)
 	var start: int = clampi(from_day, 0, rows.size())
+	var end: int = rows.size()
+	if day_count >= 0:
+		end = mini(rows.size(), start + maxi(0, day_count))
 	var previous: Variant = null
 	var missing: Array[int] = []
 	var bucket: int = start
-	while bucket < rows.size():
-		var stop: int = mini(rows.size(), bucket + size)
+	while bucket < end:
+		var stop: int = mini(end, bucket + size)
 		var value: Variant = null
 		if agg == "EVENT_AVG":
 			var sum: float = 0.0
@@ -545,7 +550,8 @@ func _build_defs() -> Array[MetricDef]:
 		["kills", "Enemies Defeated", "Merc", "SUM", false,
 			"Enemies this merc put down over the bucket.", "int"],
 		["op", "Guild Opinion", "Merc", "AVG", false,
-			"How this merc felt about the guild, averaged over the bucket, from -5 to 5.", "op"],
+			"How this merc felt about the guild, averaged over the bucket, from -5 to 5.", "op",
+			"guildOpinion", "survey"],
 		["vac", "Vacation Days Taken", "Merc", "SUM", false,
 			"Days this merc spent on vacation over the bucket.", "int"],
 		["count", "Contract #", "Contract", "SUM", true,
@@ -580,13 +586,17 @@ func _build_defs() -> Array[MetricDef]:
 		["dead", "Merc Casualties", "Guild", "SUM", false,
 			"Mercs the guild lost over the bucket.", "int"],
 		["mop", "Merc Guild Opinion", "Guild", "AVG", false,
-			"How the roster felt about the guild, averaged over the bucket, from -5 to 5.", "op"],
+			"How the roster felt about the guild, averaged over the bucket, from -5 to 5.", "op",
+			"guildOpinion", "survey"],
 		["cop", "Client Guild Opinion", "Guild", "AVG", false,
-			"How clients felt about the guild, averaged over the bucket, from -5 to 5.", "op"],
+			"How clients felt about the guild, averaged over the bucket, from -5 to 5.", "op",
+			"clientOpinion", "customer"],
 		["port", "Investment Portfolio", "Guild", "LAST", false,
 			"Market value of the guild's held shares at the close of the bucket's last day.",
 			"money"],
 	]:
+		var lock_text: String = str(row[7]) if row.size() > 7 else ""
+		var upgrade_text: String = str(row[8]) if row.size() > 8 else ""
 		out.append(MetricDef.make(str(row[0]), str(row[1]), str(row[2]), str(row[3]), bool(row[4]),
-			str(row[5]), str(row[6])))
+			str(row[5]), str(row[6]), lock_text, upgrade_text))
 	return out

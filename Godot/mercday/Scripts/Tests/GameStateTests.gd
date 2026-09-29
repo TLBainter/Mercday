@@ -1,8 +1,8 @@
 class_name GameStateTests
 
 #GameState launch, the ordered clock processing, the salary debit, dispatch, reject, the night
-#dispatch queue and the metrics record. The script is loaded by path so the suite never depends on the autoload registration.
-#Run: godot --headless --path . -- --gamestate-tests
+#dispatch queue, the metrics record, the money log, the away registry and the manager tick.
+#The script is loaded by path so the suite never depends on the autoload registration.
 
 const STATE_PATH := "res://Scripts/GUI/Autoloads/GameState.gd"
 const START_SEED := 7
@@ -31,6 +31,12 @@ static func run() -> bool:
 	await _case_night_departs(res)
 	_case_rest_status(res)
 	await _case_metrics(res)
+	_case_money_log(res)
+	_case_income_expenses(res)
+	_case_away(res)
+	_case_removed(res)
+	await _case_next_payday(res)
+	_case_tick_order(res)
 	CampaignClock.reset()
 	return TestFixtures.summarize(res, "GAMESTATE")
 
@@ -463,3 +469,284 @@ static func _case_metrics(res: Dictionary) -> void:
 		"points %d" % bank.size())
 	_drop(state)
 	MetricsHistory.clear()
+
+
+#Case: every move of money carries a reason and a label the ledger can print.
+static func _case_money_log(res: Dictionary) -> void:
+	var state: Variant = _state()
+	var rec: MoneyLog = MoneyLog.new()
+	state.money_logged.connect(rec.on_money)
+	var bank: int = state.bank_notes
+	state.charge(0, "x", "nothing")
+	state.charge(-40, "x", "nothing")
+	TestFixtures.check(res, "a charge of nothing or less is not a move of money",
+		rec.rows.is_empty() and state.bank_notes == bank,
+		"%d rows, %d notes" % [rec.rows.size(), state.bank_notes])
+	state.charge(40, state.REASON_LOAN_PAYMENT, "Lender 1 - Payment")
+	TestFixtures.check(res, "a charge always goes through and is logged with its label",
+		state.bank_notes == bank - 40 and rec.rows.size() == 1
+		and int(rec.rows[0]["delta"]) == -40
+		and String(rec.rows[0]["reason"]) == state.REASON_LOAN_PAYMENT
+		and String(rec.rows[0]["label"]) == "Lender 1 - Payment", "%s" % [rec.rows])
+	TestFixtures.check(res, "spending what the guild has is logged the same way",
+		state.spend(10, state.REASON_ODD_JOB, "Odd Job - Loan Request (Lender 5)")
+		and rec.rows.size() == 2 and int(rec.rows[1]["delta"]) == -10
+		and String(rec.rows[1]["label"]) == "Odd Job - Loan Request (Lender 5)",
+		"%s" % [rec.rows[rec.rows.size() - 1]])
+	TestFixtures.check(res, "spending more than the guild has moves and logs nothing",
+		not state.spend(state.bank_notes + 1, state.REASON_LOAN_PAYOFF, "Lender 1 - Payoff")
+		and rec.rows.size() == 2, "%d rows" % rec.rows.size())
+	state.refund(500, state.REASON_LOAN, "Lender 2 - Loan")
+	TestFixtures.check(res, "notes coming in are logged as a credit with their label",
+		state.bank_notes == bank - 50 + 500 and rec.rows.size() == 3
+		and int(rec.rows[2]["delta"]) == 500
+		and String(rec.rows[2]["label"]) == "Lender 2 - Loan", "%s" % [rec.rows[2]])
+	TestFixtures.check(res, "a charge that carries no label still logs its reason",
+		state.spend(5, state.REASON_STOCK) and String(rec.rows[3]["label"]) == ""
+		and String(rec.rows[3]["reason"]) == state.REASON_STOCK, "%s" % [rec.rows[3]])
+	_drop(state)
+
+
+#Case: income raises the bank without ever lowering the day's expenses.
+static func _case_income_expenses(res: Dictionary) -> void:
+	var state: Variant = _state()
+	state.charge(300, state.REASON_LOAN_PAYMENT, "Lender 1 - Payment")
+	state.refund(100, state.REASON_LOAN, "Lender 1 - Loan")
+	state.refund(60, state.REASON_DIVIDEND, "Dividend")
+	var income_exp: int = int(float(state._guild_metrics(0)["exp"]))
+	TestFixtures.check(res, "a loan and a dividend leave the day's expenses where they were",
+		income_exp == 300, "%d spent" % income_exp)
+	state.charge(300, state.REASON_TRAVEL, "Travel - On Foot (x2)")
+	state.refund(100, state.REASON_TRAVEL_REFUND, "Travel - On Foot (x2)")
+	var travel_exp: int = int(float(state._guild_metrics(0)["exp"]))
+	TestFixtures.check(res, "a travel refund comes off the day's expenses",
+		travel_exp == 200, "%d spent" % travel_exp)
+	TestFixtures.check(res, "every income reason is listed once",
+		state.INCOME_REASONS.size() == 3 and state.INCOME_REASONS.has(state.REASON_LOAN)
+		and state.INCOME_REASONS.has(state.REASON_STOCK)
+		and state.INCOME_REASONS.has(state.REASON_DIVIDEND), "%s" % [state.INCOME_REASONS])
+	_drop(state)
+
+
+#Case: the away registry every wave 2 manager writes into.
+static func _case_away(res: Dictionary) -> void:
+	var state: Variant = _state()
+	var uids: Array[int] = []
+	for merc: MercenaryData in state.mercs:
+		if uids.size() < 4:
+			uids.append(merc.merc_uid)
+	var payroll_full: int = state.month_expenses()
+	var refused: bool = not state.set_away(uids[0], GuiTypes.MercStatus.AVAILABLE) \
+		and not state.set_away(uids[0], GuiTypes.MercStatus.RESTING) \
+		and not state.set_away(uids[0], GuiTypes.MercStatus.CONTRACT) \
+		and not state.set_away(uids[0], GuiTypes.MercStatus.VACATION)
+	TestFixtures.check(res, "a status the guild is at home for cannot send a merc away",
+		refused and not state.is_away(uids[0]), "away %d" % state.away_status(uids[0]))
+	var back: int = CampaignClock.now() + 120
+	TestFixtures.check(res, "a merc can be sent away on loan business until a minute",
+		state.set_away(uids[0], GuiTypes.MercStatus.LOAN, back)
+		and state.away_status(uids[0]) == GuiTypes.MercStatus.LOAN
+		and state.is_away(uids[0]) and state.away_until(uids[0]) == back,
+		"%d until %d" % [state.away_status(uids[0]), state.away_until(uids[0])])
+	var row: Dictionary = state.merc_status(state.merc_by_uid(uids[0]))
+	TestFixtures.check(res, "the roster reads the away status and the hours left of it",
+		int(row["status"]) == GuiTypes.MercStatus.LOAN and float(row["hours_left"]) == 2.0,
+		"%s" % [row])
+	TestFixtures.check(res, "an away merc counts as busy",
+		state.busy_uids().has(uids[0]), "%s" % [state.busy_uids()])
+	TestFixtures.check(res, "a merc can be away with no end in sight",
+		state.set_away(uids[1], GuiTypes.MercStatus.FIRED)
+		and state.away_until(uids[1]) == -1
+		and float(state.merc_status(state.merc_by_uid(uids[1]))["hours_left"]) == 0.0,
+		"until %d" % state.away_until(uids[1]))
+	TestFixtures.check(res, "a fired merc is off the payroll and everyone else is on it",
+		state.payroll_mercs().size() == state.mercs.size() - 1,
+		"%d of %d" % [state.payroll_mercs().size(), state.mercs.size()])
+	var fired_cost: int = state.month_expenses()
+	TestFixtures.check(res, "the month of salaries drops by what the fired merc cost",
+		fired_cost == payroll_full - state.merc_by_uid(uids[1]).monthly_salary,
+		"%d of %d" % [fired_cost, payroll_full])
+	TestFixtures.check(res, "a captive is away too",
+		state.set_away(uids[2], GuiTypes.MercStatus.CAPTURED)
+		and state.away_status(uids[2]) == GuiTypes.MercStatus.CAPTURED,
+		"away %d" % state.away_status(uids[2]))
+	TestFixtures.check(res, "a status past ODD_JOB is refused",
+		not state.set_away(uids[3], GuiTypes.MercStatus.ODD_JOB + 1) and not state.is_away(uids[3]),
+		"away %d" % state.away_status(uids[3]))
+	var odd_job_full: int = state.month_expenses()
+	TestFixtures.check(res, "a merc can be sent on an odd job until a minute",
+		state.set_away(uids[3], GuiTypes.MercStatus.ODD_JOB, back)
+		and state.away_status(uids[3]) == GuiTypes.MercStatus.ODD_JOB
+		and state.busy_uids().has(uids[3]),
+		"away %d" % state.away_status(uids[3]))
+	TestFixtures.check(res, "a merc on an odd job stays on the payroll",
+		state.payroll_mercs().has(state.merc_by_uid(uids[3]))
+		and state.month_expenses() == odd_job_full,
+		"%d of %d" % [state.payroll_mercs().size(), state.mercs.size()])
+	state.process_until(back + 60)
+	TestFixtures.check(res, "the minute they are due back the guild has them again",
+		not state.is_away(uids[0]) and state.is_away(uids[1]) and state.is_away(uids[2])
+		and not state.is_away(uids[3]),
+		"%d, %d, %d, %d" % [state.away_status(uids[0]), state.away_status(uids[1]),
+		state.away_status(uids[2]), state.away_status(uids[3])])
+	state.clear_away(uids[1])
+	state.clear_away(uids[0])
+	TestFixtures.check(res, "clearing a row brings a merc back and clearing nothing is quiet",
+		not state.is_away(uids[1]) and state.payroll_mercs().size() == state.mercs.size()
+		and state.month_expenses() == payroll_full,
+		"%d of %d, %d a month" % [state.payroll_mercs().size(), state.mercs.size(),
+		state.month_expenses()])
+	state.start_new_game()
+	TestFixtures.check(res, "a new campaign starts with nobody away",
+		not state.is_away(uids[2]) and state.away_status(uids[2]) == -1,
+		"away %d" % state.away_status(uids[2]))
+	_drop(state)
+
+
+#Case: the queue of removed mercs. A merc taken off the roster leaves the guild whole, and
+#nothing keyed on the uid stays behind.
+static func _case_removed(res: Dictionary) -> void:
+	var state: Variant = _state()
+	var seen: Dictionary = {"n": 0}
+	var counter: Callable = func() -> void:
+		seen["n"] = int(seen["n"]) + 1
+	state.roster_changed.connect(counter)
+	var merc: MercenaryData = state.mercs[0]
+	var uid: int = merc.merc_uid
+	var full: int = state.mercs.size()
+	var wage: int = state.month_expenses()
+	TestFixtures.check(res, "a uid nobody holds removes nobody",
+		state.remove_merc(-1, "fired") == null and state.mercs.size() == full
+		and state.removed_count() == 0 and int(seen["n"]) == 0,
+		"%d of %d, %d removed" % [state.mercs.size(), full, state.removed_count()])
+	var record: RemovedMercRecord = state.remove_merc(uid, "fired", GuiTypes.MercStatus.FIRED)
+	TestFixtures.check(res, "a removal files the merc itself and what it was worth",
+		record != null and record.uid == uid and record.merc == merc
+		and record.reason == "fired" and record.status == GuiTypes.MercStatus.FIRED
+		and record.name == merc.merc_name and record.salary == merc.monthly_salary
+		and record.guild_opinion == merc.guild_opinion,
+		"%s" % [record.to_dict() if record != null else {}])
+	TestFixtures.check(res, "the removed merc is off the roster, the payroll and the uid keys",
+		state.mercs.size() == full - 1 and state.merc_by_uid(uid) == null
+		and state.roster.size() == full - 1 and not state.merc_extras.has(uid)
+		and not state.pip_modes.has(uid) and not state.is_away(uid)
+		and state.month_expenses() == wage - merc.monthly_salary,
+		"%d of %d, %d a month" % [state.mercs.size(), full, state.month_expenses()])
+	TestFixtures.check(res, "a removal tells the roster once", int(seen["n"]) == 1, str(seen["n"]))
+	TestFixtures.check(res, "the queue answers by uid and by count",
+		state.removed_by_uid(uid) == record and state.removed_count() == 1
+		and state.removed_by_uid(-1) == null, str(state.removed_count()))
+	var second: MercenaryData = state.mercs[0]
+	var want_status: int = int(state.merc_status(second)["status"])
+	var day: int = TrynnCalendar.day_index(CampaignClock.now())
+	var quit_record: RemovedMercRecord = state.remove_merc(second.merc_uid, "left")
+	TestFixtures.check(res, "a removal with no status reads the status the merc stood at",
+		quit_record != null and quit_record.reason == "left"
+		and quit_record.status == want_status and quit_record.day_index == day
+		and quit_record.minute == CampaignClock.now() and state.removed_count() == 2
+		and int(seen["n"]) == 2,
+		"%s" % [quit_record.to_dict() if quit_record != null else {}])
+	state.roster_changed.disconnect(counter)
+	state.start_new_game()
+	TestFixtures.check(res, "a new campaign starts with an empty queue",
+		state.removed_count() == 0 and state.removed_by_uid(uid) == null,
+		str(state.removed_count()))
+	_drop(state)
+
+
+#Case: next_payday_minute names the next salary tick, and the campaign clock lands on it.
+static func _case_next_payday(res: Dictionary) -> void:
+	var state: Variant = _state()
+	var at: int = state.next_payday_minute()
+	TestFixtures.check(res, "next_payday_minute is ahead of the clock",
+		at > CampaignClock.now(), "%d vs %d" % [at, CampaignClock.now()])
+	var expected: int = SalarySystem.month_expenses(state.mercs)
+	var before: int = int(state.bank_notes)
+	await state.process_until(at)
+	TestFixtures.check(res, "next_payday_minute lands on the payroll debit",
+		int(state.bank_notes) == before - expected,
+		"bank %d expected %d" % [int(state.bank_notes), before - expected])
+	_drop(state)
+
+
+#Case: the clock hands every manager the new minute, in the order the ledger needs.
+#The probes carry the real autoload names, so they hang under a parent of their own and the state
+#looks them up there: add_child renames a node that clashes with a sibling, and a probe under the
+#root would be renamed while the lookup found the live autoload instead.
+static func _case_tick_order(res: Dictionary) -> void:
+	var state: Variant = _state()
+	var trail: Array = []
+	var probes: Array[Node] = []
+	var root: Node = (Engine.get_main_loop() as SceneTree).root
+	var parent: Node = Node.new()
+	parent.name = "TickProbeRoot"
+	root.add_child(parent)
+	state.tick_root = "%s/" % String(parent.get_path())
+	var order: Array = state.TICK_ORDER
+	var expected: Array = []
+	for manager: String in order:
+		var probe: TickProbe = TickProbe.new()
+		probe.name = manager
+		probe.trail = trail
+		parent.add_child(probe)
+		probes.append(probe)
+		expected.append(manager)
+	TestFixtures.check(res, "seven managers are ticked and finance goes first",
+		order.size() == 7 and String(order[0]) == "FinanceManager"
+		and String(order[1]) == "FinanceLedger", "%s" % [order])
+	TestFixtures.check(res, "every probe keeps the name its manager is looked up by",
+		_probe_names(probes) == expected, "%s" % [_probe_names(probes)])
+	var target: int = CampaignClock.now() + 60
+	state.process_until(target)
+	TestFixtures.check(res, "the managers in the tree are ticked in the listed order",
+		trail == expected, "%s" % [trail])
+	var first: TickProbe = probes[0] as TickProbe
+	var last: TickProbe = probes[probes.size() - 1] as TickProbe
+	TestFixtures.check(res, "each one is told the minute the campaign reached, once",
+		first.ticks.size() == 1 and first.ticks[0] == target and last.ticks.size() == 1
+		and last.ticks[0] == target, "%s" % [first.ticks])
+	state.process_until(target + 60)
+	TestFixtures.check(res, "the next jump ticks them all again",
+		trail.size() == order.size() * 2 and (probes[1] as TickProbe).ticks.size() == 2,
+		"%d calls" % trail.size())
+	var dropped: Node = probes.pop_back()
+	parent.remove_child(dropped)
+	dropped.free()
+	var short_order: Array = expected.duplicate()
+	short_order.pop_back()
+	trail.clear()
+	state.process_until(target + 120)
+	TestFixtures.check(res, "a manager the tree does not hold is skipped without a word",
+		trail == short_order, "%s" % [trail])
+	for probe: Node in probes:
+		parent.remove_child(probe)
+		probe.free()
+	root.remove_child(parent)
+	parent.free()
+	_drop(state)
+
+
+#The names the probes answer to, so a rename by the tree shows up as a failed check.
+static func _probe_names(probes: Array[Node]) -> Array:
+	var out: Array = []
+	for probe: Node in probes:
+		out.append(String(probe.name))
+	return out
+
+
+#Records every move of money the way a ledger screen would.
+class MoneyLog extends RefCounted:
+	var rows: Array[Dictionary] = []
+
+	func on_money(delta: int, reason: String, label: String) -> void:
+		rows.append({"delta": delta, "reason": reason, "label": label})
+
+
+#Stands in for a wave 2 manager that is not built yet.
+class TickProbe extends Node:
+	var ticks: Array[int] = []
+	var trail: Array = []
+
+	func tick(now: int) -> void:
+		ticks.append(now)
+		trail.append(String(name))

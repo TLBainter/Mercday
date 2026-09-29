@@ -63,11 +63,11 @@ const HELD_ALPHA: float = 0.45
 @onready var stars: DifficultyStars = $Rows/Body/Filled/Stars
 @onready var traits_caption: Label = $Rows/Body/Filled/TraitsCaption
 @onready var traits_scroll: ScrollContainer = $Rows/Body/Filled/Traits
-@onready var trait_a: TraitRow = $Rows/Body/Filled/Traits/List/TraitA
-@onready var trait_b: TraitRow = $Rows/Body/Filled/Traits/List/TraitB
-@onready var divider: HSeparator = $Rows/Body/Filled/Traits/List/Divider
-@onready var shared_a: TraitRow = $Rows/Body/Filled/Traits/List/SharedA
-@onready var shared_b: TraitRow = $Rows/Body/Filled/Traits/List/SharedB
+@onready var trait_a: TraitRow = $Rows/Body/Filled/Traits/Pad/List/TraitA
+@onready var trait_b: TraitRow = $Rows/Body/Filled/Traits/Pad/List/TraitB
+@onready var divider: HSeparator = $Rows/Body/Filled/Traits/Pad/List/Divider
+@onready var shared_a: TraitRow = $Rows/Body/Filled/Traits/Pad/List/SharedA
+@onready var shared_b: TraitRow = $Rows/Body/Filled/Traits/Pad/List/SharedB
 @onready var bevel_top: ColorRect = $Rows/Head/BevelTop
 @onready var bevel_bottom: ColorRect = $Rows/Head/BevelBottom
 

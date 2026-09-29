@@ -13,12 +13,24 @@ const DATE_COLOR: Color = Color("#5e7699")
 const TOP_EDGE_COLOR: Color = Color("#3b6fb6")
 const TOP_EDGE_PX: float = 4.0
 const BODY_MARGIN: float = 20.0
+#The line under the name once a posting has settled, by the status it is drawn as (README I5).
+#An expired posting keeps its deadline line, as the PROTO dateLine does (Contract Viewer 871).
+const CLOSED_LINES: Dictionary = {
+	GuiTypes.ContractStatus.COMPLETED: "Completed on %s",
+	GuiTypes.ContractStatus.FAILED: "Failed on %s",
+	GuiTypes.ContractStatus.REJECTED: "Rejected on %s",
+}
+const CLOSED_FALLBACK: String = "Closed"
+const DEADLINE_LINE: String = "Deadline %s"
+#The detail portrait wears the status mark at four pixels per art pixel.
+const DETAIL_MARK_SCALE: int = 4
 const CARD_COMPLETION: int = 0
 const CARD_DISTANCE: int = 1
 const CARD_URGENCY: int = 2
 
 @onready var image: ContractImageBox = $Body/Header/Image
 @onready var status_label: Label = $Body/Header/Image/Strip/Text
+@onready var mark: StatusMark = $Body/Header/Image/Mark
 @onready var name_label: Label = $Body/Header/Names/Name
 @onready var deadline_label: Label = $Body/Header/Names/Deadline
 @onready var dates_label: Label = $Body/Header/Names/Dates
@@ -52,6 +64,8 @@ func _ready() -> void:
 	reward_label.mouse_entered.connect(_on_reward_entered)
 	reward_label.mouse_exited.connect(payout_tip.hide_tip)
 	level_badge.mouse_filter = MOUSE_FILTER_IGNORE
+	mark.icon_rect.pixel_scale = DETAIL_MARK_SCALE
+	mark.icon_rect.set_icon(mark.icon_rect.icon)
 	_refresh()
 
 
@@ -100,6 +114,14 @@ func active_crew() -> ActiveCrew:
 
 func image_box() -> ContractImageBox:
 	return image
+
+
+func status_mark() -> StatusMark:
+	return mark
+
+
+func payout_tooltip() -> PayoutTooltip:
+	return payout_tip
 
 
 func card(index: int) -> StatCard:
@@ -160,25 +182,41 @@ func _refresh() -> void:
 	buttons.set_state(view.status, is_queued())
 
 
+#The strip never names the outcome: a failed posting reads as Failed once its results are
+#claimed, and an unclaimed one reads as Complete whichever way it went.
 func _fill_status() -> void:
-	var text: String = view.status_text()
-	if view.status == GuiTypes.ContractStatus.COMPLETED and view.outcome != "":
-		text = "%s: %s" % [text, view.outcome]
+	var text: String = view.shown_status_text()
 	if is_queued():
 		text = "%s - Departs at 6:00 AM" % text
 	status_label.text = text
-	status_label.add_theme_color_override("font_color", GuiTypes.status_color(view.status))
+	status_label.add_theme_color_override("font_color", view.shown_status_color())
+	mark.kind = view.shown_mark()
 
 
 func _fill_dates() -> void:
-	var text: String = "Closed"
+	var text: String = _closed_line()
 	if view.status == GuiTypes.ContractStatus.AVAILABLE:
 		text = "Expires in %s" % MercStatusStrip.time_text(int(view.expires_in_hours * 60.0))
 	elif view.status == GuiTypes.ContractStatus.ACTIVE:
 		text = "Returns in %s" % MercStatusStrip.time_text(_minutes_left())
+	elif view.status == GuiTypes.ContractStatus.EXPIRED and view.expires_minute >= 0:
+		text = _deadline_text()
 	dates_label.text = text
 	dates_label.add_theme_color_override("font_color", DATE_COLOR)
 	_fill_deadline()
+
+
+#An unclaimed result keeps the neutral "Completed on" line so the strip and the date agree.
+func _closed_line() -> String:
+	if view.closed_minute < 0:
+		return CLOSED_FALLBACK
+	var shown: int = view.shown_status()
+	if view.is_unclaimed():
+		shown = GuiTypes.ContractStatus.COMPLETED
+	var form: String = str(CLOSED_LINES.get(shown, CLOSED_FALLBACK))
+	if not form.contains("%s"):
+		return form
+	return form % TrynnCalendar.date_text(view.closed_minute)
 
 
 func _fill_deadline() -> void:
@@ -187,7 +225,11 @@ func _fill_deadline() -> void:
 	if not deadline_label.visible:
 		deadline_label.text = ""
 		return
-	deadline_label.text = "Deadline %s" % TrynnCalendar.date_text(view.expires_minute)
+	deadline_label.text = _deadline_text()
+
+
+func _deadline_text() -> String:
+	return DEADLINE_LINE % TrynnCalendar.date_text(view.expires_minute)
 
 
 func _minutes_left() -> int:
@@ -250,6 +292,7 @@ func _on_stars_entered() -> void:
 func _on_reward_entered() -> void:
 	var run: ActiveRun = run_of_view()
 	if run == null:
+		_show_results_tip()
 		return
 	var start: int = run.depart_minute if run.depart_minute >= 0 else run.dispatched_minute
 	if start < 0:
@@ -270,3 +313,17 @@ func _on_reject() -> void:
 
 func _on_cancel() -> void:
 	cancel_requested.emit(entry_id())
+
+
+#A settled posting shows what it finally paid, but never before the player has opened the
+#results: the tooltip would give the outcome away (README I5).
+func _show_results_tip() -> void:
+	if view == null or view.is_unclaimed():
+		return
+	if not ContractListItem.is_closed(view):
+		return
+	var result: ContractResultData = GameState.result_of(view.entry_id)
+	if result == null:
+		return
+	payout_tip.set_results(result)
+	payout_tip.show_at(reward_label)

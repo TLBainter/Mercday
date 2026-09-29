@@ -13,6 +13,19 @@ const CHECK_DOWN: Array[Vector2i] = [Vector2i(2, 6), Vector2i(5, 9)]
 const CHECK_UP: Array[Vector2i] = [Vector2i(5, 9), Vector2i(10, 3)]
 const CROSS_DOWN: Array[Vector2i] = [Vector2i(1, 1), Vector2i(8, 8)]
 const CROSS_UP: Array[Vector2i] = [Vector2i(8, 1), Vector2i(1, 8)]
+#7x8 padlock: a shackle row over a body with a keyhole notch, read off Feature Lock.dc.html.
+const LOCK_COLS: int = 7
+const LOCK_ROWS: int = 8
+const LOCK_MAP: Array[String] = [
+	"..###..",
+	".#...#.",
+	".#...#.",
+	"#######",
+	"###.###",
+	"###.###",
+	"#######",
+	".......",
+]
 
 static var _cache: Dictionary = {}
 
@@ -31,6 +44,28 @@ static func check(color: Color) -> ImageTexture:
 
 static func cross(color: Color) -> ImageTexture:
 	return _cached("cross", color)
+
+
+#The 7x8 lock at scale pixels per cell; cached by colour and scale like the other glyphs.
+static func lock(color: Color, scale: int = 1) -> ImageTexture:
+	var key: String = "lock:%s:%d" % [color.to_html(true), scale]
+	if not _cache.has(key):
+		_cache[key] = ImageTexture.create_from_image(_build_lock(color, maxi(1, scale)))
+	return _cache[key] as ImageTexture
+
+
+static func _build_lock(color: Color, scale: int) -> Image:
+	var img: Image = Image.create_empty(LOCK_COLS * scale, LOCK_ROWS * scale, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.0, 0.0, 0.0, 0.0))
+	for row: int in LOCK_ROWS:
+		var line: String = LOCK_MAP[row]
+		for col: int in LOCK_COLS:
+			if line[col] != "#":
+				continue
+			for dy: int in scale:
+				for dx: int in scale:
+					img.set_pixel(col * scale + dx, row * scale + dy, color)
+	return img
 
 
 static func _cached(kind: String, color: Color) -> ImageTexture:

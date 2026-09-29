@@ -14,8 +14,8 @@ const ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Contracts/DispatchRoste
 @onready var title_label: Label = $Rows/Header/Title
 @onready var count_label: Label = $Rows/Header/Count
 @onready var sort_button: SortButton = $Rows/Controls/Sort
-@onready var dir_toggle: DirToggle = $Rows/Controls/Dir
-@onready var items: VBoxContainer = $Rows/Scroll/Items
+@onready var dir_toggle: SortDirToggle = $Rows/Controls/Dir
+@onready var items: VBoxContainer = $Rows/Scroll/Pad/Items
 
 var candidates: Array[MercView] = []
 var taken: Array[int] = []

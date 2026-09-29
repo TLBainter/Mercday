@@ -1,0 +1,344 @@
+class_name ResultRow extends PanelContainer
+
+#One member of the team: portrait and fate, name and level, the experience column, the three
+#resource bars and the status with the bonus paid. Every value comes from the one clock.
+
+const PORTRAIT_PX: float = 48.0
+const PORTRAIT_RING: float = 2.0
+const PORTRAIT_RING_COLOR: Color = Color("#3b6fb6")
+const STRIPE_PX: float = 4.0
+const STRIPE_A: Color = Color("#1f3560")
+const STRIPE_B: Color = Color("#0e1628")
+const BAR_TRACK: Color = Color("#0a0f1c")
+const BAR_RING: Color = Color("#1f3560")
+const BAR_RING_PX: float = 2.0
+const XP_SEGMENT: float = 16.0
+const XP_SEGMENT_GAP: float = 2.0
+const XP_HI: Color = Color(1.0, 1.0, 1.0, 0.3)
+const XP_LO: Color = Color(0.0, 0.0, 0.0, 0.25)
+const XP_HI_PX: float = 3.0
+const RES_HI_PX: float = 2.0
+const RES_LO: Color = Color(0.0, 0.0, 0.0, 0.3)
+const LEVEL_BEVEL: float = 2.0
+const LEVEL_HI: Color = Color("#ffb266")
+const LEVEL_LO: Color = Color("#b85a12")
+const MVP_HI: Color = Color("#fff08a")
+const MVP_LO: Color = Color("#b89a1a")
+const MVP_BEVEL: float = 2.0
+const HP_COLOR: Color = Color("#e8583f")
+const EP_COLOR: Color = Color("#6cc36a")
+const MP_COLOR: Color = Color("#5aa6e8")
+const ROLE_JOIN: String = " - "
+const BAR_KEYS: Array[String] = ["HP", "EP", "MP"]
+
+@onready var portrait_box: Control = $Grid/Portrait
+@onready var plate: Control = $Grid/Portrait/Plate
+@onready var portrait: MercPortrait = $Grid/Portrait/Portrait
+@onready var fate_overlay: TextureRect = $Grid/Portrait/Overlay
+@onready var name_label: Label = $Grid/Ident/TopRow/Name
+@onready var mvp_label: Label = $Grid/Ident/TopRow/Mvp
+@onready var level_label: Label = $Grid/Ident/BotRow/Level
+@onready var plus_label: Label = $Grid/Ident/BotRow/Plus
+@onready var tradition_label: Label = $Grid/Ident/BotRow/Tradition
+@onready var role_label: Label = $Grid/Ident/BotRow/Role
+@onready var xp_value: Label = $Grid/XpCol/XpHead/Value
+@onready var xp_bar: Control = $Grid/XpCol/XpBar
+@onready var xp_number: Label = $Grid/XpCol/XpNumber
+@onready var bars_col: VBoxContainer = $Grid/BarsCol
+@onready var status_label: Label = $Grid/StatusCol/Status
+@onready var pay_label: Label = $Grid/StatusCol/PayRow/Pay
+@onready var pay_glyph: TextureRect = $Grid/StatusCol/PayRow/Glyph
+
+var _member: ResultMemberData = null
+var _index: int = 0
+var _failed: bool = false
+var _ring: Color = ResultsTimeline.RING_IDLE
+var _fill: float = 0.0
+var _fill_color: Color = ResultsTimeline.XP_FILL
+var _glow: bool = false
+var _bars: Array[Dictionary] = []
+var _style: StyleBoxFlat = null
+
+
+func _ready() -> void:
+	_style = (get_theme_stylebox("panel") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	add_theme_stylebox_override("panel", _style)
+	plate.clip_contents = true
+	plate.draw.connect(_on_portrait_draw)
+	xp_bar.draw.connect(_on_xp_draw)
+	level_label.draw.connect(_on_level_draw)
+	mvp_label.draw.connect(_on_mvp_draw)
+	fate_overlay.pivot_offset = Vector2(PORTRAIT_PX, PORTRAIT_PX) / 2.0
+	fate_overlay.visible = false
+	_collect_bars()
+	apply_time(0.0)
+
+
+func set_member(data: ResultMemberData, index: int, failed: bool,
+		view: MercView = null) -> void:
+	_member = data
+	_index = index
+	_failed = failed
+	if data == null:
+		return
+	name_label.text = data.name
+	name_label.tooltip_text = data.name
+	tradition_label.text = data.tradition
+	tradition_label.add_theme_color_override("font_color",
+			GuiTypes.tradition_color(data.tradition))
+	role_label.text = ROLE_JOIN + data.role
+	if view != null:
+		portrait.set_merc(view)
+	portrait.visible = view != null
+	fate_overlay.texture = ResultsGlyphs.overlay_for(data.fate)
+	apply_time(0.0)
+
+
+func apply_time(t: float) -> void:
+	if not is_node_ready():
+		return
+	var state: Dictionary = ResultsTimeline.xp_state(_member, t)
+	_fill = float(state["fill"])
+	_fill_color = state["fill_color"] as Color
+	_glow = bool(state["glow"])
+	level_label.text = "%02d" % int(state["level"])
+	plus_label.visible = bool(state["plus"])
+	xp_value.text = String(state["text"])
+	xp_value.add_theme_color_override("font_color", state["color"] as Color)
+	xp_number.text = String(state["number"])
+	status_label.text = ResultsTimeline.status_text(_member, t)
+	status_label.add_theme_color_override("font_color",
+			ResultsTimeline.status_color(_member, t))
+	var pay_color: Color = ResultsTimeline.pay_color(_member, _index, t, _failed)
+	pay_label.text = ResultsTimeline.pay_text(_member, _index, t, _failed)
+	pay_label.add_theme_color_override("font_color", pay_color)
+	pay_glyph.texture = ResultsGlyphs.note(pay_color)
+	_ring = ResultsTimeline.ring_color(_member, t, _failed)
+	_style.border_color = _ring
+	_apply_filter(t)
+	var shown: bool = ResultsTimeline.fates_on(t) and fate_overlay.texture != null
+	fate_overlay.visible = shown
+	if shown:
+		var pop: float = ResultsTimeline.fate_scale(t)
+		fate_overlay.scale = Vector2(pop, pop)
+	mvp_label.visible = ResultsTimeline.mvp_on(_member, t, _failed)
+	for row: Dictionary in _bars:
+		var key: String = String(row["key"])
+		var value: float = ResultsTimeline.bar_value(_before(key), _current(key), t)
+		row["fill"] = clampf(value / maxf(1.0, float(_maximum(key))), 0.0, 1.0)
+		(row["value"] as Label).text = "%d/%d" % [int(round(value)), _maximum(key)]
+		(row["bar"] as Control).queue_redraw()
+	xp_bar.queue_redraw()
+	level_label.queue_redraw()
+	plate.queue_redraw()
+
+
+#The centre of the pay cell in global coordinates: the flying notes land here.
+func pay_anchor() -> Vector2:
+	return pay_label.get_global_rect().get_center()
+
+
+func member() -> ResultMemberData:
+	return _member
+
+
+func status_text() -> String:
+	return status_label.text
+
+
+func pay_text() -> String:
+	return pay_label.text
+
+
+func xp_text() -> String:
+	return xp_value.text
+
+
+func xp_number_text() -> String:
+	return xp_number.text
+
+
+func xp_fill() -> float:
+	return _fill
+
+
+func level_text() -> String:
+	return level_label.text
+
+
+func plus_shown() -> bool:
+	return plus_label.visible
+
+
+func mvp_shown() -> bool:
+	return mvp_label.visible
+
+
+func overlay_shown() -> bool:
+	return fate_overlay.visible
+
+
+func portrait_shown() -> bool:
+	return portrait.visible
+
+
+func ring_color() -> Color:
+	return _ring
+
+
+func filtered() -> bool:
+	return plate.material != null
+
+
+func bar_fill(key: String) -> float:
+	for row: Dictionary in _bars:
+		if String(row["key"]) == key:
+			return float(row["fill"])
+	return 0.0
+
+
+func bar_text(key: String) -> String:
+	for row: Dictionary in _bars:
+		if String(row["key"]) == key:
+			return (row["value"] as Label).text
+	return ""
+
+
+func _apply_filter(t: float) -> void:
+	var gray: float = ResultsTimeline.portrait_gray(_member, t)
+	var bright: float = ResultsTimeline.portrait_brightness(_member, t)
+	var filter: ShaderMaterial = null
+	if gray > 0.0 or bright < 1.0:
+		filter = ResultsGlyphs.portrait_material(gray, bright)
+	plate.material = filter
+	portrait.material = filter
+
+
+func _collect_bars() -> void:
+	if not _bars.is_empty():
+		return
+	var colors: Array[Color] = [HP_COLOR, EP_COLOR, MP_COLOR]
+	for i: int in BAR_KEYS.size():
+		var holder: HBoxContainer = bars_col.get_child(i) as HBoxContainer
+		if holder == null:
+			continue
+		var bar: Control = holder.get_node("Bar") as Control
+		var row: Dictionary = {
+			"key": BAR_KEYS[i],
+			"color": colors[i],
+			"bar": bar,
+			"value": holder.get_node("Value") as Label,
+			"fill": 0.0,
+		}
+		_bars.append(row)
+		bar.draw.connect(_on_res_draw.bind(row))
+
+
+func _current(key: String) -> int:
+	if _member == null:
+		return 0
+	if key == "HP":
+		return _member.hp.x
+	if key == "EP":
+		return _member.ep.x
+	return _member.mp.x
+
+
+func _maximum(key: String) -> int:
+	if _member == null:
+		return 0
+	if key == "HP":
+		return _member.hp.y
+	if key == "EP":
+		return _member.ep.y
+	return _member.mp.y
+
+
+func _before(key: String) -> int:
+	if _member == null:
+		return 0
+	if key == "HP":
+		return _member.hp_before
+	if key == "EP":
+		return _member.ep_before
+	return _member.mp_before
+
+
+func _on_portrait_draw() -> void:
+	var side: float = PORTRAIT_PX
+	plate.draw_rect(Rect2(0.0, 0.0, side, side), STRIPE_B)
+	var offset: float = -side
+	while offset < side:
+		var points := PackedVector2Array([
+			Vector2(offset, 0.0),
+			Vector2(offset + STRIPE_PX, 0.0),
+			Vector2(offset + STRIPE_PX + side, side),
+			Vector2(offset + side, side),
+		])
+		plate.draw_colored_polygon(points, STRIPE_A)
+		offset += STRIPE_PX * 2.0
+	_frame(plate, Rect2(0.0, 0.0, side, side), PORTRAIT_RING, PORTRAIT_RING_COLOR)
+
+
+func _on_xp_draw() -> void:
+	var rect := Rect2(Vector2.ZERO, xp_bar.size)
+	xp_bar.draw_rect(rect, BAR_TRACK)
+	var width: float = rect.size.x * clampf(_fill, 0.0, 1.0)
+	if width > 0.0:
+		xp_bar.draw_rect(Rect2(0.0, 0.0, width, rect.size.y), _fill_color)
+		xp_bar.draw_rect(Rect2(0.0, 0.0, width, XP_HI_PX), XP_HI)
+		xp_bar.draw_rect(Rect2(0.0, rect.size.y - XP_HI_PX, width, XP_HI_PX), XP_LO)
+	var x: float = XP_SEGMENT - XP_SEGMENT_GAP
+	while x < rect.size.x:
+		xp_bar.draw_rect(Rect2(x, 0.0, XP_SEGMENT_GAP, rect.size.y), BAR_TRACK)
+		x += XP_SEGMENT
+	_frame(xp_bar, rect, BAR_RING_PX, BAR_RING)
+	_outside(xp_bar, rect, BAR_RING_PX, BAR_TRACK)
+	if _glow:
+		_outside(xp_bar, rect, BAR_RING_PX, MVP_HI)
+
+
+func _on_res_draw(row: Dictionary) -> void:
+	var bar: Control = row["bar"] as Control
+	var rect := Rect2(Vector2.ZERO, bar.size)
+	bar.draw_rect(rect, BAR_TRACK)
+	var width: float = rect.size.x * clampf(float(row["fill"]), 0.0, 1.0)
+	if width > 0.0:
+		bar.draw_rect(Rect2(0.0, 0.0, width, rect.size.y), row["color"] as Color)
+		bar.draw_rect(Rect2(0.0, 0.0, width, RES_HI_PX), XP_HI)
+		bar.draw_rect(Rect2(0.0, rect.size.y - RES_HI_PX, width, RES_HI_PX), RES_LO)
+	_frame(bar, rect, BAR_RING_PX, BAR_RING)
+
+
+func _on_level_draw() -> void:
+	var rect := Rect2(Vector2.ZERO, level_label.size)
+	level_label.draw_rect(Rect2(0.0, 0.0, rect.size.x, LEVEL_BEVEL), LEVEL_HI)
+	level_label.draw_rect(Rect2(0.0, 0.0, LEVEL_BEVEL, rect.size.y), LEVEL_HI)
+	level_label.draw_rect(Rect2(0.0, rect.size.y - LEVEL_BEVEL, rect.size.x, LEVEL_BEVEL),
+			LEVEL_LO)
+	level_label.draw_rect(Rect2(rect.size.x - LEVEL_BEVEL, 0.0, LEVEL_BEVEL, rect.size.y),
+			LEVEL_LO)
+	if _glow:
+		_outside(level_label, rect, LEVEL_BEVEL, MVP_HI)
+
+
+func _on_mvp_draw() -> void:
+	var rect := Rect2(Vector2.ZERO, mvp_label.size)
+	mvp_label.draw_rect(Rect2(0.0, 0.0, rect.size.x, MVP_BEVEL), MVP_HI)
+	mvp_label.draw_rect(Rect2(0.0, 0.0, MVP_BEVEL, rect.size.y), MVP_HI)
+	mvp_label.draw_rect(Rect2(0.0, rect.size.y - MVP_BEVEL, rect.size.x, MVP_BEVEL), MVP_LO)
+	mvp_label.draw_rect(Rect2(rect.size.x - MVP_BEVEL, 0.0, MVP_BEVEL, rect.size.y), MVP_LO)
+
+
+func _frame(item: CanvasItem, rect: Rect2, thick: float, color: Color) -> void:
+	item.draw_rect(Rect2(rect.position.x, rect.position.y, rect.size.x, thick), color)
+	item.draw_rect(Rect2(rect.position.x, rect.end.y - thick, rect.size.x, thick), color)
+	item.draw_rect(Rect2(rect.position.x, rect.position.y, thick, rect.size.y), color)
+	item.draw_rect(Rect2(rect.end.x - thick, rect.position.y, thick, rect.size.y), color)
+
+
+func _outside(item: CanvasItem, rect: Rect2, thick: float, color: Color) -> void:
+	item.draw_rect(Rect2(rect.position.x, rect.position.y - thick, rect.size.x, thick), color)
+	item.draw_rect(Rect2(rect.position.x, rect.end.y, rect.size.x, thick), color)
+	item.draw_rect(Rect2(rect.position.x - thick, rect.position.y, thick, rect.size.y), color)
+	item.draw_rect(Rect2(rect.end.x, rect.position.y, thick, rect.size.y), color)

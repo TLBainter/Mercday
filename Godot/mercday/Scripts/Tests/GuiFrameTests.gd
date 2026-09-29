@@ -1,13 +1,13 @@
 class_name GuiFrameTests
 
-#Frames, dialogs and menus: SubWindow, ConfirmDialog, SlotTooltip, SortButton, DirToggle,
-#FilterSortButton. Run: godot --headless --path . -- --gui-frame-tests
+#Frames, dialogs and menus: SubWindow, ConfirmDialog, SlotTooltip, SortButton, SortDirToggle,
+#FilterSortButton. Run: the headless harness flag gui-frame-tests.
 
 const SUBWINDOW_SCENE := "res://Scenes/GUI/Shared/SubWindow.tscn"
 const CONFIRM_SCENE := "res://Scenes/GUI/Shared/ConfirmDialog.tscn"
 const SLOT_TOOLTIP_SCENE := "res://Scenes/GUI/Shared/SlotTooltip.tscn"
 const SORT_BUTTON_SCENE := "res://Scenes/GUI/Shared/SortButton.tscn"
-const DIR_TOGGLE_SCENE := "res://Scenes/GUI/Shared/DirToggle.tscn"
+const SORT_DIR_TOGGLE_SCENE := "res://Scenes/GUI/Shared/SortDirToggle.tscn"
 const FILTER_SORT_SCENE := "res://Scenes/GUI/Shared/FilterSortButton.tscn"
 const FILTER_BUTTON_SCENE := "res://Scenes/GUI/Shared/FilterButton.tscn"
 
@@ -17,6 +17,10 @@ static func run(host: Node) -> bool:
 	await _case_sub_window(res, host)
 	await _case_frame_stack(res, host)
 	await _case_frame_stack_freed(res, host)
+	await _case_z_ladder(res, host)
+	await _case_consume_escape(res, host)
+	await _case_modal_fit(res, host)
+	await _case_loan_modal_frame(res, host)
 	await _case_backdrop(res, host)
 	await _case_bottom_band(res, host)
 	await _case_viewport_resize(res, host)
@@ -25,7 +29,7 @@ static func run(host: Node) -> bool:
 	await _case_dialog_recap(res, host)
 	await _case_slot_tooltip(res, host)
 	await _case_sort_button(res, host)
-	await _case_dir_toggle(res, host)
+	await _case_sort_dir_toggle(res, host)
 	await _case_filter_sort_button(res, host)
 	await _case_filter_button(res, host)
 	return TestFixtures.summarize(res, "GUI FRAME")
@@ -559,26 +563,44 @@ static func _case_sort_button(res: Dictionary, host: Node) -> void:
 	btn.queue_free()
 
 
-static func _case_dir_toggle(res: Dictionary, host: Node) -> void:
-	var toggle_btn: DirToggle = (load(DIR_TOGGLE_SCENE) as PackedScene).instantiate()
+static func _case_sort_dir_toggle(res: Dictionary, host: Node) -> void:
+	var toggle_btn: SortDirToggle = (load(SORT_DIR_TOGGLE_SCENE) as PackedScene).instantiate()
 	host.add_child(toggle_btn)
 	await host.get_tree().process_frame
 	var seen: Array[bool] = []
 	toggle_btn.direction_changed.connect(func(descending: bool) -> void: seen.append(descending))
-	TestFixtures.check(res, "the toggle opens descending on the orange fill and draws no glyph",
-		toggle_btn.descending and toggle_btn.theme_type_variation == &"ButtonOrange"
+	var down: Dictionary = SortDirToggle.LOOKS[true]
+	var up: Dictionary = SortDirToggle.LOOKS[false]
+	TestFixtures.check(res, "the toggle is a SortDirToggle sized 40 by 26 with no glyph",
+		toggle_btn is SortDirToggle and toggle_btn.custom_minimum_size == Vector2(40, 26)
 			and toggle_btn.text == "",
-		"descending %s variation %s text '%s'" % [toggle_btn.descending,
-			toggle_btn.theme_type_variation, toggle_btn.text])
+		"size %s text '%s'" % [str(toggle_btn.custom_minimum_size), toggle_btn.text])
+	TestFixtures.check(res, "the toggle opens descending on the orange fill",
+		toggle_btn.descending and toggle_btn.fill_color() == Color("#f28c28")
+			and toggle_btn.tooltip_text == "Highest to lowest",
+		"descending %s fill %s tip '%s'" % [toggle_btn.descending,
+			str(toggle_btn.fill_color()), toggle_btn.tooltip_text])
 	toggle_btn.toggle()
-	TestFixtures.check(res, "toggle flips to ascending and drops the orange fill",
-		seen == [false] and not toggle_btn.descending and toggle_btn.theme_type_variation == &"",
-		"seen %s variation %s" % [str(seen), toggle_btn.theme_type_variation])
+	TestFixtures.check(res, "toggle flips to ascending and takes the blue fill",
+		seen == [false] and not toggle_btn.descending
+			and toggle_btn.fill_color() == Color("#2b4f8a")
+			and toggle_btn.tooltip_text == "Lowest to highest",
+		"seen %s fill %s" % [str(seen), str(toggle_btn.fill_color())])
 	toggle_btn.toggle()
 	TestFixtures.check(res, "toggling again returns to descending and the orange fill",
 		seen == [false, true] and toggle_btn.descending
-			and toggle_btn.theme_type_variation == &"ButtonOrange",
-		"seen %s variation %s" % [str(seen), toggle_btn.theme_type_variation])
+			and toggle_btn.fill_color() == Color("#f28c28"),
+		"seen %s fill %s" % [str(seen), str(toggle_btn.fill_color())])
+	var box: StyleBoxFlat = toggle_btn.get_theme_stylebox("normal") as StyleBoxFlat
+	TestFixtures.check(res, "the toggle wears its own box with a 3 px black outline",
+		box != null and box.bg_color == Color("#f28c28") and box.border_color == Color("#0a0f1c")
+			and box.border_width_left == 3,
+		"box %s edge %s" % [str(box.bg_color) if box != null else "none",
+			str(box.border_color) if box != null else "none"])
+	TestFixtures.check(res, "the lit arrow reads dark while descending and cream while ascending",
+		Color(down["lit"]) == Color("#0a0f1c") and Color(up["lit"]) == Color("#f3ead7")
+			and Color(down["dim"]) == Color("#7a4a1a") and Color(up["dim"]) == Color("#5e7699"),
+		"down %s up %s" % [str(down["lit"]), str(up["lit"])])
 	toggle_btn.queue_free()
 
 
@@ -632,3 +654,216 @@ static func _case_filter_button(res: Dictionary, host: Node) -> void:
 		btn.icon != null and btn.icon.get_size() == Vector2(10, 10),
 		"icon %s" % str(btn.icon))
 	btn.queue_free()
+
+
+#The z ladder: every open frame gets its own rung above the HUD popups, capped under MoneyFly.
+static func _case_z_ladder(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	GuiFrameStack.bottom_reserve = 0.0
+	TestFixtures.check(res, "the ladder starts at 100, climbs 10 a rung and caps at 190",
+		GuiFrameStack.z_for(0) == 100 and GuiFrameStack.z_for(1) == 110
+			and GuiFrameStack.z_for(3) == 130 and GuiFrameStack.z_for(9) == 190
+			and GuiFrameStack.z_for(40) == 190,
+		"0 %d 1 %d 3 %d 9 %d 40 %d" % [GuiFrameStack.z_for(0), GuiFrameStack.z_for(1),
+			GuiFrameStack.z_for(3), GuiFrameStack.z_for(9), GuiFrameStack.z_for(40)])
+	var frames: Array[Control] = []
+	for i: int in 12:
+		var rung := Control.new()
+		rung.name = "Rung%d" % i
+		rung.top_level = true
+		host.add_child(rung)
+		frames.append(rung)
+	await host.get_tree().process_frame
+	for rung: Control in frames:
+		GuiFrameStack.push(rung)
+	TestFixtures.check(res, "three frames pushed in order take 110, 120 and 130",
+		frames[0].z_index == 110 and frames[1].z_index == 120 and frames[2].z_index == 130,
+		"%d %d %d" % [frames[0].z_index, frames[1].z_index, frames[2].z_index])
+	TestFixtures.check(res, "the tenth frame and the ones above it stop at 190",
+		frames[8].z_index == 190 and frames[9].z_index == 190 and frames[11].z_index == 190,
+		"ninth %d tenth %d twelfth %d" % [frames[8].z_index, frames[9].z_index,
+			frames[11].z_index])
+	var fly: Control = (load("res://Scenes/GUI/HUD/MoneyFly.tscn") as PackedScene).instantiate()
+	TestFixtures.check(res, "MoneyFly at 200 still draws above the capped ladder",
+		fly.z_index == 200 and fly.z_index > GuiFrameStack.MAX_Z,
+		"fly %d cap %d" % [fly.z_index, GuiFrameStack.MAX_Z])
+	TestFixtures.check(res, "a tooltip at 250 draws above MoneyFly and every frame",
+		TooltipPanel.TOOLTIP_Z == 250 and TooltipPanel.TOOLTIP_Z > fly.z_index,
+		"tooltip %d fly %d" % [TooltipPanel.TOOLTIP_Z, fly.z_index])
+	fly.queue_free()
+	var plain := Control.new()
+	plain.name = "Plain"
+	plain.z_index = 5
+	host.add_child(plain)
+	await host.get_tree().process_frame
+	GuiFrameStack.push(plain)
+	TestFixtures.check(res, "a frame that is not top level keeps the z of its scene",
+		plain.z_index == 5 and GuiFrameStack.top() == plain, "z %d" % plain.z_index)
+	plain.queue_free()
+	for rung: Control in frames:
+		rung.queue_free()
+	GuiFrameStack.clear()
+
+
+#Esc belongs to the top frame alone, and the frame that takes it also swallows the event.
+static func _case_consume_escape(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	var lower := Control.new()
+	lower.name = "Lower"
+	host.add_child(lower)
+	var upper := Control.new()
+	upper.name = "Upper"
+	host.add_child(upper)
+	await host.get_tree().process_frame
+	GuiFrameStack.push(lower)
+	GuiFrameStack.push(upper)
+	var esc := InputEventAction.new()
+	esc.action = &"ui_cancel"
+	esc.pressed = true
+	var idle := InputEventAction.new()
+	idle.action = &"ui_accept"
+	idle.pressed = false
+	host.get_viewport().push_input(idle)
+	TestFixtures.check(res, "a frame under the top never takes the escape",
+		not GuiFrameStack.consume_escape(lower, esc)
+			and not host.get_viewport().is_input_handled(),
+		"handled %s" % host.get_viewport().is_input_handled())
+	TestFixtures.check(res, "the top frame takes the escape and marks the event handled",
+		GuiFrameStack.consume_escape(upper, esc) and host.get_viewport().is_input_handled(),
+		"handled %s" % host.get_viewport().is_input_handled())
+	var accept := InputEventAction.new()
+	accept.action = &"ui_accept"
+	accept.pressed = true
+	TestFixtures.check(res, "an action that is not the escape is left alone",
+		not GuiFrameStack.consume_escape(upper, accept), "ui_accept was taken")
+	upper.visible = false
+	TestFixtures.check(res, "a hidden frame never takes the escape",
+		not GuiFrameStack.consume_escape(upper, esc), "a hidden frame took it")
+	TestFixtures.check(res, "a null frame or a null event is answered with false",
+		not GuiFrameStack.consume_escape(null, esc)
+			and not GuiFrameStack.consume_escape(lower, null), "null was taken")
+	lower.queue_free()
+	upper.queue_free()
+	GuiFrameStack.clear()
+
+
+#ModalFrame.fit lifts a dialog off the scaled canvas and onto the viewport band.
+static func _case_modal_fit(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	GuiFrameStack.bottom_reserve = 0.0
+	var frame := Control.new()
+	frame.name = "Modal"
+	var back := ColorRect.new()
+	back.name = "Backdrop"
+	frame.add_child(back)
+	var box := PanelContainer.new()
+	box.name = "Box"
+	box.custom_minimum_size = Vector2(300, 200)
+	frame.add_child(box)
+	host.add_child(frame)
+	await host.get_tree().process_frame
+	GuiFrameStack.bottom_reserve = 76.0
+	ModalFrame.fit(frame, back, box)
+	await host.get_tree().process_frame
+	var view: Vector2 = host.get_viewport().get_visible_rect().size
+	TestFixtures.check(res, "a fitted frame goes top level and covers the viewport",
+		frame.top_level and frame.position.is_equal_approx(Vector2.ZERO)
+			and frame.size.is_equal_approx(view),
+		"top_level %s pos %s size %s view %s" % [frame.top_level, frame.position, frame.size,
+			view])
+	var back_bottom: float = back.position.y + back.size.y
+	TestFixtures.check(res, "the backdrop of a fitted frame stops above the bottom bar",
+		absf(back_bottom - (view.y - 76.0)) <= 0.5 and absf(back.size.x - view.x) <= 0.5,
+		"bottom %.1f expected %.1f width %.1f" % [back_bottom, view.y - 76.0, back.size.x])
+	var band: float = GuiFrameStack.band_height(view.y)
+	var want: Vector2 = Vector2((view.x - box.size.x) / 2.0, (band - box.size.y) / 2.0)
+	TestFixtures.check(res, "the box of a fitted frame centres in the band above the bar",
+		box.position.distance_to(want) <= 1.0, "box %s expected %s" % [box.position, want])
+	var before: float = box.position.y
+	GuiFrameStack.bottom_reserve = 240.0
+	var hook: ModalFrame = ModalFrame.hook_of(frame)
+	hook.apply()
+	TestFixtures.check(res, "a taller reserve lifts the box and shortens the backdrop",
+		box.position.y < before - 1.0
+			and absf(back.position.y + back.size.y - (view.y - 240.0)) <= 0.5,
+		"box %.1f was %.1f backdrop %.1f" % [box.position.y, before,
+			back.position.y + back.size.y])
+	TestFixtures.check(res, "the fitted frame listens for a viewport resize",
+		host.get_viewport().size_changed.is_connected(Callable(hook, "_on_resized")),
+		"the viewport hook is missing")
+	GuiFrameStack.bottom_reserve = 76.0
+	var game_window: Window = host.get_window()
+	var old_scale: Vector2i = game_window.content_scale_size
+	game_window.content_scale_size = Vector2i(1024, 600)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var grown: Vector2 = host.get_viewport().get_visible_rect().size
+	TestFixtures.check(res, "a resize refits the frame to the new viewport",
+		frame.size.is_equal_approx(grown), "frame %s view %s" % [frame.size, grown])
+	game_window.content_scale_size = old_scale
+	await host.get_tree().process_frame
+	frame.queue_free()
+	GuiFrameStack.bottom_reserve = 0.0
+	GuiFrameStack.clear()
+
+
+#A Loans window over an open SubWindow: it fits the viewport, takes its own rung and answers Esc
+#alone while the frames under it stay open.
+static func _case_loan_modal_frame(res: Dictionary, host: Node) -> void:
+	GuiFrameStack.clear()
+	GuiFrameStack.bottom_reserve = 0.0
+	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	host.add_child(win)
+	var modal := LoanModal.new()
+	modal.name = "LoanShell"
+	host.add_child(modal)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	win.open(_empty_scene())
+	modal.open_window()
+	await host.get_tree().process_frame
+	var view: Vector2 = host.get_viewport().get_visible_rect().size
+	TestFixtures.check(res, "a Loans window covers the viewport, not the scaled canvas",
+		modal.top_level and modal.size.is_equal_approx(view),
+		"top_level %s size %s view %s" % [modal.top_level, modal.size, view])
+	TestFixtures.check(res, "a Loans window over an open window draws above the HUD popups",
+		GuiFrameStack.top() == modal and modal.z_index > 100 and win.z_index < modal.z_index,
+		"top %s modal z %d window z %d" % [GuiFrameStack.top(), modal.z_index, win.z_index])
+	var box: PanelContainer = modal.frame_box()
+	var band: float = GuiFrameStack.band_height(view.y)
+	var centre_x: float = box.global_position.x + box.size.x / 2.0
+	var centre_y: float = box.global_position.y + box.size.y / 2.0
+	TestFixtures.check(res, "the Loans window centres on the viewport band",
+		absf(centre_x - view.x / 2.0) <= 1.0 and absf(centre_y - band / 2.0) <= 1.0,
+		"centre %.1f/%.1f expected %.1f/%.1f" % [centre_x, centre_y, view.x / 2.0, band / 2.0])
+	modal.set_dimmed(true)
+	TestFixtures.check(res, "a Loans window dims while a confirm of its own sits over it",
+		modal.dimmed(), "the window did not dim")
+	modal.set_dimmed(false)
+	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
+	host.add_child(dlg)
+	await host.get_tree().process_frame
+	dlg.ask("Stop?", "Stop the run?")
+	TestFixtures.check(res, "a confirm over a Loans window takes the rung above it",
+		GuiFrameStack.top() == dlg and dlg.z_index > modal.z_index,
+		"top %s dialog z %d modal z %d" % [GuiFrameStack.top(), dlg.z_index, modal.z_index])
+	_push_escape(host)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the first escape closes the confirm alone",
+		not dlg.visible and modal.visible and win.visible and GuiFrameStack.top() == modal,
+		"dialog %s modal %s window %s" % [dlg.visible, modal.visible, win.visible])
+	_push_escape(host)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the second escape closes the Loans window alone",
+		not modal.visible and not modal.is_open() and win.visible
+			and GuiFrameStack.top() == win,
+		"modal %s window %s top %s" % [modal.visible, win.visible, GuiFrameStack.top()])
+	_push_escape(host)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the third escape closes the window under it and empties the stack",
+		not win.visible and GuiFrameStack.depth() == 0,
+		"window %s depth %d" % [win.visible, GuiFrameStack.depth()])
+	dlg.queue_free()
+	modal.queue_free()
+	win.queue_free()
+	GuiFrameStack.clear()

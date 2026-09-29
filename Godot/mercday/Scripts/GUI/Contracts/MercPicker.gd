@@ -23,13 +23,14 @@ const DOT_COLOR: Color = Color("#5e7699")
 const DOT_SIZE: Vector2 = Vector2(3, 3)
 
 @onready var backdrop: ColorRect = $Backdrop
+@onready var _centre: CenterContainer = $Center
 @onready var box: PanelContainer = $Center/Box
 @onready var title_label: Label = $Center/Box/Rows/Head/Title
 @onready var close_button: Button = $Center/Box/Rows/Head/Close
 @onready var subtitle_label: Label = $Center/Box/Rows/Subtitle
 @onready var scroll: ScrollContainer = $Center/Box/Rows/Scroll
-@onready var items: VBoxContainer = $Center/Box/Rows/Scroll/Items
-@onready var remove_button: Button = $Center/Box/Rows/Remove
+@onready var items: VBoxContainer = $Center/Box/Rows/Scroll/Pad/Items
+@onready var remove_button: BevelButton = $Center/Box/Rows/Remove
 
 var slot: int = 0
 var rows: Array[MercView] = []
@@ -39,7 +40,23 @@ func _ready() -> void:
 	remove_button.pressed.connect(press_remove)
 	close_button.pressed.connect(hide)
 	backdrop.gui_input.connect(_on_backdrop_input)
+	visibility_changed.connect(_on_visibility_changed)
+	ModalFrame.fit(self, backdrop, _centre)
 	hide()
+
+
+func _exit_tree() -> void:
+	GuiFrameStack.remove(self)
+
+
+#The picker is a frame of the stack, so it draws above the window under it and Esc closes it
+#alone; every path that shows or hides it passes through here.
+func _on_visibility_changed() -> void:
+	if visible:
+		ModalFrame.fit(self, backdrop, _centre)
+		GuiFrameStack.push(self)
+	else:
+		GuiFrameStack.remove(self)
 
 
 #Opens the picker over the window; scores is uid to fit, placed is uid to the slot holding that
@@ -283,7 +300,5 @@ func _on_backdrop_input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not event.is_action_pressed("ui_cancel"):
-		return
-	hide()
-	get_viewport().set_input_as_handled()
+	if GuiFrameStack.consume_escape(self, event):
+		hide()

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="./legal-data.js"></script>
+<script src="./promo-core.js"></script>
+<style>
+html,body{margin:0;background:transparent;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 2px 0 0 #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-button{display:none}
+</style>
+</helmet>
+<div style="display:none" aria-hidden="true"><dc-import name="Feature Lock" hint-size="0px,0px"></dc-import><dc-import name="Quantity Stepper" hint-size="0px,0px"></dc-import><dc-import name="Odd Job Crew" hint-size="0px,0px"></dc-import><dc-import name="Notification Dot" hint-size="0px,0px"></dc-import></div>
+<div data-screen-label="Hiring" style="position:relative;width:100%;height:100%;min-height:560px">
+      <sc-if value="{{ hasNotice }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:50;padding:8px 14px;background:#0e1628;font-size:14px;color:{{ noticeColor }};box-shadow:0 0 0 3px {{ noticeColor }},6px 6px 0 3px rgba(0,0,0,0.5)">{{ notice }}</div>
+      </sc-if>
+        <div style="height:100%;display:grid;grid-template-columns:290px minmax(0,1fr);gap:16px">
+          <div style="position:relative;min-height:0;display:flex;flex-direction:column;gap:10px;padding:12px;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">TraitFilterList.tscn</div></sc-if>
+            <div style="flex:none;display:flex;justify-content:space-between;align-items:center">
+              <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px">Filters</span>
+              <button onClick="{{ clearHire }}" style="font:400 9px Silkscreen;color:#9cc6ef" style-hover="color:#f3ead7">Clear</button>
+            </div>
+            <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:8px;padding-right:6px">
+              <sc-for list="{{ hireGroups }}" as="g" hint-placeholder-count="4">
+                <div style="flex:none;display:flex;flex-direction:column;background:#15223d">
+                  <button onClick="{{ g.toggle }}" style="height:34px;padding:0 10px;display:flex;align-items:center;gap:8px;text-align:left;background:{{ g.headBg }};box-shadow:inset 0 2px 0 #2b4f8a" style-hover="filter:brightness(1.15)">
+                    <span style="flex:none;width:10px;font:700 10px Silkscreen;color:#f28c28">{{ g.caret }}</span>
+                    <span style="flex:1;font:700 11px Silkscreen;color:#f3ead7">{{ g.label }}</span>
+                    <sc-if value="{{ g.hasCount }}" hint-placeholder-val="{{ false }}"><span style="min-width:18px;height:18px;padding:0 4px;display:flex;align-items:center;justify-content:center;background:#f28c28;color:#0a0f1c;font:700 9px Silkscreen">{{ g.count }}</span></sc-if>
+                  </button>
+                  <sc-if value="{{ g.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;gap:12px;padding:10px">
+                      <sc-for list="{{ g.secs }}" as="sc" hint-placeholder-count="2">
+                        <div style="display:flex;flex-direction:column;gap:6px">
+                          <span style="font:400 9px Silkscreen;color:{{ sc.labelColor }}">{{ sc.label }}</span>
+                          <sc-if value="{{ sc.locked }}" hint-placeholder-val="{{ false }}"><dc-import name="Feature Lock" label="Locked" height="30px" font-size="9px" verb="filter by" feature="{{ sc.feature }}" plan="Mercday Enterprise" upgrade="{{ sc.upgrade }}" upgrade-id="{{ sc.upgradeId }}" tier="{{ sc.tier }}" tiers="{{ sc.tiers }}" px="{{ 2 }}" style="display:block;width:100%" hint-size="100%,30px"></dc-import></sc-if>
+                          <sc-if value="{{ sc.isChips }}" hint-placeholder-val="{{ true }}">
+                            <div style="display:flex;flex-wrap:wrap;gap:5px">
+                              <sc-for list="{{ sc.chips }}" as="ch" hint-placeholder-count="4">
+                                <button onClick="{{ ch.onClick }}" title="{{ ch.title }}" style="height:24px;padding:0 7px;display:flex;align-items:center;gap:5px;font-size:12px;color:{{ ch.fg }};background:{{ ch.bg }};opacity:{{ ch.opacity }};cursor:{{ ch.cursor }};box-shadow:inset 0 0 0 2px {{ ch.ring }}" style-hover="filter:brightness(1.2)"><sc-if value="{{ ch.dot }}" hint-placeholder-val="{{ false }}"><span style="width:8px;height:8px;flex:none;background:{{ ch.dotColor }};box-shadow:0 0 0 1px #0a0f1c"></span></sc-if>{{ ch.label }}</button>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ sc.isNum }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;align-items:center;gap:6px">
+                              <sc-for list="{{ sc.nums }}" as="nm" hint-placeholder-count="1">
+                                <sc-if value="{{ nm.sep }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#9cc6ef">to</span></sc-if>
+                                <span style="flex:1;min-width:0"><dc-import name="Quantity Stepper" variant="field" value="{{ nm.value }}" min="{{ nm.min }}" max="{{ nm.max }}" step="{{ nm.step }}" show-max="{{ false }}" on-change="{{ nm.onChange }}" hint-size="100%,38px"></dc-import></span>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ sc.isSlider }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;flex-direction:column;gap:6px">
+                              <div ref="{{ sc.sl.ref }}" onPointerDown="{{ sc.sl.down }}" onPointerMove="{{ sc.sl.move }}" onPointerUp="{{ sc.sl.up }}" style="position:relative;height:26px;margin:0 9px;cursor:pointer;touch-action:none">
+                                <div style="position:absolute;left:-9px;right:-9px;top:9px;height:8px;background:#0a0f1c;box-shadow:inset 0 0 0 2px #1f3560"></div>
+                                <div style="position:absolute;top:9px;height:8px;left:{{ sc.sl.loPct }};width:{{ sc.sl.span }};background:#f28c28"></div>
+                                <div style="position:absolute;top:2px;left:{{ sc.sl.loPct }};width:18px;height:22px;margin-left:-9px;background:#f3ead7;box-shadow:inset -3px -3px 0 #9cc6ef,0 0 0 2px #0a0f1c"></div>
+                                <div style="position:absolute;top:2px;left:{{ sc.sl.hiPct }};width:18px;height:22px;margin-left:-9px;background:#f3ead7;box-shadow:inset -3px -3px 0 #9cc6ef,0 0 0 2px #0a0f1c"></div>
+                              </div>
+                              <div style="display:flex;justify-content:space-between;gap:8px;font:700 11px Silkscreen;color:#f2b33d;white-space:nowrap"><span>{{ sc.sl.loLabel }}</span><span>{{ sc.sl.hiLabel }}</span></div>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="min-height:0;display:flex;flex-direction:column;gap:10px">
+            <div style="position:relative;z-index:20;flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <span style="font:700 16px Silkscreen;color:#f28c28">Applicants</span>
+                <span style="font-size:14px;color:#9cc6ef">{{ appCount }}</span>
+              </div>
+              <div style="position:relative;display:flex;align-items:center;gap:6px">
+                <span style="font:400 9px Silkscreen;color:#9cc6ef">Sort</span>
+                <button onClick="{{ sortToggle }}" style="width:160px;height:32px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;font:400 10px Silkscreen;background:#15223d;box-shadow:inset 0 0 0 2px #3b6fb6" style-hover="filter:brightness(1.15)"><span>{{ sortLabel }}</span><span style="color:#f28c28">▼</span></button>
+                <button onClick="{{ sortDir }}" title="{{ dirTitle }}" style="flex:none;width:40px;height:26px;display:flex;align-items:center;justify-content:center;gap:4px;background:{{ dirBg }};box-shadow:inset 0 3px 0 {{ dirHi }},inset 0 -3px 0 {{ dirLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+                  <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid {{ upColor }}"></span>
+                  <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid {{ downColor }}"></span>
+                </button>
+                <sc-if value="{{ sortOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:calc(100% + 4px);left:34px;width:160px;display:flex;flex-direction:column;background:#0e1628;box-shadow:0 0 0 2px #3b6fb6,6px 6px 0 2px rgba(0,0,0,0.5)">
+                    <sc-for list="{{ sorts }}" as="so" hint-placeholder-count="4">
+                      <button onClick="{{ so.onClick }}" style="height:32px;padding:0 10px;text-align:left;font:400 10px Silkscreen;color:{{ so.fg }};background:{{ so.bg }}" style-hover="background:#1f3560">{{ so.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 16px 4px 4px /* room for card notification dots */">
+              <sc-if value="{{ noApps }}" hint-placeholder-val="{{ false }}"><div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:15px;color:#9cc6ef;text-align:center">{{ noAppsText }}</div></sc-if>
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start">
+                <sc-for list="{{ apps }}" as="a" hint-placeholder-count="3">
+                  <div style="position:relative;display:flex;flex-direction:column;gap:8px;padding:12px;background:#0e1628;box-shadow:inset 0 0 0 2px {{ a.ring }}">
+                    <sc-if value="{{ a.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ApplicantCard.tscn</span></sc-if>
+                    <sc-if value="{{ a.dot }}" hint-placeholder-val="{{ false }}"><dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-13px;right:-13px;z-index:8;pointer-events:none"></dc-import></sc-if>
+                    <div style="display:grid;grid-template-columns:52px minmax(0,1fr) 36px;gap:10px;align-items:start">
+                      <div style="width:52px;height:52px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px {{ a.tradColor }}"></div>
+                      <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+                        <span style="font:700 11px Silkscreen;color:#f3ead7;line-height:1.2">{{ a.name }}</span>
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <div style="flex:none;width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 1px {{ a.tradColor }}"><div style="display:grid;grid-template-columns:repeat(12,1px);grid-auto-rows:1px"><sc-for list="{{ a.sigil }}" as="px" hint-placeholder-count="144"><div style="background:{{ px }}"></div></sc-for></div></div>
+                          <span style="font-size:13px;color:{{ a.tradColor }}">{{ a.trad }}</span>
+                        </div>
+                      </div>
+                      <div style="width:36px;height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+                        <span style="font:400 7px Silkscreen">LVL</span>
+                        <span style="font:700 14px Silkscreen;line-height:1">{{ a.level }}</span>
+                      </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:3px">
+                      <sc-for list="{{ a.rows }}" as="r" hint-placeholder-count="4">
+                        <div title="{{ r.title }}" style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 6px;background:#15223d">
+                          <span style="flex:none;font:400 7px Silkscreen;color:#9cc6ef;white-space:nowrap">{{ r.label }}</span>
+                          <sc-if value="{{ r.isStars }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:1px"><sc-for list="{{ r.stars }}" as="s" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:repeat(9,2px);grid-auto-rows:2px"><sc-for list="{{ s }}" as="px" hint-placeholder-count="81"><div style="background:{{ px }}"></div></sc-for></div></sc-for></div></sc-if>
+                          <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ true }}"><span style="min-width:0;font-size:12px;color:{{ r.color }};text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.value }}</span></sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ a.hasStatus }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:{{ a.statusColor }};text-align:center">{{ a.status }}</span></sc-if>
+                    <div style="display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,1fr);gap:8px">
+                      <button onClick="{{ a.reject }}" style="height:32px;font:400 10px Silkscreen;color:#0a0f1c;background:#e8583f;opacity:{{ a.btnOpacity }};box-shadow:inset 0 3px 0 #ff8a70,inset 0 -3px 0 #a33a28" style-hover="filter:brightness(1.1)">Reject</button>
+                      <button onClick="{{ a.view }}" title="View" style="height:32px;display:flex;align-items:center;justify-content:center;background:#2b4f8a;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560" style-hover="background:#3b6fb6"><div style="display:grid;grid-template-columns:repeat(12,2px);grid-auto-rows:2px"><sc-for list="{{ eye }}" as="px" hint-placeholder-count="96"><div style="background:{{ px }}"></div></sc-for></div></button>
+                      <button onClick="{{ a.offer }}" title="{{ a.offerTitle }}" style="height:32px;font:700 10px Silkscreen;color:#0a0f1c;background:#6cc36a;opacity:{{ a.offerOpacity }};filter:{{ a.offerFilter }};cursor:{{ a.offerCursor }};box-shadow:inset 0 3px 0 #9be29a,inset 0 -3px 0 #3f8a3e" style-hover="filter:brightness(1.1)">Offer</button>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+    <sc-if value="{{ oOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:{{ o.w }};padding:18px 22px 20px;display:flex;flex-direction:column;gap:14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">HireOfferDialog.tscn</div></sc-if>
+          <button onClick="{{ o.close }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 48px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55">X</button>
+          <span style="font:700 18px Silkscreen;color:#f28c28">{{ o.title }}</span>
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px">
+            <sc-for list="{{ o.facts }}" as="fa" hint-placeholder-count="5">
+              <div title="{{ fa.title }}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;background:#15223d">
+                <span style="font:400 9px Silkscreen;color:#9cc6ef;white-space:nowrap">{{ fa.label }}</span>
+                <span style="font:700 12px Silkscreen;color:{{ fa.color }};white-space:nowrap">{{ fa.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:12px;background:#0e1628">
+            <span style="font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px">Your Offer</span>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="flex:none;width:200px"><dc-import name="Quantity Stepper" variant="field" value="{{ o.amount }}" min="{{ o.min }}" max="{{ o.max }}" step="{{ 10 }}" show-max="{{ false }}" on-change="{{ o.onAmount }}" hint-size="200px,38px"></dc-import></span>
+              <span style="font-size:15px;color:#9cc6ef">/ mo</span>
+              <div style="flex:1;display:flex;justify-content:flex-end;gap:6px">
+                <sc-for list="{{ o.quick }}" as="q" hint-placeholder-count="5">
+                  <button onClick="{{ q.onClick }}" style="height:30px;padding:0 10px;font:400 9px Silkscreen;color:{{ q.fg }};background:{{ q.bg }};box-shadow:inset 0 2px 0 {{ q.hi }},inset 0 -2px 0 {{ q.lo }}" style-hover="filter:brightness(1.15)">{{ q.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 10px;background:#15223d">
+              <span style="font:400 9px Silkscreen;color:#9cc6ef;white-space:nowrap">Guild Opinion on Hire</span>
+              <sc-if value="{{ o.opOpen }}" hint-placeholder-val="{{ true }}"><span style="font:700 13px Silkscreen;color:{{ o.opColor }}">{{ o.op }}</span></sc-if>
+              <sc-if value="{{ o.opLocked }}" hint-placeholder-val="{{ false }}"><dc-import name="Feature Lock" verb="view" feature="Guild Opinion" plan="Mercday Enterprise" upgrade="Employee Survey" upgrade-id="survey" tier="{{ 1 }}" tiers="{{ 1 }}" px="{{ 2 }}" hint-size="22px,22px"></dc-import></sc-if>
+            </div>
+            <span style="font-size:13px;color:#9cc6ef">{{ o.hint }}</span>
+          </div>
+          <sc-if value="{{ o.isCounter }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <sc-if value="{{ o.crewOpen }}" hint-placeholder-val="{{ true }}">
+                <dc-import name="Odd Job Crew" max="{{ o.crew.max }}" team="{{ o.crew.team }}" candidates="{{ o.crew.cands }}" per="{{ o.crew.per }}" def-pay="{{ o.crew.defPay }}" money="{{ o.crew.money }}" tip-kind="Odd Job" tip-text="Send a merc along to help convince the applicant." pick-desc="Sorted by best fit for this Odd Job." on-team="{{ o.crew.onTeam }}" on-per="{{ o.crew.onPer }}" hint-size="100%,130px"></dc-import>
+              </sc-if>
+              <sc-if value="{{ o.crewLocked }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:#0e1628">
+                  <span style="font-size:14px;color:#9cc6ef">Send mercs with your counter-offer as an Odd Job to improve your odds.</span>
+                  <dc-import name="Feature Lock" label="Add Merc" height="34px" font-size="10px" verb="use" feature="Odd Jobs" plan="Mercday Enterprise" upgrade="Odd Jobs" upgrade-id="oddjobs" tier="{{ 1 }}" tiers="{{ 3 }}" px="{{ 2 }}" style="display:block;width:150px;flex:none" hint-size="150px,34px"></dc-import>
+                </div>
+              </sc-if>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="flex:none;font:400 11px Silkscreen;color:#f28c28;letter-spacing:1px;white-space:nowrap">Success Odds</span><span style="font:700 20px/1 Silkscreen;color:{{ o.oddsColor }}">{{ o.odds }}</span></div>
+                <div style="display:flex;gap:2px;height:16px;padding:2px;background:#0a0f1c"><sc-for list="{{ o.cells }}" as="oc" hint-placeholder-count="20"><div style="flex:1;background:{{ oc }}"></div></sc-for></div>
+              </div>
+            </div>
+          </sc-if>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <button onClick="{{ o.close }}" style="height:42px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Cancel</button>
+            <button onClick="{{ o.send }}" title="{{ o.reason }}" style="height:42px;opacity:{{ o.opacity }};filter:{{ o.filter }};cursor:{{ o.cursor }};background:#6cc36a;color:#0a0f1c;font:700 13px Silkscreen;box-shadow:inset 0 3px 0 #9be29a,inset 0 -3px 0 #3f8a3e,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">{{ o.cta }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ vOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ vClose }}" style="position:absolute;inset:0;z-index:65;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div onClick="{{ stop }}" style="position:relative;width:712px;height:518px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MercViewer.tscn (hide_roster, applicant)</div></sc-if>
+          <div style="position:absolute;top:0;left:0;width:988px;height:720px;overflow:hidden;transform:scale(0.72);transform-origin:top left">
+            <dc-import name="Merc Viewer" hide-roster="{{ true }}" merc-id="{{ vMercId }}" applicant="{{ vApplicant }}" style="position:absolute;top:-32px;left:-32px;width:1052px" hint-size="1052px,784px"></dc-import>
+          </div>
+          <button onClick="{{ vClose }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55">X</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ cfOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div style="position:relative;width:520px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <span style="font:700 16px Silkscreen;color:#f28c28">{{ cf.title }}</span>
+          <span style="font-size:15px;line-height:1.4;color:#f3ead7;text-wrap:pretty">{{ cf.body }}</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <button onClick="{{ cf.no }}" style="height:40px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560" style-hover="background:#3b6fb6">Cancel</button>
+            <button onClick="{{ cf.yes }}" style="height:40px;color:#0a0f1c;background:{{ cf.bg }};font:700 12px Silkscreen;box-shadow:inset 0 3px 0 rgba(255,255,255,0.3),inset 0 -3px 0 rgba(0,0,0,0.3)" style-hover="filter:brightness(1.1)">{{ cf.cta }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;},&quot;demoAll&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;}}">
+class Component extends DCLogic {
+  // HiringTab.tscn (Finance › Hiring) — applicants from Job Postings + Walk-Ins. PromotionsManager autoload owns applicants.
+  // Promotions › View Applicants hands over a filter via the store (hireFilter); consumed once on mount / when it changes.
+  takeFilter() { const st = window.__mercStore; if (st && st.hireFilter) { const f = st.hireFilter; st.hireFilter = null; this.setState({ hf: f }); } }
+  componentDidMount() { this.takeFilter(); }
+  componentDidUpdate() { this.takeFilter(); }
+  state = { offer: null, view: null, confirm: null, hf: {}, sort: 'fit', desc: true, sortOpen: false, openG: { hiring: { Value: true } }, notice: null };
+  // Pulls shared PromotionsManager logic from promo-core.js (fields + methods).
+  useCore() { if (this._core) return true; const B = window.MercPromoBase; if (!B) return false; Object.assign(this, new B()); Object.getOwnPropertyNames(B.prototype).forEach(k => { if (k !== 'constructor') this[k] = B.prototype[k]; }); this._core = true; return true; }
+  renderVals() {
+    if (!this.useCore()) { clearTimeout(this.coreT); this.coreT = setTimeout(() => this.forceUpdate(), 30); return {}; }
+    const s = this.state, st = this.store(), E = this.ents(), P = this.pr(), T = this.today(), show = !!this.props.showScenes, money = st.money ?? 0;
+    const emp = this.employed(), maxM = E.maxMercs || 20, free = emp < maxM;
+    const seg = on => on ? { fg: '#0a0f1c', bg: '#f28c28', hi: '#ffb266', lo: '#b85a12' } : { fg: '#9cc6ef', bg: '#15223d', hi: '#1f3560', lo: '#0a0f1c' };
+    // Hiring
+    const hf = s.hf, setH = (k, v) => this.setState(p => ({ hf: { ...p.hf, [k]: v } })), jobC = P.campaigns.filter(c => c.mode === 'job');
+    const hireGroups = this.grouped('hiring', this.mercDefs(true), hf, setH, E);
+    const sortDefs = { uniq: ['Uniqueness', a => a.uniq * 10 + a.rarity], fit: ['Fit', a => a.fit], level: ['Level', a => a.level], salary: ['Salary', a => a.ask] };
+    const list = P.applicants.filter(a => this.matches(a, hf, E)).sort((x, y) => (sortDefs[s.sort][1](x) - sortDefs[s.sort][1](y)) * (s.desc ? -1 : 1));
+    const sword = this.swordMap();
+    const vis = (k, lab, fn) => { const d = this.mercDefs(true).find(x => x.k === k); return this.lockOf(d, E) ? null : { label: lab, value: fn(), color: '#f3ead7', isText: true, isStars: false, title: '' }; };
+    const viaName = a => a.from == null ? 'Walk-In' : (jobC.find(c => c.id === a.from) || { name: 'Ended campaign' }).name;
+    const apps = list.map(a => { const tr = this.traditions[a.trad], busy = !!a.pending;
+      const rows = [{ label: 'Salary Request', value: this.n(a.ask) + ' / mo', color: '#f2b33d', isText: true, isStars: false, title: '' },
+        { label: 'Uniqueness', value: a.uniq ? a.uniq + ' · ' + this.rarities[a.rarity] : 'None', color: a.uniq ? '#6cc36a' : '#9cc6ef', isText: true, isStars: false, title: 'Traits none of your mercs have, and how rare they are' },
+        { label: 'Fit', stars: this.stars(a.fit), isStars: true, isText: false, title: 'Average fit with your available contracts that lack a good match', value: '', color: '' },
+        { label: 'Applied Via', value: viaName(a), color: '#9cc6ef', isText: true, isStars: false, title: '' },
+        vis('ancestry', 'Ancestry', () => 'Ancestry ' + (a.ancestry + 1)), vis('bloodline', 'Bloodline', () => 'Bloodline ' + (a.bloodline + 1)), vis('age', 'Age', () => String(a.age)),
+        vis('heritage', 'Heritage', () => 'Heritage ' + (a.heritage + 1))].filter(Boolean);
+      const offerBlock = busy ? 'Waiting for their answer.' : !free ? 'No free merc slots.' : '';
+      return { tag: show, name: this.mname(a.id), trad: tr[0], tradColor: tr[1], level: String(a.level).padStart(2, '0'), sigil: sword.map(ch => ch === 'b' ? tr[1] : ch === 'g' ? '#f3ead7' : 'transparent'), rows,
+        ring: busy ? '#f2b33d' : a.refused ? '#e8583f' : '#2b4f8a', hasStatus: busy || !!a.refused, status: busy ? 'Counter-offer sent…' : 'Refused your counter-offer', statusColor: busy ? '#f2b33d' : '#e8583f',
+        btnOpacity: busy ? 0.45 : 1, offerTitle: offerBlock, offerOpacity: offerBlock ? 0.45 : 1, offerFilter: offerBlock ? 'grayscale(1)' : 'none', offerCursor: offerBlock ? 'not-allowed' : 'pointer',
+        dot: !!a.unseen, /* new applicant; cleared once you View, Offer or Reject */
+        view: () => { if (a.unseen) { a.unseen = false; this.commit(); } this.setState({ view: a.id }); },
+        reject: () => { if (busy) return; if (a.unseen) { a.unseen = false; this.commit(); } this.setState({ confirm: { title: 'Reject ' + this.mname(a.id) + '?', body: 'Their application is removed.', cta: 'Reject', bg: '#e8583f', yes: () => { P.applicants = P.applicants.filter(x => x !== a); this.commit(); } } }); },
+        offer: () => { if (a.unseen) { a.unseen = false; this.commit(); } if (!offerBlock) this.setState({ offer: { id: a.id, amount: a.ask, team: [], per: null } }); } }; });
+    // Applicant viewer (Merc Viewer, roster hidden). Applicant overrides one base merc's identity.
+    const va = s.view != null && P.applicants.find(x => x.id === s.view);
+    const vApplicant = va ? { name: 'FirstName' + (va.id + 1), lastName: 'LastName' + (va.id + 1), tradition: this.traditions[va.trad][0], tradColor: this.traditions[va.trad][1], level: String(va.level).padStart(2, '0'), statusKey: 'applicant', status: 'Applicant', statusColor: '#f2b33d', days: null } : null;
+    // Offer dialog
+    let o = {}; const a = s.offer && P.applicants.find(x => x.id === s.offer.id);
+    if (a) { const O = s.offer, setO = patch => this.setState(p => ({ offer: { ...p.offer, ...patch } })), amt = O.amount, ratio = amt / a.ask, pct = ratio - 1, counter = amt < a.ask;
+      const bonus = pct >= 1 ? 4 : pct >= 0.5 ? 3 : pct >= 0.25 ? 2 : pct >= 0.1 ? 1 : 0, cap = E.oddJobs || 0, team = O.team.slice(0, cap), per = O.per ?? this.defPay(), cands = this.crewCands(a.id * 7);
+      // PLACEHOLDER odds: 100% at the asking rate, −2% per 1% under, + (fit stars × 3)% per merc sent. Clamped 5–95.
+      const odds = Math.round(Math.max(5, Math.min(95, 100 - (1 - ratio) * 200 + team.reduce((x, i) => x + cands[i].fit * 3, 0)))), oc = odds >= 60 ? '#6cc36a' : odds >= 40 ? '#f2b33d' : '#e8583f';
+      const pay = counter ? team.length * per : 0, reason = !free ? 'No free merc slots.' : pay > money ? 'Not enough notes for Odd Job pay.' : '';
+      const q = (label, m) => ({ label, ...seg(Math.round(a.ask * m / 10) * 10 === amt), onClick: () => setO({ amount: Math.round(a.ask * m / 10) * 10 }) });
+      o = { w: counter ? '1000px' : '820px', title: (counter ? 'Counter-Offer · ' : 'Offer · ') + this.mname(a.id),
+        facts: [{ label: 'Tradition', value: this.traditions[a.trad][0], color: this.traditions[a.trad][1], title: '' }, { label: 'Level', value: String(a.level), color: '#f28c28', title: '' }, { label: 'Asking', value: this.n(a.ask) + ' / mo', color: '#f2b33d', title: '' }, { label: 'Your Offer', value: (pct >= 0 ? '+' : '') + Math.round(pct * 100) + '%', color: counter ? '#e8583f' : '#6cc36a', title: '' },
+          { label: 'Merc Slots', value: emp + ' / ' + maxM, color: free ? '#f3ead7' : '#e8583f', title: 'Mercs employed / merc slots. You need a free slot to hire.' }],
+        amount: amt, min: Math.round(a.ask * 0.5 / 10) * 10, max: a.ask * 3, onAmount: v => setO({ amount: v }),
+        quick: [q('Asking', 1), q('+10%', 1.1), q('+25%', 1.25), q('+50%', 1.5), q('+100%', 2)],
+        opOpen: !!E.guildOpinion, opLocked: !E.guildOpinion, op: counter ? '+0' : '+' + (1 + bonus), opColor: counter ? '#9cc6ef' : '#6cc36a',
+        hint: counter ? 'Below their asking rate. They may refuse.' : pct >= 1 ? 'Maximum opinion bonus reached.' : 'Hiring at their rate: +1. Extra +1 at 10%, +2 at 25%, +3 at 50%, +4 at 100% over asking.',
+        isCounter: counter, crewOpen: counter && cap > 0, crewLocked: counter && cap === 0,
+        crew: { max: cap, team, cands, per, defPay: this.defPay(), money, onTeam: tm => setO({ team: tm }), onPer: v => setO({ per: v }) },
+        odds: odds + '%', oddsColor: oc, cells: Array.from({ length: 20 }, (_, i) => (i + 1) * 5 <= odds + 2 ? oc : '#1f3560'),
+        cta: counter ? 'Send Counter-Offer' : 'Hire for ' + this.n(amt) + ' / mo', reason, opacity: reason ? 0.45 : 1, filter: reason ? 'grayscale(1)' : 'none', cursor: reason ? 'not-allowed' : 'pointer',
+        close: () => this.setState({ offer: null }),
+        send: () => { if (reason) return;
+          const hire = () => { P.applicants = P.applicants.filter(x => x !== a); P.hired = (P.hired || 0) + 1; this.commit(); this.flash(this.mname(a.id) + ' joined your guild.', '#6cc36a'); };
+          if (!counter) return this.setState({ offer: null, confirm: { title: 'Hire ' + this.mname(a.id) + '?', body: 'Salary: ' + this.n(amt) + ' notes / month. Uses 1 merc slot.', cta: 'Hire', bg: '#6cc36a', yes: hire } });
+          st.money = money - pay; a.pending = true; a.refused = false; this.commit(); this.setState({ offer: null });
+          (this.timers = this.timers || []).push(setTimeout(() => { a.pending = false; if (Math.random() * 100 < odds && this.employed() < maxM) hire(); else { a.refused = true; this.commit(); this.flash(this.mname(a.id) + ' refused your counter-offer.', '#e8583f'); } }, 4000)); } }; }
+    const cf = s.confirm ? { ...s.confirm, no: () => this.setState({ confirm: null }), yes: () => { const f = s.confirm.yes; this.setState({ confirm: null }); f(); } } : {};
+    return {
+      showScenes: show, hasNotice: !!s.notice, notice: s.notice ? s.notice.text : '', noticeColor: s.notice ? s.notice.color : '#f3ead7',
+      hireGroups, clearHire: () => this.setState({ hf: {} }),
+      appCount: list.length + ' of ' + P.applicants.length + ' applicants shown',
+      sortLabel: sortDefs[s.sort][0], sortOpen: s.sortOpen, sortToggle: () => this.setState(p => ({ sortOpen: !p.sortOpen })),
+      dirTitle: s.desc ? 'Highest to lowest' : 'Lowest to highest', dirBg: s.desc ? '#f28c28' : '#2b4f8a', dirHi: s.desc ? '#ffb266' : '#3b6fb6', dirLo: s.desc ? '#b85a12' : '#1f3560', upColor: s.desc ? '#7a4a1a' : '#f3ead7', downColor: s.desc ? '#0a0f1c' : '#5e7699', sortDir: () => this.setState(p => ({ desc: !p.desc })),
+      sorts: Object.entries(sortDefs).map(([k, [l]]) => ({ label: l, fg: s.sort === k ? '#f28c28' : '#f3ead7', bg: s.sort === k ? '#15223d' : '#0e1628', onClick: () => this.setState({ sort: k, sortOpen: false }) })),
+      apps, noApps: !apps.length, noAppsText: P.applicants.length ? 'No applicants match your filters.' : 'No applicants yet. Run a Job Posting to attract mercs.',
+      eye: this.eyeMap.join('').split('').map(ch => ch === '#' ? '#f3ead7' : 'transparent'),
+      vOpen: !!va, vMercId: va ? va.id % 10 : 0, vApplicant, vClose: () => this.setState({ view: null }), stop: e => e.stopPropagation(),
+      oOpen: !!a, o, cfOpen: !!s.confirm, cf,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

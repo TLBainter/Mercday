@@ -1,0 +1,135 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Promotions/CampaignBuilder.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Promotions/DurationControl.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/OddJobCrew.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TraitFilterPanel.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Promotions/GuildTargeting.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TextEntryDialog.tscn" id="7"]
+
+[node name="CampaignBuilder" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Frame" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(1190, 660)
+layout_mode = 2
+
+[node name="Pad" type="MarginContainer" parent="Center/Frame"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="Body" type="VBoxContainer" parent="Center/Frame/Pad"]
+layout_mode = 2
+
+[node name="Head" type="HBoxContainer" parent="Center/Frame/Pad/Body"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Center/Frame/Pad/Body/Head"]
+layout_mode = 2
+vertical_alignment = 1
+
+[node name="Close" type="Button" parent="Center/Frame/Pad/Body/Head"]
+layout_mode = 2
+
+[node name="Cols" type="HBoxContainer" parent="Center/Frame/Pad/Body"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="TypeCol" type="VBoxContainer" parent="Center/Frame/Pad/Body/Cols"]
+layout_mode = 2
+
+[node name="TypeHead" type="HBoxContainer" parent="Center/Frame/Pad/Body/Cols/TypeCol"]
+layout_mode = 2
+
+[node name="Caption" type="Label" parent="Center/Frame/Pad/Body/Cols/TypeCol/TypeHead"]
+layout_mode = 2
+vertical_alignment = 1
+
+[node name="Boost" type="Label" parent="Center/Frame/Pad/Body/Cols/TypeCol/TypeHead"]
+layout_mode = 2
+vertical_alignment = 1
+
+[node name="Types" type="VBoxContainer" parent="Center/Frame/Pad/Body/Cols/TypeCol"]
+layout_mode = 2
+
+[node name="RightPane" type="PanelContainer" parent="Center/Frame/Pad/Body/Cols"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RightPad" type="MarginContainer" parent="Center/Frame/Pad/Body/Cols/RightPane"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Right" type="VBoxContainer" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad"]
+layout_mode = 2
+
+[node name="Name" type="VBoxContainer" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad/Right"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Caption" type="Label" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad/Right/Name"]
+layout_mode = 2
+
+[node name="Field" type="Button" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad/Right/Name"]
+layout_mode = 2
+
+[node name="Counter" type="Label" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad/Right/Name"]
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="Span" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad/Right" instance=ExtResource("2")]
+layout_mode = 2
+
+[node name="TargetHead" type="Label" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad/Right"]
+layout_mode = 2
+
+[node name="Crew" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad/Right" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="Job" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad/Right" instance=ExtResource("4")]
+layout_mode = 2
+
+[node name="Guild" parent="Center/Frame/Pad/Body/Cols/RightPane/RightPad/Right" instance=ExtResource("5")]
+layout_mode = 2
+
+[node name="Footer" type="HBoxContainer" parent="Center/Frame/Pad/Body"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Reason" type="Label" parent="Center/Frame/Pad/Body/Footer"]
+layout_mode = 2
+vertical_alignment = 1
+
+[node name="CostNote" type="Label" parent="Center/Frame/Pad/Body/Footer"]
+layout_mode = 2
+vertical_alignment = 1
+
+[node name="Chip" type="PanelContainer" parent="Center/Frame/Pad/Body/Footer"]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="ChipLabel" type="Label" parent="Center/Frame/Pad/Body/Footer/Chip"]
+layout_mode = 2
+
+[node name="Cost" parent="Center/Frame/Pad/Body/Footer" instance=ExtResource("6")]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="NameDialog" parent="." instance=ExtResource("7")]

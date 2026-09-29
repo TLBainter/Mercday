@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/DispatchRoster.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortButton.tscn" id="2"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/DirToggle.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortDirToggle.tscn" id="3"]
 
 [node name="DispatchRoster" type="PanelContainer"]
 custom_minimum_size = Vector2(250, 0)
@@ -45,7 +45,15 @@ layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="Items" type="VBoxContainer" parent="Rows/Scroll"]
+[node name="Pad" type="MarginContainer" parent="Rows/Scroll"]
+size_flags_horizontal = 3
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 14
+
+[node name="Items" type="VBoxContainer" parent="Rows/Scroll/Pad"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4

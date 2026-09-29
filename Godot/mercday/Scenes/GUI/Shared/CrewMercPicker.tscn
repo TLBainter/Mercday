@@ -1,0 +1,74 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/CrewMercPicker.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="2"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
+
+[node name="CrewMercPicker" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+visible = false
+script = ExtResource("1")
+
+[node name="Backdrop" type="Panel" parent="."]
+theme_type_variation = &"BackdropPanel"
+mouse_filter = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Box" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(400, 0)
+
+[node name="Pad" type="MarginContainer" parent="Box"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="Rows" type="VBoxContainer" parent="Box/Pad"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Box/Pad/Rows"]
+layout_mode = 2
+
+[node name="Desc" type="Label" parent="Box/Pad/Rows"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Scroll" type="ScrollContainer" parent="Box/Pad/Rows"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Pad2" type="MarginContainer" parent="Box/Pad/Rows/Scroll"]
+size_flags_horizontal = 3
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 14
+
+[node name="List" type="VBoxContainer" parent="Box/Pad/Rows/Scroll/Pad2"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Empty" type="Label" parent="Box/Pad/Rows"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="RemoveButton" parent="Box/Pad/Rows" instance=ExtResource("2")]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 30)
+min_size = Vector2(0, 30)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 10
+text = "Remove From Slot"
+
+[node name="Edges" type="Control" parent="Box"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="CloseButton" type="Button" parent="."]

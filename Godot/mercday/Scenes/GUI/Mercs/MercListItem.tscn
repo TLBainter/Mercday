@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/MercListItem.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPortrait.tscn" id="2"]
@@ -7,6 +7,7 @@
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="5"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres" id="6"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyMedium.tres" id="7"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="8"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_portrait"]
 bg_color = Color(0.054902, 0.086275, 0.156863, 1)
@@ -84,6 +85,14 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
 theme_override_fonts/font = ExtResource("6")
 theme_override_font_sizes/font_size = 13
+clip_text = true
+
+[node name="Note" type="Label" parent="Row/Names"]
+visible = false
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.949020, 0.701961, 0.239216, 1)
+theme_override_fonts/font = ExtResource("8")
+theme_override_font_sizes/font_size = 8
 clip_text = true
 
 [node name="Badge" parent="Row" instance=ExtResource("4")]

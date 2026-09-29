@@ -1,0 +1,3009 @@
+{
+  "cell": 16,
+  "cols": 16,
+  "rows": 40,
+  "sections": [
+    {
+      "section": "HUD",
+      "groups": [
+        {
+          "group": "Menu buttons · 16×16 · grid order",
+          "icons": [
+            {
+              "name": "1 · My Mercs",
+              "id": "hud_menu_buttons_my_mercs_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                0,
+                0
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "2 · My Contracts",
+              "id": "hud_menu_buttons_my_contracts_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                1,
+                0
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "3 · My Clients",
+              "id": "hud_menu_buttons_my_clients_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                2,
+                0
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "4 · My Promotions",
+              "id": "hud_menu_buttons_my_promotions_17x16",
+              "w": 17,
+              "h": 16,
+              "cell": [
+                3,
+                0
+              ],
+              "offset": [
+                -1,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "5 · My Mercday",
+              "id": "hud_menu_buttons_my_mercday_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                4,
+                0
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "6 · My Finance",
+              "id": "hud_menu_buttons_my_finance_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                5,
+                0
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": "No own art yet: the prototype scales the Note glyph up. Needs a 16×16 icon."
+            },
+            {
+              "name": "7 · My Legal",
+              "id": "hud_menu_buttons_my_legal_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                6,
+                0
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "8 · My Bazaar",
+              "id": "hud_menu_buttons_my_bazaar_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                7,
+                0
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "9 · My Metrics",
+              "id": "hud_menu_buttons_my_metrics_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                8,
+                0
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Top & bottom bar",
+          "icons": [
+            {
+              "name": "Notification bell",
+              "id": "hud_top_bottom_bar_notification_bell_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                0,
+                1
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "Settings gear",
+              "id": "hud_top_bottom_bar_settings_gear_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                1,
+                1
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "Speed · Slow Down",
+              "id": "hud_top_bottom_bar_speed_slow_down_8x7",
+              "w": 8,
+              "h": 7,
+              "cell": [
+                2,
+                1
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Game HUD",
+              "note": "CSS triangles in prototype"
+            },
+            {
+              "name": "Speed · Pause",
+              "id": "hud_top_bottom_bar_speed_pause_5x7",
+              "w": 5,
+              "h": 7,
+              "cell": [
+                3,
+                1
+              ],
+              "offset": [
+                5,
+                4
+              ],
+              "usedOn": "Game HUD",
+              "note": "CSS bars in prototype"
+            },
+            {
+              "name": "Speed · Play",
+              "id": "hud_top_bottom_bar_speed_play_4x7",
+              "w": 4,
+              "h": 7,
+              "cell": [
+                4,
+                1
+              ],
+              "offset": [
+                6,
+                4
+              ],
+              "usedOn": "Game HUD",
+              "note": "CSS triangle in prototype"
+            },
+            {
+              "name": "Speed · Fast Forward",
+              "id": "hud_top_bottom_bar_speed_fast_forward_8x7",
+              "w": 8,
+              "h": 7,
+              "cell": [
+                5,
+                1
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            },
+            {
+              "name": "Speed · Faster",
+              "id": "hud_top_bottom_bar_speed_faster_12x7",
+              "w": 12,
+              "h": 7,
+              "cell": [
+                6,
+                1
+              ],
+              "offset": [
+                2,
+                4
+              ],
+              "usedOn": "Game HUD",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Windows",
+          "icons": [
+            {
+              "name": "Window close",
+              "id": "hud_windows_window_close_10x10",
+              "w": 10,
+              "h": 10,
+              "cell": [
+                0,
+                2
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "all windows",
+              "note": "Prototype uses a red font \"X\" with a dark outline"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section": "Page tabs",
+      "groups": [
+        {
+          "group": "Merc Viewer",
+          "icons": [
+            {
+              "name": "Overview",
+              "id": "page_merc_viewer_overview_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                3
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Skills",
+              "id": "page_merc_viewer_skills_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                3
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Perks",
+              "id": "page_merc_viewer_perks_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                3
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Drawbacks",
+              "id": "page_merc_viewer_drawbacks_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                3
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Equipment",
+              "id": "page_merc_viewer_equipment_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                4,
+                3
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Relationships",
+              "id": "page_merc_viewer_relationships_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                5,
+                3
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Actions",
+              "id": "page_merc_viewer_actions_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                6,
+                3
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Metrics",
+              "id": "page_merc_viewer_metrics_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                7,
+                3
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Metrics Viewer · 16×16",
+          "icons": [
+            {
+              "name": "Guild",
+              "id": "page_metrics_viewer_guild_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                0,
+                4
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Metrics Viewer",
+              "note": null
+            },
+            {
+              "name": "Contract",
+              "id": "page_metrics_viewer_contract_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                1,
+                4
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Metrics Viewer",
+              "note": "Same art as My Contracts"
+            },
+            {
+              "name": "Merc",
+              "id": "page_metrics_viewer_merc_16x16",
+              "w": 16,
+              "h": 16,
+              "cell": [
+                2,
+                4
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "usedOn": "Metrics Viewer",
+              "note": "Same art as My Mercs"
+            }
+          ]
+        },
+        {
+          "group": "Client Viewer",
+          "icons": [
+            {
+              "name": "People",
+              "id": "page_client_viewer_people_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                5
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Client Viewer",
+              "note": null
+            },
+            {
+              "name": "Places",
+              "id": "page_client_viewer_places_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                5
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Client Viewer",
+              "note": null
+            },
+            {
+              "name": "Orgs",
+              "id": "page_client_viewer_orgs_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                5
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Client Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Finance Viewer",
+          "icons": [
+            {
+              "name": "Overview",
+              "id": "page_finance_viewer_overview_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                6
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Finance Viewer",
+              "note": null
+            },
+            {
+              "name": "Payroll",
+              "id": "page_finance_viewer_payroll_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                6
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Finance Viewer",
+              "note": null
+            },
+            {
+              "name": "Hiring",
+              "id": "page_finance_viewer_hiring_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                6
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Finance Viewer",
+              "note": null
+            },
+            {
+              "name": "Invest",
+              "id": "page_finance_viewer_invest_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                6
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Finance Viewer",
+              "note": null
+            },
+            {
+              "name": "Loans",
+              "id": "page_finance_viewer_loans_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                4,
+                6
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Finance Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Mercday (Subscription)",
+          "icons": [
+            {
+              "name": "Free plan",
+              "id": "page_mercday_free_plan_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                7
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Pro plan",
+              "id": "page_mercday_pro_plan_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                7
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Enterprise plan",
+              "id": "page_mercday_enterprise_plan_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                7
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Customize",
+              "id": "page_mercday_customize_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                7
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Bazaar",
+          "icons": [
+            {
+              "name": "Shop",
+              "id": "page_bazaar_shop_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                8
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Bazaar",
+              "note": null
+            },
+            {
+              "name": "Cart",
+              "id": "page_bazaar_cart_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                8
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Bazaar",
+              "note": null
+            },
+            {
+              "name": "Orders",
+              "id": "page_bazaar_orders_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                8
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Bazaar",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Legal",
+          "icons": [
+            {
+              "name": "Permits",
+              "id": "page_legal_permits_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                9
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Legal",
+              "note": null
+            },
+            {
+              "name": "Fines",
+              "id": "page_legal_fines_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                9
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Legal",
+              "note": null
+            },
+            {
+              "name": "Bailout",
+              "id": "page_legal_bailout_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                9
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Legal",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Promotions",
+          "icons": [
+            {
+              "name": "Job Ads",
+              "id": "page_promotions_job_ads_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                10
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "promo-core",
+              "note": null
+            },
+            {
+              "name": "Guild Ads",
+              "id": "page_promotions_guild_ads_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                10
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "promo-core",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section": "Customize upgrade tree",
+      "groups": [
+        {
+          "group": "Base",
+          "icons": [
+            {
+              "name": "Mercday logo",
+              "id": "customize_base_mercday_logo_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                11
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": "Base Plan node + Mercday branding"
+            },
+            {
+              "name": "Base Plan (alt)",
+              "id": "customize_base_base_plan_alt_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                11
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Limits",
+          "icons": [
+            {
+              "name": "Limits (category)",
+              "id": "customize_limits_limits_category_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                12
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Seats",
+              "id": "customize_limits_seats_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                12
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Contracts",
+              "id": "customize_limits_contracts_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                12
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Coaching",
+          "icons": [
+            {
+              "name": "Coaching (category)",
+              "id": "customize_coaching_coaching_category_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                13
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Performance Improvement Plan",
+              "id": "customize_coaching_performance_improvement_plan_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                13
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Combat PIP",
+              "id": "customize_coaching_combat_pip_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                13
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Skill PIP",
+              "id": "customize_coaching_skill_pip_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                13
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Magic PIP",
+              "id": "customize_coaching_magic_pip_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                4,
+                13
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Testing",
+          "icons": [
+            {
+              "name": "Testing (category)",
+              "id": "customize_testing_testing_category_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                14
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Aptitude Test",
+              "id": "customize_testing_aptitude_test_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                14
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Brawn Test",
+              "id": "customize_testing_brawn_test_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                14
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Readiness Test",
+              "id": "customize_testing_readiness_test_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                14
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Personality Test",
+              "id": "customize_testing_personality_test_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                4,
+                14
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Skill Test",
+              "id": "customize_testing_skill_test_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                5,
+                14
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Education Exam",
+              "id": "customize_testing_education_exam_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                6,
+                14
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Insights",
+          "icons": [
+            {
+              "name": "Insights (category)",
+              "id": "customize_insights_insights_category_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Background Check",
+              "id": "customize_insights_background_check_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Criminal Background Check",
+              "id": "customize_insights_criminal_background_check_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Employee Survey",
+              "id": "customize_insights_employee_survey_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Peer Review",
+              "id": "customize_insights_peer_review_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                4,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Customer Satisfaction",
+              "id": "customize_insights_customer_satisfaction_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                5,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Rapid Survey",
+              "id": "customize_insights_rapid_survey_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                6,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Contract Metrics",
+              "id": "customize_insights_contract_metrics_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                7,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Merc Metrics",
+              "id": "customize_insights_merc_metrics_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                8,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Metrics (old category)",
+              "id": "customize_insights_metrics_old_category_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                9,
+                15
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Less Legal",
+          "icons": [
+            {
+              "name": "Less Legal (category)",
+              "id": "customize_less_legal_less_legal_category_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                16
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Discrimination",
+              "id": "customize_less_legal_discrimination_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                16
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Odd Jobs",
+              "id": "customize_less_legal_odd_jobs_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                16
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Who Knows a Guy",
+              "id": "customize_less_legal_who_knows_a_guy_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                16
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Legal",
+          "icons": [
+            {
+              "name": "Legal (category)",
+              "id": "customize_legal_legal_category_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                17
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Operations Permits",
+              "id": "customize_legal_operations_permits_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                17
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Teleportation Permit",
+              "id": "customize_legal_teleportation_permit_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                17
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Representation",
+              "id": "customize_legal_representation_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                17
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Advisory Counsel",
+              "id": "customize_legal_advisory_counsel_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                4,
+                17
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Bazaar",
+          "icons": [
+            {
+              "name": "Bazaar (category)",
+              "id": "customize_bazaar_bazaar_category_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                18
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Bazaar",
+              "id": "customize_bazaar_bazaar_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                18
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Better Items",
+              "id": "customize_bazaar_better_items_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                18
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Faster Items",
+              "id": "customize_bazaar_faster_items_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                18
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Promotions",
+          "icons": [
+            {
+              "name": "Promotions (category)",
+              "id": "customize_promotions_promotions_category_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                19
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Promotions",
+              "id": "customize_promotions_promotions_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                19
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Promo Methods",
+              "id": "customize_promotions_promo_methods_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                19
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Long Promos",
+              "id": "customize_promotions_long_promos_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                19
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Marketing Agency",
+              "id": "customize_promotions_marketing_agency_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                4,
+                19
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Guild Promo",
+              "id": "customize_promotions_guild_promo_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                5,
+                19
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section": "Opinion faces · 9×9",
+      "groups": [
+        {
+          "group": "Guild Opinion / Relationship · −5 to +5",
+          "icons": [
+            {
+              "name": "−5",
+              "id": "opinion_guild_opinion_relationship_minus5_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                0,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "−4",
+              "id": "opinion_guild_opinion_relationship_minus4_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                1,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "−3",
+              "id": "opinion_guild_opinion_relationship_minus3_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                2,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "−2",
+              "id": "opinion_guild_opinion_relationship_minus2_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                3,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "−1",
+              "id": "opinion_guild_opinion_relationship_minus1_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                4,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "±0 Neutral",
+              "id": "opinion_guild_opinion_relationship_0_neutral_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                5,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "+1",
+              "id": "opinion_guild_opinion_relationship_plus1_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                6,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "+2",
+              "id": "opinion_guild_opinion_relationship_plus2_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                7,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "+3",
+              "id": "opinion_guild_opinion_relationship_plus3_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                8,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "+4",
+              "id": "opinion_guild_opinion_relationship_plus4_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                9,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            },
+            {
+              "name": "+5",
+              "id": "opinion_guild_opinion_relationship_plus5_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                10,
+                20
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Merc · Client · Legal",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Merc Mood (Relationships tab)",
+          "icons": [
+            {
+              "name": "Angry",
+              "id": "opinion_merc_mood_angry_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                0,
+                21
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Frustrated",
+              "id": "opinion_merc_mood_frustrated_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                1,
+                21
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Neutral",
+              "id": "opinion_merc_mood_neutral_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                2,
+                21
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Okay",
+              "id": "opinion_merc_mood_okay_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                3,
+                21
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Happy",
+              "id": "opinion_merc_mood_happy_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                4,
+                21
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Unselected state",
+          "icons": [
+            {
+              "name": "Face · unselected",
+              "id": "opinion_unselected_state_face_unselected_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                0,
+                22
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Finance · Legal",
+              "note": "Every face in a scale row that is not the current value: outline #2b4f8a, no fill"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section": "Coaching / PIP · 8×8",
+      "groups": [
+        {
+          "group": "Standard PIP",
+          "icons": [
+            {
+              "name": "Auto",
+              "id": "coaching_standard_pip_auto_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                0,
+                23
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Random",
+              "id": "coaching_standard_pip_random_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                1,
+                23
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Utility",
+              "id": "coaching_standard_pip_utility_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                2,
+                23
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Stats",
+              "id": "coaching_standard_pip_stats_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                3,
+                23
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Combat PIP",
+          "icons": [
+            {
+              "name": "Support",
+              "id": "coaching_combat_pip_support_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                0,
+                24
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Defensive",
+              "id": "coaching_combat_pip_defensive_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                1,
+                24
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Offensive",
+              "id": "coaching_combat_pip_offensive_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                2,
+                24
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Skill PIP",
+          "icons": [
+            {
+              "name": "Skills",
+              "id": "coaching_skill_pip_skills_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                0,
+                25
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Existing Skills",
+              "id": "coaching_skill_pip_existing_skills_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                1,
+                25
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "New Skills",
+              "id": "coaching_skill_pip_new_skills_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                2,
+                25
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Universal",
+              "id": "coaching_skill_pip_universal_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                3,
+                25
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Ancestral",
+              "id": "coaching_skill_pip_ancestral_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                4,
+                25
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Tradition",
+              "id": "coaching_skill_pip_tradition_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                5,
+                25
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            },
+            {
+              "name": "Spell",
+              "id": "coaching_skill_pip_spell_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                6,
+                25
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Coach button",
+          "icons": [
+            {
+              "name": "Coach whistle",
+              "id": "coaching_coach_button_coach_whistle_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                26
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc Viewer",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section": "Promotions",
+      "groups": [
+        {
+          "group": "Campaign types",
+          "icons": [
+            {
+              "name": "Word of Mouth",
+              "id": "promotions_campaign_types_word_of_mouth_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                27
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "promo-core",
+              "note": null
+            },
+            {
+              "name": "Flyers",
+              "id": "promotions_campaign_types_flyers_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                1,
+                27
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "promo-core",
+              "note": null
+            },
+            {
+              "name": "Direct Sale",
+              "id": "promotions_campaign_types_direct_sale_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                27
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "promo-core",
+              "note": null
+            },
+            {
+              "name": "Radio",
+              "id": "promotions_campaign_types_radio_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                27
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "promo-core",
+              "note": null
+            },
+            {
+              "name": "Sponsorship",
+              "id": "promotions_campaign_types_sponsorship_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                4,
+                27
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "promo-core",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Applicants",
+          "icons": [
+            {
+              "name": "Applicants (orange)",
+              "id": "promotions_applicants_applicants_orange_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                28
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "promo-core",
+              "note": "Orange twin of Finance › Hiring"
+            },
+            {
+              "name": "View applicant (eye)",
+              "id": "promotions_applicants_view_applicant_eye_12x8",
+              "w": 12,
+              "h": 8,
+              "cell": [
+                1,
+                28
+              ],
+              "offset": [
+                2,
+                4
+              ],
+              "usedOn": "promo-core",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section": "Status & feedback",
+      "groups": [
+        {
+          "group": "Contract status · 14×14",
+          "icons": [
+            {
+              "name": "Completed",
+              "id": "status_contract_status_completed_14x14",
+              "w": 14,
+              "h": 14,
+              "cell": [
+                0,
+                29
+              ],
+              "offset": [
+                1,
+                1
+              ],
+              "usedOn": "Contract Viewer",
+              "note": null
+            },
+            {
+              "name": "Rejected",
+              "id": "status_contract_status_rejected_14x14",
+              "w": 14,
+              "h": 14,
+              "cell": [
+                1,
+                29
+              ],
+              "offset": [
+                1,
+                1
+              ],
+              "usedOn": "Contract Viewer",
+              "note": null
+            },
+            {
+              "name": "Expired",
+              "id": "status_contract_status_expired_14x14",
+              "w": 14,
+              "h": 14,
+              "cell": [
+                2,
+                29
+              ],
+              "offset": [
+                1,
+                1
+              ],
+              "usedOn": "Contract Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Checks & crosses",
+          "icons": [
+            {
+              "name": "Check 9×9",
+              "id": "status_checks_crosses_check_9_9_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                0,
+                30
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Legal",
+              "note": null
+            },
+            {
+              "name": "Check 9×9 (confirm)",
+              "id": "status_checks_crosses_check_9_9_confirm_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                1,
+                30
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Legal",
+              "note": null
+            },
+            {
+              "name": "Check 7×7",
+              "id": "status_checks_crosses_check_7_7_7x7",
+              "w": 7,
+              "h": 7,
+              "cell": [
+                2,
+                30
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "X 10×10",
+              "id": "status_checks_crosses_x_10_10_10x10",
+              "w": 10,
+              "h": 10,
+              "cell": [
+                3,
+                30
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Contract Viewer",
+              "note": null
+            },
+            {
+              "name": "X 9×9",
+              "id": "status_checks_crosses_x_9_9_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                4,
+                30
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Legal",
+              "note": null
+            },
+            {
+              "name": "X 7×7",
+              "id": "status_checks_crosses_x_7_7_7x7",
+              "w": 7,
+              "h": 7,
+              "cell": [
+                5,
+                30
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Subscription Viewer",
+              "note": null
+            },
+            {
+              "name": "Alert (!)",
+              "id": "status_checks_crosses_alert_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                6,
+                30
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Legal",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Locks",
+          "icons": [
+            {
+              "name": "Lock",
+              "id": "status_locks_lock_7x8",
+              "w": 7,
+              "h": 8,
+              "cell": [
+                0,
+                31
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Feature Lock",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Notification dot (animated)",
+          "icons": [
+            {
+              "name": "Dot",
+              "id": "status_notification_dot_dot_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                0,
+                32
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Notification Dot",
+              "note": null
+            },
+            {
+              "name": "Pulse ring 8",
+              "id": "status_notification_dot_pulse_ring_8_8x8",
+              "w": 8,
+              "h": 8,
+              "cell": [
+                1,
+                32
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Notification Dot",
+              "note": "Pulse frame; rings expand and fade"
+            },
+            {
+              "name": "Pulse ring 10",
+              "id": "status_notification_dot_pulse_ring_10_10x10",
+              "w": 10,
+              "h": 10,
+              "cell": [
+                2,
+                32
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Notification Dot",
+              "note": "Pulse frame; rings expand and fade"
+            },
+            {
+              "name": "Pulse ring 12",
+              "id": "status_notification_dot_pulse_ring_12_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                32
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Notification Dot",
+              "note": "Pulse frame; rings expand and fade"
+            },
+            {
+              "name": "Pulse ring 14",
+              "id": "status_notification_dot_pulse_ring_14_14x14",
+              "w": 14,
+              "h": 14,
+              "cell": [
+                4,
+                32
+              ],
+              "offset": [
+                1,
+                1
+              ],
+              "usedOn": "Notification Dot",
+              "note": "Pulse frame; rings expand and fade"
+            }
+          ]
+        },
+        {
+          "group": "Trend arrows",
+          "icons": [
+            {
+              "name": "Arrow up",
+              "id": "status_trend_arrows_arrow_up_7x7",
+              "w": 7,
+              "h": 7,
+              "cell": [
+                0,
+                33
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Finance Viewer",
+              "note": "Down = vertical flip, red"
+            },
+            {
+              "name": "Arrow diagonal",
+              "id": "status_trend_arrows_arrow_diagonal_7x7",
+              "w": 7,
+              "h": 7,
+              "cell": [
+                1,
+                33
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Finance Viewer",
+              "note": "Down-diagonal = flip"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section": "Currency, ratings & identity",
+      "groups": [
+        {
+          "group": "Currency & ratings",
+          "icons": [
+            {
+              "name": "Note (currency)",
+              "id": "currency_currency_ratings_note_currency_7x9",
+              "w": 7,
+              "h": 9,
+              "cell": [
+                0,
+                34
+              ],
+              "offset": [
+                4,
+                3
+              ],
+              "usedOn": "Game HUD",
+              "note": "Used on nearly every page"
+            },
+            {
+              "name": "Star 9×9",
+              "id": "currency_currency_ratings_star_9_9_9x9",
+              "w": 9,
+              "h": 9,
+              "cell": [
+                1,
+                34
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Contract Viewer",
+              "note": "Half-star = left 5 columns filled"
+            },
+            {
+              "name": "Star 7×7",
+              "id": "currency_currency_ratings_star_7_7_7x7",
+              "w": 7,
+              "h": 7,
+              "cell": [
+                2,
+                34
+              ],
+              "offset": [
+                4,
+                4
+              ],
+              "usedOn": "Client Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Mercs",
+          "icons": [
+            {
+              "name": "Tradition sigil",
+              "id": "currency_mercs_tradition_sigil_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                0,
+                35
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Merc · Contract · Dispatch · Legal · Hiring",
+              "note": "Blade/hilt take the tradition color"
+            },
+            {
+              "name": "Crew slot · required",
+              "id": "currency_mercs_crew_slot_required_10x14",
+              "w": 10,
+              "h": 14,
+              "cell": [
+                1,
+                35
+              ],
+              "offset": [
+                3,
+                1
+              ],
+              "usedOn": "Contract Viewer",
+              "note": null
+            },
+            {
+              "name": "Crew slot · optional",
+              "id": "currency_mercs_crew_slot_optional_10x14",
+              "w": 10,
+              "h": 14,
+              "cell": [
+                2,
+                35
+              ],
+              "offset": [
+                3,
+                1
+              ],
+              "usedOn": "Contract Viewer",
+              "note": null
+            },
+            {
+              "name": "Crew slot · unavailable",
+              "id": "currency_mercs_crew_slot_unavailable_10x14",
+              "w": 10,
+              "h": 14,
+              "cell": [
+                3,
+                35
+              ],
+              "offset": [
+                3,
+                1
+              ],
+              "usedOn": "Contract Viewer",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Misc",
+          "icons": [
+            {
+              "name": "Scroll",
+              "id": "currency_misc_scroll_10x10",
+              "w": 10,
+              "h": 10,
+              "cell": [
+                0,
+                36
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Client Viewer",
+              "note": null
+            },
+            {
+              "name": "Search",
+              "id": "currency_misc_search_10x10",
+              "w": 10,
+              "h": 10,
+              "cell": [
+                1,
+                36
+              ],
+              "offset": [
+                3,
+                3
+              ],
+              "usedOn": "Bazaar",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section": "Small UI controls (CSS shapes in prototype)",
+      "groups": [
+        {
+          "group": "Dropdowns, sort, filter",
+          "icons": [
+            {
+              "name": "Dropdown caret",
+              "id": "small_dropdowns_sort_filter_dropdown_caret_5x3",
+              "w": 5,
+              "h": 3,
+              "cell": [
+                0,
+                37
+              ],
+              "offset": [
+                5,
+                6
+              ],
+              "usedOn": "all dropdowns",
+              "note": null
+            },
+            {
+              "name": "Sort ascending",
+              "id": "small_dropdowns_sort_filter_sort_ascending_5x3",
+              "w": 5,
+              "h": 3,
+              "cell": [
+                1,
+                37
+              ],
+              "offset": [
+                5,
+                6
+              ],
+              "usedOn": "sort toggles",
+              "note": null
+            },
+            {
+              "name": "Sort descending",
+              "id": "small_dropdowns_sort_filter_sort_descending_5x3",
+              "w": 5,
+              "h": 3,
+              "cell": [
+                2,
+                37
+              ],
+              "offset": [
+                5,
+                6
+              ],
+              "usedOn": "sort toggles",
+              "note": null
+            },
+            {
+              "name": "Filter",
+              "id": "small_dropdowns_sort_filter_filter_5x5",
+              "w": 5,
+              "h": 5,
+              "cell": [
+                3,
+                37
+              ],
+              "offset": [
+                5,
+                5
+              ],
+              "usedOn": "filter buttons",
+              "note": null
+            },
+            {
+              "name": "Group expand ▶",
+              "id": "small_dropdowns_sort_filter_group_expand_3x5",
+              "w": 3,
+              "h": 5,
+              "cell": [
+                4,
+                37
+              ],
+              "offset": [
+                6,
+                5
+              ],
+              "usedOn": "Promotions / Hiring filters",
+              "note": null
+            },
+            {
+              "name": "Group collapse ▼",
+              "id": "small_dropdowns_sort_filter_group_collapse_5x3",
+              "w": 5,
+              "h": 3,
+              "cell": [
+                5,
+                37
+              ],
+              "offset": [
+                5,
+                6
+              ],
+              "usedOn": "Promotions / Hiring filters",
+              "note": null
+            }
+          ]
+        },
+        {
+          "group": "Steppers & add",
+          "icons": [
+            {
+              "name": "Plus",
+              "id": "small_steppers_add_plus_5x5",
+              "w": 5,
+              "h": 5,
+              "cell": [
+                0,
+                38
+              ],
+              "offset": [
+                5,
+                5
+              ],
+              "usedOn": "Quantity Stepper · New Campaign · Request a Loan",
+              "note": null
+            },
+            {
+              "name": "Minus",
+              "id": "small_steppers_add_minus_5x5",
+              "w": 5,
+              "h": 5,
+              "cell": [
+                1,
+                38
+              ],
+              "offset": [
+                5,
+                5
+              ],
+              "usedOn": "Quantity Stepper",
+              "note": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section": "Contract results",
+      "groups": [
+        {
+          "group": "Contract marks & result overlays",
+          "icons": [
+            {
+              "name": "Results ready \"!\"",
+              "id": "contract_mark_results_bang_14x14",
+              "w": 14,
+              "h": 14,
+              "cell": [
+                0,
+                39
+              ],
+              "offset": [
+                1,
+                1
+              ],
+              "usedOn": "Contract Viewer, HUD notifications",
+              "note": "Unclaimed Completed/Failed contract (no spoiler) · #f28c28"
+            },
+            {
+              "name": "Failed (skull)",
+              "id": "contract_mark_failed_skull_14x14",
+              "w": 14,
+              "h": 14,
+              "cell": [
+                1,
+                39
+              ],
+              "offset": [
+                1,
+                1
+              ],
+              "usedOn": "Contract Viewer",
+              "note": "Claimed FAILED contract mark · #e8583f"
+            },
+            {
+              "name": "Deceased overlay",
+              "id": "result_overlay_deceased_skull_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                2,
+                39
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Contract results",
+              "note": "Over dead merc portrait, 4 px per art pixel · #e8583f"
+            },
+            {
+              "name": "Captured overlay (bars)",
+              "id": "result_overlay_captured_bars_12x12",
+              "w": 12,
+              "h": 12,
+              "cell": [
+                3,
+                39
+              ],
+              "offset": [
+                2,
+                2
+              ],
+              "usedOn": "Contract results",
+              "note": "Over captured merc portrait, 4 px per art pixel · #c8cdd8"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

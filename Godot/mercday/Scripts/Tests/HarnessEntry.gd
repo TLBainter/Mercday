@@ -5,7 +5,7 @@ extends RefCounted
 #GUI scenes call run_if_flagged so a plain launch never builds the harness roster.
 
 #User args that belong to the GUI and never mean "run the harness".
-const GUI_FLAGS: Array[String] = ["--metrics-preview", "--harness"]
+const GUI_FLAGS: Array[String] = ["--metrics-preview", "--results-preview", "--harness"]
 
 #The harness roster built by run(); MercTest reads it after run() returns false.
 static var mercs: Array[MercenaryData] = []
@@ -95,6 +95,105 @@ static func run(host: Node) -> bool:
 	if args.has("--gui-flow-tests"):
 		host.get_tree().quit(0 if await GuiFlowTests.run(host) else 1)
 		return true
+	if args.has("--gui-plan-tests"):
+		host.get_tree().quit(0 if await GuiPlanTests.run(host) else 1)
+		return true
+	if args.has("--gui-lock-tests"):
+		host.get_tree().quit(0 if await GuiLockTests.run(host) else 1)
+		return true
+	if args.has("--gui-loan-tests"):
+		host.get_tree().quit(0 if await GuiLoanTests.run(host) else 1)
+		return true
+	if args.has("--gui-manager-tests"):
+		host.get_tree().quit(0 if await GuiManagerTests.run(host) else 1)
+		return true
+	if args.has("--gui-atom-tests"):
+		host.get_tree().quit(0 if await GuiAtomTests.run(host) else 1)
+		return true
+	if args.has("--gui-promo-tests"):
+		host.get_tree().quit(0 if await GuiPromoTests.run(host) else 1)
+		return true
+	if args.has("--gui-notice-tests"):
+		host.get_tree().quit(0 if await GuiNoticeTests.run(host) else 1)
+		return true
+	if args.has("--gui-subs-tests"):
+		host.get_tree().quit(0 if await GuiSubsTests.run(host) else 1)
+		return true
+	if args.has("--gui-tree-tests"):
+		host.get_tree().quit(0 if await GuiTreeTests.run(host) else 1)
+		return true
+	if args.has("--gui-coach-tests"):
+		host.get_tree().quit(0 if await GuiCoachTests.run(host) else 1)
+		return true
+	if args.has("--gui-crew-tests"):
+		host.get_tree().quit(0 if await GuiCrewTests.run(host) else 1)
+		return true
+	if args.has("--gui-results-tests"):
+		host.get_tree().quit(0 if await GuiResultsTests.run(host) else 1)
+		return true
+	if args.has("--gui-kit-tests"):
+		host.get_tree().quit(0 if await GuiKitTests.run(host) else 1)
+		return true
+	if args.has("--gui-payroll-tests"):
+		host.get_tree().quit(0 if await GuiPayrollTests.run(host) else 1)
+		return true
+	if args.has("--gui-stock-tests"):
+		host.get_tree().quit(0 if await GuiStockTests.run(host) else 1)
+		return true
+	if args.has("--gui-notify-tests"):
+		host.get_tree().quit(0 if await GuiNotifyTests.run(host) else 1)
+		return true
+	if args.has("--gui-filter-tests"):
+		host.get_tree().quit(0 if await GuiFilterTests.run(host) else 1)
+		return true
+	if args.has("--gui-findata-tests"):
+		host.get_tree().quit(0 if await GuiFinanceDataTests.run(host) else 1)
+		return true
+	if args.has("--gui-bazaar-tests"):
+		host.get_tree().quit(0 if await GuiBazaarTests.run(host) else 1)
+		return true
+	if args.has("--gui-legal-tests"):
+		host.get_tree().quit(0 if await GuiLegalTests.run(host) else 1)
+		return true
+	if args.has("--gui-ads-tests"):
+		host.get_tree().quit(0 if await GuiAdsTests.run(host) else 1)
+		return true
+	if args.has("--gui-finance-tests"):
+		host.get_tree().quit(0 if await GuiFinanceTests.run(host) else 1)
+		return true
+	if args.has("--gui-loanview-tests"):
+		host.get_tree().quit(0 if await GuiLoanViewTests.run(host) else 1)
+		return true
+	if args.has("--gui-payview-tests"):
+		host.get_tree().quit(0 if await GuiPayViewTests.run(host) else 1)
+		return true
+	if args.has("--gui-invest-tests"):
+		host.get_tree().quit(0 if await GuiInvestTests.run(host) else 1)
+		return true
+	if args.has("--gui-hiring-tests"):
+		host.get_tree().quit(0 if await GuiHiringTests.run(host) else 1)
+		return true
+	if args.has("--gui-client-tests"):
+		host.get_tree().quit(0 if await GuiClientTests.run(host) else 1)
+		return true
+	if args.has("--gui-click-d-tests"):
+		host.get_tree().quit(0 if await GuiClickDTests.run(host) else 1)
+		return true
+	if args.has("--gui-click-h-tests"):
+		host.get_tree().quit(0 if await GuiClickHTests.run(host) else 1)
+		return true
+	if args.has("--gui-click-ja-tests"):
+		host.get_tree().quit(0 if await GuiClickJATests.run(host) else 1)
+		return true
+	if args.has("--gui-click-jb-tests"):
+		host.get_tree().quit(0 if await GuiClickJBTests.run(host) else 1)
+		return true
+	if args.has("--gui-sort-tests"):
+		host.get_tree().quit(0 if await GuiSortTests.run(host) else 1)
+		return true
+	if args.has("--gui-accept-tests"):
+		host.get_tree().quit(0 if await GuiAcceptTests.run(host) else 1)
+		return true
 	var odds_probe_n := _count_flag("--odds-probe")
 	if odds_probe_n > 0:
 		host.get_tree().quit(0 if await OddsProbe.run(odds_probe_n) else 1)
@@ -104,7 +203,8 @@ static func run(host: Node) -> bool:
 		host.get_tree().quit(0 if SalaryProbe.run(salary_probe_n) else 1)
 		return true
 	var built: Dictionary = ContractResourceBuilder.build_all()
-	print("CONTRACT BUILDER: %d contracts, %d events, %d warnings" % [int(built["contracts"]), int(built["events"]), int(built["warnings"])])
+	print("CONTRACT BUILDER: %d contracts, %d events, %d warnings"
+		% [int(built["contracts"]), int(built["events"]), int(built["warnings"])])
 	for a: String in OS.get_cmdline_user_args():
 		if a.begins_with("--auto-seed="):
 			seed(int(a.substr(12)))

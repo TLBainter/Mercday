@@ -2,6 +2,8 @@ class_name XPTooltip extends TooltipPanel
 
 #The LevelBadge hover tooltip: the XP fraction as text plus the full bar in ten cells, the empty
 #ones on the track colour and the filled ones gold with an inset highlight, below the base rows.
+#The tip floats over the badge it belongs to, so every node in it refuses the pointer: a hit
+#inside the tip would read as a mouse exit on the badge and the tip would flicker shut.
 
 const CELLS: int = 10
 const CELL_GAP: float = 2.0
@@ -25,8 +27,36 @@ const FILL_LO_COLOR := Color("#a9942b")
 
 func _ready() -> void:
 	super._ready()
+	pass_mouse_through()
 	bar.draw.connect(_draw_bar)
 	_refresh()
+
+
+func pass_mouse_through() -> void:
+	_ignore_mouse(self)
+
+
+#True when nothing in the tip can take the pointer.
+func passes_mouse() -> bool:
+	return _all_ignore(self)
+
+
+func _ignore_mouse(node: Node) -> void:
+	var control: Control = node as Control
+	if control != null:
+		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child: Node in node.get_children():
+		_ignore_mouse(child)
+
+
+func _all_ignore(node: Node) -> bool:
+	var control: Control = node as Control
+	if control != null and control.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		return false
+	for child: Node in node.get_children():
+		if not _all_ignore(child):
+			return false
+	return true
 
 
 func set_xp(current: int, next: int) -> void:

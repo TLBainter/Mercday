@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./fit-frame.js"></script>
+<script src="./legal-data.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+</style>
+<script src="./merc-icons.js"></script>
+<script src="./promo-core.js"></script>
+</helmet>
+<div style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Game HUD" style="position:relative;width:1280px;height:720px;flex:none;display:flex;flex-direction:column;background:#101a30;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px);box-shadow:0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000">
+    <sc-if value="{{ flyOn }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:200;pointer-events:none">
+        <sc-for list="{{ flyNotes }}" as="fn" hint-placeholder-count="0">
+          <div style="position:absolute;left:{{ fn.x }};top:{{ fn.y }};width:16px;height:20px;display:flex;align-items:center;justify-content:center;background:#f28c28;opacity:{{ fn.o }};box-shadow:inset -2px -2px 0 #b85a12,inset 2px 2px 0 #ffb266,0 0 0 2px #0a0f1c,0 0 8px #f2d33d"><img alt="" src="{{ noteGlyph.px5 }}" style="display:block;flex:none;box-sizing:content-box;width:5px;height:9px;image-rendering:pixelated"></div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="position:relative;z-index:3;flex:1;min-height:0">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+        <div style="position:relative;display:grid;grid-template-columns:repeat(3,160px);grid-auto-rows:160px;gap:18px">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuGrid.tscn</div></sc-if>
+          <button onClick="{{ openMercs }}" onMouseEnter="{{ btnEnter }}" onMouseLeave="{{ btnLeave }}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:36px;background:#2b4f8a;box-shadow:inset 4px 4px 0 #3b6fb6,inset -4px -4px 0 #1f3560,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="background:#3b6fb6;z-index:25" style-active="background:#1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:0;z-index:9;background:#9cc6ef;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuButton.tscn</span></sc-if>
+            <img alt="" src="{{ groupIcon.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(3px 3px 0 #0a0f1c)">
+            <span style="position:absolute;left:4px;right:4px;bottom:4px;height:32px;display:flex;align-items:center;justify-content:center;background:#0e1628;white-space:nowrap;font:700 12px Silkscreen;color:{{ btnLabelColor }};letter-spacing:0">My Mercs</span>
+            <sc-if value="{{ btnHover }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);left:28px;z-index:20;width:260px;padding:10px 12px;text-align:left;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7">View and manage your mercenaries</span>
+              </div>
+            </sc-if>
+          </button>
+          <button onClick="{{ openContracts }}" onMouseEnter="{{ btn2Enter }}" onMouseLeave="{{ btn2Leave }}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:36px;background:#2b4f8a;box-shadow:inset 4px 4px 0 #3b6fb6,inset -4px -4px 0 #1f3560,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="background:#3b6fb6;z-index:25" style-active="background:#1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:0;z-index:9;background:#9cc6ef;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuButton.tscn</span></sc-if>
+            <img alt="" src="{{ contractIcon.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(3px 3px 0 #0a0f1c)">
+            <span style="position:absolute;left:4px;right:4px;bottom:4px;height:32px;display:flex;align-items:center;justify-content:center;background:#0e1628;white-space:nowrap;font:700 12px Silkscreen;color:{{ btn2LabelColor }};letter-spacing:0">My Contracts</span>
+            <sc-if value="{{ hasUnclaimed }}" hint-placeholder-val="{{ false }}">
+              <dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-13px;right:-13px;z-index:8;pointer-events:none"></dc-import>
+            </sc-if>
+            <sc-if value="{{ btn2Hover }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);left:28px;z-index:20;width:260px;padding:10px 12px;text-align:left;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7">View and manage your contracts</span>
+              </div>
+            </sc-if>
+          </button>
+          <button onClick="{{ openClients }}" onMouseEnter="{{ btn6Enter }}" onMouseLeave="{{ btn6Leave }}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:36px;background:#2b4f8a;box-shadow:inset 4px 4px 0 #3b6fb6,inset -4px -4px 0 #1f3560,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="background:#3b6fb6;z-index:25" style-active="background:#1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:0;z-index:9;background:#9cc6ef;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuButton.tscn</span></sc-if>
+            <img alt="" src="{{ clientsIcon.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(3px 3px 0 #0a0f1c)">
+            <span style="position:absolute;left:4px;right:4px;bottom:4px;height:32px;display:flex;align-items:center;justify-content:center;background:#0e1628;white-space:nowrap;font:700 12px Silkscreen;color:{{ btn6LabelColor }};letter-spacing:0">My Clients</span>
+            <sc-if value="{{ btn6Hover }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);left:28px;z-index:20;width:260px;padding:10px 12px;text-align:left;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7">See the people, places, and orgs that send you contracts</span>
+              </div>
+            </sc-if>
+          </button>
+          <button onClick="{{ openPromo }}" onMouseEnter="{{ btn9Enter }}" onMouseLeave="{{ btn9Leave }}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:36px;background:{{ pm.bg }};box-shadow:inset 4px 4px 0 {{ pm.hi }},inset -4px -4px 0 {{ pm.lo }},0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="filter:brightness(1.15);z-index:25" style-active="filter:brightness(0.9)">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:0;z-index:9;background:#9cc6ef;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuButton.tscn</span></sc-if>
+            <img alt="" src="{{ promoIcon.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:64px;height:64px;image-rendering:pixelated;filter:{{ pm.iconFilter }}">
+            <sc-if value="{{ pm.locked }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:10px;right:10px;width:36px;height:40px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:0 0 0 2px #3b4d6e"><img alt="" src="{{ pm.lockCells.px8 }}" style="display:block;flex:none;box-sizing:content-box;width:32px;height:36px;image-rendering:pixelated"></div></sc-if>
+            <span style="position:absolute;left:4px;right:4px;bottom:4px;height:32px;display:flex;align-items:center;justify-content:center;background:#0e1628;white-space:nowrap;font:700 12px Silkscreen;color:{{ btn9LabelColor }};letter-spacing:0">My Promotions</span>
+            <sc-if value="{{ btn9Hover }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);left:28px;z-index:20;width:260px;padding:10px 12px;text-align:left;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7">{{ pm.tip }}</span>
+              </div>
+            </sc-if>
+          </button>
+          <button onClick="{{ openSub }}" onMouseEnter="{{ btn5Enter }}" onMouseLeave="{{ btn5Leave }}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:36px;background:#2b4f8a;box-shadow:inset 4px 4px 0 #3b6fb6,inset -4px -4px 0 #1f3560,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="background:#3b6fb6;z-index:25" style-active="background:#1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:0;z-index:9;background:#9cc6ef;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuButton.tscn</span></sc-if>
+            <img alt="" src="{{ subIcon.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(3px 3px 0 #0a0f1c)">
+            <span style="position:absolute;left:4px;right:4px;bottom:4px;height:32px;display:flex;align-items:center;justify-content:center;background:#0e1628;white-space:nowrap;font:700 12px Silkscreen;color:{{ btn5LabelColor }};letter-spacing:0">My Mercday</span>
+            
+            <sc-if value="{{ btn5Hover }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);left:28px;z-index:20;width:260px;padding:10px 12px;text-align:left;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7">Manage your guild plan and upgrades</span>
+              </div>
+            </sc-if>
+          </button>
+          <button onClick="{{ openFinance }}" onMouseEnter="{{ btn4Enter }}" onMouseLeave="{{ btn4Leave }}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:36px;background:#2b4f8a;box-shadow:inset 4px 4px 0 #3b6fb6,inset -4px -4px 0 #1f3560,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="background:#3b6fb6;z-index:25" style-active="background:#1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:0;z-index:9;background:#9cc6ef;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuButton.tscn</span></sc-if>
+            <img alt="" src="{{ financeIcon.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(3px 3px 0 #0a0f1c)">
+            <span style="position:absolute;left:4px;right:4px;bottom:4px;height:32px;display:flex;align-items:center;justify-content:center;background:#0e1628;white-space:nowrap;font:700 12px Silkscreen;color:{{ btn4LabelColor }};letter-spacing:0">My Finance</span>
+            <sc-if value="{{ hasOffers }}" hint-placeholder-val="{{ false }}">
+              <dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-13px;right:-13px;z-index:8;pointer-events:none"></dc-import>
+            </sc-if>
+            <sc-if value="{{ btn4Hover }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);left:28px;z-index:20;width:260px;padding:10px 12px;text-align:left;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7">Manage notes, loans, and payroll</span>
+              </div>
+            </sc-if>
+          </button>
+          <button onClick="{{ openLegal }}" onMouseEnter="{{ btn8Enter }}" onMouseLeave="{{ btn8Leave }}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:36px;background:#2b4f8a;box-shadow:inset 4px 4px 0 #3b6fb6,inset -4px -4px 0 #1f3560,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="background:#3b6fb6;z-index:25" style-active="background:#1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:0;z-index:9;background:#9cc6ef;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuButton.tscn</span></sc-if>
+            <img alt="" src="{{ legalIcon.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(3px 3px 0 #0a0f1c)">
+            <span style="position:absolute;left:4px;right:4px;bottom:4px;height:32px;display:flex;align-items:center;justify-content:center;background:#0e1628;white-space:nowrap;font:700 12px Silkscreen;color:{{ btn8LabelColor }};letter-spacing:0">My Legal</span>
+            <sc-if value="{{ legalAlert }}" hint-placeholder-val="{{ false }}">
+              <dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-13px;right:-13px;z-index:8;pointer-events:none"></dc-import>
+            </sc-if>
+            <sc-if value="{{ btn8Hover }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);left:28px;z-index:20;width:260px;padding:10px 12px;text-align:left;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7">Buy permits, pay fines, and bail out captured mercs</span>
+              </div>
+            </sc-if>
+          </button>
+          <button onClick="{{ openBazaar }}" onMouseEnter="{{ btn7Enter }}" onMouseLeave="{{ btn7Leave }}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:36px;background:{{ bz.bg }};box-shadow:inset 4px 4px 0 {{ bz.hi }},inset -4px -4px 0 {{ bz.lo }},0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="filter:brightness(1.15);z-index:25" style-active="filter:brightness(0.9)">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:0;z-index:9;background:#9cc6ef;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuButton.tscn</span></sc-if>
+            <img alt="" src="{{ bazaarIcon.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:64px;height:64px;image-rendering:pixelated;filter:{{ bz.iconFilter }}">
+            <sc-if value="{{ bz.locked }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:10px;right:10px;width:36px;height:40px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:0 0 0 2px #3b4d6e"><img alt="" src="{{ bz.lockCells.px8 }}" style="display:block;flex:none;box-sizing:content-box;width:32px;height:36px;image-rendering:pixelated"></div></sc-if>
+            <span style="position:absolute;left:4px;right:4px;bottom:4px;height:32px;display:flex;align-items:center;justify-content:center;background:#0e1628;white-space:nowrap;font:700 12px Silkscreen;color:{{ btn7LabelColor }};letter-spacing:0">My Bazaar</span>
+            <sc-if value="{{ btn7Hover }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);left:28px;z-index:20;width:260px;padding:10px 12px;text-align:left;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7">{{ bz.tip }}</span>
+              </div>
+            </sc-if>
+          </button>
+          <button onClick="{{ openMetrics }}" onMouseEnter="{{ btn3Enter }}" onMouseLeave="{{ btn3Leave }}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:36px;background:#2b4f8a;box-shadow:inset 4px 4px 0 #3b6fb6,inset -4px -4px 0 #1f3560,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="background:#3b6fb6;z-index:25" style-active="background:#1f3560">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:0;z-index:9;background:#9cc6ef;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MenuButton.tscn</span></sc-if>
+            <img alt="" src="{{ metricsIcon.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:64px;height:64px;image-rendering:pixelated;filter:drop-shadow(3px 3px 0 #0a0f1c)">
+            <span style="position:absolute;left:4px;right:4px;bottom:4px;height:32px;display:flex;align-items:center;justify-content:center;background:#0e1628;white-space:nowrap;font:700 12px Silkscreen;color:{{ btn3LabelColor }};letter-spacing:0">My Metrics</span>
+            <sc-if value="{{ btn3Hover }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 6px);left:28px;z-index:20;width:260px;padding:10px 12px;text-align:left;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                <span style="font-size:14px;line-height:1.35;color:#f3ead7">Review your guild's history</span>
+              </div>
+            </sc-if>
+          </button>
+          <sc-for list="{{ emptySlots }}" as="e" hint-placeholder-count="1">
+            <div style="background:rgba(14,22,40,0.55);box-shadow:inset 0 0 0 3px #1f3560"></div>
+          </sc-for>
+        </div>
+      </div>
+      <sc-if value="{{ mercOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+          <div style="position:relative;flex:none;width:1280px;height:644px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <div style="position:absolute;top:0;left:0;width:1280px;height:644px;overflow:hidden">
+              <dc-import name="Merc Viewer" frame-h="644px" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+            </div>
+            <sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}"><button onClick="{{ closeMercs }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ contractsOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+          <div style="position:relative;flex:none;width:1280px;height:644px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <div style="position:absolute;top:0;left:0;width:1280px;height:644px;overflow:hidden">
+              <dc-import name="Contract Viewer" open-contract-id="{{ openContractId }}" open-nonce="{{ openNonce }}" frame-h="644px" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+            </div>
+            <sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}"><button onClick="{{ closeContracts }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ metricsOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+          <div style="position:relative;flex:none;width:1280px;height:644px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <div style="position:absolute;top:0;left:0;width:1280px;height:644px;overflow:hidden">
+              <dc-import name="Metrics Viewer" frame-h="644px" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+            </div>
+            <sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}"><button onClick="{{ closeMetrics }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ clientsOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+          <div style="position:relative;flex:none;width:1280px;height:644px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <div style="position:absolute;top:0;left:0;width:1280px;height:644px;overflow:hidden">
+              <dc-import name="Client Viewer" frame-h="644px" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+            </div>
+            <sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}"><button onClick="{{ closeClients }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ financeOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+          <div style="position:relative;flex:none;width:1280px;height:644px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <div style="position:absolute;top:0;left:0;width:1280px;height:644px;overflow:hidden">
+              <dc-import name="Finance Viewer" hire-nonce="{{ hireNonce }}" open-offer-id="{{ openOfferId }}" offer-nonce="{{ offerNonce }}" open-stock-id="{{ openStockId }}" stock-nonce="{{ stockNonce }}" frame-h="644px" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+            </div>
+            <sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}"><button onClick="{{ closeFinance }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ bz.dlg }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ bz.close }}" style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+          <div onClick="{{ bz.stop }}" style="position:relative;width:600px;padding:26px 28px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f2d33d,0 4px 0 #f2d33d,-4px 0 0 #f2d33d,4px 0 0 #f2d33d,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">FeatureLockDialog (MenuButton locked)</div></sc-if>
+            <button onClick="{{ bz.close }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 44px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button>
+            <img alt="" src="{{ bz.bigLock.px8 }}" style="display:block;flex:none;box-sizing:content-box;width:48px;height:54px;image-rendering:pixelated">
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:17px;line-height:1.4;color:#f3ead7;text-wrap:pretty">
+              <div style="display:block;white-space:nowrap">{{ bz.line1 }}</div>
+              <div style="display:block;white-space:nowrap">{{ bz.pre }}<span style="color:#f2d33d">{{ bz.hi }}</span>{{ bz.post }}</div>
+            </div>
+            <button onClick="{{ bz.go }}" style="height:40px;padding:0 22px;background:#f28c28;color:#0a0f1c;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Take Me There</button>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ bazaarOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+          <div style="position:relative;flex:none;width:1280px;height:644px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <div style="position:absolute;top:0;left:0;width:1280px;height:644px;overflow:hidden">
+              <dc-import name="Bazaar" frame-h="644px" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+            </div>
+            <sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}"><button onClick="{{ closeBazaar }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ legalOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+          <div style="position:relative;flex:none;width:1280px;height:644px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <div style="position:absolute;top:0;left:0;width:1280px;height:644px;overflow:hidden">
+              <dc-import name="Legal" frame-h="644px" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+            </div>
+            <sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}"><button onClick="{{ closeLegal }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ pm.dlg }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ pm.close }}" style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+          <div onClick="{{ pm.stop }}" style="position:relative;width:600px;padding:26px 28px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f2d33d,0 4px 0 #f2d33d,-4px 0 0 #f2d33d,4px 0 0 #f2d33d,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">FeatureLockDialog (MenuButton locked)</div></sc-if>
+            <button onClick="{{ pm.close }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 44px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button>
+            <img alt="" src="{{ pm.bigLock.px8 }}" style="display:block;flex:none;box-sizing:content-box;width:48px;height:54px;image-rendering:pixelated">
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:17px;line-height:1.4;color:#f3ead7;text-wrap:pretty">
+              <div style="display:block;white-space:nowrap">{{ pm.line1 }}</div>
+              <div style="display:block;white-space:nowrap">{{ pm.pre }}<span style="color:#f2d33d">{{ pm.hi }}</span>{{ pm.post }}</div>
+            </div>
+            <button onClick="{{ pm.go }}" style="height:40px;padding:0 22px;background:#f28c28;color:#0a0f1c;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Take Me There</button>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ promoOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+          <div style="position:relative;flex:none;width:1280px;height:644px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <div style="position:absolute;top:0;left:0;width:1280px;height:644px;overflow:hidden">
+              <dc-import name="Promotions" frame-h="644px" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+            </div>
+            <sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}"><button onClick="{{ closePromo }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ subOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+          <div style="position:relative;flex:none;width:1280px;height:644px;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+            <div style="position:absolute;top:0;left:0;width:1280px;height:644px;overflow:hidden">
+              <dc-import name="Subscription Viewer" start-tab="{{ subTab }}" focus-upgrade="{{ subFocus }}" focus-tier="{{ subFocusTier }}" tab-nonce="{{ subNonce }}" frame-h="644px" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+            </div>
+            <sc-if value="{{ canClose }}" hint-placeholder-val="{{ true }}"><button onClick="{{ closeSub }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:8px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">GameHUD.tscn</div></sc-if>
+      <div style="position:absolute;top:20px;right:20px;z-index:25;display:flex;align-items:flex-start;gap:14px">
+        <div data-popup="1" style="position:relative">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">NotificationBell.tscn</div></sc-if>
+          <button onClick="{{ toggleNotif }}" title="Notifications" style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:{{ bellBg }};box-shadow:inset 4px 4px 0 {{ bellHi }},inset -4px -4px 0 {{ bellLo }},0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+            <img alt="" src="{{ bell.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c)">
+          </button>
+          <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ false }}">
+            <dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-13px;right:-13px;z-index:8;pointer-events:none"></dc-import>
+          </sc-if>
+
+          <sc-if value="{{ notifOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 14px);right:0;z-index:40;width:440px;height:520px;padding:14px;display:flex;flex-direction:column;gap:10px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+              <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">NotificationPanel.tscn</div></sc-if>
+              <span style="font:400 13px Silkscreen;color:#f28c28;letter-spacing:1px">Notifications</span>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <sc-for list="{{ nTabs }}" as="t" hint-placeholder-count="2">
+                  <button onClick="{{ t.onClick }}" style="height:32px;font:700 11px Silkscreen;color:{{ t.fg }};background:{{ t.bg }};box-shadow:inset 0 3px 0 {{ t.hi }},inset 0 -3px 0 {{ t.lo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.12)">{{ t.label }}</button>
+                </sc-for>
+              </div>
+              <div style="position:relative;display:flex;gap:8px;align-items:center;padding:0 3px">
+                <button onClick="{{ toggleNSort }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:26px;padding:0 8px;background:#2b4f8a;font:400 10px Silkscreen;white-space:nowrap;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">
+                  <span style="display:grid;gap:2px"><span style="width:10px;height:2px;background:#f3ead7"></span><span style="width:7px;height:2px;background:#f3ead7"></span><span style="width:4px;height:2px;background:#f3ead7"></span></span>
+                  {{ nSortLabel }}
+                </button>
+                <button onClick="{{ toggleNFilter }}" style="flex:none;height:26px;padding:0 8px;display:flex;align-items:center;gap:6px;background:{{ nf.bg }};color:{{ nf.fg }};font:400 10px Silkscreen;box-shadow:inset 0 3px 0 {{ nf.hi }},inset 0 -3px 0 {{ nf.lo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+                  <span style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="width:10px;height:2px;background:{{ nf.fg }}"></span><span style="width:6px;height:2px;background:{{ nf.fg }}"></span><span style="width:2px;height:4px;background:{{ nf.fg }}"></span></span>
+                  {{ nf.label }}
+                </button>
+                <sc-if value="{{ nSortOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:36px;left:0;z-index:45;width:200px;padding:12px;display:flex;flex-direction:column;gap:4px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+                    <span style="font:400 10px Silkscreen;color:#9cc6ef;margin-bottom:6px">Sort by</span>
+                    <sc-for list="{{ nSortOpts }}" as="o" hint-placeholder-count="2">
+                      <button onClick="{{ o.onClick }}" style="text-align:left;padding:6px 8px;font-size:14px;background:{{ o.bg }};color:{{ o.fg }}" style-hover="filter:brightness(1.2)">{{ o.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ nFilterOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:36px;right:0;z-index:45;width:200px;padding:12px;display:flex;flex-direction:column;gap:4px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+                    <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">NotificationFilterPanel.tscn</div></sc-if>
+                    <span style="font:400 10px Silkscreen;color:#9cc6ef;margin-bottom:6px">Show</span>
+                    <sc-for list="{{ nFilterOpts }}" as="o" hint-placeholder-count="5">
+                      <button onClick="{{ o.onClick }}" style="text-align:left;padding:6px 8px;font-size:14px;background:{{ o.bg }};color:{{ o.fg }}" style-hover="filter:brightness(1.2)">{{ o.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+              <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;padding:4px 6px 4px 4px;background:#0a0f1c">
+                <sc-for list="{{ nList }}" as="n" hint-placeholder-count="3">
+                  <div onClick="{{ n.onClick }}" onMouseEnter="{{ n.onEnter }}" onMouseLeave="{{ n.onLeave }}" style="position:relative;flex:none;display:grid;grid-template-columns:56px minmax(0,1fr);gap:10px;padding:8px;cursor:{{ n.cursor }};opacity:{{ n.opacity }};background:{{ n.bg }};box-shadow:inset 0 0 0 2px {{ n.ring }}">
+                    <sc-if value="{{ n.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-8px;left:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">NotificationItem.tscn › ContractCompletedBody.tscn</span></sc-if>
+                    <div style="position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6">
+                      <sc-if value="{{ n.isContract }}" hint-placeholder-val="{{ true }}"><img alt="" src="{{ n.markCells.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c)"></sc-if>
+                      <sc-if value="{{ n.isStock }}" hint-placeholder-val="{{ false }}"><img alt="" src="{{ n.arrow.px7 }}" style="display:block;flex:none;box-sizing:content-box;width:28px;height:28px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c)"></sc-if>
+                      <sc-if value="{{ n.isLoan }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:20px;height:36px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;color:#f2b33d;filter:drop-shadow(2px 2px 0 #0a0f1c)"></span></sc-if>
+                    </div>
+                    <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+                      <span style="padding-right:22px;font:700 11px/1 Silkscreen;color:{{ n.titleColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.title }}</span>
+                      <span style="font-size:14px;line-height:1;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.name }}</span>
+                      <sc-if value="{{ n.isContract }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div style="display:flex;gap:2px"><sc-for list="{{ n.stars }}" as="s" hint-placeholder-count="5"><img alt="" src="{{ s.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:16px;height:16px;image-rendering:pixelated"></sc-for></div>
+                        <div style="display:flex;align-items:center;gap:5px">
+                          <div style="flex:none;width:12px;height:14px;display:flex;align-items:center;justify-content:center;background:#f28c28"><img alt="" src="{{ noteGlyphSm.px5 }}" style="display:block;flex:none;box-sizing:content-box;width:5px;height:9px;image-rendering:pixelated"></div>
+                          <span style="font:700 11px Silkscreen;color:#f3ead7">{{ n.reward }}</span>
+                        </div>
+                      </div>
+                      </sc-if>
+                      <sc-if value="{{ n.isStock }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:{{ n.stockColor }}">{{ n.stockLine }}</span></sc-if>
+                      <sc-if value="{{ n.isLoan }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:flex;align-items:center;gap:3px;font:700 11px Silkscreen;color:#f3ead7">{{ n.offerAmt }}<span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat"></span><span style="margin-left:4px;font:400 12px 'Pixelify Sans',monospace;color:#9cc6ef">{{ n.offerTerms }}</span></span>
+                        <sc-if value="{{ n.hasRemaining }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:{{ n.remColor }}">{{ n.remaining }}</span></sc-if>
+                      </sc-if>
+                      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:2px">
+                        <span style="font-size:12px;color:#8a97ad;white-space:nowrap">{{ n.when }}</span>
+                        <span style="font:400 9px Silkscreen;color:{{ n.urgColor }};white-space:nowrap">{{ n.urgency }}</span>
+                      </div>
+                    </div>
+                    <sc-if value="{{ n.unread }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ n.markRead }}" title="Mark as read" style="position:absolute;top:4px;right:6px;padding:0;background:none;color:#ff3b2f;font:700 16px/1 Silkscreen;text-shadow:2px 0 0 #0a0f1c,-2px 0 0 #0a0f1c,0 2px 0 #0a0f1c,0 -2px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:10px;height:10px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -35px -35px / 256px 640px;image-rendering:pixelated;filter:drop-shadow(1px 0 0 #0a0f1c) drop-shadow(-1px 0 0 #0a0f1c) drop-shadow(0 1px 0 #0a0f1c) drop-shadow(0 -1px 0 #0a0f1c)"></span></button>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ nEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:16px;text-align:center;font-size:14px;color:#9cc6ef">{{ nEmptyLabel }}</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="position:relative">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">SettingsButton.tscn</div></sc-if>
+          <button onClick="{{ toggleSettings }}" title="Settings" style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:{{ gearBg }};box-shadow:inset 4px 4px 0 {{ gearHi }},inset -4px -4px 0 {{ gearLo }},0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+            <img alt="" src="{{ gear.px16 }}" style="display:block;flex:none;box-sizing:content-box;width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c)">
+          </button>
+        </div>
+        </div>
+    </div>
+
+    <div style="position:relative;height:76px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:8px 16px 4px;background:#1a2b4d;border-top:4px solid #f28c28;box-shadow:inset 0 4px 0 #0a0f1c,inset 0 8px 0 #28447a,inset 0 -4px 0 #111c33">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">BottomBar.tscn</div></sc-if>
+
+      <div style="flex:1;display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 5px 0 8px;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+      <div style="position:relative;display:flex;align-items:center;gap:12px;height:40px">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MoneyMenu.tscn</div></sc-if>
+        <div style="width:24px;height:28px;display:flex;align-items:center;justify-content:center;background:#f28c28;box-shadow:inset -2px -2px 0 #b85a12,inset 2px 2px 0 #ffb266">
+          <img alt="" src="{{ noteGlyph.px5 }}" style="display:block;flex:none;box-sizing:content-box;width:10px;height:18px;image-rendering:pixelated">
+        </div>
+        <span style="font:400 15px/1 Silkscreen;color:{{ moneyColor }};white-space:nowrap;text-shadow:{{ moneyGlow }}">{{ moneyShown }}</span>
+        <div style="width:4px;height:24px;background:#2b4f8a"></div>
+        <span style="font:400 15px/1 Silkscreen;color:#e8583f;white-space:nowrap">- [End of Month Expenses]</span>
+      </div>
+
+      <div style="position:relative;display:flex;align-items:center;gap:12px;height:40px">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">TimeMenu.tscn</div></sc-if>
+        <div style="display:flex;align-items:center;gap:8px;font:400 15px/1 Silkscreen;color:#f3ead7;white-space:nowrap">
+          <span>[Day],</span>
+          <span>[Month]</span>
+          <span>[Year]</span>
+          <span style="color:#f28c28">[Time]</span>
+          <span style="color:#f28c28">[AM/PM]</span>
+        </div>
+        <div style="width:4px;height:24px;background:#2b4f8a"></div>
+        <div style="display:flex;gap:6px">
+          <sc-for list="{{ speeds }}" as="s" hint-placeholder-count="5">
+            <button onClick="{{ s.onClick }}" title="{{ s.label }}" style="position:relative;width:36px;height:30px;display:flex;align-items:center;justify-content:center;gap:0;background:{{ s.bg }};box-shadow:inset 0 3px 0 {{ s.hi }},inset 0 -3px 0 {{ s.lo }}" style-hover="filter:brightness(1.2)">
+              <sc-if value="{{ s.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">SpeedButton.tscn</span></sc-if>
+              <sc-if value="{{ s.pause }}" hint-placeholder-val="{{ false }}">
+                <span style="display:flex;gap:3px"><span style="width:4px;height:12px;background:{{ s.fg }}"></span><span style="width:4px;height:12px;background:{{ s.fg }}"></span></span>
+              </sc-if>
+              <sc-if value="{{ s.left }}" hint-placeholder-val="{{ false }}">
+                <sc-for list="{{ s.arrows }}" as="a" hint-placeholder-count="2"><span style="width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-right:7px solid {{ s.fg }}"></span></sc-for>
+              </sc-if>
+              <sc-if value="{{ s.right }}" hint-placeholder-val="{{ false }}">
+                <sc-for list="{{ s.arrows }}" as="a" hint-placeholder-count="1"><span style="width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:7px solid {{ s.fg }}"></span></sc-for>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <span style="font:700 18px Silkscreen;color:#f28c28">Scene map</span>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="5">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+              <span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span>
+              <span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span>
+            </div>
+            <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+            <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7">
+              <sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;}}">
+class Component extends DCLogic {
+  mi() { const M = window.MercIcons; if (M) return M; if (!this._miWait) this._miWait = setInterval(() => { if (window.MercIcons) { clearInterval(this._miWait); this.forceUpdate(); } }, 50); return { cells: () => [], cell16: () => [], box: () => [], solid: () => [], diffStar: () => [], tabOn: () => [], mask: () => [''], w: () => 1, h: () => 1 }; }
+  state = { speed: 'play', paused: false, settings: false, notifOpen: false, nTab: 'unread', nSort: 'recency', nFilter: 'All' };
+  // Shared session state (GameState + NotificationCenter autoloads in Godot). Keep identical in Game HUD, Contract Viewer, Merc Viewer.
+  gameStore() { const w = window; return w.__mercStore || (w.__mercStore = { subs: new Set(),
+    active: { 2: { name: 'Contract 3 Name', hours: 150, reward: 2400, travelCost: 300, odds: 62, team: [{ id: 6, role: 'Leader', match: 4 }, { id: 2, role: 'Guide', match: 3.5 }] },
+      5: { name: 'Contract 6 Name', hours: 80, reward: 1100, travelCost: 120, odds: 48, team: [{ id: 1, role: 'Leader', match: 3.5 }, { id: 7, role: 'Driver', match: 2.5 }] } },
+    notifs: [
+      { id: 1, kind: 'Contract', type: 'contractCompleted', contractId: 11, urgency: 'Informational', t: 1296 * 1440 + 9 * 60 + 40, read: false },
+      { id: 2, kind: 'Contract', type: 'contractCompleted', contractId: 12, urgency: 'Informational', t: 1294 * 1440 + 16 * 60 + 5, read: false },
+      { id: 3, kind: 'Contract', type: 'contractCompleted', contractId: 13, urgency: 'Informational', t: 1290 * 1440 + 7 * 60 + 30, read: true },
+      { id: 4, kind: 'Contract', type: 'contractFailed', contractId: 14, urgency: 'Informational', t: 1295 * 1440 + 21 * 60 + 15, read: false },
+      { id: 'o101', kind: 'Finance', type: 'loanOffer', offerId: 101, snap: { lender: 'Lender 1', amount: 1500, rate: 0.08, term: 6, team: [3], odds: 71, outcome: 'exact', expiresIn: 90, approved: true, offerAmount: 1500, offerRate: 0.08, offerTerm: 6, firstDue: 2, offerFirstDue: 2 }, urgency: 'Informational', t: 1296 * 1440 + 8 * 60 + 15, read: false },
+      { id: 'o102', kind: 'Finance', type: 'loanOffer', offerId: 102, snap: { lender: 'Lender 2', amount: 1000, rate: 0.12, term: 6, team: [3, 8], odds: 83, outcome: 'better', expiresIn: 30, approved: true, offerAmount: 1200, offerRate: 0.1, offerTerm: 6, firstDue: 2, offerFirstDue: 3 }, urgency: 'Urgent', t: 1295 * 1440 + 14 * 60 + 50, read: false },
+      { id: 'o103', kind: 'Finance', type: 'loanOffer', offerId: 103, snap: { lender: 'Lender 3', amount: 4000, rate: 0.25, term: 12, team: [5], odds: 34, outcome: 'worse', expiresIn: 8, approved: false, offerAmount: 2800, offerRate: 0.29, offerTerm: 12, firstDue: 3, offerFirstDue: 1 }, urgency: 'Urgent', t: 1293 * 1440 + 11 * 60 + 20, read: false },
+      { id: 's3', kind: 'Finance', type: 'stockMove', companyId: 3, snap: { name: 'Company 4 Name', pct: 6.4, band: 1 }, urgency: 'Informational', t: 1296 * 1440 + 9 * 60 + 45, read: false },
+      { id: 's5', kind: 'Finance', type: 'stockMove', companyId: 5, snap: { name: 'Company 6 Name', pct: -5.3, band: -1 }, urgency: 'Informational', t: 1293 * 1440 + 15 * 60 + 10, read: false } ],
+    seenResults: { 13: true },
+    completed: [11, 12, 13, 14],
+    fired: {},
+    money: 1000, salary: {}, guildAdj: {},
+    loans: [{ id: 1, lender: 'Lender 1', principal: 2000, rate: 0.08, months: 12, paid: 4 }, { id: 2, lender: 'Lender 2', principal: 800, rate: 0.12, months: 6, paid: 1 }],
+    closedLoans: [{ id: 201, lender: 'Lender 2', principal: 600, rate: 0.12, months: 6, paid: 6, closedAs: 'Paid in Full', paidTotal: 672 }, { id: 202, lender: 'Lender 1', principal: 1200, rate: 0.08, months: 12, paid: 7, closedAs: 'Paid Off Early', paidTotal: 1263 }],
+    sub: { plan: 'pro', owned: { free: true, pro: true, enterprise: false }, up: { seats: 0, contracts: 0, discrim: 0, background: 0, survey: 0, aptitude: 0, brawn: 0, readiness: 0, personality: 0, skilltest: 0, education: 0 } },
+    modals: {}, pursuits: {}, offers: { 101: { lender: 'Lender 1', amount: 1500, rate: 0.08, term: 6, team: [3], odds: 71, outcome: 'exact', expiresIn: 90, approved: true, offerAmount: 1500, offerRate: 0.08, offerTerm: 6, firstDue: 2, offerFirstDue: 2 }, 102: { lender: 'Lender 2', amount: 1000, rate: 0.12, term: 6, team: [3, 8], odds: 83, outcome: 'better', expiresIn: 30, approved: true, offerAmount: 1200, offerRate: 0.1, offerTerm: 6, firstDue: 2, offerFirstDue: 3 }, 103: { lender: 'Lender 3', amount: 4000, rate: 0.25, term: 12, team: [5], odds: 34, outcome: 'worse', expiresIn: 8, approved: false, offerAmount: 2800, offerRate: 0.29, offerTerm: 12, firstDue: 3, offerFirstDue: 1 }, 104: { lender: 'Lender 4', amount: 2000, rate: 0.14, term: 12, team: [], odds: 58, outcome: 'exact', expiresIn: 60, approved: true, offerAmount: 2000, offerRate: 0.14, offerTerm: 12, firstDue: 2, offerFirstDue: 2 }, 105: { lender: 'Lender 5', amount: 3000, rate: 0.18, term: 24, team: [1], odds: 49, outcome: 'worse', expiresIn: 20, approved: false, offerAmount: 2200, offerRate: 0.21, offerTerm: 24, firstDue: 4, offerFirstDue: 3 } }, now: 1296 * 1440 + 10 * 60,
+    emit() { this.subs.forEach(f => f()); },
+    dispatch(id, run) { this.active = { ...this.active, [id]: run }; this.emit(); },
+    markRead(nid) { this.notifs = this.notifs.map(n => n.id === nid ? { ...n, read: true } : n); this.emit(); },
+    readContract(cid) { if (this.notifs.some(n => n.contractId === cid && !n.read)) { this.notifs = this.notifs.map(n => n.contractId === cid ? { ...n, read: true } : n); this.emit(); } },
+    setSalary(id, v, shift) { this.salary = { ...this.salary, [id]: v }; this.guildAdj = { ...this.guildAdj, [id]: (this.guildAdj[id] || 0) + (shift || 0) }; this.emit(); },
+    adjOpinion(id, d) { this.guildAdj = { ...this.guildAdj, [id]: (this.guildAdj[id] || 0) + d }; this.emit(); },
+    addLoan(l) { this.loans = [...this.loans, { ...l, id: Date.now(), paid: 0 }]; this.money += l.principal; this.emit(); },
+    payOff(id, amt) { const l = this.loans.find(x => x.id === id); this.loans = this.loans.filter(x => x.id !== id); this.money -= amt;
+      if (l) this.closedLoans = [...this.closedLoans, { ...l, closedAs: 'Paid Off Early', paidTotal: Math.ceil(l.principal * (1 + l.rate) / l.months) * l.paid + amt }]; this.emit(); },
+    requestLoan(req) { const id = Date.now(); this.pursuits = { ...this.pursuits, [id]: req }; this.emit();
+      setTimeout(() => { const p = this.pursuits[id]; if (!p) return; const rest = { ...this.pursuits }; delete rest[id]; this.pursuits = rest;
+        const roll = Math.random() * 100, outcome = p.team.length && roll < p.odds * 0.3 ? 'better' : roll < p.odds ? 'exact' : 'worse';
+        const amt = outcome === 'better' ? p.amount * 1.2 : outcome === 'worse' ? p.amount * (0.55 + Math.random() * 0.3) : p.amount;
+        const rate = outcome === 'better' ? Math.max(0.02, p.rate - 0.02) : outcome === 'worse' ? p.rate + 0.03 + Math.round(Math.random() * 4) / 100 : p.rate;
+        const offer = { ...p, outcome, approved: outcome !== 'worse', offerAmount: Math.max(100, Math.round(amt / 100) * 100), offerRate: +rate.toFixed(2), offerTerm: p.term, offerFirstDue: Math.max(1, Math.min(6, (p.firstDue ?? 2) + (outcome === 'better' ? 1 : outcome === 'worse' ? -1 : 0))), expiresIn: 72 };
+        this.offers = { ...this.offers, [id]: offer }; this.now += 30;
+        this.notifs = [...this.notifs, { id: 'o' + id, kind: 'Finance', type: 'loanOffer', offerId: id, snap: offer, urgency: 'Informational', t: this.now, read: false }]; this.emit(); }, req.delay || 8000); return id; },
+    resolveOffer(id, accept) { const o = this.offers[id]; if (!o) return; const rest = { ...this.offers }; delete rest[id]; this.offers = rest;
+      this.notifs = this.notifs.map(n => n.offerId === id ? { ...n, read: true } : n);
+      if (accept) { this.loans = [...this.loans, { id, lender: o.lender, principal: o.offerAmount, rate: o.offerRate, months: o.offerTerm || o.term, firstDue: o.offerFirstDue ?? o.firstDue ?? 2, paid: 0 }]; this.money += o.offerAmount;
+        // Accepting one offer auto-rejects all other open offers.
+        const others = Object.keys(this.offers).map(Number); this.offers = {}; this.notifs = this.notifs.map(n => others.includes(n.offerId) ? { ...n, read: true } : n); } this.emit(); },
+    readOffer(id) { if (this.notifs.some(n => n.offerId === id && !n.read)) { this.notifs = this.notifs.map(n => n.offerId === id ? { ...n, read: true } : n); this.emit(); } },
+    setModal(k, v) { const m = { ...this.modals }; if (v) m[k] = true; else delete m[k]; this.modals = m; this.emit(); },
+    // Generic notification escalation (NotificationCenter in Godot). Each rule: which triggers are still open, hours left, and how to build the notification.
+    // >= 72h left → Informational (as created). < 72h → Urgent: replaces any older notif for that trigger (even if dismissed) and re-fires every 8h until the trigger is handled.
+    notifRules: {
+      loanOffer: { key: 'offerId', open: st => Object.keys(st.offers).map(Number), hoursLeft: (st, id) => st.offers[id].expiresIn ?? 72, make: (st, id) => ({ kind: 'Finance', type: 'loanOffer', offerId: id, snap: st.offers[id] }) },
+    },
+    escalate() { let changed = false;
+      for (const [type, rule] of Object.entries(this.notifRules)) for (const id of rule.open(this)) {
+        if (rule.hoursLeft(this, id) >= 72) continue;
+        const mine = this.notifs.filter(n => n.type === type && n[rule.key] === id), last = mine[mine.length - 1];
+        if (!last || last.urgency !== 'Urgent' || (last.read && this.now - last.t >= 8 * 60)) {
+          this.notifs = [...this.notifs.filter(n => !(n.type === type && n[rule.key] === id)), { id: type + ':' + id + ':' + this.now, ...rule.make(this, id), urgency: 'Urgent', t: this.now, read: false }]; changed = true; } }
+      if (changed) this.emit(); },
+    tick(minutes) { this.now += minutes; Object.values(this.offers).forEach(o => { o.expiresIn = Math.max(0, (o.expiresIn ?? 72) - minutes / 60); }); this.escalate(); this.emit(); }, // call from the game clock
+    // Money payout animation: Game HUD registers flyHandler (notes fly to the money readout). Without a HUD, money is added directly.
+    flyMoney(amount, done) { const fin = () => { this.money += amount; this.emit(); if (done) done(); };
+      if (this.flyHandler) this.flyHandler(amount, fin); else setTimeout(fin, 400); },
+    // Subscription (SubscriptionManager autoload). Upgrades persist; they only apply while plan === 'enterprise'.
+    buyPlan(k, cost) { this.money -= cost; this.sub = { ...this.sub, plan: k, owned: { ...this.sub.owned, [k]: true } }; this.emit(); },
+    // Leaving Enterprise forfeits all purchased upgrades (must be re-bought). Downgrading to Free trims the contract board to 5 on the next billing day (engine-side).
+    setPlan(k) { const up = this.sub.plan === 'enterprise' && k !== 'enterprise' ? { seats: 0, contracts: 0, discrim: 0, background: 0, survey: 0, aptitude: 0, brawn: 0, readiness: 0, personality: 0, skilltest: 0, education: 0 } : this.sub.up; this.sub = { ...this.sub, plan: k, owned: { ...this.sub.owned, [k]: true }, up }; this.emit(); },
+    // Locked Page › Take Me There: Game HUD registers navHandler (closes open windows, opens Subscription › Plans).
+    goToPlans(target) { if (this.navHandler) this.navHandler(target || { tab: 'plans' }); }, // target: { tab: 'plans' | 'customize', upgrade?, tier? }
+    setUpgrade(k, t) { this.sub = { ...this.sub, up: { ...this.sub.up, [k]: t } }; this.emit(); }, // monthly service tier (Enterprise); billing handled by caller
+    buyUpgrade(k, cost) { this.money -= cost; this.sub = { ...this.sub, up: { ...this.sub.up, [k]: this.sub.up[k] + 1 } }; this.emit(); },
+    entitlements() { const p = this.sub.plan, e = p === 'enterprise', u = e ? this.sub.up : { seats: 0, contracts: 0, discrim: 0, background: 0, survey: 0, aptitude: 0, brawn: 0, readiness: 0, personality: 0, skilltest: 0, education: 0 };
+      return { plan: p, perMerc: p === 'pro' ? 5 : e ? 15 : 0, maxMercs: p === 'free' ? 5 : Math.min(50, 20 + u.seats * 5), maxContracts: p === 'free' ? 5 : 12 + (u.contracts || 0) * 2, metrics: p !== 'free',
+        ancestry: u.discrim >= 1, bloodline: u.discrim >= 2, age: u.discrim >= 3, heritage: u.background >= 1, perks: u.background >= 2, drawbacks: u.background >= 3, skills: u.background >= 4, criminality: (u.criminal || 0) >= 1, lifepath: u.background >= 5, contractMetrics: (u.contractmetrics || 0) >= 1, mercMetrics: u.mercmetrics || 0, pip: (u.pip || 0) >= 1, lvSupport: (u.combatpip || 0) >= 1, lvDefensive: (u.combatpip || 0) >= 2, lvOffensive: (u.combatpip || 0) >= 3, lvExisting: (u.skillpip || 0) >= 1, lvNewSkills: (u.skillpip || 0) >= 2, lvUniversal: (u.skillpip || 0) >= 3, lvAncestral: (u.skillpip || 0) >= 4, lvTradition: (u.skillpip || 0) >= 5, lvSpell: (u.magicpip || 0) >= 1, physical: p !== 'free', cognition: (u.aptitude || 0) >= 1, vigor: (u.brawn || 0) >= 1, dexterity: (u.readiness || 0) >= 1, wile: (u.personality || 0) >= 1, tools: (u.skilltest || 0) >= 1, knowledges: (u.education || 0) >= 1,
+        guildOpinion: (u.survey || 0) >= 1, relationships: (u.peer || 0) >= 1, clientOpinion: (u.customer || 0) >= 1, surveyRefresh: (u.survey || 0) >= 1 ? ['quarterly', 'monthly', 'weekly', 'daily', 'instant', 'instant'][Math.min(5, u.fastmetrics || 0)] : 'none', predictive: (u.fastmetrics || 0) >= 5, /* Rapid Survey tiers set survey frequency; tier 5 = predictive previews */ veryFast: p !== 'free', oddJobs: (u.oddjobs || 0) /* max mercs on Odd Jobs (0 = locked); tier ≥ 1 also unlocks the Odd Job Default Bonus setting */, bazaar: (u.bazaar || 0) >= 1, bazaarRarity: u.betteritems || 0 /* 0 Ordinary only · 1 Common · 2 Uncommon · 3 Rare · 4 Very Rare */, bazaarSpeed: u.fasteritems || 0 /* delivery 20 → 15/14/11/10 days → 2 days */, opsPermits: u.opspermit || 0 /* 1 most nations · 2 all nations · 3 other Domains */, teleport: u.teleport || 0 /* 1 guild circle + most nations · 2 all nations · 3 other Domains */, representation: u.representation || 0 /* dismissal chance on incur */, whoKnows: u.whoknows || 0 /* future bail/fine/sentence/fee reductions */, counsel: u.counsel || 0 /* +5/7/9/13/15% Renegotiate odds per merc */, promotions: (u.promotions || 0) >= 1 /* Promotions upgrade: My Promotions window + Job Postings + Flyers */, jobPostings: (u.promotions || 0) >= 1, maxPromoDays: (u.promotions || 0) >= 1 ? [5, 10, 17, 25, 30, Infinity][Math.min(5, u.longpromos || 0)] : 0 /* Long Promos; Infinity = runs until ended, billed monthly */, adBoost: [0, 5, 7, 12, 15, 20, 25][Math.min(6, u.marketing || 0)] /* Marketing Agency: % ad effectiveness */, guildPromo: (u.guildpromo || 0) >= 1, gpMinDifficulty: (u.guildpromo || 0) >= 2, gpMaxDifficulty: (u.guildpromo || 0) >= 3, gpContractType: (u.guildpromo || 0) >= 4, hiringDiscrim: (u.discrim || 0) >= 4 /* Discrimination IV: see + filter ancestry/bloodline/age on applicants and job postings */, adDirect: (u.promomethods || 0) >= 1, adRadio: (u.promomethods || 0) >= 2, adSponsor: (u.promomethods || 0) >= 3 /* Promo Methods tiers I–III; Word of Mouth comes with Odd Jobs */ }; },
+    fire(id) { this.fired = { ...this.fired, [id]: true }; this.emit(); },
+    markSeen(cid) { if (!this.seenResults[cid]) { this.seenResults = { ...this.seenResults, [cid]: true }; this.emit(); } } }); }
+  // Mirrors Contract Viewer data for ids referenced by notifications.
+  contractInfo = { 11: { name: 'Contract 12 Name', diff: 2, reward: 300 }, 12: { name: 'Contract 13 Name', diff: 1.5, reward: 260 }, 13: { name: 'Contract 14 Name', diff: 4, reward: 1900 }, 14: { name: 'Contract 15 Name', diff: 3.5, reward: 1400 } };
+  bangMap = ['......##......', '.....####.....', '.....####.....', '.....####.....', '.....####.....', '.....####.....', '......##......', '......##......', '..............', '......##......', '.....####.....', '......##......', '..............', '..............'];
+  urgencyDefs = { Informational: ['#6cc36a', 0], Important: ['#f2b33d', 1], Urgent: ['#e8583f', 2] };
+  get starMap() { return this.mi().mask('star9'); }
+  diffColors = { 0.5: '#29e029', 1: '#50e029', 1.5: '#77e029', 2: '#a6e33b', 2.5: '#cae33b', 3: '#e3d83b', 3.5: '#e3b43b', 4: '#e08629', 4.5: '#e05f29', 5: '#e03829' };
+  bellMap = ['.......##.......', '......####......', '....########....', '...##########...', '...##########...', '...##########...', '...##########...', '...##########...', '..############..', '..############..', '.##############.', '################', '................', '......####......', '.......##.......', '................'];
+  dotMap = ['..####..', '.######.', '########', '########', '########', '########', '.######.', '..####..'];
+  checkMap = ['..............', '............##', '...........###', '..........###.', '.........###..', '........###...', '.##....###....', '.###..###.....', '..######......', '...####.......', '....##........', '..............', '..............', '..............'];
+  stars(v) { const col = this.diffColors[v]; return [0, 1, 2, 3, 4].map(i => { const full = v >= i + 1, half = !full && v >= i + 0.5; return this.mi().diffStar(full ? 1 : half ? 0.5 : 0, col); }); }
+  when(t) { const day = Math.floor(t / 1440), mi = t % 1440, hh = Math.floor(mi / 60), mm = mi % 60, h12 = hh % 12 || 12;
+    return 'Day ' + (day % 30 + 1) + ', Month ' + (Math.floor(day / 30) % 12 + 1) + ', Year ' + (Math.floor(day / 360) + 1) + ' · ' + h12 + ':' + String(mm).padStart(2, '0') + ' ' + (hh < 12 ? 'AM' : 'PM'); }
+  markRead(id) { this.gameStore().markRead(id); }
+  arrowMap = ['...#...', '..###..', '.#####.', '#######', '..###..', '..###..', '..###..'];
+  openNotif(n) { this.markRead(n.id); if (n.type === 'contractCompleted' || n.type === 'contractFailed') this.setState(s => ({ notifOpen: false, contractsOpen: true, openContractId: n.contractId, openNonce: (s.openNonce || 0) + 1 }));
+    if (n.type === 'stockMove') this.setState(s => ({ notifOpen: false, financeOpen: true, openOfferId: null, openStockId: n.companyId, stockNonce: (s.stockNonce || 0) + 1 }));
+    if (n.type === 'loanOffer') this.setState(s => ({ notifOpen: false, financeOpen: true, openOfferId: n.offerId, offerNonce: (s.offerNonce || 0) + 1 })); }
+  // Payout: notes fly from the results window to the money readout, which ticks up. (GameState.fly_money → HUD MoneyFly animation)
+  startFly(amount, done) { cancelAnimationFrame(this.flyRaf); const from = this.gameStore().money, t0 = performance.now(); let last = 0;
+    const loop = now => { const t = (now - t0) / 1000; if (now - last > 30) { last = now; this.setState({ fly: { t, from, amount } }); }
+      if (t < 1.6) this.flyRaf = requestAnimationFrame(loop); else { this.setState({ fly: null }); done(); } };
+    this.flyRaf = requestAnimationFrame(loop); }
+  componentDidMount() { this.gameStore().flyHandler = (a, d) => this.startFly(a, d);
+    // Promotions › View Applicants: close Promotions, open Finance › Hiring filtered to that campaign (Hiring reads store.hireFilter).
+    this.gameStore().openHiring = from => { this.gameStore().hireFilter = { from: [from] }; this.setState(s => ({ promoOpen: false, financeOpen: true, openOfferId: null, openStockId: null, hireNonce: (s.hireNonce || 0) + 1 })); };
+    // Legal › Review › View Contract: close Legal, open Contract Viewer on that contract.
+    this.gameStore().openContract = id => this.setState(s => ({ legalOpen: false, contractsOpen: true, openContractId: id, openNonce: (s.openNonce || 0) + 1 }));
+    if (!window.mercLegalSeed) this.legalWait = setInterval(() => { if (window.mercLegalSeed) { clearInterval(this.legalWait); this.forceUpdate(); } }, 100);
+    // Locked Page › Take Me There: close every open window, open Subscription on its Plans tab.
+    this.gameStore().navHandler = (tg = {}) => this.setState(s => ({ mercOpen: false, contractsOpen: false, metricsOpen: false, clientsOpen: false, financeOpen: false, bazaarOpen: false, legalOpen: false, notifOpen: false, subOpen: true, subTab: tg.tab || 'plans', subFocus: tg.upgrade || null, subFocusTier: tg.tier || 0, subNonce: (s.subNonce || 0) + 1 })); this.onStore = () => this.forceUpdate(); this.gameStore().subs.add(this.onStore); this.onDoc = e => { if (e.target.closest && e.target.closest('[data-popup]')) return; if (this.state.notifOpen) this.setState({ notifOpen: false, nSortOpen: false, nFilterOpen: false }); }; document.addEventListener('mousedown', this.onDoc); }
+  componentWillUnmount() { cancelAnimationFrame(this.flyRaf); if (this.gameStore().flyHandler) this.gameStore().flyHandler = null; this.gameStore().subs.delete(this.onStore); document.removeEventListener('mousedown', this.onDoc); }
+  groupMap = [
+    '................',
+    '...ss......ss...',
+    '..ssss....ssss..',
+    '..ssss....ssss..',
+    '...ss.wwww.ss...',
+    '.sss.wwwwww.sss.',
+    'ssss.wwwwww.ssss',
+    'ssss.wwwwww.ssss',
+    'ssss..wwww..ssss',
+    'ssss........ssss',
+    'sss.wwwwwwww.sss',
+    '...wwwwwwwwww...',
+    '..wwwwwwwwwwww..',
+    '..wwwwwwwwwwww..',
+    '..wwwwwwwwwwww..',
+    '................',
+  ];
+  gearMap = [
+    '......####......',
+    '......####......',
+    '..##..####..##..',
+    '..############..',
+    '...##########...',
+    '..####....####..',
+    '#####......#####',
+    '#####......#####',
+    '#####......#####',
+    '#####......#####',
+    '..####....####..',
+    '...##########...',
+    '..############..',
+    '..##..####..##..',
+    '......####......',
+    '......####......',
+  ];
+  get noteMap() { return this.mi().mask('note'); } /* Notes symbol */
+  sceneMap = [
+    { name: 'MenuGrid.tscn', uses: 'x1', root: 'GridContainer (3×3)', vars: ['@export var buttons: Array[MenuButtonData]  # 9 slots'] },
+    { name: 'MenuButton.tscn', uses: 'x N (5 of 9)', root: 'Button › VBox (icon, label)', vars: ['@export var label: String', '@export var icon: Texture2D', '@export var badge: bool  # UnreadDot top-right (My Contracts: any unclaimed results)', '@export var window_scene: PackedScene  # MercViewer / ContractViewer / MetricsViewer / FinanceViewer.tscn', 'signal opened'] },
+    { name: 'SubWindow.tscn', uses: 'x1', root: 'Control (dim backdrop) › Panel + CloseButton', vars: ['@export var content: PackedScene', 'signal closed', '# CloseButton hidden while content has any nested popup open (GameState.modals non-empty)'] },
+    { name: 'MoneyMenu.tscn', uses: 'x1', root: 'HBoxContainer', vars: ['# MoneyFly: payout notes fly here and the value ticks up (GameState.fly_money)', '@export var current_notes: int', '@export var month_end_expenses: int', '@export var icon: Texture2D  # N-note glyph'] },
+    { name: 'GameHUD.tscn', uses: 'root', root: 'CanvasLayer › Control (full rect)', vars: ['@export var merc_view: PackedScene  # MercViewer.tscn sub-window'] },
+    { name: 'NotificationBell.tscn', uses: 'x1 (left of Settings)', root: 'TextureButton + UnreadDot (TextureRect)', vars: ['@export var unread_count: int  # dot visible when > 0', 'signal toggled'] },
+    { name: 'NotificationPanel.tscn', uses: 'x1 (popup)', root: 'PopupPanel › VBox (Tabs, Sort, Filter, ScrollContainer)', vars: ['@export var tab: NotifTab  # UNREAD, READ', '@export var sort: NotifSort  # URGENCY, RECENCY', '@export var filter: NotifCategory  # ALL, CONTRACT, MERCENARY, FINANCE, METRICS', '# Sort + Filter reuse SortButton / FilterButton popups (same as lists)'] },
+    { name: 'NotificationItem.tscn', uses: 'x N (base module)', root: 'PanelContainer › HBox (thumb, body slot) + MarkReadButton', vars: ['@export var data: NotificationData', '@export var body_scene: PackedScene  # per type', '# read: modulate.a = 0.55, mouse_filter IGNORE, no X', 'signal opened(data)', 'signal marked_read(data)'] },
+    { name: 'LoanOfferBody.tscn', uses: 'body for type LOAN_OFFER (Finance)', root: 'VBox › Title, Lender + result, Amount + terms, Footer', vars: ['@export var offer: LoanOffer', '# urgency IMPORTANT', '# opened → FinanceViewer.open_offer(id)'] },
+    { name: 'StockMoveBody.tscn', uses: 'body for type STOCK_MOVE (Finance)', root: 'VBox › Title (Stock Up/Down N%), Company, % since last viewed, Footer', vars: ['@export var company_id: int', '@export var pct_since_seen: float', '@export var band: int  # ±1 = 5%, ±2 = 10% …', '# always INFORMATIONAL; click → FinanceViewer.open_stock(company_id)'] },
+    { name: 'ContractCompletedBody.tscn', uses: 'body for type CONTRACT_COMPLETED', root: 'VBox › Title, Name, DifficultyStars + Reward, Footer', vars: ['@export var contract: ContractData', '# urgency always INFORMATIONAL', '# opened → ContractViewer.open_contract(id)'] },
+    { name: 'NotificationFooter.tscn', uses: 'x N', root: 'HBox › DateLabel + UrgencyLabel', vars: ['@export var received_at: int  # game minutes', '@export var urgency: Urgency  # INFORMATIONAL green, IMPORTANT yellow, URGENT red (loan offers: ≥3 days informational, <3 days urgent)'] },
+    { name: 'NotificationCenter (autoload)', uses: 'data', root: 'Node', vars: ['var items: Array[NotificationData]  # {id, type, category, trigger_id, urgency, received_at, read}', 'func push(data)', 'func mark_read(id)', 'signal changed',
+        'var rules: Dictionary  # type → NotificationRule {open_triggers(), hours_left(id), make(id)}', 'func escalate()  # on every clock tick: < 72h → URGENT, replaces older notif for trigger (even dismissed), re-fires every 8h while unresolved', 'func resolve(type, trigger_id)  # trigger handled → mark read, stop escalating', '# new trigger types = add one rule; no per-screen notification code'] },
+    { name: 'NotificationDot.tscn', uses: 'shared (bell, menu buttons, list items)', root: 'Control 28×28 › Ring frames 10/12/14 cells @2px (AnimationPlayer swaps frames, no scaling) + Dot 8×8@2px', vars: ['@export var color: Color = #e8583f', '@export var pulse: bool = true  # 3 ring frames, 1.2s loop, fading outward', '@export var blink: bool = true  # dot brightness toggle, 1s'] },
+    { name: 'SettingsButton.tscn', uses: 'x1', root: 'TextureButton (anchored top-right)', vars: ['signal settings_pressed'] },
+    { name: 'BottomBar.tscn', uses: 'x1', root: 'PanelContainer › HBoxContainer', vars: ['@export var left_slot: Control', '@export var right_slot: Control'] },
+    { name: 'TimeMenu.tscn', uses: 'x1', root: 'HBoxContainer', vars: ['@export var day: String', '@export var month: String', '@export var year: int', '@export var time: String', '@export var is_pm: bool'] },
+    { name: 'SpeedButton.tscn', uses: 'x5', root: 'Button (toggle, ButtonGroup)', vars: ['@export var speed_mode: SpeedMode', '@export var icon: Texture2D', 'signal speed_selected(mode)'] },
+  ];
+  notifVals(show) {
+    const s = this.state, notifs = this.gameStore().notifs, unread = notifs.filter(n => !n.read).length, read = notifs.length - unread;
+    const on = b => ({ bg: b ? '#f28c28' : '#2b4f8a', fg: b ? '#0a0f1c' : '#f3ead7', hi: b ? '#ffb266' : '#3b6fb6', lo: b ? '#b85a12' : '#1f3560' });
+    let list = notifs.filter(n => (s.nTab === 'unread') !== n.read && (s.nFilter === 'All' || n.kind === s.nFilter));
+    list.sort(s.nSort === 'urgency' ? (a, b) => this.urgencyDefs[b.urgency][1] - this.urgencyDefs[a.urgency][1] || b.t - a.t : (a, b) => b.t - a.t);
+    return {
+      bell: this.mi().cell16('bell', s.notifOpen ? '#0a0f1c' : null, s.notifOpen),
+      bellBg: s.notifOpen ? '#f28c28' : '#2b4f8a', bellHi: s.notifOpen ? '#ffb266' : '#3b6fb6', bellLo: s.notifOpen ? '#b85a12' : '#111c33',
+      hasUnread: unread > 0, hasOffers: Object.keys(this.gameStore().offers).length > 0 || (() => { const st = this.gameStore(); if (!st.promo && window.mercPromoSeed) st.promo = window.mercPromoSeed((st.legal && st.legal.today) || 540); return !!window.mercPromoUnseen && window.mercPromoUnseen(st); })() /* My Finance dot: loan offers or new applicants (Hiring) */, hasUnclaimed: this.gameStore().completed.some(id => !this.gameStore().seenResults[id]),
+      dotCells: this.mi().cells('dot', '#e8583f'),
+      nGlyph: this.noteMap.join('').split('').map(ch => ch === '#' ? 'currentColor' : 'transparent'),
+      checkCells: this.mi().cells('check_sm'),
+      noteGlyphSm: this.noteMap.join('').split('').map(ch => ch === '#' ? '#0a0f1c' : 'transparent'),
+      notifOpen: s.notifOpen,
+      toggleNotif: () => this.setState(st => ({ notifOpen: !st.notifOpen, nSortOpen: false, nFilterOpen: false })),
+      nTabs: [['unread', 'Unread (' + unread + ')'], ['read', 'Read (' + read + ')']].map(([k, l]) => ({ label: l, ...on(s.nTab === k), onClick: () => this.setState({ nTab: k }) })),
+      nSortLabel: s.nSort === 'urgency' ? 'Urgency' : 'Recency', nSortOpen: !!s.nSortOpen, nFilterOpen: !!s.nFilterOpen,
+      toggleNSort: () => this.setState(st => ({ nSortOpen: !st.nSortOpen, nFilterOpen: false })),
+      toggleNFilter: () => this.setState(st => ({ nFilterOpen: !st.nFilterOpen, nSortOpen: false })),
+      nf: { label: s.nFilter === 'All' ? 'Filter' : s.nFilter, ...on(s.nFilter !== 'All') },
+      nSortOpts: [['urgency', 'Urgency'], ['recency', 'Recency']].map(([k, l]) => ({ label: l, bg: s.nSort === k ? '#f28c28' : '#16233f', fg: s.nSort === k ? '#0a0f1c' : '#f3ead7', onClick: () => this.setState({ nSort: k, nSortOpen: false }) })),
+      nFilterOpts: ['All', 'Contract', 'Mercenary', 'Finance', 'Metrics'].map(k => ({ label: k, bg: s.nFilter === k ? '#f28c28' : '#16233f', fg: s.nFilter === k ? '#0a0f1c' : '#f3ead7', onClick: () => this.setState({ nFilter: k, nFilterOpen: false }) })),
+      nEmpty: list.length === 0, nEmptyLabel: s.nTab === 'unread' ? 'No unread notifications.' : 'No read notifications.',
+      nList: list.map((n, i) => { const stk = n.type === 'stockMove', loan = n.type === 'loanOffer', o = loan ? n.snap : null, c = loan || stk ? { name: '', diff: 0.5, reward: 0 } : this.contractInfo[n.contractId], hov = s.nHover === n.id && !n.read;
+        return { tag: show && i === 0, isContract: !loan, isLoan: loan, // Contract outcome is never spoiled here: success and failure both read "Contract Complete" with an orange "!".
+          title: loan ? 'Loan Offer Received' : 'Contract Complete', titleColor: loan ? '#f2b33d' : '#f28c28',
+          markCells: this.mi().cell16('alert'),
+          name: loan ? o.lender : c.name,
+          ...(() => { const live = loan ? this.gameStore().offers[n.offerId] : null, hl = live ? Math.round(live.expiresIn ?? 72) : null;
+            return { hasRemaining: hl != null, remaining: hl != null ? (() => { const d = Math.floor(hl / 24), hr = hl % 24; return d + (d === 1 ? ' Day, ' : ' Days, ') + hr + (hr === 1 ? ' Hour' : ' Hours') + ' to accept'; })() : '', remColor: n.urgency === 'Urgent' ? '#e8583f' : '#9cc6ef' }; })(), offerAmt: loan ? o.offerAmount.toLocaleString('en-US') : '', offerTerms: loan ? Math.round(o.offerRate * 100) + '% · ' + (o.offerTerm || o.term) + ' months' : '',
+          stars: this.stars(c.diff), reward: c.reward, when: this.when(n.t),
+          urgency: n.urgency, urgColor: this.urgencyDefs[n.urgency][0], unread: !n.read,
+          opacity: n.read ? 0.55 : 1, cursor: n.read ? 'default' : 'pointer', bg: hov ? '#15223d' : '#0e1628', ring: hov ? '#f28c28' : '#1f3560',
+          onEnter: () => this.setState({ nHover: n.id }), onLeave: () => this.setState({ nHover: null }),
+          onClick: () => { if (!n.read) this.openNotif(n); },
+          markRead: e => { e.stopPropagation(); this.markRead(n.id); },
+          ...(stk ? (() => { const up = n.snap.pct >= 0, col = up ? '#6cc36a' : '#e8583f';
+            return { isContract: false, isStock: true, title: (up ? 'Stock Up ' : 'Stock Down ') + Math.abs(n.snap.band * 5) + '%', titleColor: col, name: n.snap.name,
+              stockLine: (up ? '+' : '−') + Math.abs(n.snap.pct).toFixed(1) + '% since you last checked', stockColor: col,
+              arrow: this.mi().cells(up ? 'trend_up' : 'trend_down') }; })() : { isStock: false }) }; }),
+    };
+  }
+  renderVals() {
+    const show = this.props.showScenes ?? false;
+    const gearColor = this.state.settings ? '#0a0f1c' : '#f3ead7';
+    const defs = [
+      ['slow', 'Slow Down', 'left', 2],
+      ['pause', 'Pause', 'pause', 0],
+      ['play', 'Play', 'right', 1],
+      ['fast', 'Fast Forward', 'right', 2],
+      ['faster', 'Faster Fast Forward', 'right', 3],
+    ];
+    const speeds = defs.map(([k, label, dir, n], i) => {
+      const on = this.state.speed === k;
+      const pause = dir === 'pause';
+      return {
+        label, tag: show && i === 0,
+        pause, left: dir === 'left', right: dir === 'right' && !pause, arrows: Array(n).fill(0),
+        bg: on ? '#f28c28' : '#2b4f8a', hi: on ? '#ffb266' : '#3b6fb6', lo: on ? '#b85a12' : '#1f3560', fg: on ? '#0a0f1c' : '#f3ead7',
+        onClick: () => this.setState({ speed: k }),
+      };
+    });
+    return {
+      showScenes: show,
+      gear: this.mi().cell16('gear', gearColor),
+      noteGlyph: this.noteMap.join('').split('').map(ch => ch === '#' ? '#0a0f1c' : 'transparent'),
+      gearBg: this.state.settings ? '#f28c28' : '#2b4f8a', gearHi: this.state.settings ? '#ffb266' : '#3b6fb6', gearLo: this.state.settings ? '#b85a12' : '#111c33',
+      groupIcon: this.mi().cell16('mercs'),
+      emptySlots: [],
+      legalOpen: !!this.state.legalOpen, openLegal: () => this.setState({ legalOpen: true, btn8Hover: false }), closeLegal: () => this.setState({ legalOpen: false }),
+      btn8Hover: !!this.state.btn8Hover && !this.state.legalOpen, btn8LabelColor: this.state.btn8Hover ? '#f28c28' : '#f3ead7',
+      btn8Enter: () => this.setState({ btn8Hover: true }), btn8Leave: () => this.setState({ btn8Hover: false }),
+      // Red dot while any fine or capture is unread (LegalManager).
+      legalAlert: (() => { const st = this.gameStore(); if (!st.legal && window.mercLegalSeed) st.legal = window.mercLegalSeed(); const L = st.legal; return !!L && (L.captured.some(c => c.unread) || L.fines.some(f => !f.paid && f.unread)); })(),
+      legalIcon: this.mi().cell16('legal'),
+      subIcon: this.mi().cell16('mercday'),
+      subOpen: !!this.state.subOpen, subTab: this.state.subTab || 'plans', subFocus: this.state.subFocus || null, subFocusTier: this.state.subFocusTier || 0, subNonce: this.state.subNonce || 0,
+      btn5Hover: !!this.state.btn5Hover && !this.state.subOpen,
+      btn5LabelColor: this.state.btn5Hover ? '#f28c28' : '#f3ead7',
+      btn5Enter: () => this.setState({ btn5Hover: true }), btn5Leave: () => this.setState({ btn5Hover: false }),
+      openSub: () => this.setState({ subOpen: true, btn5Hover: false }),
+      closeSub: () => this.setState({ subOpen: false }),
+      financeIcon: this.mi().cell16('finance'),
+      financeOpen: !!this.state.financeOpen,
+      btn4Hover: !!this.state.btn4Hover && !this.state.financeOpen,
+      btn4LabelColor: this.state.btn4Hover ? '#f28c28' : '#f3ead7',
+      btn4Enter: () => this.setState({ btn4Hover: true }), btn4Leave: () => this.setState({ btn4Hover: false }),
+      openFinance: () => this.setState({ financeOpen: true, btn4Hover: false, openOfferId: null, openStockId: null }), openOfferId: this.state.openOfferId ?? null, offerNonce: this.state.offerNonce || 0, openStockId: this.state.openStockId ?? null, stockNonce: this.state.stockNonce || 0, hireNonce: this.state.hireNonce || 0,
+      closeFinance: () => this.setState({ financeOpen: false }),
+      metricsIcon: this.mi().cell16('metrics'),
+      metricsOpen: !!this.state.metricsOpen,
+      btn3Hover: !!this.state.btn3Hover && !this.state.metricsOpen,
+      btn3LabelColor: this.state.btn3Hover ? '#f28c28' : '#f3ead7',
+      btn3Enter: () => this.setState({ btn3Hover: true }), btn3Leave: () => this.setState({ btn3Hover: false }),
+      openMetrics: () => this.setState({ metricsOpen: true, btn3Hover: false }),
+      btn7Hover: !!this.state.btn7Hover && !this.state.bazaarOpen, btn7LabelColor: !this.gameStore().entitlements().bazaar ? '#8a97ad' : this.state.btn7Hover ? '#f28c28' : '#f3ead7',
+      btn7Enter: () => this.setState({ btn7Hover: true }), btn7Leave: () => this.setState({ btn7Hover: false }),
+      // My Bazaar is gated by the Bazaar upgrade (entitlements.bazaar). Locked: lock badge, dimmed, and clicking opens the lock dialog instead of the window.
+      ...(() => { const E = this.gameStore().entitlements(), locked = !E.bazaar, ent = E.plan === 'enterprise', lm = this.mi().mask('lock').join('').split('');
+        return { openBazaar: () => this.setState(locked ? { bzLock: true, btn7Hover: false } : { bazaarOpen: true, btn7Hover: false }), closeBazaar: () => this.setState({ bazaarOpen: false }),
+          bazaarOpen: !!this.state.bazaarOpen && !locked,
+          bz: { locked, dlg: locked && !!this.state.bzLock, bg: locked ? '#27324a' : '#2b4f8a', hi: locked ? '#34415e' : '#3b6fb6', lo: locked ? '#1c2540' : '#1f3560',
+            iconFilter: locked ? 'grayscale(1) brightness(0.55) drop-shadow(3px 3px 0 #0a0f1c)' : 'drop-shadow(3px 3px 0 #0a0f1c)',
+            tip: locked ? 'Locked. Requires the Bazaar upgrade (Mercday Enterprise › Customize).' : 'Buy gear for your mercs and track your orders',
+            lockCells: this.mi().cells('lock', '#f2d33d'), bigLock: this.mi().cells('lock', '#f2d33d'),
+            line1: ent ? 'The Bazaar is locked.' : 'This feature of Mercday is not available on your plan!', pre: ent ? 'It requires the ' : 'Upgrade to ', hi: ent ? 'Bazaar' : 'Mercday Enterprise', post: ent ? ' upgrade!' : ' to use the Bazaar.',
+            close: () => this.setState({ bzLock: false }), stop: e => e.stopPropagation(),
+            go: () => { this.setState({ bzLock: false }); this.gameStore().goToPlans(ent ? { tab: 'customize', upgrade: 'bazaar', tier: 1 } : { tab: 'plans' }); } } }; })(),
+      // My Promotions requires the Promotions upgrade (Enterprise › Customize › Promotions; entitlements.promotions). Locked: same treatment as My Bazaar.
+      ...(() => { const E = this.gameStore().entitlements(), locked = !E.promotions, lm = this.mi().mask('lock').join('').split('');
+        return { openPromo: () => this.setState(locked ? { pmLock: true, btn9Hover: false } : { promoOpen: true, btn9Hover: false }), closePromo: () => this.setState({ promoOpen: false }),
+          promoOpen: !!this.state.promoOpen && !locked, btn9Hover: !!this.state.btn9Hover && !this.state.promoOpen, btn9LabelColor: locked ? '#8a97ad' : this.state.btn9Hover ? '#f28c28' : '#f3ead7',
+          btn9Enter: () => this.setState({ btn9Hover: true }), btn9Leave: () => this.setState({ btn9Hover: false }),
+          pm: { locked, dlg: locked && !!this.state.pmLock, bg: locked ? '#27324a' : '#2b4f8a', hi: locked ? '#34415e' : '#3b6fb6', lo: locked ? '#1c2540' : '#1f3560',
+            iconFilter: locked ? 'grayscale(1) brightness(0.55) drop-shadow(3px 3px 0 #0a0f1c)' : 'drop-shadow(3px 3px 0 #0a0f1c)',
+            tip: locked ? 'Locked. Requires Mercday Enterprise.' : 'Run ad campaigns and hire mercs who apply',
+            lockCells: this.mi().cells('lock', '#f2d33d'), bigLock: this.mi().cells('lock', '#f2d33d'),
+            line1: E.plan === 'enterprise' ? 'Promotions is locked.' : 'This feature of Mercday is not available on your plan!', pre: E.plan === 'enterprise' ? 'It requires the ' : 'Upgrade to ', hi: E.plan === 'enterprise' ? 'Promotions' : 'Mercday Enterprise', post: E.plan === 'enterprise' ? ' upgrade.' : ' to use Promotions.',
+            close: () => this.setState({ pmLock: false }), stop: e => e.stopPropagation(),
+            go: () => { this.setState({ pmLock: false }); this.gameStore().goToPlans(E.plan === 'enterprise' ? { tab: 'customize', upgrade: 'promotions', tier: 1 } : { tab: 'plans' }); } } }; })(),
+      promoIcon: this.mi().cell16('promotions'),
+      bazaarIcon: this.mi().cell16('bazaar'),
+      clientsOpen: !!this.state.clientsOpen, btn6Hover: !!this.state.btn6Hover && !this.state.clientsOpen, btn6LabelColor: this.state.btn6Hover ? '#f28c28' : '#f3ead7',
+      btn6Enter: () => this.setState({ btn6Hover: true }), btn6Leave: () => this.setState({ btn6Hover: false }),
+      openClients: () => this.setState({ clientsOpen: true, btn6Hover: false }), closeClients: () => this.setState({ clientsOpen: false }),
+      clientsIcon: this.mi().cell16('clients'),
+      closeMetrics: () => this.setState({ metricsOpen: false }),
+      contractIcon: this.mi().cell16('contracts'),
+      ...this.notifVals(show),
+      canClose: Object.keys(this.gameStore().modals).length === 0,
+      ...(() => { const fl = this.state.fly, cl = v => Math.max(0, Math.min(1, v));
+        if (!fl) return { flyOn: false, flyNotes: [], moneyShown: Math.floor(this.gameStore().money).toLocaleString('en-US') /* money is a float (investments); HUD always shows it rounded DOWN */, moneyColor: '#f3ead7', moneyGlow: 'none' };
+        const neg = fl.amount < 0; // loss (e.g. Contract Failed): notes fly OUT of the HUD money counter; counter shows red
+        const notes = Array.from({ length: 16 }, (_, i) => { const p = cl((fl.t - i * 0.045) / 0.65), ax = 800 + (i % 4) * 14, ay = 230 + Math.floor(i / 4) * 12, bx = 64, by = 660, [sx, sy, ex, ey] = neg ? [bx, by, ax, ay] : [ax, ay, bx, by];
+          return { x: Math.round(sx + (ex - sx) * p) + 'px', y: Math.round(sy + (ey - sy) * p - 90 * Math.sin(Math.PI * p)) + 'px', o: p > 0 && p < 1 ? 1 : 0 }; });
+        return { flyOn: true, flyNotes: notes, moneyShown: Math.floor(fl.from + fl.amount * cl((fl.t - 0.35) / 1.0)).toLocaleString('en-US'), moneyColor: neg ? '#e8583f' : '#6cc36a', moneyGlow: neg ? '0 0 8px #e8583f' : '0 0 8px #6cc36a' }; })(),
+      contractsOpen: !!this.state.contractsOpen, openContractId: this.state.openContractId ?? null, openNonce: this.state.openNonce || 0,
+      btn2Hover: !!this.state.btn2Hover && !this.state.contractsOpen,
+      btn2LabelColor: this.state.btn2Hover ? '#f28c28' : '#f3ead7',
+      btn2Enter: () => this.setState({ btn2Hover: true }), btn2Leave: () => this.setState({ btn2Hover: false }),
+      openContracts: () => this.setState({ contractsOpen: true, btn2Hover: false, openContractId: null }),
+      closeContracts: () => this.setState({ contractsOpen: false }),
+      mercOpen: !!this.state.mercOpen,
+      btnHover: !!this.state.btnHover && !this.state.mercOpen,
+      btnLabelColor: this.state.btnHover ? '#f28c28' : '#f3ead7',
+      btnEnter: () => this.setState({ btnHover: true }), btnLeave: () => this.setState({ btnHover: false }),
+      openMercs: () => this.setState({ mercOpen: true, btnHover: false }),
+      closeMercs: () => this.setState({ mercOpen: false }),
+      toggleSettings: () => this.setState(s => ({ settings: !s.settings })),
+      speeds,
+      sceneMap: this.sceneMap,
+    };
+  }
+}
+</script>
+</body>
+</html>

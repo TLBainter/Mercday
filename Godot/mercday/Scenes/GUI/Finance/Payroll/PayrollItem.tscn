@@ -1,0 +1,82 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Finance/Payroll/PayrollItem.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPortrait.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercStatusStrip.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodFace.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/PayrollBadge.tscn" id="6"]
+
+[node name="PayrollItem" type="Button"]
+custom_minimum_size = Vector2(0, 68)
+focus_mode = 0
+script = ExtResource("1")
+
+[node name="Body" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Row" type="HBoxContainer" parent="Body"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="PortraitBox" type="Control" parent="Body/Row"]
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Portrait" parent="Body/Row/PortraitBox" instance=ExtResource("2")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+pixel_size = 56
+
+[node name="Strip" parent="Body/Row/PortraitBox" instance=ExtResource("3")]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 14.0
+grow_horizontal = 2
+band = true
+
+[node name="Mid" type="VBoxContainer" parent="Body/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 5
+
+[node name="NameLabel" type="Label" parent="Body/Row/Mid"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="TraditionLabel" type="Label" parent="Body/Row/Mid"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Face" parent="Body/Row/Mid" instance=ExtResource("4")]
+layout_mode = 2
+guild = true
+pixel_scale = 2
+
+[node name="Salary" parent="Body/Row" instance=ExtResource("5")]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Badge" parent="Body/Row" instance=ExtResource("6")]
+layout_mode = 2
+size_flags_vertical = 4

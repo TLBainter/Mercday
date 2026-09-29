@@ -1,0 +1,683 @@
+class_name UpgradeTierDialog extends PanelContainer
+
+#The 400 by 400 popover of one Enterprise customization: what the guild owns, what the next tier
+#costs today and every month, and one row per tier. Plus buys a tier through SubscriptionManager and
+#minus drops one; a refusal plays the reject state and prints the reason. The rows are built in code,
+#so the scene file holds nothing but the root.
+
+signal go_to_plans_pressed
+
+const BOX: Vector2 = Vector2(400.0, 400.0)
+const MARGIN: float = 8.0
+const PAD_SIDE: int = 16
+const PAD_TOP: int = 14
+const PAD_BOTTOM: int = 12
+const GAP: int = 10
+const REJECT_MS: int = 420
+const BAR_UP: float = 0.6
+const BAR_DOWN: float = 0.45
+const PLUS_POP: float = 0.5
+const MINUS_POP: float = 0.35
+const REJECT_FX: float = 0.4
+const SHAKE_FX: float = 0.4
+const BUTTON_BOX: Vector2 = Vector2(56.0, 56.0)
+const CHUNK_H: float = 18.0
+const CHUNK_GAP: float = 4.0
+const BAR_PAD: float = 4.0
+const BEVEL: float = 3.0
+const ROW_ICON: float = 34.0
+const WARN_MARGIN: float = 0.15
+const STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_dialog.tres")
+const HAVE_STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_row_have.tres")
+const NEXT_STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_row_next.tres")
+const LOCKED_STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_row_locked.tres")
+const HEAD_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
+const BOLD_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
+const BODY_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
+const INK: Color = Color("#0a0f1c")
+const CHUNK_OFF: Color = Color("#15223d")
+const CHUNK_OFF_HI: Color = Color("#1f3560")
+const CHUNK_OFF_LO: Color = Color("#0e1628")
+const HEAD_COLOR: Color = Color("#9cc6ef")
+const NAME_COLOR: Color = Color("#f28c28")
+const CREAM: Color = Color("#f3ead7")
+const YELLOW: Color = Color("#f2d33d")
+const GREEN: Color = Color("#6cc36a")
+const RED: Color = Color("#e8583f")
+const BUDGET_YELLOW: Color = Color("#f2b33d")
+const NEXT_TEXT: Color = Color("#c8d3e6")
+const LOCKED_TEXT: Color = Color("#5e7699")
+const LOCKED_LABEL: Color = Color("#3b4d6e")
+const PLUS_BG: Color = Color("#6cc36a")
+const PLUS_BG_MAX: Color = Color("#27324a")
+const MINUS_BG: Color = Color("#e8583f")
+const HEAD_TEXT: String = "Enterprise Customization"
+const TODAY_SUFFIX: String = " today"
+const MONTH_SUFFIX: String = "/month starting "
+const MAX_TEXT: String = "Fully Upgraded"
+const MAX_GAP: String = "   "
+const FEE_SUFFIX: String = "/month"
+const GLYPH_SCALE: int = 1
+const INCOME_LABEL: String = "Monthly Income"
+const NEXT_LABEL: String = "Next Tier"
+const EXIT_TEXT: String = "Exit"
+const BILL_SUFFIX: String = " 15th"
+const NOTE_TEXT: String = "Upgrades bill pro-rated today; downgrades are never refunded, they " \
+	+ "simply stop billing from the next cycle."
+const SEATS_LINE: String = "Can't go below Tier %d: %d mercs are using those seats."
+const BOARD_LINE: String = "Can't go below Tier %d: %d contracts are on your board."
+const PLANS_TEXT: String = "Take Me There"
+
+var _id: String = ""
+var _rej_until: int = 0
+var _rej_kind: String = ""
+var _reason: String = ""
+var _sweep: PackedFloat32Array = PackedFloat32Array()
+var _name: Label = null
+var _desc: Label = null
+var _tier_label: Label = null
+var _bar: Control = null
+var _minus: Button = null
+var _plus: Button = null
+var _today: HBoxContainer = null
+var _today_amount: Label = null
+var _monthly: HBoxContainer = null
+var _monthly_amount: Label = null
+var _monthly_suffix: Label = null
+var _max_note: HBoxContainer = null
+var _max_note_amount: Label = null
+var _income: Label = null
+var _in_use: Label = null
+var _reason_label: Label = null
+var _rows: VBoxContainer = null
+var _plans: BevelButton = null
+var _exit: BevelButton = null
+var _rows_dirty: bool = false
+var _want_tier: int = 0
+
+
+func _ready() -> void:
+	custom_minimum_size = BOX
+	size = BOX
+	add_theme_stylebox_override("panel", STYLE)
+	_build()
+	SubscriptionManager.changed.connect(_on_changed)
+	PulseClock.pulse.connect(_on_pulse)
+	hide()
+
+
+#Opens the popover on one upgrade at a frame position; the caller has already clamped it.
+func open_for(id: String, at: Vector2 = Vector2(440.0, 160.0)) -> void:
+	if not UpgradeDefs.has_id(id):
+		return
+	_id = id
+	_rej_until = 0
+	_rej_kind = ""
+	_reason = ""
+	position = at
+	refresh()
+	show()
+	GuiFrameStack.push(self)
+
+
+func close() -> void:
+	_rej_until = 0
+	_rej_kind = ""
+	_reason = ""
+	hide()
+	GuiFrameStack.remove(self)
+
+
+func _exit_tree() -> void:
+	GuiFrameStack.remove(self)
+
+
+#Esc closes this popover only while it is the top frame of the stack.
+func _unhandled_input(event: InputEvent) -> void:
+	if GuiFrameStack.consume_escape(self, event):
+		close()
+
+
+func press_close() -> void:
+	close()
+
+
+func press_plus() -> void:
+	if _id == "":
+		return
+	if SubscriptionManager.can_raise(_id):
+		_reason = ""
+		if SubscriptionManager.buy_tier(_id):
+			_play("up")
+			return
+	_reason = SubscriptionManager.raise_reason(_id)
+	_reject("up")
+
+
+func press_minus() -> void:
+	if _id == "":
+		return
+	if SubscriptionManager.can_lower(_id):
+		_reason = ""
+		if SubscriptionManager.lower_tier(_id):
+			_play("down")
+			return
+	_reason = SubscriptionManager.lower_reason(_id)
+	_reject("down")
+
+
+func press_plans() -> void:
+	go_to_plans_pressed.emit()
+
+
+func upgrade_id() -> String:
+	return _id
+
+
+func is_open() -> bool:
+	return visible
+
+
+func is_rejecting() -> bool:
+	return Time.get_ticks_msec() < _rej_until
+
+
+func reject_kind() -> String:
+	return _rej_kind if is_rejecting() else ""
+
+
+func reason_text() -> String:
+	return _reason
+
+
+func tier() -> int:
+	return SubscriptionManager.tier_of(_id)
+
+
+func max_tier() -> int:
+	return SubscriptionManager.max_tier(_id)
+
+
+func is_max() -> bool:
+	return tier() >= max_tier()
+
+
+func tier_label_text() -> String:
+	return "Tier " + str(tier()) + " / " + str(max_tier())
+
+
+#What raising one tier costs right now: nothing when this cycle already paid for it.
+func charge_today() -> int:
+	if is_max():
+		return 0
+	return SubscriptionManager.upgrade_charge_today(_id, tier() + 1)
+
+
+func today_text() -> String:
+	return str(charge_today()) + TODAY_SUFFIX
+
+
+func next_fee() -> int:
+	if is_max():
+		return 0
+	return SubscriptionManager.tier_price(_id, tier() + 1)
+
+
+func monthly_text() -> String:
+	return "+" + str(next_fee()) + MONTH_SUFFIX + bill_date_text()
+
+
+func max_note_text() -> String:
+	return str(SubscriptionManager.upgrade_fee(_id)) + FEE_SUFFIX
+
+
+#The next 15th on the game calendar, as the first three letters of its month.
+func bill_date_text() -> String:
+	var ahead: int = SubscriptionManager.days_to_bill() * TrynnCalendar.MINUTES_PER_DAY
+	var date: Dictionary = TrynnCalendar.date_of(CampaignClock.now() + ahead)
+	return String(date.get("month_name", "")).substr(0, 3) + BILL_SUFFIX
+
+
+#What is left of the monthly income once every bill the guild holds now is paid.
+func income_value() -> int:
+	return SubscriptionManager.budget_available() - SubscriptionManager.service_fee() \
+		- SubscriptionManager.upgrade_fee()
+
+
+func income_color() -> Color:
+	var left: int = income_value()
+	if left < 0 or (is_rejecting() and _rej_kind == "up"):
+		return RED
+	if float(left) < float(SubscriptionManager.budget_available()) * WARN_MARGIN:
+		return BUDGET_YELLOW
+	return GREEN
+
+
+func income_text() -> String:
+	return str(income_value())
+
+
+#The line that names what holds a tier in place, shown whenever a floor exists.
+func in_use_text() -> String:
+	var floor_tier: int = SubscriptionManager.min_tier(_id)
+	if floor_tier <= 0:
+		return ""
+	if _id == "seats":
+		return SEATS_LINE % [floor_tier, SubscriptionManager.employed()]
+	if _id == "contracts":
+		return BOARD_LINE % [floor_tier, SubscriptionManager.board_count()]
+	return ""
+
+
+func row_count() -> int:
+	return _rows.get_child_count()
+
+
+#Where one tier row sits inside the scrolled list.
+func row_offset(i: int) -> int:
+	if i < 0 or i >= _rows.get_child_count():
+		return 0
+	var row: Control = _rows.get_child(i) as Control
+	if row == null:
+		return 0
+	return int(row.position.y)
+
+
+#How far the tier list is scrolled right now.
+func tier_scroll() -> int:
+	var scroll: ScrollContainer = _rows.get_parent() as ScrollContainer
+	if scroll == null:
+		return 0
+	return scroll.scroll_vertical
+
+
+#Brings one tier row into view; the deep link asks for the tier a locked feature wants. Rows added
+#this frame carry no offset yet, so the scroll waits for the sort that lays them out.
+func scroll_to_tier(wanted: int) -> void:
+	if _rows.get_child_count() == 0:
+		return
+	if _rows_dirty:
+		_want_tier = wanted
+		return
+	_apply_scroll(wanted)
+
+
+#The sort signal arrives before the box places its rows, so the scroll is applied once the
+#frame has laid them out and row.position.y is the offset the list really uses.
+func _on_rows_sorted() -> void:
+	_rows_dirty = false
+	var wanted: int = _want_tier
+	_want_tier = 0
+	if wanted > 0 and is_inside_tree():
+		_apply_scroll.call_deferred(wanted)
+
+
+func _apply_scroll(wanted: int) -> void:
+	var scroll: ScrollContainer = _rows.get_parent() as ScrollContainer
+	if scroll == null or _rows.get_child_count() == 0:
+		return
+	var index: int = clampi(wanted - 1, 0, _rows.get_child_count() - 1)
+	var row: Control = _rows.get_child(index) as Control
+	if row == null:
+		return
+	scroll.set_deferred("scroll_vertical", int(row.position.y))
+
+
+#"have" below the owned tier, "next" on the one for sale, "locked" above it.
+func row_state(i: int) -> String:
+	if i < tier():
+		return "have"
+	if i == tier():
+		return "next"
+	return "locked"
+
+
+func row_label(i: int) -> String:
+	if row_state(i) == "next":
+		return NEXT_LABEL
+	return "Tier " + SubscriptionManager.roman(i + 1)
+
+
+func row_text(i: int) -> String:
+	return UpgradeDefs.tier_text(_id, i + 1)
+
+
+func row_label_color(i: int) -> Color:
+	var state: String = row_state(i)
+	if state == "next":
+		return NAME_COLOR
+	if state == "locked":
+		return LOCKED_LABEL
+	return GuiColors.tier_color(i, max_tier())
+
+
+func row_text_color(i: int) -> Color:
+	var state: String = row_state(i)
+	if state == "have":
+		return CREAM
+	if state == "next":
+		return NEXT_TEXT
+	return LOCKED_TEXT
+
+
+func row_style(i: int) -> StyleBox:
+	var state: String = row_state(i)
+	if state == "have":
+		return HAVE_STYLE
+	if state == "next":
+		return NEXT_STYLE
+	return LOCKED_STYLE
+
+
+#Brightness of one chunk: flat until the upgrade is maxed, then the shared left to right sweep.
+func chunk_glow(i: int) -> float:
+	if not is_max() or _sweep.is_empty():
+		return 1.0
+	return 1.0 + _sweep[i % _sweep.size()] * 0.9
+
+
+func refresh() -> void:
+	if _id == "":
+		return
+	var top: int = max_tier()
+	var maxed: bool = is_max()
+	_name.text = UpgradeDefs.name_of(_id)
+	_desc.text = String(UpgradeDefs.of(_id).get("desc", ""))
+	_tier_label.text = tier_label_text()
+	_today_amount.text = str(charge_today())
+	_today.visible = not maxed
+	_monthly_amount.text = "+" + str(next_fee())
+	_monthly_suffix.text = MONTH_SUFFIX + bill_date_text()
+	_monthly.visible = not maxed
+	_max_note_amount.text = str(SubscriptionManager.upgrade_fee(_id))
+	_max_note.visible = maxed
+	_income.text = income_text()
+	_income.add_theme_color_override("font_color", income_color())
+	_in_use.text = in_use_text()
+	_in_use.visible = _in_use.text != ""
+	_reason_label.text = _reason
+	_reason_label.visible = _reason != ""
+	_plus.modulate = Color.WHITE
+	_minus.modulate = Color.WHITE
+	_plus.add_theme_color_override("font_color", INK)
+	_minus.add_theme_color_override("font_color", INK)
+	_tint(_plus, PLUS_BG_MAX if maxed else PLUS_BG)
+	_tint(_minus, MINUS_BG)
+	_plans.visible = SubscriptionManager.plan() != SubscriptionManager.Plan.ENTERPRISE
+	_fill_rows(top)
+	_bar.queue_redraw()
+
+
+func _on_changed() -> void:
+	if visible:
+		refresh()
+
+
+func _on_pulse(_g: float, sweep: PackedFloat32Array) -> void:
+	if not visible or not is_max():
+		return
+	_sweep = sweep
+	_bar.queue_redraw()
+
+
+func _play(kind: String) -> void:
+	_rej_until = 0
+	_rej_kind = ""
+	refresh()
+	var seconds: float = BAR_UP if kind == "up" else BAR_DOWN
+	var tween: Tween = create_tween()
+	tween.tween_property(_bar, "modulate", Color(1.4, 1.4, 1.4, 1.0), seconds * 0.25)
+	tween.tween_property(_bar, "modulate", Color.WHITE, seconds * 0.75)
+	var node: Button = _plus if kind == "up" else _minus
+	var pop: float = PLUS_POP if kind == "up" else MINUS_POP
+	var bump: Tween = create_tween()
+	bump.tween_property(node, "modulate", Color(1.3, 1.3, 1.3, 1.0), pop * 0.3)
+	bump.tween_property(node, "modulate", Color.WHITE, pop * 0.7)
+
+
+func _reject(kind: String) -> void:
+	_rej_kind = kind
+	_rej_until = Time.get_ticks_msec() + REJECT_MS
+	refresh()
+	var node: Button = _plus if kind == "up" else _minus
+	var tween: Tween = create_tween()
+	tween.tween_property(node, "modulate", RED, REJECT_FX * 0.5)
+	tween.tween_property(node, "modulate", Color.WHITE, REJECT_FX * 0.5)
+	if kind != "up":
+		return
+	var shake: Tween = create_tween()
+	shake.tween_property(_income, "modulate", Color(1.0, 0.6, 0.6, 1.0), SHAKE_FX * 0.5)
+	shake.tween_property(_income, "modulate", Color.WHITE, SHAKE_FX * 0.5)
+
+
+func _fill_rows(top: int) -> void:
+	while _rows.get_child_count() > top:
+		var extra: Node = _rows.get_child(_rows.get_child_count() - 1)
+		_rows.remove_child(extra)
+		extra.queue_free()
+		_rows_dirty = true
+	while _rows.get_child_count() < top:
+		_rows.add_child(_new_row())
+		_rows_dirty = true
+	for i: int in top:
+		var row: PanelContainer = _rows.get_child(i) as PanelContainer
+		row.add_theme_stylebox_override("panel", row_style(i))
+		var icon: TextureRect = row.get_node("Line/Icon") as TextureRect
+		icon.texture = TreeGlyphs.icon(_id, row_label_color(i))
+		icon.modulate.a = 0.5 if row_state(i) == "next" else 1.0
+		var label: Label = row.get_node("Line/Text/Label") as Label
+		label.text = row_label(i)
+		label.add_theme_color_override("font_color", row_label_color(i))
+		var body: Label = row.get_node("Line/Text/Body") as Label
+		body.text = row_text(i)
+		body.add_theme_color_override("font_color", row_text_color(i))
+
+
+func _new_row() -> PanelContainer:
+	var row: PanelContainer = PanelContainer.new()
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = "Line"
+	line.add_theme_constant_override("separation", 8)
+	row.add_child(line)
+	var icon: TextureRect = TextureRect.new()
+	icon.name = "Icon"
+	icon.custom_minimum_size = Vector2(ROW_ICON, ROW_ICON)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	line.add_child(icon)
+	var text: VBoxContainer = VBoxContainer.new()
+	text.name = "Text"
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 4)
+	line.add_child(text)
+	text.add_child(_label("Label", BOLD_FONT, 10, CREAM))
+	var body: Label = _label("Body", BODY_FONT, 12, CREAM)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.add_child(body)
+	return row
+
+
+func _build() -> void:
+	var pad: MarginContainer = MarginContainer.new()
+	pad.name = "Pad"
+	pad.add_theme_constant_override("margin_left", PAD_SIDE)
+	pad.add_theme_constant_override("margin_right", PAD_SIDE)
+	pad.add_theme_constant_override("margin_top", PAD_TOP)
+	pad.add_theme_constant_override("margin_bottom", PAD_BOTTOM)
+	add_child(pad)
+	var col: VBoxContainer = VBoxContainer.new()
+	col.name = "Col"
+	col.add_theme_constant_override("separation", GAP)
+	pad.add_child(col)
+	var head: Label = _label("Head", HEAD_FONT, 8, HEAD_COLOR)
+	head.text = HEAD_TEXT
+	col.add_child(head)
+	_name = _label("Name", BOLD_FONT, 14, NAME_COLOR)
+	col.add_child(_name)
+	_desc = _label("Desc", BODY_FONT, 12, HEAD_COLOR)
+	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_desc)
+	_tier_label = _label("TierLabel", BOLD_FONT, 11, CREAM)
+	col.add_child(_tier_label)
+	_bar = Control.new()
+	_bar.name = "Bar"
+	_bar.custom_minimum_size = Vector2(0.0, CHUNK_H + BAR_PAD * 2.0)
+	_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bar.draw.connect(_draw_bar)
+	col.add_child(_bar)
+	col.add_child(_controls())
+	_in_use = _label("InUse", BODY_FONT, 13, RED)
+	_in_use.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_in_use)
+	_reason_label = _label("Reason", BODY_FONT, 13, RED)
+	_reason_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_reason_label)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "Tiers"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	col.add_child(scroll)
+	_rows = VBoxContainer.new()
+	_rows.name = "Rows"
+	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_rows.add_theme_constant_override("separation", 6)
+	scroll.add_child(_rows)
+	_rows.sort_children.connect(_on_rows_sorted)
+	var note: Label = _label("Note", BODY_FONT, 11, HEAD_COLOR)
+	note.text = NOTE_TEXT
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(note)
+	_plans = _nav_button("Plans", PLANS_TEXT, 11)
+	_plans.pressed.connect(press_plans)
+	col.add_child(_plans)
+	_exit = _nav_button("Exit", EXIT_TEXT, 12)
+	_exit.pressed.connect(press_close)
+	col.add_child(_exit)
+
+
+func _controls() -> HBoxContainer:
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = "Controls"
+	line.add_theme_constant_override("separation", GAP)
+	_minus = _button("Minus", "-", 30, MINUS_BG)
+	_minus.custom_minimum_size = BUTTON_BOX
+	_minus.pressed.connect(press_minus)
+	line.add_child(_minus)
+	var middle: VBoxContainer = VBoxContainer.new()
+	middle.name = "Middle"
+	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	middle.add_theme_constant_override("separation", 6)
+	line.add_child(middle)
+	_today = _money_line("Today", 13, CREAM, "", TODAY_SUFFIX)
+	_today_amount = _today.get_node("Amount") as Label
+	middle.add_child(_today)
+	_monthly = _money_line("Monthly", 11, YELLOW, "", MONTH_SUFFIX)
+	_monthly_amount = _monthly.get_node("Amount") as Label
+	_monthly_suffix = _monthly.get_node("Suffix") as Label
+	middle.add_child(_monthly)
+	_max_note = _money_line("MaxNote", 14, GREEN, MAX_TEXT + MAX_GAP, FEE_SUFFIX)
+	_max_note_amount = _max_note.get_node("Amount") as Label
+	middle.add_child(_max_note)
+	var income_line: HBoxContainer = HBoxContainer.new()
+	income_line.name = "Income"
+	income_line.add_theme_constant_override("separation", 6)
+	middle.add_child(income_line)
+	var tag: Label = _label("Tag", HEAD_FONT, 9, HEAD_COLOR)
+	tag.text = INCOME_LABEL
+	income_line.add_child(tag)
+	_income = _label("Value", BOLD_FONT, 11, GREEN)
+	income_line.add_child(_income)
+	_plus = _button("Plus", "+", 30, PLUS_BG)
+	_plus.custom_minimum_size = BUTTON_BOX
+	_plus.pressed.connect(press_plus)
+	line.add_child(_plus)
+	return line
+
+
+func _draw_bar() -> void:
+	var top: int = max_tier()
+	if top <= 0:
+		return
+	var box: Rect2 = Rect2(Vector2.ZERO, _bar.size)
+	_bar.draw_rect(box, INK)
+	var span: float = _bar.size.x - BAR_PAD * 2.0 - CHUNK_GAP * float(top - 1)
+	var width: float = maxf(2.0, span / float(top))
+	for i: int in top:
+		var at: Vector2 = Vector2(BAR_PAD + (width + CHUNK_GAP) * float(i), BAR_PAD)
+		var cell: Rect2 = Rect2(at, Vector2(width, CHUNK_H))
+		var on: bool = i < tier()
+		var body: Color = GuiColors.tier_color(i, top) if on else CHUNK_OFF
+		var hi: Color = body.lightened(0.4) if on else CHUNK_OFF_HI
+		var lo: Color = body.darkened(0.35) if on else CHUNK_OFF_LO
+		var k: float = chunk_glow(i)
+		_bar.draw_rect(cell, _lit(body, k))
+		_bar.draw_rect(Rect2(at, Vector2(width, BEVEL)), _lit(hi, k))
+		_bar.draw_rect(Rect2(at + Vector2(0.0, CHUNK_H - BEVEL), Vector2(width, BEVEL)),
+			_lit(lo, k))
+
+
+#One money line: an amount, the notes tile and the suffix, the way PlanSwitchDialog wires its fee.
+func _money_line(label: String, size_px: int, tint: Color, prefix: String,
+		suffix: String) -> HBoxContainer:
+	var line: HBoxContainer = HBoxContainer.new()
+	line.name = label
+	line.add_theme_constant_override("separation", 2)
+	if prefix != "":
+		var head: Label = _label("Prefix", BOLD_FONT, size_px, tint)
+		head.text = prefix
+		line.add_child(head)
+	line.add_child(_label("Amount", BOLD_FONT, size_px, tint))
+	var glyph: NoteIcon = NoteIcon.new()
+	glyph.name = "Glyph"
+	glyph.pixel_scale = GLYPH_SCALE
+	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(glyph)
+	var tail: Label = _label("Suffix", BOLD_FONT, size_px, tint)
+	tail.text = suffix
+	line.add_child(tail)
+	return line
+
+
+func _label(label: String, font: FontVariation, size_px: int, tint: Color) -> Label:
+	var out: Label = Label.new()
+	out.name = label
+	out.add_theme_font_override("font", font)
+	out.add_theme_font_size_override("font_size", size_px)
+	out.add_theme_color_override("font_color", tint)
+	return out
+
+
+#Plans and Exit are the shared BevelButton scene, both in the same blue kind the old EXIT_BG fill used.
+func _nav_button(label: String, text: String, size_px: int) -> BevelButton:
+	var out: BevelButton = BevelButton.make(text, &"blue")
+	out.name = label
+	out.add_theme_font_override("font", BOLD_FONT)
+	out.add_theme_font_size_override("font_size", size_px)
+	return out
+
+
+func _button(label: String, text: String, size_px: int, tint: Color) -> Button:
+	var out: Button = Button.new()
+	out.name = label
+	out.text = text
+	out.add_theme_font_override("font", BOLD_FONT)
+	out.add_theme_font_size_override("font_size", size_px)
+	out.add_theme_color_override("font_color", INK)
+	_tint(out, tint)
+	return out
+
+
+func _tint(node: Button, tint: Color) -> void:
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = tint
+	box.border_color = INK
+	box.set_border_width_all(2)
+	node.add_theme_stylebox_override("normal", box)
+	node.add_theme_stylebox_override("hover", box)
+	node.add_theme_stylebox_override("pressed", box)
+	node.add_theme_stylebox_override("disabled", box)
+
+
+func _lit(c: Color, k: float) -> Color:
+	return Color(minf(1.0, c.r * k), minf(1.0, c.g * k), minf(1.0, c.b * k), c.a)

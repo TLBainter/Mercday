@@ -11,20 +11,23 @@ script = ExtResource("1")
 [node name="Guild" parent="." instance=ExtResource("2")]
 layout_mode = 2
 label = "GUILD"
-description = "Guild wide totals: coin, roster size and reputation."
+description = "Guild"
 index = 0
-label_always = true
+icon_cols = 16
+icon_px = 1.5
 
 [node name="Contract" parent="." instance=ExtResource("2")]
 layout_mode = 2
 label = "CONTRACT"
-description = "Contract records: pay, losses and outcomes."
+description = "Contract"
 index = 1
-label_always = true
+icon_cols = 16
+icon_px = 1.5
 
 [node name="Merc" parent="." instance=ExtResource("2")]
 layout_mode = 2
 label = "MERC"
-description = "One merc's record, or the team average."
+description = "Merc"
 index = 2
-label_always = true
+icon_cols = 16
+icon_px = 1.5

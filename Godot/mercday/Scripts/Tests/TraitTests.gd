@@ -647,6 +647,7 @@ static func _case_knowledge_grants(res: Dictionary) -> void:
 		"Historian": "History",
 		"Omnimancer": "Magic",
 		"Technologist": "Technology",
+		"Literary Expert": "Literature",
 	}
 	for trait_name: String in wanted:
 		var td: TraitData = _require(res, "knowledge row " + trait_name, trait_name)
@@ -657,7 +658,7 @@ static func _case_knowledge_grants(res: Dictionary) -> void:
 		TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
 		TestFixtures.check(res, "%s grants the %s knowledge" % [trait_name, k_name], _has_knowledge(m, k_name),
 			"knowledges %d, holds %s %s" % [m.knowledges.size(), k_name, str(_has_knowledge(m, k_name))])
-	var cog_rows: Array[String] = ["Polemologist", "Historian", "Omnimancer", "Technologist"]
+	var cog_rows: Array[String] = ["Polemologist", "Historian", "Omnimancer", "Technologist", "Literary Expert"]
 	for cog_name: String in cog_rows:
 		var ctd: TraitData = _lib(cog_name)
 		if ctd == null:

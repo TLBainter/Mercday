@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Metrics/MetricToggle.gd" id="1"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FeatureLock.tscn" id="3"]
 
 [node name="MetricToggle" type="Button"]
 custom_minimum_size = Vector2(0, 30)
@@ -33,6 +34,12 @@ theme_type_variation = &"DescriptionLabel"
 clip_text = true
 text_overrun_behavior = 3
 text = "Metric"
+
+[node name="Lock" parent="Row" instance=ExtResource("3")]
+layout_mode = 2
+visible = false
+size_flags_vertical = 4
+height = 22.0
 
 [node name="Arrow" type="Control" parent="Row"]
 layout_mode = 2

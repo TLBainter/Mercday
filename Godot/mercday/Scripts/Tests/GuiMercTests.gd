@@ -1,7 +1,7 @@
 class_name GuiMercTests
 
 #Stage 2 Merc Viewer: the roster list, the merc header, the eight tabs and the salary dialog.
-#Run: godot --headless --path . -- --gui-merc-tests
+#Run: godot --headless --path . with the user arg --gui-merc-tests
 
 const MERC_VIEWER := preload("res://Scenes/GUI/Mercs/MercViewer.tscn")
 const SUBWINDOW_SCENE := preload("res://Scenes/GUI/Shared/SubWindow.tscn")
@@ -21,6 +21,15 @@ static func run(host: Node) -> bool:
 	await _case_actions(res, host)
 	await _case_traits(res, host)
 	await _case_metrics(res, host)
+	await _case_locks(res, host)
+	await _case_lock_fields(res, host)
+	await _case_lifepath(res, host)
+	await _case_open_tab(res, host)
+	await _case_applicant(res, host)
+	await _case_applicant_early(res, host)
+	await _case_applicant_cleared(res, host)
+	await _case_applicant_lineage(res, host)
+	SubscriptionManager.reset()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	CampaignClock.reset()
 	return TestFixtures.summarize(res, "GUI MERC")
@@ -50,6 +59,22 @@ static func _push_escape(host: Node) -> void:
 	event.action = &"ui_cancel"
 	event.pressed = true
 	host.get_viewport().push_input(event)
+
+
+#The mood a merc left the guild with; a removed merc is off the books, the record holds it.
+static func _left_opinion(uid: int) -> int:
+	var record: RemovedMercRecord = GameState.removed_by_uid(uid)
+	return record.guild_opinion if record != null else 0
+
+
+#Puts one merc on furlough, the status that locks a wage while the guild still employs them.
+static func _vacation(uid: int) -> void:
+	var merc: MercenaryData = GameState.merc_by_uid(uid)
+	if merc == null:
+		return
+	merc.rest_lockout_kind = RestSystem.KIND_FURLOUGH
+	merc.rest_lockout_until = CampaignClock.now() + CampaignClock.MINUTES_PER_DAY
+	GameState.refresh_views()
 
 
 static func _salary_of(uid: int) -> int:
@@ -197,6 +222,15 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the body draws the orange top edge",
 		wired and MercViewer.BODY_TOP_COLOR == Color("#f28c28"),
 		"connected %s colour %s" % [wired, MercViewer.BODY_TOP_COLOR])
+	tabs[1].dot = true
+	var tab_dot: NotificationDot = tabs[1].dot_node
+	TestFixtures.check(res, "a tab pins its dot through NotificationDot.pin",
+		tab_dot.offset_right == -2.0
+			and tab_dot.offset_left == -2.0 - NotificationDot.FRAME_SIZE.x
+			and tab_dot.offset_top == 2.0
+			and tab_dot.offset_bottom == 2.0 + NotificationDot.FRAME_SIZE.y,
+		"left %.1f right %.1f top %.1f bottom %.1f" % [tab_dot.offset_left, tab_dot.offset_right,
+			tab_dot.offset_top, tab_dot.offset_bottom])
 	screen.queue_free()
 
 
@@ -252,25 +286,25 @@ static func _case_overview(res: Dictionary, host: Node) -> void:
 		absf(kg.position.y - tg.position.y) <= 1.0 and kg.end.x <= tg.position.x,
 		"knowledges %s tools %s" % [kg, tg])
 	var badge_rect: Rect2 = tab.badge.get_global_rect()
-	var mode_rect: Rect2 = tab.mode_list.get_global_rect()
-	TestFixtures.check(res, "the mode list sits under the level badge in the same column",
-		mode_rect.position.y >= badge_rect.end.y - 1.0
-			and absf(mode_rect.position.x - badge_rect.position.x) <= 8.0,
-		"mode %s badge %s" % [mode_rect, badge_rect])
+	var coach_rect: Rect2 = tab.coaching.get_global_rect()
+	TestFixtures.check(res, "the coaching box sits under the level badge in the same column",
+		coach_rect.position.y >= badge_rect.end.y - 1.0
+			and absf(coach_rect.position.x - badge_rect.position.x) <= 8.0,
+		"coaching %s badge %s" % [coach_rect, badge_rect])
 	TestFixtures.check(res, "the level, the bars and the lifepath share one middle row",
 		tab.middle.get_child_count() == 3
 			and tab.get_node_or_null("Rows/Lifepath") == null,
 		"children %d" % tab.middle.get_child_count())
-	TestFixtures.check(res, "the mode list and the lifepath chips scroll in place",
-		tab.mode_list.get_parent() is ScrollContainer
-			and tab.lifepath_list.get_parent() is ScrollContainer,
-		"mode parent '%s' chips parent '%s'" % [tab.mode_list.get_parent().name,
-			tab.lifepath_list.get_parent().name])
+	TestFixtures.check(res, "the lifepath chips scroll in place and the coaching box does not",
+		tab.lifepath_list.get_parent().get_parent() is ScrollContainer
+			and not (tab.coaching.get_parent() is ScrollContainer),
+		"chips parent '%s' coaching parent '%s'" % [tab.lifepath_list.get_parent().name,
+			tab.coaching.get_parent().name])
 	TestFixtures.check(res, "the info grid drops heritage and reads three columns",
 		tab.fields.columns == 3 and tab.fields.get_node_or_null("Heritage") == null,
 		"columns %d heritage %s" % [tab.fields.columns,
 			tab.fields.get_node_or_null("Heritage")])
-	var rows_box: VBoxContainer = tab.get_node("Rows") as VBoxContainer
+	var rows_box: VBoxContainer = tab.get_node("Pad/Rows") as VBoxContainer
 	TestFixtures.check(res, "the overview page fits without a vertical scroll bar",
 		rows_box.get_combined_minimum_size().y <= tab.size.y
 			and not tab.get_v_scroll_bar().visible,
@@ -286,11 +320,14 @@ static func _case_overview(res: Dictionary, host: Node) -> void:
 		"hp %s ep %s mp %s" % [tab.hp_bar.fill_color, tab.ep_bar.fill_color,
 			tab.mp_bar.fill_color])
 	var uid: int = view.uid
-	tab.mode_list.pick_mode("Offensive")
-	var extras: Dictionary = GameState.merc_extras.get(uid, {})
-	TestFixtures.check(res, "picking a level mode writes it to merc_extras",
-		String(extras.get("level_mode", "")) == "Offensive",
-		"got '%s'" % String(extras.get("level_mode", "")))
+	var dialog: CoachDialog = screen.coach_dialog()
+	tab.coaching.press_coach()
+	dialog.press_mode(&"Offensive")
+	dialog.press_confirm()
+	TestFixtures.check(res, "coaching a merc writes the plan to GameState",
+		GameState.pip_mode(uid) == &"Offensive", "got '%s'" % GameState.pip_mode(uid))
+	TestFixtures.check(res, "the coaching line follows the plan in force",
+		tab.coaching.plan_text() == "Plan: Offensive", "got '%s'" % tab.coaching.plan_text())
 	tab.set_view(null)
 	TestFixtures.check(res, "set_view(null) clears the overview title row and badge",
 		tab.tradition_label.text == OverviewTab.EMPTY_TEXT and tab.sigil.tradition == ""
@@ -458,6 +495,7 @@ static func _case_header(res: Dictionary, host: Node) -> void:
 
 static func _case_salary(res: Dictionary, host: Node) -> void:
 	var screen: MercViewer = await _open(host)
+	BenefitsManager.reset()
 	GameState.bank_notes = 10000
 	var view: MercView = screen.selected()
 	var uid: int = view.uid
@@ -472,59 +510,77 @@ static func _case_salary(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the open wage dialog is the top frame",
 		GuiFrameStack.top() == dialog and GuiFrameStack.depth() == 1,
 		"top %s depth %d" % [GuiFrameStack.top(), GuiFrameStack.depth()])
-	dialog.set_value(opening * 2)
-	TestFixtures.check(res, "doubling the wage previews a four point rise",
-		dialog.opinion_label.text == "Opinion +4" and dialog.opinion_delta() == 4,
-		"label '%s' delta %d" % [dialog.opinion_label.text, dialog.opinion_delta()])
+	TestFixtures.check(res, "the dialog names the merc under the Adjust Salary kicker",
+		dialog.text("kicker") == SalaryDialog.KICKER_TEXT and dialog.text("name") == view.name
+			and dialog.text("employed") != "" and dialog.text("vacation") != "",
+		"kicker '%s' name '%s' employed '%s' vacation '%s'" % [dialog.text("kicker"),
+			dialog.text("name"), dialog.text("employed"), dialog.text("vacation")])
+	TestFixtures.check(res, "Cancel and Confirm are both the shared BevelButton scene",
+		dialog.cancel_button is BevelButton and dialog.confirm_button is BevelButton
+			and dialog.cancel_button.kind == &"blue" and dialog.confirm_button.kind == &"orange"
+			and dialog.cancel_button.text == "Cancel" and dialog.confirm_button.text == "Confirm",
+		"cancel %s confirm %s" % [dialog.cancel_button, dialog.confirm_button])
+	var raise_wage: int = opening * 2
+	var want_shift: int = PayrollLogic.opinion_shift(opening, raise_wage, opinion)
+	dialog.set_value(raise_wage)
+	TestFixtures.check(res, "doubling the wage previews the raise the merc takes",
+		want_shift > 0 and dialog.opinion_delta() == want_shift
+			and dialog.value() == raise_wage,
+		"delta %d wanted %d value %d" % [dialog.opinion_delta(), want_shift, dialog.value()])
+	TestFixtures.check(res, "the stepper carries the delta text and the old wage",
+		dialog.text("sub") == PayrollLogic.delta_text(opening, raise_wage)
+			and dialog.text("note") == "Was " + str(opening),
+		"sub '%s' note '%s'" % [dialog.text("sub"), dialog.text("note")])
+	TestFixtures.check(res, "the lit face is the opinion the raise would leave",
+		dialog.lit_level() == clampi(opinion + want_shift, SalarySystem.OPINION_MIN,
+			SalarySystem.OPINION_MAX) and dialog.face_tip() != "",
+		"lit %d opinion %d shift %d tip '%s'"
+			% [dialog.lit_level(), opinion, want_shift, dialog.face_tip()])
 	dialog.press_confirm()
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "confirm emits the value and delta",
-		got.size() == 1 and int(got[0][0]) == opening * 2 and int(got[0][1]) == 4,
+	TestFixtures.check(res, "confirm emits the value and the delta once",
+		got.size() == 1 and int(got[0][0]) == raise_wage and int(got[0][1]) == want_shift,
 		"emitted %s" % str(got))
-	TestFixtures.check(res, "a raise asks first in green with the wage and the delta",
-		confirm.visible and confirm.title == MercViewer.RAISE_TITLE
-			and confirm.message == MercViewer.SALARY_MESSAGE % [opening * 2, 4]
-			and confirm.severity() == ConfirmDialog.Severity.GREEN,
-		"title '%s' message '%s' severity %d"
-			% [confirm.title, confirm.message, confirm.severity()])
-	confirm.press(1)
-	await host.get_tree().process_frame
 	var after: MercView = screen.selected()
-	TestFixtures.check(res, "confirming the raise writes the wage and moves the opinion",
-		after.uid == uid and after.monthly_salary == opening * 2
-			and after.guild_opinion == clampi(opinion + 4, SalarySystem.OPINION_MIN,
+	TestFixtures.check(res, "confirm writes the wage and moves the opinion with no second ask",
+		not confirm.visible and not dialog.visible and after.uid == uid
+			and after.monthly_salary == raise_wage
+			and after.guild_opinion == clampi(opinion + want_shift, SalarySystem.OPINION_MIN,
 				SalarySystem.OPINION_MAX),
-		"salary %d opinion %d from %d" % [after.monthly_salary, after.guild_opinion, opinion])
+		"asking %s salary %d opinion %d from %d"
+			% [confirm.visible, after.monthly_salary, after.guild_opinion, opinion])
+	TestFixtures.check(res, "the closed dialog leaves the frame stack",
+		GuiFrameStack.depth() == 0, "depth %d" % GuiFrameStack.depth())
 	var raised: int = after.monthly_salary
 	dialog.open_for(screen.selected())
 	dialog.set_value(opening)
 	var cut_delta: int = dialog.opinion_delta()
+	TestFixtures.check(res, "a cut back to the old wage previews a fall",
+		cut_delta < 0 and dialog.text("sub") == PayrollLogic.delta_text(raised, opening),
+		"delta %d sub '%s'" % [cut_delta, dialog.text("sub")])
 	dialog.press_confirm()
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "a cut asks first in red with the negative delta",
-		cut_delta < 0 and confirm.visible and confirm.title == MercViewer.CUT_TITLE
-			and confirm.message == MercViewer.SALARY_MESSAGE % [opening, cut_delta]
-			and confirm.severity() == ConfirmDialog.Severity.RED,
-		"delta %d title '%s' message '%s' severity %d"
-			% [cut_delta, confirm.title, confirm.message, confirm.severity()])
-	confirm.press(0)
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "refusing the ask leaves the wage where the raise put it",
-		screen.selected().monthly_salary == raised,
-		"salary %d wanted %d" % [screen.selected().monthly_salary, raised])
+	TestFixtures.check(res, "confirming the cut writes the lower wage with no second ask",
+		not confirm.visible and _salary_of(uid) == opening,
+		"asking %s salary %d wanted %d" % [confirm.visible, _salary_of(uid), opening])
+	got.clear()
 	dialog.open_for(screen.selected())
-	dialog.set_value(raised)
 	dialog.press_confirm()
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "the wage the merc already earns asks nothing",
-		not confirm.visible and screen.selected().monthly_salary == raised,
-		"asking %s salary %d" % [confirm.visible, screen.selected().monthly_salary])
+	TestFixtures.check(res, "the wage the merc already earns writes nothing and reports no shift",
+		got.size() == 1 and int(got[0][0]) == opening and int(got[0][1]) == 0
+			and _salary_of(uid) == opening,
+		"emitted %s salary %d" % [str(got), _salary_of(uid)])
 	GameState.bank_notes = 100
 	dialog.open_for(screen.selected())
 	dialog.set_value(GameState.bank_notes + 50)
 	TestFixtures.check(res, "the wage clamps to the notes in the bank",
 		dialog.value() == GameState.bank_notes,
 		"value %d notes %d" % [dialog.value(), GameState.bank_notes])
+	dialog.step(1)
+	TestFixtures.check(res, "a press past the bank holds the edge and flashes",
+		dialog.value() == GameState.bank_notes and dialog.stepper().is_rejecting(),
+		"value %d rejecting %s" % [dialog.value(), dialog.stepper().is_rejecting()])
 	dialog.set_value(1)
 	dialog.step(-1)
 	TestFixtures.check(res, "one note a month is the floor", dialog.value() == 1,
@@ -532,7 +588,11 @@ static func _case_salary(res: Dictionary, host: Node) -> void:
 	var cancels: Array = []
 	dialog.cancelled.connect(func() -> void: cancels.append(1))
 	var held: int = screen.selected().monthly_salary
-	dialog.set_value(held + 25)
+	var staged: int = held + 25 if held + 25 <= dialog.max_payable else held - 1
+	dialog.set_value(staged)
+	TestFixtures.check(res, "the cancel case stages a wage the dialog takes and the merc has not",
+		held > 1 and staged != held and dialog.value() == staged and dialog.value() != held,
+		"staged %d value %d held %d max %d" % [staged, dialog.value(), held, dialog.max_payable])
 	dialog.press_cancel()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "cancel closes the dialog and changes nothing",
@@ -540,88 +600,85 @@ static func _case_salary(res: Dictionary, host: Node) -> void:
 			and screen.selected().monthly_salary == held,
 		"cancels %d salary %d wanted %d"
 			% [cancels.size(), screen.selected().monthly_salary, held])
-	var pending_before: int = screen.selected().monthly_salary
-	var probe_wage: int = 1 if pending_before != 1 else 2
-	dialog.open_for(screen.selected())
-	dialog.set_value(probe_wage)
-	dialog.press_confirm()
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "the wage change asks before the confirm cancel test runs",
-		confirm.visible, "visible %s" % confirm.visible)
-	confirm.press(0)
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "cancelling the confirm dialog leaves the salary unchanged",
-		not confirm.visible and screen.selected().monthly_salary == pending_before,
-		"visible %s salary %d wanted %d"
-			% [confirm.visible, screen.selected().monthly_salary, pending_before])
-	confirm.confirmed.emit()
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "a confirm emitted after the cancel writes no wage",
-		screen.selected().monthly_salary == pending_before,
-		"salary %d wanted %d" % [screen.selected().monthly_salary, pending_before])
-	dialog.open_for(screen.selected())
-	dialog.set_value(probe_wage)
-	dialog.press_confirm()
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "a second confirm after a cancelled one still asks",
-		confirm.visible, "visible %s" % confirm.visible)
-	confirm.press(0)
-	await host.get_tree().process_frame
 	GameState.bank_notes = 10000
-	var uid_a: int = screen.selected().uid
 	var uid_b: int = 0
 	for other: MercView in GameState.roster:
-		if other.uid != uid_a:
+		if other.uid != uid:
 			uid_b = other.uid
 			break
-	var a_before: int = _salary_of(uid_a)
 	var b_before: int = _salary_of(uid_b)
-	var swap_wage: int = a_before + 7
-	dialog.open_for(screen.selected())
+	var swap_wage: int = b_before + 7
+	dialog.open_for_uid(uid_b)
+	TestFixtures.check(res, "open_for_uid opens the dialog on that merc",
+		uid_b > 0 and dialog.visible and dialog.merc_uid == uid_b,
+		"uid %d open %s on %d" % [uid_b, dialog.visible, dialog.merc_uid])
 	dialog.set_value(swap_wage)
+	screen.show_merc(uid)
+	await host.get_tree().process_frame
 	dialog.press_confirm()
-	await host.get_tree().process_frame
-	screen.show_merc(uid_b)
-	await host.get_tree().process_frame
-	confirm.press(1)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the wage lands on the merc the dialog was opened for",
-		uid_b > 0 and _salary_of(uid_a) == swap_wage and _salary_of(uid_b) == b_before,
-		"a %d wanted %d b %d wanted %d"
-			% [_salary_of(uid_a), swap_wage, _salary_of(uid_b), b_before])
-	var c_before: int = _salary_of(uid_a)
-	var d_before: int = _salary_of(uid_b)
-	var swap_wage2: int = c_before + 3
-	if swap_wage2 == d_before:
-		swap_wage2 += 5
-	screen.show_merc(uid_a)
+		_salary_of(uid_b) == swap_wage and _salary_of(uid) == opening,
+		"b %d wanted %d a %d wanted %d"
+			% [_salary_of(uid_b), swap_wage, _salary_of(uid), opening])
+	var fires: Array = []
+	dialog.fired.connect(func(u: int) -> void: fires.append(u))
+	dialog.open_for_uid(uid_b)
+	dialog.press_fire()
+	TestFixtures.check(res, "the Fire link opens the fire confirm over the wage box",
+		dialog.fire_dialog().is_open() and dialog.fire_dialog().uid() == uid_b
+			and dialog.fire_dialog().note_count() > 0,
+		"open %s uid %d notes %d" % [dialog.fire_dialog().is_open(),
+			dialog.fire_dialog().uid(), dialog.fire_dialog().note_count()])
+	dialog.fire_dialog().press_cancel()
+	TestFixtures.check(res, "cancelling the fire confirm returns to the wage box",
+		not dialog.fire_dialog().is_open() and dialog.visible
+			and not BenefitsManager.is_fired(uid_b),
+		"open %s wage %s fired %s" % [dialog.fire_dialog().is_open(), dialog.visible,
+			BenefitsManager.is_fired(uid_b)])
+	var b_opinion: int = BenefitsManager.opinion_of(uid_b)
+	var want_drop: int = PayrollLogic.fire_drop(b_opinion)
+	dialog.press_fire()
+	dialog.fire_dialog().press_confirm()
 	await host.get_tree().process_frame
-	#B's wage moves above the probe so the probe is a raise for A and a cut for B; a title read
-	#against B instead of A flips CUT_TITLE in, catching a roster-change mixup the value swap alone
-	#would miss.
-	GameState.set_salary(uid_b, swap_wage2 + 50)
-	d_before = _salary_of(uid_b)
-	dialog.open_for(screen.selected())
-	dialog.set_value(swap_wage2)
-	screen.show_merc(uid_b)
-	await host.get_tree().process_frame
+	TestFixtures.check(res, "confirming the fire marks the merc, drops the opinion and reports it",
+		fires.size() == 1 and int(fires[0]) == uid_b and BenefitsManager.is_fired(uid_b)
+			and _left_opinion(uid_b) == b_opinion - want_drop
+			and not dialog.visible,
+		"fires %s fired %s opinion %d wanted %d wage %s"
+			% [str(fires), BenefitsManager.is_fired(uid_b), _left_opinion(uid_b),
+				b_opinion - want_drop, dialog.visible])
+	dialog.open_for_uid(uid_b)
+	TestFixtures.check(res, "a fired merc has no wage box left to open",
+		not dialog.visible and _salary_of(uid_b) == -1
+			and GameState.removed_by_uid(uid_b) != null,
+		"open %s wage %d" % [dialog.visible, _salary_of(uid_b)])
+	dialog.press_fire()
+	TestFixtures.check(res, "a fired merc cannot be fired twice",
+		not dialog.fire_dialog().is_open() and not BenefitsManager.fire(uid_b),
+		"open %s" % dialog.fire_dialog().is_open())
+	var locked_uid: int = GameState.roster[0].uid
+	_vacation(locked_uid)
+	var locked_wage: int = _salary_of(locked_uid)
+	dialog.open_for_uid(locked_uid)
+	TestFixtures.check(res, "a merc on vacation locks the stepper behind the lock line",
+		dialog.is_locked() and dialog.stepper().disabled
+			and dialog.text("lock") != "" and dialog.stepper().disabled_text
+				== BenefitsManager.LOCK_TEXT,
+		"locked %s disabled %s lock '%s'" % [dialog.is_locked(), dialog.stepper().disabled,
+			dialog.text("lock")])
+	dialog.set_value(locked_wage + 40)
 	dialog.press_confirm()
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "a roster change under the open dialog still asks for the merc it opened for",
-		confirm.visible and confirm.title == MercViewer.RAISE_TITLE
-			and _salary_of(uid_a) == c_before and _salary_of(uid_b) == d_before,
-		"confirm %s title %s a %d wanted %d b %d wanted %d"
-			% [confirm.visible, confirm.title, _salary_of(uid_a), c_before, _salary_of(uid_b), d_before])
-	confirm.press(1)
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "confirming after the roster change writes A's wage and leaves B's",
-		_salary_of(uid_a) == swap_wage2 and _salary_of(uid_b) == d_before,
-		"a %d wanted %d b %d wanted %d"
-			% [_salary_of(uid_a), swap_wage2, _salary_of(uid_b), d_before])
+	TestFixtures.check(res, "confirm on a locked merc closes with no write",
+		not dialog.visible and _salary_of(locked_uid) == locked_wage,
+		"wage %s salary %d wanted %d" % [dialog.visible, _salary_of(locked_uid), locked_wage])
+	BenefitsManager.reset()
 	GuiFrameStack.clear()
 	screen.queue_free()
 	await host.get_tree().process_frame
 	await _case_salary_escape(res, host)
+	await _case_salary_fire_select(res, host)
 
 
 #Item 34: the wage dialog is a frame like the rest, so Esc closes it and stops at the window under
@@ -647,6 +704,59 @@ static func _case_salary_escape(res: Dictionary, host: Node) -> void:
 	GuiFrameStack.clear()
 	win.queue_free()
 	await host.get_tree().process_frame
+
+
+#A fire from the wage box moves the card off the merc that was let go: the merc leaves the guild
+#the same minute, so the viewer takes the first row of the rebuilt list and the card empties when
+#that merc was the last row.
+static func _case_salary_fire_select(res: Dictionary, host: Node) -> void:
+	var screen: MercViewer = await _open(host)
+	BenefitsManager.reset()
+	GameState.bank_notes = 10000
+	var uid: int = screen.selected().uid
+	var dialog: SalaryDialog = screen.salary_dialog()
+	dialog.open_for_uid(uid)
+	dialog.press_fire()
+	dialog.fire_dialog().press_confirm()
+	await host.get_tree().process_frame
+	var first: int = 0
+	for view: MercView in screen.list.order():
+		if view != null and view.uid != uid:
+			first = view.uid
+			break
+	var landed: MercView = screen.selected()
+	var landed_uid: int = landed.uid if landed != null else 0
+	TestFixtures.check(res, "a fire moves the card to the first row that is not the fired merc",
+		BenefitsManager.is_fired(uid) and first > 0 and landed_uid == first and landed_uid != uid,
+		"selected %d first %d fired %d" % [landed_uid, first, uid])
+	var stayed: MercView = BenefitsManager.view_of(uid)
+	var record: RemovedMercRecord = GameState.removed_by_uid(uid)
+	TestFixtures.check(res, "the fired merc leaves the roster for the removed queue",
+		stayed == null and _salary_of(uid) == -1 and record != null
+			and record.status == GuiTypes.MercStatus.FIRED and record.salary > 0,
+		"view %s wage %d record %s" % [stayed != null, _salary_of(uid), record != null])
+	var kept: MercenaryData = GameState.merc_by_uid(first)
+	GameState.mercs.clear()
+	GameState.mercs.append(kept)
+	GameState.refresh_views()
+	BenefitsManager.reset()
+	screen.show_merc(first)
+	await host.get_tree().process_frame
+	dialog.open_for_uid(first)
+	dialog.press_fire()
+	dialog.fire_dialog().press_confirm()
+	await host.get_tree().process_frame
+	var last: MercView = screen.selected()
+	TestFixtures.check(res, "the card empties when the fired merc was the last row left",
+		screen.list.order().size() == 0 and BenefitsManager.is_fired(first) and last == null
+			and GameState.removed_by_uid(first) != null,
+		"rows %d selected %d" % [screen.list.order().size(),
+			last.uid if last != null else 0])
+	BenefitsManager.reset()
+	GuiFrameStack.clear()
+	screen.queue_free()
+	await host.get_tree().process_frame
+	_fresh()
 
 
 static func _case_equipment(res: Dictionary, host: Node) -> void:
@@ -875,4 +985,405 @@ static func _case_metrics(res: Dictionary, host: Node) -> void:
 		viewer != null and viewer.chart.series_count() > 0 and points > 0,
 		"series %d points %d" % [viewer.chart.series_count() if viewer != null else 0, points])
 	MetricsHistory.clear_preview()
+	screen.queue_free()
+
+
+#Every FeatureLock the screen is actually showing, by the feature it names.
+static func _visible_lock_features(root: Node) -> Array[String]:
+	var out: Array[String] = []
+	for node: Node in _all_nodes(root):
+		if node is FeatureLock and (node as FeatureLock).is_visible_in_tree():
+			out.append((node as FeatureLock).feature)
+	return out
+
+
+static func _all_nodes(root: Node) -> Array[Node]:
+	var out: Array[Node] = [root]
+	for child: Node in root.get_children():
+		out.append_array(_all_nodes(child))
+	return out
+
+
+#The value a fixture writes to shut one key: a tier count needs a number under its minimum.
+static func _shut_value(key: String) -> Variant:
+	if MercLocks.row(key).has("min"):
+		return MercLocks.min_of(key) - 1
+	return false
+
+
+static func _tab_of_key(key: String) -> StringName:
+	for tab: Variant in MercLocks.TAB_KEYS:
+		if String(MercLocks.TAB_KEYS[tab]) == key:
+			return StringName(tab)
+	return &""
+
+
+static func _case_locks(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.reset()
+	var screen: MercViewer = await _open(host)
+	await host.get_tree().process_frame
+	var clean: Array[String] = _visible_lock_features(screen)
+	TestFixtures.check(res, "nothing is locked while every upgrade is held",
+		clean.is_empty() and screen.locked_page() != null and not screen.locked_page().visible,
+		"showing %s" % str(clean))
+	for key: String in MercLocks.keys():
+		await _check_lock(res, host, screen, key)
+	SubscriptionManager.reset()
+	screen.queue_free()
+
+
+static func _check_lock(res: Dictionary, host: Node, screen: MercViewer, key: String) -> void:
+	SubscriptionManager.set_entitlements({key: _shut_value(key)})
+	await host.get_tree().process_frame
+	var tab_key: StringName = _tab_of_key(key)
+	if tab_key != &"":
+		screen.open_tab(tab_key)
+		var index: int = MercViewer.TAB_NAMES.find(tab_key)
+		var page: LockedPage = screen.locked_page()
+		TestFixtures.check(res, "the %s tab locks behind its own upgrade" % tab_key,
+			screen.tabs()[index].locked and page.visible
+				and page.feature == MercLocks.feature_of(key)
+				and page.upgrade == MercLocks.upgrade_name_of(key),
+			"locked %s page %s feature '%s'" % [screen.tabs()[index].locked, page.visible,
+				page.feature])
+		screen.open_tab(&"overview")
+	elif key == MercLocks.K_PHYSICAL:
+		TestFixtures.check(res, "the physical key is tabled and waits for its own fields",
+			MercLocks.locked(key, SubscriptionManager.entitlements())
+				and MercLocks.feature_of(key) == "Physical Attributes"
+				and MercLocks.plan_of(key) == MercLocks.PRO,
+			"locked %s" % MercLocks.locked(key, SubscriptionManager.entitlements()))
+	else:
+		var features: Array[String] = _visible_lock_features(screen)
+		TestFixtures.check(res, "the %s field shows the lock that sells it" % key,
+			features.has(MercLocks.feature_of(key)),
+			"wanted '%s' showing %s" % [MercLocks.feature_of(key), str(features)])
+	SubscriptionManager.reset()
+	await host.get_tree().process_frame
+
+
+static func _case_lock_fields(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.reset()
+	var screen: MercViewer = await _open(host)
+	await host.get_tree().process_frame
+	var tab: OverviewTab = screen.overview()
+	SubscriptionManager.set_entitlements({MercLocks.K_HERITAGE: false, MercLocks.K_AGE: false,
+		MercLocks.K_KNOWLEDGES: false, MercLocks.K_COGNITION: false,
+		MercLocks.K_GUILD_OPINION: false})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a locked header row keeps its caption and hides its value",
+		not screen.header.heritage_label.visible and screen.header.heritage_lock.visible
+			and not screen.header.age_label.visible and screen.header.age_lock.visible,
+		"heritage %s age %s" % [screen.header.heritage_label.visible,
+			screen.header.age_label.visible])
+	TestFixtures.check(res, "a locked knowledge list leaves a block with the hidden caption",
+		tab.knowledge_lock.visible and not tab.knowledge_grid.visible
+			and tab.knowledge_lock.caption_text() == "Knowledges hidden",
+		"lock %s grid %s caption '%s'" % [tab.knowledge_lock.visible,
+			tab.knowledge_grid.visible, tab.knowledge_lock.caption_text()])
+	var box: AttributeBox = tab.attribute_boxes()[0]
+	var cognition: AttributeBox = box
+	for candidate: AttributeBox in tab.attribute_boxes():
+		if candidate.attribute_key == "cognition":
+			cognition = candidate
+	TestFixtures.check(res, "a locked attribute keeps its abbreviation and hides its number",
+		cognition.is_locked() and cognition.lock_box.visible and not cognition.value_box.visible
+			and cognition.abbr_label.visible,
+		"locked %s lock %s value %s" % [cognition.is_locked(), cognition.lock_box.visible,
+			cognition.value_box.visible])
+	TestFixtures.check(res, "a locked info field keeps its caption and shows the lock",
+		tab.opinion_field.is_locked() and tab.opinion_field.lock.visible
+			and tab.opinion_field.lock.feature == "Guild Opinion",
+		"locked %s lock %s" % [tab.opinion_field.is_locked(), tab.opinion_field.lock.visible])
+	var lines: Array[String] = tab.opinion_field.lock.copy_lines()
+	var wanted: String = MercLocks.upgrade_name_of(MercLocks.K_GUILD_OPINION)
+	TestFixtures.check(res, "a lock names the field it hides and the upgrade that opens it",
+		lines.size() == 2 and lines[0] == "Guild Opinion is locked."
+			and wanted != "" and lines[1].contains(wanted),
+		"copy %s" % str(lines))
+	SubscriptionManager.reset()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "paying for the upgrades puts every value back",
+		screen.header.heritage_label.visible and not screen.header.heritage_lock.visible
+			and tab.knowledge_grid.visible and not tab.knowledge_lock.visible
+			and not cognition.lock_box.visible and not tab.opinion_field.lock.visible,
+		"heritage %s grid %s attribute %s" % [screen.header.heritage_label.visible,
+			tab.knowledge_grid.visible, cognition.lock_box.visible])
+	screen.queue_free()
+
+
+static func _case_lifepath(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.reset()
+	var screen: MercViewer = await _open(host)
+	await host.get_tree().process_frame
+	var tab: OverviewTab = screen.overview()
+	var view: MercView = screen.selected()
+	var shown: Array[String] = []
+	for chip: SlotChip in tab.lifepath_chips():
+		if chip.is_filled():
+			shown.append(chip.label)
+	var wanted: Array[String] = []
+	for row: Dictionary in view.lifepaths:
+		wanted.append(String(row.get("name", "")))
+	TestFixtures.check(res, "the lifepath list shows the events of the merc on show",
+		shown.size() == mini(wanted.size(), OverviewTab.LIFEPATH_SLOTS)
+			and (shown.is_empty() or shown[0] == wanted[0]),
+		"shown %s wanted %s" % [str(shown), str(wanted)])
+	TestFixtures.check(res, "the lifepath list scrolls in place while its key is met",
+		tab.lifepath_scroll.visible and not tab.lifepath_lock.visible
+			and tab.lifepath_count.visible
+			and tab.lifepath_list.get_parent().get_parent() == tab.lifepath_scroll,
+		"scroll %s lock %s" % [tab.lifepath_scroll.visible, tab.lifepath_lock.visible])
+	SubscriptionManager.set_entitlements({MercLocks.K_LIFEPATH: false})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "an unmet lifepath key leaves the block and its lock in place",
+		tab.lifepath_lock.visible and not tab.lifepath_scroll.visible
+			and not tab.lifepath_count.visible
+			and tab.lifepath_lock.caption_text() == "Lifepath hidden",
+		"lock %s scroll %s caption '%s'" % [tab.lifepath_lock.visible,
+			tab.lifepath_scroll.visible, tab.lifepath_lock.caption_text()])
+	TestFixtures.check(res, "the lifepath lock sells the Background Check tier that opens it",
+		tab.lifepath_lock.lock.visible
+			and tab.lifepath_lock.lock.upgrade == MercLocks.upgrade_name_of(
+				MercLocks.K_LIFEPATH)
+			and tab.lifepath_lock.lock.tier == 5,
+		"upgrade '%s' tier %d" % [tab.lifepath_lock.lock.upgrade,
+			tab.lifepath_lock.lock.tier])
+	SubscriptionManager.reset()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "paying for the tier gives the events back",
+		tab.lifepath_scroll.visible and not tab.lifepath_lock.visible,
+		"scroll %s lock %s" % [tab.lifepath_scroll.visible, tab.lifepath_lock.visible])
+	screen.queue_free()
+
+
+static func _case_open_tab(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.reset()
+	var screen: MercViewer = await _open(host)
+	await host.get_tree().process_frame
+	var bad: Array[String] = []
+	for i: int in MercViewer.TAB_NAMES.size():
+		var key: StringName = MercViewer.TAB_NAMES[i]
+		screen.open_tab(key)
+		if screen.current_tab() != i or screen.tab_key(i) != key:
+			bad.append(String(key))
+		elif not screen.page(i).visible:
+			bad.append(String(key) + " page")
+	TestFixtures.check(res, "open_tab reaches every tab by its key",
+		bad.is_empty() and MercViewer.TAB_NAMES.size() == 8, "wrong %s" % str(bad))
+	screen.open_tab(&"overview")
+	screen.open_tab(&"nonesuch")
+	TestFixtures.check(res, "an unknown key leaves the tab on show alone",
+		screen.current_tab() == MercViewer.TAB_OVERVIEW,
+		"tab %d" % screen.current_tab())
+	screen.select_tab(MercViewer.TAB_SKILLS)
+	TestFixtures.check(res, "select_tab still answers to an index",
+		screen.current_tab() == MercViewer.TAB_SKILLS
+			and screen.tab_key(MercViewer.TAB_SKILLS) == &"skills",
+		"tab %d key '%s'" % [screen.current_tab(),
+			screen.tab_key(MercViewer.TAB_SKILLS)])
+	TestFixtures.check(res, "an out of range index is refused",
+		screen.tab_key(99) == &"" and screen.tab_key(-1) == &"",
+		"high '%s' low '%s'" % [screen.tab_key(99), screen.tab_key(-1)])
+	screen.queue_free()
+
+
+#One walk-in candidate, filled the way the hiring pool fills one.
+static func _sample_applicant() -> ApplicantData:
+	var out := ApplicantData.new()
+	out.id = 9001
+	out.name = "Rilla Vane"
+	out.tradition = "Warrior"
+	out.level = 4
+	out.ask = 260
+	out.heritage = "Foundling"
+	out.age = 27
+	out.criminality = "Clean"
+	out.ancestry = "Dwarrow"
+	out.bloodline = "Ridgeblood"
+	out.stats = {"speed": 5, "cognition": 6, "vigor": 7, "dexterity": 8, "wile": 9}
+	out.tools.assign(["Lockpicks"])
+	out.knowledges.assign(["Herbalism"])
+	return out
+
+
+static func _case_applicant(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.reset()
+	var screen: MercViewer = await _open(host)
+	await host.get_tree().process_frame
+	var candidate: ApplicantData = _sample_applicant()
+	screen.show_applicant(candidate)
+	await host.get_tree().process_frame
+	var tab: OverviewTab = screen.overview()
+	TestFixtures.check(res, "the viewer knows it is showing an applicant",
+		screen.applicant_mode() and screen.applicant == candidate
+			and screen.selected() != null and screen.selected().uid == candidate.id,
+		"mode %s uid %d" % [screen.applicant_mode(),
+			screen.selected().uid if screen.selected() != null else -1])
+	TestFixtures.check(res, "the roster column goes and the window narrows to fit",
+		not screen.list.visible and screen.hide_roster
+			and screen.custom_minimum_size.x == MercViewer.NO_ROSTER_WIDTH,
+		"list %s width %f" % [screen.list.visible, screen.custom_minimum_size.x])
+	TestFixtures.check(res, "the status band reads Applicant in amber",
+		screen.header.status_line().to_upper() == "APPLICANT"
+			and screen.header.status_color() == Color("#f2b33d"),
+		"text '%s' colour %s" % [screen.header.status_line(), screen.header.status_color()])
+	TestFixtures.check(res, "the card carries the name and the lineage of the candidate",
+		screen.header.first_name() == "Rilla" and screen.header.surname() == "Vane"
+			and screen.header.age_line() == "27"
+			and screen.header.criminality_line() == "Clean",
+		"name '%s %s' age '%s'" % [screen.header.first_name(), screen.header.surname(),
+			screen.header.age_line()])
+	var wile: int = -1
+	for box: AttributeBox in tab.attribute_boxes():
+		if box.attribute_key == "wile":
+			wile = box.current
+	TestFixtures.check(res, "the attributes read the stats of the candidate",
+		wile == 9, "wile %d" % wile)
+	TestFixtures.check(res, "the Coaching box is greyed and out of reach",
+		tab.coaching.greyed and not tab.coaching.can_coach()
+			and tab.coaching.button.disabled
+			and is_equal_approx(tab.coaching.modulate.a, 0.4)
+			and tab.coaching.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"greyed %s alpha %f" % [tab.coaching.greyed, tab.coaching.modulate.a])
+	TestFixtures.check(res, "the wage chip is greyed and takes no pointer",
+		is_equal_approx(screen.header.salary.modulate.a, 0.4)
+			and screen.header.salary.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"alpha %f filter %d" % [screen.header.salary.modulate.a,
+			screen.header.salary.mouse_filter])
+	var metrics: TabButton = screen.tabs()[MercViewer.TAB_METRICS]
+	TestFixtures.check(res, "the metrics tab is greyed and takes no pointer",
+		is_equal_approx(metrics.modulate.a, 0.4)
+			and metrics.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"alpha %f filter %d" % [metrics.modulate.a, metrics.mouse_filter])
+	screen.header.salary_chip().clicked.emit()
+	tab.coaching.press_coach()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "neither the wage dialog nor the coach dialog opens for a candidate",
+		not screen.salary_dialog().visible and not screen.coach_dialog().visible,
+		"salary %s coach %s" % [screen.salary_dialog().visible,
+			screen.coach_dialog().visible])
+	var uid: int = GameState.roster[0].uid
+	screen.show_merc(uid)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "showing an employee again brings the roster and the chip back",
+		not screen.applicant_mode() and screen.list.visible
+			and screen.custom_minimum_size.x == MercViewer.FULL_WIDTH
+			and tab.coaching.can_coach()
+			and is_equal_approx(screen.header.salary.modulate.a, 1.0),
+		"mode %s list %s width %f" % [screen.applicant_mode(), screen.list.visible,
+			screen.custom_minimum_size.x])
+	screen.queue_free()
+
+
+#The lineage a merc resource spells out, so the header is read against the resource, not itself.
+static func _resource_lineage(source: MercView, blood_field: String, stock_field: String) -> String:
+	if source == null or source.merc == null:
+		return MercHeader.EMPTY_TEXT
+	var parts: Array[String] = []
+	var blood: AncestryData = source.merc.get(blood_field) as AncestryData
+	if blood != null and blood.ancestry_name != "":
+		parts.append(blood.ancestry_name)
+	var stock: AncestryData = source.merc.get(stock_field) as AncestryData
+	if stock != null and stock.ancestry_name != "":
+		parts.append(stock.ancestry_name)
+	return MercHeader.EMPTY_TEXT if parts.is_empty() else " ".join(parts)
+
+
+#The hiring screen may hand the candidate over before the card enters the tree.
+static func _case_applicant_early(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.reset()
+	_fresh()
+	var screen: MercViewer = MERC_VIEWER.instantiate()
+	var candidate: ApplicantData = _sample_applicant()
+	screen.show_applicant(candidate)
+	host.add_child(screen)
+	await host.get_tree().process_frame
+	var tab: OverviewTab = screen.overview()
+	TestFixtures.check(res, "a candidate handed over before the card is ready reaches the header",
+		screen.applicant_mode() and screen.header.first_name() == "Rilla"
+			and screen.header.surname() == "Vane"
+			and screen.header.status_line().to_upper() == "APPLICANT",
+		"mode %s name '%s %s' band '%s'" % [screen.applicant_mode(),
+			screen.header.first_name(), screen.header.surname(), screen.header.status_line()])
+	TestFixtures.check(res, "the early candidate greys the Coaching box and the wage chip",
+		tab.coaching.greyed and not tab.coaching.can_coach()
+			and is_equal_approx(screen.header.salary.modulate.a, 0.4)
+			and screen.header.salary.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"greyed %s alpha %f" % [tab.coaching.greyed, screen.header.salary.modulate.a])
+	var metrics: TabButton = screen.tabs()[MercViewer.TAB_METRICS]
+	TestFixtures.check(res, "the early candidate drops the roster and puts Metrics out of reach",
+		is_equal_approx(metrics.modulate.a, 0.4)
+			and metrics.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and not screen.list.visible
+			and screen.custom_minimum_size.x == MercViewer.NO_ROSTER_WIDTH,
+		"alpha %f filter %d list %s" % [metrics.modulate.a, metrics.mouse_filter,
+			screen.list.visible])
+	screen.queue_free()
+
+
+#A null candidate is no candidate: the employee view and its roster column come back.
+static func _case_applicant_cleared(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.reset()
+	var screen: MercViewer = await _open(host)
+	await host.get_tree().process_frame
+	screen.show_applicant(null)
+	await host.get_tree().process_frame
+	var picked: MercView = screen.selected()
+	TestFixtures.check(res, "a null candidate leaves the roster column and the employee view alone",
+		not screen.applicant_mode() and screen.list.visible and not screen.hide_roster
+			and picked != null and picked.merc != null
+			and screen.custom_minimum_size.x == MercViewer.FULL_WIDTH,
+		"mode %s list %s width %f" % [screen.applicant_mode(), screen.list.visible,
+			screen.custom_minimum_size.x])
+	screen.show_applicant(_sample_applicant())
+	await host.get_tree().process_frame
+	screen.show_applicant(null)
+	await host.get_tree().process_frame
+	var uids: Array[int] = []
+	for view: MercView in GameState.roster:
+		uids.append(view.uid)
+	picked = screen.selected()
+	TestFixtures.check(res, "dropping the candidate brings the roster column and a roster view back",
+		not screen.applicant_mode() and screen.list.visible
+			and screen.custom_minimum_size.x == MercViewer.FULL_WIDTH
+			and picked != null and uids.has(picked.uid),
+		"mode %s list %s uid %d" % [screen.applicant_mode(), screen.list.visible,
+			picked.uid if picked != null else -1])
+	screen.queue_free()
+
+
+#The two lineage rows of a candidate, who carries one ancestry and one bloodline and no resource.
+static func _case_applicant_lineage(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.reset()
+	var screen: MercViewer = await _open(host)
+	await host.get_tree().process_frame
+	var wanted: String = _resource_lineage(screen.selected(), "bloodline", "ancestry")
+	TestFixtures.check(res, "an employed merc still reads the lineage off their merc resource",
+		screen.header.primary_text() == wanted and wanted != MercHeader.EMPTY_TEXT,
+		"header '%s' resource '%s'" % [screen.header.primary_text(), wanted])
+	var candidate: ApplicantData = _sample_applicant()
+	screen.show_applicant(candidate)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the Primary row prints the bloodline and ancestry drawn for a candidate",
+		screen.header.primary_text() == "%s %s" % [candidate.bloodline, candidate.ancestry]
+			and screen.header.secondary_text() == MercHeader.EMPTY_TEXT,
+		"primary '%s' secondary '%s'" % [screen.header.primary_text(),
+			screen.header.secondary_text()])
+	SubscriptionManager.set_entitlements({MercLocks.K_BLOODLINE: false})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a shut bloodline gate leaves the candidate ancestry printing",
+		screen.header.primary_text() == candidate.ancestry
+			and screen.header.primary_blood_lock.visible,
+		"primary '%s' lock %s" % [screen.header.primary_text(),
+			screen.header.primary_blood_lock.visible])
+	SubscriptionManager.reset()
+	SubscriptionManager.set_entitlements({MercLocks.K_ANCESTRY: false})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a shut ancestry gate leaves the candidate bloodline printing",
+		screen.header.primary_text() == candidate.bloodline
+			and screen.header.primary_ancestry_lock.visible,
+		"primary '%s' lock %s" % [screen.header.primary_text(),
+			screen.header.primary_ancestry_lock.visible])
+	SubscriptionManager.reset()
 	screen.queue_free()

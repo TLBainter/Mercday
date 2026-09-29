@@ -1,8 +1,9 @@
 class_name GuiMetricsTests
 
-#The Metrics Viewer screen: the graph tabs, the metric list, the two selectors, the scale buttons
-#and the line chart, all driven against a live campaign with the preview history seeded onto it.
-#Run: godot --headless --path . -- --gui-metrics-tests
+#The Metrics Viewer screen: the graph tabs, the metric list, the two selectors, the Period and
+#Scale dropdowns, the subscription locks and the line chart, all driven against a live campaign
+#with the preview history seeded onto it.
+#Run: godot --headless --path . with the arg separator, then --gui-metrics-tests
 
 const VIEWER_SCENE := preload("res://Scenes/GUI/Metrics/MetricsViewer.tscn")
 const CHART_PATH := "Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/Chart"
@@ -10,26 +11,41 @@ const HISTORY_PATH := "res://Scripts/GUI/Autoloads/MetricsHistory.gd"
 const PREVIEW_DAYS := 120
 const SEED_DAYS := 50
 const LONG_DAYS := 200
+#Three dates for the period table: the first day of a Trynn year, mid year and the last day.
+const YEAR_START := 660
+const YEAR_MID := 825
+const YEAR_END := 989
+const DEEP_HISTORY := 3000
 
 
 static func run(host: Node) -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
 	await host.get_tree().process_frame
 	await _case_layout(res, host)
+	await _case_chart_size(res, host)
 	await _case_series(res, host)
-	await _case_scale(res, host)
+	await _case_window(res, host)
 	await _case_chart(res, host)
 	await _case_focus(res, host)
 	await _case_lock(res, host)
 	await _case_seed(res, host)
 	await _case_entitlements(res, host)
+	await _case_graph_locks(res, host)
+	await _case_merc_tiers(res, host)
+	await _case_metric_locks(res, host)
+	_case_lock_tables(res)
+	await _case_override_spellings(res, host)
 	await _case_new_metrics(res, host)
 	await _case_team_average(res, host)
 	await _case_averages_and_compare(res, host)
+	_case_period_rules(res)
+	_case_scale_rules(res)
+	await _case_window_math(res, host)
 	_case_arrow_math(res)
 	_case_x_labels(res)
 	_case_combined_weight(res)
 	_case_event_avg_carry(res)
+	await _case_bevel_sweep(res, host)
 	_reset()
 	return TestFixtures.summarize(res, "GUI METRICS")
 
@@ -112,9 +128,40 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 		guild_tab.active and guild_tab.custom_minimum_size.y == TabButton.ACTIVE_HEIGHT
 			and not merc_tab.active and merc_tab.custom_minimum_size.y == TabButton.IDLE_SIZE.y,
 		"guild %s merc %s" % [guild_tab.custom_minimum_size, merc_tab.custom_minimum_size])
-	TestFixtures.check(res, "an idle metrics tab keeps its label up",
-		merc_tab.text_label.visible and merc_tab.text_label.text == "MERC",
-		"visible %s text '%s'" % [merc_tab.text_label.visible, merc_tab.text_label.text])
+	TestFixtures.check(res, "an idle metrics tab is an icon square with its name as the tooltip",
+		not merc_tab.text_label.visible and merc_tab.custom_minimum_size == TabButton.IDLE_SIZE
+			and merc_tab.tooltip_text == "Merc",
+		"label %s size %s tip '%s'" % [merc_tab.text_label.visible,
+			str(merc_tab.custom_minimum_size), merc_tab.tooltip_text])
+	TestFixtures.check(res, "the active tab shows its icon and its label and is 44 tall",
+		guild_tab.text_label.visible and guild_tab.text_label.text == "GUILD"
+			and guild_tab.custom_minimum_size.y == float(GraphTabs.ROW_HEIGHT)
+			and is_equal_approx(guild_tab.custom_minimum_size.x,
+				maxf(TabButton.IDLE_SIZE.x, viewer.tabs.active_width(guild_tab))),
+		"size %s against %.1f" % [str(guild_tab.custom_minimum_size),
+			viewer.tabs.active_width(guild_tab)])
+	TestFixtures.check(res, "every tab carries its own 16 column icon on the 1.5 px grid",
+		guild_tab.icon_rect.texture != null and merc_tab.icon_rect.texture != null
+			and guild_tab.icon_cols == GraphTabs.ICON_COLS
+			and is_equal_approx(guild_tab.icon_px, GraphTabs.ICON_PX)
+			and guild_tab.icon_rect.custom_minimum_size == Vector2(24, 24),
+		"guild %s merc %s box %s" % [guild_tab.icon_rect.texture != null,
+			merc_tab.icon_rect.texture != null, str(guild_tab.icon_rect.custom_minimum_size)])
+	TestFixtures.check(res, "the tab icons come from the three metrics files",
+		MetricsGlyphs.tab_icon_path("Guild").ends_with("metrics_tab_guild_16x16.png")
+			and MetricsGlyphs.tab_icon_path("Contract").ends_with("metrics_tab_contract_16x16.png")
+			and MetricsGlyphs.tab_icon_path("Merc").ends_with("metrics_tab_merc_16x16.png"),
+		"got '%s'" % MetricsGlyphs.tab_icon_path("Guild"))
+	var contract_ink: Vector2i = _ink_counts("Contract")
+	var merc_ink: Vector2i = _ink_counts("Merc")
+	var guild_ink: Vector2i = _ink_counts("Guild")
+	TestFixtures.check(res, "the cream pixels of an icon read as ink on the active orange tab",
+		contract_ink.x > 0 and contract_ink.y == contract_ink.x and merc_ink.x > 0
+			and merc_ink.y == merc_ink.x and guild_ink.x > 0 and guild_ink.y == guild_ink.x,
+		"contract %s merc %s guild %s" % [str(contract_ink), str(merc_ink), str(guild_ink)])
+	TestFixtures.check(res, "the tab row stands 44 px tall",
+		viewer.tabs.custom_minimum_size.y == float(GraphTabs.ROW_HEIGHT),
+		"got %s" % str(viewer.tabs.custom_minimum_size))
 	TestFixtures.check(res, "the viewer fits the 720 px window",
 		viewer.get_combined_minimum_size().y <= 720.0,
 		"minimum %.1f" % viewer.get_combined_minimum_size().y)
@@ -143,12 +190,51 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 			and absf(guild_tab_bottom - chart_edge_top) <= 0.5,
 		"header %.1f tab %.1f edge %.1f" % [header_bottom, guild_tab_bottom, chart_edge_top])
 	var guild_height: float = viewer.left_panel.size.y
-	TestFixtures.check(res, "the tabs, the averages switch and the scale share the header row",
+	TestFixtures.check(res, "the tabs, the switch and the two dropdowns share the header row",
 		viewer.tabs.get_parent() == viewer.header_row
 			and viewer.show_averages.get_parent() == viewer.header_row
-			and viewer.scale_selector.get_parent() == viewer.header_row,
-		"parents '%s', '%s' and '%s'" % [viewer.tabs.get_parent().name,
-			viewer.show_averages.get_parent().name, viewer.scale_selector.get_parent().name])
+			and viewer.period_drop.get_parent() == viewer.header_row
+			and viewer.scale_drop.get_parent() == viewer.header_row,
+		"parents '%s', '%s', '%s' and '%s'" % [viewer.tabs.get_parent().name,
+			viewer.show_averages.get_parent().name, viewer.period_drop.get_parent().name,
+			viewer.scale_drop.get_parent().name])
+	TestFixtures.check(res, "the right of the row reads Show Averages, Period, Scale over a 16 gap",
+		viewer.show_averages.get_index() < viewer.period_drop.get_index()
+			and viewer.period_drop.get_index() < viewer.scale_drop.get_index()
+			and viewer.header_row.get_theme_constant("separation") == 16,
+		"indexes %d, %d, %d over %d" % [viewer.show_averages.get_index(),
+			viewer.period_drop.get_index(), viewer.scale_drop.get_index(),
+			viewer.header_row.get_theme_constant("separation")])
+	TestFixtures.check(res, "the dropdowns carry the Period and Scale captions over 30 px buttons",
+		viewer.period_drop.label == "PERIOD" and viewer.scale_drop.label == "SCALE"
+			and viewer.period_drop.caption.text == "PERIOD"
+			and viewer.period_drop.toggle.custom_minimum_size == Vector2(92, 30)
+			and viewer.scale_drop.toggle.custom_minimum_size == Vector2(92, 30),
+		"'%s' and '%s' over %s" % [viewer.period_drop.label, viewer.scale_drop.label,
+			str(viewer.period_drop.toggle.custom_minimum_size)])
+	TestFixtures.check(res, "the dropdowns open on All Time and the scale the window allows",
+		viewer.period_drop.button_text() == "All Time" and viewer.scale_drop.button_text()
+			== "Weeks" and viewer.period == MetricsPeriod.Period.ALL_TIME
+			and viewer.chart_scale == MetricsPeriod.Scale.WEEK,
+		"'%s' and '%s'" % [viewer.period_drop.button_text(), viewer.scale_drop.button_text()])
+	TestFixtures.check(res, "the tab row sits straight on the chart panel",
+		viewer.panel_gap() == MetricsViewer.ATTACHED_GAP
+			and viewer.right_box.get_theme_constant("separation") == 0,
+		"gap %d" % viewer.panel_gap())
+	TestFixtures.check(res, "the chart panel carries the ink outline and the two bevel insets",
+		viewer.chart_panel.get_theme_stylebox("panel").border_color == MetricsViewer.PANEL_OUTLINE
+			and viewer.bevel_hi.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and viewer.bevel_lo.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"colour %s" % str(viewer.chart_panel.get_theme_stylebox("panel").border_color))
+	TestFixtures.check(res, "the chart keeps its 888 px width while the viewer stands alone",
+		viewer.chart.custom_minimum_size.x == 888.0 and not viewer.chart.compact,
+		"got %s" % str(viewer.chart.custom_minimum_size))
+	TestFixtures.check(res, "the list title holds one clipped line",
+		viewer.list_title.clip_text and viewer.list_title.autowrap_mode
+			== TextServer.AUTOWRAP_OFF
+			and viewer.list_title.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS,
+		"clip %s wrap %d overrun %d" % [viewer.list_title.clip_text,
+			viewer.list_title.autowrap_mode, viewer.list_title.text_overrun_behavior])
 	TestFixtures.check(res, "the old chart title stays hidden behind the tabs",
 		not viewer.title_label.visible, "visible %s" % viewer.title_label.visible)
 	TestFixtures.check(res, "the averages switch keeps out of the Guild tab",
@@ -255,6 +341,33 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 	viewer.queue_free()
 
 
+#The widened chart column against the plan size: the standalone chart holds 888 x 550, its whole
+#rect stays inside the chart panel and inside the viewer with no overflow, and the embedded chart
+#still takes the compact EMBED_CHART size regardless of the standalone size on the scene.
+static func _case_chart_size(res: Dictionary, host: Node) -> void:
+	var viewer: MetricsViewer = await _open(host)
+	TestFixtures.check(res, "the standalone chart takes the widened 888 x 550 size",
+		viewer.chart.custom_minimum_size == Vector2(888, 550),
+		"got %s" % str(viewer.chart.custom_minimum_size))
+	var chart_rect: Rect2 = Rect2(viewer.chart.global_position, viewer.chart.size)
+	var panel_rect: Rect2 = Rect2(viewer.chart_panel.global_position, viewer.chart_panel.size)
+	var viewer_rect: Rect2 = Rect2(viewer.global_position, viewer.size)
+	TestFixtures.check(res, "the chart's rect sits inside the chart panel with no overflow",
+		panel_rect.encloses(chart_rect),
+		"chart %s panel %s" % [str(chart_rect), str(panel_rect)])
+	TestFixtures.check(res, "the chart's rect sits inside the standalone viewer with no overflow",
+		viewer_rect.encloses(chart_rect),
+		"chart %s viewer %s" % [str(chart_rect), str(viewer_rect)])
+	viewer.queue_free()
+	var embed: MetricsViewer = await _open(host)
+	embed.lock_to_merc(GameState.roster[0].uid)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the embedded chart still takes the compact EMBED_CHART size",
+		embed.chart.custom_minimum_size == MetricsViewer.EMBED_CHART and embed.chart.compact,
+		"got %s compact %s" % [str(embed.chart.custom_minimum_size), embed.chart.compact])
+	embed.queue_free()
+
+
 static func _case_series(res: Dictionary, host: Node) -> void:
 	var viewer: MetricsViewer = await _open_merc(host)
 	TestFixtures.check(res, "the seeded merc history fills both default series",
@@ -333,42 +446,6 @@ static func _case_series(res: Dictionary, host: Node) -> void:
 	viewer.queue_free()
 
 
-static func _case_scale(res: Dictionary, host: Node) -> void:
-	var viewer: MetricsViewer = await _open_merc(host)
-	TestFixtures.check(res, "all four scales stand with only Days and Weeks open at 120 days",
-		viewer.scale_selector.scale_count() == 4 and viewer.scale_selector.enabled_count() == 2
-			and viewer.scale_selector.current() == "Weeks",
-		"got %d scales, %d open, on '%s'" % [viewer.scale_selector.scale_count(),
-			viewer.scale_selector.enabled_count(), viewer.scale_selector.current()])
-	var months: Button = viewer.scale_selector.button_for("Months")
-	TestFixtures.check(res, "a locked scale says how much history it needs",
-		months != null and months.disabled
-			and months.tooltip_text == String(ScaleSelector.LOCKED_TIPS["Months"]),
-		"disabled %s on '%s'" % [months.disabled, months.tooltip_text])
-	viewer.scale_selector.select_scale("Days")
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "the Days scale plots one point per recorded day",
-		viewer.chart.point_count(0) == PREVIEW_DAYS,
-		"expected %d points, got %d" % [PREVIEW_DAYS, viewer.chart.point_count(0)])
-	viewer.scale_selector.select_scale("Weeks")
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "the Weeks scale buckets the same history into Trynn weeks",
-		viewer.chart.point_count(0) == 12 or viewer.chart.point_count(0) == 13,
-		"got %d points" % viewer.chart.point_count(0))
-	TestFixtures.check(res, "a week bucket is the calendar week and a day bucket is one day",
-		ScaleSelector.bucket_for("Weeks") == MetricsHistory.DAYS_PER_WEEK
-			and ScaleSelector.bucket_for("Days") == 1,
-		"got %d and %d" % [ScaleSelector.bucket_for("Weeks"), ScaleSelector.bucket_for("Days")])
-	var labels: Array[String] = viewer.chart.x_labels()
-	var buckets: int = viewer.chart.point_count(0)
-	var step: int = LineChart.label_step(buckets, false)
-	TestFixtures.check(res, "the X axis names the scale on show and steps evenly to the end",
-		labels.size() == int((buckets - 1) / float(step)) + 1 and labels[0] == "Week 1"
-			and labels[labels.size() - 1] == "Week %d" % (int((buckets - 1) / float(step)) * step + 1),
-		"got %s over %d buckets" % [str(labels), buckets])
-	viewer.queue_free()
-
-
 static func _case_chart(res: Dictionary, host: Node) -> void:
 	var rising: Array[Dictionary] = _points(3, [1.0, 2.0, 3.0])
 	var scaled: PackedFloat32Array = LineChart.normalize(rising, 100.0)
@@ -442,8 +519,8 @@ static func _case_focus(res: Dictionary, host: Node) -> void:
 			and viewer.metric_list.active_keys("Merc").has(row.key) and row.is_focused_metric(),
 		"got '%s' among %s" % [viewer.focused_key(),
 			str(viewer.metric_list.active_keys("Merc"))])
-	var points: Array[Dictionary] = MetricsHistory.series("Merc", viewer.stored_key(row.key), 0,
-		viewer.scale_selector.bucket())
+	var points: Array[Dictionary] = MetricsHistory.series("Merc", viewer.stored_key(row.key),
+		viewer.window_from(), MetricsPeriod.bucket_days(viewer.chart_scale), viewer.window_days())
 	var band: Vector2 = LineChart.padded_range(points)
 	var want: String = LineChart.axis_text(float(points[points.size() - 1]["value"]),
 		defs[index].fmt, band.y - band.x)
@@ -485,6 +562,26 @@ static func _case_lock(res: Dictionary, host: Node) -> void:
 		viewer.focused_key() == MetricList.defs_for("Merc")[0].key
 			and viewer.chart.focused_key() == viewer.focused_key(),
 		"got '%s' and '%s'" % [viewer.focused_key(), viewer.chart.focused_key()])
+	TestFixtures.check(res, "the embedded viewer keeps its 14 px gap over the chart panel",
+		viewer.panel_gap() == MetricsViewer.EMBED_GAP,
+		"gap %d" % viewer.panel_gap())
+	TestFixtures.check(res, "the embedded chart takes the compact plot size",
+		viewer.chart.custom_minimum_size == MetricsViewer.EMBED_CHART and viewer.chart.compact,
+		"got %s compact %s" % [str(viewer.chart.custom_minimum_size), viewer.chart.compact])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"mercmetrics": 1})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "one merc slot shuts the embed and still shows no LockedPage",
+		viewer.graph_locked() and viewer.chart.series_count() == 0 and not viewer.chart.visible
+			and not viewer.locked_page.visible,
+		"locked %s, %d series, page %s" % [viewer.graph_locked(), viewer.chart.series_count(),
+			viewer.locked_page.visible])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"mercmetrics": 2})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "two merc slots open the embed again",
+		not viewer.graph_locked() and viewer.chart.visible and viewer.chart.series_count() == 2,
+		"locked %s with %d series" % [viewer.graph_locked(), viewer.chart.series_count()])
+	SubscriptionManager.reset()
+	await host.get_tree().process_frame
 	viewer.queue_free()
 
 
@@ -582,6 +679,49 @@ static func _case_event_avg_carry(res: Dictionary) -> void:
 	history.free()
 
 
+#One key laid over the derived table, built without a literal so the key can be a variable.
+static func _one(key: String, value: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	out[key] = value
+	return out
+
+
+#Whether the lock a metrics key stands behind reports itself shut, read through MetricsLocks only.
+static func _lock_shut(camel: String) -> bool:
+	if camel == MetricsLocks.CONTRACT_KEY:
+		return MetricsLocks.graph_locked("Contract")
+	if camel == MetricsLocks.MERC_KEY:
+		return MetricsLocks.graph_locked("Merc")
+	if camel == MetricsLocks.CLIENT_KEY:
+		return MetricList.locked_key("Guild", "cop")
+	return MetricList.locked_key("Guild", "mop")
+
+
+#Either spelling of a metrics entitlement shuts the lock it names: set_entitlements lays the other
+#spelling of the pair down as well and MetricsLocks reads the camel key first.
+static func _case_override_spellings(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.reset()
+	await host.get_tree().process_frame
+	var rows: Array[Array] = [
+		[MetricsLocks.CONTRACT_KEY, MetricsLocks.CONTRACT_SNAKE, "the contract graph"],
+		[MetricsLocks.MERC_KEY, MetricsLocks.MERC_SNAKE, "the merc graph"],
+		[MetricsLocks.SURVEY_KEY, "guild_opinion", "the guild opinion row"],
+		[MetricsLocks.CLIENT_KEY, "client_opinion", "the client opinion row"],
+	]
+	for row: Array in rows:
+		var spellings: Array[String] = [String(row[0]), String(row[1])]
+		for key: String in spellings:
+			SubscriptionManager.set_entitlements(_one(key, 0))
+			TestFixtures.check(res, "an override on %s shuts %s" % [key, String(row[2])],
+				_lock_shut(String(row[0])), "the lock stayed open")
+			SubscriptionManager.reset()
+	SubscriptionManager.set_entitlements(_one(MetricsLocks.MERC_KEY, 0))
+	TestFixtures.check(res, "a camel override reaches the snake reader of the slot count",
+		SubscriptionManager.merc_slots() == 0 and MetricsLocks.merc_slots() == 0,
+		"%d slots" % SubscriptionManager.merc_slots())
+	SubscriptionManager.reset()
+
+
 #The subscription stub: phase one opens every metrics screen and three merc slots, and the slot
 #count decides whether the comparison picker is offered at all.
 static func _case_entitlements(res: Dictionary, host: Node) -> void:
@@ -594,13 +734,16 @@ static func _case_entitlements(res: Dictionary, host: Node) -> void:
 		"got %s" % str(held))
 	TestFixtures.check(res, "three slots offer the comparison button on a picked merc",
 		viewer.compare_button.visible, "visible %s" % viewer.compare_button.visible)
-	SubscriptionManager.set_entitlements({"merc_metrics": 1})
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"mercmetrics": 1})
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "one slot takes the comparison button away",
-		SubscriptionManager.merc_slots() == 1 and not viewer.compare_button.visible,
-		"got %d slots, visible %s" % [SubscriptionManager.merc_slots(),
-			viewer.compare_button.visible])
+	TestFixtures.check(res, "one slot takes the comparison button and the merc pick away",
+		SubscriptionManager.merc_slots() == 1 and not viewer.compare_button.visible
+			and viewer.current_uid() == -1,
+		"got %d slots, visible %s on %d" % [SubscriptionManager.merc_slots(),
+			viewer.compare_button.visible, viewer.current_uid()])
 	SubscriptionManager.reset()
+	await host.get_tree().process_frame
+	viewer.merc_selector.select_uid(GameState.roster[0].uid)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a reset hands the three slots and the button back",
 		SubscriptionManager.merc_slots() == 3 and viewer.compare_button.visible,
@@ -768,6 +911,18 @@ static func _case_averages_and_compare(res: Dictionary, host: Node) -> void:
 		merc_label_end <= merc_end + 0.5 and merc_tenure.text != "",
 		"label %.1f box %.1f '%s'" % [merc_label_end, merc_end,
 		merc_tenure.text])
+	var merc_popup: Rect2i = merc_pick.popup_rect()
+	var compare_popup: Rect2i = compare_pick.popup_rect()
+	var merc_rect: Rect2 = merc_pick.get_global_rect()
+	TestFixtures.check(res, "the first merc's popup opens under its own button while comparing",
+		merc_popup.position.x == int(merc_rect.position.x)
+			and merc_popup.position.y == int(merc_rect.end.y)
+			and merc_popup.position.y < compare_popup.position.y,
+		"merc %s compare %s button %s" % [str(merc_popup), str(compare_popup), str(merc_rect)])
+	TestFixtures.check(res, "neither popup stands narrower than the rows it holds",
+		float(merc_popup.size.x) >= merc_pick.list.get_combined_minimum_size().x
+			and float(compare_popup.size.x) >= compare_pick.list.get_combined_minimum_size().x,
+		"merc %d compare %d" % [merc_popup.size.x, compare_popup.size.x])
 	TestFixtures.check(res, "the comparison picker leaves the merc on show out of its rows",
 		viewer.compare_selector.item_count() == GameState.roster.size() - 1
 			and viewer.compare_selector.exclude_uid == GameState.roster[0].uid,
@@ -831,3 +986,642 @@ static func _case_x_labels(res: Dictionary) -> void:
 	TestFixtures.check(res, "a handful of buckets names every one of them",
 		LineChart.label_step(3, false) == 1 and LineChart.label_step(1, true) == 1,
 		"got %d and %d" % [LineChart.label_step(3, false), LineChart.label_step(1, true)])
+
+
+#The Period and Scale dropdowns: the window a period cuts out of the record, the snap that keeps
+#the guild's pick, the rows a short window shuts and the count since a merc's hire day.
+static func _case_window(res: Dictionary, host: Node) -> void:
+	var viewer: MetricsViewer = await _open_merc(host)
+	TestFixtures.check(res, "All Time reaches back over the whole record",
+		viewer.period == MetricsPeriod.Period.ALL_TIME and viewer.span_days() == PREVIEW_DAYS
+			and viewer.window_from() == 0 and viewer.window_days() == PREVIEW_DAYS,
+		"span %d, from %d for %d" % [viewer.span_days(), viewer.window_from(),
+			viewer.window_days()])
+	var open_scales: Array[int] = viewer._valid_scales(viewer.span_days())
+	var short_set: Array[int] = [MetricsPeriod.Scale.DAY, MetricsPeriod.Scale.WEEK]
+	TestFixtures.check(res, "a window of 120 days opens Days and Weeks only and shows Weeks",
+		_same(open_scales, short_set) and viewer.chart_scale == MetricsPeriod.Scale.WEEK
+			and viewer.wanted_scale() == MetricsPeriod.Scale.MONTH
+			and viewer.scale_drop.button_text() == "Weeks",
+		"scales %s, shown %d, wanted %d" % [str(open_scales), viewer.chart_scale,
+			viewer.wanted_scale()])
+	TestFixtures.check(res, "the Weeks bucket holds twelve Trynn weeks of the preview",
+		viewer.chart.point_count(0) == 12 and viewer.range_label.text == "Week 1 - Week 12",
+		"%d buckets under '%s'" % [viewer.chart.point_count(0), viewer.range_label.text])
+	var count: int = viewer.chart.point_count(0)
+	var step: int = LineChart.label_step(count, false)
+	var labels: Array[String] = viewer.chart.x_labels()
+	var want: int = int(ceilf(float(count) / float(step)))
+	TestFixtures.check(res, "the X axis names the bucket on show and steps it off to fit",
+		labels.size() == want and labels[0] == "Week 1"
+			and labels[labels.size() - 1] == "Week %d" % ((want - 1) * step + 1),
+		"got %s" % str(labels))
+	TestFixtures.check(res, "every bucket takes its size from the record's own calendar",
+		MetricsPeriod.bucket_days(MetricsPeriod.Scale.DAY) == 1
+			and MetricsPeriod.bucket_days(MetricsPeriod.Scale.WEEK) == MetricsHistory.DAYS_PER_WEEK
+			and MetricsPeriod.bucket_days(MetricsPeriod.Scale.MONTH)
+				== MetricsHistory.DAYS_PER_MONTH
+			and MetricsPeriod.bucket_days(MetricsPeriod.Scale.QUARTER)
+				== MetricsHistory.DAYS_PER_QUARTER,
+		"got %s" % str(MetricsPeriod.BUCKET_DAYS))
+	viewer.set_chart_scale(MetricsPeriod.Scale.DAY)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the Days scale plots one point for every recorded day",
+		viewer.chart_scale == MetricsPeriod.Scale.DAY
+			and viewer.wanted_scale() == MetricsPeriod.Scale.DAY
+			and viewer.chart.point_count(0) == PREVIEW_DAYS
+			and viewer.scale_drop.button_text() == "Days"
+			and viewer.range_label.text == "Day 1 - Day %d" % PREVIEW_DAYS,
+		"%d points under '%s'" % [viewer.chart.point_count(0), viewer.range_label.text])
+	viewer.scale_drop.open_popup()
+	await host.get_tree().process_frame
+	var month_row: Button = viewer.scale_drop.row_for(
+		MetricsPeriod.scale_key(MetricsPeriod.Scale.MONTH))
+	var quarter_row: Button = viewer.scale_drop.row_for(
+		MetricsPeriod.scale_key(MetricsPeriod.Scale.QUARTER))
+	TestFixtures.check(res, "a scale the window cannot carry hands its reason to the row tooltip",
+		month_row != null and quarter_row != null
+			and month_row.tooltip_text == MetricsPeriod.REASON_MONTH
+			and quarter_row.tooltip_text == MetricsPeriod.REASON_QUARTER,
+		"month '%s' quarter '%s'" % ["" if month_row == null else month_row.tooltip_text,
+			"" if quarter_row == null else quarter_row.tooltip_text])
+	if month_row != null:
+		month_row.pressed.emit()
+		await host.get_tree().process_frame
+	TestFixtures.check(res, "pressing a shut row leaves the scale where it stood",
+		viewer.chart_scale == MetricsPeriod.Scale.DAY
+			and viewer.wanted_scale() == MetricsPeriod.Scale.DAY,
+		"shown %d wanted %d" % [viewer.chart_scale, viewer.wanted_scale()])
+	viewer.scale_drop.close_popup()
+	viewer.set_period(MetricsPeriod.Period.M6)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a period longer than the record reads the record and no further",
+		viewer.span_days() == PREVIEW_DAYS and viewer.window_days() == PREVIEW_DAYS
+			and viewer.window_from() == 0 and viewer.period_drop.button_text() == "6m",
+		"span %d under '%s'" % [viewer.span_days(), viewer.period_drop.button_text()])
+	viewer.set_period(MetricsPeriod.Period.YTD)
+	await host.get_tree().process_frame
+	var ytd: int = mini(PREVIEW_DAYS, MetricsPeriod.year_day(GameState.day()))
+	TestFixtures.check(res, "YTD cuts the window to the days passed in the Trynn year",
+		viewer.span_days() == ytd and viewer.window_days() == ytd
+			and viewer.window_from() == PREVIEW_DAYS - ytd,
+		"span %d against %d from %d" % [viewer.span_days(), ytd, viewer.window_from()])
+	viewer.set_period(MetricsPeriod.Period.ALL_TIME)
+	await host.get_tree().process_frame
+	var late_uid: int = -1
+	var late_hire: int = 0
+	for view: MercView in GameState.roster:
+		var hire: int = MetricsHistory.hire_day(view.uid)
+		if hire > late_hire:
+			late_hire = hire
+			late_uid = view.uid
+	TestFixtures.check(res, "the preview hires part of the roster after the record opens",
+		late_uid >= 0 and late_hire > 0, "latest hire day %d" % late_hire)
+	if late_uid >= 0:
+		viewer.merc_selector.select_uid(late_uid)
+		await host.get_tree().process_frame
+		TestFixtures.check(res, "one merc on show counts their history from the hire day",
+			viewer.start_row() == late_hire
+				and viewer.available_days() == PREVIEW_DAYS - late_hire
+				and viewer.span_days() == PREVIEW_DAYS - late_hire
+				and viewer.window_from() == late_hire,
+			"hire %d, start %d, span %d, from %d" % [late_hire, viewer.start_row(),
+				viewer.span_days(), viewer.window_from()])
+	viewer.tabs.select_source("Guild")
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the guild graph counts from the first recorded day again",
+		viewer.start_row() == 0 and viewer.span_days() == PREVIEW_DAYS
+			and viewer.window_from() == 0,
+		"start %d span %d" % [viewer.start_row(), viewer.span_days()])
+	viewer.queue_free()
+
+
+#The three graphs against the plan that pays for them: a shut graph plots nothing, locks its tab,
+#dims both dropdowns and takes a LockedPage over the chart area.
+static func _case_graph_locks(res: Dictionary, host: Node) -> void:
+	var viewer: MetricsViewer = await _open(host)
+	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
+	await host.get_tree().process_frame
+	var guild_tab: TabButton = viewer.tabs.button_for("Guild") as TabButton
+	TestFixtures.check(res, "the free plan shuts all three graphs and locks every tab",
+		viewer.graph_locked() and viewer.tabs.is_source_locked("Guild")
+			and viewer.tabs.is_source_locked("Contract") and viewer.tabs.is_source_locked("Merc")
+			and guild_tab != null and guild_tab.locked,
+		"guild %s contract %s merc %s" % [viewer.tabs.is_source_locked("Guild"),
+			viewer.tabs.is_source_locked("Contract"), viewer.tabs.is_source_locked("Merc")])
+	TestFixtures.check(res, "a locked tab carries the lock over its icon and reads Locked",
+		guild_tab != null and guild_tab.lock_overlay.visible
+			and guild_tab.tooltip_text == MetricsViewer.LOCKED_TIP,
+		"overlay %s tip '%s'" % [guild_tab.lock_overlay.visible, guild_tab.tooltip_text])
+	TestFixtures.check(res, "a shut graph plots nothing and draws no axes",
+		viewer.chart.series_count() == 0 and not viewer.chart.visible,
+		"%d series, visible %s" % [viewer.chart.series_count(), viewer.chart.visible])
+	TestFixtures.check(res, "the standalone viewer takes a LockedPage naming the guild graph",
+		viewer.locked_page.visible and viewer.locked_page.feature == "Guild Metrics"
+			and viewer.locked_page.line2_label.text
+				== "Upgrade to Mercday Pro to view Guild Metrics.",
+		"visible %s under '%s'" % [viewer.locked_page.visible,
+			viewer.locked_page.line2_label.text])
+	TestFixtures.check(res, "both dropdowns fall to the disabled shade and read Locked",
+		viewer.period_drop.disabled and viewer.scale_drop.disabled
+			and is_equal_approx(viewer.period_drop.modulate.a, OptionDropdown.DISABLED_ALPHA)
+			and is_equal_approx(viewer.scale_drop.modulate.a, OptionDropdown.DISABLED_ALPHA)
+			and viewer.scale_drop.toggle.tooltip_text == OptionDropdown.LOCKED_TOOLTIP,
+		"alpha %.2f tip '%s'" % [viewer.period_drop.modulate.a,
+			viewer.scale_drop.toggle.tooltip_text])
+	TestFixtures.check(res, "Take Me There aims at the Plans tab while the plan itself falls short",
+		String(viewer.locked_page.target().get("tab", "")) == "plans",
+		"got %s" % str(viewer.locked_page.target()))
+	SubscriptionManager.set_state(SubscriptionManager.Plan.PRO, {})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the Pro plan opens the guild graph and leaves the other two shut",
+		not viewer.graph_locked() and viewer.chart.visible and viewer.chart.series_count() == 2
+			and not viewer.locked_page.visible and not viewer.period_drop.disabled
+			and not viewer.scale_drop.disabled and not viewer.tabs.is_source_locked("Guild")
+			and viewer.tabs.is_source_locked("Contract") and viewer.tabs.is_source_locked("Merc"),
+		"locked %s with %d series" % [viewer.graph_locked(), viewer.chart.series_count()])
+	viewer.tabs.select_source("Contract")
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the contract graph names its own feature and the Enterprise plan",
+		viewer.graph_locked() and viewer.locked_page.visible
+			and viewer.locked_page.feature == "Contract Metrics"
+			and viewer.locked_page.plan == "Mercday Enterprise"
+			and viewer.chart.series_count() == 0 and viewer.scale_drop.disabled,
+		"'%s' on '%s' with %d series" % [viewer.locked_page.feature, viewer.locked_page.plan,
+			viewer.chart.series_count()])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"contractmetrics": 1})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the contract upgrade opens that graph on its own",
+		not viewer.graph_locked() and viewer.chart.series_count() > 0
+			and not viewer.locked_page.visible and not viewer.tabs.is_source_locked("Contract")
+			and viewer.tabs.is_source_locked("Merc"),
+		"locked %s with %d series" % [viewer.graph_locked(), viewer.chart.series_count()])
+	viewer.tabs.select_source("Merc")
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the merc graph asks for the first tier of its own upgrade",
+		viewer.graph_locked() and viewer.locked_page.visible
+			and viewer.locked_page.feature == MetricsLocks.MERC_FEATURE
+			and viewer.locked_page.upgrade_id == MetricsLocks.MERC_UPGRADE_ID
+			and viewer.locked_page.tier == 1
+			and viewer.locked_page.tiers == MetricsLocks.MERC_TIERS,
+		"'%s' tier %d of %d" % [viewer.locked_page.feature, viewer.locked_page.tier,
+			viewer.locked_page.tiers])
+	TestFixtures.check(res, "Take Me There aims at the upgrade once Enterprise is already paid",
+		String(viewer.locked_page.target().get("tab", "")) == "customize"
+			and String(viewer.locked_page.target().get("upgrade", ""))
+				== MetricsLocks.MERC_UPGRADE_ID,
+		"got %s" % str(viewer.locked_page.target()))
+	SubscriptionManager.reset()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a full plan opens every graph and hands both dropdowns back",
+		not viewer.graph_locked() and viewer.chart.visible and not viewer.locked_page.visible
+			and not viewer.period_drop.disabled and not viewer.scale_drop.disabled
+			and not viewer.tabs.is_source_locked("Merc"),
+		"locked %s page %s" % [viewer.graph_locked(), viewer.locked_page.visible])
+	viewer.queue_free()
+
+
+#The lock tables hold ids only: UpgradeDefs owns every upgrade name and tier count.
+static func _case_lock_tables(res: Dictionary) -> void:
+	var repeated: Array[String] = []
+	var mismatch: Array[String] = []
+	for graph: String in MetricsLocks.GRAPH_LOCKS:
+		var row: Dictionary = MetricsLocks.GRAPH_LOCKS[graph]
+		if row.has("upgrade") or row.has("tiers"):
+			repeated.append(graph)
+		var id: String = String(row.get("upgrade_id", ""))
+		var out: Dictionary = MetricsLocks.graph_lock(graph)
+		var want_name: String = UpgradeDefs.name_of(id) if id != "" else ""
+		var want_tiers: int = maxi(1, UpgradeDefs.tier_count(id)) if id != "" else 1
+		if String(out.get("upgrade", "")) != want_name:
+			mismatch.append("%s name %s" % [graph, out.get("upgrade", "")])
+		if int(out.get("tiers", 0)) != want_tiers:
+			mismatch.append("%s tiers %s" % [graph, out.get("tiers", 0)])
+	for key: String in MetricsLocks.METRIC_UPGRADES:
+		var metric_row: Dictionary = MetricsLocks.METRIC_UPGRADES[key]
+		if metric_row.has("upgrade") or metric_row.has("tiers"):
+			repeated.append(key)
+		if not UpgradeDefs.has_id(String(metric_row.get("upgrade_id", ""))):
+			mismatch.append("%s id %s" % [key, metric_row.get("upgrade_id", "")])
+	TestFixtures.check(res, "metrics lock rows carry no upgrade name and no tier count of their own",
+		repeated.is_empty(), "rows %s" % [repeated])
+	TestFixtures.check(res, "metrics lock rows read the name and the tier count from UpgradeDefs",
+		mismatch.is_empty() and MetricsLocks.GRAPH_LOCKS.size() == 3
+			and MetricsLocks.METRIC_UPGRADES.size() == 2, "%s" % [mismatch])
+	TestFixtures.check(res, "MERC_TIERS equals the tier count UpgradeDefs holds",
+		MetricsLocks.MERC_TIERS == UpgradeDefs.tier_count(MetricsLocks.MERC_UPGRADE_ID)
+			and MetricsLocks.MERC_TIERS == 3,
+		"%d vs %d" % [MetricsLocks.MERC_TIERS,
+			UpgradeDefs.tier_count(MetricsLocks.MERC_UPGRADE_ID)])
+	var tier_lock: Dictionary = MetricsLocks.merc_tier_lock(MetricsLocks.PICK_TIER)
+	TestFixtures.check(res, "the merc tier lock names the upgrade UpgradeDefs holds",
+		String(tier_lock.get("upgrade", "")) == UpgradeDefs.name_of(MetricsLocks.MERC_UPGRADE_ID)
+			and int(tier_lock.get("tiers", 0)) == MetricsLocks.MERC_TIERS,
+		"%s" % [tier_lock])
+
+
+#The four merc tiers: no graph, team averages only, one merc, then the comparison.
+static func _case_merc_tiers(res: Dictionary, host: Node) -> void:
+	var viewer: MetricsViewer = await _open(host)
+	viewer.tabs.select_source("Merc")
+	await host.get_tree().process_frame
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "no merc slot shuts the merc graph outright",
+		MetricsLocks.merc_slots() == 0 and viewer.graph_locked() and viewer.locked_page.visible
+			and viewer.chart.series_count() == 0,
+		"%d slots, locked %s, page %s" % [MetricsLocks.merc_slots(), viewer.graph_locked(),
+			viewer.locked_page.visible])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"mercmetrics": 1})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "one slot plots the team averages and holds the picker shut",
+		not viewer.graph_locked() and not viewer.locked_page.visible
+			and viewer.current_uid() == -1 and viewer.merc_selector.disabled
+			and viewer.merc_selector.tooltip_text == MetricsViewer.LOCKED_TIP
+			and viewer.chart.series_count() == 2,
+		"picker shut %s on %d with %d series" % [viewer.merc_selector.disabled,
+			viewer.current_uid(), viewer.chart.series_count()])
+	TestFixtures.check(res, "team averages read the team rows and name no merc in the title",
+		viewer.stored_key("salary") == "team/salary"
+			and viewer.title_label.text == MetricsViewer.ALL_MERCS
+			and not viewer.compare_button.visible and not viewer.compare_lock.visible,
+		"'%s' under '%s'" % [viewer.stored_key("salary"), viewer.title_label.text])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"mercmetrics": 2})
+	await host.get_tree().process_frame
+	viewer.merc_selector.select_uid(GameState.roster[0].uid)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "two slots open the picker and hold the comparison behind tier three",
+		not viewer.merc_selector.disabled and viewer.current_uid() == GameState.roster[0].uid
+			and not MetricsLocks.can_compare() and not viewer.compare_button.visible
+			and viewer.compare_lock.visible
+			and viewer.compare_lock.tier == MetricsLocks.COMPARE_TIER,
+		"picker shut %s, compare %s, lock %s" % [viewer.merc_selector.disabled,
+			viewer.compare_button.visible, viewer.compare_lock.visible])
+	var lines: Array[String] = viewer.compare_lock.copy_lines()
+	TestFixtures.check(res, "the comparison lock names the third tier of the Merc Metrics upgrade",
+		lines.size() == 2 and lines[0] == "%s is locked." % MetricsLocks.MERC_FEATURE
+			and lines[1] == "It requires the Tier III %s upgrade!" % MetricsLocks.MERC_FEATURE,
+		"got %s" % str(lines))
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"mercmetrics": 3})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "three slots hand the comparison button over",
+		MetricsLocks.can_compare() and viewer.compare_button.visible
+			and not viewer.compare_lock.visible,
+		"compare %s lock %s" % [viewer.compare_button.visible, viewer.compare_lock.visible])
+	viewer.compare_button.pressed.emit()
+	await host.get_tree().process_frame
+	viewer.compare_selector.select_uid(GameState.roster[1].uid)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the comparison runs while the third tier stands",
+		viewer.comparing() and viewer.compare_uid() == GameState.roster[1].uid
+			and viewer.compare_selector.visible,
+		"comparing %s with %d" % [viewer.comparing(), viewer.compare_uid()])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"mercmetrics": 2})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "dropping back to two slots ends the comparison on the spot",
+		not viewer.comparing() and viewer.compare_uid() == -1
+			and not viewer.compare_selector.visible and viewer.compare_lock.visible,
+		"comparing %s with %d" % [viewer.comparing(), viewer.compare_uid()])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"mercmetrics": 1})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "dropping back to one slot puts the picker on All Mercs again",
+		viewer.current_uid() == -1 and viewer.merc_selector.disabled
+			and viewer.stored_key("salary") == "team/salary",
+		"got %d on '%s'" % [viewer.current_uid(), viewer.stored_key("salary")])
+	SubscriptionManager.reset()
+	await host.get_tree().process_frame
+	viewer.queue_free()
+
+
+#The opinion metrics behind their own upgrades: a locked row cannot be plotted, sinks to the
+#bottom of the list and carries a FeatureLock naming the upgrade that opens it.
+static func _case_metric_locks(res: Dictionary, host: Node) -> void:
+	var viewer: MetricsViewer = await _open(host)
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE,
+		{"mercmetrics": 3, "contractmetrics": 1})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the survey and the client upgrades shut the three opinion metrics",
+		MetricList.locked_key("Guild", "mop") and MetricList.locked_key("Guild", "cop")
+			and MetricList.locked_key("Merc", "op") and not MetricList.locked_key("Guild", "bank")
+			and not MetricList.locked_key("Merc", "salary"),
+		"mop %s cop %s op %s" % [MetricList.locked_key("Guild", "mop"),
+			MetricList.locked_key("Guild", "cop"), MetricList.locked_key("Merc", "op")])
+	var guild_order: Array[String] = MetricList.row_order("Guild")
+	var sunk: Array[String] = ["bank", "exp", "count", "dead", "port", "mop", "cop"]
+	TestFixtures.check(res, "a shut guild row sinks under every open one and keeps the def order",
+		_same_text(guild_order, sunk), "got %s" % str(guild_order))
+	var merc_order: Array[String] = MetricList.row_order("Merc")
+	TestFixtures.check(res, "the shut merc opinion sinks to the foot of its own list",
+		merc_order.size() == 10 and merc_order[merc_order.size() - 1] == "op"
+			and merc_order[0] == "salary",
+		"got %s" % str(merc_order))
+	var rows: Array[String] = []
+	for i: int in viewer.metric_list.toggle_count():
+		rows.append(viewer.metric_list.toggle_at(i).key)
+	TestFixtures.check(res, "the list widget draws its rows in that same order",
+		_same_text(rows, sunk), "got %s" % str(rows))
+	var mop_row: MetricToggle = _row_for(viewer.metric_list, "mop")
+	var cop_row: MetricToggle = _row_for(viewer.metric_list, "cop")
+	TestFixtures.check(res, "a shut row refuses the press and shows its lock instead",
+		mop_row != null and mop_row.locked and mop_row.disabled and mop_row.lock.visible
+			and not mop_row.button_pressed and not mop_row.arrow.visible,
+		"locked %s shut %s lock %s" % ["nothing" if mop_row == null else str(mop_row.locked),
+			"nothing" if mop_row == null else str(mop_row.disabled),
+			"nothing" if mop_row == null else str(mop_row.lock.visible)])
+	TestFixtures.check(res, "the guild opinion row names the Employee Survey upgrade",
+		mop_row != null and mop_row.lock.upgrade == "Employee Survey"
+			and mop_row.lock.upgrade_id == "survey"
+			and mop_row.lock.feature == MetricList.def_for("Guild", "mop").label,
+		"got '%s' as '%s'" % ["" if mop_row == null else mop_row.lock.upgrade,
+			"" if mop_row == null else mop_row.lock.upgrade_id])
+	TestFixtures.check(res, "the client opinion row names the Customer Satisfaction upgrade",
+		cop_row != null and cop_row.lock.upgrade == "Customer Satisfaction"
+			and cop_row.lock.upgrade_id == "customer" and cop_row.lock.visible,
+		"got '%s' as '%s'" % ["" if cop_row == null else cop_row.lock.upgrade,
+			"" if cop_row == null else cop_row.lock.upgrade_id])
+	var plotted: int = viewer.chart.series_count()
+	viewer.metric_list.set_active("Guild", "mop", true)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a shut metric cannot be plotted at all",
+		not viewer.metric_list.active_keys("Guild").has("mop")
+			and viewer.chart.series_count() == plotted,
+		"keys %s with %d series" % [str(viewer.metric_list.active_keys("Guild")),
+			viewer.chart.series_count()])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE,
+		{"mercmetrics": 3, "contractmetrics": 1, "survey": 1, "customer": 1})
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "both upgrades open the opinion rows and put them back in def order",
+		not MetricList.locked_key("Guild", "mop") and not MetricList.locked_key("Merc", "op")
+			and _same_text(MetricList.row_order("Guild"),
+				["bank", "exp", "count", "dead", "mop", "cop", "port"]),
+		"got %s" % str(MetricList.row_order("Guild")))
+	viewer.metric_list.set_active("Guild", "mop", true)
+	await host.get_tree().process_frame
+	var open_row: MetricToggle = _row_for(viewer.metric_list, "mop")
+	TestFixtures.check(res, "an opened metric plots like any other",
+		viewer.metric_list.active_keys("Guild").has("mop")
+			and viewer.chart.series_count() == plotted + 1 and open_row != null
+			and not open_row.locked and not open_row.disabled and not open_row.lock.visible,
+		"keys %s with %d series" % [str(viewer.metric_list.active_keys("Guild")),
+			viewer.chart.series_count()])
+	var dropped: bool = false
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"mercmetrics": 3})
+	await host.get_tree().process_frame
+	dropped = not viewer.metric_list.active_keys("Guild").has("mop")
+	TestFixtures.check(res, "taking the upgrade away drops that metric from the plot again",
+		dropped and viewer.chart.series_count() == plotted,
+		"keys %s with %d series" % [str(viewer.metric_list.active_keys("Guild")),
+			viewer.chart.series_count()])
+	SubscriptionManager.reset()
+	await host.get_tree().process_frame
+	viewer.queue_free()
+
+
+#The period table on three dates of a Trynn year: the first day, mid year and the last day.
+static func _case_period_rules(res: Dictionary) -> void:
+	TestFixtures.check(res, "All Time names no day count of its own on any date",
+		MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_START) == -1
+			and MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_MID) == -1
+			and MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_END) == -1,
+		"got %d" % MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_MID))
+	var ytd_start: int = MetricsPeriod.period_days(MetricsPeriod.Period.YTD, YEAR_START)
+	var ytd_mid: int = MetricsPeriod.period_days(MetricsPeriod.Period.YTD, YEAR_MID)
+	var ytd_end: int = MetricsPeriod.period_days(MetricsPeriod.Period.YTD, YEAR_END)
+	TestFixtures.check(res, "YTD counts the days passed in the year, the first day counting as one",
+		ytd_start == 1 and ytd_mid == 166 and ytd_end == MetricsPeriod.YEAR_DAYS,
+		"got %d, %d and %d" % [ytd_start, ytd_mid, ytd_end])
+	var fixed: Array[int] = [MetricsPeriod.Period.M6, MetricsPeriod.Period.Y1,
+		MetricsPeriod.Period.Y3, MetricsPeriod.Period.Y5]
+	var want: Array[int] = [198, 330, 990, 1650]
+	var got: Array[int] = []
+	var steady: bool = true
+	for i: int in fixed.size():
+		got.append(MetricsPeriod.period_days(fixed[i], YEAR_MID))
+		for today: int in [YEAR_START, YEAR_MID, YEAR_END]:
+			steady = steady and MetricsPeriod.period_days(fixed[i], today) == want[i]
+	TestFixtures.check(res, "6m, 1y, 3y and 5y hold the same day count on every date",
+		steady and _same(got, want), "got %s against %s" % [str(got), str(want)])
+	TestFixtures.check(res, "the year of the game calendar decides the longer periods",
+		MetricsPeriod.YEAR_DAYS == TrynnCalendar.DAYS_PER_YEAR
+			and MetricsPeriod.HALF_YEAR == 6 * MetricsHistory.DAYS_PER_MONTH,
+		"year %d, half %d" % [MetricsPeriod.YEAR_DAYS, MetricsPeriod.HALF_YEAR])
+	TestFixtures.check(res, "a window never reaches past the record nor falls under a single day",
+		MetricsPeriod.span(MetricsPeriod.Period.Y5, YEAR_MID, 400) == 400
+			and MetricsPeriod.span(MetricsPeriod.Period.M6, YEAR_MID, 400) == 198
+			and MetricsPeriod.span(MetricsPeriod.Period.ALL_TIME, YEAR_MID, 0) == 1
+			and MetricsPeriod.span(MetricsPeriod.Period.Y1, YEAR_MID, 0) == 1,
+		"got %d and %d" % [MetricsPeriod.span(MetricsPeriod.Period.Y5, YEAR_MID, 400),
+			MetricsPeriod.span(MetricsPeriod.Period.M6, YEAR_MID, 400)])
+	TestFixtures.check(res, "each scale hands back the reason a window shuts it out for",
+		MetricsPeriod.reason(MetricsPeriod.Scale.DAY) == MetricsPeriod.REASON_DAY
+			and MetricsPeriod.reason(MetricsPeriod.Scale.WEEK) == MetricsPeriod.REASON_WEEK
+			and MetricsPeriod.reason(MetricsPeriod.Scale.MONTH) == MetricsPeriod.REASON_MONTH
+			and MetricsPeriod.reason(MetricsPeriod.Scale.QUARTER) == MetricsPeriod.REASON_QUARTER
+			and MetricsPeriod.reason(9) == "",
+		"got '%s'" % MetricsPeriod.reason(MetricsPeriod.Scale.MONTH))
+	TestFixtures.check(res, "the four reasons read as the data delta writes them",
+		MetricsPeriod.REASON_DAY == "Days need a period of 6m or less"
+			and MetricsPeriod.REASON_WEEK == "Weeks need a period of 1y or less"
+			and MetricsPeriod.REASON_MONTH == "Months need a period of 6m or more"
+			and MetricsPeriod.REASON_QUARTER == "Quarters need a period of 1y or more",
+		"got %s" % str(MetricsPeriod.REASONS))
+	TestFixtures.check(res, "the period captions and keys stand in enum order",
+		MetricsPeriod.period_label(MetricsPeriod.Period.ALL_TIME) == "All Time"
+			and MetricsPeriod.period_label(MetricsPeriod.Period.M6) == "6m"
+			and MetricsPeriod.period_of(&"y3") == MetricsPeriod.Period.Y3
+			and MetricsPeriod.scale_of(&"quarter") == MetricsPeriod.Scale.QUARTER
+			and MetricsPeriod.scale_singular(MetricsPeriod.Scale.WEEK) == "Week",
+		"got '%s' and %d" % [MetricsPeriod.period_label(MetricsPeriod.Period.M6),
+			MetricsPeriod.period_of(&"y3")])
+
+
+#The scales a window can carry and the snap that holds the guild's pick as near as it reaches. A
+#valid set is always one unbroken run of scales, so the tie rule of snap_scale never comes up.
+static func _case_scale_rules(res: Dictionary) -> void:
+	var day_s: int = MetricsPeriod.Scale.DAY
+	var week_s: int = MetricsPeriod.Scale.WEEK
+	var month_s: int = MetricsPeriod.Scale.MONTH
+	var quarter_s: int = MetricsPeriod.Scale.QUARTER
+	var spans: Array[int] = [1, 197, 198, 199, 329, 330, 331, 1650]
+	var sets: Array[Array] = [[day_s, week_s], [day_s, week_s], [day_s, week_s, month_s],
+		[week_s, month_s], [week_s, month_s], [week_s, month_s, quarter_s],
+		[month_s, quarter_s], [month_s, quarter_s]]
+	var ok: bool = true
+	var report: String = ""
+	for i: int in spans.size():
+		var got: Array[int] = MetricsPeriod.valid_scales(spans[i])
+		if not _same(got, sets[i]):
+			ok = false
+			report += "%d gives %s; " % [spans[i], str(got)]
+	TestFixtures.check(res, "each window opens the scales its own length can carry",
+		ok, "got %s" % report)
+	var snap_spans: Array[int] = [100, 250, 990]
+	var snap_table: Array[Array] = [[day_s, week_s, week_s, week_s],
+		[week_s, week_s, month_s, month_s], [month_s, month_s, month_s, quarter_s]]
+	var snap_ok: bool = true
+	var snap_report: String = ""
+	for i: int in snap_spans.size():
+		for wanted: int in MetricsPeriod.SCALE_LABELS.size():
+			var got: int = MetricsPeriod.snap_scale(wanted, snap_spans[i])
+			if got != int(snap_table[i][wanted]):
+				snap_ok = false
+				snap_report += "%d wanting %d gives %d; " % [snap_spans[i], wanted, got]
+	TestFixtures.check(res, "a pick the window cannot carry snaps to the nearest scale it can",
+		snap_ok, "got %s" % snap_report)
+	var six: int = MetricsPeriod.span(MetricsPeriod.Period.M6, YEAR_MID, DEEP_HISTORY)
+	var three: int = MetricsPeriod.span(MetricsPeriod.Period.Y3, YEAR_MID, DEEP_HISTORY)
+	TestFixtures.check(res, "a deep record lets 6m reach 198 days and 3y reach 990",
+		six == 198 and three == 990, "got %d and %d" % [six, three])
+	TestFixtures.check(res, "Days picked under 6m reads Months under 3y and Days on the way back",
+		MetricsPeriod.snap_scale(day_s, six) == day_s
+			and MetricsPeriod.snap_scale(day_s, three) == month_s
+			and MetricsPeriod.scale_label(MetricsPeriod.snap_scale(day_s, three)) == "Months",
+		"got '%s'" % MetricsPeriod.scale_label(MetricsPeriod.snap_scale(day_s, three)))
+	var rows: Array[Dictionary] = MetricsPeriod.scale_options(100)
+	TestFixtures.check(res, "a scale row the window shuts is disabled and carries its reason",
+		rows.size() == 4 and bool(rows[day_s]["enabled"]) and bool(rows[week_s]["enabled"])
+			and not bool(rows[month_s]["enabled"]) and not bool(rows[quarter_s]["enabled"])
+			and String(rows[month_s]["reason"]) == MetricsPeriod.REASON_MONTH
+			and String(rows[day_s]["reason"]) == "",
+		"got %s" % str(rows))
+	var period_rows: Array[Dictionary] = MetricsPeriod.period_options()
+	TestFixtures.check(res, "every period row can be picked whatever the record holds",
+		period_rows.size() == 6 and bool(period_rows[0]["enabled"])
+			and bool(period_rows[5]["enabled"]) and String(period_rows[2]["label"]) == "6m"
+			and StringName(period_rows[1]["key"]) == &"ytd",
+		"got %s" % str(period_rows))
+
+
+#The windowed read of the record: a first row and a day count cut exactly the rows the full read
+#holds, a count past the end stops at the end and a count of nothing reads nothing.
+static func _case_window_math(res: Dictionary, host: Node) -> void:
+	_fresh()
+	await host.get_tree().process_frame
+	MetricsHistory.seed_preview(SEED_DAYS, _uids())
+	var full: Array[Dictionary] = MetricsHistory.series("Guild", "bank", 0, 1)
+	var cut: Array[Dictionary] = MetricsHistory.series("Guild", "bank", 10, 1, 5)
+	var lined_up: bool = full.size() == SEED_DAYS and cut.size() == 5
+	for i: int in cut.size():
+		if i + 10 >= full.size():
+			lined_up = false
+			break
+		var same_day: bool = int(cut[i]["day"]) == int(full[i + 10]["day"])
+		var same_value: bool = is_equal_approx(float(cut[i]["value"]), float(full[i + 10]["value"]))
+		lined_up = lined_up and same_day and same_value
+	TestFixtures.check(res, "a windowed read hands back the very rows the full read holds",
+		lined_up, "%d rows of %d, first day %s" % [cut.size(), full.size(),
+			"none" if cut.is_empty() else str(cut[0]["day"])])
+	var past: Array[Dictionary] = MetricsHistory.series("Guild", "bank", SEED_DAYS - 5, 1, 20)
+	var none: Array[Dictionary] = MetricsHistory.series("Guild", "bank", 10, 1, 0)
+	TestFixtures.check(res, "a count past the end stops at the end and a count of nothing reads none",
+		past.size() == 5 and none.is_empty()
+			and MetricsHistory.series("Guild", "bank", 0, 1, -1).size() == SEED_DAYS,
+		"%d past the end, %d of none" % [past.size(), none.size()])
+	var buckets: Array[Dictionary] = MetricsHistory.series("Guild", "bank", 20, 10, 20)
+	TestFixtures.check(res, "a bucketed window starts on its own first row",
+		buckets.size() == 2 and int(buckets[0]["day"]) == 20 and int(buckets[1]["day"]) == 30,
+		"got %d buckets from %s" % [buckets.size(),
+			"none" if buckets.is_empty() else str(buckets[0]["day"])])
+	var team_full: Array[Dictionary] = MetricsHistory.team_average("salary", 0, 10)
+	var team_cut: Array[Dictionary] = MetricsHistory.team_average("salary", 20, 10, -1, 20)
+	var team_ok: bool = team_full.size() == 5 and team_cut.size() == 2
+	for i: int in team_cut.size():
+		var mate: Dictionary = team_full[i + 2]
+		team_ok = team_ok and int(team_cut[i]["day"]) == int(mate["day"])
+		var both_nan: bool = is_nan(float(team_cut[i]["value"])) and is_nan(float(mate["value"]))
+		team_ok = team_ok and (both_nan
+			or is_equal_approx(float(team_cut[i]["value"]), float(mate["value"])))
+	TestFixtures.check(res, "the team average windows onto the same buckets as the full read",
+		team_ok, "%d buckets against %d" % [team_cut.size(), team_full.size()])
+	var names: Array[String] = ContractLibrary.contract_type_names()
+	var typed: Array[String] = []
+	typed.append(names[0] if not names.is_empty() else "Bounty")
+	var joined: Array[Dictionary] = MetricsHistory.combined_series("Contract", "count", typed,
+		10, 1, 5)
+	TestFixtures.check(res, "the combined read takes the same window as a single key",
+		joined.size() == 5 and int(joined[0]["day"]) == 10,
+		"got %d rows from %s" % [joined.size(),
+			"none" if joined.is_empty() else str(joined[0]["day"])])
+	TestFixtures.check(res, "the scale table of the record still answers for other callers",
+		MetricsHistory.scales(SEED_DAYS).size() > 0,
+		"got %s" % str(MetricsHistory.scales(SEED_DAYS)))
+	_reset()
+
+
+#Two int lists hold the same values in the same order.
+static func _same(got: Array[int], want: Array) -> bool:
+	if got.size() != want.size():
+		return false
+	for i: int in got.size():
+		if got[i] != int(want[i]):
+			return false
+	return true
+
+
+#Two text lists hold the same entries in the same order.
+static func _same_text(got: Array[String], want: Array) -> bool:
+	if got.size() != want.size():
+		return false
+	for i: int in got.size():
+		if got[i] != String(want[i]):
+			return false
+	return true
+
+
+static func _row_for(list: MetricList, key: String) -> MetricToggle:
+	for i: int in list.toggle_count():
+		var row: MetricToggle = list.toggle_at(i)
+		if row != null and row.key == key:
+			return row
+	return null
+
+
+#How many cream pixels one tab icon carries and how many of them read as ink once its tab is
+#active, so the recolour of the active plate can be counted instead of looked at.
+static func _ink_counts(source_name: String) -> Vector2i:
+	var idle: Texture2D = MetricsGlyphs.tab_icon(source_name, MetricsGlyphs.TabState.IDLE)
+	var active: Texture2D = MetricsGlyphs.tab_icon(source_name, MetricsGlyphs.TabState.ACTIVE)
+	if idle == null or active == null:
+		return Vector2i(-1, -1)
+	var plain: Image = idle.get_image().duplicate() as Image
+	var lit: Image = active.get_image().duplicate() as Image
+	if plain.is_compressed():
+		plain.decompress()
+	if lit.is_compressed():
+		lit.decompress()
+	plain.convert(Image.FORMAT_RGBA8)
+	lit.convert(Image.FORMAT_RGBA8)
+	var cream: int = 0
+	var ink: int = 0
+	for y: int in plain.get_height():
+		for x: int in plain.get_width():
+			var px: Color = plain.get_pixel(x, y)
+			if px.a <= 0.0 or not MetricsGlyphs.near(px, MetricsGlyphs.CREAM):
+				continue
+			cream += 1
+			if MetricsGlyphs.near(lit.get_pixel(x, y), MetricsGlyphs.INK):
+				ink += 1
+	return Vector2i(cream, ink)
+
+
+#Item 11: the Show All and Hide All buttons are blue BevelButton; Compare stays a plain toggle.
+static func _case_bevel_sweep(res: Dictionary, host: Node) -> void:
+	var viewer: MetricsViewer = await _open(host)
+	TestFixtures.check(res, "Show All and Hide All are blue BevelButton with their own labels",
+		viewer.show_all is BevelButton and viewer.show_all.kind == &"blue"
+		and viewer.show_all.text == MetricsViewer.SHOW_ALL_TEXT
+		and viewer.hide_all is BevelButton and viewer.hide_all.kind == &"blue"
+		and viewer.hide_all.text == MetricsViewer.HIDE_ALL_TEXT,
+		"show %s hide %s" % [viewer.show_all, viewer.hide_all])
+	TestFixtures.check(res, "Compare stays the plain +/- toggle, not a BevelButton",
+		not (viewer.compare_button is BevelButton), "%s" % [viewer.compare_button])
+	viewer.hide_all.pressed.emit()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "Hide All still clears every metric once it is a BevelButton",
+		viewer.metric_list.active_keys(viewer.source()).is_empty(), "%s" % [
+			viewer.metric_list.active_keys(viewer.source())])
+	viewer.show_all.pressed.emit()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "Show All still turns every metric back on",
+		not viewer.metric_list.active_keys(viewer.source()).is_empty(), "still empty")
+	viewer.queue_free()

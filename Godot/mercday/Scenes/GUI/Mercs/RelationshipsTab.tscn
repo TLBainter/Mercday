@@ -37,7 +37,14 @@ layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="Grid" type="GridContainer" parent="Scroll"]
+[node name="Pad" type="MarginContainer" parent="Scroll"]
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 14
+
+[node name="Grid" type="GridContainer" parent="Scroll/Pad"]
 size_flags_horizontal = 3
 columns = 3
 theme_override_constants/h_separation = 12

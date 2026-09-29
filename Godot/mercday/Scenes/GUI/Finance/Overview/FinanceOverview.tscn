@@ -1,0 +1,49 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Finance/Overview/FinanceOverview.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Overview/FinanceProjection.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Overview/FinanceExpenses.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Overview/FinanceTransactions.tscn" id="4"]
+
+[node name="FinanceOverview" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="Columns" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_constants/separation = 18
+
+[node name="Left" type="VBoxContainer" parent="Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Stats" type="HBoxContainer" parent="Columns/Left"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="Projection" parent="Columns/Left" instance=ExtResource("2")]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Right" type="VBoxContainer" parent="Columns"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Expenses" parent="Columns/Right" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="Transactions" parent="Columns/Right" instance=ExtResource("4")]
+layout_mode = 2
+size_flags_vertical = 3

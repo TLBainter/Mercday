@@ -1,0 +1,38 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Notifications/NotificationFilterPanel.gd" id="1"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="2"]
+
+[node name="NotificationFilterPanel" type="Control"]
+custom_minimum_size = Vector2(200, 0)
+script = ExtResource("1")
+heading_text = "Show"
+options = Array[String](["All", "Contract", "Mercenary", "Finance", "Metrics"])
+selected = "All"
+
+[node name="Pad" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Box" type="VBoxContainer" parent="Pad"]
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Heading" type="Label" parent="Pad/Box"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 10
+text = "Show"
+
+[node name="Options" type="VBoxContainer" parent="Pad/Box"]
+mouse_filter = 2
+theme_override_constants/separation = 4

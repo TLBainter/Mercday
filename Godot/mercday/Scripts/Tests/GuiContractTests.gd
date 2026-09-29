@@ -2,10 +2,12 @@ class_name GuiContractTests
 
 #Stage 2 contract screens: ContractList, ContractFilterPanel, ContractDetail, ContractViewer and
 #DispatchWindow, all driven through the live GameState autoload.
-#Run: godot --headless --path . -- --gui-contract-tests
+#Run: the headless harness flag gui-contract-tests, after the bare argument separator.
 
 const VIEWER: PackedScene = preload("res://Scenes/GUI/Contracts/ContractViewer.tscn")
 const WINDOW: PackedScene = preload("res://Scenes/GUI/Contracts/DispatchWindow.tscn")
+const OLD_DIR_TOGGLE_SCENE: String = "res://Scenes/GUI/Shared/DirToggle.tscn"
+const SORT_DIR_TOGGLE_SCENE: String = "res://Scenes/GUI/Shared/SortDirToggle.tscn"
 
 const CLEAR_TEXT: String = "This will clear all changes to this dispatch."
 const OPTIMIZE_TEXT: String = "Optimizing will clear your current configuration. Are you sure?"
@@ -54,6 +56,19 @@ static func run(host: Node) -> bool:
 	await _case_roster_rows(res, host)
 	await _case_picker_overlay(res, host)
 	await _case_window_fit(res, host)
+	await _case_decision_palettes(res, host)
+	await _case_shown_status(res, host)
+	await _case_result_rows(res, host)
+	await _case_pay_rows(res, host)
+	await _case_filter_options(res, host)
+	await _case_reveal(res, host)
+	await _case_results_host(res, host)
+	await _case_results_dismiss(res, host)
+	await _case_sort_toggle(res, host)
+	await _case_claim_keeps_selection(res, host)
+	await _case_claim_no_scene_fallback(res, host)
+	await _case_claim_selection_narrow(res, host)
+	_case_bonus_pct_placeholder(res)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	CampaignClock.reset()
 	return TestFixtures.summarize(res, "GUI CONTRACT")
@@ -85,6 +100,18 @@ static func _ids(views: Array[ContractView]) -> Array[int]:
 	for view: ContractView in views:
 		out.append(view.entry_id)
 	return out
+
+
+#A sorted copy of GameState.busy_uids(), so two reads compare by value.
+static func _busy_now() -> Array[int]:
+	var out: Array[int] = GameState.busy_uids().duplicate()
+	out.sort()
+	return out
+
+
+#True when the busy list has not moved since the case took its own snapshot.
+static func _same_busy(before: Array[int]) -> bool:
+	return _busy_now() == before
 
 
 #True when the listed difficulties never rise (descending) or never fall (ascending).
@@ -198,10 +225,10 @@ static func _case_filter(res: Dictionary, host: Node) -> void:
 		not viewer.list().has_id(closed_id) and viewer.list().row_count() == open_rows - 1,
 		"rows %d of %d" % [viewer.list().row_count(), open_rows - 1])
 	var rules: Dictionary = viewer.list().filter_panel.filter()
-	rules["show_closed"] = true
+	rules["show_completed"] = true
 	viewer.list().filter_panel.set_filter(rules)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "show_closed brings the settled posting back",
+	TestFixtures.check(res, "the Completed option brings the settled posting back",
 		viewer.list().has_id(closed_id) and viewer.list().row_count() == open_rows,
 		"rows %d of %d" % [viewer.list().row_count(), open_rows])
 	var nearest: int = ContractList.OPEN_DISTANCE
@@ -641,12 +668,13 @@ static func _case_commit(res: Dictionary, host: Node) -> void:
 
 static func _case_night_queue(res: Dictionary, host: Node) -> void:
 	_fresh()
+	var busy_before: Array[int] = _busy_now()
 	await GameState.process_until(NIGHT_MINUTE)
 	var viewer: ContractViewer = _viewer(host)
 	await host.get_tree().process_frame
 	var view: ContractView = _first_open(viewer)
 	var window: DispatchWindow = await _open_window(viewer, view, host)
-	_fill_team(window)
+	var team: Array[int] = _fill_team(window)
 	window.pick_travel(0, "foot")
 	window.pick_travel(1, "foot")
 	await host.get_tree().process_frame
@@ -682,12 +710,16 @@ static func _case_night_queue(res: Dictionary, host: Node) -> void:
 	for row: ContractView in GameState.contracts:
 		if row.entry_id == view.entry_id:
 			back = row
+	var team_free: bool = true
+	for uid: int in team:
+		if GameState.busy_uids().has(uid):
+			team_free = false
 	TestFixtures.check(res, "the posting reopens and the team is free",
 		back != null and back.status == GuiTypes.ContractStatus.AVAILABLE
 		and not GameState.queued.has(view.entry_id)
-		and GameState.busy_uids().is_empty(),
-		"status %d queued %s" % [(back.status if back != null else -1),
-		GameState.queued.has(view.entry_id)])
+		and _same_busy(busy_before) and team_free,
+		"status %d queued %s busy %s was %s" % [(back.status if back != null else -1),
+		GameState.queued.has(view.entry_id), str(_busy_now()), str(busy_before)])
 	TestFixtures.check(res, "Cancel Dispatch goes away with the queue",
 		not viewer.detail().decisions().cancel_button.visible
 		and viewer.detail().decisions().accept_button.visible,
@@ -695,7 +727,7 @@ static func _case_night_queue(res: Dictionary, host: Node) -> void:
 	viewer.queue_free()
 
 
-#Item 26: a closed posting stays on the board for the rest of its month, behind show_closed.
+#Item 26: a closed posting stays on the board for its month, behind its own filter option.
 static func _case_show_closed(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var viewer: ContractViewer = _viewer(host)
@@ -714,11 +746,11 @@ static func _case_show_closed(res: Dictionary, host: Node) -> void:
 		not viewer.list().has_id(closed_id) and viewer.list().row_count() == open_rows - 1,
 		"rows %d of %d" % [viewer.list().row_count(), open_rows - 1])
 	var rules: Dictionary = viewer.list().filter_panel.filter()
-	rules["show_closed"] = true
+	rules["show_expired"] = true
 	viewer.list().filter_panel.set_filter(rules)
 	await host.get_tree().process_frame
 	var row: ContractListItem = _row_of(viewer.list(), closed_id)
-	TestFixtures.check(res, "show_closed lists it again under its status strip",
+	TestFixtures.check(res, "the Expired option lists it again under its status strip",
 		row != null
 		and row.strip_text() == GuiTypes.status_text(GuiTypes.ContractStatus.EXPIRED),
 		"strip %s" % (row.strip_text() if row != null else ""))
@@ -735,6 +767,11 @@ static func _case_show_closed(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the view carries the minute the posting closed",
 		kept != null and kept.closed_minute == entry.closed_minute,
 		"closed %d" % (kept.closed_minute if kept != null else -1))
+	TestFixtures.check(res, "an expired posting still reads its deadline date",
+		kept != null and kept.expires_minute >= 0 and viewer.detail().date_line()
+			== "Deadline " + TrynnCalendar.date_text(kept.expires_minute),
+		"dates %s expires %d" % [viewer.detail().date_line(),
+		kept.expires_minute if kept != null else -1])
 	viewer.queue_free()
 
 
@@ -802,8 +839,8 @@ static func _case_row_extras(res: Dictionary, host: Node) -> void:
 	var row: ContractListItem = viewer.list().row_at(0)
 	var view: ContractView = row.view
 	TestFixtures.check(res, "every row carries a status strip in the status colour",
-		row.strip_text() == view.status_text()
-		and row.strip_color() == GuiTypes.status_color(view.status),
+		row.strip_text() == view.shown_status_text()
+		and row.strip_color() == view.shown_status_color(),
 		"strip %s" % row.strip_text())
 	TestFixtures.check(res, "every row carries the posting level",
 		row.badge() != null and row.badge().level == view.contract_level,
@@ -1158,6 +1195,7 @@ static func _case_picker(res: Dictionary, host: Node) -> void:
 #Items 51 and 52: the odds ladder and the recap the last dialog shows.
 static func _case_dialogs(res: Dictionary, host: Node) -> void:
 	_fresh()
+	var busy_before: Array[int] = _busy_now()
 	var viewer: ContractViewer = _viewer(host)
 	await host.get_tree().process_frame
 	var view: ContractView = _first_open(viewer)
@@ -1195,8 +1233,8 @@ static func _case_dialogs(res: Dictionary, host: Node) -> void:
 	dialog.press(0)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "backing out of the recap dispatches nobody",
-		not dialog.visible and GameState.busy_uids().is_empty(),
-		"busy %d" % GameState.busy_uids().size())
+		not dialog.visible and _same_busy(busy_before),
+		"busy %s was %s" % [str(_busy_now()), str(busy_before)])
 	window.queue_free()
 	viewer.queue_free()
 
@@ -1338,11 +1376,19 @@ static func _case_action_bar(res: Dictionary, host: Node) -> void:
 		bar.odds_label.get_theme_color(&"font_color")])
 	TestFixtures.check(res, "a legal team turns Dispatch green and Clear live",
 		not bar.dispatch_button.disabled
-		and bar.dispatch_button.theme_type_variation == &"ButtonGo"
+		and bar.dispatch_button.kind == &"go"
 		and not bar.clear_button.disabled
 		and is_equal_approx(bar.clear_button.modulate.a, 1.0),
 		"dispatch %s clear %s alpha %.2f" % [bar.dispatch_button.disabled,
 		bar.clear_button.disabled, bar.clear_button.modulate.a])
+	TestFixtures.check(res, "the four action bar buttons are the shared BevelButton scene",
+		bar.optimize_button is BevelButton and bar.clear_button is BevelButton
+		and bar.cancel_button is BevelButton and bar.dispatch_button is BevelButton
+		and bar.optimize_button.kind == &"blue" and bar.cancel_button.kind == &"danger"
+		and bar.optimize_button.text == "Optimize" and bar.clear_button.text == "Clear"
+		and bar.cancel_button.text == "Cancel" and bar.dispatch_button.text == "Dispatch",
+		"optimize %s clear %s cancel %s dispatch %s" % [bar.optimize_button, bar.clear_button,
+		bar.cancel_button, bar.dispatch_button])
 	window.queue_free()
 	viewer.queue_free()
 
@@ -1350,6 +1396,7 @@ static func _case_action_bar(res: Dictionary, host: Node) -> void:
 #D1: every dispatch dialog answers safely on the first button and carries on with the last.
 static func _case_dialog_kinds(res: Dictionary, host: Node) -> void:
 	_fresh()
+	var busy_before: Array[int] = _busy_now()
 	var viewer: ContractViewer = _viewer(host)
 	await host.get_tree().process_frame
 	var view: ContractView = _first_open(viewer)
@@ -1396,8 +1443,9 @@ static func _case_dialog_kinds(res: Dictionary, host: Node) -> void:
 	window.confirm().press(0)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "backing out of the warning drops the ladder",
-		not window.confirm().visible and GameState.busy_uids().is_empty(),
-		"visible %s busy %d" % [window.confirm().visible, GameState.busy_uids().size()])
+		not window.confirm().visible and _same_busy(busy_before),
+		"visible %s busy %s was %s" % [window.confirm().visible, str(_busy_now()),
+		str(busy_before)])
 	window._ask_next_step(10, "")
 	await host.get_tree().process_frame
 	window.confirm().press(window.confirm().button_count() - 1)
@@ -1431,8 +1479,8 @@ static func _case_dialog_kinds(res: Dictionary, host: Node) -> void:
 	recap.press(0)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "backing out of the recap dispatches nobody",
-		not recap.visible and GameState.busy_uids().is_empty(),
-		"busy %d" % GameState.busy_uids().size())
+		not recap.visible and _same_busy(busy_before),
+		"busy %s was %s" % [str(_busy_now()), str(busy_before)])
 	window._ask_next_step(80, "final")
 	await host.get_tree().process_frame
 	window.confirm().press(window.confirm().button_count() - 1)
@@ -1477,11 +1525,12 @@ static func _dialog_text(dialog: ConfirmDialog) -> String:
 #Item 27: a posting that closed behind the window fails the dispatch and is struck off.
 static func _case_failed(res: Dictionary, host: Node) -> void:
 	_fresh()
+	var busy_before: Array[int] = _busy_now()
 	var viewer: ContractViewer = _viewer(host)
 	await host.get_tree().process_frame
 	var view: ContractView = _first_open(viewer)
 	var window: DispatchWindow = await _open_window(viewer, view, host)
-	_fill_team(window)
+	var team: Array[int] = _fill_team(window)
 	window.pick_travel(0, "foot")
 	window.pick_travel(1, "foot")
 	await host.get_tree().process_frame
@@ -1514,8 +1563,13 @@ static func _case_failed(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a failed posting is struck off the board",
 		not still and GameState.board.entry(view.entry_id) == null,
 		"listed %s" % still)
+	var team_free: bool = true
+	for uid: int in team:
+		if GameState.busy_uids().has(uid):
+			team_free = false
 	TestFixtures.check(res, "nobody left and no notes were charged",
-		GameState.busy_uids().is_empty(), "busy %d" % GameState.busy_uids().size())
+		_same_busy(busy_before) and team_free,
+		"busy %s was %s" % [str(_busy_now()), str(busy_before)])
 	TestFixtures.check(res, "the window closes and the viewer moves on",
 		not viewer.window().is_open() and viewer.selected_id != view.entry_id,
 		"open %s selected %d" % [viewer.window().is_open(), viewer.selected_id])
@@ -1594,7 +1648,7 @@ static func _case_next_available(res: Dictionary, host: Node) -> void:
 	var viewer: ContractViewer = _viewer(host)
 	await host.get_tree().process_frame
 	var rules: Dictionary = viewer.list().filter_panel.filter()
-	rules["show_closed"] = true
+	rules["show_expired"] = true
 	viewer.list().filter_panel.set_filter(rules)
 	await host.get_tree().process_frame
 	var ids: Array[int] = viewer.list().listed_ids()
@@ -1610,7 +1664,7 @@ static func _case_next_available(res: Dictionary, host: Node) -> void:
 	GameState.contracts_changed.emit()
 	await host.get_tree().process_frame
 	ids = viewer.list().listed_ids()
-	TestFixtures.check(res, "a closed row keeps its place while show_closed is on",
+	TestFixtures.check(res, "a closed row keeps its place while its option is on",
 		ids.size() >= 3 and ids[1] == middle.id, "ids %s" % str(ids))
 	TestFixtures.check(res, "next_available steps over the closed row",
 		viewer.next_available(ids[0]) == ids[2],
@@ -1679,6 +1733,10 @@ static func _case_detail_layout(res: Dictionary, host: Node) -> void:
 		buttons.accept_button.size.y >= 54.0 and buttons.reject_button.size.y >= 54.0,
 		"accept %.1f reject %.1f" % [buttons.accept_button.size.y,
 		buttons.reject_button.size.y])
+	TestFixtures.check(res, "the detail mark draws four pixels per art pixel",
+		detail.status_mark().icon_rect.pixel_scale == ContractDetail.DETAIL_MARK_SCALE
+		and ContractDetail.DETAIL_MARK_SCALE == 4,
+		"scale %d" % detail.status_mark().icon_rect.pixel_scale)
 	var first: RecommendedList = detail.list(0)
 	TestFixtures.check(res, "a recommended entry rides on a slot chip",
 		first.row_count() == 0 or first.chip_at(0) is SlotChip,
@@ -1746,7 +1804,7 @@ static func _case_detail_layout(res: Dictionary, host: Node) -> void:
 	viewer.queue_free()
 
 
-#Round 6: each decision button carries its own colour and a white glyph.
+#Round 6 and A2: each decision button carries its own fill and a cream glyph.
 static func _case_decision_colors(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var viewer: ContractViewer = _viewer(host)
@@ -1759,31 +1817,38 @@ static func _case_decision_colors(res: Dictionary, host: Node) -> void:
 	var fills: Array[Color] = [DecisionButtons.ACCEPT_FILL, DecisionButtons.REJECT_FILL,
 		DecisionButtons.CANCEL_FILL]
 	var names: Array[String] = ["accept", "reject", "cancel"]
-	var faces: Array[Button] = [buttons.accept_button, buttons.reject_button,
+	var faces: Array[BevelButton] = [buttons.accept_button, buttons.reject_button,
 		buttons.cancel_button]
 	for i: int in faces.size():
-		var box: StyleBoxFlat = faces[i].get_theme_stylebox("normal") as StyleBoxFlat
 		TestFixtures.check(res, "the %s button wears its own fill" % names[i],
-			box != null and box.bg_color == fills[i],
-			"fill %s" % [box.bg_color if box != null else Color.BLACK])
-	var accept_hi: ColorRect = buttons.accept_button.get_node("Hi") as ColorRect
-	var reject_hi: ColorRect = buttons.reject_button.get_node("Hi") as ColorRect
+			faces[i] is BevelButton and faces[i].fill == fills[i],
+			"fill %s" % [faces[i].fill])
 	TestFixtures.check(res, "the bevels follow each button's fill",
-		accept_hi.color != reject_hi.color,
-		"accept %s reject %s" % [accept_hi.color, reject_hi.color])
-	var img: Image = buttons.accept_button.icon.get_image()
-	var opaque: int = 0
+		buttons.accept_button.hi != buttons.reject_button.hi,
+		"accept %s reject %s" % [buttons.accept_button.hi, buttons.reject_button.hi])
+	var glyph: TextureRect = buttons.accept_button.get_node_or_null(
+		DecisionButtons.GLYPH_NODE) as TextureRect
+	var img: Image = null
+	if glyph != null and glyph.texture != null:
+		img = glyph.texture.get_image()
+	var cream: int = 0
+	var shade: int = 0
 	var stray: int = 0
-	for y: int in img.get_height():
-		for x: int in img.get_width():
-			var px: Color = img.get_pixel(x, y)
-			if px.a < 0.5:
-				continue
-			opaque += 1
-			if px.r < 0.99 or px.g < 0.99 or px.b < 0.99:
-				stray += 1
-	TestFixtures.check(res, "the accept glyph is drawn in white",
-		opaque > 0 and stray == 0, "opaque %d stray %d" % [opaque, stray])
+	if img != null:
+		for y: int in img.get_height():
+			for x: int in img.get_width():
+				var px: Color = img.get_pixel(x, y)
+				if px.a < 0.5:
+					continue
+				if px.is_equal_approx(DecisionButtons.GLYPH_COLOR):
+					cream += 1
+				elif px.is_equal_approx(DecisionButtons.SHADOW_COLOR):
+					shade += 1
+				else:
+					stray += 1
+	TestFixtures.check(res, "the accept glyph is drawn in the label cream over its own drop",
+		cream > 0 and shade > 0 and stray == 0,
+		"cream %d shade %d stray %d" % [cream, shade, stray])
 	viewer.queue_free()
 
 
@@ -2275,10 +2340,10 @@ static func _case_window_fit(res: Dictionary, host: Node) -> void:
 	var centre: VBoxContainer = window.get_node("Margin/Columns/Centre") as VBoxContainer
 	var travel: Control = window.get_node("Margin/Columns/Centre/TravelPanel") as Control
 	var team: Control = window.get_node("Margin/Columns/Centre/TeamPanel") as Control
-	TestFixtures.check(res, "the centre column asks for no more than the 680 px it gets",
-		centre.get_combined_minimum_size().y <= 680.0 and centre.size.y <= 680.0,
+	TestFixtures.check(res, "the centre column asks for no more than the 692 px it gets",
+		centre.get_combined_minimum_size().y <= 692.0 and centre.size.y <= 692.0,
 		"min %.1f live %.1f" % [centre.get_combined_minimum_size().y, centre.size.y])
-	var root_edge: float = window.get_global_rect().end.y - 20.0
+	var root_edge: float = window.get_global_rect().end.y - 14.0
 	TestFixtures.check(res, "the action bar ends inside the window margin",
 		window.action_bar.get_global_rect().end.y <= root_edge + 0.5,
 		"bar %.1f limit %.1f" % [window.action_bar.get_global_rect().end.y, root_edge])
@@ -2305,8 +2370,8 @@ static func _case_window_fit(res: Dictionary, host: Node) -> void:
 	window.clear_team()
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "an empty team leaves the column inside the same 680 px",
-		centre.get_combined_minimum_size().y <= 680.0 and centre.size.y <= 680.0,
+	TestFixtures.check(res, "an empty team leaves the column inside the same 692 px",
+		centre.get_combined_minimum_size().y <= 692.0 and centre.size.y <= 692.0,
 		"min %.1f live %.1f" % [centre.get_combined_minimum_size().y, centre.size.y])
 	TestFixtures.check(res, "an empty team keeps the action bar inside the margin",
 		window.action_bar.get_global_rect().end.y <= root_edge + 0.5,
@@ -2324,8 +2389,8 @@ static func _check_widths(res: Dictionary, window: DispatchWindow, tag: String,
 	var left: Control = window.get_node("Margin/Columns/Left") as Control
 	var centre: Control = window.get_node("Margin/Columns/Centre") as Control
 	var right: Control = window.get_node("Margin/Columns/Right") as Control
-	TestFixtures.check(res, "%s: the columns row stays inside the 1240 px it is given" % tag,
-		columns.size.x <= 1240.5 and columns.get_combined_minimum_size().x <= 1240.0,
+	TestFixtures.check(res, "%s: the columns row stays inside the 1252 px it is given" % tag,
+		columns.size.x <= 1252.5 and columns.get_combined_minimum_size().x <= 1252.0,
 		"size %.1f min %.1f" % [columns.size.x, columns.get_combined_minimum_size().x])
 	var gaps: float = float(columns.get_theme_constant("separation")) * 2.0
 	var spare: float = columns.size.x - left.size.x - right.size.x - gaps
@@ -2334,7 +2399,7 @@ static func _check_widths(res: Dictionary, window: DispatchWindow, tag: String,
 		and centre.get_combined_minimum_size().x <= centre.size.x + 0.5,
 		"centre %.1f spare %.1f min %.1f" % [centre.size.x, spare,
 		centre.get_combined_minimum_size().x])
-	var frame_edge: float = window.get_global_rect().end.x - 20.0
+	var frame_edge: float = window.get_global_rect().end.x - 14.0
 	TestFixtures.check(res, "%s: the preview column ends inside the window margin" % tag,
 		right.get_global_rect().end.x <= frame_edge + 0.5
 		and right.size.x >= right.get_combined_minimum_size().x - 0.5
@@ -2388,3 +2453,679 @@ static func _check_widths(res: Dictionary, window: DispatchWindow, tag: String,
 		and name_text.size.x >= name_text.get_minimum_size().x - 0.5,
 		"mode %d name %.1f min %.1f" % [tradition.size_mode, name_text.size.x,
 		name_text.get_minimum_size().x])
+
+
+#A2: both decision faces wear the pinned fills, bevels, hover and pressed shades.
+static func _case_decision_palettes(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var view: ContractView = _first_open(viewer)
+	viewer.select_entry(view.entry_id)
+	await host.get_tree().process_frame
+	var buttons: DecisionButtons = viewer.detail().decisions()
+	var faces: Array[BevelButton] = [buttons.accept_button, buttons.reject_button]
+	var names: Array[String] = ["Accept", "Reject"]
+	var verbs: Array[String] = ["ACCEPT", "REJECT"]
+	for i: int in faces.size():
+		var row: Dictionary = DecisionButtons.PALETTES[i]
+		TestFixtures.check(res, "%s wears its own hover and pressed shades" % names[i],
+			faces[i].hover_fill == row["hover"] and faces[i].pressed_fill == row["pressed"],
+			"hover %s pressed %s" % [faces[i].hover_fill, faces[i].pressed_fill])
+		TestFixtures.check(res, "%s carries its bevel pair" % names[i],
+			faces[i].hi == row["hi"] and faces[i].lo == row["lo"],
+			"hi %s lo %s" % [faces[i].hi, faces[i].lo])
+		var text: Label = buttons.label_of(faces[i])
+		var face: HBoxContainer = faces[i].get_node_or_null(
+			DecisionButtons.FACE_NODE) as HBoxContainer
+		var glyph: TextureRect = faces[i].get_node_or_null(
+			DecisionButtons.GLYPH_NODE) as TextureRect
+		TestFixtures.check(res, "%s labels in cream over a 2 px shadow" % names[i],
+			text != null and text.get_theme_color("font_color") == DecisionButtons.LABEL_COLOR
+			and text.get_theme_color("font_shadow_color") == DecisionButtons.SHADOW_COLOR
+			and text.get_theme_constant("shadow_offset_x") == DecisionButtons.SHADOW_PX
+			and text.get_theme_constant("shadow_offset_y") == DecisionButtons.SHADOW_PX,
+			"label %s" % ("none" if text == null else str(text.get_theme_color("font_color"))))
+		TestFixtures.check(res, "%s reads its verb off the face label" % names[i],
+			faces[i].text == "" and faces[i].icon == null and text != null
+			and text.text == verbs[i] and face != null
+			and face.get_theme_constant("separation") == DecisionButtons.FACE_GAP,
+			"button %s label %s" % [faces[i].text, "none" if text == null else text.text])
+		TestFixtures.check(res, "%s hands the whole face through to the button" % names[i],
+			face != null and face.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and glyph != null and glyph.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and text != null and text.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+			"face %d glyph %d text %d" % [face.mouse_filter if face != null else -1,
+			glyph.mouse_filter if glyph != null else -1,
+			text.mouse_filter if text != null else -1])
+	var accept_row: Dictionary = DecisionButtons.PALETTES[DecisionButtons.ACCEPT]
+	var reject_row: Dictionary = DecisionButtons.PALETTES[DecisionButtons.REJECT]
+	TestFixtures.check(res, "the two palettes read the colours README A2 pins",
+		accept_row["fill"] == Color("#3f9a4a") and accept_row["hi"] == Color("#6cc36a")
+		and accept_row["lo"] == Color("#2a6b32") and accept_row["hover"] == Color("#4fb05a")
+		and accept_row["pressed"] == Color("#2a6b32")
+		and reject_row["fill"] == Color("#b8402e") and reject_row["hi"] == Color("#e8583f")
+		and reject_row["lo"] == Color("#7a2a1e") and reject_row["hover"] == Color("#cc4a36")
+		and reject_row["pressed"] == Color("#7a2a1e"),
+		"accept %s reject %s" % [accept_row["fill"], reject_row["fill"]])
+	var accept_glyph: TextureRect = buttons.accept_button.get_node_or_null(
+		DecisionButtons.GLYPH_NODE) as TextureRect
+	var reject_glyph: TextureRect = buttons.reject_button.get_node_or_null(
+		DecisionButtons.GLYPH_NODE) as TextureRect
+	TestFixtures.check(res, "both glyphs are drawn and the focus ring is emptied",
+		accept_glyph != null and accept_glyph.texture != null and accept_glyph.visible
+		and reject_glyph != null and reject_glyph.texture != null and reject_glyph.visible
+		and buttons.accept_button.get_theme_stylebox("focus") is StyleBoxEmpty,
+		"accept %s reject %s" % [accept_glyph != null and accept_glyph.texture != null,
+		reject_glyph != null and reject_glyph.texture != null])
+	var cancel_text: Label = buttons.label_of(buttons.cancel_button)
+	var cancel_glyph: TextureRect = buttons.cancel_button.get_node_or_null(
+		DecisionButtons.GLYPH_NODE) as TextureRect
+	TestFixtures.check(res, "Cancel Dispatch keeps its verb and shows no glyph",
+		cancel_text != null and cancel_text.text == "CANCEL DISPATCH"
+		and buttons.cancel_button.text == "" and cancel_glyph != null
+		and cancel_glyph.texture == null and not cancel_glyph.visible,
+		"label %s glyph %s" % ["none" if cancel_text == null else cancel_text.text,
+		cancel_glyph.visible if cancel_glyph != null else true])
+	TestFixtures.check(res, "all three decision buttons are the shared BevelButton scene",
+		buttons.accept_button is BevelButton and buttons.reject_button is BevelButton
+		and buttons.cancel_button is BevelButton
+		and buttons.accept_button.edge == float(DecisionButtons.EDGE_PX)
+		and buttons.reject_button.edge == float(DecisionButtons.EDGE_PX)
+		and buttons.cancel_button.edge == float(DecisionButtons.EDGE_PX),
+		"accept %s reject %s cancel %s" % [buttons.accept_button, buttons.reject_button,
+		buttons.cancel_button])
+	viewer.queue_free()
+
+
+#I5: the four ways a settled posting reads, claimed or not, succeeded or failed.
+static func _case_shown_status(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var ids: Array[int] = GameState.seed_results_preview()
+	if not await _seeded(res, ids, viewer, host):
+		return
+	var won: ContractView = _view_by_id(ids[0])
+	var lost: ContractView = _view_by_id(ids[1])
+	TestFixtures.check(res, "the fixture settles one success and one failure",
+		won != null and lost != null and won.outcome == "Succeeded" and lost.outcome == "Failed"
+		and won.status == GuiTypes.ContractStatus.COMPLETED
+		and lost.status == GuiTypes.ContractStatus.COMPLETED,
+		"won %s lost %s" % [won.outcome if won != null else "",
+		lost.outcome if lost != null else ""])
+	TestFixtures.check(res, "an unclaimed posting reads Complete in orange whichever way it went",
+		won.is_unclaimed() and lost.is_unclaimed()
+		and won.shown_status() == GuiTypes.ContractStatus.COMPLETED
+		and lost.shown_status() == GuiTypes.ContractStatus.COMPLETED
+		and won.shown_status_text() == "Complete" and lost.shown_status_text() == "Complete"
+		and won.shown_status_color() == Color("#f28c28")
+		and lost.shown_status_color() == Color("#f28c28"),
+		"won %s lost %s" % [won.shown_status_text(), lost.shown_status_text()])
+	TestFixtures.check(res, "an unclaimed posting wears the bang mark",
+		won.shown_mark() == StatusMark.Mark.BANG and lost.shown_mark() == StatusMark.Mark.BANG
+		and StatusMark.icon_of(StatusMark.Mark.BANG) == StatusMark.ICON_BANG,
+		"won %d lost %d" % [won.shown_mark(), lost.shown_mark()])
+	TestFixtures.check(res, "an unclaimed posting answers to the Unclaimed Results option",
+		ContractList.filter_key(won) == ContractList.UNCLAIMED_KEY
+		and ContractList.filter_key(lost) == ContractList.UNCLAIMED_KEY,
+		"won %s lost %s" % [ContractList.filter_key(won), ContractList.filter_key(lost)])
+	GameState.mark_seen(ids[0])
+	GameState.mark_seen(ids[1])
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a claimed success stays Completed under the check mark",
+		not won.is_unclaimed() and won.shown_status() == GuiTypes.ContractStatus.COMPLETED
+		and won.shown_status_text() == GuiTypes.status_text(GuiTypes.ContractStatus.COMPLETED)
+		and won.shown_status_color() == GuiTypes.status_color(GuiTypes.ContractStatus.COMPLETED)
+		and won.shown_mark() == StatusMark.Mark.CHECK,
+		"status %s mark %d" % [won.shown_status_text(), won.shown_mark()])
+	TestFixtures.check(res, "a claimed failure turns Failed and red under the skull",
+		not lost.is_unclaimed() and lost.shown_status() == GuiTypes.ContractStatus.FAILED
+		and lost.shown_status_text() == "Failed"
+		and lost.shown_status_color() == Color("#e8583f")
+		and lost.shown_mark() == StatusMark.Mark.SKULL
+		and StatusMark.icon_of(StatusMark.Mark.SKULL) == StatusMark.ICON_SKULL,
+		"status %s mark %d" % [lost.shown_status_text(), lost.shown_mark()])
+	TestFixtures.check(res, "the board never stores FAILED: only the display status turns",
+		lost.status == GuiTypes.ContractStatus.COMPLETED
+		and GameState.board.entry(ids[1]).status == BoardEntry.STATUS_FAILED,
+		"view %d entry %s" % [lost.status, GameState.board.entry(ids[1]).status])
+	TestFixtures.check(res, "a claimed posting answers to its own status option",
+		ContractList.filter_key(won) == "show_completed"
+		and ContractList.filter_key(lost) == "show_failed",
+		"won %s lost %s" % [ContractList.filter_key(won), ContractList.filter_key(lost)])
+	viewer.queue_free()
+
+
+#I5: the unclaimed row keeps its colour; a claimed failure greys out with the skull and the date.
+static func _case_result_rows(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var ids: Array[int] = GameState.seed_results_preview()
+	if not await _seeded(res, ids, viewer, host):
+		return
+	var lost_id: int = ids[1]
+	var view: ContractView = _view_by_id(lost_id)
+	var row: ContractListItem = _row_of(viewer.list(), lost_id)
+	TestFixtures.check(res, "an unclaimed posting lists at full colour under an orange Complete",
+		row != null and row.strip_text() == "Complete"
+		and row.strip_color() == Color("#f28c28") and row.mark.kind == StatusMark.Mark.BANG
+		and row.modulate == Color.WHITE,
+		"strip %s mark %d" % [row.strip_text() if row != null else "",
+		row.mark.kind if row != null else -1])
+	viewer.detail().set_view(view)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the unclaimed detail reads Complete over the bang and the date",
+		viewer.detail().status_line() == "Complete"
+		and viewer.detail().status_mark().kind == StatusMark.Mark.BANG
+		and viewer.detail().date_line() == "Completed on %s"
+			% TrynnCalendar.date_text(view.closed_minute),
+		"status %s dates %s" % [viewer.detail().status_line(), viewer.detail().date_line()])
+	GameState.mark_seen(lost_id)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a claimed failure leaves the board with the Failed option off",
+		not viewer.list().has_id(lost_id) and not viewer.list().filter_panel.show_failed,
+		"listed %s" % viewer.list().has_id(lost_id))
+	var rules: Dictionary = viewer.list().filter_panel.filter()
+	rules["show_failed"] = true
+	viewer.list().filter_panel.set_filter(rules)
+	await host.get_tree().process_frame
+	row = _row_of(viewer.list(), lost_id)
+	TestFixtures.check(res, "the Failed option greys the row under a red Failed and the skull",
+		row != null and row.strip_text() == "Failed"
+		and row.strip_color() == Color("#e8583f") and row.mark.kind == StatusMark.Mark.SKULL
+		and row.modulate == ContractListItem.CLOSED_TINT,
+		"strip %s mark %d" % [row.strip_text() if row != null else "",
+		row.mark.kind if row != null else -1])
+	viewer.detail().set_view(_view_by_id(lost_id))
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the claimed failure detail reads Failed on its closing date",
+		viewer.detail().status_line() == "Failed"
+		and viewer.detail().status_mark().kind == StatusMark.Mark.SKULL
+		and viewer.detail().date_line() == "Failed on %s"
+			% TrynnCalendar.date_text(view.closed_minute)
+		and not viewer.detail().decisions().accept_button.visible,
+		"status %s dates %s" % [viewer.detail().status_line(), viewer.detail().date_line()])
+	GameState.mark_seen(ids[0])
+	rules = viewer.list().filter_panel.filter()
+	rules["show_completed"] = true
+	viewer.list().filter_panel.set_filter(rules)
+	await host.get_tree().process_frame
+	var won_row: ContractListItem = _row_of(viewer.list(), ids[0])
+	TestFixtures.check(res, "a claimed success greys out under Completed and the check",
+		won_row != null
+		and won_row.strip_text() == GuiTypes.status_text(GuiTypes.ContractStatus.COMPLETED)
+		and won_row.mark.kind == StatusMark.Mark.CHECK
+		and won_row.modulate == ContractListItem.CLOSED_TINT,
+		"strip %s mark %d" % [won_row.strip_text() if won_row != null else "",
+		won_row.mark.kind if won_row != null else -1])
+	viewer.queue_free()
+
+
+#I5: the pay tooltip gives nothing away before the results are claimed, then reads the final pay.
+static func _case_pay_rows(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var ids: Array[int] = GameState.seed_results_preview()
+	if not await _seeded(res, ids, viewer, host):
+		return
+	var lost_id: int = ids[1]
+	var tip: PayoutTooltip = viewer.detail().payout_tooltip()
+	viewer.detail().set_view(_view_by_id(lost_id))
+	await host.get_tree().process_frame
+	viewer.detail().reward_label.mouse_entered.emit()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the pay tooltip stays shut while the results sit unopened",
+		not tip.visible, "visible %s" % tip.visible)
+	GameState.mark_seen(lost_id)
+	await host.get_tree().process_frame
+	viewer.detail().set_view(_view_by_id(lost_id))
+	await host.get_tree().process_frame
+	viewer.detail().reward_label.mouse_entered.emit()
+	await host.get_tree().process_frame
+	var result: ContractResultData = GameState.result_of(lost_id)
+	TestFixtures.check(res, "a claimed posting opens the final pay results",
+		tip.visible and tip.is_results() and tip.title_text() == PayoutTooltip.RESULT_TITLE,
+		"visible %s title %s" % [tip.visible, tip.title_text()])
+	var names: Array[String] = [tip.reward_name.text, tip.expenses_name.text,
+		tip.total_name.text, tip.payday_name.text]
+	TestFixtures.check(res, "the four rows are renamed for the results",
+		names == PayoutTooltip.RESULT_NAMES and not tip.relative_label.visible,
+		"names %s" % str(names))
+	TestFixtures.check(res, "a failed posting forfeits the reward and still carries the cost",
+		result != null and result.reward == 0
+		and tip.reward_label.text == PayoutTooltip.notes_text(0)
+		and tip.expenses_label.text == PayoutTooltip.notes_text(-result.expenses)
+		and tip.expected_total() == PayoutTooltip.notes_text(-result.bonus())
+		and tip.guild_income() == PayoutTooltip.notes_text(result.guild_share()),
+		"reward %s expenses %s guild %s" % [tip.reward_label.text, tip.expenses_label.text,
+		tip.guild_income()])
+	GameState.mark_seen(ids[0])
+	await host.get_tree().process_frame
+	viewer.detail().set_view(_view_by_id(ids[0]))
+	await host.get_tree().process_frame
+	viewer.detail().reward_label.mouse_entered.emit()
+	await host.get_tree().process_frame
+	var won: ContractResultData = GameState.result_of(ids[0])
+	TestFixtures.check(res, "a claimed success reads the pay it brought in",
+		tip.visible and won != null and won.reward > 0
+		and tip.reward_label.text == PayoutTooltip.notes_text(won.reward)
+		and tip.guild_income() == PayoutTooltip.notes_text(won.guild_share()),
+		"reward %s guild %s" % [tip.reward_label.text, tip.guild_income()])
+	viewer.queue_free()
+
+
+#Item 6: the seven status options, their order, the indent and the defaults.
+static func _case_filter_options(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var panel: ContractFilterPanel = viewer.list().filter_panel
+	var wanted: Array[String] = ["Available", "Active", "Completed", "Failed",
+		"Unclaimed Results", "Rejected", "Expired"]
+	TestFixtures.check(res, "the filter lists the seven status options in order",
+		panel.row_labels() == wanted, "labels %s" % str(panel.row_labels()))
+	TestFixtures.check(res, "Unclaimed Results sits indented under the two outcomes",
+		panel.indent_of("show_unclaimed") == ContractFilterPanel.INDENT_PX
+		and panel.indent_of("show_completed") == 0 and panel.indent_of("show_failed") == 0,
+		"unclaimed %d completed %d" % [panel.indent_of("show_unclaimed"),
+		panel.indent_of("show_completed")])
+	var starts: Dictionary = {"show_available": true, "show_active": true,
+		"show_completed": false, "show_failed": false, "show_unclaimed": true,
+		"show_rejected": false, "show_expired": false}
+	var flags: Dictionary = panel.flags()
+	var starts_ok: bool = flags.size() == starts.size()
+	for key: String in starts:
+		var want: bool = bool(starts[key])
+		if bool(flags.get(key, not want)) != want:
+			starts_ok = false
+		if bool(ContractList.DEFAULT_SHOWN.get(key, not want)) != want:
+			starts_ok = false
+	TestFixtures.check(res, "only Available, Active and Unclaimed Results start on", starts_ok,
+		"flags %s" % str(flags))
+	TestFixtures.check(res, "the old option Completed (Unclaimed) is gone",
+		not panel.row_labels().has("Completed (Unclaimed)")
+		and not panel.filter().has("show_closed")
+		and ContractFilterPanel.OPTIONS.size() == starts.size(),
+		"labels %s" % str(panel.row_labels()))
+	TestFixtures.check(res, "each check row mirrors its own export",
+		panel.row_of("show_available") != null and panel.row_of("show_available").on
+		and panel.row_of("show_failed") != null and not panel.row_of("show_failed").on
+		and panel.row_of("show_unclaimed").on,
+		"available %s failed %s" % [panel.row_of("show_available").on,
+		panel.row_of("show_failed").on])
+	panel.row_of("show_failed").toggled.emit(true)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "pressing a row writes its export and the list follows",
+		panel.show_failed and bool(viewer.list().filter.get("show_failed", false)),
+		"export %s list %s" % [panel.show_failed,
+		viewer.list().filter.get("show_failed", false)])
+	panel.reset()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "Reset puts the seven options back to the defaults",
+		not panel.show_failed and panel.show_available and panel.show_active
+		and panel.show_unclaimed and not panel.show_completed and not panel.show_rejected
+		and not panel.show_expired,
+		"failed %s completed %s" % [panel.show_failed, panel.show_completed])
+	viewer.queue_free()
+
+
+#Item 8: select_entry shows a posting the filter hides, and hide_list drops the board column.
+static func _case_reveal(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var hidden_id: int = _first_open(viewer).entry_id
+	var entry: BoardEntry = GameState.board.entry(hidden_id)
+	entry.status = BoardEntry.STATUS_REJECTED
+	entry.closed_minute = CampaignClock.now()
+	if entry.contract != null:
+		entry.contract.status = "Rejected"
+	GameState.refresh_views()
+	GameState.contracts_changed.emit()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a rejected posting starts hidden",
+		not viewer.list().has_id(hidden_id) and not viewer.list().filter_panel.show_rejected,
+		"listed %s" % viewer.list().has_id(hidden_id))
+	var before: Array[int] = viewer.list().listed_ids()
+	viewer.select_entry(hidden_id)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "select_entry turns that posting's own option on and selects it",
+		viewer.list().has_id(hidden_id) and viewer.list().filter_panel.show_rejected
+		and viewer.detail().entry_id() == hidden_id and viewer.selected_id == hidden_id,
+		"listed %s detail %d" % [viewer.list().has_id(hidden_id), viewer.detail().entry_id()])
+	var kept: bool = true
+	for id: int in before:
+		if not viewer.list().has_id(id):
+			kept = false
+	TestFixtures.check(res, "revealing one posting drops nothing else and opens no other option",
+		kept and viewer.list().filter_panel.show_available
+		and not viewer.list().filter_panel.show_expired
+		and not viewer.list().filter_panel.show_failed,
+		"rows %d of %d" % [viewer.list().row_count(), before.size() + 1])
+	viewer.hide_list = true
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "hide_list drops the board column and keeps the detail",
+		not viewer.list().visible and viewer.detail().visible,
+		"list %s detail %s" % [viewer.list().visible, viewer.detail().visible])
+	viewer.hide_list = false
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the board column comes back", viewer.list().visible,
+		"list %s" % viewer.list().visible)
+	viewer.queue_free()
+
+
+#Item 7: the results panel opens over the viewer, and without that scene the row is marked read.
+static func _case_results_host(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var ids: Array[int] = GameState.seed_results_preview()
+	if not await _seeded(res, ids, viewer, host):
+		return
+	var has_scene: bool = ResourceLoader.exists(ContractViewer.RESULTS_SCENE)
+	viewer.select_entry(ids[0])
+	await host.get_tree().process_frame
+	if has_scene:
+		TestFixtures.check(res, "an unclaimed posting opens the results panel over the viewer",
+			viewer.window().is_open() and viewer.window().current() != null,
+			"open %s" % viewer.window().is_open())
+		viewer.window().close()
+		await host.get_tree().process_frame
+	else:
+		TestFixtures.check(res, "with no results scene the posting is simply marked read",
+			not viewer.window().is_open() and not GameState.is_unclaimed(ids[0])
+			and GameState.has_result(ids[0]),
+			"open %s unclaimed %s" % [viewer.window().is_open(),
+			GameState.is_unclaimed(ids[0])])
+	viewer.results_scene = _stub_results_scene()
+	viewer.select_entry(ids[1])
+	await host.get_tree().process_frame
+	var panel: Node = viewer.window().current()
+	TestFixtures.check(res, "the host hands the result to the panel it opens",
+		viewer.window().is_open() and panel != null and panel.has_method("show_result")
+		and panel.get("shown") == GameState.result_of(ids[1]),
+		"open %s panel %s" % [viewer.window().is_open(), panel])
+	TestFixtures.check(res, "the posting is claimed as soon as the panel opens",
+		not GameState.is_unclaimed(ids[1]) and GameState.has_result(ids[1]),
+		"unclaimed %s" % GameState.is_unclaimed(ids[1]))
+	panel.call("finish")
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "finished closes the panel and marks the result read",
+		not viewer.window().is_open() and not GameState.is_unclaimed(ids[1])
+		and GameState.has_result(ids[1]),
+		"open %s unclaimed %s" % [viewer.window().is_open(), GameState.is_unclaimed(ids[1])])
+	TestFixtures.check(res, "GX4D-01 the claimed failure stays selected and its Failed option turns on",
+		viewer.selected_id == ids[1] and viewer.list().has_id(ids[1])
+		and viewer.list().filter_panel.show_failed and _row_of(viewer.list(), ids[1]) != null,
+		"selected %d listed %s failed %s" % [viewer.selected_id, viewer.list().has_id(ids[1]),
+		viewer.list().filter_panel.show_failed])
+	var rules: Dictionary = viewer.list().filter_panel.filter()
+	rules["show_failed"] = false
+	viewer.list().filter_panel.set_filter(rules)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "turning the Failed option back off hides the row without moving the selection",
+		not viewer.list().has_id(ids[1]) and viewer.selected_id == ids[1],
+		"listed %s selected %d" % [viewer.list().has_id(ids[1]), viewer.selected_id])
+	rules["show_failed"] = true
+	viewer.list().filter_panel.set_filter(rules)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the Failed option brings the claimed posting back",
+		viewer.list().has_id(ids[1]) and _row_of(viewer.list(), ids[1]) != null,
+		"listed %s" % viewer.list().has_id(ids[1]))
+	viewer.queue_free()
+
+
+#GX2D-01: a dismissed results panel still claims the posting, so no row is left that nobody can
+#open again (PROTO selectContract 686).
+static func _case_results_dismiss(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var ids: Array[int] = GameState.seed_results_preview()
+	if not await _seeded(res, ids, viewer, host):
+		return
+	viewer.results_scene = _stub_results_scene()
+	viewer.select_entry(ids[0])
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the panel opens over the viewer on an unclaimed posting",
+		viewer.window().is_open() and viewer.window().current() != null,
+		"open %s" % viewer.window().is_open())
+	viewer.window().close()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a dismissed panel leaves the posting claimed",
+		not GameState.is_unclaimed(ids[0]) and GameState.has_result(ids[0])
+		and not viewer.window().is_open(),
+		"unclaimed %s open %s" % [GameState.is_unclaimed(ids[0]), viewer.window().is_open()])
+	var rules: Dictionary = viewer.list().filter_panel.filter()
+	rules["show_completed"] = true
+	viewer.list().filter_panel.set_filter(rules)
+	await host.get_tree().process_frame
+	var row: ContractListItem = _row_of(viewer.list(), ids[0])
+	TestFixtures.check(res, "the dismissed row trades the bang for its own mark",
+		row != null and row.mark.kind == StatusMark.Mark.CHECK,
+		"mark %d" % (row.mark.kind if row != null else -1))
+	viewer.select_entry(ids[1])
+	await host.get_tree().process_frame
+	var panel: Node = viewer.window().current()
+	if panel != null and panel.has_method("finish"):
+		panel.call("finish")
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the finished path still closes the panel",
+		not viewer.window().is_open() and not GameState.is_unclaimed(ids[1])
+		and GameState.has_result(ids[1]),
+		"open %s unclaimed %s" % [viewer.window().is_open(), GameState.is_unclaimed(ids[1])])
+	viewer.queue_free()
+
+
+#I6: the shared direction toggle wears its direction, and the retired DirToggle alias is gone.
+static func _case_sort_toggle(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var toggle: SortDirToggle = viewer.list().dir_toggle
+	var down: Dictionary = SortDirToggle.LOOKS[true]
+	var up: Dictionary = SortDirToggle.LOOKS[false]
+	TestFixtures.check(res, "the list direction button is a SortDirToggle 40 x 26",
+		toggle is SortDirToggle and toggle.custom_minimum_size == Vector2(40, 26)
+		and SortDirToggle.TOGGLE_SIZE == Vector2(40, 26),
+		"size %s" % str(toggle.custom_minimum_size))
+	TestFixtures.check(res, "descending wears the orange fill and names itself",
+		toggle.descending and toggle.fill_color() == Color("#f28c28")
+		and down["hi"] == Color("#ffb266") and down["lo"] == Color("#b85a12")
+		and down["lit"] == Color("#0a0f1c") and down["dim"] == Color("#7a4a1a")
+		and toggle.tooltip_text == "Highest to lowest",
+		"fill %s tip %s" % [toggle.fill_color(), toggle.tooltip_text])
+	var seen: Array[bool] = []
+	toggle.direction_changed.connect(func(on: bool) -> void: seen.append(on))
+	toggle.toggle()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the flip reports itself once and turns the button blue",
+		seen.size() == 1 and not seen[0] and not toggle.descending
+		and toggle.fill_color() == Color("#2b4f8a")
+		and up["hi"] == Color("#3b6fb6") and up["lo"] == Color("#1f3560")
+		and up["lit"] == Color("#f3ead7") and up["dim"] == Color("#5e7699")
+		and toggle.tooltip_text == "Lowest to highest",
+		"seen %s fill %s" % [str(seen), toggle.fill_color()])
+	var box: StyleBoxFlat = toggle.get_theme_stylebox("normal") as StyleBoxFlat
+	TestFixtures.check(res, "the toggle carries its own box behind a 3 px black outline",
+		box != null and box.bg_color == up["fill"] and box.border_color == Color("#0a0f1c")
+		and box.border_width_left == 3 and box.border_width_bottom == 3,
+		"box %s" % [box.bg_color if box != null else Color.BLACK])
+	TestFixtures.check(res, "the arrows stand 5 px wide and 7 px tall",
+		is_equal_approx(SortDirToggle.TRI_WIDTH, 5.0)
+		and is_equal_approx(SortDirToggle.TRI_HEIGHT, 7.0)
+		and SortDirToggle.TRI_SHAPE.size() == 7,
+		"shape %s" % str(SortDirToggle.TRI_SHAPE))
+	toggle.toggle()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "flipping back reports descending and restores the orange",
+		seen.size() == 2 and seen[1] and toggle.descending
+		and toggle.fill_color() == down["fill"],
+		"seen %s fill %s" % [str(seen), toggle.fill_color()])
+	TestFixtures.check(res, "DirToggle is retired and the Contracts list hosts the shared scene",
+		not ResourceLoader.exists(OLD_DIR_TOGGLE_SCENE)
+		and toggle.scene_file_path == SORT_DIR_TOGGLE_SCENE,
+		"alias exists %s scene %s" % [ResourceLoader.exists(OLD_DIR_TOGGLE_SCENE),
+			toggle.scene_file_path])
+	viewer.queue_free()
+
+
+#GX4D-01: select_entry on an unclaimed posting under the default filter leaves that posting
+#selected, listed and shown once its results are claimed, for both outcomes (PROTO applyOpen 703).
+static func _case_claim_keeps_selection(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var ids: Array[int] = GameState.seed_results_preview()
+	if not await _seeded(res, ids, viewer, host):
+		return
+	var won_id: int = ids[0]
+	var lost_id: int = ids[1]
+	viewer.results_scene = _stub_results_scene()
+	viewer.select_entry(lost_id)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "GX4D-01 an unclaimed failed posting stays selected once claimed",
+		viewer.selected_id == lost_id and viewer.list().has_id(lost_id)
+		and viewer.list().filter_panel.show_failed and viewer.detail().entry_id() == lost_id
+		and not GameState.is_unclaimed(lost_id),
+		"selected %d listed %s failed %s detail %d" % [viewer.selected_id,
+		viewer.list().has_id(lost_id), viewer.list().filter_panel.show_failed,
+		viewer.detail().entry_id()])
+	viewer.select_entry(won_id)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "GX4D-01 an unclaimed completed posting stays selected once claimed",
+		viewer.selected_id == won_id and viewer.list().has_id(won_id)
+		and viewer.list().filter_panel.show_completed and viewer.detail().entry_id() == won_id
+		and not GameState.is_unclaimed(won_id),
+		"selected %d listed %s completed %s detail %d" % [viewer.selected_id,
+		viewer.list().has_id(won_id), viewer.list().filter_panel.show_completed,
+		viewer.detail().entry_id()])
+	viewer.queue_free()
+
+
+#GX4D-01: with no results scene at all, open_results takes its fallback branch (the posting is
+#simply marked read); the same narrow reveal still applies there.
+static func _case_claim_no_scene_fallback(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var ids: Array[int] = GameState.seed_results_preview()
+	if not await _seeded(res, ids, viewer, host):
+		return
+	var lost_id: int = ids[1]
+	viewer.results_scene = _blank_results_scene()
+	viewer.select_entry(lost_id)
+	await host.get_tree().process_frame
+	TestFixtures.check(res,
+		"GX4D-01 the no-scene fallback still claims the posting and keeps it selected",
+		not viewer.window().is_open() and not GameState.is_unclaimed(lost_id)
+		and viewer.selected_id == lost_id and viewer.list().has_id(lost_id)
+		and viewer.list().filter_panel.show_failed and viewer.detail().entry_id() == lost_id,
+		"open %s selected %d listed %s" % [viewer.window().is_open(), viewer.selected_id,
+		viewer.list().has_id(lost_id)])
+	viewer.queue_free()
+
+
+#GX4D-01: the repair is narrow (build note 2). A rebuild from roster_changed, not from a claim,
+#never switches a filter option the player turned off back on, and still falls back to first_id().
+static func _case_claim_selection_narrow(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var ids: Array[int] = GameState.seed_results_preview()
+	if not await _seeded(res, ids, viewer, host):
+		return
+	var lost_id: int = ids[1]
+	viewer.results_scene = _stub_results_scene()
+	viewer.select_entry(lost_id)
+	await host.get_tree().process_frame
+	if not viewer.list().filter_panel.show_failed or viewer.selected_id != lost_id:
+		TestFixtures.check(res, "GX4D-01 setup: the claim reveals the failed posting first", false,
+			"selected %d failed %s" % [viewer.selected_id, viewer.list().filter_panel.show_failed])
+		viewer.queue_free()
+		return
+	var rules: Dictionary = viewer.list().filter_panel.filter()
+	rules["show_failed"] = false
+	viewer.list().filter_panel.set_filter(rules)
+	await host.get_tree().process_frame
+	GameState.roster_changed.emit()
+	await host.get_tree().process_frame
+	TestFixtures.check(res,
+		"GX4D-01 a roster rebuild never switches a filter the player turned off back on",
+		not viewer.list().filter_panel.show_failed and viewer.selected_id != lost_id
+		and viewer.selected_id == viewer.list().first_id(),
+		"failed %s selected %d first %d" % [viewer.list().filter_panel.show_failed,
+		viewer.selected_id, viewer.list().first_id()])
+	viewer.queue_free()
+
+
+#GX4F-08: the bonus placeholder moved into BenefitsManager's PLACEHOLDER block; bonus_pct()
+#forwards to it and the value stays the fixed 0 of a benefit nothing has set yet.
+static func _case_bonus_pct_placeholder(res: Dictionary) -> void:
+	TestFixtures.check(res,
+		"GX4F-08 ContractPreview.bonus_pct reads BenefitsManager.DEFAULT_BONUS_PCT",
+		ContractPreview.bonus_pct() == BenefitsManager.DEFAULT_BONUS_PCT
+		and BenefitsManager.DEFAULT_BONUS_PCT == 0,
+		"bonus_pct %d placeholder %d" % [ContractPreview.bonus_pct(),
+		BenefitsManager.DEFAULT_BONUS_PCT])
+
+
+#True when the results fixture settled two postings; it reports and cleans up when it did not.
+static func _seeded(res: Dictionary, ids: Array[int], viewer: ContractViewer,
+		host: Node) -> bool:
+	if ids.size() == 2:
+		await host.get_tree().process_frame
+		return true
+	TestFixtures.check(res, "the results fixture settles two postings", false,
+		"ids %s" % str(ids))
+	viewer.queue_free()
+	return false
+
+
+#The live view of one posting, or null when the board never listed it.
+static func _view_by_id(entry_id: int) -> ContractView:
+	for view: ContractView in GameState.contracts:
+		if view.entry_id == entry_id:
+			return view
+	return null
+
+
+#A stand-in for the results panel: it answers show_result and reports finished on demand, so the
+#host can be exercised on a copy where Scenes/GUI/Results does not exist yet.
+static func _stub_results_scene() -> PackedScene:
+	var lines: Array[String] = [
+		"extends Control",
+		"",
+		"signal finished(entry_id: int)",
+		"",
+		"var shown: ContractResultData = null",
+		"",
+		"func show_result(result: ContractResultData) -> void:",
+		"\tshown = result",
+		"",
+		"func finish() -> void:",
+		"\tfinished.emit(shown.entry_id if shown != null else -1)",
+	]
+	var script: GDScript = GDScript.new()
+	script.source_code = "\n".join(lines)
+	script.reload()
+	var node: Control = Control.new()
+	node.name = "ResultsStub"
+	node.set_script(script)
+	var scene: PackedScene = PackedScene.new()
+	scene.pack(node)
+	node.free()
+	return scene
+
+
+#A results-panel stand-in with no show_result method, so open_results takes its no-scene branch.
+static func _blank_results_scene() -> PackedScene:
+	var node: Control = Control.new()
+	node.name = "BlankStub"
+	var scene: PackedScene = PackedScene.new()
+	scene.pack(node)
+	node.free()
+	return scene

@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/ActionBar.gd" id="1"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SuccessMeter.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="4"]
 
 [node name="ActionBar" type="PanelContainer"]
 theme_type_variation = &"InsetPanel"
@@ -62,27 +63,32 @@ layout_mode = 2
 size_flags_vertical = 4
 theme_override_constants/separation = 8
 
-[node name="Optimize" type="Button" parent="Pad/Row/Buttons"]
+[node name="Optimize" parent="Pad/Row/Buttons" instance=ExtResource("4")]
 custom_minimum_size = Vector2(86, 36)
 layout_mode = 2
+min_size = Vector2(86, 36)
+kind = &"blue"
 text = "Optimize"
 
-[node name="Clear" type="Button" parent="Pad/Row/Buttons"]
+[node name="Clear" parent="Pad/Row/Buttons" instance=ExtResource("4")]
 custom_minimum_size = Vector2(86, 36)
 layout_mode = 2
+min_size = Vector2(86, 36)
 text = "Clear"
 
-[node name="Cancel" type="Button" parent="Pad/Row/Buttons"]
+[node name="Cancel" parent="Pad/Row/Buttons" instance=ExtResource("4")]
 custom_minimum_size = Vector2(86, 36)
 layout_mode = 2
-theme_type_variation = &"ButtonDanger"
+min_size = Vector2(86, 36)
+kind = &"danger"
 text = "Cancel"
 
-[node name="Dispatch" type="Button" parent="Pad/Row"]
+[node name="Dispatch" parent="Pad/Row" instance=ExtResource("4")]
 custom_minimum_size = Vector2(190, 56)
 layout_mode = 2
+min_size = Vector2(190, 56)
 size_flags_vertical = 4
-theme_type_variation = &"ButtonGo"
+kind = &"go"
 theme_override_font_sizes/font_size = 18
 theme_override_fonts/font = ExtResource("2")
 text = "Dispatch"

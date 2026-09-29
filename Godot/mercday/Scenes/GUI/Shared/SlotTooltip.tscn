@@ -8,3 +8,8 @@ script = ExtResource("2")
 
 [node name="Kind" type="Label" parent="Rows"]
 theme_type_variation = &"SmallLabel"
+
+[node name="Foot" type="Label" parent="Rows"]
+visible = false
+theme_type_variation = &"SmallLabel"
+theme_override_font_sizes/font_size = 10

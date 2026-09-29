@@ -28,6 +28,8 @@ const ALL_DETAIL := "Team average"
 const ALL_HINT := "Select a merc for their metrics"
 const NAME_SIZE := 12
 const ROW_NAME_SIZE := 11
+#The Margin around the popup list, top and bottom together.
+const POPUP_PAD := 16
 const SUB_SIZE := 11
 
 signal merc_selected(uid: int)
@@ -277,11 +279,18 @@ func _hatch(holder: Control, rect: Rect2) -> void:
 	holder.draw_rect(rect, HATCH_RING, false, RING_COMPACT_WIDTH)
 
 
-func _on_pressed() -> void:
+#Pure geometry: the popup hangs under this selector's own button, left edges flush, so the first
+#merc's list never drifts to the compare selector beside it. The width covers the button, so the
+#rows read at any column width and nothing inside the popup has to scroll sideways.
+func popup_rect() -> Rect2i:
 	var rect: Rect2 = get_global_rect()
 	var pos := Vector2i(int(rect.position.x), int(rect.end.y))
-	var height: int = int(list.get_combined_minimum_size().y) + 16
-	menu.popup(Rect2i(pos, Vector2i(maxi(popup_width, int(rect.size.x)), height)))
+	var height: int = int(list.get_combined_minimum_size().y) + POPUP_PAD
+	return Rect2i(pos, Vector2i(maxi(popup_width, int(rect.size.x)), height))
+
+
+func _on_pressed() -> void:
+	menu.popup(popup_rect())
 
 
 func _on_row_pressed(index: int) -> void:

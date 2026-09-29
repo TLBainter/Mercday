@@ -1,7 +1,9 @@
 class_name MercListItem extends Button
 
 #One roster row: the portrait with its status strip, the first name over the tradition and the
-#level badge at the right. A busy merc dims and the selected row takes the list fill.
+#level badge at the right. A busy merc dims and the selected row takes the list fill. The band
+#takes its colour from GuiTypes so one table rules every status, an away merc reads as away, and
+#a merc out chasing a loan carries the ledger's note under their tradition.
 
 const ROW_HEIGHT: int = 56
 const BUTTON_HEIGHT: int = 68
@@ -12,6 +14,7 @@ const NORMAL_EDGE: Color = Color("#0a0f1c")
 const EDGE_PX: int = 3
 const BOX_MARGIN: float = 6.0
 const BUSY_MODULATE: Color = Color(0.65, 0.65, 0.65, 1.0)
+const FINANCE_PATH: String = "/root/FinanceManager"
 
 signal selected(uid: int)
 
@@ -47,6 +50,7 @@ signal selected(uid: int)
 @onready var strip: MercStatusStrip = $Row/PortraitHolder/Strip
 @onready var name_label: Label = $Row/Names/MercName
 @onready var tradition_label: Label = $Row/Names/Tradition
+@onready var note_label: Label = $Row/Names/Note
 @onready var badge: LevelBadge = $Row/Badge
 
 var view: MercView = null
@@ -66,10 +70,42 @@ func set_view(new_view: MercView) -> void:
 	merc_name = MercHeader.split_name(view.name)[0]
 	tradition = view.tradition
 	level = view.level
-	status = view.status
 	time_left_minutes = int(round(view.status_time_left_hours * 60.0))
+	status = shown_status()
 	if is_node_ready():
 		portrait.set_merc(view)
+
+
+#The status the band reads: an away merc shows where they are once GameState knows how to say.
+func shown_status() -> int:
+	if view == null:
+		return status
+	if GameState.has_method("is_away") and GameState.has_method("away_status"):
+		if bool(GameState.call("is_away", view.uid)):
+			return int(GameState.call("away_status", view.uid))
+	return view.status
+
+
+func status_text() -> String:
+	return GuiTypes.merc_status_text(status)
+
+
+func status_color() -> Color:
+	return strip.get_theme_color("font_color") if is_node_ready() else Color.WHITE
+
+
+func note_text() -> String:
+	return note_label.text if is_node_ready() and note_label.visible else ""
+
+
+#The loan line under the tradition, when the ledger has one to give.
+func loan_note() -> String:
+	if view == null or status != GuiTypes.MercStatus.LOAN:
+		return ""
+	var finance: Node = get_node_or_null(FINANCE_PATH)
+	if finance == null or not finance.has_method("loan_note"):
+		return ""
+	return String(finance.call("loan_note", view.uid))
 
 
 func _refresh() -> void:
@@ -80,6 +116,10 @@ func _refresh() -> void:
 	badge.level = level
 	strip.status = status
 	strip.time_left_minutes = time_left_minutes
+	strip.add_theme_color_override("font_color", GuiTypes.merc_status_color(status))
+	var note: String = loan_note()
+	note_label.text = note
+	note_label.visible = note != ""
 	modulate = Color.WHITE if status == GuiTypes.MercStatus.AVAILABLE else BUSY_MODULATE
 	_apply_boxes()
 

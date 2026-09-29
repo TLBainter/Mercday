@@ -1,0 +1,48 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Clients/ClientViewer.gd" id="1"]
+[ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Clients/ClientList.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Clients/ClientOverview.tscn" id="4"]
+
+[node name="ClientViewer" type="Control"]
+custom_minimum_size = Vector2(1280, 720)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2")
+script = ExtResource("1")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="Columns" type="HBoxContainer" parent="Margin"]
+theme_override_constants/separation = 20
+
+[node name="Left" type="VBoxContainer" parent="Margin/Columns"]
+custom_minimum_size = Vector2(380, 0)
+theme_override_constants/separation = 0
+
+[node name="TabsWrap" type="MarginContainer" parent="Margin/Columns/Left"]
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 0
+
+[node name="Tabs" type="HBoxContainer" parent="Margin/Columns/Left/TabsWrap"]
+custom_minimum_size = Vector2(0, 44)
+theme_override_constants/separation = 8
+
+[node name="List" parent="Margin/Columns/Left" instance=ExtResource("3")]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Overview" parent="Margin/Columns" instance=ExtResource("4")]
+layout_mode = 2
+size_flags_horizontal = 3

@@ -3,8 +3,9 @@ class_name GuiTypes
 #Enums, tables and color ramps every GUI scene reads. The tables are the sample_data.json rows.
 #Difficulty and match keys are the half steps themselves; 0.5 to 5.0 are exact in binary.
 
-enum MercStatus {AVAILABLE, RESTING, CONTRACT, VACATION}
-enum ContractStatus {AVAILABLE, ACTIVE, EXPIRED, COMPLETED, REJECTED}
+enum MercStatus {AVAILABLE, RESTING, CONTRACT, VACATION, LOAN, DEAD, FIRED, MISSING, CAPTURED,
+	ODD_JOB}
+enum ContractStatus {AVAILABLE, ACTIVE, EXPIRED, COMPLETED, REJECTED, FAILED}
 enum Urgency {NONE, LOW, HIGH}
 
 const ROLES: Array[String] = ["Leader", "Support", "Driver", "Assassin", "Guide", "Escort"]
@@ -52,18 +53,30 @@ const MATCH_COLORS: Dictionary = {
 const STATUS_COLORS: Dictionary = {
 	ContractStatus.AVAILABLE: Color("#6cc36a"), ContractStatus.ACTIVE: Color("#5aa6e8"),
 	ContractStatus.EXPIRED: Color("#e8583f"), ContractStatus.COMPLETED: Color("#f2b33d"),
-	ContractStatus.REJECTED: Color("#a0a8b8"),
+	ContractStatus.REJECTED: Color("#a0a8b8"), ContractStatus.FAILED: Color("#e8583f"),
 }
 
 const STATUS_NAMES: Dictionary = {
 	ContractStatus.AVAILABLE: "Available", ContractStatus.ACTIVE: "Active",
 	ContractStatus.EXPIRED: "Expired", ContractStatus.COMPLETED: "Completed",
-	ContractStatus.REJECTED: "Rejected",
+	ContractStatus.REJECTED: "Rejected", ContractStatus.FAILED: "Failed",
 }
 
 const MERC_STATUS_NAMES: Dictionary = {
 	MercStatus.AVAILABLE: "Available", MercStatus.RESTING: "Resting",
 	MercStatus.CONTRACT: "On a Contract", MercStatus.VACATION: "On Vacation",
+	MercStatus.LOAN: "Pursuing a Loan", MercStatus.DEAD: "Dead", MercStatus.FIRED: "Fired",
+	MercStatus.MISSING: "Missing", MercStatus.CAPTURED: "Captured",
+	MercStatus.ODD_JOB: "On an Odd Job",
+}
+
+#AVAILABLE reads green, DEAD and FIRED read red, LOAN and ODD_JOB read amber, the rest neutral.
+const MERC_STATUS_COLORS: Dictionary = {
+	MercStatus.AVAILABLE: Color("#6cc36a"), MercStatus.RESTING: Color("#f3ead7"),
+	MercStatus.CONTRACT: Color("#f3ead7"), MercStatus.VACATION: Color("#f3ead7"),
+	MercStatus.LOAN: Color("#f2b33d"), MercStatus.DEAD: Color("#e8583f"),
+	MercStatus.FIRED: Color("#e8583f"), MercStatus.MISSING: Color("#f3ead7"),
+	MercStatus.CAPTURED: Color("#f3ead7"), MercStatus.ODD_JOB: Color("#f2b33d"),
 }
 
 #The ramp runs green at None, orange at Low and red at High (C7).
@@ -112,6 +125,10 @@ static func status_text(status: int) -> String:
 
 static func merc_status_text(status: int) -> String:
 	return String(MERC_STATUS_NAMES.get(status, ""))
+
+
+static func merc_status_color(status: int) -> Color:
+	return MERC_STATUS_COLORS.get(status, FALLBACK_COLOR)
 
 
 static func urgency_color(urgency: int) -> Color:

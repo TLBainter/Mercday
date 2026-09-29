@@ -1,0 +1,305 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Results/ResultRow.gd" id="1"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/results_row.tres" id="2"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/results_mvp.tres" id="3"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/results_level.tres" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPortrait.tscn" id="5"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="6"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="7"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyMedium.tres" id="8"]
+
+[node name="ResultRow" type="PanelContainer"]
+mouse_filter = 2
+theme_override_styles/panel = ExtResource("2")
+script = ExtResource("1")
+
+[node name="Grid" type="HBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 14
+
+[node name="Portrait" type="Control" parent="Grid"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="Plate" type="Control" parent="Grid/Portrait"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Portrait" parent="Grid/Portrait" instance=ExtResource("5")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Overlay" type="TextureRect" parent="Grid/Portrait"]
+visible = false
+layout_mode = 0
+offset_right = 50.0
+offset_bottom = 50.0
+mouse_filter = 2
+
+[node name="Ident" type="VBoxContainer" parent="Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="TopRow" type="HBoxContainer" parent="Grid/Ident"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Name" type="Label" parent="Grid/Ident/TopRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1.000000)
+theme_override_fonts/font = ExtResource("6")
+theme_override_font_sizes/font_size = 12
+size_flags_horizontal = 3
+clip_text = true
+text_overrun_behavior = 3
+text = "Name"
+
+[node name="Mvp" type="Label" parent="Grid/Ident/TopRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.039216, 0.058824, 0.109804, 1.000000)
+theme_override_fonts/font = ExtResource("6")
+theme_override_font_sizes/font_size = 9
+visible = false
+size_flags_vertical = 4
+theme_override_styles/normal = ExtResource("3")
+text = "MVP"
+
+[node name="BotRow" type="HBoxContainer" parent="Grid/Ident"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Level" type="Label" parent="Grid/Ident/BotRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.039216, 0.058824, 0.109804, 1.000000)
+theme_override_fonts/font = ExtResource("6")
+theme_override_font_sizes/font_size = 11
+custom_minimum_size = Vector2(26, 22)
+size_flags_vertical = 4
+theme_override_styles/normal = ExtResource("4")
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "01"
+
+[node name="Plus" type="Label" parent="Grid/Ident/BotRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.423529, 0.764706, 0.415686, 1.000000)
+theme_override_fonts/font = ExtResource("6")
+theme_override_font_sizes/font_size = 11
+visible = false
+size_flags_vertical = 4
+text = "+1"
+
+[node name="Tradition" type="Label" parent="Grid/Ident/BotRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1.000000)
+theme_override_fonts/font = ExtResource("7")
+theme_override_font_sizes/font_size = 9
+size_flags_vertical = 4
+text = "Tradition"
+
+[node name="Role" type="Label" parent="Grid/Ident/BotRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.368627, 0.462745, 0.600000, 1.000000)
+theme_override_fonts/font = ExtResource("7")
+theme_override_font_sizes/font_size = 9
+size_flags_horizontal = 3
+size_flags_vertical = 4
+clip_text = true
+text_overrun_behavior = 3
+text = " - Role"
+
+[node name="XpCol" type="VBoxContainer" parent="Grid"]
+custom_minimum_size = Vector2(170, 0)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="XpHead" type="HBoxContainer" parent="Grid/XpCol"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Key" type="Label" parent="Grid/XpCol/XpHead"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.949020, 0.701961, 0.239216, 1.000000)
+theme_override_fonts/font = ExtResource("7")
+theme_override_font_sizes/font_size = 8
+vertical_alignment = 1
+text = "XP"
+
+[node name="Value" type="Label" parent="Grid/XpCol/XpHead"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.949020, 0.701961, 0.239216, 1.000000)
+theme_override_fonts/font = ExtResource("6")
+theme_override_font_sizes/font_size = 12
+size_flags_horizontal = 3
+vertical_alignment = 1
+text = "+0 XP"
+
+[node name="XpBar" type="Control" parent="Grid/XpCol"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="XpNumber" type="Label" parent="Grid/XpCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1.000000)
+theme_override_fonts/font = ExtResource("8")
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 2
+text = "0 / 100"
+
+[node name="BarsCol" type="VBoxContainer" parent="Grid"]
+custom_minimum_size = Vector2(230, 0)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="HP" type="HBoxContainer" parent="Grid/BarsCol"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Key" type="Label" parent="Grid/BarsCol/HP"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.909804, 0.345098, 0.247059, 1.000000)
+theme_override_fonts/font = ExtResource("7")
+theme_override_font_sizes/font_size = 8
+custom_minimum_size = Vector2(22, 0)
+vertical_alignment = 1
+text = "HP"
+
+[node name="Bar" type="Control" parent="Grid/BarsCol/HP"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="Value" type="Label" parent="Grid/BarsCol/HP"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1.000000)
+theme_override_fonts/font = ExtResource("8")
+theme_override_font_sizes/font_size = 11
+custom_minimum_size = Vector2(44, 0)
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "0/0"
+
+[node name="EP" type="HBoxContainer" parent="Grid/BarsCol"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Key" type="Label" parent="Grid/BarsCol/EP"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.423529, 0.764706, 0.415686, 1.000000)
+theme_override_fonts/font = ExtResource("7")
+theme_override_font_sizes/font_size = 8
+custom_minimum_size = Vector2(22, 0)
+vertical_alignment = 1
+text = "EP"
+
+[node name="Bar" type="Control" parent="Grid/BarsCol/EP"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="Value" type="Label" parent="Grid/BarsCol/EP"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1.000000)
+theme_override_fonts/font = ExtResource("8")
+theme_override_font_sizes/font_size = 11
+custom_minimum_size = Vector2(44, 0)
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "0/0"
+
+[node name="MP" type="HBoxContainer" parent="Grid/BarsCol"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Key" type="Label" parent="Grid/BarsCol/MP"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.352941, 0.650980, 0.909804, 1.000000)
+theme_override_fonts/font = ExtResource("7")
+theme_override_font_sizes/font_size = 8
+custom_minimum_size = Vector2(22, 0)
+vertical_alignment = 1
+text = "MP"
+
+[node name="Bar" type="Control" parent="Grid/BarsCol/MP"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="Value" type="Label" parent="Grid/BarsCol/MP"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1.000000)
+theme_override_fonts/font = ExtResource("8")
+theme_override_font_sizes/font_size = 11
+custom_minimum_size = Vector2(44, 0)
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "0/0"
+
+[node name="StatusCol" type="VBoxContainer" parent="Grid"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Status" type="Label" parent="Grid/StatusCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1.000000)
+theme_override_fonts/font = ExtResource("6")
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 2
+text = "..."
+
+[node name="PayRow" type="HBoxContainer" parent="Grid/StatusCol"]
+layout_mode = 2
+alignment = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Pay" type="Label" parent="Grid/StatusCol/PayRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1.000000)
+theme_override_fonts/font = ExtResource("6")
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 2
+vertical_alignment = 1
+text = "+0"
+
+[node name="Glyph" type="TextureRect" parent="Grid/StatusCol/PayRow"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2

@@ -1,7 +1,7 @@
 class_name GuiViewTests
 
 #The GUI view models: GuiTypes, MercView, ContractView, the sample loader and the run resources.
-#Run: godot --headless --path . -- --gui-view-tests
+#Run: the headless harness flag gui-view-tests, after the bare argument separator.
 #Every case clears the roster and the campaign tallies first, so the suite is order independent.
 
 const SAMPLE_PATH: String = "res://Resources/GUI/sample_data.json"
@@ -153,8 +153,17 @@ static func _case_merc_view(res: Dictionary) -> void:
 	TestFixtures.check(res, "the weight bar reads the encumbrance system",
 		is_equal_approx(view.weight, float(Encumbrance.carried_weight(merc)))
 			and is_equal_approx(view.weight_limit, float(Encumbrance.weight_limit(merc)))
-			and view.weight_limit > 0.0,
+			and view.weight_limit >= 0.0,
 		"%s of %s" % [str(view.weight), str(view.weight_limit)])
+	var carried: int = int(merc.stats.get("weight_limit", 0))
+	merc.stats["weight_limit"] = 40
+	var loaded: MercView = MercView.from_merc(merc, GuiTypes.MercStatus.RESTING, 7.5, 3,
+		{"level_mode": "Offensive"})
+	TestFixtures.check(res, "a merc with a weight limit reads it on the bar",
+		is_equal_approx(loaded.weight_limit, 40.0)
+			and is_equal_approx(loaded.weight, float(Encumbrance.carried_weight(merc))),
+		"%s of %s" % [str(loaded.weight), str(loaded.weight_limit)])
+	merc.stats["weight_limit"] = carried
 	TestFixtures.check(res, "held gear leads the equipment list", _equipment_ok(merc, view.equipment),
 		"got %s" % str(view.equipment.slice(0, 3)))
 	TestFixtures.check(res, "xp comes across", view.xp == merc.xp, "expected %d, got %d" % [merc.xp,

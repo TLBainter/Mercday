@@ -3,10 +3,6 @@ class_name ContractPreview extends PanelContainer
 #The right column of the Dispatch Window: how long the journey runs, what it costs and what is
 #left of the reward. preview() is static so the numbers can be read without a scene.
 
-#The per-contract Employee Benefits rate; Finance and Payroll have not set this yet, so every
-#Mercenary Bonus reads a flat 0 percent until that system lands.
-const BONUS_PCT_PLACEHOLDER: int = 0
-
 const GREEN: Color = Color("#6cc36a")
 const RED: Color = Color("#e8583f")
 const BLUE: Color = Color("#9cc6ef")
@@ -78,7 +74,7 @@ func _refresh() -> void:
 
 
 static func bonus_pct() -> int:
-	return BONUS_PCT_PLACEHOLDER
+	return BenefitsManager.DEFAULT_BONUS_PCT
 
 
 static func preview(contract: ContractView, venture: Dictionary, ret: Dictionary,

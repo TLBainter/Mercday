@@ -2,7 +2,7 @@ class_name GuiWidgetTests
 
 #Stage 1 widget atoms: LevelBadge, XPTooltip, MercPortrait, SpeedButton, GridMenuButton,
 #MoodFace, MoodMeter, TraditionModule.
-#Run: godot --headless --path . -- --gui-widget-tests
+#Run: godot --headless --path . with the user arg --gui-widget-tests
 
 const LEVEL_BADGE := preload("res://Scenes/GUI/Shared/LevelBadge.tscn")
 const XP_TOOLTIP := preload("res://Scenes/GUI/Shared/XPTooltip.tscn")
@@ -21,6 +21,7 @@ const COMPACT_LINE: float = 108.0
 static func run(host: Node) -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
 	await _case_xp_tooltip(res, host)
+	await _case_xp_tooltip_mouse(res, host)
 	await _case_scroll_bar(res, host)
 	await _case_level_badge(res, host)
 	await _case_level_badge_mouse_filter(res, host)
@@ -71,6 +72,52 @@ static func _case_xp_tooltip(res: Dictionary, host: Node) -> void:
 			and XPTooltip.cells(2.0).count(1.0) == XPTooltip.CELLS,
 		"under %s over %s" % [XPTooltip.cells(-1.0), XPTooltip.cells(2.0)])
 	tip.queue_free()
+
+
+#Item 8: the tip may never take the pointer, or a hit inside it reads as leaving the badge.
+static func _case_xp_tooltip_mouse(res: Dictionary, host: Node) -> void:
+	var tip: XPTooltip = XP_TOOLTIP.instantiate()
+	host.add_child(tip)
+	await host.get_tree().process_frame
+	var stoppers: Array[String] = []
+	for node: Node in _all_nodes(tip):
+		var control: Control = node as Control
+		if control != null and control.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+			stoppers.append(control.name)
+	TestFixtures.check(res, "every node of the xp tooltip ignores the mouse",
+		tip.passes_mouse() and stoppers.is_empty(), "blockers %s" % str(stoppers))
+	TestFixtures.check(res, "the tooltip rows and the xp bar ignore the mouse",
+		tip.bar.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and tip.title_label.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and tip.body_label.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"bar %d title %d body %d" % [tip.bar.mouse_filter, tip.title_label.mouse_filter,
+			tip.body_label.mouse_filter])
+	tip.queue_free()
+	var badge: LevelBadge = LEVEL_BADGE.instantiate()
+	host.add_child(badge)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the badge alone owns the hover so only the plate holds the tip",
+		badge.row.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and badge.tag_label.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and badge.mouse_filter == Control.MOUSE_FILTER_PASS,
+		"row %d tag %d badge %d" % [badge.row.mouse_filter, badge.tag_label.mouse_filter,
+			badge.mouse_filter])
+	badge.show_tip()
+	badge.notification(Control.NOTIFICATION_MOUSE_EXIT)
+	TestFixtures.check(res, "the tip closes the moment the pointer leaves the badge",
+		not badge.tip().visible, "visible was %s" % badge.tip().visible)
+	badge.show_tip()
+	badge.notification(Control.NOTIFICATION_MOUSE_EXIT_SELF)
+	TestFixtures.check(res, "leaving the plate itself closes the tip as well",
+		not badge.tip().visible, "visible was %s" % badge.tip().visible)
+	badge.queue_free()
+
+
+static func _all_nodes(root: Node) -> Array[Node]:
+	var out: Array[Node] = [root]
+	for child: Node in root.get_children():
+		out.append_array(_all_nodes(child))
+	return out
 
 
 static func _case_scroll_bar(res: Dictionary, host: Node) -> void:

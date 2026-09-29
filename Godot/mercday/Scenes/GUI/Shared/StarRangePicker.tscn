@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/StarRangePicker.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FeatureLock.tscn" id="2"]
+
+[node name="StarRangePicker" type="Control"]
+custom_minimum_size = Vector2(418, 30)
+mouse_filter = 1
+script = ExtResource("1")
+
+[node name="MinLock" parent="." instance=ExtResource("2")]
+visible = false
+
+[node name="MaxLock" parent="." instance=ExtResource("2")]
+visible = false

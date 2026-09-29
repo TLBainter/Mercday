@@ -1,7 +1,7 @@
 class_name GuiTests
 
 #Dispatch scoring, travel planning, the dispatch optimizer and the metrics record.
-#Run: godot --headless --path . -- --gui-tests
+#Run headless with the gui-tests suite flag; see HarnessEntry.gd for the exact arguments.
 #The expected numbers come from dispatch_scoring.js and metrics_history_generator.js.
 
 const HISTORY_PATH := "res://Scripts/GUI/Autoloads/MetricsHistory.gd"
@@ -17,6 +17,70 @@ const PREVIEW_SALARIES: Array[int] = [60, 150, 40, 120]
 #The axis formats a metric may name; LineChart.axis_text reads the same set.
 const METRIC_FORMATS: Array[String] = ["money", "int", "op", "float"]
 
+#F6B: the 21 scroll sites built as plain scenes; BailoutPage and FilterSection build in code.
+const SCROLL_SCENES: Array[String] = [
+	"res://Scenes/GUI/Finance/Overview/FinanceTransactions.tscn",
+	"res://Scenes/GUI/Mercs/MercList.tscn",
+	"res://Scenes/GUI/Mercs/TraitListPanel.tscn",
+	"res://Scenes/GUI/Mercs/OverviewTab.tscn",
+	"res://Scenes/GUI/Mercs/ActionsTab.tscn",
+	"res://Scenes/GUI/Mercs/EquipmentTab.tscn",
+	"res://Scenes/GUI/Mercs/RelationshipsTab.tscn",
+	"res://Scenes/GUI/Contracts/ContractList.tscn",
+	"res://Scenes/GUI/Contracts/TeamSlot.tscn",
+	"res://Scenes/GUI/Contracts/MercPicker.tscn",
+	"res://Scenes/GUI/Contracts/RecommendedList.tscn",
+	"res://Scenes/GUI/Contracts/DispatchRoster.tscn",
+	"res://Scenes/GUI/Finance/Payroll/PayrollTab.tscn",
+	"res://Scenes/GUI/Clients/ClientList.tscn",
+	"res://Scenes/GUI/Shared/TraitFilterPanel.tscn",
+	"res://Scenes/GUI/Shared/CrewMercPicker.tscn",
+	"res://Scenes/GUI/Promotions/CampaignList.tscn",
+	"res://Scenes/GUI/Metrics/MetricsViewer.tscn",
+	"res://Scenes/GUI/Notifications/NotificationPanel.tscn",
+]
+
+#F6B: the census of outer MarginContainers bumped to 14 px on every side.
+const MARGIN_CENSUS: Array = [
+	["res://Scenes/GUI/Subscription/SubscriptionViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Subscription/PlanCard.tscn", "Pad"],
+	["res://Scenes/GUI/Subscription/PlanSwitchDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Shared/LockedPage.tscn", "Panel/Pad"],
+	["res://Scenes/GUI/Shared/FeatureLockDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Shared/TextEntryDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Contracts/DispatchWindow.tscn", "Margin"],
+	["res://Scenes/GUI/Contracts/ContractViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Clients/ClientViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Bazaar/BazaarViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Mercs/CoachDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Mercs/SalaryDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Mercs/MercViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Shared/OddJobWindow.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Promotions/PromotionsViewer.tscn", "Body"],
+	["res://Scenes/GUI/Promotions/CampaignBuilder.tscn", "Center/Frame/Pad"],
+	["res://Scenes/GUI/Finance/Overview/FinanceTransactions.tscn", "Pad"],
+	["res://Scenes/GUI/Metrics/MetricsViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Shared/CrewMercPicker.tscn", "Box/Pad"],
+]
+
+#F6B: census entries where the 14 px comes from a panel StyleBoxFlat on the named node, not a
+#MarginContainer.
+const STYLE_NODE_CENSUS: Array = [
+	["res://Scenes/GUI/Mercs/OverviewTab.tscn", "Pad/Rows/Middle/Resources"],
+	["res://Scenes/GUI/Contracts/MercPicker.tscn", "Center/Box"],
+	["res://Scenes/GUI/Clients/ClientList.tscn", "."],
+	["res://Scenes/GUI/Clients/ClientOverview.tscn",
+		"Rows/Body/Lower/Left/RecentPanel/RecentScroll/Items/Empty"],
+]
+
+#F6B: shared style resources bumped to 14 px content margin on every side.
+const STYLE_FILE_CENSUS: Array[String] = [
+	"res://Resources/GUI/Theme/Styles/PanelContent.tres",
+	"res://Resources/GUI/Theme/Styles/bazaar_content.tres",
+	"res://Resources/GUI/Theme/Styles/client_panel.tres",
+	"res://Resources/GUI/Theme/Styles/client_list_panel.tres",
+]
+
 
 static func run() -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
@@ -31,6 +95,9 @@ static func run() -> bool:
 	_case_event_series(res)
 	_case_preview(res)
 	_case_theme_states(res)
+	_case_scroll_padding(res)
+	_case_box_padding(res)
+	_case_portfolio_top(res)
 	return TestFixtures.summarize(res, "GUI")
 
 
@@ -376,6 +443,154 @@ static func _case_theme_states(res: Dictionary) -> void:
 			missing.append(variation)
 	TestFixtures.check(res, "the theme carries the PanelTitle, TabActive and TabIdle variations",
 		missing.is_empty(), "missing %s" % str(missing))
+
+
+#F6B: every scroll site's first child is a Pad MarginContainer at 14 px top and bottom.
+static func _case_scroll_padding(res: Dictionary) -> void:
+	var bad: Array[String] = []
+	for scene_path: String in SCROLL_SCENES:
+		var packed: Variant = load(scene_path)
+		if not (packed is PackedScene):
+			bad.append("%s did not load" % scene_path)
+			continue
+		var inst: Node = (packed as PackedScene).instantiate()
+		var scrolls: Array[ScrollContainer] = []
+		_find_scrolls(inst, scrolls, true)
+		if scrolls.is_empty():
+			bad.append("%s has no ScrollContainer" % scene_path)
+		for scroll: ScrollContainer in scrolls:
+			var first: Node = scroll.get_child(0) if scroll.get_child_count() > 0 else null
+			var pad: MarginContainer = first as MarginContainer
+			if pad == null:
+				bad.append("%s %s's first child is not a MarginContainer" % [scene_path, scroll.name])
+				continue
+			var top: int = pad.get_theme_constant(&"margin_top")
+			var bottom: int = pad.get_theme_constant(&"margin_bottom")
+			if top != 14 or bottom != 14:
+				bad.append("%s %s pad is %d/%d" % [scene_path, scroll.name, top, bottom])
+			if not (pad.size_flags_horizontal & Control.SIZE_EXPAND):
+				bad.append("%s %s pad does not expand" % [scene_path, scroll.name])
+		inst.free()
+	_check_code_scrolls(bad)
+	TestFixtures.check(res, "every owned scroll container pads its content 14 px top and bottom",
+		bad.is_empty(), TestFixtures.detail(bad, SCROLL_SCENES.size() + 2, "scroll sites"))
+
+
+#Stops at the root of any nested instanced sub-scene so a component I do not own never counts.
+static func _find_scrolls(node: Node, out: Array[ScrollContainer], is_root: bool) -> void:
+	if node is ScrollContainer:
+		out.append(node as ScrollContainer)
+	if not is_root and node.scene_file_path != "":
+		return
+	for child: Node in node.get_children():
+		_find_scrolls(child, out, false)
+
+
+#The two scroll sites BailoutPage.gd and FilterSection.gd build in code rather than in a .tscn.
+static func _check_code_scrolls(bad: Array[String]) -> void:
+	var page: BailoutPage = BailoutPage.new()
+	page._build()
+	var bail_top: int = page.pad.get_theme_constant(&"margin_top") if page.pad != null else -1
+	var bail_bottom: int = page.pad.get_theme_constant(&"margin_bottom") if page.pad != null else -1
+	if bail_top != 14 or bail_bottom != 14:
+		bad.append("BailoutPage.gd pad is %d/%d" % [bail_top, bail_bottom])
+	page.free()
+	var fs_packed: PackedScene = load("res://Scenes/GUI/Shared/FilterSection.tscn") as PackedScene
+	var fs: FilterSection = fs_packed.instantiate() as FilterSection
+	fs.title_label = fs.get_node(^"Title") as Label
+	fs.lock = fs.get_node(^"Lock") as FeatureLock
+	fs.body = fs.get_node(^"Body") as VBoxContainer
+	var defs: Array[Dictionary] = TraitFilterDefs.contract_defs(&"")
+	fs._def = TraitFilterDefs.find(defs, &"loc")
+	fs._build()
+	var mods_pad: MarginContainer = fs.body.get_node_or_null(^"ModsBox/Scroll/Pad") as MarginContainer
+	var mods_top: int = mods_pad.get_theme_constant(&"margin_top") if mods_pad != null else -1
+	var mods_bottom: int = mods_pad.get_theme_constant(&"margin_bottom") if mods_pad != null else -1
+	if mods_top != 14 or mods_bottom != 14:
+		bad.append("FilterSection.gd mods pad is %d/%d" % [mods_top, mods_bottom])
+	fs.free()
+
+
+#F6B: the census of outer windows and shared styles padded 14 px on every side.
+static func _case_box_padding(res: Dictionary) -> void:
+	var bad: Array[String] = []
+	var total: int = MARGIN_CENSUS.size() + STYLE_NODE_CENSUS.size() + STYLE_FILE_CENSUS.size()
+	for entry: Array in MARGIN_CENSUS:
+		var scene_path: String = entry[0]
+		var node_path: String = entry[1]
+		var packed: Variant = load(scene_path)
+		if not (packed is PackedScene):
+			bad.append("%s did not load" % scene_path)
+			continue
+		var inst: Node = (packed as PackedScene).instantiate()
+		var target: MarginContainer = inst.get_node_or_null(node_path) as MarginContainer
+		if target == null:
+			bad.append("%s has no MarginContainer at %s" % [scene_path, node_path])
+		else:
+			var sides: Array[int] = [
+				target.get_theme_constant(&"margin_left"), target.get_theme_constant(&"margin_top"),
+				target.get_theme_constant(&"margin_right"), target.get_theme_constant(&"margin_bottom"),
+			]
+			if sides != [14, 14, 14, 14]:
+				bad.append("%s %s is %s" % [scene_path, node_path, str(sides)])
+		inst.free()
+	for entry: Array in STYLE_NODE_CENSUS:
+		var scene_path: String = entry[0]
+		var node_path: String = entry[1]
+		var packed: Variant = load(scene_path)
+		if not (packed is PackedScene):
+			bad.append("%s did not load" % scene_path)
+			continue
+		var inst: Node = (packed as PackedScene).instantiate()
+		var target: Control = inst as Control
+		if node_path != ".":
+			target = inst.get_node_or_null(node_path) as Control
+		var style: StyleBoxFlat = null
+		if target != null:
+			style = target.get_theme_stylebox(&"panel") as StyleBoxFlat
+		if style == null:
+			bad.append("%s %s has no panel style" % [scene_path, node_path])
+		else:
+			var sides: Array[float] = [style.content_margin_left, style.content_margin_top,
+				style.content_margin_right, style.content_margin_bottom]
+			if sides != [14.0, 14.0, 14.0, 14.0]:
+				bad.append("%s %s style is %s" % [scene_path, node_path, str(sides)])
+		inst.free()
+	for style_path: String in STYLE_FILE_CENSUS:
+		var style: Variant = load(style_path)
+		if not (style is StyleBoxFlat):
+			bad.append("%s did not load" % style_path)
+			continue
+		var flat: StyleBoxFlat = style
+		var sides: Array[float] = [flat.content_margin_left, flat.content_margin_top,
+			flat.content_margin_right, flat.content_margin_bottom]
+		if sides != [14.0, 14.0, 14.0, 14.0]:
+			bad.append("%s is %s" % [style_path, str(sides)])
+	TestFixtures.check(res, "every census window pads its content 14 px on every side",
+		bad.is_empty(), TestFixtures.detail(bad, total, "census entries"))
+
+
+#F6B item 25: the Portfolio Value title sits 14 px from the widget's top and bottom.
+static func _case_portfolio_top(res: Dictionary) -> void:
+	var packed: PackedScene = load("res://Scenes/GUI/Finance/Invest/InvestPortfolio.tscn")
+	var inst: PanelContainer = packed.instantiate() as PanelContainer
+	var style: StyleBoxFlat = inst.get_theme_stylebox(&"panel") as StyleBoxFlat
+	var pad: MarginContainer = inst.get_node_or_null(^"Pad") as MarginContainer
+	var style_top: float = style.content_margin_top if style != null else -1.0
+	var style_bottom: float = style.content_margin_bottom if style != null else -1.0
+	var pad_top: int = pad.get_theme_constant(&"margin_top") if pad != null else -1
+	var pad_bottom: int = pad.get_theme_constant(&"margin_bottom") if pad != null else -1
+	TestFixtures.check(res, "the portfolio widget pads its title 14 px from the top and bottom",
+		pad != null and style != null and is_equal_approx(style_top + float(pad_top), 14.0)
+			and is_equal_approx(style_bottom + float(pad_bottom), 14.0),
+		"style %.1f pad %d top, style %.1f pad %d bottom" % [style_top, pad_top, style_bottom,
+			pad_bottom])
+	var col: VBoxContainer = inst.get_node_or_null(^"Pad/Col") as VBoxContainer
+	var first_child: Node = col.get_child(0) if col != null and col.get_child_count() > 0 else null
+	TestFixtures.check(res, "nothing sits above the portfolio title",
+		first_child != null and String(first_child.name) == "TitleLabel",
+		"got %s" % ("none" if first_child == null else String(first_child.name)))
+	inst.free()
 
 
 static func _bonus(names: Array) -> Array[BonusEntry]:

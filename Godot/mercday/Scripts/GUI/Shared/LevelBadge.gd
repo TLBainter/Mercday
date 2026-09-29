@@ -56,8 +56,32 @@ func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_PASS
 	mouse_entered.connect(show_tip)
 	mouse_exited.connect(hide_tip)
+	_own_hover()
 	_capture_chip()
 	_refresh()
+
+
+#The badge alone owns the hover: a child that took the pointer would count as leaving the plate,
+#and the tip is top level so it never sits in the way. The tip then closes the moment the pointer
+#leaves the plate, with nothing under it to keep it open.
+func _own_hover() -> void:
+	for child: Node in get_children():
+		if child == tip_node:
+			continue
+		_ignore_mouse(child)
+
+
+func _ignore_mouse(node: Node) -> void:
+	var control: Control = node as Control
+	if control != null:
+		control.mouse_filter = MOUSE_FILTER_IGNORE
+	for child: Node in node.get_children():
+		_ignore_mouse(child)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_MOUSE_EXIT or what == NOTIFICATION_MOUSE_EXIT_SELF:
+		hide_tip()
 
 
 #The chip look comes from the scene, so it is read once before any mode writes an override.

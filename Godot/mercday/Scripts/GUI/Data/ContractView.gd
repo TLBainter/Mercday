@@ -6,6 +6,9 @@ class_name ContractView extends RefCounted
 
 #Hard cap on the crew a contract may take (Q37).
 const MERC_CAP: int = 5
+#What a settled posting reads as while its results sit unopened (README I5).
+const UNCLAIMED_TEXT: String = "Complete"
+const UNCLAIMED_COLOR: Color = Color("#f28c28")
 
 var entry_id: int = -1
 var name: String = ""
@@ -140,6 +143,35 @@ static func urgency_from_text(text: String) -> int:
 
 func status_text() -> String:
 	return GuiTypes.status_text(status)
+
+
+#A settled posting nobody has opened the results of, whichever way it went (README I5). The seen
+#set lives on GameState, so a sample row and an open posting are never unclaimed.
+func is_unclaimed() -> bool:
+	if entry_id < 0 or status != GuiTypes.ContractStatus.COMPLETED:
+		return false
+	return GameState.is_unclaimed(entry_id)
+
+
+#The status every screen draws. The game never stores FAILED: it is the display status of a
+#posting that was failed and whose results the player has already claimed.
+func shown_status() -> int:
+	if status == GuiTypes.ContractStatus.COMPLETED and outcome == "Failed" and not is_unclaimed():
+		return GuiTypes.ContractStatus.FAILED
+	return status
+
+
+func shown_status_text() -> String:
+	return UNCLAIMED_TEXT if is_unclaimed() else GuiTypes.status_text(shown_status())
+
+
+func shown_status_color() -> Color:
+	return UNCLAIMED_COLOR if is_unclaimed() else GuiTypes.status_color(shown_status())
+
+
+#The mark the list row and the detail portrait wear for this posting.
+func shown_mark() -> int:
+	return StatusMark.Mark.BANG if is_unclaimed() else StatusMark.mark_for(shown_status())
 
 
 func difficulty_name() -> String:

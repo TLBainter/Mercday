@@ -12,6 +12,8 @@ const ROW_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/Pixelif
 const ROW_FONT_SIZE: int = 14
 const ROW_COLOR: Color = Color("#f3ead7")
 const ROW_PICKED_COLOR: Color = Color("#0a0f1c")
+#A hovered row darkens and its label turns orange, so the row under the pointer stands out.
+const ROW_HOVER_COLOR: Color = Color(0.949020, 0.549020, 0.156863, 1.0)
 const GLYPH_COLOR: Color = Color("#f3ead7")
 const EMPTY_LABEL: String = "SORT"
 const MIN_POPUP_WIDTH: int = 210
@@ -38,8 +40,9 @@ static func style_row(row: Button, picked: bool) -> void:
 	row.add_theme_stylebox_override("hover", ROW_PICKED if picked else ROW_HOVER)
 	row.add_theme_stylebox_override("pressed", ROW_PICKED if picked else ROW_HOVER)
 	var fg: Color = ROW_PICKED_COLOR if picked else ROW_COLOR
-	for key: String in ["font_color", "font_hover_color", "font_pressed_color"]:
+	for key: String in ["font_color", "font_pressed_color"]:
 		row.add_theme_color_override(key, fg)
+	row.add_theme_color_override("font_hover_color", fg if picked else ROW_HOVER_COLOR)
 
 
 func _ready() -> void:

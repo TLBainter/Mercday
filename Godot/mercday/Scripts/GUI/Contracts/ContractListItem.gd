@@ -17,9 +17,11 @@ const NORMAL_EDGE: Color = Color("#0a0f1c")
 const EDGE_PX: int = 3
 const BOX_MARGIN: float = 6.0
 const CLOSED_TINT: Color = Color("#8a97ad")
-#The view statuses that count as closed (B4).
+#The view statuses that count as closed (B4). FAILED is a display status only; a failed posting
+#carries COMPLETED here, so both names sit in the table.
 const CLOSED_STATUSES: Array[int] = [GuiTypes.ContractStatus.COMPLETED,
-	GuiTypes.ContractStatus.EXPIRED, GuiTypes.ContractStatus.REJECTED]
+	GuiTypes.ContractStatus.EXPIRED, GuiTypes.ContractStatus.REJECTED,
+	GuiTypes.ContractStatus.FAILED]
 
 @onready var image: ContractImageBox = $Row/Image
 @onready var name_label: Label = $Row/Text/Name
@@ -67,11 +69,11 @@ func _refresh() -> void:
 	name_label.text = view.name
 	stars.rating = view.difficulty
 	reward_label.text = "%d" % view.reward
-	mark.status = view.status
+	mark.kind = view.shown_mark()
 	pulse.active = pulses(view)
-	modulate = CLOSED_TINT if is_closed(view) else Color.WHITE
-	strip_label.text = view.status_text()
-	strip_label.add_theme_color_override("font_color", GuiTypes.status_color(view.status))
+	modulate = CLOSED_TINT if greys(view) else Color.WHITE
+	strip_label.text = view.shown_status_text()
+	strip_label.add_theme_color_override("font_color", view.shown_status_color())
 	level_badge.level = view.contract_level
 	image.set_image_path(view.image)
 
@@ -153,6 +155,12 @@ static func pulses(row: ContractView) -> bool:
 		and row.urgency == GuiTypes.Urgency.HIGH
 
 
-#Completed, Expired and Rejected postings are closed; the filter hides them unless it shows closed.
+#Completed, Failed, Expired and Rejected postings are closed; the filter hides each one unless its
+#own option is on.
 static func is_closed(row: ContractView) -> bool:
 	return row != null and CLOSED_STATUSES.has(row.status)
+
+
+#A settled posting greys out, but not while its results sit unopened: that row still reads as news.
+static func greys(row: ContractView) -> bool:
+	return is_closed(row) and not row.is_unclaimed()

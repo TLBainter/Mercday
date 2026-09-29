@@ -3,7 +3,8 @@ class_name MetricToggle extends Button
 #One row of the MetricList: a ring checkbox in the metric colour, the metric name, a compare arrow
 #and a Y button that asks for this metric's axis. The colour comes from the list's palette, by def
 #index; the description fills the row tooltip. The arrow reads the merc against the reference the
-#viewer picked, either the team average or a second merc.
+#viewer picked, either the team average or a second merc. A row whose metric needs an upgrade the
+#guild has not bought shows the gold lock in place of the arrow and refuses to switch on.
 
 const ON_TEXT := Color(0.952941, 0.917647, 0.843137, 1)
 const OFF_TEXT := Color(0.541176, 0.592157, 0.678431, 1)
@@ -43,6 +44,10 @@ signal focus_requested
 	set(value):
 		color = value
 		refresh()
+@export var locked: bool = false:
+	set(value):
+		locked = value
+		refresh()
 
 var _focused: bool = false
 var _pct: float = NAN
@@ -50,6 +55,7 @@ var _good: int = 0
 
 @onready var swatch: Control = $Row/Swatch
 @onready var name_label: Label = $Row/Name
+@onready var lock: FeatureLock = $Row/Lock
 @onready var arrow: Control = $Row/Arrow
 @onready var y_button: Button = $Row/Y
 
@@ -69,6 +75,32 @@ func set_metric(metric_key: String, metric_label: String, metric_color: Color,
 	label = metric_label
 	description = metric_description if metric_description != "" else metric_label
 	color = metric_color
+
+
+#Locks or opens this row; info carries the FeatureLock copy of MetricsLocks.metric_lock().
+func set_locked(on: bool, info: Dictionary = {}) -> void:
+	if not is_node_ready():
+		locked = on
+		return
+	lock.feature = String(info.get("feature", ""))
+	lock.plan = String(info.get("plan", "")) if on else ""
+	lock.entitlement = String(info.get("entitlement", "")) if on else ""
+	lock.entitlement_tier = int(info.get("entitlement_tier", 0))
+	lock.required_plan = _plan_rank(on)
+	lock.upgrade = String(info.get("upgrade", ""))
+	lock.upgrade_id = String(info.get("upgrade_id", "")) if on else ""
+	lock.tier = int(info.get("tier", 1))
+	lock.tiers = int(info.get("tiers", 1))
+	lock.always_visible = on
+	locked = on
+
+
+#An open row pins its lock shut: no key, no upgrade and the lowest plan rank, so a later plan
+#change never pops it back into the layout.
+static func _plan_rank(on: bool) -> int:
+	if on:
+		return SubscriptionManager.Plan.ENTERPRISE
+	return SubscriptionManager.Plan.FREE
 
 
 #Mirrors a state change made in code; the pressed signal never fires for it.
@@ -140,9 +172,11 @@ func refresh() -> void:
 	name_label.text = label
 	tooltip_text = description
 	name_label.add_theme_color_override("font_color", ON_TEXT if button_pressed else OFF_TEXT)
+	disabled = locked
+	y_button.disabled = locked
 	_style_row()
 	swatch.queue_redraw()
-	arrow.visible = compare_visible()
+	arrow.visible = compare_visible() and not locked
 	arrow.queue_redraw()
 	var lit: bool = _focused and button_pressed
 	var box := StyleBoxFlat.new()

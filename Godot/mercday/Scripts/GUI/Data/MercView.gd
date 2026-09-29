@@ -18,6 +18,12 @@ var heritage: String = ""
 var level: int = 0
 var tradition: String = ""
 var age_group: String = ""
+#PLACEHOLDER: no roster criminality record exists, so an employed merc reads blank; an
+#applicant carries the value the hiring pool drew.
+var criminality: String = ""
+#The lineage of a view with no engine merc behind it: an applicant carries one of each.
+var ancestry_text: String = ""
+var bloodline_text: String = ""
 var monthly_salary: int = 0
 var employment_months: int = 0
 var guild_opinion: int = 0
@@ -121,6 +127,7 @@ static func from_sample(d: Dictionary) -> MercView:
 	view.level = int(d.get("level", 0))
 	view.tradition = str(d.get("tradition", ""))
 	view.age_group = str(d.get("age_group", ""))
+	view.criminality = str(d.get("criminality", ""))
 	view.monthly_salary = int(d.get("monthly_salary", 0))
 	view.employment_months = int(d.get("employment_months", 0))
 	view.guild_opinion = int(d.get("guild_opinion", 0))
@@ -131,6 +138,34 @@ static func from_sample(d: Dictionary) -> MercView:
 		view.knowledges.append(str(k))
 	for t: Variant in (d.get("tools", []) as Array):
 		view.tools.append(str(t))
+	return view
+
+
+#Reads a job applicant so the viewer can show one before hire. ApplicantData carries no salary
+#history, resources, lifepath or opinion, so those fields keep their defaults; the age arrives as a
+#number of years because an applicant has no life expectancy to band it with, and the status stays
+#AVAILABLE because "Applicant" is a state of the viewer, not a roster status.
+static func from_applicant(a: ApplicantData) -> MercView:
+	var view := MercView.new()
+	if a == null:
+		return view
+	view.uid = a.id
+	view.name = a.name
+	view.heritage = a.heritage
+	view.level = a.level
+	view.tradition = a.tradition
+	view.age_group = str(a.age) if a.age > 0 else ""
+	view.monthly_salary = a.ask
+	view.criminality = a.criminality
+	view.ancestry_text = a.ancestry
+	view.bloodline_text = a.bloodline
+	for key: String in ATTRIBUTE_KEYS:
+		var score: int = a.stat(key)
+		view.attributes[key] = {"current": score, "max": score}
+	for k: String in a.knowledges:
+		view.knowledges.append(k)
+	for t: String in a.tools:
+		view.tools.append(t)
 	return view
 
 

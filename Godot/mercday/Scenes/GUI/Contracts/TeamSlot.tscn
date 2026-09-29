@@ -266,27 +266,35 @@ mouse_filter = 1
 horizontal_scroll_mode = 0
 vertical_scroll_mode = 1
 
-[node name="List" type="VBoxContainer" parent="Rows/Body/Filled/Traits"]
+[node name="Pad" type="MarginContainer" parent="Rows/Body/Filled/Traits"]
+size_flags_horizontal = 3
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 14
+
+[node name="List" type="VBoxContainer" parent="Rows/Body/Filled/Traits/Pad"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 3
 
-[node name="TraitA" parent="Rows/Body/Filled/Traits/List" instance=ExtResource("6")]
+[node name="TraitA" parent="Rows/Body/Filled/Traits/Pad/List" instance=ExtResource("6")]
 layout_mode = 2
 
-[node name="TraitB" parent="Rows/Body/Filled/Traits/List" instance=ExtResource("6")]
+[node name="TraitB" parent="Rows/Body/Filled/Traits/Pad/List" instance=ExtResource("6")]
 layout_mode = 2
 
-[node name="Divider" type="HSeparator" parent="Rows/Body/Filled/Traits/List"]
+[node name="Divider" type="HSeparator" parent="Rows/Body/Filled/Traits/Pad/List"]
 visible = false
 layout_mode = 2
 mouse_filter = 2
 
-[node name="SharedA" parent="Rows/Body/Filled/Traits/List" instance=ExtResource("6")]
+[node name="SharedA" parent="Rows/Body/Filled/Traits/Pad/List" instance=ExtResource("6")]
 visible = false
 layout_mode = 2
 
-[node name="SharedB" parent="Rows/Body/Filled/Traits/List" instance=ExtResource("6")]
+[node name="SharedB" parent="Rows/Body/Filled/Traits/Pad/List" instance=ExtResource("6")]
 visible = false
 layout_mode = 2

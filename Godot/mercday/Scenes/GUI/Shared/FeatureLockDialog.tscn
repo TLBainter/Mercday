@@ -1,0 +1,63 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/FeatureLockDialog.gd" id="1"]
+
+[node name="FeatureLockDialog" type="Control"]
+visible = false
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="Backdrop" type="Panel" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_type_variation = &"BackdropPanel"
+
+[node name="Box" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(520, 0)
+offset_right = 520.0
+theme_type_variation = &"PopupBox"
+
+[node name="Pad" type="MarginContainer" parent="Box"]
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="Rows" type="VBoxContainer" parent="Box/Pad"]
+theme_override_constants/separation = 10
+
+[node name="IconRow" type="HBoxContainer" parent="Box/Pad/Rows"]
+alignment = 1
+
+[node name="LockIcon" type="TextureRect" parent="Box/Pad/Rows/IconRow"]
+custom_minimum_size = Vector2(21, 24)
+
+[node name="Line1" type="Label" parent="Box/Pad/Rows"]
+horizontal_alignment = 1
+autowrap_mode = 3
+text = "This feature of Mercday is not available on your plan!"
+
+[node name="Line2" type="Label" parent="Box/Pad/Rows"]
+horizontal_alignment = 1
+autowrap_mode = 3
+text = "Upgrade to Mercday Enterprise to view this feature."
+
+[node name="Buttons" type="HBoxContainer" parent="Box/Pad/Rows"]
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="TakeMeThere" type="Button" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(160, 34)
+theme_type_variation = &"ButtonGo"
+text = "Take Me There"
+
+[node name="Edges" type="Control" parent="Box"]
+mouse_filter = 2
+
+[node name="Close" type="Button" parent="."]
+offset_right = 28.0
+offset_bottom = 28.0
+theme_type_variation = &"ButtonNeutral"
+theme_override_colors/font_color = Color(1.0, 0.231373, 0.184314, 1)
+text = "X"

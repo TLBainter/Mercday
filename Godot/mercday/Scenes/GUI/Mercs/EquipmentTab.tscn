@@ -8,178 +8,185 @@
 horizontal_scroll_mode = 0
 script = ExtResource("1")
 
-[node name="Rows" type="VBoxContainer" parent="."]
+[node name="Pad" type="MarginContainer" parent="."]
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 14
+
+[node name="Rows" type="VBoxContainer" parent="Pad"]
 size_flags_horizontal = 3
 theme_override_constants/separation = 14
 
-[node name="TopRow" type="HBoxContainer" parent="Rows"]
+[node name="TopRow" type="HBoxContainer" parent="Pad/Rows"]
 theme_override_constants/separation = 20
 
-[node name="Worn" type="VBoxContainer" parent="Rows/TopRow"]
+[node name="Worn" type="VBoxContainer" parent="Pad/Rows/TopRow"]
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="Header" type="Label" parent="Rows/TopRow/Worn"]
+[node name="Header" type="Label" parent="Pad/Rows/TopRow/Worn"]
 theme_type_variation = &"PanelTitle"
 text = "WORN"
 
-[node name="Grid" type="GridContainer" parent="Rows/TopRow/Worn"]
+[node name="Grid" type="GridContainer" parent="Pad/Rows/TopRow/Worn"]
 columns = 2
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 8
 
-[node name="Slot1" parent="Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
+[node name="Slot1" parent="Pad/Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot2" parent="Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
+[node name="Slot2" parent="Pad/Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot3" parent="Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
+[node name="Slot3" parent="Pad/Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot4" parent="Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
+[node name="Slot4" parent="Pad/Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot5" parent="Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
+[node name="Slot5" parent="Pad/Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot6" parent="Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
+[node name="Slot6" parent="Pad/Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot7" parent="Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
+[node name="Slot7" parent="Pad/Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot8" parent="Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
+[node name="Slot8" parent="Pad/Rows/TopRow/Worn/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Containers" type="VBoxContainer" parent="Rows/TopRow"]
+[node name="Containers" type="VBoxContainer" parent="Pad/Rows/TopRow"]
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="Header" type="Label" parent="Rows/TopRow/Containers"]
+[node name="Header" type="Label" parent="Pad/Rows/TopRow/Containers"]
 theme_type_variation = &"PanelTitle"
 text = "CONTAINERS"
 
-[node name="Grid" type="GridContainer" parent="Rows/TopRow/Containers"]
+[node name="Grid" type="GridContainer" parent="Pad/Rows/TopRow/Containers"]
 columns = 2
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 8
 
-[node name="Slot1" parent="Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
+[node name="Slot1" parent="Pad/Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot2" parent="Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
+[node name="Slot2" parent="Pad/Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot3" parent="Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
+[node name="Slot3" parent="Pad/Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot4" parent="Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
+[node name="Slot4" parent="Pad/Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot5" parent="Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
+[node name="Slot5" parent="Pad/Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot6" parent="Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
+[node name="Slot6" parent="Pad/Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot7" parent="Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
+[node name="Slot7" parent="Pad/Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot8" parent="Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
+[node name="Slot8" parent="Pad/Rows/TopRow/Containers/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Carried" type="VBoxContainer" parent="Rows"]
+[node name="Carried" type="VBoxContainer" parent="Pad/Rows"]
 theme_override_constants/separation = 8
 
-[node name="Header" type="Label" parent="Rows/Carried"]
+[node name="Header" type="Label" parent="Pad/Rows/Carried"]
 theme_type_variation = &"PanelTitle"
 text = "CARRIED"
 
-[node name="Grid" type="GridContainer" parent="Rows/Carried"]
+[node name="Grid" type="GridContainer" parent="Pad/Rows/Carried"]
 columns = 4
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 8
 
-[node name="Slot1" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot1" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot2" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot2" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot3" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot3" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot4" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot4" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot5" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot5" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot6" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot6" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot7" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot7" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot8" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot8" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot9" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot9" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot10" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot10" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot11" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot11" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot12" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot12" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot13" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot13" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot14" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot14" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot15" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot15" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Slot16" parent="Rows/Carried/Grid" instance=ExtResource("2")]
+[node name="Slot16" parent="Pad/Rows/Carried/Grid" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Weight" parent="Rows" instance=ExtResource("3")]
+[node name="Weight" parent="Pad/Rows" instance=ExtResource("3")]
 layout_mode = 2

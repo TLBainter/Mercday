@@ -189,10 +189,10 @@ static func _case_metrics_flow(res: Dictionary, host: Node) -> void:
 	var hud: GameHUD = await _spawn(host)
 	MetricsHistory.clear()
 	MetricsHistory.clear_preview()
-	hud.open_menu(2)
+	hud.open_menu(8)
 	await host.get_tree().process_frame
 	var viewer: MetricsViewer = hud.popup().current() as MetricsViewer
-	TestFixtures.check(res, "menu 2 opens a MetricsViewer in the HUD popup",
+	TestFixtures.check(res, "menu 8 opens a MetricsViewer in the HUD popup",
 		hud.popup().is_open() and viewer != null, "current %s" % [hud.popup().current()])
 	if viewer == null:
 		hud.queue_free()

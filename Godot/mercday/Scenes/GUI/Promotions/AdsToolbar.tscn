@@ -1,0 +1,58 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Promotions/AdsToolbar.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FilterCheckRow.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortButton.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortDirToggle.tscn" id="4"]
+
+[node name="AdsToolbar" type="HBoxContainer"]
+alignment = 2
+script = ExtResource("1")
+
+[node name="Count" type="Label" parent="."]
+layout_mode = 2
+vertical_alignment = 2
+
+[node name="FilterBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="Caption" type="Label" parent="FilterBox"]
+layout_mode = 2
+
+[node name="Button" type="Button" parent="FilterBox"]
+custom_minimum_size = Vector2(150, 32)
+layout_mode = 2
+clip_text = true
+alignment = 0
+
+[node name="Menu" type="PopupPanel" parent="FilterBox/Button"]
+
+[node name="List" type="VBoxContainer" parent="FilterBox/Button/Menu"]
+theme_override_constants/separation = 4
+
+[node name="Concluded" parent="FilterBox/Button/Menu/List" instance=ExtResource("2")]
+layout_mode = 2
+on = false
+
+[node name="Infinite" parent="FilterBox/Button/Menu/List" instance=ExtResource("2")]
+layout_mode = 2
+
+[node name="SortBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="Caption" type="Label" parent="SortBox"]
+layout_mode = 2
+
+[node name="Row" type="HBoxContainer" parent="SortBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Sort" parent="SortBox/Row" instance=ExtResource("3")]
+custom_minimum_size = Vector2(170, 32)
+layout_mode = 2
+
+[node name="Direction" parent="SortBox/Row" instance=ExtResource("4")]
+layout_mode = 2
+size_flags_vertical = 4

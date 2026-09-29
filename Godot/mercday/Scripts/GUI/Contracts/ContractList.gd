@@ -15,13 +15,30 @@ const TIP_SCENE: PackedScene = preload("res://Scenes/GUI/Contracts/ContractToolt
 const OPEN_REWARD: int = 1000000
 const OPEN_DISTANCE: int = 100000
 const GLYPH_COLOR: Color = Color("#f3ead7")
+#The filter key a posting falls under, by the status it is drawn as.
+const STATUS_KEYS: Dictionary = {
+	GuiTypes.ContractStatus.AVAILABLE: "show_available",
+	GuiTypes.ContractStatus.ACTIVE: "show_active",
+	GuiTypes.ContractStatus.COMPLETED: "show_completed",
+	GuiTypes.ContractStatus.FAILED: "show_failed",
+	GuiTypes.ContractStatus.REJECTED: "show_rejected",
+	GuiTypes.ContractStatus.EXPIRED: "show_expired",
+}
+#A settled posting nobody has opened sits under its own option, never under the outcome it had.
+const UNCLAIMED_KEY: String = "show_unclaimed"
+#Which options a fresh filter turns on (PROTO state 493).
+const DEFAULT_SHOWN: Dictionary = {
+	"show_available": true, "show_active": true, "show_completed": false,
+	"show_failed": false, "show_unclaimed": true, "show_rejected": false,
+	"show_expired": false,
+}
 
 @onready var title_label: Label = $Rows/Header/Title
 @onready var count_label: Label = $Rows/Header/Count
 @onready var sort_button: SortButton = $Rows/Controls/Sort
-@onready var dir_toggle: DirToggle = $Rows/Controls/Dir
+@onready var dir_toggle: SortDirToggle = $Rows/Controls/Dir
 @onready var filter_button: Button = $Rows/Controls/Filter
-@onready var items: VBoxContainer = $Rows/Scroll/Items
+@onready var items: VBoxContainer = $Rows/Scroll/Pad/Items
 @onready var empty_label: Label = $Rows/Empty
 @onready var filter_panel: ContractFilterPanel = $FilterPanel
 
@@ -208,13 +225,33 @@ static func _key(view: ContractView, mode: int) -> float:
 	return view.difficulty
 
 
-#Which postings the filter leaves on the board; a settled one only shows with show_closed on.
+#The option one posting answers to: its own row while its results sit unopened, else its status.
+static func filter_key(view: ContractView) -> String:
+	if view == null:
+		return UNCLAIMED_KEY
+	if view.is_unclaimed():
+		return UNCLAIMED_KEY
+	return str(STATUS_KEYS.get(view.shown_status(), "show_available"))
+
+
+#Whether the status options let this posting through. A filter written before the per status
+#options only knew show_closed, so that key still answers for the whole closed side of the board.
+static func shows_status(view: ContractView, rules: Dictionary) -> bool:
+	var key: String = filter_key(view)
+	if rules.has(key):
+		return bool(rules[key])
+	if bool(rules.get("show_closed", false)):
+		return true
+	return not ContractListItem.is_closed(view)
+
+
+#Which postings the filter leaves on the board.
 static func filtered(source: Array[ContractView], rules: Dictionary) -> Array[ContractView]:
 	var out: Array[ContractView] = []
 	for view: ContractView in source:
 		if view == null:
 			continue
-		if ContractListItem.is_closed(view) and not bool(rules.get("show_closed", false)):
+		if not shows_status(view, rules):
 			continue
 		if view.difficulty < float(rules.get("difficulty_min", 0.0)):
 			continue
@@ -232,8 +269,9 @@ static func filtered(source: Array[ContractView], rules: Dictionary) -> Array[Co
 
 #The caps a fresh filter carries: the extremes of the postings currently listed.
 static func default_filter(source: Array[ContractView] = []) -> Dictionary:
-	var out: Dictionary = {"show_closed": false, "difficulty_min": 0.0, "difficulty_max": 5.0,
+	var out: Dictionary = {"difficulty_min": 0.0, "difficulty_max": 5.0,
 		"reward_min": 0, "reward_max": OPEN_REWARD, "max_distance": OPEN_DISTANCE}
+	out.merge(DEFAULT_SHOWN)
 	if source.is_empty():
 		return out
 	var low: float = 5.0

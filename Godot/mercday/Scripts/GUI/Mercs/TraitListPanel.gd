@@ -15,7 +15,7 @@ signal card_selected(index: int)
 @onready var title_label: Label = $Rows/Head/Title
 @onready var count_label: Label = $Rows/Head/Count
 @onready var filter_button: FilterSortButton = $Rows/Head/FilterSort
-@onready var card_box: GridContainer = $Rows/Scroll/Cards
+@onready var card_box: GridContainer = $Rows/Scroll/Pad/Cards
 @onready var empty_label: Label = $Rows/Empty
 
 var rows: Array[Dictionary] = []
