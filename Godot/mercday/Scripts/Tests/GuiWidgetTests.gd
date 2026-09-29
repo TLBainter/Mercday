@@ -1,7 +1,7 @@
 class_name GuiWidgetTests
 
 #Stage 1 widget atoms: LevelBadge, XPTooltip, MercPortrait, SpeedButton, GridMenuButton,
-#MoodFace, MoodMeter, TraditionModule.
+#MoodFace, MoodMeter, TraditionModule, TabButton on the atlas.
 #Run: godot --headless --path . with the user arg --gui-widget-tests
 
 const LEVEL_BADGE := preload("res://Scenes/GUI/Shared/LevelBadge.tscn")
@@ -12,6 +12,7 @@ const GRID_MENU_BUTTON := preload("res://Scenes/GUI/Shared/GridMenuButton.tscn")
 const MOOD_METER := preload("res://Scenes/GUI/Shared/MoodMeter.tscn")
 const TRADITION_MODULE := preload("res://Scenes/GUI/Shared/TraditionModule.tscn")
 const SLOT_CHIP := preload("res://Scenes/GUI/Mercs/SlotChip.tscn")
+const TAB_BUTTON := preload("res://Scenes/GUI/Mercs/TabButton.tscn")
 const GUILD_THEME := preload("res://Resources/GUI/Theme/guild_theme.tres")
 
 #The width a compact tradition line gets inside a 120 px team slot: 120 - 6 ring - 6 inset.
@@ -28,9 +29,10 @@ static func run(host: Node) -> bool:
 	await _case_merc_portrait(res, host)
 	await _case_speed_button(res, host)
 	await _case_grid_menu_button(res, host)
-	_case_mood_face(res, host)
+	await _case_mood_face(res, host)
 	await _case_mood_meter(res, host)
 	await _case_tradition_module(res, host)
+	await _case_tab_button_atlas(res, host)
 	return TestFixtures.summarize(res, "GUI WIDGET")
 
 
@@ -219,26 +221,17 @@ static func _case_merc_portrait(res: Dictionary, host: Node) -> void:
 
 
 static func _case_speed_button(res: Dictionary, host: Node) -> void:
-	var counts: Array[int] = []
-	var rows_ok := true
+	var ids: Array[String] = []
+	var known := true
 	for mode: int in range(5):
-		var maps: Array[PackedStringArray] = SpeedButton.glyph_maps(mode)
-		counts.append(maps.size())
-		for m: PackedStringArray in maps:
-			if m.size() != 7:
-				rows_ok = false
-	TestFixtures.check(res, "glyph_maps counts one arrow per speed step",
-		counts == [2, 2, 1, 2, 3], "got %s" % [counts])
-	TestFixtures.check(res, "every glyph map is 7 rows tall",
-		rows_ok, "a map did not have 7 rows")
-	var left: PackedStringArray = SpeedButton.glyph_maps(0)[0]
-	var right: PackedStringArray = SpeedButton.glyph_maps(2)[0]
-	var reversed_ok := true
-	for i: int in range(left.size()):
-		if SpeedButton._reverse(left[i]) != right[i]:
-			reversed_ok = false
-	TestFixtures.check(res, "the right glyph is the left glyph reversed",
-		reversed_ok, "a row did not match reversed")
+		var id: String = SpeedButton.icon_id(mode)
+		ids.append(id)
+		if not Icons.has(id):
+			known = false
+	TestFixtures.check(res, "icon_id names the atlas art of every speed step",
+		ids == ["speed_slow", "pause", "play", "speed_fast", "speed_faster"], "got %s" % [ids])
+	TestFixtures.check(res, "every speed icon is an id the atlas holds",
+		known and SpeedButton.icon_id(9) == "", "got %s" % [ids])
 	TestFixtures.check(res, "label_for names every speed",
 		SpeedButton.label_for(0) == "Slow Down" and SpeedButton.label_for(1) == "Pause"
 			and SpeedButton.label_for(2) == "Play" and SpeedButton.label_for(3) == "Fast Forward"
@@ -283,13 +276,13 @@ static func _case_grid_menu_button(res: Dictionary, host: Node) -> void:
 	btn.pressed.emit()
 	TestFixtures.check(res, "pressed emits opened with the window scene",
 		heard.size() == 1 and heard[0] == scene, "got %s" % [heard])
-	btn.set_icon(load("res://Art/GUI/Icons/icon_metrics.png"))
+	btn.icon_rect.set_id("metrics", 4)
 	await host.get_tree().process_frame
 	var grid_icon: IconRect = btn.icon_rect
 	var grid_icon_rect: Rect2 = grid_icon.get_global_rect()
 	var grid_btn_rect: Rect2 = btn.get_global_rect()
-	TestFixtures.check(res, "grid menu button icon centres at 4x after set_icon",
-		grid_icon.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	TestFixtures.check(res, "grid menu button icon centres at 4x after set_id",
+		grid_icon.stretch_mode == TextureRect.STRETCH_KEEP_CENTERED
 			and grid_icon.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST
 			and grid_icon.custom_minimum_size == Vector2(64, 64)
 			and grid_icon.size == Vector2(64, 64)
@@ -300,37 +293,28 @@ static func _case_grid_menu_button(res: Dictionary, host: Node) -> void:
 	btn.queue_free()
 
 
-static func _case_mood_face(res: Dictionary, _host: Node) -> void:
-	var shapes_ok := true
-	for m: int in range(5):
-		var map: PackedStringArray = MoodFace.face_map(m)
-		if map.size() != 9:
-			shapes_ok = false
-		for row: String in map:
-			if row.length() != 9:
-				shapes_ok = false
-	TestFixtures.check(res, "every mood face is a 9x9 map", shapes_ok,
-		"a face_map row was not 9x9")
-	TestFixtures.check(res, "the angry face has the pinched brow row",
-		MoodFace.face_map(0)[2] == "#f#fff#f#", "got '%s'" % MoodFace.face_map(0)[2])
-	TestFixtures.check(res, "the happy face mouth rows match the spec",
-		MoodFace.face_map(4)[5] == "#f#fff#f#" and MoodFace.face_map(4)[6] == "#ff###ff#",
-		"got '%s' and '%s'" % [MoodFace.face_map(4)[5], MoodFace.face_map(4)[6]])
-	var low: PackedStringArray = MoodFace.guild_face_map(-5)
-	var mid: PackedStringArray = MoodFace.guild_face_map(0)
-	var high: PackedStringArray = MoodFace.guild_face_map(5)
-	var clamped: PackedStringArray = MoodFace.guild_face_map(7)
-	TestFixtures.check(res, "the worst opinion face reads rows 2 to 7",
-		low[2] == "#f#fff#f#" and low[3] == "#f##f##f#" and low[4] == "#fffffff#"
-			and low[5] == "#f#####f#" and low[6] == "#f#fff#f#", "got %s" % [low.slice(2, 7)])
-	TestFixtures.check(res, "the neutral opinion face reads rows 2 to 7",
-		mid[2] == "#fffffff#" and mid[3] == "#ff#f#ff#" and mid[4] == "#fffffff#"
-			and mid[5] == "#ff###ff#" and mid[6] == "#fffffff#", "got %s" % [mid.slice(2, 7)])
-	TestFixtures.check(res, "the best opinion face reads rows 2 to 7",
-		high[2] == "#ff#f#ff#" and high[3] == "#f#fff#f#" and high[4] == "#fffffff#"
-			and high[5] == "#f#####f#" and high[6] == "#ff###ff#", "got %s" % [high.slice(2, 7)])
+static func _case_mood_face(res: Dictionary, host: Node) -> void:
+	TestFixtures.check(res, "the five mood levels read the row 7 face ids",
+		MoodFace.face_id_for(0, false, 0, true) == "face_m5"
+			and MoodFace.face_id_for(1, false, 0, true) == "face_m3"
+			and MoodFace.face_id_for(2, false, 0, true) == "face_0"
+			and MoodFace.face_id_for(3, false, 0, true) == "face_p3"
+			and MoodFace.face_id_for(4, false, 0, true) == "face_p5",
+		"got %s" % MoodFace.face_id_for(0, false, 0, true))
+	TestFixtures.check(res, "an unfilled face reads its row 8 outline twin",
+		MoodFace.face_id_for(2, false, 0, false) == "face_0_o",
+		MoodFace.face_id_for(2, false, 0, false))
+	TestFixtures.check(res, "guild faces read the opinion level instead",
+		MoodFace.face_id_for(0, true, -5, true) == "face_m5"
+			and MoodFace.face_id_for(0, true, 0, true) == "face_0"
+			and MoodFace.face_id_for(0, true, 5, true) == "face_p5",
+		"got %s" % MoodFace.face_id_for(0, true, 5, true))
 	TestFixtures.check(res, "an opinion above 5 clamps to 5",
-		clamped == high, "the clamped map did not match opinion 5")
+		MoodFace.face_id_for(0, true, 7, true) == "face_p5",
+		MoodFace.face_id_for(0, true, 7, true))
+	TestFixtures.check(res, "an unfilled guild face reads its outline twin",
+		MoodFace.face_id_for(0, true, -2, false) == "face_m2_o",
+		MoodFace.face_id_for(0, true, -2, false))
 	var clear := Color(0, 0, 0, 0)
 	TestFixtures.check(res, "color_for reads the mood colour when guild is off",
 		MoodFace.color_for(4, false, 0, clear).is_equal_approx(
@@ -341,6 +325,14 @@ static func _case_mood_face(res: Dictionary, _host: Node) -> void:
 	TestFixtures.check(res, "an opaque fill_color overrides the mood colour",
 		MoodFace.color_for(0, false, 0, Color(1, 1, 1, 1)).is_equal_approx(Color(1, 1, 1, 1)),
 		"got %s" % MoodFace.color_for(0, false, 0, Color(1, 1, 1, 1)))
+	var face: MoodFace = MoodFace.new()
+	host.add_child(face)
+	await host.get_tree().process_frame
+	face.pixel_scale = 2
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a face at scale 2 asks for the 24 px box",
+		face.custom_minimum_size == Vector2(24, 24), str(face.custom_minimum_size))
+	face.queue_free()
 
 
 static func _case_mood_meter(res: Dictionary, host: Node) -> void:
@@ -469,3 +461,36 @@ static func _case_tradition_module(res: Dictionary, host: Node) -> void:
 		widest_px <= COMPACT_LINE, "widest %s asks %.1f of %.1f" % [widest, widest_px,
 			COMPACT_LINE])
 	compact.queue_free()
+
+
+#S14: a tab button driven by an atlas id instead of a loose texture.
+static func _case_tab_button_atlas(res: Dictionary, host: Node) -> void:
+	var tab: TabButton = TAB_BUTTON.instantiate()
+	host.add_child(tab)
+	await host.get_tree().process_frame
+	tab.icon_id = "eye"
+	tab.icon_scale = 2
+	tab.active = false
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "an atlas tab carries one 16 px cell at its icon scale",
+		tab.icon_rect.custom_minimum_size == Vector2(32, 32)
+			and tab.icon_rect.icon_id == "eye" and tab.icon_rect.pixel_scale == 2
+			and tab.icon_rect.visible,
+		"box %s id '%s' scale %d" % [tab.icon_rect.custom_minimum_size, tab.icon_rect.icon_id,
+			tab.icon_rect.pixel_scale])
+	TestFixtures.check(res, "an idle atlas tab draws its plain art",
+		tab.icon_rect.mode == Icons.MODE_PLAIN, str(tab.icon_rect.mode))
+	tab.active = true
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the active atlas tab takes the two tone paint",
+		tab.icon_rect.mode == Icons.MODE_TWO_TONE, str(tab.icon_rect.mode))
+	tab.locked = true
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a locked atlas tab wears the gold lock at scale 3",
+		tab.lock_overlay.visible and tab.lock_overlay.texture != null
+			and tab.lock_overlay.texture.get_size() == Vector2(24, 27)
+			and tab.lock_overlay.modulate == GuiColors.LOCK_GOLD,
+		"visible %s size %s tint %s" % [tab.lock_overlay.visible,
+			tab.lock_overlay.texture.get_size() if tab.lock_overlay.texture != null else Vector2.ZERO,
+			tab.lock_overlay.modulate])
+	tab.queue_free()

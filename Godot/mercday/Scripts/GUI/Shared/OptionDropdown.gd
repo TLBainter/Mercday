@@ -20,7 +20,6 @@ const OPEN_STYLE: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/Butto
 const ROW_VALID: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/PopupRow.tres")
 const ROW_SELECTED: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/PopupRowSelected.tres")
 
-static var _caret_cache: ImageTexture = null
 static var _invalid_cache: StyleBoxFlat = null
 
 @export var label: String = "":
@@ -208,14 +207,4 @@ static func _invalid_style() -> StyleBoxFlat:
 
 
 static func _caret_icon() -> ImageTexture:
-	if _caret_cache == null:
-		var img: Image = Image.create_empty(8, 8, false, Image.FORMAT_RGBA8)
-		img.fill(Color(0.0, 0.0, 0.0, 0.0))
-		var widths: Array[int] = [8, 6, 4, 2]
-		for row: int in widths.size():
-			var w: int = widths[row]
-			var x0: int = int((8 - w) / 2.0)
-			for dx: int in w:
-				img.set_pixel(x0 + dx, row + 2, CARET_COLOR)
-		_caret_cache = ImageTexture.create_from_image(img)
-	return _caret_cache
+	return Icons.tinted("caret_down", CARET_COLOR, 2, true)

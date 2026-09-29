@@ -44,7 +44,7 @@ static func run(host: Node) -> bool:
 	_case_reasons(res, viewer)
 	_case_launch(res, viewer)
 	_case_bevel_sweep(res, viewer)
-	_case_glyphs(res)
+	_case_glyphs(res, viewer)
 	GuiFrameStack.clear()
 	viewer.queue_free()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
@@ -508,6 +508,13 @@ static func _case_builder(res: Dictionary, viewer: PromotionsViewer) -> void:
 	builder.press_name()
 	TestFixtures.check(res, "the name field opens the naming dialog",
 		builder.naming() and builder.name_shown() == FIRST_NEW_NAME, builder.name_shown())
+	TestFixtures.check(res, "the builder closes with the sheet X and fits the band",
+		builder.close_button.text == ""
+		and builder.close_button.icon == CloseX.icon(CloseX.SCALE_WINDOW)
+		and builder.close_button.custom_minimum_size == CloseX.size(CloseX.SCALE_WINDOW)
+		and CampaignBuilder.MODAL_SIZE == Vector2(1190, 628)
+		and CampaignBuilder.MODAL_SIZE.y <= 644.0,
+		"%s at %s" % [CampaignBuilder.MODAL_SIZE, builder.close_button.custom_minimum_size])
 	builder.press_close()
 	TestFixtures.check(res, "closing the builder puts the screen back",
 		not builder.is_open() and viewer.card_count() == 8, "%d cards" % [viewer.card_count()])
@@ -627,6 +634,19 @@ static func _case_duration(res: Dictionary, viewer: PromotionsViewer) -> void:
 		and picker.lock_for(CampaignTypeDefs.UNIT_INFINITE) != null
 		and picker.lock_for(CampaignTypeDefs.UNIT_INFINITE).visible
 		and picker.lock_for(CampaignTypeDefs.UNIT_INFINITE).tier == 5, "the Infinite row locks")
+	var want_up: ImageTexture = Icons.tinted("caret_up", UnitDropdown.CARET_COLOR, 2, true)
+	var want_down: ImageTexture = Icons.tinted("caret_down", UnitDropdown.CARET_COLOR, 2, true)
+	picker.open()
+	var open_state: bool = picker.is_open()
+	var open_tex: Texture2D = picker.caret.texture
+	picker.close()
+	var shut_tex: Texture2D = picker.caret.texture
+	TestFixtures.check(res, "the unit dropdown caret is a texture",
+		picker.caret is TextureRect and shut_tex == want_down
+		and open_tex == (want_up if open_state else want_down)
+		and want_up.get_size() == Vector2(10, 6) and want_down.get_size() == Vector2(10, 6)
+		and want_up != want_down,
+		"open %s, shut %s" % [open_state, shut_tex == want_down])
 	builder.pick_unit(CampaignTypeDefs.UNIT_MONTHS)
 	TestFixtures.check(res, "picking months trims the quantity to the one month the cap holds",
 		dur.unit_key() == CampaignTypeDefs.UNIT_MONTHS and dur.quantity() == 1
@@ -1007,26 +1027,31 @@ static func _case_launch(res: Dictionary, viewer: PromotionsViewer) -> void:
 	viewer.campaign_launched.disconnect(sink.on_launched)
 
 
-#Case 15: the icons of the window, read out of the art files in the three tones the screen draws.
-static func _case_glyphs(res: Dictionary) -> void:
-	PromoGlyphs.clear_cache()
+#Case 15: the icons of the window, read off the sheet in the three tones the screen draws.
+static func _case_glyphs(res: Dictionary, viewer: PromotionsViewer) -> void:
+	Icons.clear_cache()
 	var off: String = ""
+	var ids: Array[String] = []
 	for key: StringName in CampaignTypeDefs.keys():
-		if not _is_file_copy(PromoGlyphs.type_icon(key), PromoGlyphs.type_path(key)):
+		var id: String = PromoGlyphs.type_id(key)
+		ids.append(id)
+		if not Icons.has(id):
 			off += String(key) + " "
 	TestFixtures.check(res, "every method icon is the art file its table row names",
-		off == "", "off the file: %s" % [off])
-	var tab_off: String = ""
-	for mode: StringName in [PromotionsViewer.JOB_KEY, PromotionsViewer.PROMO_KEY]:
-		if not _is_file_copy(PromoGlyphs.tab_icon(mode, false), PromoGlyphs.tab_path(mode)):
-			tab_off += String(mode) + " "
+		off == "" and ids == ["wom", "flyers", "direct_sale", "radio", "sponsorship"],
+		"off the sheet: %s, ids %s" % [off, ids])
 	TestFixtures.check(res, "a resting tab icon is the art file of that tab",
-		tab_off == "", "off the file: %s" % [tab_off])
-	var big: ImageTexture = PromoGlyphs.type_icon(&"radio", 4)
+		PromoGlyphs.tab_id(PromotionsViewer.JOB_KEY) == "job_ads"
+		and PromoGlyphs.tab_id(PromotionsViewer.PROMO_KEY) == "guild_ads"
+		and Icons.has(PromoGlyphs.tab_id(PromotionsViewer.JOB_KEY))
+		and Icons.has(PromoGlyphs.tab_id(PromotionsViewer.PROMO_KEY)),
+		"%s and %s" % [PromoGlyphs.tab_id(PromotionsViewer.JOB_KEY),
+			PromoGlyphs.tab_id(PromotionsViewer.PROMO_KEY)])
+	var big: Texture2D = PromoGlyphs.type_icon(&"radio", 4)
 	TestFixtures.check(res, "a scaled icon grows by whole pixels",
 		big != null and big.get_width() == PromoGlyphs.ICON_SIDE * 4
 		and big.get_height() == PromoGlyphs.ICON_SIDE * 4,
-		"%d by %d" % [big.get_width(), big.get_height()])
+		"%d by %d, want 64" % [big.get_width(), big.get_height()])
 	var dim: Image = PromoGlyphs.type_icon(&"wom", 1, true).get_image()
 	var grey: bool = true
 	var lit: int = 0
@@ -1038,8 +1063,10 @@ static func _case_glyphs(res: Dictionary) -> void:
 			lit += 1
 			grey = grey and is_equal_approx(px.r, px.g) and is_equal_approx(px.g, px.b)
 	TestFixtures.check(res, "a concluded card draws its icon in grey alone",
-		grey and lit > 0, "%d lit pixels" % [lit])
-	var on: Image = PromoGlyphs.tab_icon(PromotionsViewer.PROMO_KEY, true).get_image()
+		grey and lit > 0 and PromoGlyphs.dim_modulate(true) == Color(0.6, 0.6, 0.6, 1.0)
+		and PromoGlyphs.dim_modulate(false) == Color.WHITE,
+		"%d lit pixels, dim %s" % [lit, PromoGlyphs.dim_modulate(true)])
+	var on: Image = Icons.baked("guild_ads", 1, Icons.MODE_TWO_TONE).get_image()
 	var ink: int = 0
 	var rest: int = 0
 	var stray: int = 0
@@ -1048,34 +1075,26 @@ static func _case_glyphs(res: Dictionary) -> void:
 			var px: Color = on.get_pixel(x, y)
 			if px.a <= 0.0:
 				continue
-			if _tone_is(px, PromoGlyphs.TAB_ON_ORANGE):
+			if _tone_is(px, Icons.TAB_ON_INK):
 				ink += 1
-			elif _tone_is(px, PromoGlyphs.TAB_ON_REST):
+			elif _tone_is(px, Icons.TAB_ON_LIGHT) or _tone_is(px, Icons.TAB_ON_MID):
 				rest += 1
 			else:
 				stray += 1
+	viewer.open_tab(PromotionsViewer.PROMO_KEY)
+	var guild_two: bool = viewer.guild_tab.icon_rect.mode == Icons.MODE_TWO_TONE
+	var guild_on: bool = guild_two and viewer.job_tab.icon_rect.mode == Icons.MODE_PLAIN
+	viewer.open_tab(PromotionsViewer.JOB_KEY)
+	var job_two: bool = viewer.job_tab.icon_rect.mode == Icons.MODE_TWO_TONE
+	var job_on: bool = job_two and viewer.guild_tab.icon_rect.mode == Icons.MODE_PLAIN
 	TestFixtures.check(res, "an active tab draws in the two dark tones and nothing else",
-		stray == 0 and ink > 0 and rest > 0, "%d ink, %d rest, %d stray" % [ink, rest, stray])
+		stray == 0 and ink > 0 and rest > 0 and guild_on and job_on,
+		"%d ink, %d rest, %d stray, guild %s, job %s" % [ink, rest, stray, guild_on, job_on])
 	TestFixtures.check(res, "an icon asked for twice is built once",
 		PromoGlyphs.type_icon(&"wom") == PromoGlyphs.type_icon(&"wom")
-		and PromoGlyphs.tab_icon(PromotionsViewer.JOB_KEY, true)
-		== PromoGlyphs.tab_icon(PromotionsViewer.JOB_KEY, true),
+		and Icons.baked("job_ads", 2, Icons.MODE_TWO_TONE)
+		== Icons.baked("job_ads", 2, Icons.MODE_TWO_TONE),
 		"the cache hands one texture back")
-
-
-#True when the texture holds the pixels of that art file, untouched.
-static func _is_file_copy(made: ImageTexture, path: String) -> bool:
-	var file: Texture2D = load(path) as Texture2D
-	if made == null or file == null:
-		return false
-	var want: Image = file.get_image()
-	if want == null:
-		return false
-	want = want.duplicate() as Image
-	if want.is_compressed():
-		want.decompress()
-	want.convert(Image.FORMAT_RGBA8)
-	return made.get_image().get_data() == want.get_data()
 
 
 #The colour of one pixel, alpha aside, read against one tone of the palette.

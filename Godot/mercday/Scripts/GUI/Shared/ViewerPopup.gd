@@ -1,20 +1,22 @@
 class_name ViewerPopup extends Control
 
 #Modal host for one viewer scene over another: the same top_level, GuiFrameStack and Esc/backdrop
-#behaviour as SubWindow, but the frame size, scale and close X follow a caller's preset. The
-#static helpers open the wave 3 popup targets and skip silently when the target member is missing.
+#behaviour as SubWindow, and the same 1:1 canvas, content_width wide and content_height() tall.
+#The static helpers open the wave 3 popup targets and skip silently when the target is missing.
 
 signal closed
 
 const BORDER: float = 4.0
+const CLOSE_INSET: float = 10.0
+const FRAME_H_DEFAULT: float = 720.0
 const SCENE_PATH: String = "res://Scenes/GUI/Shared/ViewerPopup.tscn"
 
-const CONTRACT: Dictionary = {"size": Vector2(940.0, 720.0), "scale": 0.86}
-const INVEST: Dictionary = {"size": Vector2(1280.0, 720.0), "scale": 0.86}
-const MERC: Dictionary = {"size": Vector2(988.0, 720.0), "scale": 0.72}
+const CONTRACT: Dictionary = {"width": 940.0}
+const INVEST: Dictionary = {"width": 1280.0}
+const MERC: Dictionary = {"width": 988.0}
 
-@export var content_size: Vector2 = Vector2(1280.0, 720.0)
-@export var content_scale: float = 0.86
+@export var content_width: float = 1280.0
+@export var frame_h: float = 0.0
 @export var free_on_close: bool = false
 
 @onready var backdrop: Panel = $Backdrop
@@ -31,6 +33,7 @@ func _ready() -> void:
 	position = Vector2.ZERO
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.clip_contents = true
+	CloseX.style(close_x, CloseX.SCALE_WINDOW)
 	close_x.pressed.connect(close)
 	backdrop.gui_input.connect(_on_backdrop_input)
 	_hook_viewport()
@@ -46,28 +49,38 @@ func _notification(what: int) -> void:
 		_hook_viewport()
 
 
+#The band above the bottom bar decides the height when no caller pinned one; a popup off the
+#tree has no viewport to ask, so it reports the full 720 canvas (see SubWindow.content_height).
+func content_height() -> float:
+	if frame_h > 0.0:
+		return frame_h
+	if not is_inside_tree():
+		return FRAME_H_DEFAULT
+	var band: float = GuiFrameStack.band_height(get_viewport().get_visible_rect().size.y)
+	return minf(FRAME_H_DEFAULT, band)
+
+
 #The root covers the viewport through full rect anchors, so nothing here writes size on it:
 #that write is what the engine warns about when it lands after _ready (see SubWindow._layout).
 func _layout() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var view_size: Vector2 = get_viewport().get_visible_rect().size
-	var visual_size: Vector2 = content_size * content_scale
-	holder.size = content_size
-	holder.pivot_offset = Vector2.ZERO
-	holder.scale = Vector2(content_scale, content_scale)
 	var reserve: float = GuiFrameStack.bottom_reserve
 	backdrop.offset_bottom = -reserve
 	var band: float = GuiFrameStack.band_height(view_size.y)
-	close_x.reset_size()
-	var x_clear: float = close_x.size.y / 2.0 + BORDER
-	var top: float = maxf((band - visual_size.y) / 2.0, x_clear)
-	top = minf(top, band - visual_size.y - BORDER)
-	holder.position = Vector2((view_size.x - visual_size.x) / 2.0, top)
+	var box: Vector2 = frame_size()
+	holder.scale = Vector2.ONE
+	holder.pivot_offset = Vector2.ZERO
+	holder.size = box
+	holder.position = Vector2(floorf(maxf(0.0, (view_size.x - box.x) / 2.0)),
+		floorf(maxf(0.0, (band - box.y) / 2.0)))
 	frame.position = holder.position - Vector2(BORDER, BORDER)
-	frame.size = visual_size + Vector2(BORDER, BORDER) * 2.0
-	close_x.reset_size()
-	close_x.position = Vector2(frame.position.x + frame.size.x - close_x.size.x / 2.0,
-		frame.position.y - close_x.size.y / 2.0)
+	frame.size = holder.size + Vector2(BORDER, BORDER) * 2.0
+	close_x.size = CloseX.size(CloseX.SCALE_WINDOW)
+	var art: float = float(CloseX.ART * CloseX.SCALE_WINDOW)
+	var outline: float = float(CloseX.SCALE_WINDOW)
+	close_x.position = holder.position + Vector2(box.x - CLOSE_INSET - art - outline,
+		CLOSE_INSET - outline)
 
 
 func open(scene: PackedScene, setup: Callable = Callable()) -> Node:
@@ -105,7 +118,7 @@ func is_open() -> bool:
 
 
 func frame_size() -> Vector2:
-	return content_size * content_scale
+	return Vector2(content_width, content_height())
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -163,8 +176,7 @@ static func show_scene(host: Node, path: String, preset: Dictionary,
 		return null
 	var popup_scene: PackedScene = load(SCENE_PATH)
 	var popup: ViewerPopup = popup_scene.instantiate()
-	popup.content_size = preset.get("size", Vector2(1280.0, 720.0))
-	popup.content_scale = float(preset.get("scale", 0.86))
+	popup.content_width = float(preset.get("width", 1280.0))
 	popup.free_on_close = true
 	host.add_child(popup)
 	popup.open(load(path), setup)

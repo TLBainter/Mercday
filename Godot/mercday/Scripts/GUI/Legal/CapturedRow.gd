@@ -5,13 +5,11 @@ class_name CapturedRow extends PanelContainer
 
 signal review_pressed(id: int)
 
-const PORTRAIT_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MercPortrait.tscn")
 const COL_FACE: int = 56
 const COL_SERVED: int = 120
 const COL_LEFT: int = 130
 const COL_BAIL: int = 130
 const COL_ACTION: int = 150
-const PORTRAIT_PX: int = 48
 const REVIEW_WIDTH: int = 96
 const REVIEW_HEIGHT: int = 30
 const REVIEW_TEXT: String = "Review"
@@ -22,7 +20,6 @@ var entry: CaptureData = null:
 		_refresh()
 
 var face_box: PanelContainer = null
-var portrait: MercPortrait = null
 var title_label: Label = null
 var served_label: Label = null
 var left_label: Label = null
@@ -127,10 +124,15 @@ func _face_holder() -> PanelContainer:
 	face_box = LegalStyle.cell(LegalStyle.NAVY2)
 	face_box.name = "Face"
 	face_box.custom_minimum_size = Vector2(COL_FACE, COL_FACE)
-	portrait = PORTRAIT_SCENE.instantiate() as MercPortrait
-	portrait.name = "Portrait"
-	portrait.pixel_size = PORTRAIT_PX
-	face_box.add_child(portrait)
+	var bars: IconRect = IconRect.new()
+	bars.name = "Bars"
+	bars.icon_id = "bars"
+	bars.pixel_scale = 3
+	bars.mode = Icons.MODE_PLAIN
+	bars.trimmed = false
+	bars.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	bars.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	face_box.add_child(bars)
 	return face_box
 
 
@@ -142,7 +144,6 @@ func _refresh() -> void:
 	left_label.text = remaining_text()
 	bail_label.amount = bail_amount()
 	dot.on = entry != null and entry.unread
-	portrait.set_merc(LegalStyle.merc_view(merc_uid()))
 
 
 func _on_review() -> void:

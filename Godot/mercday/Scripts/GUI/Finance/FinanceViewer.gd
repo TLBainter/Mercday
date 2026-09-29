@@ -10,18 +10,17 @@ signal tab_changed(key: StringName)
 enum Tab {OVERVIEW, LOANS, PAYROLL, HIRING, INVEST}
 
 const TAB_KEYS: Array[StringName] = [&"overview", &"loans", &"payroll", &"hiring", &"invest"]
+const TAB_ICON_IDS: Array[String] = ["eye", "piggy", "money_bag", "add_person", "invest"]
+const TAB_ICON_SCALE: int = 2
 const TAB_LABELS: Array[String] = ["Overview", "Loans", "Payroll", "Hiring", "Invest"]
 const TAB_TIPS: Array[String] = ["Your finances at a glance", "Manage and request loans",
 	"Manage merc pay", "Review mercs who applied to your guild",
 	"Invest notes in company stocks"]
 const TAB_BUTTON_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/TabButton.tscn")
 const PLACEHOLDER_SCENE: String = "res://Scenes/GUI/Finance/FinancePlaceholder.tscn"
-const HIRING_ICON: String = "res://Art/GUI/Icons/finance_tab_hiring_12x12.png"
 const MODAL_GROUP: StringName = &"finance_modal_host"
 const PLACEHOLDER_TEXT: String = "%s is not available yet"
 const PROMO_PATH: String = "/root/PromotionsManager"
-const ICON_COLS: int = 12
-const ICON_PX: float = 2.0
 const OVERVIEW_KEY: StringName = &"overview"
 const LOANS_KEY: StringName = &"loans"
 const HIRING_KEY: StringName = &"hiring"
@@ -163,19 +162,11 @@ func _build_tabs() -> void:
 		button.label = TAB_LABELS[i]
 		button.description = TAB_TIPS[i]
 		button.tooltip_text = TAB_TIPS[i]
-		button.icon_cols = ICON_COLS
-		button.icon_px = ICON_PX
-		button.set_icon_texture(_icon_of(TAB_KEYS[i]))
+		button.icon_id = TAB_ICON_IDS[i]
+		button.icon_scale = TAB_ICON_SCALE
+		button.idle_mode = Icons.MODE_PLAIN
 		button.tab_pressed.connect(_on_tab_pressed)
 		_tabs.append(button)
-
-
-func _icon_of(key: StringName) -> Texture2D:
-	if key == HIRING_KEY:
-		if ResourceLoader.exists(HIRING_ICON):
-			return load(HIRING_ICON) as Texture2D
-		return null
-	return FinanceGlyphs.tab_icon(key)
 
 
 func _apply() -> void:

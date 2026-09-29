@@ -98,7 +98,8 @@ func _style_bar() -> void:
 		var right: bool = String(key).begins_with("increment")
 		var tint: Color = LegalStyle.ORANGE_HI if String(key).ends_with("highlight") \
 			else LegalStyle.ORANGE
-		bar.add_theme_icon_override(key, LegalGlyphs.arrow(right, tint, ARROW_SCALE))
+		bar.add_theme_icon_override(key, Icons.tinted("caret_right" if right else "caret_left",
+			tint, ARROW_SCALE, true))
 
 
 func _fill() -> void:

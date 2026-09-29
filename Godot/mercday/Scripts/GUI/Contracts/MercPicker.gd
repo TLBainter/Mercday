@@ -39,6 +39,8 @@ var rows: Array[MercView] = []
 func _ready() -> void:
 	remove_button.pressed.connect(press_remove)
 	close_button.pressed.connect(hide)
+	CloseX.style(close_button, CloseX.SCALE_MINI)
+	close_button.custom_minimum_size = Vector2(20, 20)
 	backdrop.gui_input.connect(_on_backdrop_input)
 	visibility_changed.connect(_on_visibility_changed)
 	ModalFrame.fit(self, backdrop, _centre)

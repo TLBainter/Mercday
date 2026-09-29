@@ -191,8 +191,8 @@ func _style() -> void:
 	head.add_theme_constant_override("separation", 10)
 	portrait.pixel_size = 56
 	bar.add_theme_stylebox_override("panel", STYLE_BAR)
-	sigil_box.custom_minimum_size = Vector2(16.0, 16.0)
-	sigil.pixel_scale = 2
+	sigil_box.custom_minimum_size = Vector2(20.0, 20.0)
+	sigil.pixel_scale = 1
 	name_label.add_theme_font_override("font", FONT_NAME)
 	name_label.add_theme_font_size_override("font_size", 12)
 	name_label.add_theme_color_override("font_color", ORANGE)

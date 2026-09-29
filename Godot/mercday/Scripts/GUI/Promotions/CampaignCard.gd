@@ -22,7 +22,7 @@ const BUDGET: Color = Color("#f2b33d")
 const END_COLOR: Color = Color("#ff3b2f")
 const END_HOVER: Color = Color("#ff6a55")
 const ICON_PX: float = 48.0
-const ICON_SCALE: int = 4
+const ICON_SCALE: int = 2
 const CARD_RING_PX: int = 2
 const ICON_RING_PX: int = 2
 const BAR_CELLS: int = 20
@@ -79,6 +79,7 @@ func _ready() -> void:
 	icon_box.custom_minimum_size = Vector2(ICON_PX, ICON_PX)
 	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_style(name_label, FONT_BOLD, NAME_SIZE, CREAM)
 	_style(method_label, FONT_BODY, METHOD_SIZE, CAPTION)
 	_style(left_label, FONT_SILK, CAPTION_SIZE, CAPTION)
@@ -107,6 +108,7 @@ func refresh() -> void:
 	var done: bool = is_concluded()
 	var today: int = _today()
 	icon.texture = PromoGlyphs.type_icon(campaign.type_key, ICON_SCALE, done)
+	icon.modulate = PromoGlyphs.dim_modulate(done)
 	icon_box.add_theme_stylebox_override(&"panel", _icon_box(done))
 	name_label.text = campaign.name
 	name_label.add_theme_color_override(&"font_color", MUTED if done else CREAM)

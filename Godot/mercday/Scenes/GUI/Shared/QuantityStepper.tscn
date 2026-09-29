@@ -20,13 +20,10 @@ theme_override_constants/separation = 8
 script = ExtResource("1")
 
 [node name="Minus" type="Button" parent="."]
-custom_minimum_size = Vector2(38, 38)
-theme_override_fonts/font = ExtResource("2")
-theme_override_font_sizes/font_size = 20
-text = "-"
+custom_minimum_size = Vector2(28, 28)
 
 [node name="ValueBox" type="PanelContainer" parent="."]
-custom_minimum_size = Vector2(56, 38)
+custom_minimum_size = Vector2(56, 28)
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_qs1")
 
@@ -39,7 +36,4 @@ theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 text = "0"
 
 [node name="Plus" type="Button" parent="."]
-custom_minimum_size = Vector2(38, 38)
-theme_override_fonts/font = ExtResource("2")
-theme_override_font_sizes/font_size = 20
-text = "+"
+custom_minimum_size = Vector2(28, 28)

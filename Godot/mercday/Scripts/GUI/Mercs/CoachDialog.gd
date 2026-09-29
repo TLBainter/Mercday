@@ -29,6 +29,7 @@ const BOX_EDGE: Color = Color("#f28c28")
 const EDGE_HI: Color = Color("#28447a")
 const EDGE_LO: Color = Color("#111c33")
 const EDGE_PX: float = 4.0
+const CLOSE_INSET: float = 10.0
 
 @onready var backdrop: Panel = $Backdrop
 @onready var box: PanelContainer = $Box
@@ -61,6 +62,7 @@ func _ready() -> void:
 	_style_box()
 	cancel_button.pressed.connect(press_cancel)
 	confirm_button.pressed.connect(press_confirm)
+	CloseX.style(close_x, CloseX.SCALE_WINDOW)
 	close_x.pressed.connect(press_cancel)
 	SubscriptionManager.changed.connect(_on_entitlements_changed)
 	_build_groups()
@@ -273,12 +275,12 @@ func _draw_edges() -> void:
 func _center() -> void:
 	backdrop.offset_bottom = -GuiFrameStack.bottom_reserve
 	box.reset_size()
-	box.position = Vector2((size.x - box.size.x) / 2.0,
-		(GuiFrameStack.band_height(size.y) - box.size.y) / 2.0)
+	box.position = Vector2(floorf((size.x - box.size.x) / 2.0),
+		floorf((GuiFrameStack.band_height(size.y) - box.size.y) / 2.0))
 	box.position.y = maxf(box.position.y, 0.0)
-	close_x.reset_size()
-	close_x.position = Vector2(box.position.x + box.size.x - close_x.size.x / 2.0,
-		box.position.y - close_x.size.y / 2.0)
+	close_x.size = CloseX.size(CloseX.SCALE_WINDOW)
+	close_x.position = box.position + Vector2(box.size.x - CLOSE_INSET - 30.0 - 3.0,
+		CLOSE_INSET - 3.0)
 
 
 #A group or mode name becomes a node name, so a test can reach one by path.

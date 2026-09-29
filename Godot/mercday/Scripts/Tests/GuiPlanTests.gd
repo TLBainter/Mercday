@@ -509,15 +509,15 @@ static func _case_pip_defs(res: Dictionary, host: Node) -> void:
 			bad.append("%s is not found" % mode)
 		if String(data["desc"]) == "":
 			bad.append("%s has no tooltip" % mode)
-		if not FileAccess.file_exists(PipDefs.icon_path(mode)):
+		if not Icons.has(PipDefs.icon_id(mode)):
 			bad.append("%s has no icon" % mode)
 		var upgrade: String = String(data["upgrade_id"])
 		if upgrade != "" and not UpgradeDefs.has_id(upgrade):
 			bad.append("%s names the unknown %s" % [mode, upgrade])
 		if upgrade != "" and int(data["upgrade_tier"]) > UpgradeDefs.tier_count(upgrade):
 			bad.append("%s asks for %s tier %d" % [mode, upgrade, int(data["upgrade_tier"])])
-	TestFixtures.check(res, "every mode is whole and its icon is on disk", bad.is_empty(),
-		TestFixtures.detail(bad, PipDefs.MODES.size(), "modes"))
+	TestFixtures.check(res, "every mode is whole and its icon is a cell of the icon sheet",
+		bad.is_empty(), TestFixtures.detail(bad, PipDefs.MODES.size(), "modes"))
 	var ent: Dictionary = {"pip": true, "lvSupport": true}
 	TestFixtures.check(res, "a gate is read off the entitlements it names",
 		PipDefs.unlocked(&"Auto", {}) and PipDefs.unlocked(&"Random", ent)

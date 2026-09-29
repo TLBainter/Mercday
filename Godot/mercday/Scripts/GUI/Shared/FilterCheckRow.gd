@@ -42,7 +42,7 @@ func _draw() -> void:
 	if not on:
 		return
 	var tex: Texture2D = GuiGlyphs.check(CHECK_COLOR)
-	draw_texture(tex, box.position + (box.size - tex.get_size()) / 2.0)
+	draw_texture(tex, (box.position + (box.size - tex.get_size()) / 2.0).floor())
 
 
 func _on_toggled(now_on: bool) -> void:

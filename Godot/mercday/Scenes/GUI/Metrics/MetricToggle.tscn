@@ -43,7 +43,7 @@ height = 22.0
 
 [node name="Arrow" type="Control" parent="Row"]
 layout_mode = 2
-custom_minimum_size = Vector2(12, 12)
+custom_minimum_size = Vector2(9, 8)
 size_flags_vertical = 4
 mouse_filter = 2
 

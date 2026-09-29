@@ -48,35 +48,58 @@ static func _case_sub_window(res: Dictionary, host: Node) -> void:
 		"top_level %s size %s expected %s" % [win.top_level, win.size, view.size])
 	var holder: Control = win.holder
 	var frame: Control = win.frame
-	TestFixtures.check(res, "the holder scales the canvas down",
-		holder.scale.is_equal_approx(Vector2(0.85, 0.85)), "got %s" % str(holder.scale))
-	var visual_size: Vector2 = Vector2(1280, 720) * 0.85
+	TestFixtures.check(res, "the holder draws the canvas 1:1",
+		holder.scale.is_equal_approx(Vector2.ONE)
+			and holder.size.is_equal_approx(Vector2(1280, 720))
+			and holder.position.is_equal_approx(Vector2.ZERO),
+		"scale %s size %s pos %s" % [holder.scale, holder.size, holder.position])
 	var expected_frame_pos: Vector2 = holder.position - Vector2(4, 4)
-	var expected_frame_size: Vector2 = visual_size + Vector2(8, 8)
+	var expected_frame_size: Vector2 = holder.size + Vector2(8, 8)
 	TestFixtures.check(res, "the frame wraps the holder with a 4px margin",
 		frame.position.is_equal_approx(expected_frame_pos)
 			and frame.size.is_equal_approx(expected_frame_size),
 		"frame %s/%s expected %s/%s" % [frame.position, frame.size, expected_frame_pos,
 			expected_frame_size])
-	var x_centre: Vector2 = win.close_x.position + win.close_x.size / 2.0
-	var corner: Vector2 = Vector2(frame.position.x + frame.size.x, frame.position.y)
-	TestFixtures.check(res, "the close X centres on the frame's top-right corner",
-		x_centre.distance_to(corner) <= 1.0,
-		"centre %s corner %s" % [x_centre, corner])
-	TestFixtures.check(res, "the close X carries a 3 px ink outline",
-		win.close_x.get_theme_constant("outline_size") == 3
-			and win.close_x.get_theme_color("font_outline_color").is_equal_approx(Color("#0a0f1c")),
-		"size %d colour %s" % [win.close_x.get_theme_constant("outline_size"),
-			win.close_x.get_theme_color("font_outline_color")])
-	TestFixtures.check(res, "the close X is half size",
-		win.close_x.size.y <= 60.0 and win.close_x.size.x <= 60.0,
-		"size %s" % [win.close_x.size])
+	TestFixtures.check(res, "the close X sits inside the frame at top 10 right 10",
+		win.close_x.position.is_equal_approx(Vector2(1237, 7))
+			and win.close_x.size.is_equal_approx(Vector2(36, 36))
+			and win.close_x.icon == CloseX.icon(3) and win.close_x.text == "",
+		"pos %s size %s icon %s text %s" % [win.close_x.position, win.close_x.size,
+			win.close_x.icon, win.close_x.text])
+	GuiFrameStack.bottom_reserve = 76.0
+	win._layout()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the band above the bottom bar shortens the window",
+		holder.size.is_equal_approx(Vector2(1280, 644))
+			and holder.position.is_equal_approx(Vector2.ZERO)
+			and win.close_x.position.is_equal_approx(Vector2(1237, 7))
+			and frame.size.is_equal_approx(Vector2(1288, 652)),
+		"holder %s/%s close %s frame %s" % [holder.size, holder.position,
+			win.close_x.position, frame.size])
+	win.frame_h = 600.0
+	win._layout()
+	TestFixtures.check(res, "frame_h pins the height and recentres the window in the band",
+		holder.size.is_equal_approx(Vector2(1280, 600))
+			and is_equal_approx(holder.position.y, 22.0),
+		"holder %s pos %s" % [holder.size, holder.position])
+	win.frame_h = 0.0
+	GuiFrameStack.bottom_reserve = 0.0
+	win._layout()
 
 	var content_root := Control.new()
 	content_root.name = "Content"
 	var packed := PackedScene.new()
 	packed.pack(content_root)
 	content_root.queue_free()
+
+	win.open(packed, Callable(), 988.0)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a width passed to open narrows the window",
+		is_equal_approx(holder.size.x, 988.0) and is_equal_approx(holder.position.x, 146.0)
+			and is_equal_approx(win.close_x.position.x, 146.0 + 988.0 - 43.0),
+		"size %s pos %s close %s" % [holder.size, holder.position, win.close_x.position])
+	win.close()
+	win.content_width = 1280.0
 
 	var setup_ran_detached: Array[bool] = [false]
 	var setup := func(node: Node) -> void: setup_ran_detached[0] = not node.is_inside_tree()
@@ -255,15 +278,20 @@ static func _case_bottom_band(res: Dictionary, host: Node) -> void:
 	var win_backdrop_bottom: float = win.backdrop.position.y + win.backdrop.size.y
 	var win_scanline_bottom: float = win.scanline.position.y + win.scanline.size.y
 	var win_frame_bottom: float = win.frame.position.y + win.frame.size.y
+	var win_holder_bottom: float = win.holder.position.y + win.holder.size.y
 	TestFixtures.check(res, "the sub window backdrop stops above the bottom bar",
 		absf(win_backdrop_bottom - (view.y - reserve)) <= 0.5,
 		"backdrop bottom %.1f expected %.1f" % [win_backdrop_bottom, view.y - reserve])
 	TestFixtures.check(res, "the scanline stops at the same edge as the backdrop",
 		absf(win_scanline_bottom - (view.y - reserve)) <= 0.5,
 		"scanline bottom %.1f expected %.1f" % [win_scanline_bottom, view.y - reserve])
-	TestFixtures.check(res, "the frame stays inside the band above the bar",
-		win_frame_bottom <= view.y - reserve + 0.5,
-		"frame bottom %.1f limit %.1f" % [win_frame_bottom, view.y - reserve])
+	TestFixtures.check(res, "the frame border ends 4 px below the band, by plan",
+		win_frame_bottom <= view.y - reserve + SubWindow.BORDER + 0.5,
+		"frame bottom %.1f limit %.1f" % [win_frame_bottom,
+			view.y - reserve + SubWindow.BORDER])
+	TestFixtures.check(res, "the content box stays inside the band above the bar",
+		win_holder_bottom <= view.y - reserve + 0.5,
+		"content bottom %.1f limit %.1f" % [win_holder_bottom, view.y - reserve])
 	TestFixtures.check(res, "the close X stays on screen",
 		win.close_x.position.y >= -0.5, "close x top %.1f" % win.close_x.position.y)
 	TestFixtures.check(res, "the sub window root ignores the mouse so clicks reach the bar",
@@ -363,12 +391,15 @@ static func _case_viewport_resize(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a resize relayouts the frame and recentres the dialog box",
 		moved, "rect %s to %s frame %s to %s box %s to %s" % [rect_before, rect_after,
 			frame_before, win.frame.position, box_before, dlg.box.position])
-	var moved_centre: Vector2 = win.close_x.position + win.close_x.size / 2.0
-	var moved_corner: Vector2 = Vector2(win.frame.position.x + win.frame.size.x,
-		win.frame.position.y)
-	TestFixtures.check(res, "the close X follows the frame corner after a resize",
-		moved_centre.distance_to(moved_corner) <= 1.0,
-		"centre %s corner %s" % [moved_centre, moved_corner])
+	var moved_box: Vector2 = win.content_size()
+	var moved_art: float = float(CloseX.ART * CloseX.SCALE_WINDOW)
+	var moved_rim: float = float(CloseX.SCALE_WINDOW)
+	var moved_expected: Vector2 = win.holder.position + Vector2(
+		moved_box.x - SubWindow.CLOSE_INSET - moved_art - moved_rim,
+		SubWindow.CLOSE_INSET - moved_rim)
+	TestFixtures.check(res, "the close X follows the content corner after a resize",
+		win.close_x.position.distance_to(moved_expected) <= 1.0,
+		"position %s expected %s" % [win.close_x.position, moved_expected])
 	game_window.content_scale_size = old_scale
 	await host.get_tree().process_frame
 	dlg.press(0)

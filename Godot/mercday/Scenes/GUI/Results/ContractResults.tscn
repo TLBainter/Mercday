@@ -89,7 +89,7 @@ text = "Contract"
 layout_mode = 2
 size_flags_horizontal = 0
 mouse_filter = 2
-star_size = 2
+star_size = 1
 
 [node name="Notes" parent="Center/Panel/Body/Header" instance=ExtResource("5")]
 layout_mode = 2
@@ -150,12 +150,4 @@ layout_mode = 0
 visible = false
 layout_mode = 0
 flat = true
-theme_override_colors/font_color = Color(1.000000, 0.231373, 0.184314, 1.000000)
-theme_override_colors/font_hover_color = Color(1.000000, 0.231373, 0.184314, 1.000000)
-theme_override_colors/font_pressed_color = Color(1.000000, 0.231373, 0.184314, 1.000000)
-theme_override_colors/font_outline_color = Color(0.039216, 0.058824, 0.109804, 1.000000)
-theme_override_constants/outline_size = 6
-theme_override_fonts/font = ExtResource("7")
-theme_override_font_sizes/font_size = 48
-text = "X"
 tooltip_text = "Close"

@@ -82,6 +82,8 @@ const BOTTOM_LEFT: Array[String] = ["legalCat", "lessLegal"]
 const BOTTOM_RIGHT: String = "insights"
 const APTITUDE_DY: float = 18.0
 const SLACK: float = 0.5
+#The smallest frame height that holds every category centre.
+const H9_FULL_VIEW: float = 510.0
 #The tiers the fade check runs on: one source of a gate ahead of the other.
 const FADE_TIERS: Dictionary = {"aptitude": 1}
 
@@ -313,8 +315,8 @@ static func _case_h01_hud_grid(res: Dictionary, host: Node) -> void:
 		str(promo.z_index))
 	TestFixtures.check(res, "H1 My Promotions is locked on Pro", hud.is_locked(PROMO_KEY), "")
 	TestFixtures.check(res, "H1 the locked tile is greyed",
-		promo.icon_rect.modulate.is_equal_approx(GridMenuButton.GRAY_TINT),
-		str(promo.icon_rect.modulate))
+		promo.icon_rect.tint.is_equal_approx(GridMenuButton.GRAY_TINT),
+		str(promo.icon_rect.tint))
 	TestFixtures.check(res, "H1 the Pro tooltip names the plan", promo.tooltip_text == PLAN_TIP,
 		promo.tooltip_text)
 	hud.open_viewer(PROMO_KEY)
@@ -731,14 +733,18 @@ static func _case_h06_builder(res: Dictionary, host: Node) -> void:
 	promo.press_new()
 	await _frames(host, 2)
 	var guild: GuildTargeting = builder.guild_panel()
-	var stars: StarRangePicker = guild.section_for(GuildTargeting.DIFF_KEY).star_picker()
+	var diff_section: FilterSection = guild.section_for(GuildTargeting.DIFF_KEY)
+	var stars: StarRangePicker = diff_section.star_picker()
+	TestFixtures.check(res, "H6 the difficulty rows draw 32 px stars in the top column",
+		diff_section.star_scale == GuildTargeting.DIFF_STAR_SCALE and stars.star_scale == 2,
+		"section %d picker %d" % [diff_section.star_scale, stars.star_scale])
 	stars.press_star(StarRangePicker.ROW_MIN, 2.5)
 	await _frames(host, 1)
 	TestFixtures.check(res, "H6 the difficulty picker takes half stars",
 		is_equal_approx(stars.row_value(StarRangePicker.ROW_MIN), 2.5),
 		str(stars.row_value(StarRangePicker.ROW_MIN)))
 	TestFixtures.check(res, "H6 the half star carries the contract colour",
-		stars.row_color(StarRangePicker.ROW_MIN).is_equal_approx(GuiTypes.difficulty_color(2.5)),
+		stars.row_color(StarRangePicker.ROW_MIN).is_equal_approx(Icons.star_color(2.5, false)),
 		str(stars.row_color(StarRangePicker.ROW_MIN)))
 	var type_box: Array[ScrollContainer] = _scrolls_in(guild.section_for(GuildTargeting.TYPE_KEY))
 	var loc_box: Array[ScrollContainer] = _scrolls_in(guild.section_for(GuildTargeting.LOC_KEY))
@@ -993,18 +999,27 @@ static func _case_h09_customize(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "H9 the first open frames the Base block",
 		frame.has_point(TreeLayout.block_center("base") + lift),
 		str(TreeLayout.block_center("base") + lift))
+	var pad: float = maxf(0.0, (H9_FULL_VIEW - tree.view().y) / 2.0)
+	var tall: Rect2 = frame.grow_individual(0.0, pad, 0.0, pad)
 	var boxes: int = 0
 	var framed: int = 0
+	var across: int = 0
 	for cat: String in TreeLayout.cat_ids():
 		if canvas.cat_box(cat) != null and canvas.cat_box(cat).visible:
 			boxes += 1
-		if frame.has_point(TreeLayout.cat_center(cat) + lift):
+		if tall.has_point(TreeLayout.cat_center(cat) + lift):
 			framed += 1
+		var cx: float = (TreeLayout.cat_center(cat) + lift).x
+		if cx >= 0.0 and cx <= tree.view().x:
+			across += 1
 	TestFixtures.check(res, "H9 the home view holds every category box",
 		boxes == TreeLayout.cat_ids().size(), str(boxes) + "/" + str(TreeLayout.cat_ids().size()))
 	TestFixtures.check(res, "H9 the first open holds the centre of every category box",
 		framed == TreeLayout.cat_ids().size(),
 		str(framed) + "/" + str(TreeLayout.cat_ids().size()))
+	TestFixtures.check(res, "H9 every category centre is inside the frame from side to side",
+		across == TreeLayout.cat_ids().size(),
+		str(across) + "/" + str(TreeLayout.cat_ids().size()))
 	var column: Array[float] = []
 	for cat: String in LEFT_COLUMN:
 		column.append(TreeLayout.cat_center(cat).x)

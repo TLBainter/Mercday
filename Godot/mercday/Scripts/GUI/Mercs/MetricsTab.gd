@@ -5,7 +5,7 @@ class_name MetricsTab extends PanelContainer
 
 const METRICS_SCENE: String = "res://Scenes/GUI/Metrics/MetricsViewer.tscn"
 const PLACEHOLDER_TEXT: String = "Metrics viewer not available"
-const EMBED_SIZE: Vector2 = Vector2(680, 596)
+const EMBED_SIZE: Vector2 = Vector2(680, 520)
 const PREVIEW_DAYS: int = 462
 const PREVIEW_MIN_DAYS: int = 30
 

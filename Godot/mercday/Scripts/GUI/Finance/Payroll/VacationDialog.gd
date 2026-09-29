@@ -16,7 +16,6 @@ const ORANGE: Color = Color("#f28c28")
 const CREAM: Color = Color("#f3ead7")
 const SKY: Color = Color("#9cc6ef")
 const DARK: Color = Color("#0a0f1c")
-const CLOSE_COLOR: Color = Color("#ff3b2f")
 const KICKER_TEXT: String = "Employee Benefits"
 const TITLE_TEXT: String = "Vacation Days"
 const CANCEL_TEXT: String = "Cancel"
@@ -51,7 +50,7 @@ signal cancelled
 @onready var check_button: Button = $Center/Box/Rows/Box4/Lines/L1/Check
 @onready var cancel_button: BevelButton = $Center/Box/Rows/Buttons/Cancel
 @onready var confirm_button: BevelButton = $Center/Box/Rows/Buttons/Confirm
-@onready var close_button: BevelButton = $Center/Box/Overlay/Close
+@onready var close_button: Button = $Center/Box/Overlay/Close
 
 var _draft: VacationPolicy = VacationPolicy.new()
 #True while _fill writes the widgets, so a widget signal cannot write the draft back.
@@ -77,6 +76,7 @@ func _ready() -> void:
 	cancel_button.pressed.connect(press_cancel)
 	confirm_button.pressed.connect(press_confirm)
 	close_button.pressed.connect(press_cancel)
+	CloseX.style(close_button, CloseX.SCALE_WINDOW)
 	_style()
 	ModalFrame.fit(self, backdrop, box)
 
@@ -248,7 +248,7 @@ func _fill() -> void:
 	_fill_menu(unit_menu, VacationPolicy.EVERY_UNITS, _draft.unit, _draft.every)
 	_fill_menu(len_menu, VacationPolicy.LEN_UNITS, _draft.max_unit, _draft.max_len)
 	_fill_menu(gap_menu, VacationPolicy.GAP_UNITS, _draft.gap_unit, _draft.gap)
-	check_button.icon = PayrollGlyphs.check(ORANGE, 2) if _draft.approval else null
+	check_button.icon = Icons.baked("check_sm", 2, Icons.MODE_PLAIN, true) if _draft.approval else null
 	_filling = false
 
 
@@ -293,16 +293,11 @@ func _style() -> void:
 		body.add_theme_color_override("font_color", CREAM)
 	check_button.text = ""
 	check_button.custom_minimum_size = Vector2(CHECK_SIZE, CHECK_SIZE)
-	check_button.expand_icon = true
+	check_button.expand_icon = false
 	for state: String in ["normal", "hover", "pressed", "focus"]:
 		check_button.add_theme_stylebox_override(state, STYLE_CHECK)
 	_style_button(cancel_button, CANCEL_TEXT, CREAM)
 	_style_button(confirm_button, CONFIRM_TEXT, DARK)
-	close_button.text = "X"
-	close_button.custom_minimum_size = Vector2(56.0, 56.0)
-	close_button.add_theme_font_override("font", FONT_KICKER)
-	close_button.add_theme_font_size_override("font_size", 24)
-	close_button.text_color = CLOSE_COLOR
 
 
 func _sentence_labels() -> Array[Node]:

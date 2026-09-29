@@ -8,8 +8,10 @@ class_name GraphTabs extends HBoxContainer
 
 const SOURCES: Array[String] = ["Guild", "Contract", "Merc"]
 const ROW_HEIGHT: int = 44
-const ICON_COLS: int = 16
-const ICON_PX: float = 1.5
+const ICON_SCALE: int = 2
+const TAB_IDS: Dictionary = {"Guild": "guild_banner", "Contract": "contracts", "Merc": "mercs"}
+#The muted blue the locked tab icon takes, at the locked alpha.
+const LOCKED_TINT: Color = Color(0.368627, 0.462745, 0.600000, 0.5)
 #The separation the TabButton Row keeps between the icon and the label.
 const ROW_SEPARATION: float = 8.0
 const LABEL_PAD: float = 16.0
@@ -73,7 +75,7 @@ func is_source_locked(source_name: String) -> bool:
 
 #The width the active plate needs: the icon box, the Row separation, the label and the side pad.
 func active_width(tab: TabButton) -> float:
-	var icons: float = float(tab.icon_cols) * tab.icon_px
+	var icons: float = 16.0 * float(ICON_SCALE)
 	return icons + ROW_SEPARATION + tab.text_label.get_combined_minimum_size().x + LABEL_PAD
 
 
@@ -105,17 +107,13 @@ func _apply() -> void:
 	for tab: TabButton in _tabs():
 		var source_name: String = String(tab.name)
 		var shut: bool = is_source_locked(source_name)
-		tab.icon_cols = ICON_COLS
-		tab.icon_px = ICON_PX
+		tab.icon_id = String(TAB_IDS.get(source_name, ""))
+		tab.icon_scale = ICON_SCALE
+		tab.idle_mode = Icons.MODE_GRAY if shut else Icons.MODE_PLAIN
 		tab.description = source_name
 		tab.locked = shut
-		var state: int = MetricsGlyphs.TabState.IDLE
-		if shut:
-			state = MetricsGlyphs.TabState.LOCKED
-		elif source_name == _source:
-			state = MetricsGlyphs.TabState.ACTIVE
-		tab.set_icon_texture(MetricsGlyphs.tab_icon(source_name, state))
 		tab.active = source_name == _source
+		tab.icon_rect.tint = LOCKED_TINT if shut else Color.WHITE
 		_fit(tab)
 
 

@@ -1,9 +1,9 @@
 class_name CheckRow extends HBoxContainer
 
-#One "included feature" line: the prototype's 7x7 check mark plus a wrapping label. It carries no
+#One "included feature" line: the atlas check mark plus a wrapping label. It carries no
 #input, so it never takes the mouse; plan cards and tooltips add one row per feature.
 
-const CELL_PX: int = 2
+const MARK_PX: int = 12
 const DEFAULT_COLOR: Color = Color("#6cc36a")
 const TEXT_COLOR: Color = Color("#f3ead7")
 const FONT_SIZE: int = 14
@@ -32,7 +32,7 @@ func _ready() -> void:
 	mark.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	mark.custom_minimum_size = Vector2.ONE * float(SubscriptionGlyphs.CHECK_COLS * CELL_PX)
+	mark.custom_minimum_size = Vector2.ONE * float(MARK_PX)
 	text_label.add_theme_font_size_override(&"font_size", FONT_SIZE)
 	text_label.add_theme_color_override(&"font_color", TEXT_COLOR)
 	_refresh()
@@ -46,5 +46,6 @@ func _refresh() -> void:
 	if not is_node_ready():
 		return
 	text_label.text = text
-	mark.texture = SubscriptionGlyphs.check(color)
+	mark.texture = Icons.tinted("check_sm", mark_color(), 1, false,
+		Icons.centered_box(MARK_PX, MARK_PX))
 	mark.visible = checked

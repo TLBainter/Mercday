@@ -23,7 +23,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="NoteGlyph" type="TextureRect" parent="RewardRow/NoteBox/Center"]
-custom_minimum_size = Vector2(7, 9)
+custom_minimum_size = Vector2(5, 9)
 
 [node name="RewardLabel" type="Label" parent="RewardRow"]
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)

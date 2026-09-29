@@ -263,21 +263,27 @@ func _refresh() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP if disabled else Control.MOUSE_FILTER_PASS
 	display.add_theme_constant_override("separation", 12)
 	compact_row.add_theme_constant_override("separation", 6)
-	_style_button(minus_button, BUTTON_SIZE, 28, -1)
-	_style_button(plus_button, BUTTON_SIZE, 28, 1)
-	_style_button(minus_small, COMPACT_BUTTON, 15, -1)
-	_style_button(plus_small, COMPACT_BUTTON, 15, 1)
+	_style_button(minus_button, BUTTON_SIZE, -1)
+	_style_button(plus_button, BUTTON_SIZE, 1)
+	_style_button(minus_small, COMPACT_BUTTON, -1)
+	_style_button(plus_small, COMPACT_BUTTON, 1)
 	_fill_display()
 	_fill_compact()
 	var content_row: Control = compact_row if compact else display
 	custom_minimum_size = content_row.get_combined_minimum_size()
 
 
-func _style_button(btn: Button, box_size: float, font_size: int, side: int) -> void:
-	btn.text = "-" if side < 0 else "+"
+static func _glyph_scale(box_size: float) -> int:
+	return 4 if box_size >= BUTTON_SIZE else 2
+
+
+func _style_button(btn: Button, box_size: float, side: int) -> void:
+	btn.text = ""
+	btn.icon = Icons.baked("minus" if side < 0 else "plus", _glyph_scale(box_size),
+		Icons.MODE_PLAIN, true)
+	btn.expand_icon = false
+	btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	btn.custom_minimum_size = Vector2(box_size, box_size)
-	btn.add_theme_font_override("font", FONT_BOLD)
-	btn.add_theme_font_size_override("font_size", font_size)
 	btn.disabled = disabled
 	btn.mouse_filter = Control.MOUSE_FILTER_IGNORE if disabled else Control.MOUSE_FILTER_STOP
 	var hot: bool = _reject_left > 0.0 and _reject_side == side
@@ -286,8 +292,8 @@ func _style_button(btn: Button, box_size: float, font_size: int, side: int) -> v
 		box.bg_color = REJECT
 	for state: String in ["normal", "hover", "pressed", "disabled"]:
 		btn.add_theme_stylebox_override(state, box)
-	for key: String in ["font_color", "font_hover_color", "font_pressed_color",
-			"font_disabled_color"]:
+	for key: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color",
+			"icon_disabled_color"]:
 		btn.add_theme_color_override(key, BUTTON_TEXT)
 
 
@@ -303,7 +309,7 @@ func _fill_display() -> void:
 	value_row.show_glyph = show_glyph
 	value_row.bold = true
 	value_row.font_size = 26
-	value_row.glyph_scale = 3
+	value_row.glyph_scale = 2
 	value_row.value_color = REJECT if _reject_left > 0.0 else CREAM
 	sub_text.text = sub
 	sub_text.visible = sub != ""

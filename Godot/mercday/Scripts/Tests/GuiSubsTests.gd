@@ -178,6 +178,18 @@ static func _case_tabs(res: Dictionary, host: Node, viewer: SubscriptionViewer) 
 			and is_equal_approx(open_tab.custom_minimum_size.x, TabButton.IDLE_SIZE.x)
 			and is_equal_approx(open_tab.custom_minimum_size.y, float(TabButton.ACTIVE_HEIGHT)),
 		"box %s label %s" % [open_tab.custom_minimum_size, open_tab.text_label.visible])
+	TestFixtures.check(res, "both tabs and the header logo carry their atlas ids at x2",
+		viewer.plans_tab.icon_rect.icon_id == "mercday"
+			and viewer.customize_tab.icon_rect.icon_id == "customize"
+			and viewer.plans_tab.icon_scale == 2 and viewer.plans.logo is IconRect
+			and viewer.plans.logo.icon_id == "mercday" and viewer.plans.logo.pixel_scale == 2
+			and viewer.plans.logo.custom_minimum_size == Vector2(32, 32),
+		"plans '%s' customize '%s' logo '%s' box %s" % [viewer.plans_tab.icon_rect.icon_id,
+			viewer.customize_tab.icon_rect.icon_id, viewer.plans.logo.icon_id,
+			str(viewer.plans.logo.custom_minimum_size)])
+	TestFixtures.check(res, "the window fits the 644 px frame",
+		viewer.get_combined_minimum_size().y <= 644.0,
+		"minimum %.1f" % viewer.get_combined_minimum_size().y)
 
 
 #Case 2: the three plan cards, their prices and every reason one of them refuses a switch.
@@ -217,9 +229,13 @@ static func _case_cards(res: Dictionary, host: Node, viewer: SubscriptionViewer)
 	for i: int in mini(rows.size(), PRO_FEATURES.size()):
 		if rows[i].text != PRO_FEATURES[i] or not rows[i].color.is_equal_approx(pro_accent):
 			bad.append(rows[i].text)
+	var marks: Array[String] = []
+	for row: CheckRow in rows:
+		if row.mark.custom_minimum_size != Vector2(12, 12) or row.mark.texture == null:
+			marks.append(row.text)
 	TestFixtures.check(res, "the pro card builds one check row per prototype feature",
-		rows.size() == PRO_FEATURES.size() and bad.is_empty(),
-		TestFixtures.detail(bad, rows.size(), "rows"))
+		rows.size() == PRO_FEATURES.size() and bad.is_empty() and marks.is_empty(),
+		TestFixtures.detail(bad + marks, rows.size(), "rows"))
 	var order: Array[String] = []
 	for card: PlanCard in plans.cards():
 		order.append("%s %d" % [card.plan_id, card.plan_index()])

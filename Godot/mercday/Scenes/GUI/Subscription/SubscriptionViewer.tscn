@@ -9,7 +9,7 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Subscription/PlanSwitchDialog.tscn" id="7"]
 
 [node name="SubscriptionViewer" type="Control"]
-custom_minimum_size = Vector2(1280, 720)
+custom_minimum_size = Vector2(1280, 644)
 anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource("2")
@@ -49,12 +49,16 @@ label = "Plans"
 description = "Mercday Plans"
 index = 0
 active = true
+icon_id = "mercday"
+icon_scale = 2
 
 [node name="CustomizeTab" parent="Margin/Rows/TabRowPad/TabRow" instance=ExtResource("4")]
 layout_mode = 2
 label = "Customize"
 description = "Customize"
 index = 1
+icon_id = "customize"
+icon_scale = 2
 
 [node name="PagePanel" type="PanelContainer" parent="Margin/Rows"]
 layout_mode = 2
@@ -71,7 +75,7 @@ theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
 [node name="Pages" type="Control" parent="Margin/Rows/PagePanel/PagePad"]
-custom_minimum_size = Vector2(0, 560)
+custom_minimum_size = Vector2(0, 532)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3

@@ -145,14 +145,20 @@ static func _case_style(res: Dictionary) -> void:
 	TestFixtures.check(res, "a stat cell holds its caption over its value",
 		cell.get_child_count() == 1 and (cell.get_child(0) as VBoxContainer).get_child_count() == 2,
 		"%d children" % cell.get_child_count())
-	var arrow: ImageTexture = LoanGlyphs.arrow(&"up", LoanStyle.GREEN)
-	TestFixtures.check(res, "a change arrow is a seven pixel glyph",
-		arrow != null and arrow.get_width() == 7 and arrow.get_height() == 7,
+	var arrow: ImageTexture = LoanGlyphs.arrow(&"up")
+	TestFixtures.check(res, "a change arrow is the nine by eight trend window at scale two",
+		arrow != null and arrow.get_width() == 18 and arrow.get_height() == 16,
 		"%s" % [arrow.get_size() if arrow != null else Vector2.ZERO])
-	TestFixtures.check(res, "each of the four arrow directions draws",
-		LoanGlyphs.arrow(&"down", LoanStyle.RED) != null
-		and LoanGlyphs.arrow(&"diag_up", LoanStyle.SKY) != null
-		and LoanGlyphs.arrow(&"diag_down", LoanStyle.SKY) != null, "four arrows")
+	TestFixtures.check(res,
+		"each of the four directions draws its own trend id and an empty one draws none",
+		LoanGlyphs.arrow(&"down") != null
+		and LoanGlyphs.arrow(&"diag_up") != null
+		and LoanGlyphs.arrow(&"diag_down") != null
+		and LoanGlyphs.arrow_id(&"up") == "trend_up"
+		and LoanGlyphs.arrow_id(&"down") == "trend_down"
+		and LoanGlyphs.arrow_id(&"diag_up") == "trend_diag_up"
+		and LoanGlyphs.arrow_id(&"diag_down") == "trend_diag_down"
+		and LoanGlyphs.arrow(&"") == null, "four arrows")
 	var portrait: Control = LoanGlyphs.portrait(40.0)
 	TestFixtures.check(res, "a lender portrait is square and takes the side it is given",
 		portrait != null and is_equal_approx(portrait.custom_minimum_size.x, 40.0)
@@ -906,6 +912,12 @@ static func _case_accept_confirm(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a cheaper alternate month reads as the better news",
 		confirm.cell_change_color(0, 3) == LoanLogic.CHANGE_GOOD_COLOR,
 		confirm.cell_change(0, 3))
+	TestFixtures.check(res, "an arrow cell tints its grey trend art with the change colour",
+		confirm.cell_arrow(0, 3) != null
+			and confirm.cell_arrow(0, 3).tint == LoanLogic.CHANGE_GOOD_COLOR
+			and confirm.cell_arrow(0, 3).mode == Icons.MODE_GRAY,
+		"%s" % [confirm.cell_arrow(0, 3).tint if confirm.cell_arrow(0, 3) != null
+			else Color.BLACK])
 	TestFixtures.check(res, "a term cell prints the short change and no arrow when it is level",
 		confirm.cell_change(0, 2) == LoanLogic.CHANGE_NONE and not confirm.cell_has_arrow(0, 2)
 		and confirm.cell_change(0, 4) == LoanLogic.term_delta(2, 3, true),

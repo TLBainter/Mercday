@@ -1,6 +1,6 @@
 class_name NotificationDot extends Control
 
-#A small unread marker: a pixel dot with a dark outline and four fading pulse rings, no counts
+#A small unread marker: the atlas dot with a dark outline and four fading pulse rings, no counts
 #and no colour variants beyond tint. attach() anchors an instance to a host control's corner.
 
 const DOT_SIZE: Vector2 = Vector2(10, 10)
@@ -12,16 +12,10 @@ const FRAME_SIZE: Vector2 = Vector2(28, 28)
 const CELL: int = 2
 #The dot draws over the rest of its host, so a later sibling never covers it.
 const DOT_Z: int = 1
-const DOT_MAP: PackedStringArray = ["..####..", ".######.", "########", "########", "########",
-	"########", ".######.", "..####.."]
 const RING_CELLS: PackedInt32Array = [8, 10, 12, 14]
 const RING_PEAKS: PackedFloat32Array = [0.9, 0.75, 0.55, 0.35]
 const RING_RISE: float = 0.08
 const RING_FALL: float = 0.55
-
-static var _dot_cells: PackedVector2Array = PackedVector2Array()
-static var _ring_cells: Array[PackedVector2Array] = []
-static var _cache_built: bool = false
 
 @export var on: bool = true:
 	set(value):
@@ -95,61 +89,28 @@ static func blink_gain(phase: float) -> float:
 	return lerpf(0.95, 1.4, smoothstep(0.0, 1.0, tri))
 
 
-#The one drawing routine: the dark outline, the tinted dot, then the pulse rings. Every cell is
-#a whole-pixel CELL x CELL rect from a static cache built once, never rebuilt per frame.
+#The one drawing routine: the dark outline, the tinted dot, then the pulse rings. Each one is an
+#atlas icon at CELL screen pixels an art pixel, centred on the centre argument.
 static func paint(canvas: CanvasItem, centre: Vector2, tint: Color, phase: float, rings: bool,
 		blinks: bool) -> void:
-	_ensure_cache()
-	var cell_size: Vector2 = Vector2(float(CELL), float(CELL))
+	var at: Vector2 = centre - Vector2(8.0, 8.0)
 	var edges: Array[Vector2] = [Vector2(-OUTLINE_WIDTH, 0.0), Vector2(OUTLINE_WIDTH, 0.0),
 		Vector2(0.0, -OUTLINE_WIDTH), Vector2(0.0, OUTLINE_WIDTH)]
-	for cell: Vector2 in _dot_cells:
-		for edge: Vector2 in edges:
-			canvas.draw_rect(Rect2(centre + cell + edge, cell_size), OUTLINE_COLOR)
+	for edge: Vector2 in edges:
+		Icons.draw(canvas, "dot", at + edge, CELL, OUTLINE_COLOR, true)
 	var gain: float = blink_gain(phase) if blinks else 1.0
 	var lit: Color = Color(minf(tint.r * gain, 1.0), minf(tint.g * gain, 1.0),
 		minf(tint.b * gain, 1.0), tint.a)
-	for cell: Vector2 in _dot_cells:
-		canvas.draw_rect(Rect2(centre + cell, cell_size), lit)
+	Icons.draw(canvas, "dot", at, CELL, lit, true)
 	if not rings:
 		return
 	for i: int in RING_CELLS.size():
 		var alpha: float = ring_alpha(i, phase)
 		if alpha <= 0.0:
 			continue
-		var ring_color: Color = Color(tint.r, tint.g, tint.b, alpha)
-		for cell: Vector2 in _ring_cells[i]:
-			canvas.draw_rect(Rect2(centre + cell, cell_size), ring_color)
-
-
-static func _ensure_cache() -> void:
-	if _cache_built:
-		return
-	_cache_built = true
-	_dot_cells = _build_dot_cells()
-	for n: int in RING_CELLS:
-		_ring_cells.append(_build_ring_cells(n))
-
-
-static func _build_dot_cells() -> PackedVector2Array:
-	var out: PackedVector2Array = PackedVector2Array()
-	for row: int in DOT_MAP.size():
-		var line: String = DOT_MAP[row]
-		for col: int in line.length():
-			if line[col] == "#":
-				out.append(Vector2(float(col * CELL - 8), float(row * CELL - 8)))
-	return out
-
-
-static func _build_ring_cells(n: int) -> PackedVector2Array:
-	var out: PackedVector2Array = PackedVector2Array()
-	var c: float = float(n - 1) / 2.0
-	var half: float = float(n * CELL) / 2.0
-	for row: int in n:
-		for col: int in n:
-			if absf(Vector2(col, row).distance_to(Vector2(c, c)) - c) < 0.6:
-				out.append(Vector2(float(col * CELL) - half, float(row * CELL) - half))
-	return out
+		var n: int = RING_CELLS[i]
+		var pos: Vector2 = centre - Vector2(float(n), float(n)) * float(CELL) / 2.0
+		Icons.draw(canvas, "ring%d" % n, pos, CELL, Color(tint.r, tint.g, tint.b, alpha), true)
 
 
 #Anchors this dot to a corner of its current parent, offset pixels in from that corner. A parent

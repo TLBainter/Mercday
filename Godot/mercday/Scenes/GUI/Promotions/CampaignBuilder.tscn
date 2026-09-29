@@ -22,7 +22,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 
 [node name="Frame" type="PanelContainer" parent="Center"]
-custom_minimum_size = Vector2(1190, 660)
+custom_minimum_size = Vector2(1190, 628)
 layout_mode = 2
 
 [node name="Pad" type="MarginContainer" parent="Center/Frame"]

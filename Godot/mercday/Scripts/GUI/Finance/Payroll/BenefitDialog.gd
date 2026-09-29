@@ -14,7 +14,6 @@ const ORANGE: Color = Color("#f28c28")
 const CREAM: Color = Color("#f3ead7")
 const SKY: Color = Color("#9cc6ef")
 const DARK: Color = Color("#0a0f1c")
-const CLOSE_COLOR: Color = Color("#ff3b2f")
 const KICKER_TEXT: String = "Employee Benefits"
 const CANCEL_TEXT: String = "Cancel"
 const CONFIRM_TEXT: String = "Confirm"
@@ -37,7 +36,7 @@ signal cancelled
 @onready var step_box: PayrollStepper = $Center/Box/Rows/Step
 @onready var cancel_button: BevelButton = $Center/Box/Rows/Buttons/Cancel
 @onready var confirm_button: BevelButton = $Center/Box/Rows/Buttons/Confirm
-@onready var close_button: BevelButton = $Center/Box/Overlay/Close
+@onready var close_button: Button = $Center/Box/Overlay/Close
 
 var _key: String = ""
 var _was: int = 0
@@ -52,6 +51,7 @@ func _ready() -> void:
 	cancel_button.pressed.connect(press_cancel)
 	confirm_button.pressed.connect(press_confirm)
 	close_button.pressed.connect(press_cancel)
+	CloseX.style(close_button, CloseX.SCALE_WINDOW)
 	step_box.value_changed.connect(_on_value_changed)
 	_style()
 	ModalFrame.fit(self, backdrop, box)
@@ -172,11 +172,6 @@ func _style() -> void:
 	desc.add_theme_color_override("font_color", SKY)
 	_style_button(cancel_button, CANCEL_TEXT, CREAM)
 	_style_button(confirm_button, CONFIRM_TEXT, DARK)
-	close_button.text = "X"
-	close_button.custom_minimum_size = Vector2(56.0, 56.0)
-	close_button.add_theme_font_override("font", FONT_KICKER)
-	close_button.add_theme_font_size_override("font_size", 24)
-	close_button.text_color = CLOSE_COLOR
 
 
 func _style_button(btn: BevelButton, body: String, tint: Color) -> void:

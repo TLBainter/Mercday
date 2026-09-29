@@ -31,7 +31,7 @@ theme_override_constants/separation = 10
 alignment = 1
 
 [node name="LockIcon" type="TextureRect" parent="Box/Pad/Rows/IconRow"]
-custom_minimum_size = Vector2(21, 24)
+custom_minimum_size = Vector2(48, 54)
 
 [node name="Line1" type="Label" parent="Box/Pad/Rows"]
 horizontal_alignment = 1
@@ -56,8 +56,6 @@ text = "Take Me There"
 mouse_filter = 2
 
 [node name="Close" type="Button" parent="."]
-offset_right = 28.0
-offset_bottom = 28.0
+offset_right = 36.0
+offset_bottom = 36.0
 theme_type_variation = &"ButtonNeutral"
-theme_override_colors/font_color = Color(1.0, 0.231373, 0.184314, 1)
-text = "X"

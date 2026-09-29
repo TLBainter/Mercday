@@ -15,10 +15,10 @@ const MOOD_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MoodMeter.tscn"
 const STARS_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/DifficultyStars.tscn")
 
 const BOX_WIDTH: int = 880
-const SIDE_WIDTH: int = 250
+const SIDE_WIDTH: int = 310
 const MAIN_GAP: int = 16
-const CLOSE_SPAN: Vector2 = Vector2(44, 44)
-const CLOSE_AT: Vector2 = Vector2(-10, -14)
+#The close art sits CLOSE_INSET in from the box corner, 30 px of art past a 3 px outline ring.
+const CLOSE_INSET: float = 10.0
 const ACTION_HEIGHT: int = 40
 const LOCK_FONT: int = 11
 const JOB_CELLS: int = 12
@@ -383,6 +383,7 @@ func _right_column() -> VBoxContainer:
 	right.add_child(contract_name)
 	contract_stars = STARS_SCENE.instantiate() as DifficultyStars
 	contract_stars.name = "Stars"
+	contract_stars.star_size = 2
 	right.add_child(contract_stars)
 	contract_reward = LegalStyle.notes(0, 13, LegalStyle.CREAM)
 	contract_reward.prefix = "Reward "
@@ -417,8 +418,9 @@ func _add_close() -> void:
 	overlay.name = "Overlay"
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	close_button = LegalStyle.close_x()
-	close_button.custom_minimum_size = CLOSE_SPAN
+	close_button = CloseX.make(CloseX.SCALE_WINDOW)
+	close_button.name = "CloseX"
+	close_button.tooltip_text = "Close"
 	close_button.pressed.connect(close)
 	overlay.add_child(close_button)
 	add_child(overlay)
@@ -428,8 +430,8 @@ func _add_close() -> void:
 func _place_close() -> void:
 	if close_button == null or box == null:
 		return
-	var at: Vector2 = box.global_position + Vector2(box.size.x - CLOSE_SPAN.x, 0.0)
-	close_button.global_position = at + CLOSE_AT
+	close_button.global_position = box.global_position + Vector2(
+		box.size.x - CLOSE_INSET - 30.0 - 3.0, CLOSE_INSET - 3.0)
 
 
 func _refresh() -> void:

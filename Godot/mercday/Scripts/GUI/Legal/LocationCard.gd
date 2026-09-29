@@ -12,7 +12,7 @@ const CARD_WIDTH: int = 330
 const ICON_SPAN: Vector2 = Vector2(84, 84)
 const CHIP_SPAN: Vector2 = Vector2(44, 15)
 const CHIP_AT: Vector2 = Vector2(4, 4)
-const MARK_SPAN: Vector2 = Vector2(22, 22)
+const MARK_SPAN: Vector2 = Vector2(24, 24)
 const MARK_SCALE: int = 2
 const BULLET_SPAN: Vector2 = Vector2(6, 6)
 const REQUEST_HEIGHT: int = 34
@@ -27,7 +27,6 @@ var location: LegalLocationData = null:
 
 var name_label: Label = null
 var nation_label: Label = null
-var diff_value: Label = null
 var stars: DifficultyStars = null
 var rules_box: VBoxContainer = null
 var permissions_box: VBoxContainer = null
@@ -58,10 +57,6 @@ func name_text() -> String:
 
 func nation_text() -> String:
 	return nation_label.text if nation_label != null else ""
-
-
-func difficulty_text() -> String:
-	return diff_value.text if diff_value != null else ""
 
 
 func rule_count() -> int:
@@ -102,18 +97,22 @@ func _build() -> void:
 	add_theme_stylebox_override(&"panel", LegalStyle.card_style(LegalStyle.BLUE))
 	var body: VBoxContainer = LegalStyle.vbox(9)
 	body.name = "Body"
-	body.add_child(_icon_holder())
+	var head_row: HBoxContainer = LegalStyle.hbox(12)
+	head_row.name = "Head"
+	head_row.add_child(_icon_holder())
 	var head: VBoxContainer = LegalStyle.vbox(3)
-	head.name = "Head"
+	head.name = "Text"
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label = LegalStyle.pixel("", 15, LegalStyle.CREAM, true)
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	nation_label = LegalStyle.text("", 13, LegalStyle.SKY)
-	nation_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nation_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	head.add_child(name_label)
 	head.add_child(nation_label)
-	body.add_child(head)
+	head.add_child(_difficulty_box())
+	head_row.add_child(head)
+	body.add_child(head_row)
 	body.add_child(LegalStyle.divider(LegalStyle.BLUE, 2))
-	body.add_child(_difficulty_box())
 	rules_box = LegalStyle.vbox(6)
 	rules_box.name = "Rules"
 	rules_box.add_child(LegalStyle.head("Rules"))
@@ -133,17 +132,15 @@ func _build() -> void:
 func _difficulty_box() -> VBoxContainer:
 	var box: VBoxContainer = LegalStyle.vbox(4)
 	box.name = "Difficulty"
-	box.add_child(LegalStyle.head("Average Difficulty"))
-	var row: HBoxContainer = LegalStyle.hbox(8)
-	diff_value = LegalStyle.pixel("", 11, LegalStyle.ORANGE, true)
-	diff_value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var caption: Label = LegalStyle.head("Average Difficulty")
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	box.add_child(caption)
 	stars = STARS_SCENE.instantiate() as DifficultyStars
 	stars.name = "Stars"
-	stars.star_size = 3
+	stars.star_size = 2
+	stars.size_flags_horizontal = Control.SIZE_SHRINK_END
 	stars.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(diff_value)
-	row.add_child(stars)
-	box.add_child(row)
+	box.add_child(stars)
 	return box
 
 
@@ -153,6 +150,7 @@ func _icon_holder() -> Control:
 	holder.name = "Icon"
 	holder.custom_minimum_size = ICON_SPAN
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_box = LegalStyle.hatch_box(ICON_SPAN, LegalStyle.BLUE3)
 	icon_box.name = "Art"
@@ -179,16 +177,12 @@ func _refresh() -> void:
 	if location == null:
 		name_label.text = ""
 		nation_label.text = ""
-		diff_value.text = ""
 		_clear_after(rules_box)
 		_clear_after(permissions_box)
 		_states.clear()
 		return
 	name_label.text = location.name
 	nation_label.text = location.nation
-	diff_value.text = "%.1f" % location.avg_difficulty
-	diff_value.add_theme_color_override(&"font_color",
-		DifficultyStars.color_for(location.avg_difficulty, DifficultyStars.Ramp.DIFFICULTY))
 	stars.rating = location.avg_difficulty
 	chip.visible = is_home()
 	_fill_rules()
@@ -289,12 +283,14 @@ func _permission_row_at(i: int) -> Node:
 	return permissions_box.get_child(i + 1)
 
 
+#The permission mark is colour art, so the 12 x 12 window of the cell is baked with no tint.
 static func _mark_texture(state: int) -> ImageTexture:
+	var id: String = "x_sm"
 	if state == LegalManager.STATE_ACTIVE:
-		return LegalGlyphs.check(LegalStyle.GREEN, MARK_SCALE)
-	if state == LegalManager.STATE_INACTIVE:
-		return LegalGlyphs.bang(LegalStyle.AMBER, MARK_SCALE)
-	return LegalGlyphs.cross(LegalStyle.RED, MARK_SCALE)
+		id = "check_sm"
+	elif state == LegalManager.STATE_INACTIVE:
+		id = "alert"
+	return Icons.baked(id, MARK_SCALE, Icons.MODE_PLAIN, false, Icons.centered_box(12, 12))
 
 
 static func _state_color(state: int) -> Color:

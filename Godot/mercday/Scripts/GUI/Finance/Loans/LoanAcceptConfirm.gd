@@ -17,7 +17,7 @@ const BUTTON_GAP: int = 12
 const CARD_GAP: int = 8
 const CELL_GAP: int = 8
 const CELL_COLUMNS: int = 6
-const ARROW_SIDE: float = 14.0
+const ARROW_BOX: Vector2 = LoanGlyphs.ARROW_BOX_PX
 const LABELS: Array[String] = ["Amount", "Interest", "Term", "Monthly", "First Due",
 	"Total Repaid"]
 const NOTES_CELLS: Array[bool] = [true, false, false, true, false, true]
@@ -141,6 +141,13 @@ func cell_has_arrow(index: int, cell: int) -> bool:
 	if row.is_empty():
 		return false
 	return (row["arrow"] as TextureRect).texture != null
+
+
+func cell_arrow(index: int, cell: int) -> IconRect:
+	var row: Dictionary = _cell_row(index, cell)
+	if row.is_empty():
+		return null
+	return row["arrow"] as IconRect
 
 
 func list_box() -> VBoxContainer:
@@ -280,19 +287,26 @@ func _cell(cells: Array[Dictionary], base: Dictionary, row: Dictionary,
 	if index == CELL_TERM or index == CELL_FIRST:
 		text = LoanLogic.term_delta(roundi(pair.x), roundi(pair.y), true)
 	var change_label: Label = LoanStyle.text(text, 10, color, true)
-	var arrow := TextureRect.new()
-	arrow.custom_minimum_size = Vector2(ARROW_SIDE, ARROW_SIDE)
-	arrow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var arrow_box := CenterContainer.new()
+	arrow_box.custom_minimum_size = ARROW_BOX
+	arrow_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	arrow_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var arrow := IconRect.new()
+	arrow.window = LoanGlyphs.ARROW_BOX
+	arrow.mode = Icons.MODE_GRAY
+	arrow.pixel_scale = LoanGlyphs.ARROW_SCALE
 	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arrow_box.add_child(arrow)
 	var dir: StringName = change["arrow"] as StringName
 	if dir != &"":
-		arrow.texture = LoanGlyphs.arrow(dir, color)
+		arrow.set_id(LoanGlyphs.arrow_id(dir), LoanGlyphs.ARROW_SCALE, Icons.MODE_GRAY)
+		arrow.tint = color
 	var tail: HBoxContainer = LoanStyle.hbox(4)
 	tail.add_child(change_label)
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tail.add_child(gap)
-	tail.add_child(arrow)
+	tail.add_child(arrow_box)
 	col.add_child(tail)
 	box.add_child(col)
 	cells.append({"caption": LABELS[index], "value": shown, "change": change_label,

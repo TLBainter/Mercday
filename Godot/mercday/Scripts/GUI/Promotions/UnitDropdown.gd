@@ -26,10 +26,9 @@ const LOCK_FONT_SIZE: int = 7
 const RING_PX: int = 2
 const PAD_X: float = 10.0
 const LABEL_SIZE: int = 11
-const CARET_SIZE: int = 9
-#The PROTO caret glyphs are not ASCII, so the field spells the state out.
-const CARET_OPEN: String = "^"
-const CARET_SHUT: String = "v"
+const CARET_SCALE: int = 2
+const CARET_OPEN_ID: String = "caret_up"
+const CARET_SHUT_ID: String = "caret_down"
 const LOCK_VERB: String = "use"
 const FEATURE_INFINITE: String = "Infinite promos"
 const FEATURE_LASTING: String = "promos lasting %s"
@@ -37,7 +36,7 @@ const SPAN_NAMES: Dictionary = {1: "a day", 7: "a week", 30: "a month"}
 
 @onready var row: HBoxContainer = $Row
 @onready var label: Label = $Row/UnitName
-@onready var caret: Label = $Row/Caret
+@onready var caret: TextureRect = $Row/Caret
 @onready var menu: PopupPanel = $Menu
 @onready var list: VBoxContainer = $Menu/List
 
@@ -56,9 +55,7 @@ func _ready() -> void:
 	label.add_theme_font_override(&"font", FONT_BOLD)
 	label.add_theme_font_size_override(&"font_size", LABEL_SIZE)
 	label.add_theme_color_override(&"font_color", OFF_FG)
-	caret.add_theme_font_override(&"font", FONT_BOLD)
-	caret.add_theme_font_size_override(&"font_size", CARET_SIZE)
-	caret.add_theme_color_override(&"font_color", CARET_COLOR)
+	caret.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	menu.add_theme_stylebox_override(&"panel", _menu_box())
 	list.add_theme_constant_override(&"separation", 0)
 	pressed.connect(open)
@@ -100,6 +97,7 @@ func open() -> void:
 	var wanted: Vector2 = menu.get_contents_minimum_size()
 	var pos := Vector2i(int(rect.position.x), int(rect.end.y))
 	menu.popup(Rect2i(pos, Vector2i(int(FIELD_SIZE.x), int(wanted.y))))
+	_apply_field()
 
 
 func is_open() -> bool:
@@ -199,7 +197,8 @@ func _apply() -> void:
 
 func _apply_field() -> void:
 	var open_now: bool = menu.visible
-	caret.text = CARET_OPEN if open_now else CARET_SHUT
+	caret.texture = Icons.tinted(CARET_OPEN_ID if open_now else CARET_SHUT_ID, CARET_COLOR,
+		CARET_SCALE, true)
 	var box := StyleBoxFlat.new()
 	box.bg_color = FIELD_BG
 	box.set_border_width_all(RING_PX)

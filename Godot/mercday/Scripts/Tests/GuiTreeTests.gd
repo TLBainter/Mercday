@@ -165,6 +165,19 @@ static func _case_categories(res: Dictionary) -> void:
 			thin.append(cat)
 	TestFixtures.check(res, "each box knows its name, blurb, cell and stem", thin.is_empty(),
 		TestFixtures.detail(thin, cats.size(), "boxes"))
+	var missing: Array[String] = []
+	for key: String in TreeIcons.IDS.keys():
+		var id: String = TreeIcons.id_of(key)
+		if id == "" or not Icons.has(id):
+			missing.append(key)
+	for up_id: String in UpgradeDefs.ORDER:
+		if not TreeIcons.IDS.has(up_id):
+			missing.append(up_id)
+	for cat_id: String in cats:
+		if not TreeIcons.IDS.has(cat_id):
+			missing.append(cat_id)
+	TestFixtures.check(res, "every tree key maps to an atlas id", missing.is_empty(),
+		TestFixtures.detail(missing, TreeIcons.IDS.size(), "keys"))
 	TestFixtures.check(res, "the metrics branch reads as the Insights box",
 		TreeLayout.cat_label("metricsCat") == TreeLayout.cat_label("insights")
 			and TreeLayout.cat_label("insights") != "insights",
@@ -586,6 +599,15 @@ static func _case_rows(res: Dictionary, host: Node, tree: SkillTree) -> void:
 			bare_lines.append("%s %d" % [line_name, glyphs])
 	TestFixtures.check(res, "every money line of the popover carries one notes glyph",
 		bare_lines.is_empty(), TestFixtures.detail(bare_lines, 3, "lines"))
+	var row0: PanelContainer = dialog.get_node("Pad/Col/Tiers/Rows").get_child(0) as PanelContainer
+	var row_icon: IconRect = row0.get_node("Line/Icon") as IconRect
+	TestFixtures.check(res, "a tier row carries its module icon in a 38 px row",
+		row_icon != null and row_icon.icon_id == TreeIcons.id_of("oddjobs")
+			and row_icon.pixel_scale == 2
+			and row_icon.custom_minimum_size == Vector2(32, 32)
+			and is_equal_approx(row0.custom_minimum_size.y, UpgradeTierDialog.ROW_ICON),
+		"icon %s row %.1f" % [str(row_icon.custom_minimum_size) if row_icon != null else "null",
+			row0.custom_minimum_size.y])
 	TestFixtures.check(res, "the popover names the tier owned out of the tiers there are",
 		dialog.tier_label_text() == "Tier 1 / 3" and dialog.tier() == 1 and dialog.max_tier() == 3,
 		"label %s" % [dialog.tier_label_text()])
@@ -809,11 +831,15 @@ static func _case_tooltip(res: Dictionary, host: Node, tree: SkillTree) -> void:
 	TestFixtures.check(res, "a gated module card repeats what it is waiting on",
 		tip.note_text() == "3 prior upgrades still required",
 		"note %s" % [tip.note_text()])
+	TestFixtures.check(res, "the hover card heads itself with the module icon",
+		tip.icon_id() == TreeIcons.id_of("criminal"), "id '%s'" % [tip.icon_id()])
 	SubscriptionManager.reset()
 	await host.get_tree().process_frame
 	tip.show_for("gate", "criminal", anchor, VIEW)
 	TestFixtures.check(res, "a met requirement says so",
 		tip.desc_text() == TreeTooltip.MET_TEXT, "desc %s" % [tip.desc_text()])
+	TestFixtures.check(res, "a requirement card shows no icon at all",
+		tip.icon_id() == "", "id '%s'" % [tip.icon_id()])
 	tip.show_for("block", "aptitude", anchor, VIEW)
 	TestFixtures.check(res, "a finished module card drops the next tier lines",
 		tip.next_text() == "" and tip.next_fee_text() == ""

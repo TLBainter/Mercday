@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/CoachDialog.tscn" id="8"]
 
 [node name="MercViewer" type="Control"]
-custom_minimum_size = Vector2(1280, 720)
+custom_minimum_size = Vector2(1280, 644)
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -33,7 +33,7 @@ theme_override_constants/separation = 20
 layout_mode = 2
 
 [node name="Centre" type="VBoxContainer" parent="Margin/Columns"]
-custom_minimum_size = Vector2(208, 0)
+custom_minimum_size = Vector2(228, 0)
 theme_override_constants/separation = 8
 
 [node name="Header" parent="Margin/Columns/Centre" instance=ExtResource("4")]

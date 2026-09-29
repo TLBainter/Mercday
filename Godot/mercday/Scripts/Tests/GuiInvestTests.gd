@@ -703,9 +703,35 @@ static func _case_captions(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the confirm button carries no outline override",
 		not panel.confirm_button.has_theme_color_override("font_outline_color")
 			and not panel.confirm_button.has_theme_constant_override("outline_size"), "outline set")
-	_caption_row(res, field.minus_button, "-", InvestText.CREAM, "the minus button")
-	_caption_row(res, field.plus_button, "+", InvestText.CREAM, "the plus button")
+	_caption_row(res, field.minus_button, "", InvestText.CREAM, "the minus button")
+	_caption_row(res, field.plus_button, "", InvestText.CREAM, "the plus button")
 	_caption_row(res, field.max_button, "Max", InvestText.CREAM, "the Max button")
+	TestFixtures.check(res, "the stepper is the 28 px compact variant",
+		field.minus_button.custom_minimum_size == Vector2(28.0, 28.0)
+			and field.plus_button.custom_minimum_size == Vector2(28.0, 28.0)
+			and field.max_button.custom_minimum_size == Vector2(56.0, 28.0)
+			and field.field.custom_minimum_size == Vector2(0.0, 28.0),
+		"%s" % [field.minus_button.custom_minimum_size])
+	var minus: IconRect = field.minus_button.get_node("Glyph") as IconRect
+	var plus: IconRect = field.plus_button.get_node("Glyph") as IconRect
+	TestFixtures.check(res, "the minus and plus are atlas art at two pixels an art pixel",
+		minus != null and plus != null and minus.icon_id == "minus"
+			and plus.icon_id == "plus" and minus.pixel_scale == 2 and plus.pixel_scale == 2
+			and minus.trimmed and plus.trimmed
+			and minus.texture.get_size() == Vector2(10.0, 2.0)
+			and plus.texture.get_size() == Vector2(10.0, 10.0),
+		"%s / %s" % [minus.texture.get_size() if minus != null and minus.texture != null
+			else Vector2.ZERO, plus.texture.get_size() if plus != null and plus.texture != null
+			else Vector2.ZERO])
+	TestFixtures.check(res, "the Buy and Sell switch stands 28 px tall with a 36 px swap",
+		is_equal_approx(InvestTradePanel.SWITCH_HEIGHT, 28.0)
+			and InvestTradePanel.SWAP_SIZE == Vector2(36.0, 28.0)
+			and panel.swap_button.custom_minimum_size == Vector2(36.0, 28.0),
+		"%s" % [panel.swap_button.custom_minimum_size])
+	TestFixtures.check(res, "the quantity heading is gone and rides as a tooltip",
+		not panel.has_node("Col/QuantityLabel")
+			and panel.quantity_field.tooltip_text == "Quantity (shares)",
+		panel.quantity_field.tooltip_text)
 	page.set_side(InvestTradePanel.SIDE_SELL)
 	page.set_quantity(3)
 	await host.get_tree().process_frame

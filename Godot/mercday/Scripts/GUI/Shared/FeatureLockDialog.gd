@@ -15,7 +15,10 @@ const BOX_EDGE: Color = Color("#f2d33d")
 const EDGE_HI: Color = Color("#28447a")
 const EDGE_LO: Color = Color("#111c33")
 const EDGE_PX: float = 4.0
-const ICON_SCALE: int = 3
+const ICON_SCALE: int = 6
+#The close art sits CLOSE_INSET in from the box corner; CLOSE_RIM is its outline ring.
+const CLOSE_INSET: float = 10.0
+const CLOSE_RIM: float = 3.0
 
 @onready var backdrop: Panel = $Backdrop
 @onready var box: PanelContainer = $Box
@@ -37,6 +40,7 @@ func _ready() -> void:
 	_style_box()
 	lock_icon.texture = GuiGlyphs.lock(BOX_EDGE, ICON_SCALE)
 	lock_icon.custom_minimum_size = Vector2(GuiGlyphs.LOCK_COLS, GuiGlyphs.LOCK_ROWS) * float(ICON_SCALE)
+	CloseX.style(close_button, CloseX.SCALE_WINDOW)
 	close_button.pressed.connect(press_close)
 	take_me_there_button.pressed.connect(press_take_me_there)
 	hide()
@@ -140,8 +144,9 @@ func _center() -> void:
 	box.position = Vector2((size.x - box.size.x) / 2.0,
 		(GuiFrameStack.band_height(size.y) - box.size.y) / 2.0)
 	box.position.y = maxf(box.position.y, 0.0)
-	close_button.position = Vector2(box.position.x + box.size.x - close_button.size.x - 8.0,
-		box.position.y + 8.0)
+	var art: float = float(CloseX.ART * CloseX.SCALE_WINDOW)
+	close_button.position = box.position + Vector2(box.size.x - CLOSE_INSET - art - CLOSE_RIM,
+		CLOSE_INSET - CLOSE_RIM)
 
 
 func _unhandled_input(event: InputEvent) -> void:

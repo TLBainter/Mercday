@@ -140,30 +140,28 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 				maxf(TabButton.IDLE_SIZE.x, viewer.tabs.active_width(guild_tab))),
 		"size %s against %.1f" % [str(guild_tab.custom_minimum_size),
 			viewer.tabs.active_width(guild_tab)])
-	TestFixtures.check(res, "every tab carries its own 16 column icon on the 1.5 px grid",
-		guild_tab.icon_rect.texture != null and merc_tab.icon_rect.texture != null
-			and guild_tab.icon_cols == GraphTabs.ICON_COLS
-			and is_equal_approx(guild_tab.icon_px, GraphTabs.ICON_PX)
-			and guild_tab.icon_rect.custom_minimum_size == Vector2(24, 24),
-		"guild %s merc %s box %s" % [guild_tab.icon_rect.texture != null,
-			merc_tab.icon_rect.texture != null, str(guild_tab.icon_rect.custom_minimum_size)])
-	TestFixtures.check(res, "the tab icons come from the three metrics files",
-		MetricsGlyphs.tab_icon_path("Guild").ends_with("metrics_tab_guild_16x16.png")
-			and MetricsGlyphs.tab_icon_path("Contract").ends_with("metrics_tab_contract_16x16.png")
-			and MetricsGlyphs.tab_icon_path("Merc").ends_with("metrics_tab_merc_16x16.png"),
-		"got '%s'" % MetricsGlyphs.tab_icon_path("Guild"))
-	var contract_ink: Vector2i = _ink_counts("Contract")
-	var merc_ink: Vector2i = _ink_counts("Merc")
-	var guild_ink: Vector2i = _ink_counts("Guild")
-	TestFixtures.check(res, "the cream pixels of an icon read as ink on the active orange tab",
-		contract_ink.x > 0 and contract_ink.y == contract_ink.x and merc_ink.x > 0
-			and merc_ink.y == merc_ink.x and guild_ink.x > 0 and guild_ink.y == guild_ink.x,
-		"contract %s merc %s guild %s" % [str(contract_ink), str(merc_ink), str(guild_ink)])
+	TestFixtures.check(res, "every tab carries its atlas icon at x2 in a 32 px box",
+		guild_tab.icon_rect.icon_id == "guild_banner" and merc_tab.icon_rect.icon_id == "mercs"
+			and guild_tab.icon_scale == GraphTabs.ICON_SCALE
+			and guild_tab.icon_rect.custom_minimum_size == Vector2(32, 32)
+			and guild_tab.icon_rect.texture != null,
+		"guild '%s' merc '%s' box %s" % [guild_tab.icon_rect.icon_id,
+			merc_tab.icon_rect.icon_id, str(guild_tab.icon_rect.custom_minimum_size)])
+	TestFixtures.check(res, "the tab ids come from the atlas",
+		GraphTabs.TAB_IDS == {"Guild": "guild_banner", "Contract": "contracts", "Merc": "mercs"}
+			and Icons.has("guild_banner") and Icons.has("contracts") and Icons.has("mercs"),
+		"got %s" % str(GraphTabs.TAB_IDS))
+	TestFixtures.check(res, "the active tab two-tones its icon and an idle tab draws it plain",
+		guild_tab.icon_rect.mode == Icons.MODE_TWO_TONE
+			and merc_tab.icon_rect.mode == Icons.MODE_PLAIN
+			and _tab_tone_ok("guild_banner") and _tab_tone_ok("contracts")
+			and _tab_tone_ok("mercs"),
+		"active '%s' idle '%s'" % [guild_tab.icon_rect.mode, merc_tab.icon_rect.mode])
 	TestFixtures.check(res, "the tab row stands 44 px tall",
 		viewer.tabs.custom_minimum_size.y == float(GraphTabs.ROW_HEIGHT),
 		"got %s" % str(viewer.tabs.custom_minimum_size))
-	TestFixtures.check(res, "the viewer fits the 720 px window",
-		viewer.get_combined_minimum_size().y <= 720.0,
+	TestFixtures.check(res, "the viewer fits the 644 px window",
+		viewer.get_combined_minimum_size().y <= 644.0,
 		"minimum %.1f" % viewer.get_combined_minimum_size().y)
 	TestFixtures.check(res, "the metric list never scrolls",
 		viewer.list_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
@@ -341,13 +339,13 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 	viewer.queue_free()
 
 
-#The widened chart column against the plan size: the standalone chart holds 888 x 550, its whole
+#The widened chart column against the plan size: the standalone chart holds 888 x 474, its whole
 #rect stays inside the chart panel and inside the viewer with no overflow, and the embedded chart
 #still takes the compact EMBED_CHART size regardless of the standalone size on the scene.
 static func _case_chart_size(res: Dictionary, host: Node) -> void:
 	var viewer: MetricsViewer = await _open(host)
-	TestFixtures.check(res, "the standalone chart takes the widened 888 x 550 size",
-		viewer.chart.custom_minimum_size == Vector2(888, 550),
+	TestFixtures.check(res, "the standalone chart takes the widened 888 x 474 size",
+		viewer.chart.custom_minimum_size == Vector2(888, 474),
 		"got %s" % str(viewer.chart.custom_minimum_size))
 	var chart_rect: Rect2 = Rect2(viewer.chart.global_position, viewer.chart.size)
 	var panel_rect: Rect2 = Rect2(viewer.chart_panel.global_position, viewer.chart_panel.size)
@@ -962,6 +960,15 @@ static func _case_arrow_math(res: Dictionary) -> void:
 	TestFixtures.check(res, "a gap under half a percent draws no arrow at all",
 		MetricToggle.arrow_kind(0.4) == 0 and MetricToggle.arrow_kind(NAN) == 0,
 		"got %d and %d" % [MetricToggle.arrow_kind(0.4), MetricToggle.arrow_kind(NAN)])
+	TestFixtures.check(res, "each arrow kind names its atlas id and nothing flips",
+		MetricToggle.arrow_id(2, true) == "trend_up"
+			and MetricToggle.arrow_id(2, false) == "trend_down"
+			and MetricToggle.arrow_id(1, true) == "trend_diag_up"
+			and MetricToggle.arrow_id(1, false) == "trend_diag_down"
+			and MetricToggle.arrow_id(0, true) == "",
+		"'%s', '%s', '%s' and '%s'" % [MetricToggle.arrow_id(2, true),
+			MetricToggle.arrow_id(2, false), MetricToggle.arrow_id(1, true),
+			MetricToggle.arrow_id(1, false)])
 	TestFixtures.check(res, "a zero reference reads a full hundred either way",
 		is_equal_approx(MetricToggle.compare_pct(5.0, 0.0), 100.0)
 			and is_equal_approx(MetricToggle.compare_pct(-5.0, 0.0), -100.0)
@@ -1103,6 +1110,7 @@ static func _case_graph_locks(res: Dictionary, host: Node) -> void:
 	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
 	await host.get_tree().process_frame
 	var guild_tab: TabButton = viewer.tabs.button_for("Guild") as TabButton
+	var shut_tab: TabButton = viewer.tabs.button_for("Contract") as TabButton
 	TestFixtures.check(res, "the free plan shuts all three graphs and locks every tab",
 		viewer.graph_locked() and viewer.tabs.is_source_locked("Guild")
 			and viewer.tabs.is_source_locked("Contract") and viewer.tabs.is_source_locked("Merc")
@@ -1111,8 +1119,21 @@ static func _case_graph_locks(res: Dictionary, host: Node) -> void:
 			viewer.tabs.is_source_locked("Contract"), viewer.tabs.is_source_locked("Merc")])
 	TestFixtures.check(res, "a locked tab carries the lock over its icon and reads Locked",
 		guild_tab != null and guild_tab.lock_overlay.visible
-			and guild_tab.tooltip_text == MetricsViewer.LOCKED_TIP,
-		"overlay %s tip '%s'" % [guild_tab.lock_overlay.visible, guild_tab.tooltip_text])
+			and guild_tab.tooltip_text == MetricsViewer.LOCKED_TIP
+			and guild_tab.icon_rect.tint == GraphTabs.LOCKED_TINT
+			and guild_tab.idle_mode == Icons.MODE_GRAY
+			and shut_tab != null and shut_tab.icon_rect.mode == Icons.MODE_GRAY,
+		"overlay %s tip '%s' tint %s idle %s shut %s" % [guild_tab.lock_overlay.visible,
+			guild_tab.tooltip_text, str(guild_tab.icon_rect.tint), guild_tab.idle_mode,
+			shut_tab.icon_rect.mode])
+	TestFixtures.check(res, "every lock in the viewer takes its atlas size",
+		FeatureLock.ICON_SCALE == 2
+			and viewer.compare_lock.lock_icon.custom_minimum_size == Vector2(16, 18)
+			and LockedPage.ICON_SCALE == 6
+			and viewer.locked_page.lock_icon.custom_minimum_size == Vector2(48, 54)
+			and FeatureLockDialog.ICON_SCALE == 6,
+		"row %s page %s" % [str(viewer.compare_lock.lock_icon.custom_minimum_size),
+			str(viewer.locked_page.lock_icon.custom_minimum_size)])
 	TestFixtures.check(res, "a shut graph plots nothing and draws no axes",
 		viewer.chart.series_count() == 0 and not viewer.chart.visible,
 		"%d series, visible %s" % [viewer.chart.series_count(), viewer.chart.visible])
@@ -1134,6 +1155,9 @@ static func _case_graph_locks(res: Dictionary, host: Node) -> void:
 		"got %s" % str(viewer.locked_page.target()))
 	SubscriptionManager.set_state(SubscriptionManager.Plan.PRO, {})
 	await host.get_tree().process_frame
+	TestFixtures.check(res, "an open tab reads its icon back at full white",
+		guild_tab.icon_rect.tint == Color.WHITE and not guild_tab.locked,
+		"tint %s locked %s" % [str(guild_tab.icon_rect.tint), guild_tab.locked])
 	TestFixtures.check(res, "the Pro plan opens the guild graph and leaves the other two shut",
 		not viewer.graph_locked() and viewer.chart.visible and viewer.chart.series_count() == 2
 			and not viewer.locked_page.visible and not viewer.period_drop.disabled
@@ -1576,32 +1600,27 @@ static func _row_for(list: MetricList, key: String) -> MetricToggle:
 	return null
 
 
-#How many cream pixels one tab icon carries and how many of them read as ink once its tab is
-#active, so the recolour of the active plate can be counted instead of looked at.
-static func _ink_counts(source_name: String) -> Vector2i:
-	var idle: Texture2D = MetricsGlyphs.tab_icon(source_name, MetricsGlyphs.TabState.IDLE)
-	var active: Texture2D = MetricsGlyphs.tab_icon(source_name, MetricsGlyphs.TabState.ACTIVE)
-	if idle == null or active == null:
-		return Vector2i(-1, -1)
-	var plain: Image = idle.get_image().duplicate() as Image
-	var lit: Image = active.get_image().duplicate() as Image
-	if plain.is_compressed():
-		plain.decompress()
-	if lit.is_compressed():
-		lit.decompress()
-	plain.convert(Image.FORMAT_RGBA8)
-	lit.convert(Image.FORMAT_RGBA8)
-	var cream: int = 0
-	var ink: int = 0
-	for y: int in plain.get_height():
-		for x: int in plain.get_width():
-			var px: Color = plain.get_pixel(x, y)
-			if px.a <= 0.0 or not MetricsGlyphs.near(px, MetricsGlyphs.CREAM):
+#Whether the two-tone bake of one tab icon paints only the three tab tones, so the active plate's
+#recolour can be counted instead of looked at.
+static func _tab_tone_ok(id: String) -> bool:
+	var img: Image = Icons.two_tone_image(Icons.image(id))
+	if img == null or img.get_width() <= 0 or img.get_height() <= 0:
+		return false
+	var seen: int = 0
+	for y: int in img.get_height():
+		for x: int in img.get_width():
+			var px: Color = img.get_pixel(x, y)
+			if px.a <= 0.0:
 				continue
-			cream += 1
-			if MetricsGlyphs.near(lit.get_pixel(x, y), MetricsGlyphs.INK):
-				ink += 1
-	return Vector2i(cream, ink)
+			seen += 1
+			if not (_same_rgb(px, Icons.TAB_ON_LIGHT) or _same_rgb(px, Icons.TAB_ON_MID)
+					or _same_rgb(px, Icons.TAB_ON_INK)):
+				return false
+	return seen > 0
+
+
+static func _same_rgb(a: Color, b: Color) -> bool:
+	return a.r8 == b.r8 and a.g8 == b.g8 and a.b8 == b.b8
 
 
 #Item 11: the Show All and Hide All buttons are blue BevelButton; Compare stays a plain toggle.
@@ -1615,6 +1634,11 @@ static func _case_bevel_sweep(res: Dictionary, host: Node) -> void:
 		"show %s hide %s" % [viewer.show_all, viewer.hide_all])
 	TestFixtures.check(res, "Compare stays the plain +/- toggle, not a BevelButton",
 		not (viewer.compare_button is BevelButton), "%s" % [viewer.compare_button])
+	var compare_icon: Texture2D = viewer.compare_button.icon
+	TestFixtures.check(res, "Compare carries the baked plus at x2 and no text",
+		viewer.compare_button.text == "" and compare_icon != null
+		and compare_icon.get_size() == Vector2(10, 10),
+		"text %s icon %s" % [viewer.compare_button.text, compare_icon])
 	viewer.hide_all.pressed.emit()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "Hide All still clears every metric once it is a BevelButton",

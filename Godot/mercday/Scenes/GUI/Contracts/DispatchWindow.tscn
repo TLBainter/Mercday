@@ -12,7 +12,7 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ActionBar.tscn" id="13"]
 
 [node name="DispatchWindow" type="Control"]
-custom_minimum_size = Vector2(1280, 720)
+custom_minimum_size = Vector2(1280, 644)
 anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource("2")

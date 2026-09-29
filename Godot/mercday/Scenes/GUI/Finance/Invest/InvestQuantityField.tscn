@@ -1,24 +1,39 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Finance/Invest/InvestQuantityField.gd" id="1"]
 [ext_resource type="Script" path="res://Scripts/GUI/Finance/Invest/InvestBevelButton.gd" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/IconRect.gd" id="4"]
 
 [node name="InvestQuantityField" type="HBoxContainer"]
 theme_override_constants/separation = 6
 script = ExtResource("1")
 
 [node name="MinusButton" type="Button" parent="."]
-custom_minimum_size = Vector2(38, 38)
+custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("3")
 theme_override_font_sizes/font_size = 14
 script = ExtResource("2")
-caption = "-"
+caption = ""
+
+[node name="Glyph" type="TextureRect" parent="MinusButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4")
+icon_id = "minus"
+pixel_scale = 2
+trimmed = true
+tint = Color(0.952941, 0.917647, 0.843137, 1)
 
 [node name="Field" type="LineEdit" parent="."]
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 size_flags_horizontal = 3
 alignment = 1
@@ -29,16 +44,30 @@ theme_override_fonts/font = ExtResource("3")
 theme_override_font_sizes/font_size = 13
 
 [node name="PlusButton" type="Button" parent="."]
-custom_minimum_size = Vector2(38, 38)
+custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("3")
 theme_override_font_sizes/font_size = 14
 script = ExtResource("2")
-caption = "+"
+caption = ""
+
+[node name="Glyph" type="TextureRect" parent="PlusButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4")
+icon_id = "plus"
+pixel_scale = 2
+trimmed = true
+tint = Color(0.952941, 0.917647, 0.843137, 1)
 
 [node name="MaxButton" type="Button" parent="."]
-custom_minimum_size = Vector2(56, 38)
+custom_minimum_size = Vector2(56, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("3")

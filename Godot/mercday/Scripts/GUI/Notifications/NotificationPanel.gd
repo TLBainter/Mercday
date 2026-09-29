@@ -333,7 +333,7 @@ func _paint_tab(btn: Button, active: bool, label: String) -> void:
 func _style_tools() -> void:
 	if _sort_btn != null:
 		_sort_btn.text = _sort_label()
-		_sort_btn.icon = NotifyGlyphs.sort_bars(CREAM, 1)
+		_sort_btn.icon = GuiGlyphs.lines(CREAM)
 		_dress(_sort_btn, BLUE2, CREAM, BLUE3, BLUE, 1.0, BLUE3)
 	if _filter_btn == null:
 		return
@@ -343,7 +343,7 @@ func _style_tools() -> void:
 	var hi: Color = ORANGE_HI if on else BLUE3
 	var lo: Color = ORANGE_LO if on else BLUE
 	_filter_btn.text = filter_label()
-	_filter_btn.icon = NotifyGlyphs.funnel(fg, 1)
+	_filter_btn.icon = GuiGlyphs.funnel(fg)
 	_dress(_filter_btn, bg, fg, hi, lo, BELL_HOVER_GAIN)
 
 

@@ -18,7 +18,7 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FeatureLock.tscn" id="16"]
 
 [node name="MetricsViewer" type="Control"]
-custom_minimum_size = Vector2(1280, 720)
+custom_minimum_size = Vector2(1280, 644)
 anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource("2")
@@ -92,9 +92,6 @@ theme_override_constants/separation = 6
 layout_mode = 2
 custom_minimum_size = Vector2(28, 24)
 size_flags_vertical = 4
-theme_override_fonts/font = ExtResource("10")
-theme_override_font_sizes/font_size = 12
-text = "+"
 
 [node name="CompareLock" parent="Margin/Columns/LeftPanel/LeftMargin/LeftBox/SelectorSlot/CompareBox" instance=ExtResource("16")]
 layout_mode = 2

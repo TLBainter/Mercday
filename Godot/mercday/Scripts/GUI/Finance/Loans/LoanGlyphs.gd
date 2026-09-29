@@ -1,59 +1,33 @@
 class_name LoanGlyphs
 
-#Runtime pixel art of the Loans page: the change arrows of the offer table and the hatch tile
-#that stands in for a lender or envoy portrait. Every texture is built once and cached.
+#Runtime pixel art of the Loans page: the change arrows of the offer table come from the icon
+#atlas, and the hatch tile stands in for a lender or envoy portrait until real art exists.
 
-const ARROW_SIDE: int = 7
+const ARROW_IDS: Dictionary = {&"up": "trend_up", &"down": "trend_down",
+	&"diag_up": "trend_diag_up", &"diag_down": "trend_diag_down"}
+const ARROW_BOX: Rect2i = Rect2i(3, 4, 9, 8)
+const ARROW_SCALE: int = 2
+const ARROW_BOX_PX: Vector2 = Vector2(18.0, 16.0)
 const HATCH_SIDE: int = 8
 const HATCH_BAND: int = 4
 const PORTRAIT_RING: int = 2
 const HATCH_LIGHT: Color = Color("#1f3560")
 const HATCH_DARK: Color = Color("#0e1628")
 const PORTRAIT_RING_COLOR: Color = Color("#3b6fb6")
-const UP_MAP: Array[String] = [
-	"...#...",
-	"..###..",
-	".#####.",
-	"#######",
-	"..###..",
-	"..###..",
-	"..###..",
-]
-const DIAG_MAP: Array[String] = [
-	".######",
-	"....###",
-	"...####",
-	"..###.#",
-	".###...",
-	"###....",
-	"##.....",
-]
-const ARROW_KEYS: Array[StringName] = [&"up", &"down", &"diag_up", &"diag_down"]
 
 static var _cache: Dictionary = {}
 
 
 #One change arrow: up and down are the straight pair, diag_up and diag_down the shallow pair.
-static func arrow(dir: StringName, color: Color) -> ImageTexture:
-	if not ARROW_KEYS.has(dir):
+static func arrow_id(dir: StringName) -> String:
+	return ARROW_IDS.get(dir, "") as String
+
+
+static func arrow(dir: StringName) -> ImageTexture:
+	var id: String = arrow_id(dir)
+	if id == "":
 		return null
-	var key: String = "%s:%s" % [dir, color.to_html(true)]
-	if not _cache.has(key):
-		_cache[key] = ImageTexture.create_from_image(_arrow_image(dir, color))
-	return _cache[key] as ImageTexture
-
-
-static func _arrow_image(dir: StringName, color: Color) -> Image:
-	var rows: Array[String] = UP_MAP if dir == &"up" or dir == &"down" else DIAG_MAP
-	var flip: bool = dir == &"down" or dir == &"diag_down"
-	var img: Image = Image.create_empty(ARROW_SIDE, ARROW_SIDE, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.0, 0.0, 0.0, 0.0))
-	for y: int in ARROW_SIDE:
-		var line: String = rows[ARROW_SIDE - 1 - y] if flip else rows[y]
-		for x: int in ARROW_SIDE:
-			if line[x] == "#":
-				img.set_pixel(x, y, color)
-	return img
+	return Icons.baked(id, ARROW_SCALE, Icons.MODE_GRAY, false, ARROW_BOX)
 
 
 #The diagonal hatch tile of a placeholder portrait.

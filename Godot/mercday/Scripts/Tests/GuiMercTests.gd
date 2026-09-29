@@ -6,7 +6,7 @@ class_name GuiMercTests
 const MERC_VIEWER := preload("res://Scenes/GUI/Mercs/MercViewer.tscn")
 const SUBWINDOW_SCENE := preload("res://Scenes/GUI/Shared/SubWindow.tscn")
 const TRAIT_CARD_SCENE := preload("res://Scenes/GUI/Mercs/TraitCard.tscn")
-const CENTRE_WIDTH: int = 208
+const CENTRE_WIDTH: int = 228
 
 
 static func run(host: Node) -> bool:
@@ -204,11 +204,11 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 	var icon_rect: IconRect = tabs[1].icon_rect
 	var icon_centre: Vector2 = icon_rect.get_global_rect().get_center()
 	var tab_centre: Vector2 = tabs[1].get_global_rect().get_center()
-	TestFixtures.check(res, "an idle tab centres a 24 px icon",
-		icon_rect.size == Vector2(24, 24)
-			and icon_rect.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	TestFixtures.check(res, "an idle tab centres a 32 px icon",
+		icon_rect.size == Vector2(32, 32) and icon_rect.icon_id == MercViewer.TAB_IDS[1]
 			and icon_centre.distance_to(tab_centre) <= 1.0,
-		"icon %s centre %s tab %s" % [icon_rect.size, icon_centre, tab_centre])
+		"icon %s id %s centre %s tab %s" % [icon_rect.size, icon_rect.icon_id, icon_centre,
+			tab_centre])
 	TestFixtures.check(res, "the active tab shows its label beside the icon",
 		tabs[0].text_label.visible and tabs[0].text_label.text == MercViewer.TAB_LABELS[0]
 			and not tabs[1].text_label.visible and tabs[0].text == "" and tabs[1].text == "",
@@ -394,8 +394,8 @@ static func _case_header(res: Dictionary, host: Node) -> void:
 			and MercHeader.split_name("Solo") == ["Solo", ""],
 		"got %s %s %s" % [MercHeader.split_name("Ada Vell"),
 			MercHeader.split_name("Merc 1 Name"), MercHeader.split_name("Solo")])
-	var heritage_caption: Label = head.get_node("Rows/Lineage/Heritage/Lines/Caption") as Label
-	var age_caption: Label = head.get_node("Rows/Lineage/Age/Lines/Caption") as Label
+	var heritage_caption: Label = head.get_node("Rows/Scroll/Lineage/Heritage/Lines/Caption") as Label
+	var age_caption: Label = head.get_node("Rows/Scroll/Lineage/Age/Lines/Caption") as Label
 	TestFixtures.check(res, "heritage and age wear the lineage box with a caption",
 		heritage_caption.text == "Heritage" and age_caption.text == "Age"
 			and head.get_node_or_null("Rows/Heritage") == null
@@ -439,7 +439,7 @@ static func _case_header(res: Dictionary, host: Node) -> void:
 		"edges %s %s px %f" % [head.salary_chip().get_node_or_null("EdgeHi"),
 			head.salary_chip().get_node_or_null("EdgeLo"), SalaryModule.EDGE_PX])
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "the header fits the 208 px centre column",
+	TestFixtures.check(res, "the header fits the 228 px centre column",
 		head.get_combined_minimum_size().x <= CENTRE_WIDTH,
 		"width %f limit %d" % [head.get_combined_minimum_size().x, CENTRE_WIDTH])
 	var chip_rect: Rect2 = head.salary_chip().get_global_rect()

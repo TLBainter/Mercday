@@ -25,7 +25,7 @@ const CHUNK_H: float = 18.0
 const CHUNK_GAP: float = 4.0
 const BAR_PAD: float = 4.0
 const BEVEL: float = 3.0
-const ROW_ICON: float = 34.0
+const ROW_ICON: float = 38.0
 const WARN_MARGIN: float = 0.15
 const STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_dialog.tres")
 const HAVE_STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_row_have.tres")
@@ -462,9 +462,10 @@ func _fill_rows(top: int) -> void:
 	for i: int in top:
 		var row: PanelContainer = _rows.get_child(i) as PanelContainer
 		row.add_theme_stylebox_override("panel", row_style(i))
-		var icon: TextureRect = row.get_node("Line/Icon") as TextureRect
-		icon.texture = TreeGlyphs.icon(_id, row_label_color(i))
-		icon.modulate.a = 0.5 if row_state(i) == "next" else 1.0
+		var icon: IconRect = row.get_node("Line/Icon") as IconRect
+		var c: Color = row_label_color(i)
+		icon.set_id(TreeIcons.id_of(_id), 2)
+		icon.tint = Color(c.r, c.g, c.b, 0.5 if row_state(i) == "next" else 1.0)
 		var label: Label = row.get_node("Line/Text/Label") as Label
 		label.text = row_label(i)
 		label.add_theme_color_override("font_color", row_label_color(i))
@@ -475,16 +476,16 @@ func _fill_rows(top: int) -> void:
 
 func _new_row() -> PanelContainer:
 	var row: PanelContainer = PanelContainer.new()
+	row.custom_minimum_size = Vector2(0.0, ROW_ICON)
 	var line: HBoxContainer = HBoxContainer.new()
 	line.name = "Line"
 	line.add_theme_constant_override("separation", 8)
 	row.add_child(line)
-	var icon: TextureRect = TextureRect.new()
+	var icon: IconRect = IconRect.new()
 	icon.name = "Icon"
-	icon.custom_minimum_size = Vector2(ROW_ICON, ROW_ICON)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.pixel_scale = 2
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	line.add_child(icon)
 	var text: VBoxContainer = VBoxContainer.new()
 	text.name = "Text"
@@ -560,7 +561,7 @@ func _controls() -> HBoxContainer:
 	var line: HBoxContainer = HBoxContainer.new()
 	line.name = "Controls"
 	line.add_theme_constant_override("separation", GAP)
-	_minus = _button("Minus", "-", 30, MINUS_BG)
+	_minus = _button("Minus", "minus", MINUS_BG)
 	_minus.custom_minimum_size = BUTTON_BOX
 	_minus.pressed.connect(press_minus)
 	line.add_child(_minus)
@@ -588,7 +589,7 @@ func _controls() -> HBoxContainer:
 	income_line.add_child(tag)
 	_income = _label("Value", BOLD_FONT, 11, GREEN)
 	income_line.add_child(_income)
-	_plus = _button("Plus", "+", 30, PLUS_BG)
+	_plus = _button("Plus", "plus", PLUS_BG)
 	_plus.custom_minimum_size = BUTTON_BOX
 	_plus.pressed.connect(press_plus)
 	line.add_child(_plus)
@@ -657,14 +658,18 @@ func _nav_button(label: String, text: String, size_px: int) -> BevelButton:
 	return out
 
 
-func _button(label: String, text: String, size_px: int, tint: Color) -> Button:
+func _button(label: String, id: String, bg: Color) -> Button:
 	var out: Button = Button.new()
 	out.name = label
-	out.text = text
-	out.add_theme_font_override("font", BOLD_FONT)
-	out.add_theme_font_size_override("font_size", size_px)
-	out.add_theme_color_override("font_color", INK)
-	_tint(out, tint)
+	out.text = ""
+	out.expand_icon = false
+	out.icon = Icons.baked(id, 2, Icons.MODE_PLAIN, true)
+	out.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	out.add_theme_color_override("icon_normal_color", Color("#f3ead7"))
+	out.add_theme_color_override("icon_hover_color", Color("#ffffff"))
+	out.add_theme_color_override("icon_pressed_color", Color("#0a0f1c"))
+	out.add_theme_color_override("icon_disabled_color", Color("#5e7699"))
+	_tint(out, bg)
 	return out
 
 

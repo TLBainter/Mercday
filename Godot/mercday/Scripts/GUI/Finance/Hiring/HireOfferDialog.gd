@@ -34,8 +34,6 @@ const GREEN_HI: Color = Color("#9be29a")
 const GREEN_LO: Color = Color("#3f8a3e")
 const BUDGET: Color = Color("#f2b33d")
 const BACKDROP: Color = Color("#060a14")
-const X_COLOR: Color = Color("#ff3b2f")
-const X_HOVER: Color = Color("#ff6a55")
 
 const BACKDROP_ALPHA: float = 0.72
 const WIDTH_OFFER: int = 820
@@ -69,8 +67,6 @@ const STRIP_PAD: float = 2.0
 const BUTTON_H: float = 42.0
 const BUTTON_GAP: int = 12
 const EDGE_PX: int = 3
-const X_SIZE: float = 48.0
-const X_OUTLINE: int = 3
 const COUNTER_GAP: int = 10
 const STEP: int = 10
 const ODDS_GOOD: int = 60
@@ -361,25 +357,17 @@ func _build_close() -> void:
 	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_box.add_child(layer)
 	var shut := Button.new()
-	shut.text = "X"
-	shut.flat = true
+	CloseX.style(shut, CloseX.SCALE_WINDOW)
 	shut.focus_mode = Control.FOCUS_NONE
-	shut.add_theme_font_override(&"font", HiringStyle.FONT_SILK_BOLD)
-	shut.add_theme_font_size_override(&"font_size", roundi(X_SIZE))
-	shut.add_theme_color_override(&"font_color", X_COLOR)
-	shut.add_theme_color_override(&"font_hover_color", X_HOVER)
-	shut.add_theme_color_override(&"font_pressed_color", X_HOVER)
-	shut.add_theme_color_override(&"font_outline_color", INK)
-	shut.add_theme_constant_override(&"outline_size", X_OUTLINE)
 	shut.pressed.connect(press_cancel)
 	_close = shut
 	layer.add_child(shut)
 	shut.anchor_left = 1.0
 	shut.anchor_right = 1.0
-	shut.offset_left = -X_SIZE
-	shut.offset_top = 0.0
-	shut.offset_right = 0.0
-	shut.offset_bottom = X_SIZE
+	shut.offset_left = -43.0
+	shut.offset_top = 7.0
+	shut.offset_right = -7.0
+	shut.offset_bottom = 43.0
 
 
 func _load_stepper() -> QuantityStepper:

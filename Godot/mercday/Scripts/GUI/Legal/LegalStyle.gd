@@ -35,10 +35,8 @@ const FONT_PIXEL_BOLD: FontVariation = preload(
 const STYLE_DIR: String = "res://Resources/GUI/Theme/Styles/"
 const EDGE_PX: float = 4.0
 const NOTES_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/NotesLabel.tscn")
-#The dim every Legal modal lays over the page behind it, and the red of its close X.
+#The dim every Legal modal lays over the page behind it.
 const BACKDROP: Color = Color(0.023529, 0.039216, 0.078431, 0.72)
-const X_RED: Color = Color("#ff3b2f")
-const X_HOVER: Color = Color("#ff6a55")
 
 
 #A body row in the theme's default Pixelify face.
@@ -227,22 +225,6 @@ static func backdrop() -> ColorRect:
 	out.color = BACKDROP
 	out.set_anchors_preset(Control.PRESET_FULL_RECT)
 	out.mouse_filter = Control.MOUSE_FILTER_STOP
-	return out
-
-
-#The oversized close X every Legal dialog hangs over its top right corner.
-static func close_x() -> Button:
-	var out := Button.new()
-	out.name = "CloseX"
-	out.text = "X"
-	out.flat = true
-	out.focus_mode = Control.FOCUS_NONE
-	out.tooltip_text = "Close"
-	out.add_theme_font_override(&"font", FONT_PIXEL_BOLD)
-	out.add_theme_font_size_override(&"font_size", 36)
-	out.add_theme_color_override(&"font_color", X_RED)
-	out.add_theme_color_override(&"font_hover_color", X_HOVER)
-	out.add_theme_color_override(&"font_pressed_color", X_HOVER)
 	return out
 
 

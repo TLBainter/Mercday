@@ -10,6 +10,11 @@ const HOLD_START_RATE: float = 4.0
 const HOLD_RAMP_SECONDS: float = 2.0
 const HOLD_DELAY_SECONDS: float = 0.25
 const DISABLED_ALPHA: float = 0.4
+const ICON_SCALE: int = 2
+const ICON_COLOR: Color = Color("#f3ead7")
+const ICON_HOVER: Color = Color("#ffffff")
+const ICON_PRESSED: Color = Color("#0a0f1c")
+const ICON_DISABLED: Color = Color("#5e7699")
 
 @export var value: int = 0:
 	set(v):
@@ -42,6 +47,8 @@ var _hold_carry: float = 0.0
 
 
 func _ready() -> void:
+	_paint(minus_button, "minus")
+	_paint(plus_button, "plus")
 	minus_button.button_down.connect(_on_hold.bind(-1))
 	minus_button.button_up.connect(_stop_hold)
 	plus_button.button_down.connect(_on_hold.bind(1))
@@ -49,6 +56,19 @@ func _ready() -> void:
 	set_process(false)
 	_apply_disabled()
 	_refresh()
+
+
+#The two buttons carry atlas art instead of a font glyph, tinted by the button state.
+static func _paint(button: Button, id: String) -> void:
+	button.text = ""
+	button.icon = Icons.baked(id, ICON_SCALE, Icons.MODE_PLAIN, true)
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	button.expand_icon = false
+	button.add_theme_color_override(&"icon_normal_color", ICON_COLOR)
+	button.add_theme_color_override(&"icon_hover_color", ICON_HOVER)
+	button.add_theme_color_override(&"icon_pressed_color", ICON_PRESSED)
+	button.add_theme_color_override(&"icon_disabled_color", ICON_DISABLED)
 
 
 #Sets value without emitting value_changed; the label still updates.

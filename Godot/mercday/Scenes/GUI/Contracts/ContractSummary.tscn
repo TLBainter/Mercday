@@ -92,6 +92,7 @@ theme_override_constants/separation = 10
 [node name="Stars" parent="Pad/Rows/Line" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_vertical = 4
+star_size = 1
 
 [node name="Note" parent="Pad/Rows/Line" instance=ExtResource("3")]
 layout_mode = 2

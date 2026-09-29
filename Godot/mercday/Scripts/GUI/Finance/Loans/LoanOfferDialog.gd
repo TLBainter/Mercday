@@ -18,7 +18,7 @@ const BUTTON_GAP: int = 12
 const ROW_GAP: int = 4
 const CELL_GAP: int = 10
 const COLUMN_WIDTH: float = 150.0
-const ARROW_SIDE: float = 14.0
+const ARROW_BOX: Vector2 = LoanGlyphs.ARROW_BOX_PX
 const HEAD_REQUESTED: String = "Requested"
 const HEAD_OFFERED: String = "Offered"
 const HEAD_CHANGE: String = "Change"
@@ -259,15 +259,21 @@ func _row_box(index: int) -> PanelContainer:
 	line.add_child(_end_column(req))
 	line.add_child(_end_column(off))
 	var change: Label = LoanStyle.text(LoanLogic.CHANGE_NONE, 12, LoanStyle.MUTED, true)
-	var arrow := TextureRect.new()
-	arrow.custom_minimum_size = Vector2(ARROW_SIDE, ARROW_SIDE)
-	arrow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var arrow_box := CenterContainer.new()
+	arrow_box.custom_minimum_size = ARROW_BOX
+	arrow_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	arrow_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var arrow := IconRect.new()
+	arrow.window = LoanGlyphs.ARROW_BOX
+	arrow.mode = Icons.MODE_GRAY
+	arrow.pixel_scale = LoanGlyphs.ARROW_SCALE
 	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arrow_box.add_child(arrow)
 	var tail: HBoxContainer = LoanStyle.hbox(6)
 	tail.custom_minimum_size = Vector2(COLUMN_WIDTH, 0.0)
 	tail.alignment = BoxContainer.ALIGNMENT_END
 	tail.add_child(change)
-	tail.add_child(arrow)
+	tail.add_child(arrow_box)
 	line.add_child(tail)
 	box.add_child(line)
 	_rows.append({"label": LABELS[index], "notes": notes, "req": req, "off": off,
@@ -367,10 +373,11 @@ func _write_change(index: int, requested: float, offered: float) -> void:
 	label.text = String(change["text"])
 	label.add_theme_color_override("font_color", color)
 	var dir: StringName = change["arrow"] as StringName
-	var arrow: TextureRect = row["arrow"] as TextureRect
+	var arrow: IconRect = row["arrow"] as IconRect
 	arrow.texture = null
 	if dir != &"":
-		arrow.texture = LoanGlyphs.arrow(dir, color)
+		arrow.set_id(LoanGlyphs.arrow_id(dir), LoanGlyphs.ARROW_SCALE, Icons.MODE_GRAY)
+		arrow.tint = color
 
 
 #Keeps the written change text when a row prints its own wording, as the term rows do.

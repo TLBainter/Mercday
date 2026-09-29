@@ -138,6 +138,13 @@ static func _case_bell_face(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the bell glyph is the 16 x 16 bell at 2 px over its shadow",
 		glyph != null and glyph.custom_minimum_size == want_glyph,
 		"glyph %s" % ("null" if glyph == null else str(glyph.custom_minimum_size)))
+	var bell_face: TextureRect = glyph.get_child(1) as TextureRect if glyph != null else null
+	var bell_plain: Texture2D = Icons.baked("bell", NotificationBell.GLYPH_SCALE, Icons.MODE_PLAIN)
+	var face_ok: bool = bell_face != null and bell_face.name == "Face"
+	face_ok = face_ok and bell_face.texture == bell_plain
+	face_ok = face_ok and bell_face.texture.get_size() == Vector2(32.0, 32.0)
+	TestFixtures.check(res, "the closed bell face is the plain bell cell baked at 32 x 32",
+		face_ok, "face %s" % ("null" if bell_face == null else str(bell_face.texture.get_size())))
 	TestFixtures.check(res, "the panel is a 440 x 520 child of the bell",
 		panel != null and panel.size == NotificationPanel.PANEL_SIZE,
 		"panel %s" % ("null" if panel == null else str(panel.size)))
@@ -165,6 +172,12 @@ static func _case_bell_face(res: Dictionary, host: Node) -> void:
 			and bell.bevel_lo() == NotificationBell.BEVEL_LO_OPEN
 			and bell.glyph_color() == NotificationBell.GLYPH_OPEN,
 		"%s %s %s" % [str(bell.bevel_hi()), str(bell.bevel_lo()), str(bell.glyph_color())])
+	var open_face: TextureRect = bell.glyph().get_child(1) as TextureRect
+	var bell_two_tone: Texture2D = Icons.baked("bell", 2, Icons.MODE_TWO_TONE)
+	TestFixtures.check(res, "the open bell swaps the face to the two tone bell cell",
+		open_face != null and open_face.texture == bell_two_tone
+			and open_face.texture != bell_plain,
+		"open face %s" % ("null" if open_face == null else str(open_face.texture.get_size())))
 	bell.set_hovered(true)
 	TestFixtures.check(res, "hovering brightens the face by 15 percent",
 		bell.hovered() and bell.bg_color() == _brighter(NotificationBell.BG_OPEN,
@@ -491,9 +504,15 @@ static func _case_mark_read(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "an unread card shows its mark read button",
 		card != null and card.mark_button() != null and card.mark_button().visible,
 		"card %s" % ("null" if card == null else str(card.mark_button() != null)))
-	TestFixtures.check(res, "the mark read button says what it does",
-		card.mark_button().tooltip_text == "Mark as read" and card.mark_button().text == "X",
-		"tooltip %s text %s" % [card.mark_button().tooltip_text, card.mark_button().text])
+	await host.get_tree().process_frame
+	var mark: Button = card.mark_button()
+	var mark_ok: bool = mark.tooltip_text == "Mark as read" and mark.text == ""
+	mark_ok = mark_ok and mark.icon == CloseX.icon(CloseX.SCALE_MINI)
+	mark_ok = mark_ok and mark.custom_minimum_size == CloseX.size(CloseX.SCALE_MINI)
+	mark_ok = mark_ok and mark.flat and mark.size == Vector2(18.0, 18.0)
+	TestFixtures.check(res, "the mark read button is an 18 px mini close with the 12 px x art",
+		mark_ok, "text %s min %s size %s" % [mark.text, str(mark.custom_minimum_size),
+			str(mark.size)])
 	bell.press_mark_read(first.id)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "press_mark_read marks the row and opens nothing",
@@ -555,6 +574,11 @@ static func _case_item_style(res: Dictionary, host: Node) -> void:
 		"cursor %d" % read_card.mouse_default_cursor_shape)
 	TestFixtures.check(res, "the icon box holds a glyph plate for a contract row",
 		read_card.icon_glyph() != null, "glyph %s" % str(read_card.icon_glyph() != null))
+	var card_face: TextureRect = read_card.icon_glyph().get_child(1) as TextureRect
+	TestFixtures.check(res, "a contract row faces the alert cell baked at 32 x 32",
+		card_face != null and card_face.texture == Icons.baked("alert", 2, Icons.MODE_PLAIN)
+			and card_face.texture.get_size() == Vector2(32.0, 32.0),
+		"face %s" % ("null" if card_face == null else str(card_face.texture.get_size())))
 	await _drop(bell, host)
 
 
@@ -573,9 +597,10 @@ static func _case_contract_body(res: Dictionary, host: Node) -> void:
 		card.title_text() == "Contract Complete" and card.name_text() == CONTRACT_NAME
 			and done.title_color() == NotificationData.TITLE_CONTRACT,
 		"%s / %s" % [card.title_text(), card.name_text()])
-	TestFixtures.check(res, "the body shows the difficulty stars at 2 px per art pixel",
+	TestFixtures.check(res, "the body shows the difficulty stars at 1 px per art pixel",
 		body.stars() != null and is_equal_approx(body.stars().rating, DIFFICULTY)
-			and body.stars().star_size == ContractCompletedBody.STAR_SIZE,
+			and body.stars().star_size == ContractCompletedBody.STAR_SIZE
+			and body.stars().custom_minimum_size == Vector2(Icons.stars_width(1), 16.0),
 		"rating %.1f" % (0.0 if body.stars() == null else body.stars().rating))
 	TestFixtures.check(res, "the reward prints with thousands separators",
 		body.reward_text() == "1,250", body.reward_text())
@@ -706,6 +731,19 @@ static func _case_stock_body(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the stock rows carry the icon glyph of their direction",
 		up_card != null and up_card.icon_glyph() != null and down_card.icon_glyph() != null,
 		"up %s down %s" % [str(up_card != null), str(down_card.icon_glyph() != null)])
+	var up_face: TextureRect = up_card.icon_glyph().get_child(1) as TextureRect
+	var down_face: TextureRect = down_card.icon_glyph().get_child(1) as TextureRect
+	var arrows_ok: bool = up_face.texture == Icons.baked("trend_up", 4, Icons.MODE_GRAY, true)
+	arrows_ok = arrows_ok and down_face.texture == Icons.baked("trend_down", 4, Icons.MODE_GRAY,
+		true)
+	arrows_ok = arrows_ok and up_face.texture.get_size() == Vector2(28.0, 32.0)
+	arrows_ok = arrows_ok and down_face.texture.get_size() == Vector2(28.0, 32.0)
+	TestFixtures.check(res, "each stock face is its own grey arrow baked at 28 x 32",
+		arrows_ok, "up %s down %s" % [str(up_face.texture.get_size()),
+			str(down_face.texture.get_size())])
+	TestFixtures.check(res, "each stock face wears the title colour of its row",
+		up_face.modulate == up.title_color() and down_face.modulate == down.title_color(),
+		"up %s down %s" % [str(up_face.modulate), str(down_face.modulate)])
 	await _drop(bell, host)
 
 
@@ -761,37 +799,31 @@ static func _case_footer(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 15: the glyph sizes, the flipped arrow, the shadow plate and the texture cache.
+#Case 15: the glyph sizes, the separate up and down arrows, the shadow plate and the cache.
 static func _case_glyphs(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
-	var cream: Color = NotificationBell.GLYPH_IDLE
-	var bell_one: ImageTexture = NotifyGlyphs.bell(cream, 1)
-	var bell_two: ImageTexture = NotifyGlyphs.bell(cream, 2)
-	TestFixtures.check(res, "the bell glyph is 16 x 16 and scales by whole pixels",
-		bell_one.get_size() == Vector2(16, 16) and bell_two.get_size() == Vector2(32, 32),
-		"%s %s" % [str(bell_one.get_size()), str(bell_two.get_size())])
-	var up: ImageTexture = NotifyGlyphs.arrow_up(cream, 4)
-	var down: ImageTexture = NotifyGlyphs.arrow_down(cream, 4)
-	TestFixtures.check(res, "both arrows are the 7 x 7 map at 4 px per art pixel",
-		up.get_size() == Vector2(28, 28) and down.get_size() == Vector2(28, 28),
-		"%s %s" % [str(up.get_size()), str(down.get_size())])
-	var up_image: Image = up.get_image()
-	var down_image: Image = down.get_image()
-	TestFixtures.check(res, "the fall arrow is the rise arrow upside down",
-		up_image.get_pixel(10, 2).a == 0.0 and down_image.get_pixel(10, 2).a > 0.0
-			and up_image.get_pixel(10, 26).a > 0.0 and down_image.get_pixel(10, 26).a == 0.0
-			and up_image.get_pixel(14, 2).a > 0.0 and down_image.get_pixel(14, 26).a > 0.0,
-		"up %.1f down %.1f" % [up_image.get_pixel(10, 2).a, down_image.get_pixel(10, 2).a])
-	TestFixtures.check(res, "the note glyph is 7 x 9 and the check glyph 14 x 14",
-		NotifyGlyphs.note(cream, 4).get_size() == Vector2(28, 36)
-			and NotifyGlyphs.check(cream, 1).get_size() == Vector2(14, 14),
-		"%s %s" % [str(NotifyGlyphs.note(cream, 4).get_size()),
-			str(NotifyGlyphs.check(cream, 1).get_size())])
-	TestFixtures.check(res, "the sort bars and the funnel are both 10 x 10",
-		NotifyGlyphs.sort_bars(cream, 1).get_size() == Vector2(10, 10)
-			and NotifyGlyphs.funnel(cream, 1).get_size() == Vector2(10, 10),
-		"%s %s" % [str(NotifyGlyphs.sort_bars(cream, 1).get_size()),
-			str(NotifyGlyphs.funnel(cream, 1).get_size())])
+	var bell_two: ImageTexture = Icons.baked("bell", NotificationBell.GLYPH_SCALE,
+		Icons.MODE_PLAIN)
+	TestFixtures.check(res, "the bell glyph bakes the 16 x 16 cell at 2 px per art pixel",
+		bell_two.get_size() == Vector2(32, 32), str(bell_two.get_size()))
+	TestFixtures.check(res, "the loan note is the note cell tinted gold at 4 px per art pixel",
+		Icons.tinted("note", NotificationItem.LOAN_GLYPH, 4, true).get_size() == Vector2(20, 36),
+		str(Icons.tinted("note", NotificationItem.LOAN_GLYPH, 4, true).get_size()))
+	var up_img: Image = Icons.image("trend_up", true)
+	var down_img: Image = Icons.image("trend_down", true)
+	TestFixtures.check(res, "both trend arrows are 7 x 8 cells of their own",
+		Icons.size("trend_up") == Vector2i(7, 8) and Icons.size("trend_down") == Vector2i(7, 8),
+		"%s %s" % [str(Icons.size("trend_up")), str(Icons.size("trend_down"))])
+	var same: bool = true
+	var mirrored: bool = true
+	for y: int in 8:
+		for x: int in 7:
+			if up_img.get_pixel(x, y) != down_img.get_pixel(x, y):
+				same = false
+			if up_img.get_pixel(x, y) != down_img.get_pixel(x, 7 - y):
+				mirrored = false
+	TestFixtures.check(res, "the fall arrow is separate art, not a flip of the rise arrow",
+		not same and not mirrored, "same %s mirrored %s" % [str(same), str(mirrored)])
 	var stripes: ImageTexture = NotifyGlyphs.stripes(NotificationItem.STRIPE_FILL,
 		NotificationItem.STRIPE_BACK)
 	TestFixtures.check(res, "the icon stripes tile in 8 px squares",
@@ -808,12 +840,27 @@ static func _case_glyphs(res: Dictionary, host: Node) -> void:
 			and shadow.modulate == NotifyGlyphs.SHADOW_COLOR
 			and shadow.position == Vector2(NotifyGlyphs.SHADOW_STEP, NotifyGlyphs.SHADOW_STEP),
 		"%s %s at %s" % [shadow.name, str(shadow.modulate), str(shadow.position)])
+	TestFixtures.check(res, "both plates keep the art centred and never stretch it",
+		shadow.stretch_mode == TextureRect.STRETCH_KEEP_CENTERED
+			and face.stretch_mode == TextureRect.STRETCH_KEEP_CENTERED,
+		"%d %d" % [shadow.stretch_mode, face.stretch_mode])
 	plate.queue_free()
-	TestFixtures.check(res, "a glyph of the same colour and scale comes from the cache",
-		NotifyGlyphs.bell(cream, 2) == bell_two, "cache miss")
+	var tinted_plate: Control = NotifyGlyphs.shadowed(bell_two, NotifyGlyphs.SHADOW_STEP,
+		NotificationItem.LOAN_GLYPH)
+	var tinted_shadow: TextureRect = tinted_plate.get_child(0) as TextureRect
+	var tinted_face: TextureRect = tinted_plate.get_child(1) as TextureRect
+	TestFixtures.check(res, "a face tint colours the face alone and leaves the shadow ink",
+		tinted_face.modulate == NotificationItem.LOAN_GLYPH
+			and tinted_shadow.modulate == NotifyGlyphs.SHADOW_COLOR,
+		"%s %s" % [str(tinted_face.modulate), str(tinted_shadow.modulate)])
+	tinted_plate.queue_free()
+	TestFixtures.check(res, "a stripe tile of the same colours comes from the cache",
+		NotifyGlyphs.stripes(NotificationItem.STRIPE_FILL, NotificationItem.STRIPE_BACK) == stripes,
+		"cache miss")
 	NotifyGlyphs.clear_cache()
-	TestFixtures.check(res, "clear_cache drops the built textures",
-		NotifyGlyphs.bell(cream, 2) != bell_two, "cache kept")
+	TestFixtures.check(res, "clear_cache drops the built tiles",
+		NotifyGlyphs.stripes(NotificationItem.STRIPE_FILL, NotificationItem.STRIPE_BACK) != stripes,
+		"cache kept")
 
 
 #Case 16: the panel stays inside the 1280 x 720 frame with the bell at the top right.
@@ -846,18 +893,20 @@ static func _case_frame_fit(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 
 
-#Case 17: the pixel dot map, its geometry and the paint constants the prototype fixes.
+#Case 17: the dot geometry and the paint constants the prototype fixes.
 static func _case_dot_shape(res: Dictionary) -> void:
-	TestFixtures.check(res, "the dot map is 8 rows of 8 columns",
-		NotificationDot.DOT_MAP.size() == 8 and NotificationDot.DOT_MAP[0].length() == 8,
-		"rows %d" % NotificationDot.DOT_MAP.size())
+	TestFixtures.check(res, "the dot art is the 8 x 8 atlas cell",
+		Icons.size("dot") == Vector2i(8, 8)
+			and Icons.tex("dot", true).get_size() == Vector2(8, 8),
+		"%s %s" % [str(Icons.size("dot")), str(Icons.tex("dot", true).get_size())])
+	var dot_img: Image = Icons.image("dot", true)
 	var lit: int = 0
-	for row: String in NotificationDot.DOT_MAP:
-		for ch: String in row:
-			if ch == "#":
+	for y: int in 8:
+		for x: int in 8:
+			if dot_img.get_pixel(x, y).a > 0.0:
 				lit += 1
-	TestFixtures.check(res, "the dot map lights 52 cells of its 8 x 8 grid", lit == 52,
-		"lit %d" % lit)
+	TestFixtures.check(res, "the dot cell lights 52 of its 64 pixels",
+		lit == 52, "lit %d" % lit)
 	TestFixtures.check(res, "the dot is 10 x 10 and its frame is 28 x 28 at a 2 px cell",
 		NotificationDot.DOT_SIZE == Vector2(10, 10) and NotificationDot.FRAME_SIZE == Vector2(28, 28)
 			and NotificationDot.CELL == 2, "dot %s frame %s cell %d"

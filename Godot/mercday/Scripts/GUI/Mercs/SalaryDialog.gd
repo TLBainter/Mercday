@@ -12,7 +12,6 @@ signal fired(uid: int)
 const FONT_TITLE: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
 const FONT_KICKER: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
 const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const STYLE_FLAT: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_btn_flat.tres")
 const FACE_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MoodFace.tscn")
 
 const KICKER_TEXT: String = "Adjust Salary"
@@ -26,10 +25,8 @@ const RED: Color = Color("#e8583f")
 const CREAM: Color = Color("#f3ead7")
 const MUTED: Color = Color("#8a97ad")
 const NOTE_YELLOW: Color = Color("#f2b33d")
-const CLOSE_COLOR: Color = Color("#ff3b2f")
 const BOX_WIDTH: float = 520.0
-const CLOSE_SIZE: float = 56.0
-const FACE_SCALE: int = 3
+const FACE_SCALE: int = 2
 const DIM_ALPHA: float = 0.35
 const BOX_INSET: float = 4.0
 const BOX_BORDER: int = 4
@@ -303,14 +300,7 @@ func _style() -> void:
 	fire_link.add_theme_font_size_override("font_size", 11)
 	for key: String in ["font_color", "font_hover_color", "font_pressed_color"]:
 		fire_link.add_theme_color_override(key, RED)
-	close_button.text = "X"
-	close_button.custom_minimum_size = Vector2(CLOSE_SIZE, CLOSE_SIZE)
-	close_button.add_theme_font_override("font", FONT_KICKER)
-	close_button.add_theme_font_size_override("font_size", 24)
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		close_button.add_theme_stylebox_override(state, STYLE_FLAT)
-	for key: String in ["font_color", "font_hover_color", "font_pressed_color"]:
-		close_button.add_theme_color_override(key, CLOSE_COLOR)
+	CloseX.style(close_button, CloseX.SCALE_WINDOW)
 
 
 #The box carries the ConfirmDialog look the prototype draws it with: the deep panel fill, the four
@@ -346,8 +336,8 @@ func _draw_edges() -> void:
 func _center() -> void:
 	backdrop.offset_bottom = -GuiFrameStack.bottom_reserve
 	box.reset_size()
-	box.position = Vector2((size.x - box.size.x) / 2.0,
-		(GuiFrameStack.band_height(size.y) - box.size.y) / 2.0)
+	box.position = Vector2(floorf((size.x - box.size.x) / 2.0),
+		floorf((GuiFrameStack.band_height(size.y) - box.size.y) / 2.0))
 	box.position.y = maxf(box.position.y, 0.0)
 
 

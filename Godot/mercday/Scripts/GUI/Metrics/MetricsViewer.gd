@@ -15,15 +15,13 @@ const LIST_TITLES: Dictionary = {"Merc": "Merc Data", "Contract": "Contract Data
 const GOOD_DIRECTION: Dictionary = {"salary": 0, "xp": 1, "level": 1, "wins": 1, "losses": -1,
 	"sRoll": 1, "fRoll": -1, "kills": 1, "op": 1, "vac": 0}
 const LEGEND_SWATCH := Vector2(12, 12)
-const EMBED_SIZE := Vector2(680, 596)
-const EMBED_CHART := Vector2(434, 466)
+const EMBED_SIZE := Vector2(680, 520)
+const EMBED_CHART := Vector2(434, 390)
 const EMBED_COLUMN := Vector2(200, 0)
 const EMPTY_FOCUS := "No metric selected"
 const EMPTY_VALUE := "-"
 const ALL_MERCS := "All Mercs"
 const TEAM_PREFIX := "team/"
-const COMPARE_OFF := "+"
-const COMPARE_ON := "-"
 const EMPTY_COLOR := Color(0.231373, 0.435294, 0.713725, 1)
 const ALL_BUTTON_BG := Color(0.168627, 0.309804, 0.541176, 1)
 const ALL_BUTTON_TEXT := Color(0.952941, 0.917647, 0.843137, 1)
@@ -139,6 +137,12 @@ func _ready() -> void:
 	show_all.pressed.connect(_on_show_all)
 	hide_all.pressed.connect(_on_hide_all)
 	_style_all_button(compare_button)
+	compare_button.expand_icon = false
+	compare_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	compare_button.add_theme_color_override("icon_normal_color", Color("#f3ead7"))
+	compare_button.add_theme_color_override("icon_hover_color", Color("#ffffff"))
+	compare_button.add_theme_color_override("icon_pressed_color", Color("#0a0f1c"))
+	compare_button.add_theme_color_override("icon_disabled_color", Color("#5e7699"))
 	_outline_panel()
 	right_box.add_theme_constant_override("separation", ATTACHED_GAP)
 	GameState.roster_changed.connect(_refresh)
@@ -486,7 +490,9 @@ func _apply_compare_state() -> void:
 	if not can_compare:
 		_end_compare()
 	compare_button.visible = on_row and can_compare
-	compare_button.text = COMPARE_ON if _compare_on else COMPARE_OFF
+	compare_button.icon = Icons.baked("minus" if _compare_on else "plus", 2, Icons.MODE_PLAIN,
+		true)
+	compare_button.text = ""
 	compare_lock.always_visible = on_row and not can_compare
 	compare_lock.visible = on_row and not can_compare
 	compare_selector.visible = _compare_on

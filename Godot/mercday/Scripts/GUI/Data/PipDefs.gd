@@ -8,54 +8,53 @@ extends RefCounted
 const GROUP_STANDARD := "Standard"
 const GROUP_COMBAT := "Combat PIP"
 const GROUP_SKILL := "Skill PIP"
-const ICON_DIR := "res://Art/GUI/Icons/"
 
 const GROUP_COLORS: Dictionary = {GROUP_STANDARD: Color("#9cc6ef"),
 	GROUP_COMBAT: Color("#e8583f"), GROUP_SKILL: Color("#6cc36a")}
 
 const MODES: Array[Dictionary] = [
-	{"mode": &"Auto", "group": GROUP_STANDARD, "gate": "", "icon": "pip_auto_8x8",
+	{"mode": &"Auto", "group": GROUP_STANDARD, "gate": "", "icon": "pip_auto",
 		"upgrade_id": "", "upgrade_tier": 0,
 		"desc": "Allow the merc to choose what's best for them each time they level up."},
-	{"mode": &"Random", "group": GROUP_STANDARD, "gate": "pip", "icon": "pip_random_8x8",
+	{"mode": &"Random", "group": GROUP_STANDARD, "gate": "pip", "icon": "pip_random",
 		"upgrade_id": "pip", "upgrade_tier": 1,
 		"desc": "Coach the merc to let chaos reign! Their level-ups will be completely randomized."},
-	{"mode": &"Utility", "group": GROUP_STANDARD, "gate": "pip", "icon": "pip_utility_8x8",
+	{"mode": &"Utility", "group": GROUP_STANDARD, "gate": "pip", "icon": "pip_utility",
 		"upgrade_id": "pip", "upgrade_tier": 1,
 		"desc": "Have your merc focus on features that make them useful outside of combat as they"
 			+ " level up."},
-	{"mode": &"Stats", "group": GROUP_STANDARD, "gate": "pip", "icon": "pip_stats_8x8",
+	{"mode": &"Stats", "group": GROUP_STANDARD, "gate": "pip", "icon": "pip_stats",
 		"upgrade_id": "pip", "upgrade_tier": 1,
 		"desc": "Have your merc focus on improving their statistics and bonuses rather than gaining"
 			+ " new abilities as they level up."},
-	{"mode": &"Support", "group": GROUP_COMBAT, "gate": "lvSupport", "icon": "pip_support_8x8",
+	{"mode": &"Support", "group": GROUP_COMBAT, "gate": "lvSupport", "icon": "pip_support",
 		"upgrade_id": "combatpip", "upgrade_tier": 1,
 		"desc": "Have your merc focus on teamwork-based combat features as they level up!"},
 	{"mode": &"Defensive", "group": GROUP_COMBAT, "gate": "lvDefensive",
-		"icon": "pip_defensive_8x8", "upgrade_id": "combatpip", "upgrade_tier": 2,
+		"icon": "pip_defensive", "upgrade_id": "combatpip", "upgrade_tier": 2,
 		"desc": "Have a merc focus on defensive abilities as they level up!"},
 	{"mode": &"Offensive", "group": GROUP_COMBAT, "gate": "lvOffensive",
-		"icon": "pip_offensive_8x8", "upgrade_id": "combatpip", "upgrade_tier": 3,
+		"icon": "pip_offensive", "upgrade_id": "combatpip", "upgrade_tier": 3,
 		"desc": "Have a merc focus on offensive abilities as they level up!"},
-	{"mode": &"Skills", "group": GROUP_SKILL, "gate": "pip", "icon": "pip_skills_8x8",
+	{"mode": &"Skills", "group": GROUP_SKILL, "gate": "pip", "icon": "pip_skills",
 		"upgrade_id": "pip", "upgrade_tier": 1,
 		"desc": "Direct your merc to focus on improving their skills as they level up."},
 	{"mode": &"Existing Skills", "group": GROUP_SKILL, "gate": "lvExisting",
-		"icon": "pip_existing_skills_8x8", "upgrade_id": "skillpip", "upgrade_tier": 1,
+		"icon": "pip_existing", "upgrade_id": "skillpip", "upgrade_tier": 1,
 		"desc": "Direct your merc to focus only on improving their existing skills, where possible."},
 	{"mode": &"New Skills", "group": GROUP_SKILL, "gate": "lvNewSkills",
-		"icon": "pip_new_skills_8x8", "upgrade_id": "skillpip", "upgrade_tier": 2,
+		"icon": "pip_new", "upgrade_id": "skillpip", "upgrade_tier": 2,
 		"desc": "Direct your merc to always learn new skills, where possible."},
 	{"mode": &"Universal", "group": GROUP_SKILL, "gate": "lvUniversal",
-		"icon": "pip_universal_8x8", "upgrade_id": "skillpip", "upgrade_tier": 3,
+		"icon": "pip_universal", "upgrade_id": "skillpip", "upgrade_tier": 3,
 		"desc": "Have a merc focus on broader skills as they level up!"},
 	{"mode": &"Ancestral", "group": GROUP_SKILL, "gate": "lvAncestral",
-		"icon": "pip_ancestral_8x8", "upgrade_id": "skillpip", "upgrade_tier": 4,
+		"icon": "pip_ancestral", "upgrade_id": "skillpip", "upgrade_tier": 4,
 		"desc": "Have a merc focus on their ancestry as they level up!"},
 	{"mode": &"Tradition", "group": GROUP_SKILL, "gate": "lvTradition",
-		"icon": "pip_tradition_8x8", "upgrade_id": "skillpip", "upgrade_tier": 5,
+		"icon": "pip_tradition", "upgrade_id": "skillpip", "upgrade_tier": 5,
 		"desc": "Have a merc focus on their tradition as they level up!"},
-	{"mode": &"Spell", "group": GROUP_SKILL, "gate": "lvSpell", "icon": "pip_spell_8x8",
+	{"mode": &"Spell", "group": GROUP_SKILL, "gate": "lvSpell", "icon": "pip_spell",
 		"upgrade_id": "magicpip", "upgrade_tier": 1,
 		"desc": "Have a merc focus on spellcasting as they level up!"},
 ]
@@ -110,11 +109,9 @@ static func desc_of(mode: StringName) -> String:
 	return String(find(mode).get("desc", ""))
 
 
-static func icon_path(mode: StringName) -> String:
-	var data: Dictionary = find(mode)
-	if data.is_empty():
-		return ""
-	return ICON_DIR + String(data["icon"]) + ".png"
+#The atlas id of the mode's icon; MercGlyphs.pip_id is the one reader.
+static func icon_id(mode: StringName) -> String:
+	return String(find(mode).get("icon", ""))
 
 
 static func group_of(mode: StringName) -> String:

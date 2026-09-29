@@ -46,9 +46,11 @@ mouse_filter = 2
 [node name="Overlay" type="TextureRect" parent="Grid/Portrait"]
 visible = false
 layout_mode = 0
-offset_right = 50.0
-offset_bottom = 50.0
+offset_right = 48.0
+offset_bottom = 48.0
 mouse_filter = 2
+texture_filter = 1
+stretch_mode = 3
 
 [node name="Ident" type="VBoxContainer" parent="Grid"]
 layout_mode = 2

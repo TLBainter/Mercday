@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Overview/FinanceOverview.tscn" id="5"]
 
 [node name="FinanceViewer" type="Control"]
-custom_minimum_size = Vector2(1280, 720)
+custom_minimum_size = Vector2(1280, 644)
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

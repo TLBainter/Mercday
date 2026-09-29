@@ -6,10 +6,10 @@ class_name PlansPage extends Control
 signal switch_requested(plan: int)
 signal customize_requested
 
-const LOGO_PX: int = 36
+const LOGO_PX: int = 32
 const CARD_SEPARATION: int = 20
 
-@onready var logo: TextureRect = $Pad/Rows/Header/Logo
+@onready var logo: IconRect = $Pad/Rows/Header/Logo
 @onready var title: Label = $Pad/Rows/Header/Title
 @onready var cards_box: HBoxContainer = $Pad/Rows/CardsPad/Cards
 
@@ -18,9 +18,6 @@ var _cards: Array[PlanCard] = []
 
 
 func _ready() -> void:
-	logo.texture = SubscriptionGlyphs.logo()
-	logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	logo.custom_minimum_size = Vector2.ONE * float(LOGO_PX)
 	cards_box.add_theme_constant_override(&"separation", CARD_SEPARATION)
 	_build_cards()
 

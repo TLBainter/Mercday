@@ -609,6 +609,17 @@ static func _case_tooltip(res: Dictionary, host: Node) -> void:
 		tip.text("tradition") == view.tradition
 			and tip.tradition_color() == GuiTypes.tradition_color(view.tradition),
 		"'%s' %s" % [tip.text("tradition"), tip.tradition_color()])
+	await host.get_tree().process_frame
+	var sigil_art: Vector2 = tip.sigil.custom_minimum_size
+	var sigil_frame: Vector2 = tip.sigil_box.custom_minimum_size
+	var sigil_rect: Rect2 = Rect2(tip.sigil.position, tip.sigil.size)
+	TestFixtures.check(res, "the tradition sigil sits at one to one inside its frame",
+		tip.sigil.pixel_scale == 1 and sigil_art == Vector2(16.0, 16.0)
+			and sigil_frame == Vector2(20.0, 20.0)
+			and sigil_rect.size == Vector2(16.0, 16.0)
+			and sigil_rect.position == Vector2(2.0, 2.0)
+			and Rect2(Vector2.ZERO, tip.sigil_box.size).encloses(sigil_rect),
+		"%s at %s in %s" % [sigil_art, sigil_rect.position, sigil_frame])
 	TestFixtures.check(res, "the card reads the wage",
 		tip.text("salary") == NotesLabel.format_amount(view.monthly_salary),
 		"'%s' vs %d" % [tip.text("salary"), view.monthly_salary])
@@ -859,6 +870,13 @@ static func _case_vacation_dialog(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "an unknown word reads empty", box.word("nope") == "",
 		box.word("nope"))
 	box.set_field("start", 9)
+	box.set_field("approval", true)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the approval tick is the atlas check at two pixels an art pixel",
+		box.check_button.icon != null and not box.check_button.expand_icon
+			and box.check_button.icon.get_size() == Vector2(22.0, 20.0),
+		"%s" % [box.check_button.icon.get_size() if box.check_button.icon != null
+			else Vector2.ZERO])
 	box.set_field("approval", false)
 	var draft: Dictionary = box.draft().to_dict()
 	var got: Array = []
@@ -1257,13 +1275,14 @@ static func _case_modal_escape(res: Dictionary, host: Node) -> void:
 
 
 #Every owned, text labelled action button is a BevelButton; the stepper's plus and minus, the
-#vacation approval toggle and the list rows are excluded by design and carry no BevelButton script.
+#vacation approval toggle, the list rows and the two dialog closes are excluded by design and
+#carry no BevelButton script.
 static func _case_bevel_buttons(res: Dictionary, host: Node) -> void:
 	var page: PayrollTab = await _open(host)
 	var box: BenefitDialog = page.benefit_dialog()
 	var vac: VacationDialog = page.vacation_dialog()
-	var buttons: Array[Button] = [box.cancel_button, box.confirm_button, box.close_button,
-		vac.cancel_button, vac.confirm_button, vac.close_button, page.benefits().edit_button]
+	var buttons: Array[Button] = [box.cancel_button, box.confirm_button,
+		vac.cancel_button, vac.confirm_button, page.benefits().edit_button]
 	for row: Node in page.benefits().bonus_list.get_children():
 		var brow: BenefitRow = row as BenefitRow
 		if brow != null:
@@ -1283,6 +1302,17 @@ static func _case_bevel_buttons(res: Dictionary, host: Node) -> void:
 			bad = btn.name if bad == "" else bad
 	TestFixtures.check(res, "every owned action button carries the BevelButton script",
 		all_bevel, "first offender: %s" % bad)
+	TestFixtures.check(res, "both dialog closes carry the shared close art and no letter",
+		box.close_button.text == "" and vac.close_button.text == ""
+			and box.close_button.icon == CloseX.icon(CloseX.SCALE_WINDOW)
+			and vac.close_button.icon == CloseX.icon(CloseX.SCALE_WINDOW)
+			and box.close_button.custom_minimum_size == Vector2(36.0, 36.0)
+			and vac.close_button.custom_minimum_size == Vector2(36.0, 36.0),
+		"%s / %s" % [box.close_button.text, vac.close_button.text])
+	TestFixtures.check(res, "the fire confirm plate holds the 64 px sigil",
+		is_equal_approx(FireConfirmDialog.PLATE, 70.0) and fire.sigil.pixel_scale == 4
+			and fire.face.pixel_scale == 4,
+		"%s at %d" % [FireConfirmDialog.PLATE, fire.sigil.pixel_scale])
 	fire.press_cancel()
 	salary.press_cancel()
 	await _close(page, host)

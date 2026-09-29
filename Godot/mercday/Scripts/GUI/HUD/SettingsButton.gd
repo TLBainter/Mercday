@@ -15,4 +15,4 @@ func _ready() -> void:
 
 
 func _on_toggled(on: bool) -> void:
-	icon_rect.modulate = ORANGE if on else CREAM
+	icon_rect.tint = ORANGE if on else CREAM

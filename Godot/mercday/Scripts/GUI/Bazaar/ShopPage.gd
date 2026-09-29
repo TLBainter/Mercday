@@ -10,7 +10,6 @@ const CARD_SCENE: PackedScene = preload("res://Scenes/GUI/Bazaar/ItemCard.tscn")
 const PANEL_SCENE: PackedScene = preload("res://Scenes/GUI/Bazaar/FilterPanel.tscn")
 const SEARCH_HINT: String = "Search the Bazaar"
 const SORT_CAPTION: String = "Sort by"
-const CLEAR_X: String = "X"
 const ALL_CRUMB: String = "All Departments"
 const EMPTY_TITLE: String = "No items match your filters"
 const EMPTY_NOTE: String = "Try a different department, price, or rarity."
@@ -22,7 +21,15 @@ const COLUMN_GAP: int = 16
 const ROW_GAP: int = 10
 const SEARCH_HEIGHT: float = 36.0
 const SEARCH_WIDTH: float = 300.0
-const BUTTON_PX: float = 30.0
+const SEARCH_BOX_PAD: float = 3.0
+const SEARCH_BTN_W: float = 44.0
+#The orange search button holds 28 px of art: these margins make it 44x30, the field box interior.
+const SEARCH_BTN_H: float = 30.0
+const SEARCH_PAD_X: float = 8.0
+const SEARCH_PAD_Y: float = 1.0
+const MINI_CLOSE: float = 18.0
+const SEARCH_ICON_INK: Color = Color("#0a0f1c")
+const SEARCH_ICON_SCALE: int = 2
 const CRUMB_SIZE: int = 11
 const COUNT_SIZE: int = 11
 const EMPTY_TITLE_SIZE: int = 13
@@ -32,6 +39,7 @@ const EMPTY_HEIGHT: float = 30.0
 var _filters: FilterPanel = null
 var _search: LineEdit = null
 var _clear_x: Button = null
+var _search_button: Button = null
 var _sort: OptionDropdown = null
 var _crumb: Label = null
 var _count: Label = null
@@ -214,6 +222,7 @@ func _build() -> void:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(right)
 	right.add_child(_build_top_bar())
+	_trim_search_box()
 	right.add_child(_build_crumb_row())
 	_scroll = BazaarUi.scroll()
 	right.add_child(_scroll)
@@ -229,7 +238,8 @@ func _build() -> void:
 
 func _build_top_bar() -> HBoxContainer:
 	var bar: HBoxContainer = BazaarUi.hbox(10)
-	var field_box: PanelContainer = BazaarUi.panel_box(BazaarUi.INK, 2, BazaarUi.BLUE3, 3.0)
+	var field_box: PanelContainer = BazaarUi.panel_box(BazaarUi.INK, 2, BazaarUi.BLUE3,
+		SEARCH_BOX_PAD)
 	field_box.custom_minimum_size = Vector2(SEARCH_WIDTH, SEARCH_HEIGHT)
 	bar.add_child(field_box)
 	var field_row: HBoxContainer = BazaarUi.hbox(4)
@@ -245,16 +255,22 @@ func _build_top_bar() -> HBoxContainer:
 	_search.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	_search.text_submitted.connect(_on_search_submitted)
 	field_row.add_child(_search)
-	_clear_x = BazaarUi.link(CLEAR_X, BazaarUi.MUTED, 10)
+	_clear_x = CloseX.make(CloseX.SCALE_MINI)
+	_clear_x.custom_minimum_size = Vector2(MINI_CLOSE, MINI_CLOSE)
 	_clear_x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_clear_x.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_clear_x.tooltip_text = "Clear search"
 	_clear_x.pressed.connect(_on_clear_x_pressed)
 	field_row.add_child(_clear_x)
-	var search_button: Button = BazaarUi.button("", &"ButtonOrange", BUTTON_PX, 10)
-	search_button.custom_minimum_size.x = BUTTON_PX
-	search_button.icon = BazaarUi.ICON_SEARCH
-	search_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	search_button.pressed.connect(_on_search_pressed)
-	field_row.add_child(search_button)
+	_search_button = BazaarUi.button("", &"ButtonOrange", SEARCH_BTN_H, 10)
+	_search_button.icon = Icons.tinted("magnifier", SEARCH_ICON_INK, SEARCH_ICON_SCALE, true)
+	_search_button.expand_icon = false
+	_search_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_search_button.add_theme_color_override("icon_normal_color", Color.WHITE)
+	_search_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_search_button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_search_button.pressed.connect(_on_search_pressed)
+	field_row.add_child(_search_button)
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -267,6 +283,20 @@ func _build_top_bar() -> HBoxContainer:
 	_sort.option_selected.connect(_on_sort_selected)
 	bar.add_child(_sort)
 	return bar
+
+
+#BevelButton pads every state by 8 by 6, which would make the 28 px search art a 44x40 button and
+#grow the 36 px field box to 46. This box trims it to the 30 px interior of that field. It runs
+#after the button is in the tree, where BevelButton._ready writes its own boxes.
+func _trim_search_box() -> void:
+	var box := StyleBoxEmpty.new()
+	box.content_margin_left = SEARCH_PAD_X
+	box.content_margin_right = SEARCH_PAD_X
+	box.content_margin_top = SEARCH_PAD_Y
+	box.content_margin_bottom = SEARCH_PAD_Y
+	for state: StringName in BevelButton.STATES:
+		_search_button.add_theme_stylebox_override(state, box)
+	_search_button.custom_minimum_size = Vector2(SEARCH_BTN_W, SEARCH_BTN_H)
 
 
 func _build_crumb_row() -> HBoxContainer:

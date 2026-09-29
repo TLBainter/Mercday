@@ -270,18 +270,11 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="Close" type="Button" parent="Center/Box/Overlay"]
-custom_minimum_size = Vector2(56, 56)
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -56.0
-offset_bottom = 56.0
+offset_left = -36.0
+offset_bottom = 36.0
 grow_horizontal = 0
-script = ExtResource("4")
-fill = Color(0, 0, 0, 0)
-hi = Color(0, 0, 0, 0)
-lo = Color(0, 0, 0, 0)
-edge = 0.0
-outline = 0.0
-text = "X"

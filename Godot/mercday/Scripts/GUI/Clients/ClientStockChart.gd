@@ -36,7 +36,7 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_NONE
 	tooltip_text = TIP_TEXT
 	title_label.text = TITLE_TEXT
-	arrow.texture = ClientGlyphs.arrow(LINK_COLOR)
+	arrow.texture = Icons.tinted("caret_right", LINK_COLOR, 2, true)
 	if not line.draw.is_connected(_draw_line):
 		line.draw.connect(_draw_line)
 	_apply_boxes()

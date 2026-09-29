@@ -11,10 +11,6 @@ const NOTES_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/NotesLabel.tsc
 const CELL_BAR_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/CellBar.tscn")
 const FEATURE_LOCK_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FeatureLock.tscn")
 const DROPDOWN_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/OptionDropdown.tscn")
-const ICON_SHOP: Texture2D = preload("res://Art/GUI/Icons/bazaar_tab_shop_12x12.png")
-const ICON_CART: Texture2D = preload("res://Art/GUI/Icons/bazaar_tab_cart_12x12.png")
-const ICON_ORDERS: Texture2D = preload("res://Art/GUI/Icons/bazaar_tab_orders_12x12.png")
-const ICON_SEARCH: Texture2D = preload("res://Art/GUI/Icons/bazaar_search_10x10.png")
 
 const INK: Color = Color("#0a0f1c")
 const NAVY: Color = Color("#0e1628")

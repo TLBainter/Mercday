@@ -61,9 +61,6 @@ text = "Select Leader"
 custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
 size_flags_vertical = 4
-theme_type_variation = &"ButtonDanger"
-theme_override_font_sizes/font_size = 11
-text = "X"
 
 [node name="Subtitle" type="Label" parent="Center/Box/Rows"]
 layout_mode = 2

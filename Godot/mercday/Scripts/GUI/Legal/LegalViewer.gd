@@ -24,8 +24,8 @@ const TAB_DESCS: Array[String] = ["Operations and teleportation permits",
 const TAB_GAP: int = 6
 const BODY_GAP: int = 10
 const PAGE_PAD: int = 0
-const ICON_COLS: int = 12
-const ICON_PX: float = 2.0
+const TAB_ICON_IDS: Dictionary = {&"permits": "permit", &"fines": "coin", &"bail": "bail_bars"}
+const TAB_ICON_SCALE: int = 2
 const ODDS_LABEL: String = "Success Odds"
 const PICK_DESC: String = "Sorted by best fit for this Odd Job."
 const TIP_KIND: String = "Odd Job"
@@ -190,8 +190,9 @@ func _tab_row() -> HBoxContainer:
 		button.label = TAB_LABELS[i]
 		button.description = TAB_DESCS[i]
 		button.index = i
-		button.icon_cols = ICON_COLS
-		button.icon_px = ICON_PX
+		button.icon_id = String(TAB_ICON_IDS[TAB_KEYS[i]])
+		button.icon_scale = TAB_ICON_SCALE
+		button.idle_mode = Icons.MODE_PLAIN
 		#A left tab draws over its neighbour, so its unread dot is never covered.
 		button.z_index = TAB_KEYS.size() - i
 		button.tab_pressed.connect(_on_tab_pressed)
@@ -230,7 +231,6 @@ func _apply_tab() -> void:
 	for i: int in range(tabs.size()):
 		var button: TabButton = tabs[i]
 		button.active = i == tab
-		button.set_icon_texture(LegalGlyphs.tab_icon(TAB_KEYS[i], i == tab))
 	_apply_dots()
 
 

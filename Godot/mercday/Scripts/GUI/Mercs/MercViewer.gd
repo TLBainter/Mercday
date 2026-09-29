@@ -10,8 +10,8 @@ const TAB_LABELS: Array[String] = ["Overview", "Equipment", "Relationships", "Ac
 	"Drawbacks", "Skills", "Metrics"]
 const TAB_NAMES: Array[StringName] = [&"overview", &"equipment", &"relationships", &"actions",
 	&"perks", &"drawbacks", &"skills", &"metrics"]
-const TAB_ICONS: Array[String] = ["tab_overview", "tab_equipment", "tab_relationships",
-	"tab_actions", "tab_perks", "tab_drawbacks", "tab_skills", "tab_metrics"]
+const TAB_IDS: Array[String] = ["eye", "backpack", "smiley", "fist", "arrow_up_green",
+	"arrow_down_red", "tree", "metrics"]
 const TAB_TIPS: Array[String] = [
 	"Core stats, level, lifepath, knowledges, and tools.",
 	"Worn gear, containers, and carried items.",
@@ -22,7 +22,6 @@ const TAB_TIPS: Array[String] = [
 	"Learned skills and the skill trees they come from.",
 	"History graphs for this merc: salary, level, contracts, and more.",
 ]
-const ICON_PATH: String = "res://Art/GUI/Icons/%s.png"
 
 const TAB_OVERVIEW: int = 0
 const TAB_EQUIPMENT: int = 1
@@ -41,7 +40,7 @@ const BODY_EDGE_PX: float = 4.0
 
 const FULL_WIDTH: int = 1280
 const NO_ROSTER_WIDTH: int = 988
-const SCREEN_HEIGHT: int = 720
+const SCREEN_HEIGHT: int = 644
 const GREY_TINT: Color = Color(GuiColors.GRAY_ICON_BRIGHTNESS, GuiColors.GRAY_ICON_BRIGHTNESS,
 	GuiColors.GRAY_ICON_BRIGHTNESS, 0.4)
 
@@ -245,7 +244,8 @@ func _build_tabs() -> void:
 		button.index = i
 		button.label = TAB_LABELS[i]
 		button.description = TAB_TIPS[i]
-		button.set_icon_texture(_icon(TAB_ICONS[i]))
+		button.icon_id = TAB_IDS[i]
+		button.icon_scale = 2
 		button.tab_pressed.connect(select_tab)
 		tab_buttons.append(button)
 	_metrics_filter = tab_buttons[TAB_METRICS].mouse_filter
@@ -284,13 +284,6 @@ func _add_page(node: Control) -> void:
 	node.visible = false
 	pages.append(node)
 	_dirty.append(true)
-
-
-func _icon(icon_name: String) -> Texture2D:
-	var path: String = ICON_PATH % icon_name
-	if not ResourceLoader.exists(path):
-		return null
-	return load(path) as Texture2D
 
 
 func _apply_roster_mode() -> void:

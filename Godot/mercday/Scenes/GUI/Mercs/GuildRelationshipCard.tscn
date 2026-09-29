@@ -53,64 +53,64 @@ theme_override_constants/separation = 6
 layout_mode = 2
 guild = true
 opinion = -5
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face1" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = -4
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face2" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = -3
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face3" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = -2
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face4" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = -1
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face5" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = 0
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face6" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = 1
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face7" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = 2
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face8" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = 3
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face9" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = 4
-pixel_scale = 3
+pixel_scale = 2
 
 [node name="Face10" parent="Row/Faces" instance=ExtResource("2")]
 layout_mode = 2
 guild = true
 opinion = 5
-pixel_scale = 3
+pixel_scale = 2

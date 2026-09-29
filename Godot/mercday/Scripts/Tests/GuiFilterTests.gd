@@ -182,10 +182,31 @@ static func _case_star_range_picker(res: Dictionary, host: Node) -> void:
 		is_equal_approx(picker.low, 0.5), "low %s" % str(picker.low))
 	TestFixtures.check(res, "each row paints in its own difficulty colour",
 		picker.row_color(StarRangePicker.ROW_MAX)
-		== GuiTypes.difficulty_color(picker.row_value(StarRangePicker.ROW_MAX)), "colour differs")
+		== Icons.star_color(picker.row_value(StarRangePicker.ROW_MAX), false), "colour differs")
 	var width: float = picker.custom_minimum_size.x
 	TestFixtures.check(res, "the picker asks for the width of both star blocks",
-		width > 400.0 and width < 420.0, "width %s" % str(width))
+		width > 270.0 and width < 285.0, "width %s" % str(width))
+	TestFixtures.check(res, "the default picker draws 16 px stars",
+		picker.star_scale == StarRangePicker.DEFAULT_STAR_SCALE
+			and is_equal_approx(picker._star_px(), 16.0),
+		"scale %d star %s" % [picker.star_scale, str(picker._star_px())])
+	picker.star_scale = 2
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "star_scale 2 draws 32 px stars across 452 px",
+		is_equal_approx(picker._star_px(), 32.0)
+			and is_equal_approx(picker.custom_minimum_size.x, 452.0),
+		"star %s width %s" % [str(picker._star_px()), str(picker.custom_minimum_size.x)])
+	var star_x: float = picker._stars_x(StarRangePicker.ROW_MIN)
+	var left_half: Vector2 = picker._hit(Vector2(star_x + 51.0, 0.0))
+	TestFixtures.check(res, "at star_scale 2 the left half of the second star reads 1.5",
+		int(left_half.x) == StarRangePicker.ROW_MIN and is_equal_approx(left_half.y, 1.5),
+		"hit %s" % str(left_half))
+	var right_half: Vector2 = picker._hit(Vector2(star_x + 56.0, 0.0))
+	TestFixtures.check(res, "at star_scale 2 the right half of the second star reads 2.0",
+		int(right_half.x) == StarRangePicker.ROW_MIN and is_equal_approx(right_half.y, 2.0),
+		"hit %s" % str(right_half))
+	picker.star_scale = StarRangePicker.DEFAULT_STAR_SCALE
+	await host.get_tree().process_frame
 	var locks: Array[Dictionary] = [{"feature": "Min Difficulty", "upgrade": "Guild Promo",
 		"upgrade_id": TraitFilterDefs.GUILD_PROMO_ID, "tier": 2,
 		"tiers": TraitFilterDefs.GUILD_PROMO_TIERS, "verb": "target"}, {}]
@@ -587,12 +608,14 @@ static func _case_filter_group(res: Dictionary, host: Node) -> void:
 		not head.visible and bare.is_open() and bare_opens.is_empty(), "headless group toggled")
 	bare.queue_free()
 	var caret: ImageTexture = FilterGroup.caret_texture(true, FilterGroup.CARET_COLOR)
-	TestFixtures.check(res, "the caret is a generated square texture",
-		caret != null and caret.get_width() == FilterGroup.CARET_PX
-		and caret.get_height() == FilterGroup.CARET_PX, "caret wrong")
+	var shut: ImageTexture = FilterGroup.caret_texture(false, FilterGroup.CARET_COLOR)
+	TestFixtures.check(res, "the open caret points down and the closed one points right",
+		caret != null and caret.get_size() == Vector2(10, 6)
+		and shut != null and shut.get_size() == Vector2(6, 10),
+		"open %s shut %s" % [str(caret.get_size()), str(shut.get_size())])
 	TestFixtures.check(res, "the caret texture is cached per direction",
-		FilterGroup.caret_texture(true, FilterGroup.CARET_COLOR) == caret
-		and FilterGroup.caret_texture(false, FilterGroup.CARET_COLOR) != caret, "cache wrong")
+		FilterGroup.caret_texture(true, FilterGroup.CARET_COLOR) == caret and shut != caret,
+		"cache wrong")
 
 
 static func _case_panel_merc(res: Dictionary, host: Node) -> void:

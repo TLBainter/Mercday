@@ -13,21 +13,21 @@ layout_mode = 2
 label = "GUILD"
 description = "Guild"
 index = 0
-icon_cols = 16
-icon_px = 1.5
+icon_id = "guild_banner"
+icon_scale = 2
 
 [node name="Contract" parent="." instance=ExtResource("2")]
 layout_mode = 2
 label = "CONTRACT"
 description = "Contract"
 index = 1
-icon_cols = 16
-icon_px = 1.5
+icon_id = "contracts"
+icon_scale = 2
 
 [node name="Merc" parent="." instance=ExtResource("2")]
 layout_mode = 2
 label = "MERC"
 description = "Merc"
 index = 2
-icon_cols = 16
-icon_px = 1.5
+icon_id = "mercs"
+icon_scale = 2

@@ -1,0 +1,4966 @@
+{
+ "atlas": "merc-manager_ICON-COLLECTION.png",
+ "cell": 16,
+ "cols": 16,
+ "rows": 40,
+ "minScale": 1,
+ "integerScaleOnly": true,
+ "icons": [
+  {
+   "id": "mercs",
+   "cell": [
+    0,
+    0
+   ],
+   "name": "Mercs",
+   "offset": [
+    0,
+    1
+   ],
+   "size": [
+    16,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD menu 1 - My Mercs; Metrics Viewer > Merc tab",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      0
+     ],
+     "oldName": "My Mercs"
+    },
+    {
+     "oldCell": [
+      2,
+      4
+     ],
+     "oldName": "Metrics - Merc"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "contracts",
+   "cell": [
+    1,
+    0
+   ],
+   "name": "Contracts",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    13,
+    13
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD menu 2 - My Contracts; Metrics Viewer > Contract tab",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      0
+     ],
+     "oldName": "My Contracts"
+    },
+    {
+     "oldCell": [
+      1,
+      4
+     ],
+     "oldName": "Metrics - Contract"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "clients",
+   "cell": [
+    2,
+    0
+   ],
+   "name": "Clients",
+   "offset": [
+    1,
+    4
+   ],
+   "size": [
+    14,
+    11
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD menu 3 - My Clients",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      0
+     ],
+     "oldName": "My Clients"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "promotions",
+   "cell": [
+    3,
+    0
+   ],
+   "name": "Promotions (orange megaphone)",
+   "offset": [
+    1,
+    2
+   ],
+   "size": [
+    15,
+    12
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD menu 4 - My Promotions",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      0
+     ],
+     "oldName": "My Promotions"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "mercday",
+   "cell": [
+    4,
+    0
+   ],
+   "name": "Mercday",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD menu 5 - My Mercday; Customize tree > Base Plan node and Mercday branding",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      0
+     ],
+     "oldName": "My Mercday"
+    },
+    {
+     "oldCell": [
+      0,
+      11
+     ],
+     "oldName": "Mercday logo"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "finance",
+   "cell": [
+    5,
+    0
+   ],
+   "name": "Finance",
+   "offset": [
+    3,
+    1
+   ],
+   "size": [
+    11,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD menu 6 - My Finance (replaces the scaled-up Note glyph)",
+   "replaces": [
+    {
+     "oldCell": [
+      5,
+      0
+     ],
+     "oldName": "My Finance"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "legal",
+   "cell": [
+    6,
+    0
+   ],
+   "name": "Legal (gavel)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    14,
+    13
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD menu 7 - My Legal",
+   "replaces": [
+    {
+     "oldCell": [
+      6,
+      0
+     ],
+     "oldName": "My Legal"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "bazaar",
+   "cell": [
+    7,
+    0
+   ],
+   "name": "Bazaar (stall)",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD menu 8 - My Bazaar",
+   "replaces": [
+    {
+     "oldCell": [
+      7,
+      0
+     ],
+     "oldName": "My Bazaar"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "metrics",
+   "cell": [
+    8,
+    0
+   ],
+   "name": "Metrics",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD menu 9 - My Metrics; Merc Viewer > Metrics tab",
+   "replaces": [
+    {
+     "oldCell": [
+      8,
+      0
+     ],
+     "oldName": "My Metrics"
+    },
+    {
+     "oldCell": [
+      7,
+      3
+     ],
+     "oldName": "Merc - Metrics"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "bell",
+   "cell": [
+    9,
+    0
+   ],
+   "name": "Notification bell",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    15
+   ],
+   "tint": "color",
+   "usedOn": "Game HUD top bar",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      1
+     ],
+     "oldName": "Notification bell"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "gear",
+   "cell": [
+    10,
+    0
+   ],
+   "name": "Settings gear",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "mono",
+   "usedOn": "Game HUD top bar",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      1
+     ],
+     "oldName": "Settings gear"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "dot",
+   "cell": [
+    11,
+    0
+   ],
+   "name": "Notification dot",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "mono",
+   "usedOn": "Notification Dot (tinted)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      32
+     ],
+     "oldName": "Notification dot"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "ring8",
+   "cell": [
+    12,
+    0
+   ],
+   "name": "Pulse ring 8",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "mono",
+   "usedOn": "Notification Dot pulse frame",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      32
+     ],
+     "oldName": "Pulse ring 8"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "ring10",
+   "cell": [
+    13,
+    0
+   ],
+   "name": "Pulse ring 10",
+   "offset": [
+    3,
+    3
+   ],
+   "size": [
+    10,
+    10
+   ],
+   "tint": "mono",
+   "usedOn": "Notification Dot pulse frame",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      32
+     ],
+     "oldName": "Pulse ring 10"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "ring12",
+   "cell": [
+    14,
+    0
+   ],
+   "name": "Pulse ring 12",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Notification Dot pulse frame",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      32
+     ],
+     "oldName": "Pulse ring 12"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "ring14",
+   "cell": [
+    15,
+    0
+   ],
+   "name": "Pulse ring 14",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Notification Dot pulse frame",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      32
+     ],
+     "oldName": "Pulse ring 14"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "speed_slow",
+   "cell": [
+    0,
+    1
+   ],
+   "name": "Speed - Slow Down",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    7
+   ],
+   "tint": "mono",
+   "usedOn": "Game HUD bottom bar",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      1
+     ],
+     "oldName": "Speed - Slow Down"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pause",
+   "cell": [
+    1,
+    1
+   ],
+   "name": "Speed - Pause",
+   "offset": [
+    5,
+    4
+   ],
+   "size": [
+    5,
+    7
+   ],
+   "tint": "mono",
+   "usedOn": "Game HUD bottom bar",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      1
+     ],
+     "oldName": "Speed - Pause"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "play",
+   "cell": [
+    2,
+    1
+   ],
+   "name": "Speed - Play",
+   "offset": [
+    6,
+    4
+   ],
+   "size": [
+    4,
+    7
+   ],
+   "tint": "mono",
+   "usedOn": "Game HUD bottom bar",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      1
+     ],
+     "oldName": "Speed - Play"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "speed_fast",
+   "cell": [
+    3,
+    1
+   ],
+   "name": "Speed - Fast Forward",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    7
+   ],
+   "tint": "mono",
+   "usedOn": "Game HUD bottom bar",
+   "replaces": [
+    {
+     "oldCell": [
+      5,
+      1
+     ],
+     "oldName": "Speed - Fast Forward"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "speed_faster",
+   "cell": [
+    4,
+    1
+   ],
+   "name": "Speed - Faster",
+   "offset": [
+    2,
+    4
+   ],
+   "size": [
+    12,
+    7
+   ],
+   "tint": "mono",
+   "usedOn": "Game HUD bottom bar",
+   "replaces": [
+    {
+     "oldCell": [
+      6,
+      1
+     ],
+     "oldName": "Speed - Faster"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "caret_down",
+   "cell": [
+    5,
+    1
+   ],
+   "name": "Caret down",
+   "offset": [
+    5,
+    6
+   ],
+   "size": [
+    5,
+    3
+   ],
+   "tint": "mono",
+   "usedOn": "All dropdowns; sort toggle descending (orange tint); filter group collapse v",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      37
+     ],
+     "oldName": "Dropdown caret"
+    },
+    {
+     "oldCell": [
+      2,
+      37
+     ],
+     "oldName": "Sort descending"
+    },
+    {
+     "oldCell": [
+      5,
+      37
+     ],
+     "oldName": "Group collapse v"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "caret_up",
+   "cell": [
+    6,
+    1
+   ],
+   "name": "Caret up",
+   "offset": [
+    5,
+    6
+   ],
+   "size": [
+    5,
+    3
+   ],
+   "tint": "mono",
+   "usedOn": "Sort toggle ascending (blue tint)",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      37
+     ],
+     "oldName": "Sort ascending"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "caret_right",
+   "cell": [
+    7,
+    1
+   ],
+   "name": "Caret right",
+   "offset": [
+    7,
+    5
+   ],
+   "size": [
+    3,
+    5
+   ],
+   "tint": "mono",
+   "usedOn": "Filter group expand > (Promotions, Hiring)",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      37
+     ],
+     "oldName": "Group expand >"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "caret_left",
+   "cell": [
+    8,
+    1
+   ],
+   "name": "Caret left",
+   "offset": [
+    6,
+    5
+   ],
+   "size": [
+    3,
+    5
+   ],
+   "tint": "mono",
+   "usedOn": "Left scroll arrow on horizontal scrollbars (only use)",
+   "replaces": [],
+   "note": "New. No old equivalent."
+  },
+  {
+   "id": "filter",
+   "cell": [
+    9,
+    1
+   ],
+   "name": "Filter",
+   "offset": [
+    5,
+    5
+   ],
+   "size": [
+    5,
+    5
+   ],
+   "tint": "mono",
+   "usedOn": "All filter buttons",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      37
+     ],
+     "oldName": "Filter"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "plus",
+   "cell": [
+    10,
+    1
+   ],
+   "name": "Plus",
+   "offset": [
+    6,
+    5
+   ],
+   "size": [
+    5,
+    5
+   ],
+   "tint": "mono",
+   "usedOn": "Quantity Stepper; New Campaign; Request a Loan",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      38
+     ],
+     "oldName": "Plus"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "minus",
+   "cell": [
+    11,
+    1
+   ],
+   "name": "Minus",
+   "offset": [
+    6,
+    7
+   ],
+   "size": [
+    5,
+    1
+   ],
+   "tint": "mono",
+   "usedOn": "Quantity Stepper",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      38
+     ],
+     "oldName": "Minus"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "trend_up",
+   "cell": [
+    12,
+    1
+   ],
+   "name": "Trend up",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    7,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Finance Viewer trends",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      33
+     ],
+     "oldName": "Arrow up"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "trend_diag_up",
+   "cell": [
+    13,
+    1
+   ],
+   "name": "Trend diagonal up",
+   "offset": [
+    3,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Finance Viewer trends",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      33
+     ],
+     "oldName": "Arrow diagonal"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "trend_diag_down",
+   "cell": [
+    14,
+    1
+   ],
+   "name": "Trend diagonal down",
+   "offset": [
+    3,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Finance Viewer trends (was a runtime flip of the diagonal)",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      33
+     ],
+     "oldName": "Arrow diagonal"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "trend_down",
+   "cell": [
+    15,
+    1
+   ],
+   "name": "Trend down",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    7,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Finance Viewer trends (was a runtime flip of Arrow up)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      33
+     ],
+     "oldName": "Arrow up"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "x_lg",
+   "cell": [
+    0,
+    2
+   ],
+   "name": "X (large)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "color",
+   "usedOn": "Window close on all windows; Contract Viewer X; Contract Viewer > status Completed (Failed)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      2
+     ],
+     "oldName": "Window close"
+    },
+    {
+     "oldCell": [
+      3,
+      30
+     ],
+     "oldName": "X 10x10"
+    },
+    {
+     "oldCell": [
+      1,
+      39
+     ],
+     "oldName": "Failed (skull)"
+    }
+   ],
+   "note": "Replaces the skull as the claimed-Failed contract mark."
+  },
+  {
+   "id": "check_lg",
+   "cell": [
+    1,
+    2
+   ],
+   "name": "Check (large)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    13,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Contract Viewer > status Completed (Success)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      29
+     ],
+     "oldName": "Status - Completed"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "x_sm",
+   "cell": [
+    2,
+    2
+   ],
+   "name": "X (small)",
+   "offset": [
+    3,
+    3
+   ],
+   "size": [
+    10,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Legal X; Subscription Viewer feature X",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      30
+     ],
+     "oldName": "X 9x9"
+    },
+    {
+     "oldCell": [
+      5,
+      30
+     ],
+     "oldName": "X 7x7"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "check_sm",
+   "cell": [
+    3,
+    2
+   ],
+   "name": "Check (small)",
+   "offset": [
+    3,
+    3
+   ],
+   "size": [
+    11,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Legal check + confirm; Subscription Viewer feature check",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      30
+     ],
+     "oldName": "Check 9x9"
+    },
+    {
+     "oldCell": [
+      1,
+      30
+     ],
+     "oldName": "Check 9x9 (confirm)"
+    },
+    {
+     "oldCell": [
+      2,
+      30
+     ],
+     "oldName": "Check 7x7"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "alert",
+   "cell": [
+    4,
+    2
+   ],
+   "name": "Alert '!'",
+   "offset": [
+    6,
+    3
+   ],
+   "size": [
+    4,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Legal alerts; unclaimed Completed/Failed contract mark (Contract Viewer, HUD notifications)",
+   "replaces": [
+    {
+     "oldCell": [
+      6,
+      30
+     ],
+     "oldName": "Alert (!)"
+    },
+    {
+     "oldCell": [
+      0,
+      39
+     ],
+     "oldName": "Results ready '!'"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "thumbs_down",
+   "cell": [
+    5,
+    2
+   ],
+   "name": "Thumbs down",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    15,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Contract Viewer > status Rejected",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      29
+     ],
+     "oldName": "Status - Rejected"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "thumbs_up",
+   "cell": [
+    6,
+    2
+   ],
+   "name": "Thumbs up",
+   "offset": [
+    1,
+    0
+   ],
+   "size": [
+    15,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Not used yet",
+   "replaces": [],
+   "note": "Reserved. No use yet."
+  },
+  {
+   "id": "prohibited",
+   "cell": [
+    7,
+    2
+   ],
+   "name": "Prohibited",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Contract Viewer > status Expired",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      29
+     ],
+     "oldName": "Status - Expired"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "skull",
+   "cell": [
+    8,
+    2
+   ],
+   "name": "Skull",
+   "offset": [
+    3,
+    2
+   ],
+   "size": [
+    11,
+    13
+   ],
+   "tint": "color",
+   "usedOn": "Contract results > Deceased overlay on merc portrait (only use)",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      39
+     ],
+     "oldName": "Deceased overlay"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "bars",
+   "cell": [
+    9,
+    2
+   ],
+   "name": "Bars",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Contract results > Captured overlay",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      39
+     ],
+     "oldName": "Captured overlay"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "note",
+   "cell": [
+    14,
+    2
+   ],
+   "name": "Note (currency)",
+   "offset": [
+    5,
+    3
+   ],
+   "size": [
+    5,
+    9
+   ],
+   "tint": "mono",
+   "usedOn": "Every money amount (now 5x9, was 7x9)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      34
+     ],
+     "oldName": "Note (currency)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "lock",
+   "cell": [
+    15,
+    2
+   ],
+   "name": "Lock",
+   "offset": [
+    4,
+    3
+   ],
+   "size": [
+    8,
+    9
+   ],
+   "tint": "mono",
+   "usedOn": "Feature Lock; locked tabs",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      31
+     ],
+     "oldName": "Lock"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "eye",
+   "cell": [
+    0,
+    3
+   ],
+   "name": "Eye",
+   "offset": [
+    2,
+    4
+   ],
+   "size": [
+    12,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Overview tab; Finance > Overview tab; Promotions > View applicant",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      3
+     ],
+     "oldName": "Merc - Overview"
+    },
+    {
+     "oldCell": [
+      0,
+      6
+     ],
+     "oldName": "Finance - Overview"
+    },
+    {
+     "oldCell": [
+      1,
+      28
+     ],
+     "oldName": "View applicant (eye)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "tree",
+   "cell": [
+    1,
+    3
+   ],
+   "name": "Tree",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    13
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Skills tab",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      3
+     ],
+     "oldName": "Merc - Skills"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "arrow_up_green",
+   "cell": [
+    2,
+    3
+   ],
+   "name": "Arrow up (green)",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Perks tab",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      3
+     ],
+     "oldName": "Merc - Perks"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "arrow_down_red",
+   "cell": [
+    3,
+    3
+   ],
+   "name": "Arrow down (red)",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Drawbacks tab",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      3
+     ],
+     "oldName": "Merc - Drawbacks"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "backpack",
+   "cell": [
+    4,
+    3
+   ],
+   "name": "Backpack",
+   "offset": [
+    1,
+    2
+   ],
+   "size": [
+    14,
+    13
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Equipment tab",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      3
+     ],
+     "oldName": "Merc - Equipment"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "smiley",
+   "cell": [
+    5,
+    3
+   ],
+   "name": "Smiley",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Relationships tab",
+   "replaces": [
+    {
+     "oldCell": [
+      5,
+      3
+     ],
+     "oldName": "Merc - Relationships"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "fist",
+   "cell": [
+    6,
+    3
+   ],
+   "name": "Fist",
+   "offset": [
+    1,
+    0
+   ],
+   "size": [
+    14,
+    15
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Actions tab",
+   "replaces": [
+    {
+     "oldCell": [
+      6,
+      3
+     ],
+     "oldName": "Merc - Actions"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "whistle",
+   "cell": [
+    7,
+    3
+   ],
+   "name": "Whistle",
+   "offset": [
+    1,
+    0
+   ],
+   "size": [
+    14,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Coach button",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      26
+     ],
+     "oldName": "Coach whistle"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "guild_banner",
+   "cell": [
+    8,
+    3
+   ],
+   "name": "Guild banner",
+   "offset": [
+    3,
+    2
+   ],
+   "size": [
+    10,
+    13
+   ],
+   "tint": "color",
+   "usedOn": "Metrics Viewer > Guild tab",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      4
+     ],
+     "oldName": "Metrics - Guild"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_auto",
+   "cell": [
+    9,
+    3
+   ],
+   "name": "PIP - Auto",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Standard PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      23
+     ],
+     "oldName": "PIP - Auto"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_random",
+   "cell": [
+    10,
+    3
+   ],
+   "name": "PIP - Random",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Standard PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      23
+     ],
+     "oldName": "PIP - Random"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_utility",
+   "cell": [
+    11,
+    3
+   ],
+   "name": "PIP - Utility",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Standard PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      23
+     ],
+     "oldName": "PIP - Utility"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_stats",
+   "cell": [
+    12,
+    3
+   ],
+   "name": "PIP - Stats",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Standard PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      23
+     ],
+     "oldName": "PIP - Stats"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_support",
+   "cell": [
+    13,
+    3
+   ],
+   "name": "PIP - Support",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Combat PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      24
+     ],
+     "oldName": "PIP - Support"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_defensive",
+   "cell": [
+    14,
+    3
+   ],
+   "name": "PIP - Defensive",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Combat PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      24
+     ],
+     "oldName": "PIP - Defensive"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_offensive",
+   "cell": [
+    15,
+    3
+   ],
+   "name": "PIP - Offensive",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Combat PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      24
+     ],
+     "oldName": "PIP - Offensive"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "person_outline",
+   "cell": [
+    0,
+    4
+   ],
+   "name": "Person (outline)",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Contract Viewer > crew slot unavailable",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      35
+     ],
+     "oldName": "Crew slot - unavailable"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "person",
+   "cell": [
+    1,
+    4
+   ],
+   "name": "Person",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Client Viewer > People tab; Contract Viewer > crew slot required / optional (tinted)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      5
+     ],
+     "oldName": "Client - People"
+    },
+    {
+     "oldCell": [
+      1,
+      35
+     ],
+     "oldName": "Crew slot - required"
+    },
+    {
+     "oldCell": [
+      2,
+      35
+     ],
+     "oldName": "Crew slot - optional"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "house",
+   "cell": [
+    2,
+    4
+   ],
+   "name": "House",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Client Viewer > Places tab",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      5
+     ],
+     "oldName": "Client - Places"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "building",
+   "cell": [
+    3,
+    4
+   ],
+   "name": "Building",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Client Viewer > Orgs tab",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      5
+     ],
+     "oldName": "Client - Orgs"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "wom",
+   "cell": [
+    4,
+    4
+   ],
+   "name": "Word of Mouth",
+   "offset": [
+    2,
+    4
+   ],
+   "size": [
+    12,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Promotions > campaign type",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      27
+     ],
+     "oldName": "Word of Mouth"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "flyers",
+   "cell": [
+    5,
+    4
+   ],
+   "name": "Flyers",
+   "offset": [
+    4,
+    3
+   ],
+   "size": [
+    8,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Promotions > campaign type",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      27
+     ],
+     "oldName": "Flyers"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "direct_sale",
+   "cell": [
+    6,
+    4
+   ],
+   "name": "Direct Sale",
+   "offset": [
+    3,
+    2
+   ],
+   "size": [
+    10,
+    11
+   ],
+   "tint": "color",
+   "usedOn": "Promotions > campaign type",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      27
+     ],
+     "oldName": "Direct Sale"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "radio",
+   "cell": [
+    7,
+    4
+   ],
+   "name": "Radio",
+   "offset": [
+    3,
+    3
+   ],
+   "size": [
+    10,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Promotions > campaign type",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      27
+     ],
+     "oldName": "Radio"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sponsorship",
+   "cell": [
+    8,
+    4
+   ],
+   "name": "Sponsorship",
+   "offset": [
+    3,
+    3
+   ],
+   "size": [
+    10,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Promotions > campaign type",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      27
+     ],
+     "oldName": "Sponsorship"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_skills",
+   "cell": [
+    9,
+    4
+   ],
+   "name": "PIP - Skills",
+   "offset": [
+    5,
+    4
+   ],
+   "size": [
+    6,
+    7
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Skill PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      25
+     ],
+     "oldName": "PIP - Skills"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_existing",
+   "cell": [
+    10,
+    4
+   ],
+   "name": "PIP - Existing Skills",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    7,
+    7
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Skill PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      25
+     ],
+     "oldName": "PIP - Existing Skills"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_new",
+   "cell": [
+    11,
+    4
+   ],
+   "name": "PIP - New Skills",
+   "offset": [
+    5,
+    4
+   ],
+   "size": [
+    6,
+    7
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Skill PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      25
+     ],
+     "oldName": "PIP - New Skills"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_universal",
+   "cell": [
+    12,
+    4
+   ],
+   "name": "PIP - Universal",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Skill PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      25
+     ],
+     "oldName": "PIP - Universal"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_ancestral",
+   "cell": [
+    13,
+    4
+   ],
+   "name": "PIP - Ancestral",
+   "offset": [
+    5,
+    4
+   ],
+   "size": [
+    6,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Skill PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      25
+     ],
+     "oldName": "PIP - Ancestral"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_tradition",
+   "cell": [
+    14,
+    4
+   ],
+   "name": "PIP - Tradition",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Skill PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      5,
+      25
+     ],
+     "oldName": "PIP - Tradition"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_spell",
+   "cell": [
+    15,
+    4
+   ],
+   "name": "PIP - Spell",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "color",
+   "usedOn": "Merc Viewer > Skill PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      6,
+      25
+     ],
+     "oldName": "PIP - Spell"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "money_bag",
+   "cell": [
+    0,
+    5
+   ],
+   "name": "Money bag",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Finance > Payroll tab",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      6
+     ],
+     "oldName": "Finance - Payroll"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "add_person",
+   "cell": [
+    1,
+    5
+   ],
+   "name": "Add person",
+   "offset": [
+    3,
+    4
+   ],
+   "size": [
+    13,
+    11
+   ],
+   "tint": "color",
+   "usedOn": "Finance > Hiring tab; Promotions > Applicants",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      6
+     ],
+     "oldName": "Finance - Hiring"
+    },
+    {
+     "oldCell": [
+      0,
+      28
+     ],
+     "oldName": "Applicants (orange)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "invest",
+   "cell": [
+    2,
+    5
+   ],
+   "name": "Rising chart",
+   "offset": [
+    2,
+    4
+   ],
+   "size": [
+    13,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Finance > Invest tab",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      6
+     ],
+     "oldName": "Finance - Invest"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "piggy",
+   "cell": [
+    3,
+    5
+   ],
+   "name": "Piggy bank",
+   "offset": [
+    0,
+    3
+   ],
+   "size": [
+    15,
+    12
+   ],
+   "tint": "color",
+   "usedOn": "Finance > Loans tab",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      6
+     ],
+     "oldName": "Finance - Loans"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sun_low",
+   "cell": [
+    4,
+    5
+   ],
+   "name": "Sun - low",
+   "offset": [
+    1,
+    10
+   ],
+   "size": [
+    14,
+    6
+   ],
+   "tint": "color",
+   "usedOn": "Mercday > Free plan",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      7
+     ],
+     "oldName": "Free plan"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sun_rising",
+   "cell": [
+    5,
+    5
+   ],
+   "name": "Sun - rising",
+   "offset": [
+    0,
+    5
+   ],
+   "size": [
+    16,
+    11
+   ],
+   "tint": "color",
+   "usedOn": "Mercday > Pro plan",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      7
+     ],
+     "oldName": "Pro plan"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sun_full",
+   "cell": [
+    6,
+    5
+   ],
+   "name": "Sun - full",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Mercday > Enterprise plan",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      7
+     ],
+     "oldName": "Enterprise plan"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "customize",
+   "cell": [
+    7,
+    5
+   ],
+   "name": "Customize (sliders)",
+   "offset": [
+    3,
+    3
+   ],
+   "size": [
+    10,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Mercday > Customize tab",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      7
+     ],
+     "oldName": "Customize"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "shop",
+   "cell": [
+    8,
+    5
+   ],
+   "name": "Shop",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    15
+   ],
+   "tint": "color",
+   "usedOn": "Bazaar > Shop tab",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      8
+     ],
+     "oldName": "Bazaar - Shop"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "cart",
+   "cell": [
+    9,
+    5
+   ],
+   "name": "Cart",
+   "offset": [
+    0,
+    1
+   ],
+   "size": [
+    16,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Bazaar > Cart tab",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      8
+     ],
+     "oldName": "Bazaar - Cart"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "parcel",
+   "cell": [
+    10,
+    5
+   ],
+   "name": "Parcel",
+   "offset": [
+    1,
+    2
+   ],
+   "size": [
+    14,
+    12
+   ],
+   "tint": "color",
+   "usedOn": "Bazaar > Orders tab",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      8
+     ],
+     "oldName": "Bazaar - Orders"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "permit",
+   "cell": [
+    11,
+    5
+   ],
+   "name": "Permit",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    15
+   ],
+   "tint": "color",
+   "usedOn": "Legal > Permits tab",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      9
+     ],
+     "oldName": "Legal - Permits"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "coin",
+   "cell": [
+    12,
+    5
+   ],
+   "name": "Coin",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Legal > Fines tab",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      9
+     ],
+     "oldName": "Legal - Fines"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "bail_bars",
+   "cell": [
+    13,
+    5
+   ],
+   "name": "Bars (orange)",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Legal > Bailout tab",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      9
+     ],
+     "oldName": "Legal - Bailout"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "job_ads",
+   "cell": [
+    14,
+    5
+   ],
+   "name": "Megaphone",
+   "offset": [
+    2,
+    0
+   ],
+   "size": [
+    14,
+    15
+   ],
+   "tint": "color",
+   "usedOn": "Promotions > Job Ads tab",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      10
+     ],
+     "oldName": "Job Ads"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "guild_ads",
+   "cell": [
+    15,
+    5
+   ],
+   "name": "Billboard",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    15
+   ],
+   "tint": "color",
+   "usedOn": "Promotions > Guild Ads tab",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      10
+     ],
+     "oldName": "Guild Ads"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_unselected",
+   "cell": [
+    0,
+    7
+   ],
+   "name": "Face - neutral (unscored)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Spare neutral face (filled)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_m5",
+   "cell": [
+    1,
+    7
+   ],
+   "name": "Face -5",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship; Merc Mood - Angry",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      20
+     ],
+     "oldName": "-5"
+    },
+    {
+     "oldCell": [
+      0,
+      21
+     ],
+     "oldName": "Mood - Angry"
+    }
+   ],
+   "note": "White, tinted in engine. Mood mapping: Angry -5, Frustrated -3, Neutral +/-0, Okay +3, Happy +5."
+  },
+  {
+   "id": "face_m4",
+   "cell": [
+    2,
+    7
+   ],
+   "name": "Face -4",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      20
+     ],
+     "oldName": "-4"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_m3",
+   "cell": [
+    3,
+    7
+   ],
+   "name": "Face -3",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship; Merc Mood - Frustrated",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      20
+     ],
+     "oldName": "-3"
+    },
+    {
+     "oldCell": [
+      1,
+      21
+     ],
+     "oldName": "Mood - Frustrated"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_m2",
+   "cell": [
+    4,
+    7
+   ],
+   "name": "Face -2",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      20
+     ],
+     "oldName": "-2"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_m1",
+   "cell": [
+    5,
+    7
+   ],
+   "name": "Face -1",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      20
+     ],
+     "oldName": "-1"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_0",
+   "cell": [
+    6,
+    7
+   ],
+   "name": "Face +/-0",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship; Merc Mood - Neutral",
+   "replaces": [
+    {
+     "oldCell": [
+      5,
+      20
+     ],
+     "oldName": "+/-0 Neutral"
+    },
+    {
+     "oldCell": [
+      2,
+      21
+     ],
+     "oldName": "Mood - Neutral"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_p1",
+   "cell": [
+    7,
+    7
+   ],
+   "name": "Face +1",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship",
+   "replaces": [
+    {
+     "oldCell": [
+      6,
+      20
+     ],
+     "oldName": "+1"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_p2",
+   "cell": [
+    8,
+    7
+   ],
+   "name": "Face +2",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship",
+   "replaces": [
+    {
+     "oldCell": [
+      7,
+      20
+     ],
+     "oldName": "+2"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_p3",
+   "cell": [
+    9,
+    7
+   ],
+   "name": "Face +3",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship; Merc Mood - Okay",
+   "replaces": [
+    {
+     "oldCell": [
+      8,
+      20
+     ],
+     "oldName": "+3"
+    },
+    {
+     "oldCell": [
+      3,
+      21
+     ],
+     "oldName": "Mood - Okay"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_p4",
+   "cell": [
+    10,
+    7
+   ],
+   "name": "Face +4",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship",
+   "replaces": [
+    {
+     "oldCell": [
+      9,
+      20
+     ],
+     "oldName": "+4"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_p5",
+   "cell": [
+    11,
+    7
+   ],
+   "name": "Face +5",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Guild Opinion / Relationship; Merc Mood - Happy",
+   "replaces": [
+    {
+     "oldCell": [
+      10,
+      20
+     ],
+     "oldName": "+5"
+    },
+    {
+     "oldCell": [
+      4,
+      21
+     ],
+     "oldName": "Mood - Happy"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "face_unselected_o",
+   "cell": [
+    0,
+    8
+   ],
+   "name": "Face - neutral (unscored) (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Spare neutral face (outline)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_m5_o",
+   "cell": [
+    1,
+    8
+   ],
+   "name": "Face -5 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      22
+     ],
+     "oldName": "Face - unselected"
+    }
+   ],
+   "note": "Replaces the single generic unselected face: each unselected face now keeps its own expression."
+  },
+  {
+   "id": "face_m4_o",
+   "cell": [
+    2,
+    8
+   ],
+   "name": "Face -4 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_m3_o",
+   "cell": [
+    3,
+    8
+   ],
+   "name": "Face -3 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_m2_o",
+   "cell": [
+    4,
+    8
+   ],
+   "name": "Face -2 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_m1_o",
+   "cell": [
+    5,
+    8
+   ],
+   "name": "Face -1 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_0_o",
+   "cell": [
+    6,
+    8
+   ],
+   "name": "Face +/-0 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_p1_o",
+   "cell": [
+    7,
+    8
+   ],
+   "name": "Face +1 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_p2_o",
+   "cell": [
+    8,
+    8
+   ],
+   "name": "Face +2 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_p3_o",
+   "cell": [
+    9,
+    8
+   ],
+   "name": "Face +3 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_p4_o",
+   "cell": [
+    10,
+    8
+   ],
+   "name": "Face +4 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_p5_o",
+   "cell": [
+    11,
+    8
+   ],
+   "name": "Face +5 (outline)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
+   "replaces": [],
+   "note": null
+  },
+  {
+   "id": "base_plan",
+   "cell": [
+    0,
+    9
+   ],
+   "name": "Square",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    8,
+    8
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Base Plan",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      11
+     ],
+     "oldName": "Base Plan (alt)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "limits",
+   "cell": [
+    2,
+    9
+   ],
+   "name": "Arrow up from box",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Limits (category)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      12
+     ],
+     "oldName": "Limits (category)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "seats",
+   "cell": [
+    3,
+    9
+   ],
+   "name": "Person (small)",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    11
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Seats",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      12
+     ],
+     "oldName": "Seats"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "limit_contracts",
+   "cell": [
+    4,
+    9
+   ],
+   "name": "Document",
+   "offset": [
+    4,
+    2
+   ],
+   "size": [
+    9,
+    10
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Contracts (limit)",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      12
+     ],
+     "oldName": "Contracts (limit)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "insights",
+   "cell": [
+    5,
+    9
+   ],
+   "name": "Eye (outline)",
+   "offset": [
+    2,
+    4
+   ],
+   "size": [
+    12,
+    8
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Insights (category)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      15
+     ],
+     "oldName": "Insights (category)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "coaching",
+   "cell": [
+    7,
+    9
+   ],
+   "name": "Whistle (outline)",
+   "offset": [
+    3,
+    0
+   ],
+   "size": [
+    10,
+    15
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Coaching (category)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      13
+     ],
+     "oldName": "Coaching (category)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "pip_plan",
+   "cell": [
+    8,
+    9
+   ],
+   "name": "Clipboard",
+   "offset": [
+    3,
+    2
+   ],
+   "size": [
+    10,
+    11
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Performance Improvement Plan",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      13
+     ],
+     "oldName": "Perf. Improvement Plan"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "combat_pip",
+   "cell": [
+    9,
+    9
+   ],
+   "name": "Sword",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Combat PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      13
+     ],
+     "oldName": "Combat PIP"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "skill_pip",
+   "cell": [
+    10,
+    9
+   ],
+   "name": "Star",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Skill PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      13
+     ],
+     "oldName": "Skill PIP"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "magic_pip",
+   "cell": [
+    11,
+    9
+   ],
+   "name": "Wand",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    13
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Magic PIP",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      13
+     ],
+     "oldName": "Magic PIP"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "testing",
+   "cell": [
+    0,
+    10
+   ],
+   "name": "Flask",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    11
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Testing (category)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      14
+     ],
+     "oldName": "Testing (category)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "aptitude",
+   "cell": [
+    1,
+    10
+   ],
+   "name": "Brain bulb",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Aptitude Test",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      14
+     ],
+     "oldName": "Aptitude Test"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "brawn",
+   "cell": [
+    2,
+    10
+   ],
+   "name": "Raised fist",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Brawn Test",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      14
+     ],
+     "oldName": "Brawn Test"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "readiness",
+   "cell": [
+    3,
+    10
+   ],
+   "name": "Lightning",
+   "offset": [
+    4,
+    2
+   ],
+   "size": [
+    8,
+    13
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Readiness Test",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      14
+     ],
+     "oldName": "Readiness Test"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "personality",
+   "cell": [
+    4,
+    10
+   ],
+   "name": "Face",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Personality Test",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      14
+     ],
+     "oldName": "Personality Test"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "skill_test",
+   "cell": [
+    5,
+    10
+   ],
+   "name": "Pencil",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    11
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Skill Test",
+   "replaces": [
+    {
+     "oldCell": [
+      5,
+      14
+     ],
+     "oldName": "Skill Test"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "education",
+   "cell": [
+    6,
+    10
+   ],
+   "name": "Open book",
+   "offset": [
+    2,
+    3
+   ],
+   "size": [
+    12,
+    9
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Education Exam",
+   "replaces": [
+    {
+     "oldCell": [
+      6,
+      14
+     ],
+     "oldName": "Education Exam"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "less_legal",
+   "cell": [
+    8,
+    10
+   ],
+   "name": "Domino mask",
+   "offset": [
+    2,
+    5
+   ],
+   "size": [
+    12,
+    8
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Less Legal (category)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      16
+     ],
+     "oldName": "Less Legal (category)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "discrimination",
+   "cell": [
+    9,
+    10
+   ],
+   "name": "Shushing face",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Discrimination",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      16
+     ],
+     "oldName": "Discrimination"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "odd_jobs",
+   "cell": [
+    10,
+    10
+   ],
+   "name": "Loot bag",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Odd Jobs",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      16
+     ],
+     "oldName": "Odd Jobs"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "who_knows",
+   "cell": [
+    11,
+    10
+   ],
+   "name": "Hat and beard",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    15
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Who Knows a Guy",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      16
+     ],
+     "oldName": "Who Knows a Guy"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "scroll",
+   "cell": [
+    13,
+    10
+   ],
+   "name": "Scroll",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Client Viewer > scroll",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      36
+     ],
+     "oldName": "Scroll"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "magnifier",
+   "cell": [
+    0,
+    11
+   ],
+   "name": "Magnifier",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Every magnifier: Customize tree > Background Check; Bazaar > search field and search button",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      15
+     ],
+     "oldName": "Background Check"
+    },
+    {
+     "oldCell": [
+      1,
+      36
+     ],
+     "oldName": "Search"
+    }
+   ],
+   "note": "One magnifier for all uses."
+  },
+  {
+   "id": "criminal",
+   "cell": [
+    1,
+    11
+   ],
+   "name": "Barred window",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Criminal Background Check",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      15
+     ],
+     "oldName": "Criminal Bkg Check"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "survey",
+   "cell": [
+    2,
+    11
+   ],
+   "name": "Survey sheet",
+   "offset": [
+    3,
+    2
+   ],
+   "size": [
+    10,
+    11
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Employee Survey",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      15
+     ],
+     "oldName": "Employee Survey"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "peer",
+   "cell": [
+    3,
+    11
+   ],
+   "name": "Two at a desk",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    11
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Peer Review",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      15
+     ],
+     "oldName": "Peer Review"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "customer",
+   "cell": [
+    4,
+    11
+   ],
+   "name": "Customer at counter",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    11
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Customer Satisfaction",
+   "replaces": [
+    {
+     "oldCell": [
+      5,
+      15
+     ],
+     "oldName": "Customer Satisfaction"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "chart_arrow",
+   "cell": [
+    5,
+    11
+   ],
+   "name": "Chart with arrow",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Rapid Survey; Customize tree > Metrics (category)",
+   "replaces": [
+    {
+     "oldCell": [
+      6,
+      15
+     ],
+     "oldName": "Rapid Survey"
+    },
+    {
+     "oldCell": [
+      9,
+      15
+     ],
+     "oldName": "Metrics (old category)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "contract_metrics",
+   "cell": [
+    6,
+    11
+   ],
+   "name": "Stacked sheets",
+   "offset": [
+    3,
+    3
+   ],
+   "size": [
+    10,
+    9
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Contract Metrics",
+   "replaces": [
+    {
+     "oldCell": [
+      7,
+      15
+     ],
+     "oldName": "Contract Metrics"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "merc_metrics",
+   "cell": [
+    7,
+    11
+   ],
+   "name": "Person over bars",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    13
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Merc Metrics",
+   "replaces": [
+    {
+     "oldCell": [
+      8,
+      15
+     ],
+     "oldName": "Merc Metrics"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "bazaar_cat",
+   "cell": [
+    9,
+    11
+   ],
+   "name": "Stall (outline)",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Bazaar (category)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      18
+     ],
+     "oldName": "Bazaar (category)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "bazaar_node",
+   "cell": [
+    10,
+    11
+   ],
+   "name": "Box",
+   "offset": [
+    1,
+    2
+   ],
+   "size": [
+    14,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Bazaar",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      18
+     ],
+     "oldName": "Bazaar"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "better_items",
+   "cell": [
+    11,
+    11
+   ],
+   "name": "Diamond",
+   "offset": [
+    0,
+    1
+   ],
+   "size": [
+    16,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Better Items",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      18
+     ],
+     "oldName": "Better Items"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "faster_items",
+   "cell": [
+    12,
+    11
+   ],
+   "name": "Fast box",
+   "offset": [
+    2,
+    5
+   ],
+   "size": [
+    12,
+    7
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Faster Items",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      18
+     ],
+     "oldName": "Faster Items"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "legal_cat",
+   "cell": [
+    0,
+    12
+   ],
+   "name": "Courthouse",
+   "offset": [
+    1,
+    2
+   ],
+   "size": [
+    14,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Legal (category)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      17
+     ],
+     "oldName": "Legal (category)"
+    }
+   ],
+   "note": "Redrawn (was a lamp)."
+  },
+  {
+   "id": "ops_permit",
+   "cell": [
+    1,
+    12
+   ],
+   "name": "Stamped form",
+   "offset": [
+    3,
+    3
+   ],
+   "size": [
+    9,
+    10
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Operations Permits",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      17
+     ],
+     "oldName": "Operations Permits"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "teleport",
+   "cell": [
+    2,
+    12
+   ],
+   "name": "Teleport portal",
+   "offset": [
+    2,
+    2
+   ],
+   "size": [
+    12,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Teleportation Permit",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      17
+     ],
+     "oldName": "Teleportation Permit"
+    }
+   ],
+   "note": "Redrawn (was a target)."
+  },
+  {
+   "id": "representation",
+   "cell": [
+    3,
+    12
+   ],
+   "name": "Briefcase",
+   "offset": [
+    1,
+    2
+   ],
+   "size": [
+    14,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Representation",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      17
+     ],
+     "oldName": "Representation"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "counsel",
+   "cell": [
+    4,
+    12
+   ],
+   "name": "Scales",
+   "offset": [
+    1,
+    2
+   ],
+   "size": [
+    14,
+    11
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Advisory Counsel",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      17
+     ],
+     "oldName": "Advisory Counsel"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "promo_cat",
+   "cell": [
+    6,
+    12
+   ],
+   "name": "Megaphone (outline)",
+   "offset": [
+    1,
+    0
+   ],
+   "size": [
+    14,
+    15
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Promotions (category)",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      19
+     ],
+     "oldName": "Promotions (category)"
+    }
+   ],
+   "note": "Updated to a cleaner outline."
+  },
+  {
+   "id": "promo_node",
+   "cell": [
+    7,
+    12
+   ],
+   "name": "Sheet",
+   "offset": [
+    4,
+    3
+   ],
+   "size": [
+    8,
+    10
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Promotions",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      19
+     ],
+     "oldName": "Promotions"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "promo_methods",
+   "cell": [
+    8,
+    12
+   ],
+   "name": "Signal tower",
+   "offset": [
+    3,
+    0
+   ],
+   "size": [
+    10,
+    15
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Promo Methods",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      19
+     ],
+     "oldName": "Promo Methods"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "long_promos",
+   "cell": [
+    9,
+    12
+   ],
+   "name": "Hourglass",
+   "offset": [
+    3,
+    2
+   ],
+   "size": [
+    10,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Long Promos",
+   "replaces": [
+    {
+     "oldCell": [
+      3,
+      19
+     ],
+     "oldName": "Long Promos"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "guild_promo",
+   "cell": [
+    10,
+    12
+   ],
+   "name": "Guild banner +",
+   "offset": [
+    3,
+    2
+   ],
+   "size": [
+    12,
+    13
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Guild Promo",
+   "replaces": [
+    {
+     "oldCell": [
+      5,
+      19
+     ],
+     "oldName": "Guild Promo"
+    }
+   ],
+   "note": "Redrawn: the Guild tab banner with a plus (was a shield)."
+  },
+  {
+   "id": "marketing",
+   "cell": [
+    11,
+    12
+   ],
+   "name": "Billboard (white)",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    15
+   ],
+   "tint": "mono",
+   "usedOn": "Customize tree > Marketing Agency",
+   "replaces": [
+    {
+     "oldCell": [
+      4,
+      19
+     ],
+     "oldName": "Marketing Agency"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "star_set",
+   "cell": [
+    0,
+    13
+   ],
+   "name": "Star (large, outlined)",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "mono",
+   "usedOn": "Every star rating: difficulty and positive ratings (Contract Match, applicant Fit, skills, traits, success) ; set stars",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      34
+     ],
+     "oldName": "Star 9x9"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "star_unused",
+   "cell": [
+    1,
+    13
+   ],
+   "name": "Star (large)",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Every star rating ; unused stars; half star = left 8 cols of star_set + right 8 of star_unused",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      34
+     ],
+     "oldName": "Star 9x9"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "star9",
+   "cell": [
+    2,
+    13
+   ],
+   "name": "Star 9x9",
+   "offset": [
+    3,
+    3
+   ],
+   "size": [
+    9,
+    9
+   ],
+   "tint": "mono",
+   "usedOn": "Not used (all ratings use star_set / star_unused)",
+   "replaces": [
+    {
+     "oldCell": [
+      1,
+      34
+     ],
+     "oldName": "Star 9x9"
+    }
+   ],
+   "note": "Use the top 9x9 only (offset 3,3): the cell has 4 stray pixels at y=15."
+  },
+  {
+   "id": "star7",
+   "cell": [
+    3,
+    13
+   ],
+   "name": "Star 7x7",
+   "offset": [
+    4,
+    4
+   ],
+   "size": [
+    7,
+    7
+   ],
+   "tint": "mono",
+   "usedOn": "Not used after the difficulty change (Client Viewer avg difficulty moved to the large stars)",
+   "replaces": [
+    {
+     "oldCell": [
+      2,
+      34
+     ],
+     "oldName": "Star 7x7"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_divine",
+   "cell": [
+    0,
+    14
+   ],
+   "name": "Sigil - Divine",
+   "offset": [
+    0,
+    1
+   ],
+   "size": [
+    15,
+    15
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_mage",
+   "cell": [
+    1,
+    14
+   ],
+   "name": "Sigil - Mage",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_mystech",
+   "cell": [
+    2,
+    14
+   ],
+   "name": "Sigil - Mystech",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_performer",
+   "cell": [
+    3,
+    14
+   ],
+   "name": "Sigil - Performer",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_sorcerer",
+   "cell": [
+    4,
+    14
+   ],
+   "name": "Sigil - Sorcerer",
+   "offset": [
+    1,
+    0
+   ],
+   "size": [
+    14,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_brave",
+   "cell": [
+    5,
+    14
+   ],
+   "name": "Sigil - Brave",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_chymist",
+   "cell": [
+    6,
+    14
+   ],
+   "name": "Sigil - Chymist",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_hellion",
+   "cell": [
+    7,
+    14
+   ],
+   "name": "Sigil - Hellion",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_honorable",
+   "cell": [
+    8,
+    14
+   ],
+   "name": "Sigil - Honorable",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  },
+  {
+   "id": "sigil_warrior",
+   "cell": [
+    9,
+    14
+   ],
+   "name": "Sigil - Warrior",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Every merc card, tooltip and tradition list",
+   "replaces": [
+    {
+     "oldCell": [
+      0,
+      35
+     ],
+     "oldName": "Tradition sigil (sword)"
+    }
+   ],
+   "note": null
+  }
+ ]
+}

@@ -59,24 +59,18 @@ static func _case_viewer_popup_layout(res: Dictionary, host: Node) -> void:
 	GuiFrameStack.clear()
 	GuiFrameStack.bottom_reserve = 0.0
 	var popup: ViewerPopup = (load(VIEWER_POPUP_SCENE) as PackedScene).instantiate()
-	popup.content_size = ViewerPopup.CONTRACT["size"]
-	popup.content_scale = float(ViewerPopup.CONTRACT["scale"])
-	var expected_contract: Vector2 = Vector2(940.0, 720.0) * 0.86
-	TestFixtures.check(res, "the CONTRACT preset reports the scaled frame size",
-		popup.frame_size().is_equal_approx(expected_contract),
-		"got %s expected %s" % [popup.frame_size(), expected_contract])
-	popup.content_size = ViewerPopup.INVEST["size"]
-	popup.content_scale = float(ViewerPopup.INVEST["scale"])
-	var expected_invest: Vector2 = Vector2(1280.0, 720.0) * 0.86
-	TestFixtures.check(res, "the INVEST preset reports the scaled frame size",
-		popup.frame_size().is_equal_approx(expected_invest),
-		"got %s expected %s" % [popup.frame_size(), expected_invest])
-	popup.content_size = ViewerPopup.MERC["size"]
-	popup.content_scale = float(ViewerPopup.MERC["scale"])
-	var expected_merc: Vector2 = Vector2(988.0, 720.0) * 0.72
-	TestFixtures.check(res, "the MERC preset reports the scaled frame size",
-		popup.frame_size().is_equal_approx(expected_merc),
-		"got %s expected %s" % [popup.frame_size(), expected_merc])
+	popup.content_width = float(ViewerPopup.CONTRACT["width"])
+	TestFixtures.check(res, "the CONTRACT preset reports a 940 wide frame at 1:1",
+		popup.frame_size().is_equal_approx(Vector2(940.0, 720.0)),
+		"got %s" % [popup.frame_size()])
+	popup.content_width = float(ViewerPopup.INVEST["width"])
+	TestFixtures.check(res, "the INVEST preset reports a 1280 wide frame at 1:1",
+		popup.frame_size().is_equal_approx(Vector2(1280.0, 720.0)),
+		"got %s" % [popup.frame_size()])
+	popup.content_width = float(ViewerPopup.MERC["width"])
+	TestFixtures.check(res, "the MERC preset reports a 988 wide frame at 1:1",
+		popup.frame_size().is_equal_approx(Vector2(988.0, 720.0)),
+		"got %s" % [popup.frame_size()])
 
 	host.add_child(popup)
 	await host.get_tree().process_frame
@@ -84,28 +78,31 @@ static func _case_viewer_popup_layout(res: Dictionary, host: Node) -> void:
 	popup.open(_empty_scene())
 	var holder: Control = popup.holder
 	var frame: Control = popup.frame
-	TestFixtures.check(res, "the holder scales the canvas by content_scale",
-		holder.scale.is_equal_approx(Vector2(0.72, 0.72)), "got %s" % str(holder.scale))
-	var visual_size: Vector2 = expected_merc
+	TestFixtures.check(res, "the holder draws the canvas 1:1",
+		holder.scale.is_equal_approx(Vector2.ONE)
+			and holder.size.is_equal_approx(Vector2(988, 720))
+			and holder.position.is_equal_approx(Vector2(146, 0)),
+		"scale %s size %s pos %s" % [holder.scale, holder.size, holder.position])
 	var expected_frame_pos: Vector2 = holder.position - Vector2(4, 4)
-	var expected_frame_size: Vector2 = visual_size + Vector2(8, 8)
+	var expected_frame_size: Vector2 = holder.size + Vector2(8, 8)
 	TestFixtures.check(res, "the frame wraps the holder with a 4px margin",
 		frame.position.is_equal_approx(expected_frame_pos)
 			and frame.size.is_equal_approx(expected_frame_size),
 		"frame %s/%s expected %s/%s" % [frame.position, frame.size, expected_frame_pos,
 			expected_frame_size])
-	var x_centre: Vector2 = popup.close_x.position + popup.close_x.size / 2.0
-	var corner: Vector2 = Vector2(frame.position.x + frame.size.x, frame.position.y)
-	TestFixtures.check(res, "the close X centres on the frame's top-right corner",
-		x_centre.distance_to(corner) <= 1.0,
-		"centre %s corner %s" % [x_centre, corner])
-	TestFixtures.check(res, "the close X carries a 3px ink outline at 56px",
-		popup.close_x.get_theme_constant("outline_size") == 3
-			and popup.close_x.get_theme_font_size("font_size") == 56
-			and popup.close_x.get_theme_color("font_outline_color").is_equal_approx(Color("#0a0f1c")),
-		"outline %d size %d colour %s" % [popup.close_x.get_theme_constant("outline_size"),
-			popup.close_x.get_theme_font_size("font_size"),
-			popup.close_x.get_theme_color("font_outline_color")])
+	TestFixtures.check(res, "the close X sits inside the frame at top 10 right 10",
+		popup.close_x.position.is_equal_approx(Vector2(146.0 + 988.0 - 43.0, 7.0))
+			and popup.close_x.size.is_equal_approx(Vector2(36, 36))
+			and popup.close_x.icon == CloseX.icon(3) and popup.close_x.text == "",
+		"pos %s size %s icon %s text %s" % [popup.close_x.position, popup.close_x.size,
+			popup.close_x.icon, popup.close_x.text])
+	GuiFrameStack.bottom_reserve = 76.0
+	popup._layout()
+	TestFixtures.check(res, "the band above the bottom bar shortens the popup",
+		popup.frame_size().is_equal_approx(Vector2(988, 644))
+			and holder.size.is_equal_approx(Vector2(988, 644)),
+		"frame_size %s holder %s" % [popup.frame_size(), holder.size])
+	GuiFrameStack.bottom_reserve = 0.0
 	popup.close()
 	popup.queue_free()
 

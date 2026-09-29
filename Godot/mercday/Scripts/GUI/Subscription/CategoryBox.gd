@@ -121,11 +121,11 @@ func _draw() -> void:
 	var box: Rect2 = Rect2(Vector2.ZERO, TreeLayout.CAT_BOX)
 	draw_rect(box, bg_color())
 	draw_rect(box, ring_color(), false, RING_WIDTH)
-	var icon: ImageTexture = TreeGlyphs.icon(cat, _lit(icon_color()))
-	var side: float = float(TreeGlyphs.COLS * ICON_SCALE)
-	if icon != null:
-		draw_texture_rect(icon, Rect2(Vector2(PAD, (TreeLayout.CAT_BOX.y - side) / 2.0),
-			Vector2(side, side)), false)
+	var side: float = 16.0 * float(ICON_SCALE)
+	var icon_id: String = TreeIcons.id_of(cat)
+	if icon_id != "":
+		Icons.draw(self, icon_id, Vector2(PAD, (TreeLayout.CAT_BOX.y - side) / 2.0), ICON_SCALE,
+			_lit(icon_color()), false)
 	var text_x: float = PAD + side + 8.0
 	draw_string(NAME_FONT, Vector2(text_x, TreeLayout.CAT_BOX.y / 2.0 + float(NAME_SIZE) / 2.0
 		- 1.0), name_text(), HORIZONTAL_ALIGNMENT_LEFT, TreeLayout.CAT_BOX.x - text_x - PAD,
@@ -149,8 +149,7 @@ func _draw_total() -> void:
 		TOTAL_COLOR)
 	var tile_at: Vector2 = Vector2(x + w1 + GLYPH_GAP, y - tile.y + 1.0)
 	draw_rect(Rect2(tile_at, tile), NoteIcon.TILE_COLOR)
-	var glyph: Vector2 = NoteIcon.GLYPH_SIZE_PX
-	draw_texture_rect(NoteIcon.GLYPH, Rect2(tile_at + (tile - glyph) / 2.0, glyph), false)
+	Icons.draw(self, "note", tile_at + Vector2(2, 1), 1, NoteIcon.GLYPH_COLOR, true)
 	draw_string(TOTAL_FONT, Vector2(x + w1 + GLYPH_GAP * 2.0 + tile.x, y), suffix,
 		HORIZONTAL_ALIGNMENT_LEFT, -1.0, TOTAL_SIZE, TOTAL_COLOR)
 

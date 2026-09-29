@@ -27,7 +27,7 @@ theme_override_constants/separation = 10
 alignment = 1
 
 [node name="LockIcon" type="TextureRect" parent="Panel/Pad/Rows/IconRow"]
-custom_minimum_size = Vector2(21, 24)
+custom_minimum_size = Vector2(48, 54)
 
 [node name="Line1" type="Label" parent="Panel/Pad/Rows"]
 horizontal_alignment = 1

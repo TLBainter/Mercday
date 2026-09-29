@@ -6,12 +6,13 @@ class_name InvestTradePanel extends PanelContainer
 
 const SIDE_BUY: StringName = &"buy"
 const SIDE_SELL: StringName = &"sell"
-const SWITCH_HEIGHT: float = 34.0
-const SWAP_SIZE: Vector2 = Vector2(42.0, 40.0)
+const SWITCH_HEIGHT: float = 28.0
+const SWAP_SIZE: Vector2 = Vector2(36.0, 28.0)
 const ARROW_SCALE: int = 3
 const CONFIRM_HEIGHT: float = 40.0
 const INVALID_ALPHA: float = 0.45
 const SWAP_TIP: String = "Switch between Buy and Sell"
+const QUANTITY_TIP: String = "Quantity (shares)"
 const BUY_TIP: String = "Most shares your notes can buy"
 const SELL_TIP: String = "All shares you own"
 
@@ -40,6 +41,7 @@ var _side: StringName = SIDE_BUY
 func _ready() -> void:
 	swap_button.custom_minimum_size = SWAP_SIZE
 	swap_button.tooltip_text = SWAP_TIP
+	quantity_field.tooltip_text = QUANTITY_TIP
 	confirm_button.custom_minimum_size = Vector2(0.0, CONFIRM_HEIGHT)
 	for flat: Button in [buy_button, sell_button]:
 		for state: String in ["normal", "hover", "pressed", "focus"]:

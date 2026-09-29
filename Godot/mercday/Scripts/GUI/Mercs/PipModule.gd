@@ -37,11 +37,12 @@ const LOCK_HEIGHT: float = 20.0
 	set(value):
 		mode = value
 		_refresh()
-#The 8 x 8 white art the group colour tints.
+#The 8 x 8 colour art of the mode, baked at ICON_PX.
 @export var icon: Texture2D = null:
 	set(value):
 		icon = value
 		_refresh()
+var _locked_art: Texture2D = null
 @export var group_color: Color = Color("#9cc6ef"):
 	set(value):
 		group_color = value
@@ -92,6 +93,7 @@ func set_row(data: Dictionary, ent: Dictionary) -> void:
 	description = String(data.get("desc", ""))
 	group_color = PipDefs.group_color(String(data.get("group", "")))
 	icon = MercGlyphs.pip(key)
+	_locked_art = MercGlyphs.pip_locked(key)
 	locked = not PipDefs.unlocked(key, ent)
 	mode = key
 
@@ -165,8 +167,8 @@ func _refresh() -> void:
 	if not is_node_ready():
 		return
 	name_label.text = String(mode)
-	icon_rect.texture = icon
-	icon_rect.modulate = LOCKED_ICON if locked else group_color
+	icon_rect.texture = _locked_art if locked and _locked_art != null else icon
+	icon_rect.modulate = LOCKED_ICON if locked else Color.WHITE
 	var tint: Color = NAME_COLOR
 	if locked:
 		tint = LOCKED_NAME

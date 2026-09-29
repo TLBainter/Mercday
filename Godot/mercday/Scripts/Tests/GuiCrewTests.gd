@@ -26,28 +26,24 @@ static func run(host: Node) -> bool:
 
 
 static func _case_fit_stars(res: Dictionary, host: Node) -> void:
-	var color_checks: Array[Array] = [
-		[0.5, "#e8583f"], [1.0, "#ec6a36"], [1.5, "#ef7c2f"], [2.0, "#f28c28"], [2.5, "#f2a033"],
-		[3.0, "#f2b33d"], [3.5, "#5aa6e8"], [4.0, "#5fb0b8"], [4.5, "#64b98c"], [5.0, "#3fae5a"],
-	]
-	for pair: Array in color_checks:
-		var value: float = float(pair[0])
-		var expect: Color = Color(String(pair[1]))
+	var color_checks: Array[float] = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
+	for value: float in color_checks:
+		var expect: Color = Icons.star_color(value, true)
 		var got: Color = FitStars.color_of(value)
 		TestFixtures.check(res, "FitStars.color_of(%s) matches the table" % value,
 			got.is_equal_approx(expect), "got %s" % got.to_html(false))
 	TestFixtures.check(res, "color_of clamps below 0.5 to 0.5",
-		FitStars.color_of(0.1).is_equal_approx(Color("#e8583f")), "")
+		FitStars.color_of(0.1).is_equal_approx(Icons.star_color(0.5, true)), "")
 	TestFixtures.check(res, "color_of clamps above 5.0 to 5.0",
-		FitStars.color_of(9.0).is_equal_approx(Color("#3fae5a")), "")
+		FitStars.color_of(9.0).is_equal_approx(Icons.star_color(5.0, true)), "")
 	TestFixtures.check(res, "color_of rounds to the nearest half step",
-		FitStars.color_of(1.24).is_equal_approx(Color("#ec6a36")), "")
+		FitStars.color_of(1.24).is_equal_approx(Icons.star_color(1.0, true)), "")
 	var star: FitStars = (load(FIT_STARS_SCENE) as PackedScene).instantiate()
 	host.add_child(star)
 	await host.get_tree().process_frame
 	star.cell = 2
 	await host.get_tree().process_frame
-	var expected_size: Vector2 = Vector2((5.0 * 9.0 + 4.0) * 2.0, 9.0 * 2.0)
+	var expected_size: Vector2 = Vector2(float(Icons.stars_width(2)), 32.0)
 	TestFixtures.check(res, "the minimum size follows the cell size",
 		star.get_combined_minimum_size().is_equal_approx(expected_size),
 		"got %s" % star.get_combined_minimum_size())

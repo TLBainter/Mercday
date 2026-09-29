@@ -23,8 +23,9 @@ const TOTAL_KEY: String = "total"
 const EXPENSES_SUB: String = "Payroll, loans, guild, travel, ads"
 const TAB_ROW_HEIGHT: float = 44.0
 const TOP_LINE_HEIGHT: float = 4.0
-const ICON_COLS: int = 12
-const ICON_PX: float = 2.0
+const TAB_ICON_SCALE: int = 2
+const TAB_ICON_CELL: int = 16
+const TAB_ICON_IDS: Array[String] = ["eye", "piggy", "money_bag", "add_person", "invest"]
 const PAGE_PAD: int = 14
 const TAB_GAP: int = 8
 const FRAME_BG: Color = Color("#101a30")
@@ -203,6 +204,9 @@ static func _case_frame(res: Dictionary, host: Node) -> void:
 			viewer.tab_row.get_theme_constant("separation")])
 	TestFixtures.check(res, "the page host clips what runs past its edge",
 		viewer.page_host.clip_contents, "clip %s" % viewer.page_host.clip_contents)
+	TestFixtures.check(res, "the window root is 1280 by 644 under the bottom bar",
+		viewer.custom_minimum_size == Vector2(1280.0, 644.0),
+		"%s" % [viewer.custom_minimum_size])
 	_drop(viewer)
 
 
@@ -229,17 +233,26 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "every tab carries the tooltip of the handoff", bad.is_empty(),
 		TestFixtures.detail(bad, TIPS.size(), "tooltips"))
 	bad = []
-	for key: StringName in FinanceViewer.TAB_KEYS:
-		var tab: TabButton = viewer.tab_button(key)
-		var tex: Texture2D = tab.icon_rect.texture
-		if tex == null or tab.icon_cols != ICON_COLS or not is_equal_approx(tab.icon_px, ICON_PX):
-			bad.append(String(key))
-		elif tex.get_width() != ICON_COLS or tex.get_height() != ICON_COLS:
-			bad.append(String(key))
-	TestFixtures.check(res, "every tab draws a 12 by 12 icon at two pixels an art pixel",
+	for i: int in FinanceViewer.TAB_KEYS.size():
+		var tab: TabButton = viewer.tab_button(FinanceViewer.TAB_KEYS[i])
+		var art: Vector2i = tab.icon_rect.icon_size()
+		if tab.icon_rect.texture == null or tab.icon_rect.icon_id != TAB_ICON_IDS[i]:
+			bad.append(String(FinanceViewer.TAB_KEYS[i]))
+		elif tab.icon_rect.pixel_scale != TAB_ICON_SCALE:
+			bad.append(String(FinanceViewer.TAB_KEYS[i]))
+		elif art.x != TAB_ICON_CELL or art.y != TAB_ICON_CELL:
+			bad.append(String(FinanceViewer.TAB_KEYS[i]))
+		elif tab.icon_rect.texture.get_size() != Vector2(32.0, 32.0):
+			bad.append(String(FinanceViewer.TAB_KEYS[i]))
+	TestFixtures.check(res,
+		"every tab draws its 16 by 16 atlas cell at two screen pixels an art pixel",
 		bad.is_empty(), TestFixtures.detail(bad, FinanceViewer.TAB_KEYS.size(), "icons"))
 	var active_tab: TabButton = viewer.tab_button(&"overview")
 	var idle_tab: TabButton = viewer.tab_button(&"loans")
+	TestFixtures.check(res, "the open tab two-tones its icon and an idle tab draws it plain",
+		active_tab.icon_rect.mode == Icons.MODE_TWO_TONE
+			and idle_tab.icon_rect.mode == Icons.MODE_PLAIN,
+		"%s / %s" % [active_tab.icon_rect.mode, idle_tab.icon_rect.mode])
 	TestFixtures.check(res, "the open tab shows its label and stands 44 px tall",
 		active_tab.active and active_tab.text_label.visible
 			and is_equal_approx(active_tab.custom_minimum_size.y, TAB_ROW_HEIGHT),

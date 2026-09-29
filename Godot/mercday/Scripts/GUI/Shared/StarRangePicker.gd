@@ -14,8 +14,9 @@ const MIN_VALUE: float = 0.5
 const MAX_VALUE: float = 5.0
 const STEP: float = 0.5
 const STAR_COUNT: int = 5
-const CELL_PX: float = 3.0
-const STAR_GAP: float = 6.0
+#The filter column is 290 px wide and its pad leaves 262, so its stars draw at the 16 px scale;
+#a host with room for 468 px hands the picker star_scale 2.
+const DEFAULT_STAR_SCALE: int = 1
 const LABEL_W: float = 28.0
 const LABEL_GAP: float = 10.0
 const BLOCK_GAP: float = 24.0
@@ -32,6 +33,14 @@ const FONT_LABEL: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegu
 #One entry per row, Min first: empty leaves the row open, otherwise {feature, upgrade,
 #upgrade_id, tier, tiers, verb} drives the lock that replaces its stars.
 @export var row_locks: Array[Dictionary] = []
+#The integer atlas scale of every star: 1 draws 16 px stars, 2 draws 32 px.
+@export var star_scale: int = DEFAULT_STAR_SCALE:
+	set(value):
+		star_scale = maxi(1, value)
+		if is_node_ready():
+			custom_minimum_size = Vector2(_stars_x(ROW_MAX) + _stars_width(),
+				maxf(_star_px(), LOCK_H))
+			refresh()
 
 @onready var min_lock: FeatureLock = $MinLock
 @onready var max_lock: FeatureLock = $MaxLock
@@ -39,6 +48,7 @@ const FONT_LABEL: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegu
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	texture_filter = TEXTURE_FILTER_NEAREST
 	custom_minimum_size = Vector2(_stars_x(ROW_MAX) + _stars_width(), maxf(_star_px(), LOCK_H))
 	for lock: FeatureLock in [min_lock, max_lock]:
 		lock.take_me_there.connect(_on_take_me_there)
@@ -79,7 +89,7 @@ func row_value(row: int) -> float:
 
 
 func row_color(row: int) -> Color:
-	return GuiTypes.difficulty_color(row_value(row))
+	return Icons.star_color(row_value(row), false)
 
 
 #The press path a click or a headless test takes: a locked row never moves, and the other end
@@ -137,20 +147,9 @@ func _draw() -> void:
 
 
 func _draw_row(row: int) -> void:
-	var shown: float = row_value(row)
-	var col: Color = row_color(row)
 	var top: float = (size.y - _star_px()) / 2.0
-	for n: int in range(1, STAR_COUNT + 1):
-		var left: float = _stars_x(row) + float(n - 1) * (_star_px() + STAR_GAP)
-		for line: int in range(DifficultyStars.STAR_SIZE_PX):
-			var bits: String = DifficultyStars.STAR_MAP[line]
-			for cell: int in range(DifficultyStars.STAR_SIZE_PX):
-				if bits[cell] != "#":
-					continue
-				var full: bool = float(n) <= shown
-				var half: bool = float(n) - STEP == shown and cell < DifficultyStars.HALF_COLUMNS
-				draw_rect(Rect2(left + float(cell) * CELL_PX, top + float(line) * CELL_PX,
-					CELL_PX, CELL_PX), col if full or half else EMPTY_COLOR)
+	Icons.draw_stars(self, Vector2(_stars_x(row), top), star_scale, row_value(row), false,
+		EMPTY_COLOR, Icons.STAR_GAP)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -172,10 +171,10 @@ func _hit(pos: Vector2) -> Vector2:
 		if is_row_locked(row):
 			continue
 		for n: int in range(1, STAR_COUNT + 1):
-			var left: float = _stars_x(row) + float(n - 1) * (_star_px() + STAR_GAP)
+			var left: float = _stars_x(row) + float(n - 1) * (_star_px() + _star_gap())
 			if pos.x < left or pos.x >= left + _star_px():
 				continue
-			var half: bool = pos.x < left + _star_px() / 2.0
+			var half: bool = pos.x < left + float(Icons.CELL / 2 * star_scale)
 			return Vector2(float(row), float(n) - (STEP if half else 0.0))
 	return Vector2(-1.0, 0.0)
 
@@ -189,11 +188,15 @@ func _stars_x(row: int) -> float:
 
 
 func _stars_width() -> float:
-	return float(STAR_COUNT) * _star_px() + float(STAR_COUNT - 1) * STAR_GAP
+	return float(Icons.stars_width(star_scale))
 
 
 func _star_px() -> float:
-	return float(DifficultyStars.STAR_SIZE_PX) * CELL_PX
+	return float(Icons.CELL * star_scale)
+
+
+func _star_gap() -> float:
+	return float(Icons.STAR_GAP * star_scale)
 
 
 #A locked row keeps the end it is pinned to, so neither a stored pair nor the push rule of the

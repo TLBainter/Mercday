@@ -84,7 +84,7 @@ theme_override_font_sizes/font_size = 9
 layout_mode = 2
 alignment = 2
 font_size = 26
-glyph_scale = 3
+glyph_scale = 2
 
 [node name="ChangeLabel" type="Label" parent="Row/Centre/Header/PriceCol"]
 layout_mode = 2

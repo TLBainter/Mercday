@@ -9,33 +9,22 @@ const LOCKED_PAGE := preload("res://Scenes/GUI/Shared/LockedPage.tscn")
 const TAB_BUTTON := preload("res://Scenes/GUI/Mercs/TabButton.tscn")
 const GRID_MENU_BUTTON := preload("res://Scenes/GUI/Shared/GridMenuButton.tscn")
 const NOTIFICATION_DOT := preload("res://Scenes/GUI/Shared/NotificationDot.tscn")
-const SAMPLE_ICON := "res://Art/GUI/Icons/pip_auto_8x8.png"
 const TEST_UPGRADE := "oddjobs"
 #Gate keys of SubscriptionManager.entitlements(): a flag, a tier count, and a key it never holds.
 const FLAG_KEY := "bazaar"
 const TIER_KEY := "oddJobs"
 const MISSING_KEY := "noSuchEntitlementKey"
 
-const ICON_NAMES: Array[String] = [
-	"bazaar_search_10x10.png", "bazaar_tab_cart_12x12.png", "bazaar_tab_orders_12x12.png",
-	"bazaar_tab_shop_12x12.png", "campaign_direct_12x12.png", "campaign_flyers_12x12.png",
-	"campaign_radio_12x12.png", "campaign_sponsor_12x12.png", "campaign_wom_12x12.png",
-	"coach_whistle_12x12.png", "customize_base_mercday_logo_12x12.png",
-	"customize_bazaarCat_12x12.png", "customize_bazaar_12x12.png",
-	"customize_betteritems_12x12.png", "customize_counsel_12x12.png",
-	"customize_fasteritems_12x12.png", "customize_legalCat_12x12.png",
-	"customize_lessLegal_12x12.png", "customize_oddjobs_12x12.png",
-	"customize_opspermit_12x12.png", "customize_representation_12x12.png",
-	"customize_teleport_12x12.png", "customize_whoknows_12x12.png",
-	"finance_tab_hiring_12x12.png", "hiring_eye_12x8.png", "hud_my_bazaar_16x16.png",
-	"hud_my_legal_gavel_16x16.png", "hud_my_promotions_16x16.png", "legal_tab_bail_12x12.png",
-	"legal_tab_fines_12x12.png", "legal_tab_permits_12x12.png", "metrics_tab_contract_16x16.png",
-	"metrics_tab_guild_16x16.png", "metrics_tab_merc_16x16.png", "pip_ancestral_8x8.png",
-	"pip_auto_8x8.png", "pip_defensive_8x8.png", "pip_existing_skills_8x8.png",
-	"pip_new_skills_8x8.png", "pip_offensive_8x8.png", "pip_random_8x8.png", "pip_skills_8x8.png",
-	"pip_spell_8x8.png", "pip_stats_8x8.png", "pip_support_8x8.png", "pip_tradition_8x8.png",
-	"pip_universal_8x8.png", "pip_utility_8x8.png", "promo_tab_guild_ads_12x12.png",
-	"promo_tab_job_ads_12x12.png",
+#Every icon the handoff package named, as the atlas id its screen draws now.
+const ICON_IDS: Array[String] = [
+	"magnifier", "cart", "parcel", "shop", "direct_sale", "flyers", "radio", "sponsorship",
+	"wom", "whistle", "mercday", "bazaar_cat", "bazaar_node", "better_items", "counsel",
+	"faster_items", "legal_cat", "less_legal", "odd_jobs", "ops_permit", "representation",
+	"teleport", "who_knows", "add_person", "eye", "bazaar", "legal", "promotions", "bail_bars",
+	"coin", "permit", "contracts", "guild_banner", "mercs", "pip_ancestral", "pip_auto",
+	"pip_defensive", "pip_existing", "pip_new", "pip_offensive", "pip_random", "pip_skills",
+	"pip_spell", "pip_stats", "pip_support", "pip_tradition", "pip_universal", "pip_utility",
+	"guild_ads", "job_ads",
 ]
 
 
@@ -103,16 +92,37 @@ static func _case_gui_colors(res: Dictionary) -> void:
 
 static func _case_lock_glyph(res: Dictionary) -> void:
 	var tex: ImageTexture = GuiGlyphs.lock(Color.WHITE, 3)
-	TestFixtures.check(res, "the lock glyph scales to 7x8 cells",
-		tex.get_width() == GuiGlyphs.LOCK_COLS * 3 and tex.get_height() == GuiGlyphs.LOCK_ROWS * 3,
-		"got %dx%d" % [tex.get_width(), tex.get_height()])
+	TestFixtures.check(res, "the lock glyph scales to 24 by 27",
+		tex.get_size() == Vector2(24, 27), str(tex.get_size()))
 	var img: Image = tex.get_image()
-	var painted: bool = img.get_pixel(0, 3 * 3).a > 0.0
-	TestFixtures.check(res, "the lock glyph paints its shackle row, not an empty box",
-		painted, "top-left of the body row was %s" % img.get_pixel(0, 3 * 3))
+	var lit: int = 0
+	var pure: int = 0
+	var tinted_bad: int = 0
+	for y: int in img.get_height():
+		for x: int in img.get_width():
+			var px: Color = img.get_pixel(x, y)
+			if px.a <= 0.0:
+				continue
+			lit += 1
+			if px.r >= 1.0 and px.g >= 1.0 and px.b >= 1.0:
+				pure += 1
+			elif not (is_equal_approx(px.r, px.g) and is_equal_approx(px.g, px.b)):
+				tinted_bad += 1
+	TestFixtures.check(res, "a white tint paints the lock art white",
+		lit > 0 and pure > 0 and tinted_bad == 0,
+		"lit %d pure %d off %d" % [lit, pure, tinted_bad])
 	var cached_again: ImageTexture = GuiGlyphs.lock(Color.WHITE, 3)
 	TestFixtures.check(res, "the lock glyph is cached by colour and scale",
 		tex == cached_again, "distinct instances returned for the same key")
+	TestFixtures.check(res, "the check glyph is 11 by 10",
+		GuiGlyphs.check(Color.WHITE).get_size() == Vector2(11, 10),
+		str(GuiGlyphs.check(Color.WHITE).get_size()))
+	TestFixtures.check(res, "the cross glyph is 10 by 10",
+		GuiGlyphs.cross(Color.WHITE).get_size() == Vector2(10, 10),
+		str(GuiGlyphs.cross(Color.WHITE).get_size()))
+	TestFixtures.check(res, "the funnel glyph is 10 by 10",
+		GuiGlyphs.funnel(Color.WHITE).get_size() == Vector2(10, 10),
+		str(GuiGlyphs.funnel(Color.WHITE).get_size()))
 
 
 static func _case_notification_dot(res: Dictionary, host: Node) -> void:
@@ -412,7 +422,7 @@ static func _case_tab_button(res: Dictionary, host: Node) -> void:
 		not tab.badge_panel.visible and tab.dot_node.visible,
 		"badge %s dot %s" % [tab.badge_panel.visible, tab.dot_node.visible])
 	tab.dot = false
-	tab.set_icon_texture(load(SAMPLE_ICON) as Texture2D)
+	tab.icon_id = "lock"
 	tab.locked = true
 	TestFixtures.check(res, "locked draws the lock glyph over the icon",
 		tab.lock_overlay.visible, "visible was %s" % tab.lock_overlay.visible)
@@ -467,9 +477,19 @@ static func _case_grid_menu_button(res: Dictionary, host: Node) -> void:
 
 static func _case_icons(res: Dictionary) -> void:
 	var bad: Array[String] = []
-	for name: String in ICON_NAMES:
-		var tex: Texture2D = load("res://Art/GUI/Icons/%s" % name) as Texture2D
-		if tex == null:
-			bad.append(name)
-	TestFixtures.check(res, "every handoff icon loads from Art/GUI/Icons",
-		bad.is_empty(), TestFixtures.detail(bad, ICON_NAMES.size(), "icons"))
+	for id: String in ICON_IDS:
+		if not Icons.has(id) or Icons.tex(id) == null:
+			bad.append(id)
+	TestFixtures.check(res, "every handoff icon is a cell of the icon sheet",
+		bad.is_empty(), TestFixtures.detail(bad, ICON_IDS.size(), "icons"))
+	var loose: Array[String] = []
+	var dir: DirAccess = DirAccess.open(Icons.ATLAS_PATH.get_base_dir())
+	if dir != null:
+		for file: String in dir.get_files():
+			var name: String = file.trim_suffix(".import")
+			if not name.ends_with(".png") or name == Icons.ATLAS_PATH.get_file():
+				continue
+			if not loose.has(name):
+				loose.append(name)
+	TestFixtures.check(res, "Art/GUI/Icons holds no loose icon PNG", loose.is_empty(),
+		TestFixtures.detail(loose, loose.size(), "loose png"))

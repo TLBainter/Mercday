@@ -26,10 +26,10 @@ const RED: Color = Color("#e8583f")
 const YELLOW: Color = Color("#f2d33d")
 const FACE_PX: int = 96
 const FACE_BAND: int = 6
-const FACE_SCALE: int = 3
+const FACE_SCALE: int = 2
 const CELL_HEIGHT: int = 45
 const GRID_HEIGHT: int = 98
-const STAR_SIZE: int = 2
+const STAR_SIZE: int = 1
 const DASH_TEXT: String = "-"
 const DASH_SIZE: int = 13
 const CELL_LABEL_SIZE: int = 9
@@ -247,6 +247,7 @@ func _build_stats() -> void:
 	_stars = STARS_SCENE.instantiate()
 	box.add_child(_stars)
 	_stars.star_size = STAR_SIZE
+	_stars.empty_color = Icons.UNUSED_STAR_CLIENT
 	_dash = Label.new()
 	_dash.text = DASH_TEXT
 	_dash.add_theme_font_override(&"font", DASH_FONT)

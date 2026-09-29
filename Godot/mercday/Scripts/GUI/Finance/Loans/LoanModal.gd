@@ -1,12 +1,11 @@
 class_name LoanModal extends Control
 
 #The shared shell of every Loans window: the dim backdrop, the ringed frame, the title row with
-#the red X and a body a subclass fills. Subclasses override the small virtuals, never _ready.
+#the shared close art and a body a subclass fills. Subclasses override the small virtuals,
+#never _ready.
 
 signal closed
 
-const CLOSE_SIDE: float = 48.0
-const CLOSE_TEXT: String = "X"
 const HEADER_GAP: int = 10
 const BODY_GAP: int = 14
 const TITLE_SIZE: int = 18
@@ -166,8 +165,8 @@ func _header() -> HBoxContainer:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(spacer)
 	if has_close():
-		_close = LoanStyle.button(CLOSE_TEXT, LoanStyle.RED_X, LoanStyle.CREAM, CLOSE_SIDE)
-		_close.custom_minimum_size = Vector2(CLOSE_SIDE, CLOSE_SIDE)
+		_close = Button.new()
+		CloseX.style(_close, CloseX.SCALE_WINDOW)
 		_close.tooltip_text = close_tip()
 		_close.focus_mode = Control.FOCUS_NONE
 		_close.pressed.connect(close_window)

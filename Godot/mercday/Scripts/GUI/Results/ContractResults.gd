@@ -8,7 +8,6 @@ signal finished(entry_id: int)
 
 const ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Results/ResultRow.tscn")
 const BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const PANEL_PAD: float = 22.0
 const PANEL_BEVEL: float = 4.0
 const BEVEL_HI: Color = Color("#28447a")
 const BEVEL_LO: Color = Color("#111c33")
@@ -30,7 +29,7 @@ const GREEN_FG: Color = Color("#0a0f1c")
 const DISABLED_ALPHA: float = 0.4
 const WAIT_TIP: String = "Tallying results..."
 const TITLE_SPACING: int = 1
-const CLOSE_GAP: float = 4.0
+const CLOSE_INSET: float = 10.0
 
 @onready var backdrop: ColorRect = $Backdrop
 @onready var panel_shadow: ColorRect = $PanelShadow
@@ -67,6 +66,7 @@ func _ready() -> void:
 	panel.draw.connect(_on_panel_draw)
 	note_layer.draw.connect(_on_notes_draw)
 	continue_button.pressed.connect(press_continue)
+	CloseX.style(close_button, CloseX.SCALE_WINDOW)
 	close_button.pressed.connect(press_continue)
 	continue_button.edge = CONTINUE_BEVEL
 	_style_continue(false)
@@ -239,9 +239,9 @@ func _dock_rect() -> Rect2:
 
 
 func _place_close() -> void:
-	close_button.size = close_button.get_combined_minimum_size()
-	var corner := Vector2(overlay.size.x + PANEL_PAD + CLOSE_GAP, -PANEL_PAD - CLOSE_GAP)
-	close_button.position = corner - close_button.size / 2.0
+	close_button.size = CloseX.size(CloseX.SCALE_WINDOW)
+	close_button.position = Vector2(overlay.size.x - CLOSE_INSET - 30.0 - 3.0,
+		CLOSE_INSET - 3.0)
 
 
 func _place_shadow() -> void:
@@ -290,6 +290,8 @@ func _draw_note(origin: Vector2) -> void:
 			NOTE_BEVEL), NOTE_LO)
 	note_layer.draw_rect(Rect2(rect.end.x - NOTE_BEVEL, rect.position.y, NOTE_BEVEL,
 			rect.size.y), NOTE_LO)
+	Icons.draw(note_layer, "note", origin + ((NOTE_SIZE - Vector2(5.0, 9.0)) / 2.0).floor(), 1,
+		NOTE_INK, true)
 
 
 func _local(point: Vector2) -> Vector2:

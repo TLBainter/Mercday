@@ -216,13 +216,15 @@ func _place_panel() -> void:
 		BELL_SIZE.y + PANEL_GAP)
 
 
+#The art is the whole bell cell; an open panel swaps in the two-tone image, never a flat tint.
 func _fill_glyph() -> void:
 	if _center == null:
 		return
 	for child: Node in _center.get_children():
 		_center.remove_child(child)
 		child.queue_free()
-	_center.add_child(NotifyGlyphs.shadowed(NotifyGlyphs.bell(glyph_color(), GLYPH_SCALE)))
+	var mode: StringName = Icons.MODE_TWO_TONE if panel_open() else Icons.MODE_PLAIN
+	_center.add_child(NotifyGlyphs.shadowed(Icons.baked("bell", GLYPH_SCALE, mode)))
 
 
 func _on_item_pressed(data: NotificationData) -> void:

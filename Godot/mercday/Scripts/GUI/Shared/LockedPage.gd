@@ -11,7 +11,7 @@ const PANEL_WIDTH: float = 520.0
 const PANEL_BORDER: int = 4
 const PANEL_BG: Color = Color("#1a2b4d")
 const PANEL_EDGE: Color = Color("#f2d33d")
-const ICON_SCALE: int = 3
+const ICON_SCALE: int = 6
 
 @export var feature: String = "":
 	set(value):

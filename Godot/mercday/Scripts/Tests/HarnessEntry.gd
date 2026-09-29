@@ -110,6 +110,9 @@ static func run(host: Node) -> bool:
 	if args.has("--gui-atom-tests"):
 		host.get_tree().quit(0 if await GuiAtomTests.run(host) else 1)
 		return true
+	if args.has("--gui-icon-tests"):
+		host.get_tree().quit(0 if await GuiIconTests.run(host) else 1)
+		return true
 	if args.has("--gui-promo-tests"):
 		host.get_tree().quit(0 if await GuiPromoTests.run(host) else 1)
 		return true

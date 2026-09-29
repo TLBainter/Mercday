@@ -20,8 +20,6 @@ const BOX_INSET: float = 4.0
 const RING_COLOR: Color = Color("#f28c28")
 const SHADOW_OFFSET: Vector2 = Vector2(10.0, 10.0)
 const SHADOW_COLOR: Color = Color(0.0, 0.0, 0.0, 0.5)
-const CLOSE_COLOR: Color = Color("#ff3b2f")
-const CLOSE_HOVER: Color = Color("#ff6a55")
 const TITLE_COLOR: Color = Color("#f28c28")
 const DESC_COLOR: Color = Color("#9cc6ef")
 const EMPTY_COLOR: Color = Color("#9cc6ef")
@@ -33,7 +31,9 @@ const ROW_NAME_COLOR: Color = Color("#f3ead7")
 const ROW_PORTRAIT_PX: int = 40
 const ROW_GAP: int = 10
 const ROW_COL_GAP: int = 6
-const CLOSE_SIZE: float = 40.0
+#The close art sits CLOSE_INSET in from the panel corner; CLOSE_RIM is its outline ring.
+const CLOSE_INSET: float = 10.0
+const CLOSE_RIM: float = 3.0
 
 const FONT_BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
 const MERC_PORTRAIT_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MercPortrait.tscn")
@@ -209,7 +209,7 @@ func _rebuild_list() -> void:
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(name_label)
 		var stars: FitStars = FIT_STARS_SCENE.instantiate() as FitStars
-		stars.cell = 2
+		stars.cell = 1
 		stars.value = fit_val
 		stars.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(stars)
@@ -232,15 +232,8 @@ func _style_labels() -> void:
 	empty_label.add_theme_font_size_override(&"font_size", 14)
 	empty_label.add_theme_color_override(&"font_color", EMPTY_COLOR)
 	remove_button.set_colors(REMOVE_BG, REMOVE_HI, REMOVE_LO, REMOVE_TEXT)
-	close_button.text = "X"
-	close_button.flat = true
+	CloseX.style(close_button, CloseX.SCALE_WINDOW)
 	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.custom_minimum_size = Vector2(CLOSE_SIZE, CLOSE_SIZE)
-	close_button.add_theme_font_override(&"font", FONT_BOLD)
-	close_button.add_theme_font_size_override(&"font_size", 40)
-	close_button.add_theme_color_override(&"font_color", CLOSE_COLOR)
-	close_button.add_theme_color_override(&"font_hover_color", CLOSE_HOVER)
-	close_button.add_theme_color_override(&"font_pressed_color", CLOSE_HOVER)
 
 
 func _box_style() -> StyleBoxFlat:
@@ -276,7 +269,9 @@ func _place_box() -> void:
 	box.position = Vector2((view.x - box.size.x) / 2.0,
 		(GuiFrameStack.band_height(view.y) - box.size.y) / 2.0)
 	box.position.y = maxf(box.position.y, 0.0)
-	close_button.position = box.position + Vector2(box.size.x - CLOSE_SIZE / 2.0, -CLOSE_SIZE / 2.0)
+	var art: float = float(CloseX.ART * CloseX.SCALE_WINDOW)
+	close_button.position = box.position + Vector2(box.size.x - CLOSE_INSET - art - CLOSE_RIM,
+		CLOSE_INSET - CLOSE_RIM)
 
 
 func _draw_edges() -> void:

@@ -222,10 +222,10 @@ func _apply_style() -> void:
 		box_style.border_width_right = 1
 		box_style.border_width_bottom = 1
 		box_style.border_color = GuiColors.LOCK_RING
-		box_style.content_margin_left = 2.0
-		box_style.content_margin_top = 2.0
-		box_style.content_margin_right = 2.0
-		box_style.content_margin_bottom = 2.0
+		box_style.content_margin_left = 1.0
+		box_style.content_margin_top = 1.0
+		box_style.content_margin_right = 1.0
+		box_style.content_margin_bottom = 1.0
 	for state: StringName in [&"normal", &"hover", &"pressed", &"focus", &"disabled"]:
 		add_theme_stylebox_override(state, btn_style)
 	lock_box.add_theme_stylebox_override(&"panel", box_style)

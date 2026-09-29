@@ -12,9 +12,7 @@ const TITLE_COLOR: Color = Color("#f3ead7")
 const TITLE_CLOSED: Color = Color("#9cc6ef")
 const BADGE_SIZE: int = 9
 const BADGE_TEXT: Color = Color("#0a0f1c")
-const CARET_PX: int = 9
-const CARET_ROWS: int = 5
-const CARET_OFFSET: int = 2
+const CARET_PX: int = 10
 const CARET_COLOR: Color = Color("#9cc6ef")
 const ROW_GAP: int = 10
 const BODY_GAP: int = 12
@@ -42,8 +40,6 @@ const FONT_BADGE: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold
 @onready var badge_label: Label = $Head/Row/Badge/Count
 @onready var body_box: PanelContainer = $Body
 @onready var body_rows: VBoxContainer = $Body/Rows
-
-static var _carets: Dictionary = {}
 
 var _count: int = 0
 
@@ -135,19 +131,6 @@ func refresh() -> void:
 		head.add_theme_stylebox_override(state, STYLE_HEAD_OPEN if open else STYLE_HEAD_CLOSED)
 
 
-#The caret the icon set does not carry: a filled triangle, down when open and right when closed.
+#The caret of the header: the atlas caret, down when the group is open and right when it is shut.
 static func caret_texture(open: bool, color: Color) -> ImageTexture:
-	var key: String = "%s_%s" % ["down" if open else "right", color.to_html(true)]
-	if _carets.has(key):
-		return _carets[key] as ImageTexture
-	var img: Image = Image.create_empty(CARET_PX, CARET_PX, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.0, 0.0, 0.0, 0.0))
-	for step: int in range(CARET_ROWS):
-		for far: int in range(step, CARET_PX - step):
-			if open:
-				img.set_pixel(far, step + CARET_OFFSET, color)
-			else:
-				img.set_pixel(step + CARET_OFFSET, far, color)
-	var tex: ImageTexture = ImageTexture.create_from_image(img)
-	_carets[key] = tex
-	return tex
+	return Icons.tinted("caret_down" if open else "caret_right", color, 2, true)

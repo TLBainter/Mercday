@@ -103,136 +103,141 @@ theme_override_fonts/font = ExtResource("8")
 theme_override_font_sizes/font_size = 9
 autowrap_mode = 3
 
-[node name="Lineage" type="VBoxContainer" parent="Rows"]
-theme_override_constants/separation = 6
+[node name="Scroll" type="ScrollContainer" parent="Rows"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+follow_focus = true
 
-[node name="Heritage" type="PanelContainer" parent="Rows/Lineage"]
+[node name="Lineage" type="VBoxContainer" parent="Rows/Scroll"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Heritage" type="PanelContainer" parent="Rows/Scroll/Lineage"]
 theme_override_styles/panel = SubResource("StyleBoxFlat_lineage")
 
-[node name="Lines" type="VBoxContainer" parent="Rows/Lineage/Heritage"]
+[node name="Lines" type="VBoxContainer" parent="Rows/Scroll/Lineage/Heritage"]
 theme_override_constants/separation = 2
 
-[node name="Caption" type="Label" parent="Rows/Lineage/Heritage/Lines"]
+[node name="Caption" type="Label" parent="Rows/Scroll/Lineage/Heritage/Lines"]
 theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
 theme_override_fonts/font = ExtResource("8")
 theme_override_font_sizes/font_size = 10
 text = "Heritage"
 
-[node name="Value" type="Label" parent="Rows/Lineage/Heritage/Lines"]
+[node name="Value" type="Label" parent="Rows/Scroll/Lineage/Heritage/Lines"]
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("9")
 theme_override_font_sizes/font_size = 15
 clip_text = true
 
-[node name="Lock" parent="Rows/Lineage/Heritage/Lines" instance=ExtResource("11")]
+[node name="Lock" parent="Rows/Scroll/Lineage/Heritage/Lines" instance=ExtResource("11")]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 0
 
-[node name="Primary" type="PanelContainer" parent="Rows/Lineage"]
+[node name="Primary" type="PanelContainer" parent="Rows/Scroll/Lineage"]
 theme_override_styles/panel = SubResource("StyleBoxFlat_lineage")
 
-[node name="Lines" type="VBoxContainer" parent="Rows/Lineage/Primary"]
+[node name="Lines" type="VBoxContainer" parent="Rows/Scroll/Lineage/Primary"]
 theme_override_constants/separation = 2
 
-[node name="Caption" type="Label" parent="Rows/Lineage/Primary/Lines"]
+[node name="Caption" type="Label" parent="Rows/Scroll/Lineage/Primary/Lines"]
 theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
 theme_override_fonts/font = ExtResource("8")
 theme_override_font_sizes/font_size = 10
 text = "Primary Ancestry"
 
-[node name="Value" type="Label" parent="Rows/Lineage/Primary/Lines"]
+[node name="Value" type="Label" parent="Rows/Scroll/Lineage/Primary/Lines"]
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("9")
 theme_override_font_sizes/font_size = 15
 clip_text = true
 
-[node name="BloodLock" parent="Rows/Lineage/Primary/Lines" instance=ExtResource("11")]
+[node name="BloodLock" parent="Rows/Scroll/Lineage/Primary/Lines" instance=ExtResource("11")]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="AncestryLock" parent="Rows/Lineage/Primary/Lines" instance=ExtResource("11")]
+[node name="AncestryLock" parent="Rows/Scroll/Lineage/Primary/Lines" instance=ExtResource("11")]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Secondary" type="PanelContainer" parent="Rows/Lineage"]
+[node name="Secondary" type="PanelContainer" parent="Rows/Scroll/Lineage"]
 theme_override_styles/panel = SubResource("StyleBoxFlat_lineage")
 
-[node name="Lines" type="VBoxContainer" parent="Rows/Lineage/Secondary"]
+[node name="Lines" type="VBoxContainer" parent="Rows/Scroll/Lineage/Secondary"]
 theme_override_constants/separation = 2
 
-[node name="Caption" type="Label" parent="Rows/Lineage/Secondary/Lines"]
+[node name="Caption" type="Label" parent="Rows/Scroll/Lineage/Secondary/Lines"]
 theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
 theme_override_fonts/font = ExtResource("8")
 theme_override_font_sizes/font_size = 10
 text = "Secondary Ancestry"
 
-[node name="Value" type="Label" parent="Rows/Lineage/Secondary/Lines"]
+[node name="Value" type="Label" parent="Rows/Scroll/Lineage/Secondary/Lines"]
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("9")
 theme_override_font_sizes/font_size = 15
 clip_text = true
 
-[node name="BloodLock" parent="Rows/Lineage/Secondary/Lines" instance=ExtResource("11")]
+[node name="BloodLock" parent="Rows/Scroll/Lineage/Secondary/Lines" instance=ExtResource("11")]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="AncestryLock" parent="Rows/Lineage/Secondary/Lines" instance=ExtResource("11")]
+[node name="AncestryLock" parent="Rows/Scroll/Lineage/Secondary/Lines" instance=ExtResource("11")]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Age" type="PanelContainer" parent="Rows/Lineage"]
+[node name="Age" type="PanelContainer" parent="Rows/Scroll/Lineage"]
 theme_override_styles/panel = SubResource("StyleBoxFlat_lineage")
 
-[node name="Lines" type="VBoxContainer" parent="Rows/Lineage/Age"]
+[node name="Lines" type="VBoxContainer" parent="Rows/Scroll/Lineage/Age"]
 theme_override_constants/separation = 2
 
-[node name="Caption" type="Label" parent="Rows/Lineage/Age/Lines"]
+[node name="Caption" type="Label" parent="Rows/Scroll/Lineage/Age/Lines"]
 theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
 theme_override_fonts/font = ExtResource("8")
 theme_override_font_sizes/font_size = 10
 text = "Age"
 
-[node name="Value" type="Label" parent="Rows/Lineage/Age/Lines"]
+[node name="Value" type="Label" parent="Rows/Scroll/Lineage/Age/Lines"]
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("9")
 theme_override_font_sizes/font_size = 15
 clip_text = true
 
-[node name="Lock" parent="Rows/Lineage/Age/Lines" instance=ExtResource("11")]
+[node name="Lock" parent="Rows/Scroll/Lineage/Age/Lines" instance=ExtResource("11")]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 0
 
-[node name="Criminality" type="PanelContainer" parent="Rows/Lineage"]
+[node name="Criminality" type="PanelContainer" parent="Rows/Scroll/Lineage"]
 theme_override_styles/panel = SubResource("StyleBoxFlat_lineage")
 
-[node name="Lines" type="VBoxContainer" parent="Rows/Lineage/Criminality"]
+[node name="Lines" type="VBoxContainer" parent="Rows/Scroll/Lineage/Criminality"]
 theme_override_constants/separation = 2
 
-[node name="Caption" type="Label" parent="Rows/Lineage/Criminality/Lines"]
+[node name="Caption" type="Label" parent="Rows/Scroll/Lineage/Criminality/Lines"]
 theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
 theme_override_fonts/font = ExtResource("8")
 theme_override_font_sizes/font_size = 10
 text = "Criminality"
 
-[node name="Value" type="Label" parent="Rows/Lineage/Criminality/Lines"]
+[node name="Value" type="Label" parent="Rows/Scroll/Lineage/Criminality/Lines"]
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("9")
 theme_override_font_sizes/font_size = 15
 clip_text = true
 
-[node name="Lock" parent="Rows/Lineage/Criminality/Lines" instance=ExtResource("11")]
+[node name="Lock" parent="Rows/Scroll/Lineage/Criminality/Lines" instance=ExtResource("11")]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 0
-
-[node name="Spacer" type="Control" parent="Rows"]
-size_flags_vertical = 3
 
 [node name="Salary" parent="Rows" instance=ExtResource("6")]
 layout_mode = 2

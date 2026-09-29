@@ -10,6 +10,8 @@ extends RefCounted
 const HUD_SCENE: String = "res://Scenes/GUI/HUD/GameHUD.tscn"
 const DISPATCH_SCENE: String = "res://Scenes/GUI/Contracts/DispatchWindow.tscn"
 const CONTENT_SIZE: Vector2 = Vector2(1280.0, 720.0)
+#ICON_SHEET_UPDATE.md:77: a HUD window band is 1280 x 644 above the 76 px bottom bar.
+const BAND_SIZE: Vector2 = Vector2(1280.0, 644.0)
 const FIT_SLACK: float = 1.0
 const RICH: int = 400000
 
@@ -67,6 +69,7 @@ const SCROLL_OWNERS: Dictionary = {
 	"res://Scripts/GUI/Mercs/RelationshipsTab.gd": 1,
 	"res://Scripts/GUI/Mercs/TraitListPanel.gd": 1,
 	"res://Scripts/GUI/Mercs/TraitTab.gd": 0,
+	"res://Scripts/GUI/Mercs/MercHeader.gd": 1,                  #ICON_SHEET_UPDATE.md:77
 	"res://Scripts/GUI/Metrics/MetricsViewer.gd": 1,
 	"res://Scripts/GUI/Notifications/NotificationPanel.gd": 1,
 	"res://Scripts/GUI/Legal/PermitsPage.gd": 1,               #RUNBOOK.md:38
@@ -705,18 +708,18 @@ static func _case_a2_scroll_report(res: Dictionary, host: Node) -> void:
 	over_root.free()
 
 
-#A2. Every viewer fits the 1280 x 720 content box of its SubWindow.
+#A2. Every viewer fits the 1280 x 644 content box of its SubWindow.
 static func _case_a2_fit(res: Dictionary, host: Node) -> void:
 	_fresh()
 	for i: int in VIEW_KEYS.size():
 		var view: Control = _spawn(host, VIEW_SCENES[i])
 		await host.get_tree().process_frame
 		await _open_all_tabs(view, VIEW_KEYS[i], host)
-		view.size = CONTENT_SIZE
+		view.size = BAND_SIZE
 		await host.get_tree().process_frame
 		var want: Vector2 = view.get_combined_minimum_size()
-		TestFixtures.check(res, "A2 %s fits the 1280 x 720 window" % VIEW_KEYS[i],
-			want.x <= CONTENT_SIZE.x + FIT_SLACK and want.y <= CONTENT_SIZE.y + FIT_SLACK,
+		TestFixtures.check(res, "A2 %s fits the 1280 x 644 window" % VIEW_KEYS[i],
+			want.x <= BAND_SIZE.x + FIT_SLACK and want.y <= BAND_SIZE.y + FIT_SLACK,
 			"minimum %s" % want)
 		_drop(view)
 		await host.get_tree().process_frame

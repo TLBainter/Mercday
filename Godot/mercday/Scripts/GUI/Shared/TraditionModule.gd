@@ -30,8 +30,10 @@ const TITLE_MARGIN: Vector2 = Vector2(14, 10)
 const ROW_MARGIN: Vector2 = Vector2(6, 2)
 const COMPACT_MARGIN: Vector2 = Vector2(4, 2)
 const SIGIL_SCALE: int = 2
-#The sigil art is 12 px, so the 20 px compact box only takes it unscaled.
+#The sigil cell is 16 px, so the 20 px compact box takes it unscaled.
 const COMPACT_SIGIL_SCALE: int = 1
+#The 28 px row box holds the same unscaled cell inside its 2 px ring.
+const ROW_SIGIL_SCALE: int = 1
 
 @export var tradition: String = "":
 	set(value):
@@ -110,6 +112,7 @@ func _apply_size() -> void:
 			box = ROW_BOX
 			separation = ROW_SEPARATION
 			font_px = ROW_FONT_PX
+			sigil_scale = ROW_SIGIL_SCALE
 		SizeMode.COMPACT:
 			margin = COMPACT_MARGIN
 			ring = COMPACT_RING_PX

@@ -37,8 +37,9 @@ const LL_COLOR: Color = Color("#e8583f")
 const DIM_ALPHA: float = 0.45
 const BEVEL: float = 2.0
 const RING_WIDTH: float = 2.0
-const ICON_SCALE: int = 4
+const ICON_SCALE: int = 3
 const ICON_TOP: float = 12.0
+const MASK_SCALE: int = 1
 const PIP_H: float = 8.0
 const PIP_W: float = 7.0
 const PIP_W_TIGHT: float = 6.0
@@ -262,15 +263,18 @@ func _draw() -> void:
 
 
 func _draw_icon(side: float, a: float) -> void:
-	var span: float = float(TreeGlyphs.COLS * ICON_SCALE)
+	var span: float = 16.0 * float(ICON_SCALE)
 	var tint: Color = _lit(icon_color(), glow_factor())
-	var icon: ImageTexture = TreeGlyphs.logo(tint) if is_base() else TreeGlyphs.icon(upgrade_id,
-		tint)
-	if icon == null:
+	var at: Vector2 = Vector2((side - span) / 2.0,
+		(side - span) / 2.0 if is_base() else ICON_TOP)
+	if is_base():
+		Icons.draw_texture(self, Icons.baked("mercday", ICON_SCALE, Icons.MODE_GRAY), at, 1,
+			Color(tint.r, tint.g, tint.b, a))
 		return
-	var top: float = (side - span) / 2.0 if is_base() else ICON_TOP
-	draw_texture_rect(icon, Rect2(Vector2((side - span) / 2.0, top), Vector2(span, span)), false,
-		Color(1.0, 1.0, 1.0, a))
+	var icon_id: String = TreeIcons.id_of(upgrade_id)
+	if icon_id == "":
+		return
+	Icons.draw(self, icon_id, at, ICON_SCALE, Color(tint.r, tint.g, tint.b, a), false)
 
 
 func _draw_pips(side: float, a: float) -> void:
@@ -299,12 +303,9 @@ func _draw_mask(side: float, a: float) -> void:
 		return
 	if UpgradeDefs.category_of(upgrade_id) == "lessLegal":
 		return
-	var mask: ImageTexture = TreeGlyphs.icon("lessLegal", LL_COLOR)
-	if mask == null:
-		return
-	var span: float = float(TreeGlyphs.COLS)
-	draw_texture_rect(mask, Rect2(Vector2(side - span - 4.0, 4.0), Vector2(span, span)), false,
-		Color(1.0, 1.0, 1.0, a))
+	var span: float = 16.0
+	Icons.draw(self, "less_legal", Vector2(side - span - 4.0, 4.0), MASK_SCALE,
+		Color(LL_COLOR.r, LL_COLOR.g, LL_COLOR.b, a), false)
 
 
 func _draw_labels(side: float, a: float) -> void:
@@ -322,9 +323,7 @@ func _draw_labels(side: float, a: float) -> void:
 	draw_string(FEE_FONT, Vector2(x, y), amount, HORIZONTAL_ALIGNMENT_LEFT, -1.0, FEE_SIZE, color)
 	var tile_at: Vector2 = Vector2(x + w1 + 2.0, y - tile.y + 1.0)
 	draw_rect(Rect2(tile_at, tile), _fade(NoteIcon.TILE_COLOR, a))
-	var glyph: Vector2 = NoteIcon.GLYPH_SIZE_PX
-	draw_texture_rect(NoteIcon.GLYPH, Rect2(tile_at + (tile - glyph) / 2.0, glyph), false,
-		Color(1.0, 1.0, 1.0, a))
+	Icons.draw(self, "note", tile_at + Vector2(2, 1), 1, _fade(NoteIcon.GLYPH_COLOR, a), true)
 	draw_string(FEE_FONT, Vector2(x + w1 + 4.0 + tile.x, y), SUFFIX, HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0, FEE_SIZE, color)
 

@@ -217,5 +217,5 @@ func _apply_look() -> void:
 		add_theme_stylebox_override(state, box)
 	for key: String in TEXT_KEYS:
 		add_theme_color_override(key, ink)
-	icon = ClientGlyphs.funnel(ink)
+	icon = GuiGlyphs.funnel(ink)
 	queue_redraw()

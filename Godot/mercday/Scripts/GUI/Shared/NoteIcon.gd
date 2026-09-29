@@ -1,11 +1,11 @@
 class_name NoteIcon extends Control
 
-#The orange currency tile with the ink note glyph centered on it.
+#The orange currency tile with the note glyph centered on it.
 
 const TILE_COLOR: Color = Color("#f28c28")
 const TILE_SIZE_PX: Vector2 = Vector2(9, 11)
-const GLYPH_SIZE_PX: Vector2 = Vector2(7, 9)
-const GLYPH: Texture2D = preload("res://Art/GUI/Icons/icon_note_currency.png")
+const GLYPH_SIZE_PX: Vector2 = Vector2(5, 9)
+const GLYPH_COLOR: Color = Color("#0a0f1c")
 
 @export var pixel_scale: int = 2:
 	set(value):
@@ -26,11 +26,8 @@ func _refresh() -> void:
 
 
 func _draw() -> void:
-	var box_size: Vector2 = tile_size(pixel_scale)
-	draw_rect(Rect2(Vector2.ZERO, box_size), TILE_COLOR)
-	var glyph_size: Vector2 = GLYPH_SIZE_PX * pixel_scale
-	var origin: Vector2 = (box_size - glyph_size) / 2.0
-	draw_texture_rect(GLYPH, Rect2(origin, glyph_size), false)
+	draw_rect(Rect2(Vector2.ZERO, tile_size(pixel_scale)), TILE_COLOR)
+	Icons.draw(self, "note", Vector2(2, 1) * pixel_scale, pixel_scale, GLYPH_COLOR, true)
 
 
 static func tile_size(scale_value: int) -> Vector2:

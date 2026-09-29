@@ -22,8 +22,8 @@ const CLOSED_LINES: Dictionary = {
 }
 const CLOSED_FALLBACK: String = "Closed"
 const DEADLINE_LINE: String = "Deadline %s"
-#The detail portrait wears the status mark at four pixels per art pixel.
-const DETAIL_MARK_SCALE: int = 4
+#The detail portrait wears the status mark at five pixels per art pixel (80 px).
+const DETAIL_MARK_SCALE: int = 5
 const CARD_COMPLETION: int = 0
 const CARD_DISTANCE: int = 1
 const CARD_URGENCY: int = 2
@@ -64,8 +64,7 @@ func _ready() -> void:
 	reward_label.mouse_entered.connect(_on_reward_entered)
 	reward_label.mouse_exited.connect(payout_tip.hide_tip)
 	level_badge.mouse_filter = MOUSE_FILTER_IGNORE
-	mark.icon_rect.pixel_scale = DETAIL_MARK_SCALE
-	mark.icon_rect.set_icon(mark.icon_rect.icon)
+	mark.mark_scale = DETAIL_MARK_SCALE
 	_refresh()
 
 

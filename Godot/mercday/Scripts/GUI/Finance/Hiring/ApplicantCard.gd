@@ -38,18 +38,17 @@ const ROW_GAP: int = 3
 const ROW_PAD_X: float = 6.0
 const ROW_PAD_Y: float = 4.0
 const FIT_ROW_PAD_Y: float = 0.0
-const FIT_STAR_CELL: int = 2
+const FIT_STAR_CELL: int = 1
 const TOP_GAP: int = 10
 const PORTRAIT_SIDE: float = 52.0
 const PORTRAIT_RING_PX: int = 2
 const HATCH_SIDE: int = 48
-const SIGIL_SIDE: float = 16.0
+const SIGIL_SIDE: float = 20.0
 const BADGE_SIDE: float = 36.0
 const BADGE_BEVEL_PX: float = 3.0
 const BUTTON_H: float = 32.0
 const VIEW_W: float = 44.0
 const BUTTON_GAP: int = 8
-const EYE_SCALE: int = 2
 const DOT_INSET: float = 13.0
 const NAME_LINES: int = 2
 
@@ -195,7 +194,7 @@ func _build_buttons() -> Control:
 	_view = HiringStyle.icon_button(HiringStyle.FONT_SILK, 10, CREAM, BLUE2, BLUE3, BLUE)
 	_view.custom_minimum_size = Vector2(VIEW_W, BUTTON_H)
 	_view.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_view.icon = HiringGlyphs.eye(CREAM, EYE_SCALE)
+	_view.icon = Icons.tex("eye", true)
 	_view.tooltip_text = VIEW_TIP
 	_view.pressed.connect(press_view)
 	HiringStyle.paint(_view, CREAM, BLUE2, BLUE3, BLUE, 0, BLUE3)

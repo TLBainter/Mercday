@@ -22,6 +22,7 @@ mouse_filter = 2
 theme_override_constants/separation = 10
 
 [node name="Caret" type="TextureRect" parent="Head/Row"]
+custom_minimum_size = Vector2(10, 10)
 mouse_filter = 2
 size_flags_vertical = 4
 stretch_mode = 3

@@ -9,9 +9,8 @@ const TAB_LABELS: Array[String] = ["People", "Places", "Orgs"]
 const TAB_TIPS: Array[String] = ["Clients who are people", "Clients who are places",
 	"Companies that issue contracts"]
 const BG_COLOR: Color = Color("#101a30")
-const ICON_COLOR: Color = Color("#f3ead7")
-const ICON_COLS: int = 12
-const ICON_PX: float = 2.0
+const TAB_ICON_IDS: Dictionary = {&"people": "person", &"places": "house", &"orgs": "building"}
+const TAB_ICON_SCALE: int = 2
 const ORGS: StringName = &"orgs"
 const RANGE_KEY: String = "1Y"
 const RANGE_FALLBACK: int = 330
@@ -153,9 +152,9 @@ func _build_tabs() -> void:
 		button.index = i
 		button.label = TAB_LABELS[i]
 		button.description = TAB_TIPS[i]
-		button.icon_cols = ICON_COLS
-		button.icon_px = ICON_PX
-		button.set_icon_texture(ClientGlyphs.tab_icon(ClientRegistry.KINDS[i], ICON_COLOR))
+		button.icon_id = String(TAB_ICON_IDS[ClientRegistry.KINDS[i]])
+		button.icon_scale = TAB_ICON_SCALE
+		button.idle_mode = Icons.MODE_PLAIN
 		button.tab_pressed.connect(_on_tab_pressed)
 		_tabs.append(button)
 

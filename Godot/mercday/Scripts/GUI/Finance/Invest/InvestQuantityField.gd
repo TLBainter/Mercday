@@ -4,8 +4,8 @@ class_name InvestQuantityField extends HBoxContainer
 #minus or plus repeats after 0.35 s, one tick every 80 ms, the amount per tick rising from 1 to
 #10. An attempt past a bound clamps the value, stops the hold, tints the field and shakes it.
 
-const STEP_SIZE: Vector2 = Vector2(38.0, 38.0)
-const MAX_SIZE: Vector2 = Vector2(56.0, 38.0)
+const STEP_SIZE: Vector2 = Vector2(28.0, 28.0)
+const MAX_SIZE: Vector2 = Vector2(56.0, 28.0)
 const HOLD_DELAY: float = 0.35
 const TICK_TIME: float = 0.08
 const STEP_MIN: int = 1

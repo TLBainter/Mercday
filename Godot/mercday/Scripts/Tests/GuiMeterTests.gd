@@ -14,10 +14,6 @@ const RESOURCE_BAR_SCENE := "res://Scenes/GUI/Shared/ResourceBar.tscn"
 const WEIGHT_BAR_SCENE := "res://Scenes/GUI/Shared/WeightBar.tscn"
 const MERC_COUNT_SCENE := "res://Scenes/GUI/Shared/MercCount.tscn"
 
-const ICON_CHECK: Texture2D = preload("res://Art/GUI/Icons/icon_check.png")
-const ICON_EXPIRED: Texture2D = preload("res://Art/GUI/Icons/icon_expired.png")
-const ICON_THUMBS_DOWN: Texture2D = preload("res://Art/GUI/Icons/icon_thumbs_down.png")
-
 
 static func run(host: Node) -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
@@ -51,15 +47,28 @@ static func _case_difficulty_stars(res: Dictionary, host: Node) -> void:
 	node.star_size = 2
 	node.rating = 3.5
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "DifficultyStars min size", node.custom_minimum_size == Vector2(106, 18),
+	TestFixtures.check(res, "DifficultyStars min size", node.custom_minimum_size == Vector2(176, 32),
 		str(node.custom_minimum_size))
 	TestFixtures.check(res, "DifficultyStars tooltip", node.tooltip_text == "3.5", node.tooltip_text)
+	TestFixtures.check(res, "DifficultyStars empty colour is the unused star blue",
+		node.empty_color == Icons.UNUSED_STAR, str(node.empty_color))
+	TestFixtures.check(res, "DifficultyStars difficulty ramp reads the Icons ramp",
+		DifficultyStars.color_for(3.5, DifficultyStars.Ramp.DIFFICULTY)
+			== Icons.star_color(3.5, false),
+		str(DifficultyStars.color_for(3.5, DifficultyStars.Ramp.DIFFICULTY)))
+	TestFixtures.check(res, "DifficultyStars match ramp reads the positive Icons ramp",
+		DifficultyStars.color_for(3.5, DifficultyStars.Ramp.MATCH) == Icons.star_color(3.5, true),
+		str(DifficultyStars.color_for(3.5, DifficultyStars.Ramp.MATCH)))
 	node.queue_free()
 
 
 static func _case_note_icon(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "NoteIcon tile_size(2)", NoteIcon.tile_size(2) == Vector2(18, 22),
 		str(NoteIcon.tile_size(2)))
+	TestFixtures.check(res, "NoteIcon glyph size", NoteIcon.GLYPH_SIZE_PX == Vector2(5, 9),
+		str(NoteIcon.GLYPH_SIZE_PX))
+	TestFixtures.check(res, "NoteIcon draws its glyph in ink",
+		NoteIcon.GLYPH_COLOR == Color("#0a0f1c"), NoteIcon.GLYPH_COLOR.to_html(false))
 	var node: NoteIcon = load(NOTE_ICON_SCENE).instantiate()
 	host.add_child(node)
 	await host.get_tree().process_frame
@@ -85,7 +94,9 @@ static func _case_tradition_sigil(res: Dictionary, host: Node) -> void:
 		node.color() == GuiTypes.tradition_color("Some Order"), str(node.color()))
 	TestFixtures.check(res, "TraditionSigil tooltip", node.tooltip_text == "Some Order", node.tooltip_text)
 	TestFixtures.check(res, "TraditionSigil min size",
-		node.custom_minimum_size == node.icon.get_size() * 2, str(node.custom_minimum_size))
+		node.custom_minimum_size == Vector2(32, 32), str(node.custom_minimum_size))
+	TestFixtures.check(res, "TraditionSigil reads the atlas sigil id",
+		Icons.sigil_id("Warrior") == "sigil_warrior", Icons.sigil_id("Warrior"))
 	node.queue_free()
 
 
@@ -156,29 +167,47 @@ static func _case_success_meter(res: Dictionary, host: Node) -> void:
 
 
 static func _case_status_mark(res: Dictionary, host: Node) -> void:
-	TestFixtures.check(res, "StatusMark icon_for(AVAILABLE)",
-		StatusMark.icon_for(GuiTypes.ContractStatus.AVAILABLE) == null, "")
-	TestFixtures.check(res, "StatusMark icon_for(ACTIVE)",
-		StatusMark.icon_for(GuiTypes.ContractStatus.ACTIVE) == null, "")
-	TestFixtures.check(res, "StatusMark icon_for(COMPLETED)",
-		StatusMark.icon_for(GuiTypes.ContractStatus.COMPLETED) == ICON_CHECK, "")
-	TestFixtures.check(res, "StatusMark icon_for(EXPIRED)",
-		StatusMark.icon_for(GuiTypes.ContractStatus.EXPIRED) == ICON_EXPIRED, "")
-	TestFixtures.check(res, "StatusMark icon_for(REJECTED)",
-		StatusMark.icon_for(GuiTypes.ContractStatus.REJECTED) == ICON_THUMBS_DOWN, "")
+	TestFixtures.check(res, "StatusMark id_for(AVAILABLE)",
+		StatusMark.id_for(GuiTypes.ContractStatus.AVAILABLE) == ""
+			and StatusMark.icon_for(GuiTypes.ContractStatus.AVAILABLE) == null, "")
+	TestFixtures.check(res, "StatusMark id_for(ACTIVE)",
+		StatusMark.id_for(GuiTypes.ContractStatus.ACTIVE) == ""
+			and StatusMark.icon_for(GuiTypes.ContractStatus.ACTIVE) == null, "")
+	TestFixtures.check(res, "StatusMark id_for(COMPLETED)",
+		StatusMark.id_for(GuiTypes.ContractStatus.COMPLETED) == "check_lg",
+		StatusMark.id_for(GuiTypes.ContractStatus.COMPLETED))
+	TestFixtures.check(res, "StatusMark id_for(EXPIRED)",
+		StatusMark.id_for(GuiTypes.ContractStatus.EXPIRED) == "prohibited",
+		StatusMark.id_for(GuiTypes.ContractStatus.EXPIRED))
+	TestFixtures.check(res, "StatusMark id_for(REJECTED)",
+		StatusMark.id_for(GuiTypes.ContractStatus.REJECTED) == "thumbs_down",
+		StatusMark.id_for(GuiTypes.ContractStatus.REJECTED))
+	TestFixtures.check(res, "StatusMark id_for(FAILED)",
+		StatusMark.id_for(GuiTypes.ContractStatus.FAILED) == "x_lg",
+		StatusMark.id_for(GuiTypes.ContractStatus.FAILED))
+	TestFixtures.check(res, "StatusMark id_of(BANG)",
+		StatusMark.id_of(StatusMark.Mark.BANG) == "alert",
+		StatusMark.id_of(StatusMark.Mark.BANG))
+	TestFixtures.check(res, "StatusMark icon_for(COMPLETED) is the atlas cell",
+		StatusMark.icon_for(GuiTypes.ContractStatus.COMPLETED) == Icons.tex("check_lg"), "")
+	TestFixtures.check(res, "StatusMark mark_size(5)", StatusMark.mark_size(5) == Vector2(80, 80),
+		str(StatusMark.mark_size(5)))
 	var node: StatusMark = load(STATUS_MARK_SCENE).instantiate()
 	host.add_child(node)
 	await host.get_tree().process_frame
 	node.status = GuiTypes.ContractStatus.AVAILABLE
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "StatusMark min size", node.custom_minimum_size == Vector2(28, 28),
+	TestFixtures.check(res, "StatusMark min size", node.custom_minimum_size == Vector2(32, 32),
 		str(node.custom_minimum_size))
 	TestFixtures.check(res, "StatusMark hides icon when none", node.icon_rect.visible == false, "")
 	node.status = GuiTypes.ContractStatus.COMPLETED
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "StatusMark shows icon when present", node.icon_rect.visible == true, "")
+	TestFixtures.check(res, "StatusMark carries the mark id at the mark scale",
+		node.icon_rect.icon_id == "check_lg" and node.icon_rect.pixel_scale == 2,
+		"id '%s' scale %d" % [node.icon_rect.icon_id, node.icon_rect.pixel_scale])
 	TestFixtures.check(res, "StatusMark icon centres in its rect",
-		node.icon_rect.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED, "")
+		node.icon_rect.stretch_mode == TextureRect.STRETCH_KEEP_CENTERED, "")
 	node.queue_free()
 
 
@@ -271,21 +300,6 @@ static func _case_merc_count(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "MercCount color_at(2,2,4)", MercCount.color_at(2, 2, 4) == Color("#f3ead7"), "")
 	TestFixtures.check(res, "MercCount color_at(3,2,4)", MercCount.color_at(3, 2, 4) == Color("#f3ead7"), "")
 	TestFixtures.check(res, "MercCount color_at(4,2,4)", MercCount.color_at(4, 2, 4) == Color("#3b6fb6"), "")
-	var hollow: PackedStringArray = MercCount.hollow_map()
-	TestFixtures.check(res, "MercCount hollow_map row count", hollow.size() == 14, str(hollow.size()))
-	var row_len_ok: bool = true
-	for line: String in hollow:
-		if line.length() != 10:
-			row_len_ok = false
-	TestFixtures.check(res, "MercCount hollow_map row width", row_len_ok, "")
-	var full_hashes: int = 0
-	for line: String in MercCount.SILHOUETTE_MAP:
-		full_hashes += line.count("#")
-	var hollow_hashes: int = 0
-	for line: String in hollow:
-		hollow_hashes += line.count("#")
-	TestFixtures.check(res, "MercCount hollow_map has fewer hashes", hollow_hashes < full_hashes,
-		"%d vs %d" % [hollow_hashes, full_hashes])
 	var node: MercCount = load(MERC_COUNT_SCENE).instantiate()
 	host.add_child(node)
 	await host.get_tree().process_frame
@@ -293,7 +307,7 @@ static func _case_merc_count(res: Dictionary, host: Node) -> void:
 	node.required = 1
 	node.allowed = 1
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "MercCount min size", node.custom_minimum_size == Vector2(116, 28),
+	TestFixtures.check(res, "MercCount min size", node.custom_minimum_size == Vector2(156, 28),
 		str(node.custom_minimum_size))
 	TestFixtures.check(res, "MercCount tooltip singular", node.tooltip_text == "Requires 1, up to 1 merc",
 		node.tooltip_text)

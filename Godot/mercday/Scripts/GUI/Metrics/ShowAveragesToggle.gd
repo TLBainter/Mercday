@@ -67,4 +67,4 @@ func _draw_swatch() -> void:
 	if not button_pressed:
 		return
 	var mark: Texture2D = GuiGlyphs.check(CHECK_COLOR)
-	swatch.draw_texture(mark, (rect.size - mark.get_size()) * 0.5)
+	swatch.draw_texture(mark, ((rect.size - mark.get_size()) * 0.5).floor())

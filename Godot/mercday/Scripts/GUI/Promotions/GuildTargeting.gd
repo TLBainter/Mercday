@@ -16,6 +16,8 @@ const ROW_GAP: int = 10
 const COLUMN_GAP: int = 12
 const TARGET_KEY: StringName = &"target"
 const DIFF_KEY: StringName = &"diff"
+#The difficulty rows sit in the full width top column, so their stars draw at 32 px.
+const DIFF_STAR_SCALE: int = 2
 const TYPE_KEY: StringName = &"ctype"
 const LOC_KEY: StringName = &"loc"
 const LOCK_VERB: String = "target"
@@ -228,6 +230,8 @@ func _build() -> void:
 		var parent: VBoxContainer = _parent_for(key)
 		var section: FilterSection = SECTION_SCENE.instantiate() as FilterSection
 		section.lock_verb = LOCK_VERB
+		if key == DIFF_KEY:
+			section.star_scale = DIFF_STAR_SCALE
 		section.size_flags_horizontal = SIZE_EXPAND_FILL
 		parent.add_child(section)
 		section.setup(_patched(def), _values.get(key, null), _ent)

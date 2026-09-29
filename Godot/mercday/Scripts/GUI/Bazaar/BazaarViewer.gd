@@ -11,8 +11,9 @@ enum Tab {SHOP, CART, ORDERS}
 const TAB_KEYS: Array[StringName] = [&"shop", &"cart", &"orders"]
 const TAB_LABELS: Array[String] = ["Shop", "Cart", "Orders"]
 const TAB_TIPS: Array[String] = ["Shop the Bazaar", "Your cart", "Your orders"]
-const ICON_COLS: int = 12
-const ICON_PX: float = 2.0
+#The three tab cells of the icon sheet, in the TAB_LABELS order.
+const TAB_ICON_IDS: Array[String] = ["shop", "cart", "parcel"]
+const TAB_ICON_SCALE: int = 2
 const LOCK_FEATURE_PLAN: String = "the Bazaar"
 const LOCK_FEATURE_UPGRADE: String = "The Bazaar"
 #README C2 line 212: Cart and Orders tab badges read in this orange.
@@ -36,9 +37,6 @@ var _tab: StringName = TAB_KEYS[0]
 
 func _ready() -> void:
 	_tab = TAB_KEYS[clampi(int(start_tab), 0, TAB_KEYS.size() - 1)]
-	shop_tab.set_icon_texture(BazaarUi.ICON_SHOP)
-	cart_tab.set_icon_texture(BazaarUi.ICON_CART)
-	orders_tab.set_icon_texture(BazaarUi.ICON_ORDERS)
 	cart_tab.badge_color = BADGE_COLOR
 	orders_tab.badge_color = BADGE_COLOR
 	var index: int = 0
@@ -46,8 +44,8 @@ func _ready() -> void:
 		tab.index = index
 		tab.label = TAB_LABELS[index]
 		tab.description = TAB_TIPS[index]
-		tab.icon_cols = ICON_COLS
-		tab.icon_px = ICON_PX
+		tab.icon_id = TAB_ICON_IDS[index]
+		tab.icon_scale = TAB_ICON_SCALE
 		tab.tab_pressed.connect(_on_tab_pressed)
 		index += 1
 	cart.checkout_pressed.connect(_on_checkout_pressed)

@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Subscription/PlansPage.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/IconRect.tscn" id="2"]
 
 [node name="PlansPage" type="Control"]
 anchors_preset = 15
@@ -30,14 +31,12 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 12
 
-[node name="Logo" type="TextureRect" parent="Pad/Rows/Header"]
-custom_minimum_size = Vector2(36, 36)
+[node name="Logo" parent="Pad/Rows/Header" instance=ExtResource("2")]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
-expand_mode = 1
-stretch_mode = 5
-texture_filter = 1
+icon_id = "mercday"
+pixel_scale = 2
 
 [node name="Title" type="Label" parent="Pad/Rows/Header"]
 layout_mode = 2

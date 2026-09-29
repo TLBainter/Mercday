@@ -29,7 +29,7 @@ static func run(host: Node) -> bool:
 	await _case_routing(res, host)
 	await _case_fly(res, host)
 	await _case_harness(res, host)
-	_case_glyphs(res)
+	_case_tile_ids(res)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	CampaignClock.reset()
 	SubscriptionManager.reset()
@@ -157,18 +157,31 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 	var grid_icon_rect: Rect2 = grid_icon.get_global_rect()
 	var grid_btn_rect: Rect2 = grid_btn.get_global_rect()
 	TestFixtures.check(res, "hud grid icon is centred and 4x",
-		grid_icon.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		grid_icon.stretch_mode == TextureRect.STRETCH_KEEP_CENTERED
 			and grid_icon.custom_minimum_size == Vector2(64, 64)
 			and grid_icon.size == Vector2(64, 64)
+			and grid_icon.icon_id == "mercs" and grid_icon.pixel_scale == 4
 			and absf(grid_icon_rect.get_center().x - grid_btn_rect.get_center().x) <= 1.0,
-		"stretch %d min %s size %s icon_center %.2f btn_center %.2f" % [grid_icon.stretch_mode,
-			grid_icon.custom_minimum_size, grid_icon.size, grid_icon_rect.get_center().x,
-			grid_btn_rect.get_center().x])
+		"stretch %d min %s size %s id %s scale %d" % [grid_icon.stretch_mode,
+			grid_icon.custom_minimum_size, grid_icon.size, grid_icon.icon_id,
+			grid_icon.pixel_scale])
 	var gear_icon: IconRect = hud.settings_button.icon_rect
-	TestFixtures.check(res, "hud settings gear centres its icon",
-		gear_icon.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			and gear_icon.custom_minimum_size == Vector2(48, 48),
-		"stretch %d min %s" % [gear_icon.stretch_mode, gear_icon.custom_minimum_size])
+	TestFixtures.check(res, "hud settings gear draws the 16 x 16 gear cell at 2 px per art pixel",
+		gear_icon.stretch_mode == TextureRect.STRETCH_KEEP_CENTERED
+			and gear_icon.icon_id == "gear" and gear_icon.pixel_scale == 2
+			and gear_icon.custom_minimum_size == Vector2(32, 32),
+		"stretch %d id %s scale %d min %s" % [gear_icon.stretch_mode, gear_icon.icon_id,
+			gear_icon.pixel_scale, gear_icon.custom_minimum_size])
+	hud.settings_button.button_pressed = true
+	await host.get_tree().process_frame
+	var lit: bool = gear_icon.tint.is_equal_approx(SettingsButton.ORANGE)
+	lit = lit and gear_icon.modulate.is_equal_approx(SettingsButton.ORANGE)
+	hud.settings_button.button_pressed = false
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "hud settings gear tints orange when toggled on and cream when off",
+		lit and gear_icon.tint.is_equal_approx(SettingsButton.CREAM)
+			and gear_icon.modulate.is_equal_approx(SettingsButton.CREAM),
+		"on %s off tint %s" % [lit, gear_icon.tint])
 	var win: Window = host.get_window()
 	var scale_mode: int = win.content_scale_mode
 	var scale_aspect: int = win.content_scale_aspect
@@ -317,18 +330,23 @@ static func _case_entries(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "hud promotions tile reads the design description and icon",
 		promotions != null and promotions.description == "Run ad campaigns and hire mercs who apply"
 			and promotions.icon_rect.texture != null
+			and promotions.icon_rect.icon_id == "promotions"
 			and promotions.icon_rect.custom_minimum_size == Vector2(64, 64),
-		"description %s" % promotions.description)
+		"description %s id %s" % [promotions.description, promotions.icon_rect.icon_id])
 	var bazaar: GridMenuButton = hud.button_of(&"bazaar")
 	TestFixtures.check(res, "hud bazaar tile reads the design description and icon",
 		bazaar != null and bazaar.description == "Buy gear for your mercs and track your orders"
 			and bazaar.icon_rect.texture != null
+			and bazaar.icon_rect.icon_id == "bazaar"
 			and bazaar.icon_rect.custom_minimum_size == Vector2(64, 64),
-		"description %s" % bazaar.description)
+		"description %s id %s" % [bazaar.description, bazaar.icon_rect.icon_id])
 	var note_icon: IconRect = hud.button_of(&"finance").icon_rect
-	TestFixtures.check(res, "hud finance tile draws the runtime note glyph at 7 px per art pixel",
-		note_icon.texture != null and note_icon.custom_minimum_size == Vector2(49, 63),
-		"min %s texture %s" % [note_icon.custom_minimum_size, note_icon.texture])
+	TestFixtures.check(res, "hud finance tile draws its own finance icon at 4 px per art pixel",
+		note_icon.texture != null and note_icon.icon_id == "finance"
+			and note_icon.pixel_scale == 4
+			and note_icon.custom_minimum_size == Vector2(64, 64),
+		"id %s scale %d min %s" % [note_icon.icon_id, note_icon.pixel_scale,
+			note_icon.custom_minimum_size])
 	var slot_rect: Rect2 = hud.bell_slot.get_global_rect()
 	var gear_rect: Rect2 = hud.settings_button.get_global_rect()
 	TestFixtures.check(res, "hud top right holds a 56 x 56 bell slot left of the settings gear",
@@ -375,10 +393,10 @@ static func _case_locks(res: Dictionary, host: Node) -> void:
 		"bazaar %s / %s promotions %s / %s" % [bazaar.locked, bazaar.tooltip_text,
 			promotions.locked, promotions.tooltip_text])
 	TestFixtures.check(res, "hud locked tile greys its icon, dims its label and shows the badge",
-		bazaar.icon_rect.modulate.is_equal_approx(GridMenuButton.GRAY_TINT)
+		bazaar.icon_rect.tint.is_equal_approx(GridMenuButton.GRAY_TINT)
 			and bazaar.text_color().is_equal_approx(GuiColors.LOCKED_TEXT)
 			and bazaar.lock_badge.visible and bazaar.lock_icon.texture != null,
-		"modulate %s label %s badge %s" % [bazaar.icon_rect.modulate, bazaar.text_color(),
+		"tint %s label %s badge %s" % [bazaar.icon_rect.tint, bazaar.text_color(),
 			bazaar.lock_badge.visible])
 	bazaar.press()
 	await host.get_tree().process_frame
@@ -743,23 +761,37 @@ static func _case_fly(res: Dictionary, host: Node) -> void:
 	hud.queue_free()
 
 
-#The runtime HUD glyphs: a key the map table does not hold draws nothing at all.
-static func _case_glyphs(res: Dictionary) -> void:
-	var bogus: StringName = &"no_such_glyph"
-	var known: Array[String] = HudGlyphs.map_of(HudGlyphs.MERCDAY)
-	TestFixtures.check(res, "a known glyph key still gives its own map and size",
-		HudGlyphs.has(HudGlyphs.MERCDAY) and known.size() == 16
-			and HudGlyphs.size_of(HudGlyphs.MERCDAY) == Vector2i(16, 16),
-		"rows %d size %s" % [known.size(), HudGlyphs.size_of(HudGlyphs.MERCDAY)])
-	TestFixtures.check(res, "a known glyph key builds a texture at its scale",
-		HudGlyphs.texture(HudGlyphs.MERCDAY, 2).get_size() == Vector2(32.0, 32.0),
-		"size %s" % HudGlyphs.texture(HudGlyphs.MERCDAY, 2).get_size())
-	TestFixtures.check(res, "an unknown glyph key gives an empty map and a zero size",
-		not HudGlyphs.has(bogus) and HudGlyphs.map_of(bogus).is_empty()
-			and HudGlyphs.size_of(bogus) == Vector2i.ZERO,
-		"map %s size %s" % [HudGlyphs.map_of(bogus), HudGlyphs.size_of(bogus)])
-	var blank: ImageTexture = HudGlyphs.texture(bogus, 2)
-	var pixel: Color = blank.get_image().get_pixel(0, 0)
-	TestFixtures.check(res, "an unknown glyph key draws a single transparent pixel",
-		blank.get_size() == Vector2(1.0, 1.0) and is_zero_approx(pixel.a),
-		"size %s alpha %.2f" % [blank.get_size(), pixel.a])
+#The nine tiles name their own atlas cell: the row order, the scale and the full 16 x 16 cut.
+static func _case_tile_ids(res: Dictionary) -> void:
+	var want: Array[String] = ["mercs", "contracts", "clients", "promotions", "mercday",
+		"finance", "legal", "bazaar", "metrics"]
+	var got: Array[String] = []
+	for entry: Dictionary in GameHUD.GRID_ENTRIES:
+		got.append(String(entry.get("id", "")))
+	TestFixtures.check(res, "the nine tiles name the design ids row by row", got == want,
+		"ids %s" % str(got))
+	var scales_ok: bool = true
+	var known_ok: bool = true
+	var keys_ok: bool = true
+	for entry: Dictionary in GameHUD.GRID_ENTRIES:
+		if int(entry.get("scale", 0)) != 4:
+			scales_ok = false
+		if not Icons.has(String(entry.get("id", ""))):
+			known_ok = false
+		if entry.has("icon") or entry.has("glyph"):
+			keys_ok = false
+	TestFixtures.check(res, "every tile row asks for scale 4 and a known atlas id",
+		scales_ok and known_ok, "scales %s known %s" % [scales_ok, known_ok])
+	TestFixtures.check(res, "no tile row carries a png path or a runtime glyph key",
+		keys_ok, "rows %d" % GameHUD.GRID_ENTRIES.size())
+	var cell_ok: bool = true
+	var bake_ok: bool = true
+	for id: String in want:
+		if Icons.tex(id).get_size() != Vector2(16, 16):
+			cell_ok = false
+		if Icons.baked(id, 4, Icons.MODE_PLAIN).get_size() != Vector2(64, 64):
+			bake_ok = false
+	TestFixtures.check(res, "every tile id cuts the full 16 x 16 cell", cell_ok,
+		"first %s" % str(Icons.tex(want[0]).get_size()))
+	TestFixtures.check(res, "every tile id bakes to 64 x 64 at 4 px per art pixel", bake_ok,
+		"first %s" % str(Icons.baked(want[0], 4, Icons.MODE_PLAIN).get_size()))

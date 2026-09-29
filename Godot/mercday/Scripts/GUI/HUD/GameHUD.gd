@@ -17,30 +17,27 @@ const VIEWER_SCENES: Dictionary = {
 	&"metrics": "res://Scenes/GUI/Metrics/MetricsViewer.tscn",
 }
 
-#Row-major tiles: key, label, icon (a PNG path or ""), glyph (a HudGlyphs key or &""), the pixel
-#scale of the icon and the hover description. A tile with no PNG draws a runtime glyph instead.
+#Row-major tiles: key, label, id (an atlas cell), scale (whole screen pixels per art pixel) and
+#description (the hover line). Every tile draws its full 16 x 16 cell at 4 px per art pixel.
 const GRID_ENTRIES: Array[Dictionary] = [
-	{"key": &"mercs", "label": "My Mercs", "icon": "res://Art/GUI/Icons/icon_group_mercs.png",
-		"glyph": &"", "scale": 4, "description": "View and manage your mercenaries"},
-	{"key": &"contracts", "label": "My Contracts", "icon": "res://Art/GUI/Icons/icon_contracts.png",
-		"glyph": &"", "scale": 4, "description": "View and manage your contracts"},
-	{"key": &"clients", "label": "My Clients", "icon": "",
-		"glyph": &"clients", "scale": 4,
+	{"key": &"mercs", "label": "My Mercs", "id": "mercs", "scale": 4,
+		"description": "View and manage your mercenaries"},
+	{"key": &"contracts", "label": "My Contracts", "id": "contracts", "scale": 4,
+		"description": "View and manage your contracts"},
+	{"key": &"clients", "label": "My Clients", "id": "clients", "scale": 4,
 		"description": "See the people, places, and orgs that send you contracts"},
-	{"key": &"promotions", "label": "My Promotions",
-		"icon": "res://Art/GUI/Icons/hud_my_promotions_16x16.png",
-		"glyph": &"", "scale": 4, "description": "Run ad campaigns and hire mercs who apply"},
-	{"key": &"mercday", "label": "My Mercday", "icon": "",
-		"glyph": &"mercday", "scale": 4, "description": "Manage your guild plan and upgrades"},
-	{"key": &"finance", "label": "My Finance", "icon": "",
-		"glyph": &"note", "scale": 7, "description": "Manage notes, loans, and payroll"},
-	{"key": &"legal", "label": "My Legal",
-		"icon": "res://Art/GUI/Icons/hud_my_legal_gavel_16x16.png", "glyph": &"", "scale": 4,
+	{"key": &"promotions", "label": "My Promotions", "id": "promotions", "scale": 4,
+		"description": "Run ad campaigns and hire mercs who apply"},
+	{"key": &"mercday", "label": "My Mercday", "id": "mercday", "scale": 4,
+		"description": "Manage your guild plan and upgrades"},
+	{"key": &"finance", "label": "My Finance", "id": "finance", "scale": 4,
+		"description": "Manage notes, loans, and payroll"},
+	{"key": &"legal", "label": "My Legal", "id": "legal", "scale": 4,
 		"description": "Buy permits, pay fines, and bail out captured mercs"},
-	{"key": &"bazaar", "label": "My Bazaar", "icon": "res://Art/GUI/Icons/hud_my_bazaar_16x16.png",
-		"glyph": &"", "scale": 4, "description": "Buy gear for your mercs and track your orders"},
-	{"key": &"metrics", "label": "My Metrics", "icon": "res://Art/GUI/Icons/icon_metrics.png",
-		"glyph": &"", "scale": 4, "description": "Review your guild's history"},
+	{"key": &"bazaar", "label": "My Bazaar", "id": "bazaar", "scale": 4,
+		"description": "Buy gear for your mercs and track your orders"},
+	{"key": &"metrics", "label": "My Metrics", "id": "metrics", "scale": 4,
+		"description": "Review your guild's history"},
 ]
 
 #Lock rows by grid key: the entitlement that unlocks the tile and the copy for both locked states.
@@ -172,15 +169,7 @@ func _wire_button(btn: GridMenuButton, entry: Dictionary) -> void:
 
 
 func _apply_icon(btn: GridMenuButton, entry: Dictionary) -> void:
-	btn.icon_rect.pixel_scale = int(entry["scale"])
-	var art_path: String = String(entry["icon"])
-	if art_path != "" and ResourceLoader.exists(art_path):
-		btn.set_icon(load(art_path) as Texture2D)
-		return
-	var glyph: StringName = entry["glyph"]
-	if glyph == &"":
-		return
-	btn.set_icon(HudGlyphs.texture(glyph))
+	btn.icon_rect.set_id(String(entry["id"]), int(entry["scale"]))
 
 
 func _scene_of(key: StringName) -> PackedScene:

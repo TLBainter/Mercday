@@ -36,9 +36,11 @@ const BASE_DESC: String = "The root of your Enterprise customizations. Every bra
 const OWNED_SUFFIX: String = " upgrades owned"
 const MET_TEXT: String = "Requirement met"
 const GLYPH_SCALE: int = 1
+const ICON_SCALE: int = 2
 
 var _rich: bool = false
 var _height: float = PLAIN_HEIGHT
+var _icon: IconRect = null
 var _kind: Label = null
 var _name: Label = null
 var _desc: Label = null
@@ -145,6 +147,7 @@ func req_text(id: String) -> String:
 
 
 func _fill_cat(cat: String) -> void:
+	_set_icon(TreeIcons.id_of(cat), KIND_COLOR, Icons.MODE_PLAIN)
 	var def: Dictionary = TreeLayout.cat_def(cat)
 	var tiers: Dictionary = SubscriptionManager.tiers()
 	var counts: Vector2i = TreeLayout.category_counts(cat, tiers)
@@ -153,14 +156,17 @@ func _fill_cat(cat: String) -> void:
 
 
 func _fill_base() -> void:
+	_set_icon("mercday", NAME_COLOR, Icons.MODE_GRAY)
 	_plain(BASE_KIND, BASE_NAME, BASE_DESC, "", BODY_COLOR)
 
 
 func _fill_gate(id: String) -> void:
+	_icon.visible = false
 	_plain(GATE_KIND, UpgradeDefs.name_of(id), req_text(id), "", BODY_COLOR)
 
 
 func _fill_block(id: String) -> void:
+	_set_icon(TreeIcons.id_of(id), NAME_COLOR, Icons.MODE_PLAIN)
 	var tier: int = SubscriptionManager.tier_of(id)
 	var top: int = SubscriptionManager.max_tier(id)
 	var maxed: bool = tier >= top
@@ -216,8 +222,23 @@ func _build() -> void:
 	rows.name = "Rows"
 	rows.add_theme_constant_override("separation", GAP)
 	pad.add_child(rows)
-	_kind = _row(rows, "Kind", KIND_FONT, 10, KIND_COLOR)
-	_name = _row(rows, "Name", NAME_FONT, 14, NAME_COLOR)
+	var head: HBoxContainer = HBoxContainer.new()
+	head.name = "Head"
+	head.add_theme_constant_override("separation", GAP)
+	rows.add_child(head)
+	_icon = IconRect.new()
+	_icon.name = "Icon"
+	_icon.pixel_scale = ICON_SCALE
+	_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_icon)
+	var text_box: VBoxContainer = VBoxContainer.new()
+	text_box.name = "Text"
+	text_box.add_theme_constant_override("separation", GAP)
+	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(text_box)
+	var head_width: float = WIDTH - float(PAD * 2) - 32.0 - float(GAP)
+	_kind = _row(text_box, "Kind", KIND_FONT, 10, KIND_COLOR, head_width)
+	_name = _row(text_box, "Name", NAME_FONT, 14, NAME_COLOR, head_width)
 	_desc = _row(rows, "Desc", BODY_FONT, 14, BODY_COLOR)
 	_close = _row(rows, "Close", BODY_FONT, 13, BODY_COLOR)
 	_stat = _money_row(rows, "Stat", NAME_FONT, 12, NAME_COLOR)
@@ -259,14 +280,27 @@ func _cell(label: String, font: FontVariation, size_px: int, tint: Color) -> Lab
 	return out
 
 
-func _row(rows: VBoxContainer, label: String, font: FontVariation, size_px: int,
-		tint: Color) -> Label:
+func _row(rows: VBoxContainer, label: String, font: FontVariation, size_px: int, tint: Color,
+		width: float = WIDTH - float(PAD * 2)) -> Label:
 	var out: Label = Label.new()
 	out.name = label
 	out.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	out.custom_minimum_size = Vector2(WIDTH - float(PAD * 2), 0.0)
+	out.custom_minimum_size = Vector2(width, 0.0)
 	out.add_theme_font_override("font", font)
 	out.add_theme_font_size_override("font_size", size_px)
 	out.add_theme_color_override("font_color", tint)
 	rows.add_child(out)
 	return out
+
+
+#The head icon of the hovered thing; "" when the card shows no icon.
+func icon_id() -> String:
+	return _icon.icon_id if _icon != null and _icon.visible else ""
+
+
+func _set_icon(id: String, tint: Color, mode: StringName) -> void:
+	_icon.visible = id != ""
+	if id == "":
+		return
+	_icon.tint = tint
+	_icon.set_id(id, ICON_SCALE, mode)

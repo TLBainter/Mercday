@@ -83,7 +83,7 @@ func _refresh() -> void:
 		return
 	text_label.text = label
 	tooltip_text = locked_tooltip if locked else description
-	icon_rect.modulate = GRAY_TINT if locked else Color.WHITE
+	icon_rect.tint = GRAY_TINT if locked else Color.WHITE
 	text_label.add_theme_color_override("font_color",
 		GuiColors.LOCKED_TEXT if locked else (HOVER_COLOR if _hovered else NORMAL_COLOR))
 	for state: StringName in [&"normal", &"hover", &"pressed", &"focus", &"disabled"]:
@@ -142,8 +142,9 @@ func _lock_badge_style() -> StyleBoxFlat:
 	style.border_width_right = 2
 	style.border_width_bottom = 2
 	style.border_color = GuiColors.LOCK_RING
-	var pad_x: float = (LOCK_BADGE_SIZE.x - float(GuiGlyphs.LOCK_COLS * LOCK_ICON_SCALE)) / 2.0
-	var pad_y: float = (LOCK_BADGE_SIZE.y - float(GuiGlyphs.LOCK_ROWS * LOCK_ICON_SCALE)) / 2.0
+	var art: Vector2i = Icons.size("lock") * LOCK_ICON_SCALE
+	var pad_x: float = (LOCK_BADGE_SIZE.x - float(art.x)) / 2.0
+	var pad_y: float = (LOCK_BADGE_SIZE.y - float(art.y)) / 2.0
 	style.content_margin_left = pad_x
 	style.content_margin_right = pad_x
 	style.content_margin_top = pad_y

@@ -1,57 +1,51 @@
 class_name MercGlyphs
 
-#The Merc Viewer's own art cache. The coach whistle and the fourteen PIP icons ship as PNGs, so
-#this holds one cached load per path instead of a second bitmap table, and hands back a flat
-#swatch when a path is missing so a dropped asset shows as a block rather than an empty rect.
-#New Merc Viewer glyphs belong here; GuiGlyphs stays the shared set.
+#The Merc Viewer's own atlas cuts. The coach whistle is a trimmed bake and each PIP is the centred
+#8 x 8 window of the cell PipDefs names, so both come from the icon sheet instead of a PNG. A
+#locked PIP needs a flat white silhouette for the caller's modulate to paint, and that silhouette
+#is the only cache.
 
-const ICON_DIR: String = "res://Art/GUI/Icons/"
-const WHISTLE: String = "coach_whistle_12x12"
-const WHISTLE_COLS: int = 12
-const PIP_COLS: int = 8
-const MISSING_COLOR: Color = Color("#3b4d6e")
+const PIP_SCALE: int = 3
+const PIP_BOX: Vector2i = Vector2i(8, 8)
 
 static var _cache: Dictionary = {}
 
 
-#The cached texture at res://Art/GUI/Icons/<name>.png, or a swatch when the file is gone.
-static func icon(name: String) -> Texture2D:
-	if name == "":
-		return null
-	if _cache.has(name):
-		return _cache[name] as Texture2D
-	var path: String = ICON_DIR + name + ".png"
-	var tex: Texture2D = null
-	if ResourceLoader.exists(path):
-		tex = load(path) as Texture2D
-	if tex == null:
-		tex = swatch(PIP_COLS, MISSING_COLOR)
-	_cache[name] = tex
-	return tex
+#The atlas id of one PIP mode, or "" when nothing is mapped to it. PipDefs holds the table.
+static func pip_id(mode: StringName) -> String:
+	return PipDefs.icon_id(mode)
 
 
-static func whistle() -> Texture2D:
-	return icon(WHISTLE)
+#14 x 16 art, so 28 x 32 at the x2 the Coach button carries.
+static func whistle(scale: int = 2) -> Texture2D:
+	return Icons.baked("whistle", scale, Icons.MODE_PLAIN, true)
 
 
-#The icon of one PIP mode. The art is white, so a caller tints it with modulate.
+#The centred 8 x 8 window of the mode's cell at x3, colour art that no caller tints.
 static func pip(mode: StringName) -> Texture2D:
-	var data: Dictionary = PipDefs.find(mode)
-	if data.is_empty():
+	var id: String = pip_id(mode)
+	if id == "":
 		return null
-	return icon(String(data["icon"]))
+	return Icons.baked(id, PIP_SCALE, Icons.MODE_PLAIN, false,
+		Icons.centered_box(PIP_BOX.x, PIP_BOX.y))
 
 
-#A flat square of one colour, cached per size and colour.
-static func swatch(cols: int, color: Color) -> ImageTexture:
-	var key: String = "swatch:%d:%s" % [cols, color.to_html(true)]
-	if _cache.has(key):
-		return _cache[key] as ImageTexture
-	var span: int = maxi(1, cols)
-	var img: Image = Image.create_empty(span, span, false, Image.FORMAT_RGBA8)
-	img.fill(color)
+#The same window flattened to white, which lets the caller's modulate paint the locked colour.
+static func pip_locked(mode: StringName) -> Texture2D:
+	var id: String = pip_id(mode)
+	if id == "":
+		return null
+	if _cache.has(id):
+		return _cache[id] as Texture2D
+	var img: Image = Icons.image(id, false, Icons.centered_box(PIP_BOX.x, PIP_BOX.y))
+	for y: int in img.get_height():
+		for x: int in img.get_width():
+			var alpha: float = img.get_pixel(x, y).a
+			if alpha > 0.0:
+				img.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+	img.resize(PIP_BOX.x * PIP_SCALE, PIP_BOX.y * PIP_SCALE, Image.INTERPOLATE_NEAREST)
 	var tex: ImageTexture = ImageTexture.create_from_image(img)
-	_cache[key] = tex
+	_cache[id] = tex
 	return tex
 
 

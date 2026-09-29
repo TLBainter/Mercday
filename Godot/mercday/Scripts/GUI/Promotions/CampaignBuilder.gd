@@ -27,9 +27,7 @@ const SKY: Color = Color("#9cc6ef")
 const MUTED: Color = Color("#5e7699")
 const GREEN: Color = Color("#6cc36a")
 const RED: Color = Color("#e8583f")
-const CLOSE_RED: Color = Color("#ff3b2f")
-const CLOSE_HOVER: Color = Color("#ff6a55")
-const MODAL_SIZE: Vector2 = Vector2(1190, 660)
+const MODAL_SIZE: Vector2 = Vector2(1190, 628)
 const RING_PX: int = 4
 const FIELD_RING_PX: int = 2
 const CHIP_RING_PX: int = 2
@@ -39,7 +37,6 @@ const RIGHT_GAP: int = 10
 const TYPE_COL_WIDTH: float = 372.0
 const TYPE_GAP: int = 8
 const TITLE_SIZE: int = 18
-const CLOSE_SIZE: int = 48
 const CAPTION_SIZE: int = 9
 const NAME_SIZE: int = 16
 const NOTE_SIZE: int = 13
@@ -72,7 +69,6 @@ const COST_INF: String = "%d / day x %d days"
 const COST_FIXED: String = "%d / day x %d days, due up front"
 const CHIP_TEXT: String = "Billed monthly, starting immediately"
 const LAUNCH_TEXT: String = "Launch Campaign"
-const CLOSE_TEXT: String = "X"
 const MONTH_SUFFIX: String = " / month"
 
 @onready var backdrop: ColorRect = $Backdrop
@@ -498,14 +494,8 @@ func _style_name_field() -> void:
 
 
 func _style_close() -> void:
-	close_button.text = CLOSE_TEXT
-	close_button.flat = true
 	close_button.focus_mode = Control.FOCUS_NONE
-	close_button.add_theme_font_override(&"font", FONT_BOLD)
-	close_button.add_theme_font_size_override(&"font_size", CLOSE_SIZE)
-	close_button.add_theme_color_override(&"font_color", CLOSE_RED)
-	close_button.add_theme_color_override(&"font_hover_color", CLOSE_HOVER)
-	close_button.add_theme_color_override(&"font_pressed_color", CLOSE_HOVER)
+	CloseX.style(close_button, CloseX.SCALE_WINDOW)
 
 
 #Item 11: the one core BevelButton scene, added where the scene used to hold a plain Button.

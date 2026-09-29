@@ -1,11 +1,13 @@
 class_name MoodFace extends Control
 
-#One 9x9 pixel face. filled true draws the ink outline plus the fill colour on the 'f' pixels;
-#filled false draws the outline only, in the dim blue. guild true reads the opinion map instead
-#of the mood map, for the guild relationship faces.
+#One atlas face at the integer pixel_scale. filled draws the row 7 art in the level colour;
+#unfilled draws its row 8 outline twin in the outline blue. guild true reads the opinion level
+#instead of the mood level, for the guild relationship faces.
 
 const INK_COLOR := Color(0.039216, 0.058824, 0.109804, 1)
 const DIM_COLOR := Color(0.168627, 0.309804, 0.541176, 1)
+#The trimmed face window inside the 16 px cell.
+const FACE_ART: Vector2 = Vector2(12, 12)
 
 const MOOD_COLORS: Array[Color] = [
 	Color(0.909804, 0.345098, 0.247059, 1),
@@ -28,32 +30,6 @@ const GUILD_COLORS: Array[Color] = [
 	Color(0.423529, 0.764706, 0.415686, 1),
 	Color(0.247059, 0.682353, 0.352941, 1),
 ]
-
-const B := "#f#fff#f#"
-const N := "#fffffff#"
-const E := "#ff#f#ff#"
-
-const MOUTHS: Dictionary = {
-	0: ["#ff###ff#", "#f#fff#f#"],
-	1: ["#fff#fff#", "#ff#f#ff#"],
-	2: ["#ff###ff#", "#fffffff#"],
-	3: ["#ff#f#ff#", "#fff#fff#"],
-	4: ["#f#fff#f#", "#ff###ff#"],
-}
-
-const GUILD_ROWS: Dictionary = {
-	-5: [B, "#f##f##f#", "#f#####f#", "#f#fff#f#"],
-	-4: [B, E, "#ff###ff#", "#f#fff#f#"],
-	-3: [N, E, "#ff###ff#", "#f#fff#f#"],
-	-2: [N, E, "#fff#fff#", "#ff#f#ff#"],
-	-1: [N, E, "#fff##ff#", "#ff#ffff#"],
-	0: [N, E, "#ff###ff#", N],
-	1: [N, E, "#ffff#ff#", "#ff##fff#"],
-	2: [N, E, "#ff#f#ff#", "#fff#fff#"],
-	3: [N, E, "#f#fff#f#", "#ff###ff#"],
-	4: [N, E, "#f#####f#", "#ff###ff#"],
-	5: ["#ff#f#ff#", "#f#fff#f#", "#f#####f#", "#ff###ff#"],
-}
 
 @export var mood: int = 2:
 	set(value):
@@ -82,51 +58,22 @@ const GUILD_ROWS: Dictionary = {
 
 
 func _ready() -> void:
+	texture_filter = TEXTURE_FILTER_NEAREST
 	_refresh()
 
 
 func _refresh() -> void:
 	if not is_node_ready():
 		return
-	custom_minimum_size = Vector2(9, 9) * pixel_scale
+	custom_minimum_size = FACE_ART * pixel_scale
 	queue_redraw()
 
 
-func current_map() -> PackedStringArray:
-	return guild_face_map(opinion) if guild else face_map(mood)
-
-
-static func face_map(mood_value: int) -> PackedStringArray:
-	var m: int = clampi(mood_value, 0, 4)
-	var brow: String = B if m == 0 else N
-	var mouth: Array = MOUTHS[m]
-	return PackedStringArray([
-		"..#####..",
-		".#fffff#.",
-		brow,
-		E,
-		N,
-		mouth[0],
-		mouth[1],
-		".#fffff#.",
-		"..#####..",
-	])
-
-
-static func guild_face_map(opinion_value: int) -> PackedStringArray:
-	var op: int = clampi(opinion_value, -5, 5)
-	var r: Array = GUILD_ROWS[op]
-	return PackedStringArray([
-		"..#####..",
-		".#fffff#.",
-		r[0],
-		r[1],
-		N,
-		r[2],
-		r[3],
-		".#fffff#.",
-		"..#####..",
-	])
+static func face_id_for(mood_value: int, guild_value: bool, opinion_value: int,
+		filled_value: bool) -> String:
+	if guild_value:
+		return Icons.face_id(clampi(opinion_value, -5, 5), not filled_value)
+	return Icons.face_id(Icons.mood_level(mood_value), not filled_value)
 
 
 static func color_for(mood_value: int, guild_value: bool, opinion_value: int,
@@ -139,16 +86,8 @@ static func color_for(mood_value: int, guild_value: bool, opinion_value: int,
 
 
 func _draw() -> void:
-	var map: PackedStringArray = current_map()
-	var ink: Color = INK_COLOR if filled else DIM_COLOR
-	var fill: Color = color_for(mood, guild, opinion, fill_color)
-	for row_i: int in range(map.size()):
-		var row: String = map[row_i]
-		for col_i: int in range(row.length()):
-			var ch: String = row[col_i]
-			if ch == "#":
-				draw_rect(Rect2(col_i * pixel_scale, row_i * pixel_scale, pixel_scale,
-					pixel_scale), ink)
-			elif ch == "f" and filled:
-				draw_rect(Rect2(col_i * pixel_scale, row_i * pixel_scale, pixel_scale,
-					pixel_scale), fill)
+	var id: String = face_id_for(mood, guild, opinion, filled)
+	var tint: Color = Icons.FACE_OUTLINE
+	if filled:
+		tint = color_for(mood, guild, opinion, fill_color)
+	Icons.draw(self, id, Vector2.ZERO, pixel_scale, tint, true)

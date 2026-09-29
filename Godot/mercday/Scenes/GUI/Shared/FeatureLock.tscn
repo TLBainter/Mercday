@@ -30,4 +30,5 @@ size_flags_vertical = 4
 
 [node name="LockIcon" type="TextureRect" parent="Row/LockBox"]
 layout_mode = 2
+custom_minimum_size = Vector2(16, 18)
 mouse_filter = 2

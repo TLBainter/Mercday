@@ -22,30 +22,19 @@ const TILE_LO := Color("#b85a12")
 const TILE_RING := Color("#0a0f1c")
 const BEVEL_PX: float = 2.0
 const RING_PX: float = 2.0
-const GLYPH_SIZE := Vector2(7.0, 9.0)
-const GLYPH_PATH: String = "res://Art/GUI/Icons/icon_note_currency.png"
+const GLYPH_SIZE := Vector2(5.0, 9.0)
 
 var _amount: int = 0
 var _time: float = 0.0
 var _running: bool = false
 var _counter: MoneyMenu = null
-var _glyph: Texture2D = null
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_glyph = _load_glyph()
 	set_process(false)
 	visible = false
-
-
-func _load_glyph() -> Texture2D:
-	if ResourceLoader.exists(GLYPH_PATH):
-		var art: Texture2D = load(GLYPH_PATH) as Texture2D
-		if art != null:
-			return art
-	return HudGlyphs.note()
 
 
 #Starts a fly; a zero amount is ignored so a settle with no change draws nothing.
@@ -179,7 +168,4 @@ func _draw_note(at: Vector2) -> void:
 	draw_rect(Rect2(low, Vector2(box.size.x, BEVEL_PX)), TILE_LO)
 	var right := box.position + Vector2(box.size.x - BEVEL_PX, 0.0)
 	draw_rect(Rect2(right, Vector2(BEVEL_PX, box.size.y)), TILE_LO)
-	if _glyph == null:
-		return
-	var origin: Vector2 = box.position + (box.size - GLYPH_SIZE) * 0.5
-	draw_texture_rect(_glyph, Rect2(origin, GLYPH_SIZE), false)
+	Icons.draw(self, "note", box.position + (box.size - GLYPH_SIZE) * 0.5, 1, TILE_RING, true)

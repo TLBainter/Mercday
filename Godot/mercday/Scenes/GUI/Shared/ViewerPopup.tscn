@@ -1,7 +1,6 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/ViewerPopup.gd" id="1"]
-[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/kit_viewer_backdrop.tres" id="3"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/kit_viewer_frame.tres" id="4"]
 
@@ -25,11 +24,4 @@ theme_override_styles/panel = ExtResource("4")
 
 [node name="CloseX" type="Button" parent="."]
 flat = true
-text = "X"
-theme_override_colors/font_color = Color(1, 0.231373, 0.184314, 1)
-theme_override_colors/font_hover_color = Color(1, 0.415686, 0.333333, 1)
-theme_override_colors/font_pressed_color = Color(0.721569, 0.141176, 0.105882, 1)
-theme_override_colors/font_outline_color = Color(0.0392157, 0.0588235, 0.109804, 1)
-theme_override_constants/outline_size = 3
-theme_override_fonts/font = ExtResource("2")
-theme_override_font_sizes/font_size = 56
+text = ""

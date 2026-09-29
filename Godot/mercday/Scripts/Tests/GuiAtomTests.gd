@@ -110,6 +110,17 @@ static func _case_quantity_stepper(res: Dictionary, host: Node) -> void:
 	stepper.press_plus()
 	TestFixtures.check(res, "a wider step multiplies the change",
 		stepper.value == 2 and events == [4, 5, 2], "value %d events %s" % [stepper.value, str(events)])
+	TestFixtures.check(res, "the stepper wears the atlas minus and plus instead of a letter",
+		stepper.minus_button.text == "" and stepper.plus_button.text == ""
+			and stepper.minus_button.icon != null and stepper.plus_button.icon != null
+			and stepper.minus_button.icon.get_size() == Vector2(10, 2)
+			and stepper.plus_button.icon.get_size() == Vector2(10, 10),
+		"minus %s plus %s" % [str(stepper.minus_button.icon), str(stepper.plus_button.icon)])
+	TestFixtures.check(res, "the stepper buttons stand 28 px square and tint their art cream",
+		stepper.minus_button.custom_minimum_size == Vector2(28, 28)
+			and stepper.plus_button.custom_minimum_size == Vector2(28, 28)
+			and stepper.minus_button.get_theme_color(&"icon_normal_color") == QuantityStepper.ICON_COLOR,
+		"minus %s" % str(stepper.minus_button.custom_minimum_size))
 	stepper.queue_free()
 
 

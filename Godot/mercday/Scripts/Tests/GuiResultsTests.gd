@@ -574,6 +574,17 @@ static func _case_panel_fates(res: Dictionary, host: Node) -> void:
 				panel.row_of(caught_row).ring_color() == ResultsTimeline.RING_CAPTURED
 				and panel.row_of(caught_row).status_text() == "Captured",
 				"Captured on an amber ring")
+	if dead_row >= 0 and caught_row >= 0:
+		var dead_tex: Texture2D = panel.row_of(dead_row).fate_overlay.texture
+		var caught_tex: Texture2D = panel.row_of(caught_row).fate_overlay.texture
+		TestFixtures.check(res,
+				"the deceased overlay is the 33 x 39 skull and the captured one the 48 px bars",
+				dead_tex != null and dead_tex.get_size() == Vector2(33, 39)
+				and caught_tex != null and caught_tex.get_size() == Vector2(48, 48),
+				"skull %s bars %s" % [dead_tex, caught_tex])
+		var spot: Vector2 = panel.row_of(dead_row).fate_overlay.position
+		TestFixtures.check(res, "the deceased skull sits on whole pixels at the portrait centre",
+				spot == Vector2(7, 4), "at %s" % spot)
 	panel.set_time(ResultsTimeline.TOLD)
 	var lost: Array[String] = []
 	for i: int in panel.rows().size():

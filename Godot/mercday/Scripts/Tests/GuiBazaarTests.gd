@@ -144,10 +144,14 @@ static func _case_tabs(res: Dictionary, host: Node, viewer: BazaarViewer) -> voi
 		and viewer.cart_tab.index == 1 and viewer.orders_tab.index == 2,
 		"%s, %s, %s" % [viewer.shop_tab.label, viewer.cart_tab.label, viewer.orders_tab.label])
 	TestFixtures.check(res, "every tab wears its own bazaar icon",
-		viewer.shop_tab.icon_rect.texture == BazaarUi.ICON_SHOP
-		and viewer.cart_tab.icon_rect.texture == BazaarUi.ICON_CART
-		and viewer.orders_tab.icon_rect.texture == BazaarUi.ICON_ORDERS,
-		"shop icon %s" % (viewer.shop_tab.icon_rect.texture != null))
+		viewer.shop_tab.icon_id == "shop" and viewer.cart_tab.icon_id == "cart"
+		and viewer.orders_tab.icon_id == "parcel"
+		and viewer.shop_tab.icon_rect.texture != null
+		and viewer.cart_tab.icon_rect.texture != null
+		and viewer.orders_tab.icon_rect.texture != null
+		and viewer.shop_tab.icon_rect.custom_minimum_size == Vector2(32, 32),
+		"shop %s cart %s orders %s" % [viewer.shop_tab.icon_id, viewer.cart_tab.icon_id,
+			viewer.orders_tab.icon_id])
 	TestFixtures.check(res, "the active flag sits on the open tab alone",
 		viewer.shop_tab.active and not viewer.cart_tab.active and not viewer.orders_tab.active,
 		"shop %s, cart %s" % [viewer.shop_tab.active, viewer.cart_tab.active])
@@ -428,6 +432,20 @@ static func _case_search(res: Dictionary, host: Node, viewer: BazaarViewer) -> v
 		shop.search_text() == "" and shop.search_field().text == ""
 		and shop.card_count() == CATALOG_ITEMS,
 		"'%s', %d cards" % [shop.search_text(), shop.card_count()])
+	var want_glass: ImageTexture = Icons.tinted("magnifier", Color("#0a0f1c"), 2, true)
+	var field_box: PanelContainer = shop._search_button.get_parent().get_parent() as PanelContainer
+	TestFixtures.check(res, "the search row wears the sheet, not a font X",
+		shop._search_button.icon == want_glass
+		and shop._search_button.icon.get_size() == Vector2(28, 28)
+		and shop._search_button.custom_minimum_size == Vector2(44, 30)
+		and shop._search_button.get_combined_minimum_size() == Vector2(44, 30)
+		and field_box.get_combined_minimum_size().y == ShopPage.SEARCH_HEIGHT
+		and shop._clear_x.text == ""
+		and shop._clear_x.icon == CloseX.icon(CloseX.SCALE_MINI)
+		and shop._clear_x.custom_minimum_size == Vector2(18, 18),
+		"glass %s, button %s, box %s" % [shop._search_button.icon.get_size(),
+			shop._search_button.get_combined_minimum_size(),
+			field_box.get_combined_minimum_size()])
 
 
 #Case 6: every sort of the Shop page and the dropdown that names it.

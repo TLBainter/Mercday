@@ -4,7 +4,7 @@ class_name ContractCompletedBody extends HBoxContainer
 #The outcome is never shown here; a failed contract reads the same as a completed one.
 
 const STARS_SCENE: String = "res://Scenes/GUI/Shared/DifficultyStars.tscn"
-const STAR_SIZE: int = 2
+const STAR_SIZE: int = 1
 const NOTE_COLOR: Color = Color("#0a0f1c")
 
 @export var reward_label_path: NodePath = ^"RewardRow/RewardLabel"
@@ -20,7 +20,7 @@ func _ready() -> void:
 	_reward = get_node_or_null(reward_label_path) as Label
 	_glyph = get_node_or_null(note_glyph_path) as TextureRect
 	if _glyph != null:
-		_glyph.texture = NotifyGlyphs.note(NOTE_COLOR, 1)
+		_glyph.texture = Icons.tinted("note", NOTE_COLOR, 1, true)
 	_build_stars()
 	_refresh()
 

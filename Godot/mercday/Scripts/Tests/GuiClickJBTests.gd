@@ -49,8 +49,7 @@ const VIA_TEXT: String = "1 of 8 applicants shown"
 const APPLICANT_TOTAL: int = 8
 const FROM_KEY: String = "from"
 
-#README I2 and I5: both contract rows read one title and wear the results bang.
-const BANG_PATH: String = "res://Art/GUI/Icons/contract_mark_results_bang_14x14.png"
+#README I2 and I5: both contract rows read one title and wear the alert mark.
 const NOTICE_TITLE: String = "Contract Complete"
 const TITLE_ORANGE: Color = Color("#f28c28")
 const UNCLAIMED_TEXT: String = "Complete"
@@ -657,9 +656,11 @@ static func _case_j12_bell(res: Dictionary, host: Node) -> void:
 			label != null and label.text == NOTICE_TITLE and tint.is_equal_approx(TITLE_ORANGE),
 			"%s %s" % ["" if label == null else label.text, str(tint)])
 		var face: TextureRect = _face_of(card)
-		var art: String = "" if face == null or face.texture == null else face.texture.resource_path
-		TestFixtures.check(res, "J12 the row titled %s wears the bang mark" % card.name,
-			art == BANG_PATH, art)
+		var want: Texture2D = Icons.baked("alert", NotificationItem.MARK_SCALE, Icons.MODE_PLAIN)
+		var art: String = "none" if face == null or face.texture == null \
+			else str(face.texture.get_size())
+		TestFixtures.check(res, "J12 the row titled %s wears the alert mark" % card.name,
+			face != null and face.texture == want, art)
 	TestFixtures.check(res, "J12 both rows carry the same informational urgency",
 		won.urgency == lost.urgency and won.urgency == NotificationData.Urgency.INFORMATIONAL,
 		"%d %d" % [won.urgency, lost.urgency])
@@ -1112,7 +1113,7 @@ static func _case_j14_after(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J14 the failed contract is written in red",
 		view.shown_status_color().is_equal_approx(FAILED_COLOR), str(view.shown_status_color()))
 	TestFixtures.check(res, "J14 the failed contract wears the skull",
-		view.shown_mark() == StatusMark.Mark.SKULL, "%d" % view.shown_mark())
+		view.shown_mark() == StatusMark.Mark.FAILED, "%d" % view.shown_mark())
 	TestFixtures.check(res, "J14 the failed contract leaves the Unclaimed Results shelf",
 		ContractList.filter_key(view) == FAILED_FILTER_KEY, ContractList.filter_key(view))
 	#GX4D-01: the claim keeps the posting on the board; its own Failed option turns on for it.
@@ -1133,7 +1134,7 @@ static func _case_j14_after(res: Dictionary, host: Node) -> void:
 			row.strip_text() == FAILED_TEXT and row.strip_color().is_equal_approx(FAILED_COLOR),
 			"%s %s" % [row.strip_text(), str(row.strip_color())])
 		TestFixtures.check(res, "J14 the list row wears the skull",
-			row.mark.kind == StatusMark.Mark.SKULL, "%d" % row.mark.kind)
+			row.mark.kind == StatusMark.Mark.FAILED, "%d" % row.mark.kind)
 		TestFixtures.check(res, "J14 a settled row is greyed down",
 			row.modulate.is_equal_approx(ContractListItem.CLOSED_TINT), str(row.modulate))
 	var panel_row: FilterCheckRow = viewer.list().filter_panel.row_of(FAILED_FILTER_KEY)
@@ -1144,7 +1145,7 @@ static func _case_j14_after(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "J14 the detail reads Failed and wears the skull",
 		viewer.detail().status_line() == FAILED_TEXT
-		and viewer.detail().status_mark().kind == StatusMark.Mark.SKULL,
+		and viewer.detail().status_mark().kind == StatusMark.Mark.FAILED,
 		"%s %d" % [viewer.detail().status_line(), viewer.detail().status_mark().kind])
 	TestFixtures.check(res, "J14 the detail dates the failure",
 		viewer.detail().date_line() == FAILED_DATE % TrynnCalendar.date_text(view.closed_minute),

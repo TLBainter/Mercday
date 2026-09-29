@@ -34,7 +34,7 @@ var _row: Dictionary = {}
 func _ready() -> void:
 	focus_mode = Control.FOCUS_NONE
 	custom_minimum_size = Vector2(0.0, float(ROW_HEIGHT))
-	arrow.texture = ClientGlyphs.arrow(LINK_COLOR)
+	arrow.texture = Icons.tinted("caret_right", LINK_COLOR, 2, true)
 	face.texture = ClientGlyphs.hatch(FACE_PX, FACE_BAND)
 	if not pressed.is_connected(_on_pressed):
 		pressed.connect(_on_pressed)

@@ -15,12 +15,12 @@ const CANCEL: int = 2
 const ACCEPT_FILL: Color = Color("#3f9a4a")
 const REJECT_FILL: Color = Color("#b8402e")
 const CANCEL_FILL: Color = Color("#5e7699")
-const GLYPH_COLOR: Color = Color("#f3ead7")
+const GLYPH_FILL: Color = Color("#ffffff")
 const LABEL_COLOR: Color = Color("#f3ead7")
 const SHADOW_COLOR: Color = Color("#0a0f1c")
 const SHADOW_PX: int = 2
 const EDGE_PX: int = 3
-const GLYPH_SCALE: int = 2
+const GLYPH_SCALE: int = 3
 #The gap between the glyph and the text on the face (PROTO gap 14).
 const FACE_GAP: int = 14
 const FACE_NODE: String = "Face"
@@ -46,8 +46,10 @@ func _ready() -> void:
 	_style(accept_button, PALETTES[ACCEPT])
 	_style(reject_button, PALETTES[REJECT])
 	_style(cancel_button, PALETTES[CANCEL])
-	_set_glyph(accept_button, GuiGlyphs.check(GLYPH_COLOR))
-	_set_glyph(reject_button, GuiGlyphs.cross(GLYPH_COLOR))
+	_set_glyph(accept_button, Icons.solid_outlined("check_lg", GLYPH_FILL, SHADOW_COLOR,
+		GLYPH_SCALE, true))
+	_set_glyph(reject_button, Icons.solid_outlined("x_lg", GLYPH_FILL, SHADOW_COLOR,
+		GLYPH_SCALE, true))
 	_set_glyph(cancel_button, null)
 	accept_button.pressed.connect(func() -> void: accepted.emit())
 	reject_button.pressed.connect(func() -> void: rejected.emit())
@@ -87,48 +89,11 @@ func _style(button: BevelButton, palette: Dictionary) -> void:
 		text.add_theme_constant_override("shadow_offset_y", SHADOW_PX)
 
 
-#The glyph wears the same 2 px drop as the text, so the two read as one line (PROTO 338 to 348).
+#The atlas glyph arrives already solid and ringed, so the face only hangs it on the rect.
 func _set_glyph(button: Button, tex: Texture2D) -> void:
 	var glyph: TextureRect = button.get_node_or_null(GLYPH_NODE) as TextureRect
 	if glyph == null:
 		return
-	glyph.texture = _shadowed_glyph(tex)
+	glyph.texture = tex
 	glyph.visible = glyph.texture != null
 
-
-#The drop is baked into the image: the glyph in the shadow colour at 2,2 under the cream at 0,0.
-static func _shadowed_glyph(tex: Texture2D) -> Texture2D:
-	var scaled: Texture2D = _scaled_glyph(tex)
-	if scaled == null:
-		return null
-	var src: Image = scaled.get_image()
-	if src == null:
-		return scaled
-	var out: Image = Image.create_empty(src.get_width() + SHADOW_PX,
-		src.get_height() + SHADOW_PX, false, Image.FORMAT_RGBA8)
-	out.fill(Color(0.0, 0.0, 0.0, 0.0))
-	for y: int in src.get_height():
-		for x: int in src.get_width():
-			if src.get_pixel(x, y).a < 0.5:
-				continue
-			out.set_pixel(x + SHADOW_PX, y + SHADOW_PX, SHADOW_COLOR)
-	for y: int in src.get_height():
-		for x: int in src.get_width():
-			if src.get_pixel(x, y).a < 0.5:
-				continue
-			out.set_pixel(x, y, GLYPH_COLOR)
-	return ImageTexture.create_from_image(out)
-
-
-#The runtime glyphs are 10 px; nearest-neighbour doubling keeps the pixel edges crisp next to
-#the 18 px label.
-static func _scaled_glyph(tex: Texture2D) -> Texture2D:
-	if tex == null:
-		return null
-	var img: Image = tex.get_image()
-	if img == null:
-		return tex
-	var copy: Image = img.duplicate() as Image
-	copy.resize(copy.get_width() * GLYPH_SCALE, copy.get_height() * GLYPH_SCALE,
-		Image.INTERPOLATE_NEAREST)
-	return ImageTexture.create_from_image(copy)

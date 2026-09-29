@@ -258,11 +258,10 @@ static func _case_tabs(res: Dictionary, host: Node, viewer: LegalViewer) -> void
 		viewer.current_key() == &"permits" and viewer.permits_page().visible
 		and seen.size() == 3 and seen[2] == 0,
 		"key %s changes %s" % [viewer.current_key(), seen])
-	TestFixtures.check(res, "each tab glyph is drawn lit and unlit",
-		LegalGlyphs.tab_icon(&"permits", true) != null
-		and LegalGlyphs.tab_icon(&"fines", false) != null
-		and LegalGlyphs.tab_icon(&"bail", true) != null
-		and LegalGlyphs.tab_icon(&"bail", false) != null, "one tab glyph is missing")
+	TestFixtures.check(res, "each Legal tab carries its atlas id",
+		viewer.tabs[0].icon_id == "permit" and viewer.tabs[1].icon_id == "coin"
+		and viewer.tabs[2].icon_id == "bail_bars" and viewer.tabs[0].icon_scale == 2,
+		"got %s" % [viewer.tabs[0].icon_id])
 	TestFixtures.check(res, "the window frame never scrolls; the page list does",
 		not _frame_scrolls(viewer) and viewer.permits_page().scroll_node() != null,
 		"frame scrolls %s" % _frame_scrolls(viewer))
@@ -329,11 +328,19 @@ static func _case_cards(res: Dictionary, host: Node, viewer: LegalViewer) -> voi
 		and not page.card(NEAR_LOC).is_home() and not page.card(NEAR_LOC).home_tag_visible(),
 		"home %s near %s" % [page.card(HOME_LOC).home_tag_visible(),
 		page.card(NEAR_LOC).home_tag_visible()])
-	TestFixtures.check(res, "a card prints its nation and its average difficulty",
+	TestFixtures.check(res, "a card prints its nation and its average difficulty stars",
 		page.card(SHORT_LOC).nation_text() == "Nation 4, Restricted"
-		and page.card(HOME_LOC).difficulty_text() == "1.5"
-		and page.card(8).difficulty_text() == "5.0",
-		"%s, %s" % [page.card(SHORT_LOC).nation_text(), page.card(HOME_LOC).difficulty_text()])
+		and is_equal_approx(page.card(HOME_LOC).stars.rating, 1.5)
+		and is_equal_approx(page.card(8).stars.rating, 5.0)
+		and page.card(8).stars.star_size == 2,
+		"%s, %.1f" % [page.card(SHORT_LOC).nation_text(), page.card(HOME_LOC).stars.rating])
+	var mark: TextureRect = page.card(HOME_LOC).find_child("Mark", true, false) as TextureRect
+	var mark_tex: Texture2D = null if mark == null else mark.texture
+	var mark_art: Vector2 = Vector2.ZERO if mark_tex == null else mark_tex.get_size()
+	TestFixtures.check(res, "a permission mark is 24 px of atlas art in a 24 px box",
+		mark != null and mark.custom_minimum_size == Vector2(24, 24)
+		and mark_art == Vector2(24, 24),
+		"box %s art %s" % [Vector2.ZERO if mark == null else mark.custom_minimum_size, mark_art])
 	TestFixtures.check(res, "every card lists three rules",
 		page.card(HOME_LOC).rule_count() == 3 and page.card(8).rule_count() == 3,
 		"%d rules" % page.card(HOME_LOC).rule_count())
@@ -595,6 +602,11 @@ static func _case_bailout(res: Dictionary, host: Node, viewer: LegalViewer) -> v
 		page.head_text() == BailoutPage.HEAD_TEXT and page.row_count() == 2
 		and page.row(0).row_id() == HELD_A and page.row(1).row_id() == HELD_B
 		and not page.empty_visible(), "%d rows" % page.row_count())
+	var bars: IconRect = page.row_for(HELD_A).face_box.get_node_or_null(^"Bars") as IconRect
+	TestFixtures.check(res, "the custody face cell draws the bars art at x3",
+		bars != null and bars.icon_id == "bars" and bars.pixel_scale == 3
+		and page.row_for(HELD_A).face_box.custom_minimum_size == Vector2(56, 56),
+		"bars %s" % [bars])
 	TestFixtures.check(res, "the summary counts the mercs the law holds",
 		page.summary_text() == BailoutPage.HELD_TEXT % "2 mercs",
 		"summary %s" % page.summary_text())

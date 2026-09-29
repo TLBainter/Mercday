@@ -20,7 +20,7 @@ const CREAM: Color = Color("#f3ead7")
 const SKY: Color = Color("#9cc6ef")
 const GREEN: Color = Color("#6cc36a")
 const ICON_PX: float = 44.0
-const ICON_SCALE: int = 3
+const ICON_SCALE: int = 2
 const RING_ON_PX: int = 3
 const RING_OFF_PX: int = 2
 const NAME_SIZE: int = 11
@@ -68,6 +68,7 @@ func _ready() -> void:
 	icon_box.add_theme_stylebox_override(&"panel", _flat(ICON_BG))
 	glyph.set_anchors_preset(Control.PRESET_FULL_RECT)
 	glyph.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	glyph.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	texts.size_flags_horizontal = SIZE_EXPAND_FILL
 	texts.add_theme_constant_override(&"separation", 3)
 	effect_box.add_theme_constant_override(&"separation", 3)
@@ -163,6 +164,7 @@ func _apply() -> void:
 	if _row.is_empty():
 		return
 	glyph.texture = PromoGlyphs.type_icon(key(), ICON_SCALE, is_locked())
+	glyph.modulate = PromoGlyphs.dim_modulate(is_locked())
 	name_label.text = type_name()
 	sub_label.text = sub_text()
 	stars.value = quality()

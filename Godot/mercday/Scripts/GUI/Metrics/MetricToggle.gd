@@ -23,6 +23,9 @@ const BORDER_WIDTH := 2
 const SWATCH_RING := 2.0
 const SWATCH_DOT := 4.0
 const PCT_FLOOR := 0.5
+#The 9x8 arrow window of the 16x16 cell, the value Icons.centered_box(9, 8) returns.
+const ARROW_BOX: Rect2i = Rect2i(3, 4, 9, 8)
+const ARROW_SCALE: int = 1
 const PCT_STRAIGHT := 15.0
 const Y_TIP := "Use as Y-axis"
 
@@ -206,30 +209,19 @@ func _draw_swatch() -> void:
 		Vector2(SWATCH_DOT, SWATCH_DOT)), color)
 
 
-#A 12x12 arrow: upright when the gap is wide, slanted when it is small, up when the merc leads.
+#A 9x8 atlas arrow: upright when the gap is wide, slanted when it is small, up when the merc leads.
 func _draw_arrow() -> void:
 	var kind: int = arrow_kind(_pct)
 	if kind == 0:
 		return
-	var tint: Color = compare_color()
-	var up: bool = _pct > 0.0
+	Icons.draw_texture(arrow, Icons.baked(arrow_id(kind, _pct > 0.0), ARROW_SCALE,
+		Icons.MODE_GRAY, false, ARROW_BOX), Vector2.ZERO, 1, compare_color())
+
+
+#The atlas id of one arrow: kind 2 is the upright pair, kind 1 the slanted pair, kind 0 no arrow.
+static func arrow_id(kind: int, up: bool) -> String:
 	if kind == 2:
-		_arrow_rect(Rect2(5, 4, 2, 7), up, tint)
-		_arrow_rect(Rect2(5, 1, 2, 1), up, tint)
-		_arrow_rect(Rect2(4, 2, 4, 1), up, tint)
-		_arrow_rect(Rect2(3, 3, 6, 1), up, tint)
-		return
-	_arrow_rect(Rect2(2, 8, 2, 2), up, tint)
-	_arrow_rect(Rect2(4, 6, 2, 2), up, tint)
-	_arrow_rect(Rect2(6, 4, 2, 2), up, tint)
-	_arrow_rect(Rect2(7, 2, 4, 2), up, tint)
-	_arrow_rect(Rect2(9, 2, 2, 4), up, tint)
-
-
-#Draws one arrow block, flipped to the bottom of the box when the arrow points down.
-func _arrow_rect(rect: Rect2, up: bool, tint: Color) -> void:
-	if up:
-		arrow.draw_rect(rect, tint)
-		return
-	arrow.draw_rect(Rect2(rect.position.x, arrow.size.y - rect.position.y - rect.size.y,
-		rect.size.x, rect.size.y), tint)
+		return "trend_up" if up else "trend_down"
+	if kind == 1:
+		return "trend_diag_up" if up else "trend_diag_down"
+	return ""

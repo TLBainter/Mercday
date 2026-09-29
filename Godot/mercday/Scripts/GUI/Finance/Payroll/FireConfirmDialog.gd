@@ -27,7 +27,7 @@ const BOX_WIDTH: float = 500.0
 #characters unless the label carries the width it wraps at.
 const WRAP_PAD: float = 60.0
 const BUTTON_HEIGHT: float = 36.0
-const PLATE: int = 60
+const PLATE: int = 70
 const SQUARE: float = 6.0
 
 signal confirmed(uid: int)
@@ -184,8 +184,8 @@ func _note_row(body: String, tint: Color) -> PanelContainer:
 	line.add_theme_constant_override("separation", 10)
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(line)
-	var mark: TextureRect = TextureRect.new()
-	mark.texture = PayrollGlyphs.square(tint, 1)
+	var mark := ColorRect.new()
+	mark.color = tint
 	mark.custom_minimum_size = Vector2(SQUARE, SQUARE)
 	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -218,7 +218,7 @@ func _style() -> void:
 	badge.plate = PLATE
 	badge.kicker_size = 9
 	badge.value_size = 24
-	face.pixel_scale = 6
+	face.pixel_scale = 4
 	employed_head.text = EMPLOYED_TEXT
 	employed_head.add_theme_font_override("font", FONT_KICKER)
 	employed_head.add_theme_font_size_override("font_size", 10)

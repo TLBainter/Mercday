@@ -18,8 +18,7 @@ const READ_OPACITY: float = 0.55
 const RING_WIDTH: int = 2
 const PAD: int = 8
 const ICON_SIZE: Vector2 = Vector2(56, 56)
-const BANG_PATH: String = "res://Art/GUI/Icons/contract_mark_results_bang_14x14.png"
-const BANG_SCALE: int = 2
+const MARK_SCALE: int = 2
 const GLYPH_SCALE: int = 4
 const BODY_INDEX: int = 2
 
@@ -62,8 +61,10 @@ func _ready() -> void:
 		_stripes.texture = NotifyGlyphs.stripes(STRIPE_FILL, STRIPE_BACK)
 	if _ring != null:
 		_ring.add_theme_stylebox_override("panel", _ring_box())
-	if _mark != null and not _mark.pressed.is_connected(press_mark_read):
-		_mark.pressed.connect(press_mark_read)
+	if _mark != null:
+		CloseX.style(_mark, CloseX.SCALE_MINI)
+		if not _mark.pressed.is_connected(press_mark_read):
+			_mark.pressed.connect(press_mark_read)
 	if not mouse_entered.is_connected(_on_enter):
 		mouse_entered.connect(_on_enter)
 		mouse_exited.connect(_on_exit)
@@ -253,29 +254,28 @@ func _fill_icon() -> void:
 	var tex: Texture2D = _icon_texture()
 	if tex == null:
 		return
-	_center.add_child(NotifyGlyphs.shadowed(tex, NotifyGlyphs.SHADOW_STEP, _icon_draw_size(tex)))
+	_center.add_child(NotifyGlyphs.shadowed(tex, NotifyGlyphs.SHADOW_STEP, _icon_tint()))
 
 
+#The atlas art of the row type: the alert cell for a contract, the note for a loan and the two
+#separate trend arrows for a stock move, which take their colour from _icon_tint.
 func _icon_texture() -> Texture2D:
 	if _row == null:
 		return null
 	match _row.type:
 		NotificationData.TYPE_CONTRACT_COMPLETED, NotificationData.TYPE_CONTRACT_FAILED:
-			if ResourceLoader.exists(BANG_PATH):
-				return load(BANG_PATH) as Texture2D
-			return null
+			return Icons.baked("alert", MARK_SCALE, Icons.MODE_PLAIN)
 		NotificationData.TYPE_LOAN_OFFER:
-			return NotifyGlyphs.note(LOAN_GLYPH, GLYPH_SCALE)
+			return Icons.tinted("note", LOAN_GLYPH, GLYPH_SCALE, true)
 		NotificationData.TYPE_STOCK_MOVE:
-			var tint: Color = _row.title_color()
-			if _row.rising():
-				return NotifyGlyphs.arrow_up(tint, GLYPH_SCALE)
-			return NotifyGlyphs.arrow_down(tint, GLYPH_SCALE)
+			var id: String = "trend_up" if _row.rising() else "trend_down"
+			return Icons.baked(id, GLYPH_SCALE, Icons.MODE_GRAY, true)
 	return null
 
 
-#The bang art is 14 x 14 and is drawn at 2 px per art pixel; the runtime glyphs are already scaled.
-func _icon_draw_size(tex: Texture2D) -> Vector2:
-	if tex is ImageTexture:
-		return Vector2.ZERO
-	return Vector2(tex.get_size()) * float(BANG_SCALE)
+func _icon_tint() -> Color:
+	if _row == null:
+		return Color.WHITE
+	if _row.type == NotificationData.TYPE_STOCK_MOVE:
+		return _row.title_color()
+	return Color.WHITE

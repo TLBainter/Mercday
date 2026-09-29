@@ -22,7 +22,7 @@ const TRAIT_ROWS: int = 2
 const SLOT_WIDTH: int = 120
 #How far the dropdown arrow sits from the right edge: clear of the 20 px X button plus a gap.
 const ARROW_MARGIN: int = 28
-const ARROW_SIZE: Vector2i = Vector2i(8, 5)
+const ARROW_SIZE: Vector2i = Vector2i(10, 6)
 const ARROW_COLOR: Color = Color("#f3ead7")
 
 #Ring colours by state; an optional empty slot draws nothing solid and takes the dashed ring.
@@ -47,7 +47,7 @@ const HELD_ALPHA: float = 0.45
 @onready var role_option: OptionButton = $Rows/Head/Role
 @onready var remove_button: Button = $Rows/Head/Remove
 @onready var empty_button: Button = $Rows/Body/Empty
-@onready var plus_label: Label = $Rows/Body/Empty/Box/Plus
+@onready var plus_icon: IconRect = $Rows/Body/Empty/Box/Plus
 @onready var prompt_label: Label = $Rows/Body/Empty/Box/Prompt
 @onready var caption_label: Label = $Rows/Body/Empty/Box/Requirement/Caption
 @onready var caption_dot: ColorRect = $Rows/Body/Empty/Box/Requirement/Dot
@@ -96,6 +96,8 @@ func _ready() -> void:
 	role_option.item_selected.connect(_on_role_selected)
 	role_option.add_theme_icon_override("arrow", arrow_texture())
 	role_option.add_theme_constant_override("arrow_margin", ARROW_MARGIN)
+	CloseX.style(remove_button, CloseX.SCALE_MINI)
+	remove_button.custom_minimum_size = Vector2(20, 20)
 	remove_button.pressed.connect(func() -> void: cleared.emit(slot))
 	empty_button.pressed.connect(func() -> void: clicked.emit(slot))
 	prompt_label.text = EMPTY_TEXT
@@ -127,16 +129,9 @@ func forwarded_controls() -> Array[Control]:
 	return _forwarded
 
 
-#The cream triangle the theme leaves off the dropdown, so a role reads as pickable when it is taken.
+#The cream caret the theme leaves off the dropdown, so a role reads as pickable when it is taken.
 static func arrow_texture() -> ImageTexture:
-	var img: Image = Image.create_empty(ARROW_SIZE.x, ARROW_SIZE.y, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.0, 0.0, 0.0, 0.0))
-	for y: int in ARROW_SIZE.y:
-		var wide: int = maxi(ARROW_SIZE.x - y * 2, 2)
-		var left: int = int((ARROW_SIZE.x - wide) / 2.0)
-		for x: int in wide:
-			img.set_pixel(left + x, y, ARROW_COLOR)
-	return ImageTexture.create_from_image(img)
+	return Icons.tinted("caret_down", ARROW_COLOR, 2, true)
 
 
 #The first word of a name; the whole string when it carries no space.

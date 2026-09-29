@@ -461,14 +461,18 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "an unknown tab key changes nothing",
 		screen.current_tab() == PEOPLE, "got %s" % str(screen.current_tab()))
-	TestFixtures.check(res, "a tab icon is cached per kind and colour",
-		ClientGlyphs.tab_icon(ORGS, Color("#f3ead7"))
-			== ClientGlyphs.tab_icon(ORGS, Color("#f3ead7")),
-		"got two textures")
-	TestFixtures.check(res, "each kind draws its own icon",
-		ClientGlyphs.icon_map(ORGS) != ClientGlyphs.icon_map(PEOPLE)
-			and ClientGlyphs.icon_map(PLACES).size() == ClientGlyphs.ICON_ROWS,
-		"got %d rows" % ClientGlyphs.icon_map(PLACES).size())
+	TestFixtures.check(res, "each tab carries its atlas id",
+		tabs[0].icon_id == "person" and tabs[1].icon_id == "house"
+			and tabs[2].icon_id == "building",
+		"got %s" % [tabs[0].icon_id])
+	var tab_icon: IconRect = tabs[2].icon_rect
+	var icon_mid: Vector2 = tab_icon.get_global_rect().get_center()
+	var tab_mid: Vector2 = tabs[2].get_global_rect().get_center()
+	TestFixtures.check(res, "each tab icon draws a 32 px cell",
+		tab_icon.size == Vector2(32, 32) and tab_icon.icon_id == "building"
+			and icon_mid.distance_to(tab_mid) <= 1.0,
+		"icon %s id %s centre %s tab %s" % [tab_icon.size, tab_icon.icon_id, icon_mid,
+			tab_mid])
 	await _shut(host, screen)
 
 
@@ -866,6 +870,12 @@ static func _case_relationship(res: Dictionary, host: Node) -> void:
 		over.faces()[0].tooltip_text == "Opinion -5"
 			and over.faces()[5].tooltip_text == ClientOverview.NEUTRAL_TEXT,
 		"got %s and %s" % [over.faces()[0].tooltip_text, over.faces()[5].tooltip_text])
+	TestFixtures.check(res, "a face is 24 px and the difficulty stars are 88 x 16 over the client unlit",
+		over.faces()[0].custom_minimum_size == Vector2(24, 24)
+			and over.stars().custom_minimum_size == Vector2(88, 16)
+			and over.stars().empty_color == Icons.UNUSED_STAR_CLIENT,
+		"face %s stars %s" % [over.faces()[0].custom_minimum_size,
+			over.stars().custom_minimum_size])
 	TestFixtures.check(res, "a neutral opinion reads Neutral",
 		ClientOverview.relationship_line(0) == ClientOverview.NEUTRAL_TEXT
 			and ClientOverview.relationship_line(-3) == "Opinion -3",

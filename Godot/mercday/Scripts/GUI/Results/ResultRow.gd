@@ -68,7 +68,7 @@ func _ready() -> void:
 	xp_bar.draw.connect(_on_xp_draw)
 	level_label.draw.connect(_on_level_draw)
 	mvp_label.draw.connect(_on_mvp_draw)
-	fate_overlay.pivot_offset = Vector2(PORTRAIT_PX, PORTRAIT_PX) / 2.0
+	_place_overlay()
 	fate_overlay.visible = false
 	_collect_bars()
 	apply_time(0.0)
@@ -91,7 +91,19 @@ func set_member(data: ResultMemberData, index: int, failed: bool,
 		portrait.set_merc(view)
 	portrait.visible = view != null
 	fate_overlay.texture = ResultsGlyphs.overlay_for(data.fate)
+	_place_overlay()
 	apply_time(0.0)
+
+
+#The fate art sits on whole pixels: the trimmed skull goes at the floored centre of the 48 px
+#portrait and the pivot keeps the reveal pop growing from that centre.
+func _place_overlay() -> void:
+	var box: Vector2 = Vector2(PORTRAIT_PX, PORTRAIT_PX)
+	var art: Vector2 = box if fate_overlay.texture == null else fate_overlay.texture.get_size()
+	var spot: Vector2 = ((box - art) / 2.0).floor()
+	fate_overlay.position = spot
+	fate_overlay.size = art
+	fate_overlay.pivot_offset = box / 2.0 - spot
 
 
 func apply_time(t: float) -> void:

@@ -33,6 +33,13 @@ const PIXEL_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/PixelSlider.ts
 #What a lock says the guild would be able to do: "filter by" on the Hiring list, "target" in a
 #campaign builder.
 @export var lock_verb: String = "filter by"
+#The atlas scale a stars2 section hands its picker: 1 in the 290 px filter column, 2 where the
+#host gives the picker its full 452 px.
+@export var star_scale: int = StarRangePicker.DEFAULT_STAR_SCALE:
+	set(value):
+		star_scale = maxi(1, value)
+		if _stars != null:
+			_stars.star_scale = star_scale
 
 @onready var title_label: Label = $Title
 @onready var lock: FeatureLock = $Lock
@@ -298,6 +305,7 @@ func _build_mods() -> void:
 
 func _build_stars() -> void:
 	_stars = STARS_SCENE.instantiate() as StarRangePicker
+	_stars.star_scale = star_scale
 	_stars.row_locks = _row_lock_props()
 	body.add_child(_stars)
 	_stars.range_changed.connect(_on_pair_changed)

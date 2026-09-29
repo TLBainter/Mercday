@@ -17,8 +17,8 @@ const SLACK: float = 1.5
 const HOLD: float = 0.05
 const WAIT_MS: int = 4000
 const DOT_SIDE: Vector2 = Vector2(28, 28)
-const FIT_STAR_MIN: Vector2 = Vector2(98, 18)
-const CARD_MIN_FULL: Vector2 = Vector2(204, 332)
+const FIT_STAR_MIN: Vector2 = Vector2(88, 16)
+const CARD_MIN_FULL: Vector2 = Vector2(208, 334)
 const ADD_WRAP: Vector2 = Vector2(150.0, 34.0)
 
 const GREEN: Color = Color("#6cc36a")
@@ -434,7 +434,7 @@ static func _case_identity(res: Dictionary, host: Node) -> void:
 		full.row_color("ancestry").is_equal_approx(CREAM), "%s" % [full.row_color("ancestry")])
 	var stars: FitStars = full.fit_stars()
 	var stars_min: Vector2 = Vector2.ZERO if stars == null else stars.get_combined_minimum_size()
-	TestFixtures.check(res, "the fit row draws its stars at cell 2",
+	TestFixtures.check(res, "the fit row draws its stars at cell 1",
 		stars != null and stars_min.is_equal_approx(FIT_STAR_MIN), "%s" % [stars_min])
 	var card_min: Vector2 = full.get_combined_minimum_size()
 	TestFixtures.check(res, "a card with every row shown keeps its outer size",
@@ -1250,12 +1250,11 @@ static func _case_plans(res: Dictionary, host: Node) -> void:
 
 #G2: the runtime glyphs the page draws instead of a PNG.
 static func _case_glyphs(res: Dictionary, host: Node) -> void:
-	var eye: ImageTexture = HiringGlyphs.eye()
-	TestFixtures.check(res, "the eye glyph is built at the size it reports",
-		eye != null and eye.get_size() == HiringGlyphs.eye_size(),
-		"%s" % [Vector2.ZERO if eye == null else eye.get_size()])
-	TestFixtures.check(res, "the eye glyph is cached per key", HiringGlyphs.eye() == eye,
-		"same %s" % [HiringGlyphs.eye() == eye])
+	var eye: Texture2D = Icons.tex("eye", true)
+	TestFixtures.check(res, "the eye glyph is the 12 x 8 atlas cut",
+		eye != null and eye.get_size() == Vector2(12, 8), "%s" % [eye])
+	TestFixtures.check(res, "the atlas cut is cached", Icons.tex("eye", true) == eye,
+		"%s" % [eye])
 	var hatch: ImageTexture = HiringGlyphs.hatch(ApplicantCard.HATCH_SIDE)
 	TestFixtures.check(res, "the portrait hatch is square at the side it was asked for",
 		hatch != null and hatch.get_size() == Vector2(ApplicantCard.HATCH_SIDE,

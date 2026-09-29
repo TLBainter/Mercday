@@ -25,8 +25,6 @@ const NOTICE_PAD_X: float = 14.0
 const NOTICE_PAD_Y: float = 8.0
 const NOTICE_SECONDS: float = 3.2
 const NOTICE_TOP: float = 10.0
-const TAB_ICON_COLS: int = 12
-const TAB_ICON_PX: float = 2.0
 const TAB_ICON_SCALE: int = 2
 const TAB_GAP: int = 6
 const ROW_GAP: int = 12
@@ -148,8 +146,6 @@ func refresh() -> void:
 	mode_desc.text = desc_text()
 	job_tab.active = mode == JOB_KEY
 	guild_tab.active = mode == PROMO_KEY
-	_tab_icon(job_tab, JOB_KEY)
-	_tab_icon(guild_tab, PROMO_KEY)
 	if mode_locked():
 		toolbar_node.visible = false
 		list_node.show_lock(PromotionsManager.mode_lock(key))
@@ -310,13 +306,9 @@ func _setup_tab(button: TabButton, tab: int, caption: String, tip: String) -> vo
 	button.label = caption
 	button.description = tip
 	button.index = tab
-	button.icon_cols = TAB_ICON_COLS
-	button.icon_px = TAB_ICON_PX
+	button.icon_id = PromoGlyphs.tab_id(key_of(tab))
+	button.icon_scale = TAB_ICON_SCALE
 	button.tab_pressed.connect(_on_tab_pressed)
-
-
-func _tab_icon(button: TabButton, key: StringName) -> void:
-	button.set_icon_texture(PromoGlyphs.tab_icon(key, button.active, TAB_ICON_SCALE))
 
 
 func _empty_line(total: int) -> String:

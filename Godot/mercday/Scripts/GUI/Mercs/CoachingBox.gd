@@ -47,8 +47,8 @@ func _ready() -> void:
 	button_label.text = BUTTON_TEXT
 	plan_prefix.text = PLAN_PREFIX
 	button.custom_minimum_size.y = BUTTON_HEIGHT
-	icon_rect.pixel_scale = ICON_PX
-	icon_rect.icon = MercGlyphs.whistle()
+	icon_rect.trimmed = true
+	icon_rect.set_id("whistle", ICON_PX)
 	button.pressed.connect(press_coach)
 	button.mouse_entered.connect(_on_button_entered)
 	button.mouse_exited.connect(_on_button_exited)

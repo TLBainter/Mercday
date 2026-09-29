@@ -87,10 +87,12 @@ mouse_filter = 2
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -56.0
-offset_bottom = 56.0
+offset_left = -43.0
+offset_top = 7.0
+offset_right = -7.0
+offset_bottom = 43.0
 grow_horizontal = 0
-text = "X"
+text = ""
 
 [node name="Edges" type="Control" parent="Box"]
 mouse_filter = 2

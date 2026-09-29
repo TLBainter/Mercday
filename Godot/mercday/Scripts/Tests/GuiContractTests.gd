@@ -68,6 +68,7 @@ static func run(host: Node) -> bool:
 	await _case_claim_keeps_selection(res, host)
 	await _case_claim_no_scene_fallback(res, host)
 	await _case_claim_selection_narrow(res, host)
+	await _case_icon_marks(res, host)
 	_case_bonus_pct_placeholder(res)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	CampaignClock.reset()
@@ -1733,10 +1734,12 @@ static func _case_detail_layout(res: Dictionary, host: Node) -> void:
 		buttons.accept_button.size.y >= 54.0 and buttons.reject_button.size.y >= 54.0,
 		"accept %.1f reject %.1f" % [buttons.accept_button.size.y,
 		buttons.reject_button.size.y])
-	TestFixtures.check(res, "the detail mark draws four pixels per art pixel",
-		detail.status_mark().icon_rect.pixel_scale == ContractDetail.DETAIL_MARK_SCALE
-		and ContractDetail.DETAIL_MARK_SCALE == 4,
-		"scale %d" % detail.status_mark().icon_rect.pixel_scale)
+	TestFixtures.check(res, "the detail mark draws five pixels per art pixel in an 80 px box",
+		detail.status_mark().mark_scale == ContractDetail.DETAIL_MARK_SCALE
+		and ContractDetail.DETAIL_MARK_SCALE == 5
+		and detail.status_mark().custom_minimum_size == Vector2(80, 80),
+		"scale %d box %s" % [detail.status_mark().mark_scale,
+		detail.status_mark().custom_minimum_size])
 	var first: RecommendedList = detail.list(0)
 	TestFixtures.check(res, "a recommended entry rides on a slot chip",
 		first.row_count() == 0 or first.chip_at(0) is SlotChip,
@@ -1804,7 +1807,7 @@ static func _case_detail_layout(res: Dictionary, host: Node) -> void:
 	viewer.queue_free()
 
 
-#Round 6 and A2: each decision button carries its own fill and a cream glyph.
+#Round 6 and A2: each decision button carries its own fill and a solid white glyph.
 static func _case_decision_colors(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var viewer: ContractViewer = _viewer(host)
@@ -1831,8 +1834,8 @@ static func _case_decision_colors(res: Dictionary, host: Node) -> void:
 	var img: Image = null
 	if glyph != null and glyph.texture != null:
 		img = glyph.texture.get_image()
-	var cream: int = 0
-	var shade: int = 0
+	var fill: int = 0
+	var ring: int = 0
 	var stray: int = 0
 	if img != null:
 		for y: int in img.get_height():
@@ -1840,15 +1843,31 @@ static func _case_decision_colors(res: Dictionary, host: Node) -> void:
 				var px: Color = img.get_pixel(x, y)
 				if px.a < 0.5:
 					continue
-				if px.is_equal_approx(DecisionButtons.GLYPH_COLOR):
-					cream += 1
+				if px.is_equal_approx(DecisionButtons.GLYPH_FILL):
+					fill += 1
 				elif px.is_equal_approx(DecisionButtons.SHADOW_COLOR):
-					shade += 1
+					ring += 1
 				else:
 					stray += 1
-	TestFixtures.check(res, "the accept glyph is drawn in the label cream over its own drop",
-		cream > 0 and shade > 0 and stray == 0,
-		"cream %d shade %d stray %d" % [cream, shade, stray])
+	TestFixtures.check(res, "the accept glyph is solid white inside a one pixel ink ring",
+		fill > 0 and ring > 0 and stray == 0,
+		"fill %d ring %d stray %d" % [fill, ring, stray])
+	TestFixtures.check(res, "the accept glyph is check_lg outlined at three px per art px",
+		glyph != null and glyph.texture == Icons.solid_outlined("check_lg",
+		DecisionButtons.GLYPH_FILL, DecisionButtons.SHADOW_COLOR,
+		DecisionButtons.GLYPH_SCALE, true)
+		and glyph.texture.get_size() == Vector2(45, 36),
+		"texture %s" % [Vector2.ZERO if glyph == null or glyph.texture == null
+		else glyph.texture.get_size()])
+	var cross: TextureRect = buttons.reject_button.get_node_or_null(
+		DecisionButtons.GLYPH_NODE) as TextureRect
+	TestFixtures.check(res, "the reject glyph is x_lg outlined at the same scale",
+		cross != null and cross.texture == Icons.solid_outlined("x_lg",
+		DecisionButtons.GLYPH_FILL, DecisionButtons.SHADOW_COLOR,
+		DecisionButtons.GLYPH_SCALE, true)
+		and cross.texture.get_size() == Vector2(42, 42),
+		"texture %s" % [Vector2.ZERO if cross == null or cross.texture == null
+		else cross.texture.get_size()])
 	viewer.queue_free()
 
 
@@ -1978,6 +1997,8 @@ static func _case_slot_roles(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the role dropdown wears a cream arrow clear of the X",
 		below.role_option.has_theme_icon_override("arrow") and arrow != null
 		and arrow.get_size() == Vector2(TeamSlot.ARROW_SIZE)
+		and TeamSlot.ARROW_SIZE == Vector2i(10, 6)
+		and arrow == Icons.tinted("caret_down", TeamSlot.ARROW_COLOR, 2, true)
 		and below.role_option.get_theme_constant("arrow_margin") >= 26,
 		"arrow %s margin %d" % [arrow.get_size() if arrow != null else Vector2.ZERO,
 		below.role_option.get_theme_constant("arrow_margin")])
@@ -1989,10 +2010,15 @@ static func _case_slot_roles(res: Dictionary, host: Node) -> void:
 		and hover != null and hover.bg_color.to_html(false) == "3b6fb6",
 		"bevels %s %s hover %s" % [below.bevel_top.visible, lead.bevel_top.visible,
 		hover.bg_color if hover != null else Color.BLACK])
-	TestFixtures.check(res, "an empty slot shows the plus over the prompt",
-		below.empty_button.visible and below.plus_label.text == "+"
-		and below.plus_label.get_theme_color("font_color").to_html(false) == TeamSlot.DASH_COLOR.to_html(false)
-		and below.prompt_label.text == TeamSlot.EMPTY_TEXT, "plus %s" % below.plus_label.text)
+	TestFixtures.check(res, "an empty slot shows the atlas plus over the prompt",
+		below.empty_button.visible and below.plus_icon is IconRect
+		and below.plus_icon.icon_id == "plus" and below.plus_icon.pixel_scale == 4
+		and below.plus_icon.trimmed
+		and below.plus_icon.tint.to_html(false) == TeamSlot.DASH_COLOR.to_html(false)
+		and below.plus_icon.texture != null
+		and below.plus_icon.texture.get_size() == Vector2(20, 20)
+		and below.prompt_label.text == TeamSlot.EMPTY_TEXT,
+		"plus %s" % below.plus_icon.icon_id)
 	TestFixtures.check(res, "slot 0 reads Required and tags the Leader in orange",
 		lead.caption_label.text == TeamSlot.REQUIRED_TEXT and lead.caption_dot.visible
 		and lead.caption_tag.visible and lead.caption_tag.text == TeamSlot.LEADER_ROLE
@@ -2013,7 +2039,9 @@ static func _case_slot_roles(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a filled slot shows a 56 px portrait beside the badge",
 		below.portrait.pixel_size == TeamSlot.PORTRAIT_SIZE and below.filled_box.visible
-		and below.remove_button.visible and below.remove_button.text == "X"
+		and below.remove_button.visible and below.remove_button.text == ""
+		and below.remove_button.icon == CloseX.icon(CloseX.SCALE_MINI)
+		and below.remove_button.icon.get_size() == Vector2(12, 12)
 		and below.remove_button.custom_minimum_size == Vector2(20, 20)
 		and below.remove_button.size == Vector2(20, 20),
 		"portrait %d" % below.portrait.pixel_size)
@@ -2326,8 +2354,8 @@ static func _case_picker_overlay(res: Dictionary, host: Node) -> void:
 		"got %s uid %d" % [str(got), window.slot_at(0).merc_uid()])
 	window.queue_free()
 	viewer.queue_free()
-#The centre column and its four panels fit the 1280 x 720 window inside its 20 px margin, with a
-#full team and with an empty one.
+#The centre column and its four panels fit the 1280 x 720 test viewport inside a 14 px margin, and
+#ask for no more than the 616 px the HUD band leaves, with a full team and with an empty one.
 static func _case_window_fit(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var viewer: ContractViewer = _viewer(host)
@@ -2340,9 +2368,12 @@ static func _case_window_fit(res: Dictionary, host: Node) -> void:
 	var centre: VBoxContainer = window.get_node("Margin/Columns/Centre") as VBoxContainer
 	var travel: Control = window.get_node("Margin/Columns/Centre/TravelPanel") as Control
 	var team: Control = window.get_node("Margin/Columns/Centre/TeamPanel") as Control
-	TestFixtures.check(res, "the centre column asks for no more than the 692 px it gets",
-		centre.get_combined_minimum_size().y <= 692.0 and centre.size.y <= 692.0,
+	TestFixtures.check(res, "the centre column asks for no more than the 616 px the HUD band leaves",
+		centre.get_combined_minimum_size().y <= 616.0 and centre.size.y <= 692.0,
 		"min %.1f live %.1f" % [centre.get_combined_minimum_size().y, centre.size.y])
+	TestFixtures.check(res, "the dispatch root asks for the 644 px HUD band height",
+		window.custom_minimum_size == Vector2(1280, 644),
+		"min %s live %s" % [window.custom_minimum_size, window.size])
 	var root_edge: float = window.get_global_rect().end.y - 14.0
 	TestFixtures.check(res, "the action bar ends inside the window margin",
 		window.action_bar.get_global_rect().end.y <= root_edge + 0.5,
@@ -2370,8 +2401,8 @@ static func _case_window_fit(res: Dictionary, host: Node) -> void:
 	window.clear_team()
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "an empty team leaves the column inside the same 692 px",
-		centre.get_combined_minimum_size().y <= 692.0 and centre.size.y <= 692.0,
+	TestFixtures.check(res, "an empty team asks for no more than the same 616 px",
+		centre.get_combined_minimum_size().y <= 616.0 and centre.size.y <= 692.0,
 		"min %.1f live %.1f" % [centre.get_combined_minimum_size().y, centre.size.y])
 	TestFixtures.check(res, "an empty team keeps the action bar inside the margin",
 		window.action_bar.get_global_rect().end.y <= root_edge + 0.5,
@@ -2453,6 +2484,58 @@ static func _check_widths(res: Dictionary, window: DispatchWindow, tag: String,
 		and name_text.size.x >= name_text.get_minimum_size().x - 0.5,
 		"mode %d name %.1f min %.1f" % [tradition.size_mode, name_text.size.x,
 		name_text.get_minimum_size().x])
+
+
+#The DOC's contract marks, star scale and 644 px root minimums, read once so a regression
+#is loud. Both roots fill their parent, so this reads custom_minimum_size, not size.
+static func _case_icon_marks(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: ContractViewer = _viewer(host)
+	await host.get_tree().process_frame
+	var window: DispatchWindow = ContractViewer.DISPATCH_SCENE.instantiate()
+	TestFixtures.check(res, "the contract roots ask for the 644 px band height",
+		viewer.custom_minimum_size == Vector2(1280, 644)
+		and window.custom_minimum_size == Vector2(1280, 644),
+		"viewer %s window %s" % [viewer.custom_minimum_size,
+		window.custom_minimum_size])
+	window.queue_free()
+	var want: Dictionary = {StatusMark.Mark.CHECK: "check_lg",
+		StatusMark.Mark.EXPIRED: "prohibited",
+		StatusMark.Mark.THUMBS_DOWN: "thumbs_down",
+		StatusMark.Mark.BANG: "alert", StatusMark.Mark.FAILED: "x_lg"}
+	var ids_ok: bool = true
+	for kind: int in want:
+		if StatusMark.id_of(kind) != want[kind]:
+			ids_ok = false
+	TestFixtures.check(res, "every contract status mark reads its atlas id",
+		ids_ok and StatusMark.id_of(StatusMark.Mark.NONE) == "",
+		"ids %s" % str(want))
+	TestFixtures.check(res, "the detail header stars are x2 at 176 x 32",
+		viewer.detail().stars.star_size == 2
+		and viewer.detail().stars.custom_minimum_size == Vector2(176, 32),
+		"detail %d" % viewer.detail().stars.star_size)
+	var ids: Array[int] = GameState.seed_results_preview()
+	if not await _seeded(res, ids, viewer, host):
+		return
+	GameState.mark_seen(ids[0])
+	viewer.detail().set_view(_view_by_id(ids[0]))
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var mark: StatusMark = viewer.detail().status_mark()
+	var box: Control = viewer.detail().image
+	TestFixtures.check(res, "a settled contract wears the check at eighty pixels",
+		mark.kind == StatusMark.Mark.CHECK and mark.size == Vector2(80, 80)
+		and mark.icon_rect.pixel_scale == ContractDetail.DETAIL_MARK_SCALE
+		and mark.icon_rect.texture != null
+		and mark.icon_rect.texture.get_size() == Vector2(80, 80),
+		"kind %d box %s scale %d" % [mark.kind, mark.size, mark.icon_rect.pixel_scale])
+	TestFixtures.check(res, "the eighty pixel mark sits centred in the portrait box",
+		(mark.get_global_rect().get_center()
+		- box.get_global_rect().get_center()).length() <= 0.5
+		and box.size == Vector2(150, 150),
+		"mark %s image %s" % [mark.get_global_rect().get_center(),
+		box.get_global_rect().get_center()])
+	viewer.queue_free()
 
 
 #A2: both decision faces wear the pinned fills, bevels, hover and pressed shades.
@@ -2564,7 +2647,8 @@ static func _case_shown_status(res: Dictionary, host: Node) -> void:
 		"won %s lost %s" % [won.shown_status_text(), lost.shown_status_text()])
 	TestFixtures.check(res, "an unclaimed posting wears the bang mark",
 		won.shown_mark() == StatusMark.Mark.BANG and lost.shown_mark() == StatusMark.Mark.BANG
-		and StatusMark.icon_of(StatusMark.Mark.BANG) == StatusMark.ICON_BANG,
+		and StatusMark.id_of(StatusMark.Mark.BANG) == "alert"
+		and StatusMark.icon_of(StatusMark.Mark.BANG) == Icons.tex("alert"),
 		"won %d lost %d" % [won.shown_mark(), lost.shown_mark()])
 	TestFixtures.check(res, "an unclaimed posting answers to the Unclaimed Results option",
 		ContractList.filter_key(won) == ContractList.UNCLAIMED_KEY
@@ -2579,12 +2663,13 @@ static func _case_shown_status(res: Dictionary, host: Node) -> void:
 		and won.shown_status_color() == GuiTypes.status_color(GuiTypes.ContractStatus.COMPLETED)
 		and won.shown_mark() == StatusMark.Mark.CHECK,
 		"status %s mark %d" % [won.shown_status_text(), won.shown_mark()])
-	TestFixtures.check(res, "a claimed failure turns Failed and red under the skull",
+	TestFixtures.check(res, "a claimed failure turns Failed and red under the big X",
 		not lost.is_unclaimed() and lost.shown_status() == GuiTypes.ContractStatus.FAILED
 		and lost.shown_status_text() == "Failed"
 		and lost.shown_status_color() == Color("#e8583f")
-		and lost.shown_mark() == StatusMark.Mark.SKULL
-		and StatusMark.icon_of(StatusMark.Mark.SKULL) == StatusMark.ICON_SKULL,
+		and lost.shown_mark() == StatusMark.Mark.FAILED
+		and StatusMark.id_of(StatusMark.Mark.FAILED) == "x_lg"
+		and StatusMark.icon_of(StatusMark.Mark.FAILED) == Icons.tex("x_lg"),
 		"status %s mark %d" % [lost.shown_status_text(), lost.shown_mark()])
 	TestFixtures.check(res, "the board never stores FAILED: only the display status turns",
 		lost.status == GuiTypes.ContractStatus.COMPLETED
@@ -2597,7 +2682,7 @@ static func _case_shown_status(res: Dictionary, host: Node) -> void:
 	viewer.queue_free()
 
 
-#I5: the unclaimed row keeps its colour; a claimed failure greys out with the skull and the date.
+#I5: the unclaimed row keeps its colour; a claimed failure greys out with the big X and the date.
 static func _case_result_rows(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var viewer: ContractViewer = _viewer(host)
@@ -2632,9 +2717,9 @@ static func _case_result_rows(res: Dictionary, host: Node) -> void:
 	viewer.list().filter_panel.set_filter(rules)
 	await host.get_tree().process_frame
 	row = _row_of(viewer.list(), lost_id)
-	TestFixtures.check(res, "the Failed option greys the row under a red Failed and the skull",
+	TestFixtures.check(res, "the Failed option greys the row under a red Failed and the big X",
 		row != null and row.strip_text() == "Failed"
-		and row.strip_color() == Color("#e8583f") and row.mark.kind == StatusMark.Mark.SKULL
+		and row.strip_color() == Color("#e8583f") and row.mark.kind == StatusMark.Mark.FAILED
 		and row.modulate == ContractListItem.CLOSED_TINT,
 		"strip %s mark %d" % [row.strip_text() if row != null else "",
 		row.mark.kind if row != null else -1])
@@ -2642,7 +2727,7 @@ static func _case_result_rows(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the claimed failure detail reads Failed on its closing date",
 		viewer.detail().status_line() == "Failed"
-		and viewer.detail().status_mark().kind == StatusMark.Mark.SKULL
+		and viewer.detail().status_mark().kind == StatusMark.Mark.FAILED
 		and viewer.detail().date_line() == "Failed on %s"
 			% TrynnCalendar.date_text(view.closed_minute)
 		and not viewer.detail().decisions().accept_button.visible,
@@ -2954,11 +3039,11 @@ static func _case_sort_toggle(res: Dictionary, host: Node) -> void:
 		box != null and box.bg_color == up["fill"] and box.border_color == Color("#0a0f1c")
 		and box.border_width_left == 3 and box.border_width_bottom == 3,
 		"box %s" % [box.bg_color if box != null else Color.BLACK])
-	TestFixtures.check(res, "the arrows stand 5 px wide and 7 px tall",
-		is_equal_approx(SortDirToggle.TRI_WIDTH, 5.0)
-		and is_equal_approx(SortDirToggle.TRI_HEIGHT, 7.0)
-		and SortDirToggle.TRI_SHAPE.size() == 7,
-		"shape %s" % str(SortDirToggle.TRI_SHAPE))
+	TestFixtures.check(res, "the arrows are the atlas carets at 10 by 6",
+		SortDirToggle.ARROW_SCALE == 2
+		and Icons.size("caret_up") * SortDirToggle.ARROW_SCALE == Vector2i(10, 6)
+		and Icons.size("caret_down") * SortDirToggle.ARROW_SCALE == Vector2i(10, 6),
+		"up %s down %s" % [str(Icons.size("caret_up")), str(Icons.size("caret_down"))])
 	toggle.toggle()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "flipping back reports descending and restores the orange",

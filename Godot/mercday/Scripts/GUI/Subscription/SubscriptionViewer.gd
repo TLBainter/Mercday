@@ -13,8 +13,6 @@ const TAB_KEYS: Array[StringName] = [PLANS_TAB, CUSTOMIZE_TAB]
 const PLANS_TITLE: String = "Mercday Plans"
 const CUSTOMIZE_TITLE: String = "Customize"
 const CUSTOMIZE_LOCKED_TITLE: String = "Customize (Mercday Enterprise only)"
-const ICON_COLS: int = 12
-const ICON_PX: float = 2.0
 
 @onready var tab_row: HBoxContainer = $Margin/Rows/TabRowPad/TabRow
 @onready var plans_tab: TabButton = $Margin/Rows/TabRowPad/TabRow/PlansTab
@@ -30,11 +28,7 @@ var _pending_tier: int = 1
 
 
 func _ready() -> void:
-	plans_tab.set_icon_texture(SubscriptionGlyphs.logo())
-	customize_tab.set_icon_texture(SubscriptionGlyphs.customize_icon())
 	for tab: TabButton in [plans_tab, customize_tab]:
-		tab.icon_cols = ICON_COLS
-		tab.icon_px = ICON_PX
 		tab.tab_pressed.connect(_on_tab_pressed)
 	plans.switch_requested.connect(_on_switch_requested)
 	plans.customize_requested.connect(_on_customize_requested)

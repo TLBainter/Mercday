@@ -28,7 +28,7 @@ theme_override_fonts/font = ExtResource("6")
 theme_override_font_sizes/font_size = 12
 
 [node name="Switch" type="PanelContainer" parent="Col"]
-custom_minimum_size = Vector2(0, 34)
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 theme_override_styles/panel = ExtResource("3")
 
@@ -45,7 +45,7 @@ theme_override_fonts/font = ExtResource("7")
 theme_override_font_sizes/font_size = 12
 
 [node name="SwapButton" type="Button" parent="Col/Switch/Row"]
-custom_minimum_size = Vector2(42, 40)
+custom_minimum_size = Vector2(36, 28)
 layout_mode = 2
 script = ExtResource("9")
 
@@ -66,13 +66,6 @@ text = "Sell"
 theme_override_colors/font_color = Color(0.290196, 0.396078, 0.533333, 1)
 theme_override_fonts/font = ExtResource("7")
 theme_override_font_sizes/font_size = 12
-
-[node name="QuantityLabel" type="Label" parent="Col"]
-layout_mode = 2
-text = "Quantity (shares)"
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("6")
-theme_override_font_sizes/font_size = 9
 
 [node name="QuantityField" parent="Col" instance=ExtResource("10")]
 layout_mode = 2

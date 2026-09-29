@@ -33,7 +33,7 @@ func _ready() -> void:
 	_terms = get_node_or_null(terms_label_path) as Label
 	_remaining = get_node_or_null(remaining_label_path) as Label
 	if _glyph != null:
-		_glyph.texture = NotifyGlyphs.note(GLYPH_COLOR, 1)
+		_glyph.texture = Icons.tinted("note", GLYPH_COLOR, 1, true)
 	_refresh()
 
 

@@ -96,8 +96,9 @@ static func _case_box(res: Dictionary, host: Node) -> void:
 		box.button is BevelButton and box.button.kind == &"blue",
 		"button %s kind %s" % [box.button, box.button.kind])
 	TestFixtures.check(res, "the whistle icon is drawn at two px per art pixel",
-		box.icon_rect.pixel_scale == 2 and box.icon_rect.icon != null,
-		"scale %d icon %s" % [box.icon_rect.pixel_scale, box.icon_rect.icon])
+		box.icon_rect.icon_id == "whistle" and box.icon_rect.pixel_scale == 2
+			and box.icon_rect.trimmed and box.icon_rect.texture != null,
+		"id %s scale %d" % [box.icon_rect.icon_id, box.icon_rect.pixel_scale])
 	TestFixtures.check(res, "the plan line opens on Auto",
 		box.plan_text() == "Plan: Auto" and box.plan_value.text == "Auto",
 		"line '%s' value '%s'" % [box.plan_text(), box.plan_value.text])
@@ -193,12 +194,13 @@ static func _case_dialog_chrome(res: Dictionary, host: Node) -> void:
 			and dim.bg_color.is_equal_approx(Color(6.0 / 255.0, 10.0 / 255.0, 20.0 / 255.0,
 				dim.bg_color.a)),
 		"dim %s" % [dim.bg_color if dim != null else Color.BLACK])
-	TestFixtures.check(res, "the close X is red and the footer names Cancel and Confirm",
-		dialog.close_x.text == "X"
-			and dialog.close_x.get_theme_color("font_color").r > 0.9
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the close X is the shared 36 px art and the footer names Cancel and Confirm",
+		dialog.close_x.text == "" and dialog.close_x.icon == CloseX.icon(CloseX.SCALE_WINDOW)
+			and dialog.close_x.size == Vector2(36, 36)
 			and dialog.cancel_button.text == "Cancel" and dialog.confirm_button.text == "Confirm",
-		"x '%s' cancel '%s' confirm '%s'" % [dialog.close_x.text, dialog.cancel_button.text,
-			dialog.confirm_button.text])
+		"icon %s size %s cancel '%s' confirm '%s'" % [dialog.close_x.icon,
+			dialog.close_x.size, dialog.cancel_button.text, dialog.confirm_button.text])
 	TestFixtures.check(res, "an open dialog is the top frame so escape reaches it",
 		GuiFrameStack.top() == dialog, "top %s" % GuiFrameStack.top())
 	dialog.press_cancel()
