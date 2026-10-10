@@ -7,11 +7,11 @@ const GAP: float = 2.0
 const STRIP_HEIGHT: float = 14.0
 const CELL_HEIGHT: float = 10.0
 const HOVER_HEIGHT: float = 14.0
-const RING_COLOR: Color = Color("#f3ead7")
-const SENT: Color = Color("#6cc36a")
-const SENT_HOVER: Color = Color("#9be29a")
-const FUTURE: Color = Color("#1f3560")
-const FUTURE_HOVER: Color = Color("#2b4f8a")
+const RING_COLOR: Color = GuiColors.CREAM
+const SENT: Color = GuiColors.GREEN
+const SENT_HOVER: Color = GuiColors.GREEN_HI
+const FUTURE: Color = GuiColors.BLUE_LO
+const FUTURE_HOVER: Color = GuiColors.BLUE
 const TIP_WIDTH: float = 200.0
 const TIP_GAP: float = 6.0
 const EDGE_CELLS: int = 2
@@ -87,11 +87,11 @@ func tip_text(key: String) -> String:
 		"amount_label":
 			return DUE_TEXT if future else SENT_TEXT
 		"amount":
-			return NotesLabel.format_amount(int(row.get("amount", 0)))
+			return TransactionData.grouped(int(row.get("amount", 0)))
 		"after_label":
 			return AFTER_TEXT
 		"after":
-			return NotesLabel.format_amount(maxi(0, int(row.get("after", 0))))
+			return TransactionData.grouped(maxi(0, int(row.get("after", 0))))
 	return ""
 
 
@@ -100,24 +100,24 @@ func tip_open() -> bool:
 
 
 func _build_tip() -> void:
-	_tip = LoanStyle.panel(LoanStyle.BLUE, 10, 8)
+	_tip = LoanStyle.panel(GuiColors.BLUE_LO, 10, 8)
 	_tip.custom_minimum_size = Vector2(TIP_WIDTH, 0.0)
 	_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tip.visible = false
-	var col: VBoxContainer = LoanStyle.vbox(4)
-	_tip_label = LoanStyle.text("", 10, LoanStyle.SKY, true)
-	_tip_date = LoanStyle.text("", 13, LoanStyle.CREAM)
+	var col: VBoxContainer = GuiStyle.vbox(4)
+	_tip_label = GuiStyle.label("", GuiStyle.SILK_BOLD, 10, GuiColors.SKY)
+	_tip_date = GuiStyle.label("", GuiStyle.SILK, 13, GuiColors.CREAM)
 	col.add_child(_tip_label)
 	col.add_child(_tip_date)
-	var amount_row: HBoxContainer = LoanStyle.hbox(6)
-	_tip_amount_label = LoanStyle.text(DUE_TEXT, 8, LoanStyle.SKY)
-	_tip_amount = LoanStyle.notes(0, LoanStyle.CREAM, 11)
+	var amount_row: HBoxContainer = GuiStyle.hbox(6)
+	_tip_amount_label = GuiStyle.label(DUE_TEXT, GuiStyle.SILK, 8, GuiColors.SKY)
+	_tip_amount = GuiStyle.notes(0, 11, GuiColors.CREAM)
 	amount_row.add_child(_tip_amount_label)
 	amount_row.add_child(_tip_amount)
 	col.add_child(amount_row)
-	var after_row: HBoxContainer = LoanStyle.hbox(6)
-	after_row.add_child(LoanStyle.text(AFTER_TEXT, 8, LoanStyle.SKY))
-	_tip_after = LoanStyle.notes(0, LoanStyle.RED, 11)
+	var after_row: HBoxContainer = GuiStyle.hbox(6)
+	after_row.add_child(GuiStyle.label(AFTER_TEXT, GuiStyle.SILK, 8, GuiColors.SKY))
+	_tip_after = GuiStyle.notes(0, 11, GuiColors.RED)
 	after_row.add_child(_tip_after)
 	col.add_child(after_row)
 	_tip.add_child(col)
@@ -133,7 +133,7 @@ func _refresh_tip() -> void:
 	var row: Dictionary = _rows[_hover]
 	var future: bool = bool(row.get("future", false))
 	_tip_label.text = tip_text("label")
-	_tip_label.add_theme_color_override("font_color", LoanStyle.SKY if future else LoanStyle.GREEN)
+	_tip_label.add_theme_color_override("font_color", GuiColors.SKY if future else GuiColors.GREEN)
 	_tip_date.text = tip_text("date")
 	_tip_amount_label.text = tip_text("amount_label")
 	_tip_amount.amount = int(row.get("amount", 0))
@@ -158,11 +158,18 @@ func tip_left() -> float:
 	return _tip.position.x if _tip != null else 0.0
 
 
-func _cell_rect(index: int) -> Rect2:
+#The strip less its gaps, shared evenly between the cells; 0 when there are none.
+func _cell_width() -> float:
 	var count: int = _rows.size()
 	if count <= 0:
+		return 0.0
+	return (size.x - GAP * float(count - 1)) / float(count)
+
+
+func _cell_rect(index: int) -> Rect2:
+	if _rows.is_empty():
 		return Rect2()
-	var each: float = (size.x - GAP * float(count - 1)) / float(count)
+	var each: float = _cell_width()
 	var h: float = cell_height(index)
 	return Rect2(float(index) * (each + GAP), STRIP_HEIGHT - h, each, h)
 
@@ -171,13 +178,10 @@ func _gui_input(event: InputEvent) -> void:
 	if not (event is InputEventMouseMotion):
 		return
 	var at: Vector2 = (event as InputEventMouseMotion).position
-	var count: int = _rows.size()
-	if count <= 0 or size.x <= 0.0:
-		return
-	var each: float = (size.x - GAP * float(count - 1)) / float(count)
+	var each: float = _cell_width()
 	if each <= 0.0:
 		return
-	hover_cell(clampi(int(at.x / (each + GAP)), 0, count - 1))
+	hover_cell(clampi(int(at.x / (each + GAP)), 0, _rows.size() - 1))
 
 
 func _on_exit() -> void:

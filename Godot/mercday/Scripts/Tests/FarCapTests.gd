@@ -19,26 +19,33 @@ const FAR_SMALL_DIM := 30
 const FAR_SMALL_FOE := Vector3i(27, 27, 0)
 
 
-static func run_cases(res: Dictionary) -> void:
-	_case_far_cap(res)
-
-
 #The approach flood cap: a capped growth stops short and aims at the frontier it settled, and gives the
 #cap up for good when nothing it settled stands nearer the ring than the mover already does.
-static func _case_far_cap(res: Dictionary) -> void:
+static func run_cases(res: Dictionary) -> void:
 	PathCost.set_door_penalty(0)
 	PathCost.set_water_cost(null, null)
 	PathCost.clear_climb()
-	PathTargeter.clear_caches()
-	PathTargeter.far_cap_override = -1
-	var open_map: BattlefieldArea = _far_field()
+	ReachCache.clear_caches()
+	ReachCache.far_cap_override = -1
+	_case_capped_growth(res)
+	_case_walled_off(res)
+	_case_cap_scales(res)
+	_case_boxed_in(res)
+	_case_wide_floor(res)
+	_case_small_uncapped(res)
+	ReachCache.clear_caches()
+	PathCost.set_door_penalty(-1)
+
+
+static func _case_capped_growth(res: Dictionary) -> void:
+	var open_map: BattlefieldArea = TestFixtures.exterior_field(FAR_DIM)
 	var ring := Vector3i(FAR_FOE.x - 1, FAR_FOE.y - 1, 0)
 	var listed: Array[Vector3i] = [ring]
 
 	var short_flood: ReachSearch = _far_flood(open_map, FAR_START)
-	short_flood.ensure_cells(listed, -1, PathTargeter.RING_SLACK, FAR_CAP_SMALL)
+	short_flood.ensure_cells(listed, -1, ReachCache.RING_SLACK, FAR_CAP_SMALL)
 	var full_flood: ReachSearch = _far_flood(open_map, FAR_START)
-	full_flood.ensure_cells(listed, -1, PathTargeter.RING_SLACK)
+	full_flood.ensure_cells(listed, -1, ReachCache.RING_SLACK)
 	TestFixtures.check(res, "city_far a capped growth stops on its settled bound",
 		short_flood.capped and short_flood.result.size() <= FAR_CAP_SMALL
 		and not short_flood.result.has(ring),
@@ -59,18 +66,22 @@ static func _case_far_cap(res: Dictionary) -> void:
 	var walker: MercenaryData = _far_merc("Far Walker")
 	var foe: MercenaryData = _far_merc("Far Foe")
 	var open_st: BattleState = _far_state(open_map, walker, foe, FAR_START, FAR_FOE)
-	PathTargeter.far_cap_override = FAR_CAP_TURN
+	ReachCache.far_cap_override = FAR_CAP_TURN
 	var goal: Vector3i = PathTargeter.best_approach_cell(walker, foe, open_st)
-	var walk: Array[Vector3i] = PathTargeter.walk_path_for(walker, open_st, FAR_START, goal)
-	var goal_gap: int = PathTargeter.far_box_distance(walker, open_st, goal, listed)
+	var walk: Array[Vector3i] = ReachCache.walk_path_for(walker, open_st, FAR_START, goal)
+	var goal_gap: int = ReachCache.far_box_distance(walker, open_st, goal, listed)
 	TestFixtures.check(res, "city_far a capped approach heads for the frontier it settled",
 		goal != PathTargeter.NO_CELL and not walk.is_empty() and not open_st.far_full.has(walker)
 		and (open_st.move_goals.get(walker, PathTargeter.NO_CELL) as Vector3i) == goal
 		and (open_st.move_targets.get(walker) as MercenaryData) == foe and goal_gap < start_gap,
 		"goal %s at %d, %d step(s)" % [str(goal), goal_gap, walk.size()])
+	ReachCache.far_cap_override = -1
 
-	PathTargeter.clear_caches()
-	var wall_map: BattlefieldArea = _far_field()
+
+static func _case_walled_off(res: Dictionary) -> void:
+	ReachCache.clear_caches()
+	ReachCache.far_cap_override = FAR_CAP_TURN
+	var wall_map: BattlefieldArea = TestFixtures.exterior_field(FAR_DIM)
 	for y: int in range(0, FAR_WALL_LEN + 1):
 		TestFixtures.put(wall_map, Vector3i(FAR_WALL_X, y, 0), {"cell_type": "wall", "height": 4.0})
 	for x: int in range(1, FAR_WALL_LEN + 1):
@@ -82,79 +93,71 @@ static func _case_far_cap(res: Dictionary) -> void:
 	TestFixtures.check(res, "city_far a mover walled off the ring drops its cap and still gets a goal",
 		wall_st.far_full.has(walled) and wall_goal != PathTargeter.NO_CELL and wall_goal != FAR_WALLED,
 		"goal %s, uncapped %s" % [str(wall_goal), str(wall_st.far_full.has(walled))])
-	PathTargeter.far_cap_override = -1
+	ReachCache.far_cap_override = -1
 
-	PathTargeter.clear_caches()
-	var mid_map: BattlefieldArea = _far_field()
+
+static func _case_cap_scales(res: Dictionary) -> void:
+	ReachCache.clear_caches()
+	var mid_map: BattlefieldArea = TestFixtures.exterior_field(FAR_DIM)
 	var scaler: MercenaryData = _far_merc("Far Scaler")
 	var scale_foe: MercenaryData = _far_merc("Far Scale Foe")
 	var mid_st: BattleState = _far_state(mid_map, scaler, scale_foe, FAR_MID, FAR_FOE)
-	var mid_reach: Dictionary = PathTargeter.reachable_for(scaler, mid_st)
-	var mid_budget: int = PathTargeter.reach_budget(scaler, mid_st)
+	var mid_reach: Dictionary = ReachCache.reachable_for(scaler, mid_st)
+	var mid_budget: int = ReachCache.reach_budget(scaler, mid_st)
 	var mid_walk: int = 0
 	for key: Variant in mid_reach.keys():
 		var mid_cost: int = mid_reach[key] as int
 		if mid_cost < PathTargeter.JUMP_COST_OFFSET and mid_cost <= mid_budget:
 			mid_walk += 1
-	var mid_cap: int = PathTargeter.far_cap_for(scaler, mid_st)
-	var mid_floor: int = PathTargeter.cap_floor_of(PathTargeter.walk_cells_of(mid_map))
+	var mid_cap: int = ReachCache.far_cap_for(scaler, mid_st)
+	var mid_floor: int = ReachCache.cap_floor_of(ReachCache.walk_cells_of(mid_map))
 	TestFixtures.check(res, "city_far the cap scales with the flood of the mover's own turn",
-		mid_cap == maxi(mid_floor, PathTargeter.FAR_CAP_MULT * mid_walk),
+		mid_cap == maxi(mid_floor, ReachCache.FAR_CAP_MULT * mid_walk),
 		"%d cell(s), cap %d" % [mid_walk, mid_cap])
 
-	var box_map: BattlefieldArea = _far_field()
+
+static func _case_boxed_in(res: Dictionary) -> void:
+	var box_map: BattlefieldArea = TestFixtures.exterior_field(FAR_DIM)
 	_box_in(box_map, FAR_BOX)
 	var boxed: MercenaryData = _far_merc("Far Boxed")
 	var boxed_foe: MercenaryData = _far_merc("Far Boxed Foe")
 	var box_st: BattleState = _far_state(box_map, boxed, boxed_foe, FAR_BOX, FAR_FOE)
-	var box_reach: int = PathTargeter.reachable_for(boxed, box_st).size()
-	var box_cap: int = PathTargeter.far_cap_for(boxed, box_st)
-	var box_floor: int = PathTargeter.cap_floor_of(PathTargeter.walk_cells_of(box_map))
+	var box_reach: int = ReachCache.reachable_for(boxed, box_st).size()
+	var box_cap: int = ReachCache.far_cap_for(boxed, box_st)
+	var box_floor: int = ReachCache.cap_floor_of(ReachCache.walk_cells_of(box_map))
 	TestFixtures.check(res, "city_far a mover boxed in keeps the floor of the cap",
 		box_reach == FAR_BOX_CELLS and box_cap == box_floor,
 		"%d cell(s), cap %d" % [box_reach, box_cap])
 
-	PathTargeter.clear_caches()
-	var wide_map: BattlefieldArea = _far_field_of(FAR_WIDE_DIM)
+
+static func _case_wide_floor(res: Dictionary) -> void:
+	ReachCache.clear_caches()
+	var wide_map: BattlefieldArea = TestFixtures.exterior_field(FAR_WIDE_DIM)
 	_box_in(wide_map, FAR_BOX)
 	var wide: MercenaryData = _far_merc("Far Wide")
 	var wide_foe: MercenaryData = _far_merc("Far Wide Foe")
 	var wide_st: BattleState = _far_state(wide_map, wide, wide_foe, FAR_BOX, FAR_FOE)
-	var wide_cells: int = PathTargeter.walk_cells_of(wide_map)
-	var wide_cap: int = PathTargeter.far_cap_for(wide, wide_st)
+	var wide_cells: int = ReachCache.walk_cells_of(wide_map)
+	var wide_cap: int = ReachCache.far_cap_for(wide, wide_st)
 	TestFixtures.check(res, "city_far the cap floor grows with the standable cells of a wide map",
-		wide_cells > PathTargeter.FAR_CAP_CELLS and wide_cap > PathTargeter.FAR_CAP_MIN
-		and wide_cap == PathTargeter.cap_floor_of(wide_cells),
+		wide_cells > ReachCache.FAR_CAP_CELLS and wide_cap > ReachCache.FAR_CAP_MIN
+		and wide_cap == ReachCache.cap_floor_of(wide_cells),
 		"%d cell(s), cap %d" % [wide_cells, wide_cap])
 
-	PathTargeter.clear_caches()
-	var small_map: BattlefieldArea = _far_field_of(FAR_SMALL_DIM)
+
+static func _case_small_uncapped(res: Dictionary) -> void:
+	ReachCache.clear_caches()
+	var small_map: BattlefieldArea = TestFixtures.exterior_field(FAR_SMALL_DIM)
 	var small: MercenaryData = _far_merc("Far Small")
 	var small_foe: MercenaryData = _far_merc("Far Small Foe")
 	var small_st: BattleState = _far_state(small_map, small, small_foe, FAR_START, FAR_SMALL_FOE)
-	var small_cells: int = PathTargeter.walk_cells_of(small_map)
-	var small_cap: int = PathTargeter.far_cap_for(small, small_st)
+	var small_cells: int = ReachCache.walk_cells_of(small_map)
+	var small_cap: int = ReachCache.far_cap_for(small, small_st)
 	var small_goal: Vector3i = PathTargeter.best_approach_cell(small, small_foe, small_st)
 	TestFixtures.check(res, "city_far a map under the cell threshold floods with no cap",
-		small_cells <= PathTargeter.FAR_CAP_CELLS and small_cap == -1 and small_goal != PathTargeter.NO_CELL
-		and not small_st.far_full.has(small) and not PathTargeter.far_capped(small, small_st),
+		small_cells <= ReachCache.FAR_CAP_CELLS and small_cap == -1 and small_goal != PathTargeter.NO_CELL
+		and not small_st.far_full.has(small) and not ReachCache.far_capped(small, small_st),
 		"%d cell(s), cap %d, goal %s" % [small_cells, small_cap, str(small_goal)])
-	PathTargeter.clear_caches()
-	PathCost.set_door_penalty(-1)
-
-
-#Flat open field wide enough that one approach flood runs well past a test cap.
-static func _far_field() -> BattlefieldArea:
-	return _far_field_of(FAR_DIM)
-
-
-static func _far_field_of(dim: int) -> BattlefieldArea:
-	var f := BattlefieldArea.new()
-	f.width = dim
-	f.length = dim
-	f.height = 24
-	f.is_interior_map = false
-	return f
 
 
 #Walls the cells around at into a pocket of FAR_BOX_CELLS free cells, leaving the row at stands on open.

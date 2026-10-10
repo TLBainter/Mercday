@@ -14,24 +14,26 @@ const LIST_TITLES: Dictionary = {"Merc": "Merc Data", "Contract": "Contract Data
 	"Guild": "Guild Data"}
 const GOOD_DIRECTION: Dictionary = {"salary": 0, "xp": 1, "level": 1, "wins": 1, "losses": -1,
 	"sRoll": 1, "fRoll": -1, "kills": 1, "op": 1, "vac": 0}
-const LEGEND_SWATCH := Vector2(12, 12)
-const EMBED_SIZE := Vector2(680, 520)
-const EMBED_CHART := Vector2(434, 390)
+const EMBED_SIZE := Vector2(664, 520)
+const EMBED_CHART := Vector2(418, 390)
 const EMBED_COLUMN := Vector2(200, 0)
 const EMPTY_FOCUS := "No metric selected"
 const EMPTY_VALUE := "-"
 const ALL_MERCS := "All Mercs"
 const TEAM_PREFIX := "team/"
-const EMPTY_COLOR := Color(0.231373, 0.435294, 0.713725, 1)
-const ALL_BUTTON_BG := Color(0.168627, 0.309804, 0.541176, 1)
-const ALL_BUTTON_TEXT := Color(0.952941, 0.917647, 0.843137, 1)
+const EMPTY_COLOR: Color = GuiColors.BLUE_HI
+const ALL_BUTTON_BG: Color = GuiColors.BLUE
+const ALL_BUTTON_TEXT: Color = GuiColors.CREAM
+const ALL_BUTTON_KEYS: Array[StringName] = [&"font_color", &"font_hover_color",
+	&"font_pressed_color"]
 const PANEL_OUTLINE := Color(0.039216, 0.058824, 0.109804, 1)
 #The tab row sits straight on the chart panel; the embed in the Merc Viewer keeps a gap.
 const ATTACHED_GAP := 0
 const EMBED_GAP := 14
 const LOCKED_TIP := "Locked"
-const LIST_BUTTON_FONT: FontVariation = \
-	preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
+#The muted blue a locked tab icon takes, at the locked alpha.
+const LOCKED_TINT: Color = Color(GuiColors.MUTED, 0.5)
+const LIST_BUTTON_FONT: FontVariation = GuiStyle.SILK
 const LIST_BUTTON_SIZE: int = 10
 const LIST_BUTTON_HEIGHT: float = 28.0
 const SHOW_ALL_TEXT: String = "Show All"
@@ -39,9 +41,7 @@ const HIDE_ALL_TEXT: String = "Hide All"
 
 @onready var left_panel: PanelContainer = $Margin/Columns/LeftPanel
 @onready var left_box: VBoxContainer = $Margin/Columns/LeftPanel/LeftMargin/LeftBox
-@onready var list_title: Label = \
-	$Margin/Columns/LeftPanel/LeftMargin/LeftBox/ListHeader/ListTitle
-@onready var on_count: Label = $Margin/Columns/LeftPanel/LeftMargin/LeftBox/ListHeader/OnCount
+@onready var list_head: SectionHead = $Margin/Columns/LeftPanel/LeftMargin/LeftBox/ListHeader
 @onready var selector_slot: VBoxContainer = \
 	$Margin/Columns/LeftPanel/LeftMargin/LeftBox/SelectorSlot
 @onready var merc_selector: MercSelector = \
@@ -65,7 +65,7 @@ const HIDE_ALL_TEXT: String = "Hide All"
 @onready var right_box: VBoxContainer = $Margin/Columns/RightBox
 @onready var header_row: HBoxContainer = $Margin/Columns/RightBox/HeaderRow
 @onready var title_label: Label = $Margin/Columns/RightBox/HeaderRow/Title
-@onready var tabs: GraphTabs = $Margin/Columns/RightBox/HeaderRow/GraphTabs
+@onready var tabs: TabStrip = $Margin/Columns/RightBox/HeaderRow/Tabs
 @onready var show_averages: ShowAveragesToggle = $Margin/Columns/RightBox/HeaderRow/ShowAverages
 @onready var period_drop: OptionDropdown = $Margin/Columns/RightBox/HeaderRow/PeriodDrop
 @onready var scale_drop: OptionDropdown = $Margin/Columns/RightBox/HeaderRow/ScaleDrop
@@ -90,8 +90,6 @@ const HIDE_ALL_TEXT: String = "Hide All"
 	$Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/ChartHeader/RangeLabel
 @onready var chart: LineChart = \
 	$Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/Chart
-@onready var legend: HBoxContainer = \
-	$Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/Legend
 
 #The window the chart reads: period picks its length, chart_scale the bucket. chart_scale always
 #holds the scale on show; the pick the guild made lives in _wanted_scale. Control owns scale and
@@ -123,7 +121,7 @@ var hide_all: BevelButton = null
 
 
 func _ready() -> void:
-	tabs.tab_changed.connect(_on_tab_changed)
+	tabs.tab_changed.connect(select_source)
 	merc_selector.merc_selected.connect(_on_merc_selected)
 	compare_selector.merc_selected.connect(_on_compare_selected)
 	compare_button.pressed.connect(_on_compare_pressed)
@@ -139,10 +137,10 @@ func _ready() -> void:
 	_style_all_button(compare_button)
 	compare_button.expand_icon = false
 	compare_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	compare_button.add_theme_color_override("icon_normal_color", Color("#f3ead7"))
-	compare_button.add_theme_color_override("icon_hover_color", Color("#ffffff"))
-	compare_button.add_theme_color_override("icon_pressed_color", Color("#0a0f1c"))
-	compare_button.add_theme_color_override("icon_disabled_color", Color("#5e7699"))
+	compare_button.add_theme_color_override("icon_normal_color", GuiColors.CREAM)
+	compare_button.add_theme_color_override("icon_hover_color", Color.WHITE)
+	compare_button.add_theme_color_override("icon_pressed_color", GuiColors.INK)
+	compare_button.add_theme_color_override("icon_disabled_color", GuiColors.MUTED)
 	_outline_panel()
 	right_box.add_theme_constant_override("separation", ATTACHED_GAP)
 	GameState.roster_changed.connect(_refresh)
@@ -160,7 +158,6 @@ func lock_to_merc(uid: int) -> void:
 	if not is_node_ready():
 		return
 	_source = "Merc"
-	tabs.select_source("Merc")
 	tabs.visible = false
 	merc_selector.select_uid(uid)
 	merc_selector.visible = false
@@ -179,6 +176,14 @@ func locked_uid() -> int:
 
 func source() -> String:
 	return _source
+
+
+#Opens the graph of one source, "Guild", "Contract" or "Merc"; a press on the lit tab changes nothing.
+func select_source(source_name: String) -> void:
+	if tabs.index_of(StringName(source_name)) < 0 or source_name == _source:
+		return
+	_source = source_name
+	_refresh()
 
 
 #The gap between the tab row and the chart panel: none standalone, 14 px in the Merc Viewer.
@@ -223,14 +228,6 @@ func set_chart_scale(wanted: int) -> void:
 #The scale the guild picked, kept even while a shorter period forces another one on the chart.
 func wanted_scale() -> int:
 	return _wanted_scale
-
-
-func _valid_scales(span: int) -> Array[int]:
-	return MetricsPeriod.valid_scales(span)
-
-
-func _snap_scale(want: int, span: int) -> int:
-	return MetricsPeriod.snap_scale(want, span)
 
 
 #How many recorded days the window holds: the period's days, capped by the history behind it.
@@ -283,11 +280,6 @@ func stored_key(metric_key: String) -> String:
 			return type_selector.key_for(metric_key)
 		_:
 			return metric_key
-
-
-func _on_tab_changed(source_name: String) -> void:
-	_source = source_name
-	_refresh()
 
 
 func _on_merc_selected(_uid: int) -> void:
@@ -365,7 +357,7 @@ func _on_day_changed(_day_index: int) -> void:
 	_refresh()
 
 
-#Item 11: the one core BevelButton scene, added where the scene used to hold plain Buttons.
+#Builds the Show All and Hide All list buttons as blue BevelButtons.
 func _build_list_buttons() -> void:
 	show_all = BevelButton.make(SHOW_ALL_TEXT, &"blue", Vector2(0.0, LIST_BUTTON_HEIGHT))
 	hide_all = BevelButton.make(HIDE_ALL_TEXT, &"blue", Vector2(0.0, LIST_BUTTON_HEIGHT))
@@ -377,20 +369,13 @@ func _build_list_buttons() -> void:
 
 
 func _style_all_button(button: Button) -> void:
-	var box := StyleBoxFlat.new()
-	box.bg_color = ALL_BUTTON_BG
-	box.corner_radius_top_left = 2
-	box.corner_radius_top_right = 2
-	box.corner_radius_bottom_left = 2
-	box.corner_radius_bottom_right = 2
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		button.add_theme_stylebox_override(state, box)
-	button.add_theme_color_override("font_color", ALL_BUTTON_TEXT)
-	button.add_theme_color_override("font_hover_color", ALL_BUTTON_TEXT)
-	button.add_theme_color_override("font_pressed_color", ALL_BUTTON_TEXT)
+	var box: StyleBoxFlat = GuiStyle.flat(ALL_BUTTON_BG)
+	box.set_corner_radius_all(2)
+	GuiStyle.set_all_boxes(button, box)
+	GuiStyle.set_all_font_colors(button, ALL_BUTTON_TEXT, ALL_BUTTON_KEYS)
 
 
-#The left panel keeps the raised bevel but rings it in ink, as the handoff draws it.
+#The left panel keeps the raised bevel and adds a 4 px ink ring.
 func _outline_panel() -> void:
 	var base: StyleBox = left_panel.get_theme_stylebox("panel", "RaisedPanel")
 	var flat: StyleBoxFlat = base as StyleBoxFlat
@@ -421,8 +406,8 @@ func _refresh() -> void:
 		metric_list.source = _source
 	var active: Array[String] = metric_list.active_keys(_source)
 	var defs: Array[MetricDef] = MetricList.defs_for(_source)
-	list_title.text = _list_title()
-	on_count.text = "%d/%d" % [active.size(), defs.size()]
+	list_head.caption = _list_title()
+	list_head.count_text = "%d/%d" % [active.size(), defs.size()]
 	title_label.text = _title()
 	_ensure_focus(active, defs)
 	metric_list.set_focus(focused_key())
@@ -434,10 +419,34 @@ func _refresh() -> void:
 	_rebuild_series(active, defs)
 
 
-#Each tab carries the lock of its own graph, so a shut source reads as shut before it is opened.
+#Each tab carries the lock of its own graph, so a shut source reads as shut before it is opened: the
+#lock sits over a dimmed icon and the press still opens the source, which answers with its LockedPage.
 func _apply_tab_locks() -> void:
-	for source_name: String in GraphTabs.SOURCES:
-		tabs.set_source_locked(source_name, MetricsLocks.graph_locked(source_name))
+	tabs.set_active(StringName(_source))
+	for tab: TabButton in tabs.buttons():
+		var shut: bool = MetricsLocks.graph_locked(String(tab.name))
+		tab.idle_mode = Icons.MODE_GRAY if shut else Icons.MODE_PLAIN
+		tab.locked = shut
+		tab.icon_rect.tint = LOCKED_TINT if shut else Color.WHITE
+		_fit_tab(tab)
+
+
+#The width the active plate needs: the icon box, the Row separation, the label and the side pad.
+func active_width(tab: TabButton) -> float:
+	var row: Control = tab.text_label.get_parent() as Control
+	return float(Icons.CELL * tabs.icon_scale) + float(row.get_theme_constant(&"separation")) \
+		+ tab.text_label.get_combined_minimum_size().x + TabButton.LABEL_PAD
+
+
+#TabButton stretches its active tab over the whole row; the tabs pack to the left here instead, so
+#the active plate takes only the width its icon and label need.
+func _fit_tab(tab: TabButton) -> void:
+	tab.size_flags_horizontal = Control.SIZE_FILL
+	if not tab.active:
+		tab.custom_minimum_size = TabButton.IDLE_SIZE
+		return
+	tab.custom_minimum_size = Vector2(maxf(TabButton.IDLE_SIZE.x, active_width(tab)),
+		float(TabButton.ACTIVE_HEIGHT))
 
 
 #A plan that pays for team averages only holds the picker on All Mercs.
@@ -598,7 +607,6 @@ func _rebuild_series(active: Array[String], defs: Array[MetricDef]) -> void:
 		list.append(entry)
 	chart.set_series(list)
 	_update_header(list)
-	_rebuild_legend(list)
 	_update_arrows(list)
 
 
@@ -658,22 +666,3 @@ func _range_text(count: int) -> String:
 	if count <= 1:
 		return "%s 1" % unit
 	return "%s 1 - %s %d" % [unit, unit, count]
-
-
-func _rebuild_legend(list: Array[Dictionary]) -> void:
-	for child: Node in legend.get_children():
-		legend.remove_child(child)
-		child.queue_free()
-	for entry: Dictionary in list:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
-		var swatch := ColorRect.new()
-		swatch.custom_minimum_size = LEGEND_SWATCH
-		swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		swatch.color = entry["color"]
-		row.add_child(swatch)
-		var text := Label.new()
-		text.theme_type_variation = &"DescriptionLabel"
-		text.text = String(entry["label"])
-		row.add_child(text)
-		legend.add_child(row)

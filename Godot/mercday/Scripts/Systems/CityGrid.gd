@@ -24,20 +24,16 @@ static func init(area: BattlefieldArea) -> void:
 	area.street_grid.fill(-1)
 
 
-static func inside(area: BattlefieldArea, x: int, y: int) -> bool:
-	return x >= 0 and y >= 0 and x < area.width and y < area.length
-
-
 #SURF_* of a cell; SURF_NONE off the map.
 static func surf(area: BattlefieldArea, x: int, y: int) -> int:
-	if not inside(area, x, y):
+	if not area.in_bounds_xy(x, y):
 		return BattlefieldArea.SURF_NONE
 	return area.surface_grid[y * area.width + x]
 
 
 #Street id of a cell; -1 off the map and on cells no street owns.
 static func street_id(area: BattlefieldArea, x: int, y: int) -> int:
-	if not inside(area, x, y):
+	if not area.in_bounds_xy(x, y):
 		return -1
 	return area.street_grid[y * area.width + x]
 
@@ -50,6 +46,11 @@ static func is_street(s: int) -> bool:
 #Main street or side street carriageway.
 static func is_carriage(s: int) -> bool:
 	return s == BattlefieldArea.SURF_MAIN or s == BattlefieldArea.SURF_SIDE
+
+
+#Main street, side street or sidewalk.
+static func is_paved(s: int) -> bool:
+	return is_carriage(s) or s == BattlefieldArea.SURF_SIDEWALK
 
 
 #Paint priority: main 4, side 3, sidewalk 2, alley 1, everything else 0.
@@ -73,7 +74,7 @@ static func kind_rank(kind: String) -> int:
 
 #Writes a street surface where it outranks what the cell holds; true when the cell was written.
 static func paint(area: BattlefieldArea, x: int, y: int, s: int, sid: int) -> bool:
-	if not inside(area, x, y):
+	if not area.in_bounds_xy(x, y):
 		return false
 	var i: int = y * area.width + x
 	if rank(s) <= rank(area.surface_grid[i]):
@@ -87,21 +88,47 @@ static func paint(area: BattlefieldArea, x: int, y: int, s: int, sid: int) -> bo
 static func paint_force(area: BattlefieldArea, x: int, y: int, s: int, sid: int) -> void:
 	if paint(area, x, y, s, sid):
 		return
-	if not inside(area, x, y):
+	if not area.in_bounds_xy(x, y):
 		return
 	var i: int = y * area.width + x
 	area.surface_grid[i] = s
 	area.street_grid[i] = sid
 
 
+#Writes an alley cell over whatever it holds and raises it to curb height.
+static func paint_alley(area: BattlefieldArea, c: Vector2i, sid: int) -> void:
+	paint_force(area, c.x, c.y, BattlefieldArea.SURF_ALLEY, sid)
+	area.terrain_heights[c] = CityGenerator.CURB
+
+
+#Appends a street record with the next id and returns it; extra keys are merged after the common ones.
+static func add_street(streets: Array, kind: String, axis: String, segments: Array, dead_end: bool,
+		block: int, mouth: Vector2i, extra: Dictionary = {}) -> Dictionary:
+	var rec: Dictionary = {
+		"id": streets.size(),
+		"kind": kind,
+		"axis": axis,
+		"dead_end": dead_end,
+		"block": block,
+		"mouth": mouth,
+		"segments": segments,
+	}
+	rec.merge(extra)
+	streets.append(rec)
+	return rec
+
+
+#Frontage and depth of a size seen from a front side: x is the span along the street, y the span away from it.
+static func front_span(size: Vector2i, front: String) -> Vector2i:
+	if front == "N" or front == "S":
+		return size
+	return Vector2i(size.y, size.x)
+
+
 static func paint_rect(area: BattlefieldArea, rect: Rect2i, s: int, sid: int) -> void:
 	for y: int in range(rect.position.y, rect.end.y):
 		for x: int in range(rect.position.x, rect.end.x):
 			paint(area, x, y, s, sid)
-
-
-static func paint_sidewalk_ring(area: BattlefieldArea, rect: Rect2i, sid: int) -> void:
-	paint_rect(area, rect.grow(1), BattlefieldArea.SURF_SIDEWALK, sid)
 
 
 #SURF_LOT or SURF_NATURE on the cells of rect that still hold SURF_NONE; street cells are never touched.

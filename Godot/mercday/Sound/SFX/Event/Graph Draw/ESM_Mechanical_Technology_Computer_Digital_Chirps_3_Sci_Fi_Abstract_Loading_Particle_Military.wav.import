@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://je2pub354osi"
+path="res://.godot/imported/ESM_Mechanical_Technology_Computer_Digital_Chirps_3_Sci_Fi_Abstract_Loading_Particle_Military.wav-38cb17c9b2bd4124642a605d280f709b.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/Event/Graph Draw/ESM_Mechanical_Technology_Computer_Digital_Chirps_3_Sci_Fi_Abstract_Loading_Particle_Military.wav"
+dest_files=["res://.godot/imported/ESM_Mechanical_Technology_Computer_Digital_Chirps_3_Sci_Fi_Abstract_Loading_Particle_Military.wav-38cb17c9b2bd4124642a605d280f709b.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

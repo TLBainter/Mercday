@@ -24,13 +24,34 @@ static func _merc(name: String, wile: int) -> MercenaryData:
 	m.merc_uid = CampaignKnowledge.next_uid()
 	m.stats = {"size": 1, "maximum_hit_points": 20, "maximum_endurance_points": 5, "speed": 4.0,
 		"dexterity": 2, "vigor": 2, "cognition": 2, "wile": wile, "luck": 0, "pain_limit": 0}
+	BattleState.restore_pools(m, false)
 	return m
 
 
-#Fills the roll queue with failures so a case that is not testing the bond check cannot drift.
-static func _force_fail() -> void:
-	for i: int in range(400):
-		CheckSystem.forced_rolls.append(100)
+#Queues count forced rolls; the default failures keep a case that is not testing the bond check from drifting.
+static func _force_fail(count: int = 400, value: int = 100) -> void:
+	for i: int in range(count):
+		CheckSystem.forced_rolls.append(value)
+
+
+#Two mercs that spend three turns at these cells with a far foe, then close a contract with forced failures.
+static func _proximity_run(name_a: String, name_b: String, pos_a: Vector2i, pos_b: Vector2i) -> Dictionary:
+	var a := _merc(name_a, 4)
+	var b := _merc(name_b, 4)
+	var foe := _merc("Foe", 4)
+	foe.merc_uid = 0
+	var team_a: Array[MercenaryData] = [a, b]
+	var team_b: Array[MercenaryData] = [foe]
+	var state := BattleState.create(team_a, team_b, TestFixtures.exterior_field())
+	TestFixtures.place(state, a, pos_a)
+	TestFixtures.place(state, b, pos_b)
+	TestFixtures.place(state, foe, Vector2i(20, 20))
+	for i: int in range(3):
+		state.end_of_turn(a)
+		state.end_of_turn(b)
+	_force_fail()
+	var lines: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team_a))
+	return {"a": a, "b": b, "lines": lines}
 
 
 static func _case_seed(res: Dictionary) -> void:
@@ -105,41 +126,18 @@ static func _case_best_ally(res: Dictionary) -> void:
 
 static func _case_proximity(res: Dictionary) -> void:
 	TestFixtures.reset_campaign()
-	var a := _merc("Ada", 4)
-	var b := _merc("Bo", 4)
-	var foe := _merc("Foe", 4)
-	foe.merc_uid = 0
-	var team_a: Array[MercenaryData] = [a, b]
-	var team_b: Array[MercenaryData] = [foe]
-	var state := BattleState.create(team_a, team_b, TestFixtures.exterior_field(), false)
-	TestFixtures.place(state, a, Vector2i(2, 2))
-	TestFixtures.place(state, b, Vector2i(4, 2))
-	TestFixtures.place(state, foe, Vector2i(20, 20))
-	for i: int in range(3):
-		state.end_of_turn(a)
-		state.end_of_turn(b)
-	_force_fail()
-	var lines: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team_a))
+	var near: Dictionary = _proximity_run("Ada", "Bo", Vector2i(2, 2), Vector2i(4, 2))
+	var a: MercenaryData = near["a"]
+	var b: MercenaryData = near["b"]
+	var lines: Array[String] = near["lines"]
 	TestFixtures.check(res, "near tally raises", RelationshipSystem.value(a, b) == 5,
 		"seed 4 plus 1, got %d" % RelationshipSystem.value(a, b))
 	TestFixtures.check(res, "near tally is mutual", RelationshipSystem.value(b, a) == 5, "both directions moved")
 	TestFixtures.check(res, "near line emitted", lines.size() >= 1, "%d line(s)" % lines.size())
 	TestFixtures.reset_campaign()
-	var c := _merc("Cai", 4)
-	var d := _merc("Dee", 4)
-	var foe2 := _merc("Foe", 4)
-	foe2.merc_uid = 0
-	var team_c: Array[MercenaryData] = [c, d]
-	var team_d: Array[MercenaryData] = [foe2]
-	var far_state := BattleState.create(team_c, team_d, TestFixtures.exterior_field(), false)
-	TestFixtures.place(far_state, c, Vector2i(1, 1))
-	TestFixtures.place(far_state, d, Vector2i(15, 1))
-	TestFixtures.place(far_state, foe2, Vector2i(20, 20))
-	for i: int in range(3):
-		far_state.end_of_turn(c)
-		far_state.end_of_turn(d)
-	_force_fail()
-	var _far_lines: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team_c))
+	var far: Dictionary = _proximity_run("Cai", "Dee", Vector2i(1, 1), Vector2i(15, 1))
+	var c: MercenaryData = far["a"]
+	var d: MercenaryData = far["b"]
 	TestFixtures.check(res, "far tally holds", RelationshipSystem.value(c, d) == 4,
 		"seed 4 unchanged, got %d" % RelationshipSystem.value(c, d))
 
@@ -172,8 +170,7 @@ static func _case_wile_roll(res: Dictionary) -> void:
 	var b := _merc("Bo", 1)
 	var c := _merc("Cai", 1)
 	var team: Array[MercenaryData] = [a, b, c]
-	for i: int in range(24):
-		CheckSystem.forced_rolls.append(1)
+	_force_fail(24, 1)
 	var _lines: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team))
 	CheckSystem.forced_rolls.clear()
 	TestFixtures.check(res, "wile pass raises toward roller", RelationshipSystem.value(a, b) == 2,
@@ -183,8 +180,7 @@ static func _case_wile_roll(res: Dictionary) -> void:
 	var d := _merc("Dee", 1)
 	var e := _merc("Eli", 1)
 	var team2: Array[MercenaryData] = [d, e]
-	for i: int in range(24):
-		CheckSystem.forced_rolls.append(100)
+	_force_fail(24)
 	var _lines2: Array[String] = RelationshipSystem.end_contract(TestFixtures.run_for(team2))
 	CheckSystem.forced_rolls.clear()
 	TestFixtures.check(res, "wile fail holds", RelationshipSystem.value(d, e) == 1,

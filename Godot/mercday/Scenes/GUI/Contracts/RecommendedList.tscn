@@ -1,7 +1,10 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/RecommendedList.gd" id="1"]
-[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SectionHead.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/PaddedScroll.tscn" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_RecommendedList.tres" id="5"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_well"]
 bg_color = Color(0.054902, 0.086275, 0.156863, 1)
@@ -19,35 +22,29 @@ content_margin_bottom = 4.0
 theme_override_constants/separation = 6
 script = ExtResource("1")
 
-[node name="Caption" type="Label" parent="."]
+[node name="Head" parent="." instance=ExtResource("2")]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
-theme_override_fonts/font = ExtResource("2")
+mouse_filter = 2
+
+[node name="Caption" parent="Head"]
 theme_override_font_sizes/font_size = 12
 clip_text = true
-text = "Recommended"
 
-[node name="Scroll" type="ScrollContainer" parent="."]
+[node name="Scroll" parent="." instance=ExtResource("3")]
 layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_well")
-
-[node name="Pad" type="MarginContainer" parent="Scroll"]
-size_flags_horizontal = 3
-layout_mode = 2
-theme_override_constants/margin_left = 0
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 14
-
-[node name="Rows" type="VBoxContainer" parent="Scroll/Pad"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 4
+pad_top = 0
+pad_bottom = 0
+separation = 4
 
 [node name="Empty" type="Label" parent="."]
 visible = false
 layout_mode = 2
 theme_type_variation = &"DescriptionLabel"
 text = "None"
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("4")
+hint = ExtResource("5")
+
+[editable path="Head"]

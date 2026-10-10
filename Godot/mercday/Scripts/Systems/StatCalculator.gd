@@ -3,14 +3,14 @@ class_name StatCalculator
 #Stat token keys with no Stats.tsv row; warned once per key so dead tokens stay visible.
 static var _dropped_keys: Dictionary = {}
 
-#Non core merc.stat_bonuses keys folded as flat; warned once so un-migrated callers stay visible.
-static var _legacy_keys: Dictionary = {}
-
 #Core stats read their bonus through stat_bonus_X inside the Stats.tsv formula, never as flat.
 const CORE_STATS: PackedStringArray = ["cognition", "dexterity", "vigor", "wile"]
-static var _core_set: Dictionary = _build_core_set()
-#True while the merc being calculated holds a non core merc.stat_bonuses key.
-static var _legacy_any: bool = false
+#Pool max stat, penalty field, current field, floor, and whether the current pool is capped when the stat is absent.
+const _POOL_ROWS: Array = [
+	["maximum_hit_points", "max_hp_penalty", "current_hp", 1, true],
+	["maximum_endurance_points", "max_ep_penalty", "current_ep", 1, false],
+	["maximum_magic_points", "max_mp_penalty", "current_mp", 0, false],
+]
 
 #Circumstance var name -> display name; the insertion order is part of the cached var name list.
 static var _circ_vars: Dictionary = {
@@ -68,12 +68,10 @@ static func refresh(merc: MercenaryData) -> void:
 		return
 	var fresh: Dictionary = calculate_all(merc)
 	#Glaive Rend holds a maximum HP penalty until furlough; the baseline carries it so it never stacks.
-	if merc.max_hp_penalty > 0 and fresh.has("maximum_hit_points"):
-		fresh["maximum_hit_points"] = maxi(1, int(fresh["maximum_hit_points"]) - merc.max_hp_penalty)
-	if merc.max_ep_penalty > 0 and fresh.has("maximum_endurance_points"):
-		fresh["maximum_endurance_points"] = maxi(1, int(fresh["maximum_endurance_points"]) - merc.max_ep_penalty)
-	if merc.max_mp_penalty > 0 and fresh.has("maximum_magic_points"):
-		fresh["maximum_magic_points"] = maxi(0, int(fresh["maximum_magic_points"]) - merc.max_mp_penalty)
+	for row: Array in _POOL_ROWS:
+		var penalty: int = merc.get(row[1]) as int
+		if penalty > 0 and fresh.has(row[0]):
+			fresh[row[0]] = maxi(row[3] as int, int(fresh[row[0]]) - penalty)
 	var base: Dictionary = merc.stats_baseline
 	for key: String in fresh:
 		if key == "level":
@@ -91,17 +89,12 @@ static func refresh(merc: MercenaryData) -> void:
 		else:
 			merc.stats[key] = float(merc.stats[key]) + delta
 	merc.stats_baseline = fresh
-	var capped: int = maxi(1, int(merc.stats.get("maximum_hit_points", 1)))
-	if merc.current_hp > capped:
-		merc.current_hp = capped
-	if merc.stats.has("maximum_endurance_points"):
-		var ep_cap: int = maxi(1, int(merc.stats["maximum_endurance_points"]))
-		if merc.current_ep > ep_cap:
-			merc.current_ep = ep_cap
-	if merc.stats.has("maximum_magic_points"):
-		var mp_cap: int = maxi(0, int(merc.stats["maximum_magic_points"]))
-		if merc.current_mp > mp_cap:
-			merc.current_mp = mp_cap
+	for row: Array in _POOL_ROWS:
+		if not (row[4] as bool) and not merc.stats.has(row[0]):
+			continue
+		var cap: int = maxi(row[3] as int, int(merc.stats.get(row[0], 1)))
+		if (merc.get(row[2]) as int) > cap:
+			merc.set(row[2], cap)
 	apply_ability_grants(merc)
 
 
@@ -137,24 +130,12 @@ static func apply_ability_grants(merc: MercenaryData) -> void:
 					"climbing_pace": merc.stats["climb"] = 0.0
 
 
-#Legacy channel for callers that still write merc.stat_bonuses for a non core stat.
-static func _legacy_flat(merc: MercenaryData, var_name: String) -> float:
-	if not _legacy_any or _core_set.has(var_name):
-		return 0.0
-	var legacy: float = float(merc.stat_bonuses.get(var_name, 0.0))
-	if legacy != 0.0 and not _legacy_keys.has(var_name):
-		_legacy_keys[var_name] = true
-		push_warning("StatCalculator: '%s' still writes merc.stat_bonuses; use add_flat" % var_name)
-	return legacy
-
-
 #Adds the flat bonuses then scales by the summed multipliers; the factor never goes below zero.
 static func _fold(merc: MercenaryData, var_name: String, value: float, folded: Dictionary) -> float:
-	var legacy: float = _legacy_flat(merc, var_name)
-	if legacy == 0.0 and not merc.stat_flat_bonuses.has(var_name) and not merc.stat_multipliers.has(var_name):
+	if not merc.stat_flat_bonuses.has(var_name) and not merc.stat_multipliers.has(var_name):
 		return value
 	folded[var_name] = true
-	var flat: float = float(merc.stat_flat_bonuses.get(var_name, 0.0)) + legacy
+	var flat: float = float(merc.stat_flat_bonuses.get(var_name, 0.0))
 	var mult: float = float(merc.stat_multipliers.get(var_name, 0.0))
 	var base: float = value + flat
 	#A signed stat can sit below zero, so the bonus scales the magnitude and always helps.
@@ -208,11 +189,6 @@ static func _ensure_cache() -> void:
 
 static func calculate_all(merc: MercenaryData) -> Dictionary:
 	_ensure_cache()
-	_legacy_any = false
-	for legacy_key: String in merc.stat_bonuses:
-		if not _core_set.has(legacy_key):
-			_legacy_any = true
-			break
 	var vars: Dictionary = {}
 	for name: String in _var_names:
 		vars[name] = 0.0
@@ -235,10 +211,9 @@ static func _seed_vars(merc: MercenaryData, vars: Dictionary, folded: Dictionary
 		raw_level: float) -> void:
 	vars["size"] = _fold(merc, "size", float(merc.max_stats.get("size", 0)), folded)
 	vars["level"] = _fold(merc, "level", raw_level, folded)
-	vars["max_cognition"] = _fold(merc, "max_cognition", float(merc.max_stats.get("max_cognition", 0)), folded)
-	vars["max_dexterity"] = _fold(merc, "max_dexterity", float(merc.max_stats.get("max_dexterity", 0)), folded)
-	vars["max_vigor"] = _fold(merc, "max_vigor", float(merc.max_stats.get("max_vigor", 0)), folded)
-	vars["max_wile"] = _fold(merc, "max_wile", float(merc.max_stats.get("max_wile", 0)), folded)
+	for core: String in CORE_STATS:
+		var max_key: String = "max_" + core
+		vars[max_key] = _fold(merc, max_key, float(merc.max_stats.get(max_key, 0)), folded)
 	vars["luck_roll"] = _fold(merc, "luck_roll", float(merc.luck_roll), folded)
 
 	for core: String in CORE_STATS:
@@ -348,11 +323,4 @@ static func _fold_leftover(merc: MercenaryData, vars: Dictionary, folded: Dictio
 		return
 	_dropped_keys[key] = true
 	push_warning("StatCalculator: stat token key '%s' has no Stats.tsv row; dropped" % key)
-
-#CORE_STATS as a set, so the four names are written once.
-static func _build_core_set() -> Dictionary:
-	var out: Dictionary = {}
-	for core: String in CORE_STATS:
-		out[core] = true
-	return out
 

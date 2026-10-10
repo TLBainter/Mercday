@@ -18,6 +18,7 @@ static func _merc(name: String, tokens: Array[String], speed: float) -> Mercenar
 	m.stats = {"size": 1, "maximum_hit_points": 20, "maximum_endurance_points": 5, "speed": speed,
 		"dexterity": 2, "vigor": 2, "pain_limit": 0}
 	m.passive_effects.assign(tokens)
+	BattleState.restore_pools(m, false)
 	return m
 
 
@@ -35,23 +36,24 @@ static func _case_tokens(res: Dictionary) -> void:
 	var forced: Array[String] = ["immune:dying"]
 	var m := _merc("Never", forced, 1.0)
 	TestFixtures.check(res, "dying never immune", not ConstStates.is_immune(m, ConstStates.DYING), "is_immune false with a forced token")
-	var applied := ConstStates.apply_state(m, ConstStates.DYING)
+	var applied := StateCascade.apply_state(m, ConstStates.DYING)
 	TestFixtures.check(res, "dying applies", applied and ConstStates.has_state(m, ConstStates.DYING), "apply_state Dying true")
 
 
 static func _case_cascade(res: Dictionary) -> void:
 	var tokens: Array[String] = ["immune:deposed"]
 	var m := _merc("Dena", tokens, 1.0)
-	var direct := ConstStates.apply_state(m, ConstStates.DEPOSED)
+	var direct := StateCascade.apply_state(m, ConstStates.DEPOSED)
 	TestFixtures.check(res, "direct refused", not direct and not ConstStates.has_state(m, ConstStates.DEPOSED), "apply_state Deposed false")
-	var root_ok := ConstStates.apply_state(m, ConstStates.UNCONSCIOUS)
+	var root_ok := StateCascade.apply_state(m, ConstStates.UNCONSCIOUS)
 	TestFixtures.check(res, "cascade applies", root_ok and ConstStates.has_state(m, ConstStates.DEPOSED), "Unconscious forces Deposed on an immune merc")
-	var removed: bool = ConstStates.remove_state(m, ConstStates.UNCONSCIOUS)["removed"]
+	var removed: bool = StateCascade.remove_state(m, ConstStates.UNCONSCIOUS)["removed"]
 	TestFixtures.check(res, "cascade ends", removed and not ConstStates.has_state(m, ConstStates.DEPOSED), "Deposed ends with Unconscious")
-	TestFixtures.check(res, "direct still refused", not ConstStates.apply_state(m, ConstStates.DEPOSED), "apply_state Deposed false after the cascade")
+	TestFixtures.check(res, "direct still refused", not StateCascade.apply_state(m, ConstStates.DEPOSED),
+		"apply_state Deposed false after the cascade")
 	var plain: Array[String] = []
 	var c := _merc("Cade", plain, 1.0)
-	ConstStates.apply_state(c, ConstStates.DYING)
+	StateCascade.apply_state(c, ConstStates.DYING)
 	var un: Array[Dictionary] = StateSources.state_sources(c, ConstStates.UNCONSCIOUS)
 	TestFixtures.check(res, "cascade names its root",
 		un.size() == 1 and str(un[0].get("kind", "")) == "state"
@@ -60,11 +62,11 @@ static func _case_cascade(res: Dictionary) -> void:
 	TestFixtures.check(res, "second rank names its own root",
 		dep.size() == 1 and str(dep[0].get("kind", "")) == "state"
 		and str(dep[0].get("name", "")) == ConstStates.UNCONSCIOUS, "Deposed sources %s" % str(dep))
-	ConstStates.apply_state(c, ConstStates.DEPOSED)
+	StateCascade.apply_state(c, ConstStates.DEPOSED)
 	dep = StateSources.state_sources(c, ConstStates.DEPOSED)
 	TestFixtures.check(res, "direct apply adds a second source",
 		dep.size() == 2 and str(dep[1].get("kind", "")) == "engine", "Deposed sources %s" % str(dep))
-	ConstStates.remove_state(c, ConstStates.DYING)
+	StateCascade.remove_state(c, ConstStates.DYING)
 	dep = StateSources.state_sources(c, ConstStates.DEPOSED)
 	TestFixtures.check(res, "kept state keeps only its own source",
 		ConstStates.has_state(c, ConstStates.DEPOSED) and dep.size() == 1
@@ -123,9 +125,9 @@ static func _case_battle(res: Dictionary) -> void:
 	lines = ShoveResolver.forcible_move(a1, b2, 1, state)
 	TestFixtures.check(res, "shove control", TestFixtures.has_line(lines, "Deposed") and ConstStates.has_state(b2, ConstStates.DEPOSED), "b2 falls Deposed")
 
-	lines = CombatApplicator.resolve_fall(a1, 3, state)
+	lines = FallResolver.resolve_fall(a1, 3, state)
 	TestFixtures.check(res, "fall immune", TestFixtures.has_line(lines, "immune to Deposed") and not ConstStates.has_state(a1, ConstStates.DEPOSED) and a1.current_hp < 20, "no Deposed, hp %d" % a1.current_hp)
-	lines = CombatApplicator.resolve_fall(b1, 3, state)
+	lines = FallResolver.resolve_fall(b1, 3, state)
 	TestFixtures.check(res, "fall control", ConstStates.has_state(b1, ConstStates.DEPOSED), "b1 falls Deposed, hp %d" % b1.current_hp)
 
 	a1.equipped_weapon = _ranged()

@@ -38,18 +38,6 @@ static func _fmt(r: Dictionary) -> String:
 		(r["windows"] as Array).size()]
 
 
-#Interior shell 10x10 at the origin with a ground floor at 0 and an upper floor at 3.
-static func _interior() -> BattlefieldArea:
-	var f := BattlefieldArea.new()
-	f.width = 24
-	f.length = 24
-	f.height = 24
-	f.is_interior_map = true
-	f.building_footprint = Rect2i(0, 0, 10, 10)
-	f.interior_floor_elevations = {0: 0, 1: 3}
-	return f
-
-
 static func _los(f: BattlefieldArea, from: Vector3i, fh: int, fs: int,
 		tp: Vector3i, th: int, ts: int) -> Dictionary:
 	return LineOfSight._compute(f, from, fh, fs, tp, th, ts)
@@ -205,37 +193,35 @@ static func _case_doors(res: Dictionary) -> void:
 
 
 static func _case_slab(res: Dictionary) -> void:
-	var f := _interior()
+	var f := TestFixtures.interior_field({0: 0, 1: 3})
 	var r := _los(f, Vector3i(2, 5, 0), 0, 1, Vector3i(5, 5, 1), 0, 1)
 	var ok: bool = not (r["visible"] as bool) and str(r["blocker"]).begins_with("slab")
 	TestFixtures.check(res, "slab blocks F0 to F1", ok, _fmt(r))
 
 
 static func _case_stairwell(res: Dictionary) -> void:
-	var f := _interior()
+	var f := TestFixtures.interior_field({0: 0, 1: 3})
 	f.stair_run_cells[Vector3i(5, 5, 1)] = true
 	var r := _los(f, Vector3i(2, 5, 0), 0, 1, Vector3i(5, 5, 1), 0, 1)
 	TestFixtures.check(res, "stairwell opening lets F0 see F1", r["visible"] as bool, _fmt(r))
 
 
 static func _case_balcony(res: Dictionary) -> void:
-	var f := _interior()
+	var f := TestFixtures.interior_field({0: 0, 1: 3})
 	f.building_interiors[Vector3i(10, 5, 1)] = true
 	var r := _los(f, Vector3i(10, 5, 1), 0, 1, Vector3i(14, 5, 0), 0, 1)
 	TestFixtures.check(res, "balcony sees the street", r["visible"] as bool, _fmt(r))
 
 
 static func _case_basement(res: Dictionary) -> void:
-	var f := _interior()
-	f.interior_floor_elevations = {-1: 0, 0: 3}
+	var f := TestFixtures.interior_field({-1: 0, 0: 3})
 	var fa_ok: bool = LineOfSight._floor_at(f, 1.5) == -1 and LineOfSight._floor_at(f, 4.0) == 0 \
 		and LineOfSight._floor_at(f, -1.0) == -1
 	TestFixtures.check(res, "_floor_at picks the basement below F0", fa_ok,
 		"z1.5=%d z4.0=%d z-1.0=%d" % [LineOfSight._floor_at(f, 1.5), LineOfSight._floor_at(f, 4.0),
 			LineOfSight._floor_at(f, -1.0)])
 	var blocked := _los(f, Vector3i(2, 5, -1), 0, 1, Vector3i(5, 5, 0), 0, 1)
-	var g := _interior()
-	g.interior_floor_elevations = {-1: 0, 0: 3}
+	var g := TestFixtures.interior_field({-1: 0, 0: 3})
 	g.stair_run_cells[Vector3i(5, 5, 0)] = true
 	var open := _los(g, Vector3i(2, 5, -1), 0, 1, Vector3i(5, 5, 0), 0, 1)
 	var ok: bool = not (blocked["visible"] as bool) and (open["visible"] as bool)
@@ -245,17 +231,24 @@ static func _case_basement(res: Dictionary) -> void:
 
 #Straight run on F1 at x 4..6 from y 2 (elevation 0) up to y 8 (elevation 3), three cells wide.
 static func _stair_run() -> BattlefieldArea:
-	var f := _interior()
+	var f := TestFixtures.interior_field({0: 0, 1: 3})
 	f.stair_runs[1] = [{"sx": 5, "ly": 2, "uy": 8}]
+	_fill_stair_run(f, 1)
+	return f
+
+
+#Marks the run cells x 4..6, y 2..8 on floor_num as stair run cells.
+static func _fill_stair_run(f: BattlefieldArea, floor_num: int) -> void:
 	for x: int in range(4, 7):
 		for y: int in range(2, 9):
-			f.stair_run_cells[Vector3i(x, y, 1)] = true
-	return f
+			f.stair_run_cells[Vector3i(x, y, floor_num)] = true
 
 
 static func _case_stair_run(res: Dictionary) -> void:
 	var f := _stair_run()
-	var e_ok: bool = is_equal_approx(f.cell_base_elevation(Vector2i(5, 5), 1), 1.5) 		and is_equal_approx(f.cell_base_elevation(Vector2i(5, 2), 1), 0.0) 		and is_equal_approx(f.cell_base_elevation(Vector2i(5, 8), 1), 3.0)
+	var e_ok: bool = is_equal_approx(f.cell_base_elevation(Vector2i(5, 5), 1), 1.5) \
+		and is_equal_approx(f.cell_base_elevation(Vector2i(5, 2), 1), 0.0) \
+		and is_equal_approx(f.cell_base_elevation(Vector2i(5, 8), 1), 3.0)
 	TestFixtures.check(res, "stair run interpolates 0 to 3", e_ok, "mid=%.2f" % f.cell_base_elevation(Vector2i(5, 5), 1))
 	var bottom := _los(f, Vector3i(5, 1, 0), 0, 1, Vector3i(5, 5, 1), 0, 1)
 	TestFixtures.check(res, "bottom of the stairs sees a merc halfway up", bottom["visible"] as bool, _fmt(bottom))
@@ -278,21 +271,16 @@ static func _case_stair_run(res: Dictionary) -> void:
 	var to_top := _los(f, Vector3i(5, 6, 0), 0, 1, Vector3i(5, 8, 1), 0, 1)
 	var to_top_ok: bool = not (to_top["visible"] as bool) and str(to_top["blocker"]).begins_with("stairs")
 	TestFixtures.check(res, "a merc under the stairs cannot see the top landing through the steps", to_top_ok, _fmt(to_top))
-	var rv := _interior()
+	var rv := TestFixtures.interior_field({0: 0, 1: 3})
 	rv.stair_runs[1] = [{"sx": 5, "ly": 2, "uy": 8, "up": -1}]
-	for x: int in range(4, 7):
-		for y: int in range(2, 9):
-			rv.stair_run_cells[Vector3i(x, y, 1)] = true
+	_fill_stair_run(rv, 1)
 	var rv_e: bool = is_equal_approx(rv.cell_base_elevation(Vector2i(5, 8), 1), 0.0) and is_equal_approx(rv.cell_base_elevation(Vector2i(5, 2), 1), 3.0)
 	TestFixtures.check(res, "reversed run interpolates 3 down to 0", rv_e, "y8=%.2f" % rv.cell_base_elevation(Vector2i(5, 8), 1))
 	var rv_b := _los(rv, Vector3i(5, 9, 0), 0, 1, Vector3i(5, 5, 1), 0, 1)
 	TestFixtures.check(res, "bottom of the reversed stairs sees a merc halfway up", rv_b["visible"] as bool, _fmt(rv_b))
-	var g := _interior()
-	g.interior_floor_elevations = {0: 0, 1: 3, 2: 6}
+	var g := TestFixtures.interior_field({0: 0, 1: 3, 2: 6})
 	g.stair_runs[2] = [{"sx": 5, "ly": 2, "uy": 8}]
-	for x: int in range(4, 7):
-		for y: int in range(2, 9):
-			g.stair_run_cells[Vector3i(x, y, 2)] = true
+	_fill_stair_run(g, 2)
 	var far_below := _los(g, Vector3i(2, 6, 0), 0, 1, Vector3i(8, 6, 0), 0, 1)
 	TestFixtures.check(res, "a staircase two floors up leaves the ground floor open", far_below["visible"] as bool, _fmt(far_below))
 
@@ -311,7 +299,7 @@ static func _case_under_stairs(res: Dictionary) -> void:
 
 #A one storey shell under a flat roof at level 1, plane 3; the city variant hands the cells to building 0.
 static func _roof_map(exterior: bool, city: bool) -> BattlefieldArea:
-	var f: BattlefieldArea = TestFixtures.exterior_field() if exterior else _interior()
+	var f: BattlefieldArea = TestFixtures.exterior_field() if exterior else TestFixtures.interior_field({0: 0, 1: 3})
 	if not exterior:
 		f.interior_floor_elevations = {0: 0}
 	for x: int in range(0, 10):

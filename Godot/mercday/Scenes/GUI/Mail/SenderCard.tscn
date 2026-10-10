@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TooltipPanel.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mail/SenderCard.gd" id="2"]
+
+[node name="SenderCard" instance=ExtResource("1")]
+script = ExtResource("2")
+
+[node name="Opinion" type="Label" parent="Rows" index="2"]
+layout_mode = 2
+theme_type_variation = &"TooltipLabel"
+
+[node name="Lock" type="Label" parent="Rows" index="3"]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"

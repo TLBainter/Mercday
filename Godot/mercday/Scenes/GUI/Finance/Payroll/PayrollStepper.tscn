@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Finance/Payroll/PayrollStepper.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/GlyphBevelButton.gd" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/IconRect.gd" id="4"]
 
 [node name="PayrollStepper" type="Control"]
 custom_minimum_size = Vector2(0, 124)
@@ -25,7 +27,21 @@ theme_override_constants/separation = 12
 [node name="Minus" type="Button" parent="Shell/Display"]
 custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
-text = "-"
+script = ExtResource("3")
+
+[node name="Glyph" type="TextureRect" parent="Shell/Display/Minus"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4")
+icon_id = "minus"
+pixel_scale = 4
+trimmed = true
+tint = Color(0.952941, 0.917647, 0.843137, 1)
 
 [node name="Middle" type="PanelContainer" parent="Shell/Display"]
 layout_mode = 2
@@ -42,6 +58,7 @@ theme_override_constants/separation = 6
 layout_mode = 2
 mouse_filter = 2
 horizontal_alignment = 1
+clip_text = true
 
 [node name="ValueRow" parent="Shell/Display/Middle/Rows" instance=ExtResource("2")]
 layout_mode = 2
@@ -50,21 +67,33 @@ alignment = 1
 [node name="SubText" type="Label" parent="Shell/Display/Middle/Rows"]
 layout_mode = 2
 mouse_filter = 2
-visible = false
 horizontal_alignment = 1
 clip_text = true
 
 [node name="NoteText" type="Label" parent="Shell/Display/Middle/Rows"]
 layout_mode = 2
 mouse_filter = 2
-visible = false
 horizontal_alignment = 1
 clip_text = true
 
 [node name="Plus" type="Button" parent="Shell/Display"]
 custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
-text = "+"
+script = ExtResource("3")
+
+[node name="Glyph" type="TextureRect" parent="Shell/Display/Plus"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4")
+icon_id = "plus"
+pixel_scale = 4
+trimmed = true
+tint = Color(0.952941, 0.917647, 0.843137, 1)
 
 [node name="Compact" type="HBoxContainer" parent="Shell"]
 layout_mode = 2
@@ -75,7 +104,21 @@ theme_override_constants/separation = 6
 [node name="MinusSmall" type="Button" parent="Shell/Compact"]
 custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
-text = "-"
+script = ExtResource("3")
+
+[node name="Glyph" type="TextureRect" parent="Shell/Compact/MinusSmall"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4")
+icon_id = "minus"
+pixel_scale = 2
+trimmed = true
+tint = Color(0.952941, 0.917647, 0.843137, 1)
 
 [node name="ValueBox" type="PanelContainer" parent="Shell/Compact"]
 custom_minimum_size = Vector2(0, 28)
@@ -93,4 +136,18 @@ vertical_alignment = 1
 [node name="PlusSmall" type="Button" parent="Shell/Compact"]
 custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
-text = "+"
+script = ExtResource("3")
+
+[node name="Glyph" type="TextureRect" parent="Shell/Compact/PlusSmall"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4")
+icon_id = "plus"
+pixel_scale = 2
+trimmed = true
+tint = Color(0.952941, 0.917647, 0.843137, 1)

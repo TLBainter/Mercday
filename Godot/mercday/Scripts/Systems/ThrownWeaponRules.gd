@@ -4,7 +4,14 @@ extends RefCounted
 #Thrown weapon ranges, accuracy, landing prediction and the rules that allow or refuse a throw.
 
 
-static func compute_thrown_accuracy(merc: MercenaryData, _weapon: WeaponData) -> float:
+static func _pace_per_move(merc: MercenaryData) -> int:
+	var pace := maxi(1, int(merc.stats.get("pace", 1)))
+	if ConstStates.has_state(merc, ConstStates.DEPOSED):
+		pace = mini(pace, 1)
+	return pace
+
+
+static func compute_thrown_accuracy(merc: MercenaryData) -> float:
 	#thrown_accuracy stat = max(melee_acc, ranged_acc) + merc_size*10 + any stat bonus
 	return float(merc.stats.get("thrown_accuracy", 0.0))
 
@@ -52,7 +59,7 @@ static func _throw_kill(merc: MercenaryData, weapon: WeaponData, target: Mercena
 	var itd: int = int(ranges["intended"])
 	if itd > 0 and state.distance_to(merc, target) > itd:
 		avg += float(_thrown_extended_bonus_damage(merc))
-	var acc := clampf(compute_thrown_accuracy(merc, weapon) / 100.0, 0.05, 0.95)
+	var acc := clampf(compute_thrown_accuracy(merc) / 100.0, 0.05, 0.95)
 	var hp := maxi(1, int(target.current_hp))
 	return {"lethal": avg * acc >= float(hp), "chance": acc}
 
@@ -89,9 +96,9 @@ static func predict_landing(merc: MercenaryData, weapon: WeaponData, target: Mer
 	res["remainder"] = remainder
 	if remainder <= 0 or from2 == t2:
 		return res
-	var len_steps: int = maxi(1, maxi(absi(t2.x - from2.x), absi(t2.y - from2.y)))
+	var len_steps: int = maxi(1, Pathfinder.chebyshev2(t2, from2))
 	var factor: int = int(ceil(float(len_steps + remainder) / float(len_steps)))
-	var steps := LineOfSight._steps(from2, from2 + (t2 - from2) * factor)
+	var steps := LineOfSight.line_steps(from2, from2 + (t2 - from2) * factor)
 	var idx := -1
 	for i in steps.size():
 		if (steps[i]["c"] as Vector2i) == t2:
@@ -108,7 +115,7 @@ static func predict_landing(merc: MercenaryData, weapon: WeaponData, target: Mer
 		if c == last_free:
 			continue
 		walked += 1
-		if c.x < 0 or c.y < 0 or c.x >= state.battlefield.width or c.y >= state.battlefield.length:
+		if not state.battlefield.in_bounds_xy(c.x, c.y):
 			break
 		var obs := state.battlefield.get_obs(c, floor_num)
 		if _throw_blocks(obs):
@@ -164,7 +171,7 @@ static func object_throw_allowed(merc: MercenaryData, weapon: WeaponData, target
 	if weapon.is_ranged or weapon.is_throwable or weapon.is_virtual:
 		return false
 	var dist := state.distance_to(merc, target)
-	if dist <= WeaponEvaluator.melee_reach_for(merc, weapon) + WeaponEvaluator._pace_per_move(merc) * 2:
+	if dist <= WeaponEvaluator.melee_reach_for(merc, weapon) + _pace_per_move(merc) * 2:
 		return false
 	if dist > int(thrown_ranges(merc, weapon)["extended"]):
 		return false
@@ -199,11 +206,11 @@ static func should_throw(merc: MercenaryData, weapon: WeaponData, target: Mercen
 	var backup := WeaponEvaluator.has_backup_weapon(merc, weapon)
 	var kill := _throw_kill(merc, weapon, target, state)
 	var kill_likely: bool = bool(kill["lethal"])
-	var paces_per_turn := WeaponEvaluator._pace_per_move(merc) * 2
+	var paces_per_turn := _pace_per_move(merc) * 2
 	var land := predict_landing(merc, weapon, target, false, state)
 	var land_cell: Vector2i = land["cell"]
 	var merc_pos := state.get_position(merc)
-	var recover_paces: int = maxi(absi(land_cell.x - merc_pos.x), absi(land_cell.y - merc_pos.y))
+	var recover_paces: int = Pathfinder.chebyshev2(land_cell, merc_pos)
 	var recover_turns: int = int(ceil(float(recover_paces) / float(maxi(1, paces_per_turn))))
 	var recoverable: bool = recover_paces <= paces_per_turn * 2 \
 			and int(land["floor"]) == state.get_floor(merc)
@@ -212,9 +219,9 @@ static func should_throw(merc: MercenaryData, weapon: WeaponData, target: Mercen
 		if e == target or not BattleState._is_alive(e):
 			continue
 		var ep := state.get_position(e)
-		if recoverable and maxi(absi(ep.x - land_cell.x), absi(ep.y - land_cell.y)) < recover_paces:
+		if recoverable and Pathfinder.chebyshev2(ep, land_cell) < recover_paces:
 			recoverable = false
-		if not backup and state.distance_to(merc, e) - 1 <= WeaponEvaluator._pace_per_move(e) * 4:
+		if not backup and state.distance_to(merc, e) - 1 <= _pace_per_move(e) * 4:
 			threat = true
 	var gain := backup or kill_likely
 	if mode == "property":
@@ -246,15 +253,11 @@ static func _log_throw_refusal(merc: MercenaryData, weapon: WeaponData, result: 
 
 
 #How much a thrown weapon is worth giving up: a spare, a nearby drop or a breakable source keeps the score up.
-
-
 static func _throw_replacement_factor(merc: MercenaryData, weapon: WeaponData, state: BattleState) -> float:
 	var fight := DataManager.fight_weapon
-	for entry: Dictionary in merc.inventory:
-		if entry.get("type") == "weapon":
-			var w: WeaponData = entry.get("data") as WeaponData
-			if w != null and w != weapon and w != fight:
-				return 1.0
+	for w: WeaponData in merc.inventory_weapons():
+		if w != weapon and w != fight:
+			return 1.0
 	if merc.equipped_weapon != null and merc.equipped_weapon != weapon and merc.equipped_weapon != fight:
 		return 1.0
 	if state.battlefield == null:
@@ -262,7 +265,7 @@ static func _throw_replacement_factor(merc: MercenaryData, weapon: WeaponData, s
 	var merc_pos := state.get_position(merc)
 	var pace := maxi(1, int(merc.stats.get("pace", 1)))
 	for pos: Vector2i in state.dropped_weapons.keys():
-		if maxi(abs(pos.x - merc_pos.x), abs(pos.y - merc_pos.y)) <= pace * 2:
+		if Pathfinder.chebyshev2(pos, merc_pos) <= pace * 2:
 			return 0.6
 	for obs: Dictionary in state.battlefield.obstacles:
 		if obs.get("cell_type", "") == "wall":
@@ -274,6 +277,6 @@ static func _throw_replacement_factor(merc: MercenaryData, weapon: WeaponData, s
 		var p: Vector2i = Vector2i((raw_pos as Vector3i).x, (raw_pos as Vector3i).y) if typeof(raw_pos) == TYPE_VECTOR3I else raw_pos as Vector2i
 		if p.x < 0:
 			continue
-		if maxi(abs(p.x - merc_pos.x), abs(p.y - merc_pos.y)) <= 6:
+		if Pathfinder.chebyshev2(p, merc_pos) <= 6:
 			return 0.4
 	return 0.25

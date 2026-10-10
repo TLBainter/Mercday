@@ -1,4 +1,4 @@
-class_name CampaignBuilder extends Control
+class_name CampaignBuilder extends GuiModal
 
 #The New Campaign modal of My Promotions: the five campaign types on the left, the name, the
 #duration and the targeting on the right, and the footer that says what stops the launch and what
@@ -6,27 +6,25 @@ class_name CampaignBuilder extends Control
 #line is the manager's own verdict, so the builder and the manager can never disagree.
 
 signal launched(campaign: CampaignData)
-signal closed
 signal take_me_there(target: Dictionary)
 
 const TYPE_ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Promotions/TypeRow.tscn")
-const FONT_SILK: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const BACKDROP: Color = Color(0.023529, 0.039216, 0.078431, 0.72)
-const FRAME_BG: Color = Color("#1a2b4d")
-const FRAME_RING: Color = Color("#f28c28")
-const PANE_BG: Color = Color("#0e1628")
-const FIELD_BG: Color = Color("#0a0f1c")
-const FIELD_RING: Color = Color("#3b6fb6")
+const FONT_SILK: FontVariation = GuiStyle.SILK
+const FONT_BOLD: FontVariation = GuiStyle.SILK_BOLD
+const FONT_BODY: FontVariation = GuiStyle.BODY
+const FRAME_BG: Color = GuiColors.BOX_BG
+const FRAME_RING: Color = GuiColors.ORANGE
+const PANE_BG: Color = GuiColors.ROW_FILL
+const FIELD_BG: Color = GuiColors.INK
+const FIELD_RING: Color = GuiColors.BLUE_HI
 const CHIP_BG: Color = Color("#2a2410")
-const CHIP_RING: Color = Color("#f2b33d")
-const ORANGE: Color = Color("#f28c28")
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
-const MUTED: Color = Color("#5e7699")
-const GREEN: Color = Color("#6cc36a")
-const RED: Color = Color("#e8583f")
+const CHIP_RING: Color = GuiColors.AMBER
+const ORANGE: Color = GuiColors.ORANGE
+const CREAM: Color = GuiColors.CREAM
+const SKY: Color = GuiColors.SKY
+const MUTED: Color = GuiColors.MUTED
+const GREEN: Color = GuiColors.GREEN
+const RED: Color = GuiColors.RED
 const MODAL_SIZE: Vector2 = Vector2(1190, 628)
 const RING_PX: int = 4
 const FIELD_RING_PX: int = 2
@@ -36,6 +34,7 @@ const COL_GAP: int = 16
 const RIGHT_GAP: int = 10
 const TYPE_COL_WIDTH: float = 372.0
 const TYPE_GAP: int = 8
+const DIALOG_Z: int = TypeRow.TOP_Z + 1
 const TITLE_SIZE: int = 18
 const CAPTION_SIZE: int = 9
 const NAME_SIZE: int = 16
@@ -65,13 +64,14 @@ const CREW_TIP_KIND: String = "Odd Job"
 const CREW_TIP: String = "Send a merc to spread the word about your guild."
 const CREW_PICK_DESC: String = "Sorted by best fit for Word of Mouth."
 const COST_WOM: String = "Odd Job pay, due up front"
-const COST_INF: String = "%d / day x %d days"
-const COST_FIXED: String = "%d / day x %d days, due up front"
-const CHIP_TEXT: String = "Billed monthly, starting immediately"
+const COST_INF: String = "%d / day, %d now for %d days to the %s"
+const COST_FIXED: String = "%d / day x %d days, %d now for %d days to the %s"
+const COST_FIXED_ALL: String = "%d / day x %d days, all due now"
+const CHIP_TEXT: String = "Billed monthly on the %s"
 const LAUNCH_TEXT: String = "Launch Campaign"
 const MONTH_SUFFIX: String = " / month"
 
-@onready var backdrop: ColorRect = $Backdrop
+@onready var center: CenterContainer = $Center
 @onready var frame: PanelContainer = $Center/Frame
 @onready var body: VBoxContainer = $Center/Frame/Pad/Body
 @onready var title_label: Label = $Center/Frame/Pad/Body/Head/Title
@@ -109,25 +109,27 @@ var _rows: Dictionary = {}
 
 
 func _ready() -> void:
+	super()
+	add_child(TimeHold.new())
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = BACKDROP
+	(backdrop as ColorRect).color = GuiColors.BACKDROP
 	frame.custom_minimum_size = MODAL_SIZE
-	frame.add_theme_stylebox_override(&"panel", _frame_box())
+	frame.add_theme_stylebox_override(&"panel", GuiStyle.flat(FRAME_BG, RING_PX, FRAME_RING))
 	body.add_theme_constant_override(&"separation", BODY_GAP)
 	columns.add_theme_constant_override(&"separation", COL_GAP)
 	type_column.custom_minimum_size = Vector2(TYPE_COL_WIDTH, 0.0)
 	type_box.add_theme_constant_override(&"separation", TYPE_GAP)
 	right_body.add_theme_constant_override(&"separation", RIGHT_GAP)
-	right_pane.add_theme_stylebox_override(&"panel", _pane_box())
-	_paint(title_label, FONT_BOLD, TITLE_SIZE, ORANGE)
-	_paint(type_caption, FONT_SILK, CAPTION_SIZE, ORANGE)
-	_paint(boost_label, FONT_SILK, CAPTION_SIZE, GREEN)
-	_paint(name_caption, FONT_SILK, CAPTION_SIZE, SKY)
-	_paint(name_count, FONT_SILK, CAPTION_SIZE, MUTED)
-	_paint(target_title, FONT_BOLD, NOTE_SIZE, ORANGE)
-	_paint(reason_label, FONT_BODY, NOTE_SIZE, RED)
-	_paint(cost_note, FONT_BODY, NOTE_SIZE, SKY)
-	_paint(chip_label, FONT_BODY, CHIP_SIZE, CHIP_RING)
+	right_pane.add_theme_stylebox_override(&"panel", GuiStyle.flat(PANE_BG))
+	GuiStyle.paint(title_label, FONT_BOLD, TITLE_SIZE, ORANGE)
+	GuiStyle.paint(type_caption, FONT_SILK, CAPTION_SIZE, ORANGE)
+	GuiStyle.paint(boost_label, FONT_SILK, CAPTION_SIZE, GREEN)
+	GuiStyle.paint(name_caption, FONT_SILK, CAPTION_SIZE, SKY)
+	GuiStyle.paint(name_count, FONT_SILK, CAPTION_SIZE, MUTED)
+	GuiStyle.paint(target_title, FONT_BOLD, NOTE_SIZE, ORANGE)
+	GuiStyle.paint(reason_label, FONT_BODY, NOTE_SIZE, RED)
+	GuiStyle.paint(cost_note, FONT_BODY, NOTE_SIZE, SKY)
+	GuiStyle.paint(chip_label, FONT_BODY, CHIP_SIZE, CHIP_RING)
 	type_caption.text = TYPE_HEAD
 	type_caption.size_flags_horizontal = SIZE_EXPAND_FILL
 	name_caption.text = NAME_CAPTION
@@ -135,7 +137,6 @@ func _ready() -> void:
 	title_label.size_flags_horizontal = SIZE_EXPAND_FILL
 	reason_label.size_flags_horizontal = SIZE_EXPAND_FILL
 	chip.add_theme_stylebox_override(&"panel", _chip_box())
-	chip_label.text = CHIP_TEXT
 	cost_label.font_size = COST_SIZE
 	job_filters.size_flags_horizontal = SIZE_EXPAND_FILL
 	job_filters.size_flags_vertical = SIZE_EXPAND_FILL
@@ -152,19 +153,18 @@ func _ready() -> void:
 	name_dialog.done.connect(_on_name_done)
 	duration.quantity_changed.connect(_on_duration_changed.unbind(1))
 	duration.unit_changed.connect(_on_duration_changed.unbind(1))
-	duration.take_me_there.connect(_on_take_me_there)
+	duration.take_me_there.connect(take_me_there.emit)
 	crew.team_changed.connect(_on_team_changed)
 	crew.pay_changed.connect(_on_pay_changed)
-	crew.take_me_there.connect(_on_take_me_there)
+	crew.take_me_there.connect(take_me_there.emit)
 	job_filters.filters_changed.connect(_on_duration_changed.unbind(1))
-	job_filters.take_me_there.connect(_on_take_me_there)
+	job_filters.take_me_there.connect(take_me_there.emit)
 	guild.changed.connect(_on_guild_changed)
-	guild.take_me_there.connect(_on_take_me_there)
+	guild.take_me_there.connect(take_me_there.emit)
 	_build_rows()
-	visible = false
 
 
-#Opens the modal on the defaults of the handoff: Flyers, five days, no crew and no name.
+#Opens the modal on the defaults of the design prototype: Flyers, five days, no crew and no name.
 func open_for(wanted: StringName) -> void:
 	_mode = CampaignData.MODE_PROMO if String(wanted) == CampaignData.MODE_PROMO \
 		else CampaignData.MODE_JOB
@@ -182,13 +182,8 @@ func open_for(wanted: StringName) -> void:
 	guild.setup(_type_key, ent)
 	crew.team = _team
 	crew.per = _per
-	visible = true
-	GuiFrameStack.push(self)
+	present()
 	_apply()
-
-
-func is_open() -> bool:
-	return visible
 
 
 func mode() -> String:
@@ -255,9 +250,12 @@ func set_campaign_name(text: String) -> void:
 	_apply()
 
 
+#The dialog is top level, so open() hands it the next rung of GuiFrameStack; the lifted type rows
+#draw above that rung, so the dialog is raised past them after it opens.
 func press_name() -> void:
 	if is_node_ready():
 		name_dialog.open(NAME_TITLE, _campaign_name, NAME_MAX)
+		name_dialog.z_index = z_index + DIALOG_Z
 
 
 func naming() -> bool:
@@ -354,6 +352,11 @@ func cost() -> int:
 	return PromotionsManager.launch_cost(draft())
 
 
+#The day of the month a campaign launched today bills on, as "2nd" or "15th".
+func bill_ordinal() -> String:
+	return TrynnCalendar.ordinal(FinanceManager.bill_day_from(GameState.day()))
+
+
 func cost_text() -> String:
 	return cost_label.value_text() if is_node_ready() else ""
 
@@ -376,22 +379,18 @@ func launch_enabled() -> bool:
 
 func press_launch() -> void:
 	if not launch_enabled():
+		UiSfx.reject_press(launch_button)
 		return
 	var out: CampaignData = draft()
 	if not PromotionsManager.launch(out):
+		UiSfx.reject_press(launch_button)
 		return
-	_close()
+	close()
 	launched.emit(out)
 
 
-func press_close() -> void:
-	_close()
-	closed.emit()
-
-
-func _close() -> void:
-	visible = false
-	GuiFrameStack.remove(self)
+func _layout() -> void:
+	ModalFrame.fit(self, backdrop, center)
 
 
 #Only Direct Sale and Sponsorship ask who to speak to; the rest go out to everyone.
@@ -415,7 +414,7 @@ func _build_rows() -> void:
 		type_box.add_child(node)
 		node.setup(row, ent, _mode, i)
 		node.pressed_type.connect(pick_type)
-		node.take_me_there.connect(_on_take_me_there)
+		node.take_me_there.connect(take_me_there.emit)
 		_rows[StringName(row["key"])] = node
 
 
@@ -461,14 +460,24 @@ func _apply_footer(wom: bool) -> void:
 	var reason: String = String(PromotionsManager.can_launch(out).get("reason", ""))
 	reason_label.text = reason
 	reason_label.visible = reason != ""
+	var first: int = PromotionsManager.first_bill_days(GameState.day(), 0 if out.infinite else out.days)
+	var rebills: bool = not wom and (out.infinite or first < out.days)
 	if wom:
 		cost_note.text = COST_WOM
 	elif out.infinite:
-		cost_note.text = COST_INF % [per_day, CampaignTypeDefs.BILL_DAYS]
+		cost_note.text = COST_INF % [per_day, price, first, bill_ordinal()]
+	elif rebills:
+		cost_note.text = COST_FIXED % [per_day, out.days, price, first, bill_ordinal()]
 	else:
-		cost_note.text = COST_FIXED % [per_day, duration.days()]
-	chip.visible = out.infinite and not wom
-	cost_label.amount = price
+		cost_note.text = COST_FIXED_ALL % [per_day, out.days]
+	chip.visible = rebills
+	chip_label.text = CHIP_TEXT % bill_ordinal()
+	if wom:
+		cost_label.amount = price
+	elif out.infinite:
+		cost_label.amount = CampaignTypeDefs.monthly_cost(_type_key)
+	else:
+		cost_label.amount = per_day * out.days
 	cost_label.suffix = MONTH_SUFFIX if out.infinite and not wom else ""
 	cost_label.value_color = RED if price > GameState.bank_notes else CREAM
 	launch_button.disabled = reason != ""
@@ -480,10 +489,7 @@ func _style_name_field() -> void:
 	name_field.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	name_field.add_theme_font_override(&"font", FONT_BODY)
 	name_field.add_theme_font_size_override(&"font_size", NAME_SIZE)
-	var box := StyleBoxFlat.new()
-	box.bg_color = FIELD_BG
-	box.set_border_width_all(FIELD_RING_PX)
-	box.border_color = FIELD_RING
+	var box: StyleBoxFlat = GuiStyle.flat(FIELD_BG, FIELD_RING_PX, FIELD_RING)
 	box.content_margin_left = FIELD_PAD
 	box.content_margin_right = FIELD_PAD
 	var hover: StyleBoxFlat = box.duplicate() as StyleBoxFlat
@@ -498,7 +504,7 @@ func _style_close() -> void:
 	CloseX.style(close_button, CloseX.SCALE_WINDOW)
 
 
-#Item 11: the one core BevelButton scene, added where the scene used to hold a plain Button.
+#Builds the green Launch button into the footer.
 func _build_launch() -> void:
 	launch_button = BevelButton.make(LAUNCH_TEXT, &"go", LAUNCH_BUTTON_SIZE)
 	launch_button.focus_mode = Control.FOCUS_NONE
@@ -507,36 +513,13 @@ func _build_launch() -> void:
 	$Center/Frame/Pad/Body/Footer.add_child(launch_button)
 
 
-func _frame_box() -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = FRAME_BG
-	box.set_border_width_all(RING_PX)
-	box.border_color = FRAME_RING
-	return box
-
-
-func _pane_box() -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = PANE_BG
-	return box
-
-
 func _chip_box() -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = CHIP_BG
-	box.set_border_width_all(CHIP_RING_PX)
-	box.border_color = CHIP_RING
+	var box: StyleBoxFlat = GuiStyle.flat(CHIP_BG, CHIP_RING_PX, CHIP_RING)
 	box.content_margin_left = CHIP_PAD_X
 	box.content_margin_right = CHIP_PAD_X
 	box.content_margin_top = CHIP_PAD_Y
 	box.content_margin_bottom = CHIP_PAD_Y
 	return box
-
-
-func _paint(node: Label, font: FontVariation, font_size: int, tint: Color) -> void:
-	node.add_theme_font_override(&"font", font)
-	node.add_theme_font_size_override(&"font_size", font_size)
-	node.add_theme_color_override(&"font_color", tint)
 
 
 func _on_name_done(text: String) -> void:
@@ -560,7 +543,3 @@ func _on_team_changed(team: Array[int]) -> void:
 func _on_pay_changed(per: int) -> void:
 	_per = per
 	_apply()
-
-
-func _on_take_me_there(target: Dictionary) -> void:
-	take_me_there.emit(target)

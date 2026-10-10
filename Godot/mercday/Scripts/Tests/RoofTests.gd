@@ -1,13 +1,6 @@
 class_name RoofTests
 
-#Roof stages R1, R2a, R2b, R2c, R2d, R2e, R3a, R3b and R3c: one roof level per footprint cell, the
-#shape fills, the span tables, the readers, the footing a unit stands, paths and is seen on, the
-#edges it leaves by, the climb links it comes back up or down, the routes a climber plans over them,
-#the cross level leaps a jumper plans from roof to roof, the post a shooter scores and climbs to,
-#the parapets, chimneys and dormers it carries and the one flat roof every outdoor hut gets.
-#It also holds the city fix cases: the runner that has to climb or leap to get off a roof, the
-#spawn probe that refuses a roof with no way down, the grown flood ensure_cells runs and the post
-#budget weighed against the walk to a first shot.
+#Roof shapes, spans, readers, footing, edges, climb links, routes, leaps, post scoring and the city fix cases.
 #Run: godot --headless --path . -- --roof-tests
 
 const SEED_BASE := 4300
@@ -39,6 +32,13 @@ const BUDGET_FOE := Vector3i(13, 1, 0)
 const BUDGET_START := Vector3i(19, 14, 0)
 const BUDGET_EVEN := Vector3i(2, 24, 0)
 const BUDGET_FOOT := Vector3i(8, 13, 0)
+const ROOF_FOE := Vector3i(6, 6, 1)
+const STREET_FOE := Vector3i(2, 6, 0)
+const EDGE_ROOF := Vector3i(4, 6, 1)
+const EDGE_STREET := Vector3i(3, 6, 0)
+const FLEE_FOE := Vector3i(0, 20, 0)
+const FLEE_FAR := Vector3i(20, 20, 0)
+const FLEE_STREET := Vector3i(14, 14, 0)
 
 
 static func run() -> bool:
@@ -91,8 +91,17 @@ static func run() -> bool:
 	return TestFixtures.summarize(res, "ROOF")
 
 
+#The shape name and the kind of a roof part.
+static func _shape(part: Dictionary) -> String:
+	return String(part.get("shape", ""))
+
+
+static func _kind(part: Dictionary) -> String:
+	return String(part.get("kind", ""))
+
+
 static func _case_gable_house(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Small House", "S", SEED_BASE)
+	var f: BattlefieldArea = GenFixtures.building_field("Small House", "S", SEED_BASE)
 	var levels: Array[String] = _level_errors(f)
 	TestFixtures.check(res, "roof_gable every footprint cell carries one roof cell", levels.is_empty(),
 		TestFixtures.detail(levels, f.footprint_union.size(), "cell(s)"))
@@ -101,11 +110,11 @@ static func _case_gable_house(res: Dictionary) -> void:
 	var cells: Array = part.get("cells", []) as Array
 	var axis: String = _axis_of(rect, "S")
 	TestFixtures.check(res, "roof_gable the small house roofs as one rectangular gable",
-		f.roof_parts.size() == 1 and String(part.get("shape", "")) == "Gable"
-		and String(part.get("kind", "")) == "gable" and String(part.get("axis", "")) == axis
+		f.roof_parts.size() == 1 and _shape(part) == "Gable"
+		and _kind(part) == "gable" and String(part.get("axis", "")) == axis
 		and cells.size() == rect.size.x * rect.size.y,
 		"%d part(s), %s/%s axis %s, %d of %d cell(s)" % [f.roof_parts.size(),
-			String(part.get("shape", "")), String(part.get("kind", "")), String(part.get("axis", "")),
+			_shape(part), _kind(part), String(part.get("axis", "")),
 			cells.size(), rect.size.x * rect.size.y])
 	var span: int = rect.size.x if axis == "y" else rect.size.y
 	var along: int = rect.size.y if axis == "y" else rect.size.x
@@ -126,17 +135,17 @@ static func _case_gable_house(res: Dictionary) -> void:
 
 
 static func _case_hip_shop(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Apothecary", "S", SEED_BASE + 1)
+	var f: BattlefieldArea = GenFixtures.building_field("Apothecary", "S", SEED_BASE + 1)
 	var part: Dictionary = _first_part(f)
 	var rect: Rect2i = part.get("rect", Rect2i()) as Rect2i
 	var cells: Array = part.get("cells", []) as Array
 	var level: int = int(part.get("level", 0))
 	TestFixtures.check(res, "roof_hip the apothecary roofs as one rectangular hip",
-		f.roof_parts.size() == 1 and String(part.get("shape", "")) == "Hip"
-		and String(part.get("kind", "")) == "hip" and String(part.get("axis", "")) == ""
+		f.roof_parts.size() == 1 and _shape(part) == "Hip"
+		and _kind(part) == "hip" and String(part.get("axis", "")) == ""
 		and cells.size() == rect.size.x * rect.size.y,
-		"%d part(s), %s/%s, %d of %d cell(s)" % [f.roof_parts.size(), String(part.get("shape", "")),
-			String(part.get("kind", "")), cells.size(), rect.size.x * rect.size.y])
+		"%d part(s), %s/%s, %d of %d cell(s)" % [f.roof_parts.size(), _shape(part),
+			_kind(part), cells.size(), rect.size.x * rect.size.y])
 	var corners: Array[Vector2i] = [rect.position, Vector2i(rect.end.x - 1, rect.position.y),
 		Vector2i(rect.position.x, rect.end.y - 1), rect.end - Vector2i.ONE]
 	var bad_corner: Array[String] = []
@@ -163,14 +172,14 @@ static func _case_hip_shop(res: Dictionary) -> void:
 
 
 static func _case_flat_store(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("General Store", "S", SEED_BASE + 2)
+	var f: BattlefieldArea = GenFixtures.building_field("General Store", "S", SEED_BASE + 2)
 	var part: Dictionary = _first_part(f)
 	var cells: Array = part.get("cells", []) as Array
 	var errs: Array[String] = _flat_errors(f, part)
 	TestFixtures.check(res, "roof_flat the general store lies flat at its roof plane",
-		String(part.get("shape", "")) == "Flat" and String(part.get("kind", "")) == "flat"
-		and errs.is_empty(), "%s/%s; %s" % [String(part.get("shape", "")),
-			String(part.get("kind", "")), TestFixtures.detail(errs, cells.size(), "cell(s)")])
+		_shape(part) == "Flat" and _kind(part) == "flat"
+		and errs.is_empty(), "%s/%s; %s" % [_shape(part),
+			_kind(part), TestFixtures.detail(errs, cells.size(), "cell(s)")])
 	var tally: Dictionary = RoofBuilder.counts(f, part)
 	TestFixtures.check(res, "roof_flat a flat roof is never rugged",
 		f.rugged_cells.is_empty() and int(tally.get("slope", 0)) == 0
@@ -188,15 +197,15 @@ static func _case_flat_store(res: Dictionary) -> void:
 
 
 static func _case_lean_shed(res: Dictionary) -> void:
-	var south: BattlefieldArea = _field("Storage Shed", "S", SEED_BASE + 3)
-	var north: BattlefieldArea = _field("Storage Shed", "N", SEED_BASE + 3)
+	var south: BattlefieldArea = GenFixtures.building_field("Storage Shed", "S", SEED_BASE + 3)
+	var north: BattlefieldArea = GenFixtures.building_field("Storage Shed", "N", SEED_BASE + 3)
 	var sp: Dictionary = _first_part(south)
 	var np: Dictionary = _first_part(north)
 	TestFixtures.check(res, "roof_lean the shed roof rises toward its front",
-		String(sp.get("shape", "")) == "Lean-to" and String(sp.get("kind", "")) == "lean"
+		_shape(sp) == "Lean-to" and _kind(sp) == "lean"
 		and String(sp.get("high", "")) == "s" and String(np.get("high", "")) == "n",
-		"south %s/%s high %s, north high %s" % [String(sp.get("shape", "")),
-			String(sp.get("kind", "")), String(sp.get("high", "")), String(np.get("high", ""))])
+		"south %s/%s high %s, north high %s" % [_shape(sp),
+			_kind(sp), String(sp.get("high", "")), String(np.get("high", ""))])
 	var s_errs: Array[String] = _lean_errors(south, sp, "s")
 	TestFixtures.check(res, "roof_lean a south front leaves the north row at one step", s_errs.is_empty(),
 		TestFixtures.detail(s_errs, (sp.get("cells", []) as Array).size(), "cell(s)"))
@@ -210,7 +219,7 @@ static func _case_lean_shed(res: Dictionary) -> void:
 
 
 static func _case_awning_stall(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Market Stall", "S", SEED_BASE + 4)
+	var f: BattlefieldArea = GenFixtures.building_field("Market Stall", "S", SEED_BASE + 4)
 	var part: Dictionary = _first_part(f)
 	var cells: Array = part.get("cells", []) as Array
 	var level: int = int(part.get("level", 0))
@@ -224,9 +233,9 @@ static func _case_awning_stall(res: Dictionary) -> void:
 		elif absf(float(f.roof_rise.get(key, 0.0)) - want_rise) > EPS:
 			bad.append("%s rise %.2f" % [str(c), float(f.roof_rise.get(key, 0.0))])
 	TestFixtures.check(res, "roof_awning the stall canopy is one solid sheet",
-		String(part.get("shape", "")) == "Awning" and String(part.get("kind", "")) == "awning"
+		_shape(part) == "Awning" and _kind(part) == "awning"
 		and absf(float(part.get("base", 0.0)) - (RoofBuilder.AWNING_LO - fh)) < EPS and bad.is_empty(),
-		"%s/%s base %.2f; %s" % [String(part.get("shape", "")), String(part.get("kind", "")),
+		"%s/%s base %.2f; %s" % [_shape(part), _kind(part),
 			float(part.get("base", 0.0)), TestFixtures.detail(bad, cells.size(), "cell(s)")])
 	var bad_span: Array[String] = []
 	for c2: Vector2i in cells:
@@ -251,15 +260,15 @@ static func _case_awning_stall(res: Dictionary) -> void:
 
 
 static func _case_steeple_chapel(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Chapel", "S", SEED_BASE + 5)
+	var f: BattlefieldArea = GenFixtures.building_field("Chapel", "S", SEED_BASE + 5)
 	var part: Dictionary = _first_part(f)
 	var rect: Rect2i = part.get("rect", Rect2i()) as Rect2i
 	var cells: Array = part.get("cells", []) as Array
 	var axis: String = _axis_of(rect, "S")
 	TestFixtures.check(res, "roof_steeple the chapel keeps a gable under its steeple",
-		String(part.get("shape", "")) == "Steeple" and String(part.get("kind", "")) == "gable"
+		_shape(part) == "Steeple" and _kind(part) == "gable"
 		and String(part.get("axis", "")) == axis,
-		"%s/%s axis %s want %s" % [String(part.get("shape", "")), String(part.get("kind", "")),
+		"%s/%s axis %s want %s" % [_shape(part), _kind(part),
 			String(part.get("axis", "")), axis])
 	var block: Array[String] = _block_errors(f, part, RoofBuilder.STEEPLE_H, "S")
 	TestFixtures.check(res, "roof_steeple a %dx%d block stands at the front edge"
@@ -271,12 +280,12 @@ static func _case_steeple_chapel(res: Dictionary) -> void:
 
 
 static func _case_clock_town_hall(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Town Hall", "S", SEED_BASE + 6)
+	var f: BattlefieldArea = GenFixtures.building_field("Town Hall", "S", SEED_BASE + 6)
 	var part: Dictionary = _main_part(f)
 	var cells: Array = part.get("cells", []) as Array
 	TestFixtures.check(res, "roof_clock the town hall hips under its clock tower",
-		String(part.get("shape", "")) == "Clock Tower" and String(part.get("kind", "")) == "hip",
-		"%s/%s" % [String(part.get("shape", "")), String(part.get("kind", ""))])
+		_shape(part) == "Clock Tower" and _kind(part) == "hip",
+		"%s/%s" % [_shape(part), _kind(part)])
 	var block: Array[String] = _block_errors(f, part, RoofBuilder.CLOCK_H, "S")
 	TestFixtures.check(res, "roof_clock a %dx%d block reaches %.1f above the plane"
 		% [RoofBuilder.TOWER_SIDE, RoofBuilder.TOWER_SIDE, RoofBuilder.CLOCK_H], block.is_empty(),
@@ -287,16 +296,16 @@ static func _case_clock_town_hall(res: Dictionary) -> void:
 
 
 static func _case_dome_temple(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Temple", "S", SEED_BASE + 7)
+	var f: BattlefieldArea = GenFixtures.building_field("Temple", "S", SEED_BASE + 7)
 	var part: Dictionary = _main_part(f)
 	var level: int = int(part.get("level", 0))
 	var cells: Array = part.get("cells", []) as Array
 	var dome: Dictionary = part.get("dome", {}) as Dictionary
 	var shapes: Array[String] = []
 	for p: Dictionary in f.roof_parts:
-		if String(p.get("shape", "")) == "Dome" and String(p.get("kind", "")) == "dome":
+		if _shape(p) == "Dome" and _kind(p) == "dome":
 			continue
-		shapes.append("%s/%s" % [String(p.get("shape", "")), String(p.get("kind", ""))])
+		shapes.append("%s/%s" % [_shape(p), _kind(p)])
 	TestFixtures.check(res, "roof_dome every temple part carries the dome shape",
 		shapes.is_empty() and not f.roof_parts.is_empty() and not dome.is_empty(),
 		"%d part(s), dome %s; %s" % [f.roof_parts.size(), str(not dome.is_empty()),
@@ -357,7 +366,7 @@ static func _case_dome_temple(res: Dictionary) -> void:
 #A dome is climbed as a wall, so a ground cell beside it rises to the nearest crown cell.
 static func _dome_climb_check(res: Dictionary, f: BattlefieldArea, part: Dictionary,
 		crowns: Array[Vector2i]) -> void:
-	f.build_drop_links()
+	NavLinkBuilder.build_drop_links(f)
 	var level: int = int(part.get("level", 0))
 	var rect: Rect2i = part.get("rect", Rect2i()) as Rect2i
 	var held: Dictionary = {}
@@ -368,7 +377,7 @@ static func _dome_climb_check(res: Dictionary, f: BattlefieldArea, part: Diction
 	for gy: int in range(rect.position.y - 1, rect.end.y + 1):
 		for gx: int in range(rect.position.x - 1, rect.end.x + 1):
 			var g := Vector2i(gx, gy)
-			if rect.has_point(g) or gx < 0 or gy < 0 or gx >= f.width or gy >= f.length:
+			if rect.has_point(g) or not f.in_bounds_xy(gx, gy):
 				continue
 			for link: Dictionary in f.climb_links_at(Vector3i(gx, gy, 0)):
 				var top: Vector3i = link["top"] as Vector3i
@@ -391,17 +400,17 @@ static func _dome_climb_check(res: Dictionary, f: BattlefieldArea, part: Diction
 
 
 static func _case_battlement_tower(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Watchtower", "W", SEED_BASE + 8)
+	var f: BattlefieldArea = GenFixtures.building_field("Watchtower", "W", SEED_BASE + 8)
 	var part: Dictionary = _first_part(f)
 	var cells: Array = part.get("cells", []) as Array
 	var errs: Array[String] = _flat_errors(f, part)
 	TestFixtures.check(res, "roof_battlement the watchtower top lies flat", errs.is_empty(),
 		TestFixtures.detail(errs, cells.size(), "cell(s)"))
 	TestFixtures.check(res, "roof_battlement the part keeps the battlement shape",
-		f.roof_parts.size() == 1 and String(part.get("shape", "")) == "Battlement"
-		and String(part.get("kind", "")) == "flat" and f.rugged_cells.is_empty(),
-		"%d part(s), %s/%s, %d rugged" % [f.roof_parts.size(), String(part.get("shape", "")),
-			String(part.get("kind", "")), f.rugged_cells.size()])
+		f.roof_parts.size() == 1 and _shape(part) == "Battlement"
+		and _kind(part) == "flat" and f.rugged_cells.is_empty(),
+		"%d part(s), %s/%s, %d rugged" % [f.roof_parts.size(), _shape(part),
+			_kind(part), f.rugged_cells.size()])
 	var fp: int = int(f.building_plan.get("fp", 0))
 	var bad: Array[String] = []
 	for c: Vector2i in cells:
@@ -415,13 +424,13 @@ static func _case_battlement_tower(res: Dictionary) -> void:
 
 
 static func _case_tavern_legacy(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Tavern", "", SEED_BASE + 9)
+	var f: BattlefieldArea = GenFixtures.building_field("Tavern", "", SEED_BASE + 9)
 	var part: Dictionary = _main_part(f)
 	TestFixtures.check(res, "roof_legacy the tavern hips its main part",
-		not f.roof_parts.is_empty() and String(part.get("shape", "")) == "Hip"
-		and String(part.get("kind", "")) == "hip",
-		"%d part(s), %s/%s" % [f.roof_parts.size(), String(part.get("shape", "")),
-			String(part.get("kind", ""))])
+		not f.roof_parts.is_empty() and _shape(part) == "Hip"
+		and _kind(part) == "hip",
+		"%d part(s), %s/%s" % [f.roof_parts.size(), _shape(part),
+			_kind(part)])
 	var levels: Array[String] = _level_errors(f)
 	TestFixtures.check(res, "roof_legacy every tavern cell roofs over its own top floor",
 		levels.is_empty(), TestFixtures.detail(levels, f.footprint_union.size(), "cell(s)"))
@@ -433,13 +442,13 @@ static func _case_tavern_legacy(res: Dictionary) -> void:
 
 
 static func _case_every_building(res: Dictionary) -> void:
-	var names: Array[String] = _planned_names()
+	var names: Array[String] = GenFixtures.planned_names()
 	var bad_level: Array[String] = []
 	var bad_shape: Array[String] = []
 	var bad_index: Array[String] = []
 	var bad_part: Array[String] = []
 	for i: int in range(names.size()):
-		var f: BattlefieldArea = _field(names[i], "S", SEED_BASE + 20 + i)
+		var f: BattlefieldArea = GenFixtures.building_field(names[i], "S", SEED_BASE + 20 + i)
 		var errs: Array[String] = _level_errors(f)
 		if not errs.is_empty():
 			bad_level.append("%s %s" % [names[i], errs[0]])
@@ -448,8 +457,8 @@ static func _case_every_building(res: Dictionary) -> void:
 			bad_index.append("%s %d cell(s), %d plane(s), %d span(s)" % [names[i],
 				f.roof_cells.size(), f.roof_elevations.size(), f.roof_span.size()])
 		for part: Dictionary in f.roof_parts:
-			if not RoofBuilder.SHAPES.has(String(part.get("shape", ""))):
-				bad_shape.append("%s %s" % [names[i], String(part.get("shape", ""))])
+			if not RoofBuilder.SHAPES.has(_shape(part)):
+				bad_shape.append("%s %s" % [names[i], _shape(part)])
 			var perr: Array[String] = _part_errors(f, part)
 			if not perr.is_empty():
 				bad_part.append("%s %s" % [names[i], perr[0]])
@@ -465,7 +474,7 @@ static func _case_every_building(res: Dictionary) -> void:
 
 static func _case_wing_lean(res: Dictionary) -> void:
 	var f: BattlefieldArea = _synth([[Rect2i(2, 2, 10, 8), [0, 1]], [Rect2i(4, 10, 6, 4), [0]]])
-	RoofBuilder.build(f, "Hip", "S", "")
+	RoofBuilder.build(f, "Hip", "S")
 	var wing: Dictionary = _part_with_level(f, 1)
 	var main: Dictionary = _part_with_level(f, 2)
 	TestFixtures.check(res, "roof_wing a lower wing roofs as its own part",
@@ -473,23 +482,23 @@ static func _case_wing_lean(res: Dictionary) -> void:
 		"%d part(s), wing %s, main %s" % [f.roof_parts.size(), str(wing.get("rect", Rect2i())),
 			str(main.get("rect", Rect2i()))])
 	TestFixtures.check(res, "roof_wing the wing leans away from the taller wall",
-		String(wing.get("shape", "")) == "Lean-to" and String(wing.get("kind", "")) == "lean"
+		_shape(wing) == "Lean-to" and _kind(wing) == "lean"
 		and String(wing.get("high", "")) == "n",
-		"%s/%s high %s" % [String(wing.get("shape", "")), String(wing.get("kind", "")),
+		"%s/%s high %s" % [_shape(wing), _kind(wing),
 			String(wing.get("high", ""))])
 	var errs: Array[String] = _lean_errors(f, wing, "n")
 	TestFixtures.check(res, "roof_wing the wing peaks against the wall and ends at one step",
 		errs.is_empty(), TestFixtures.detail(errs, (wing.get("cells", []) as Array).size(), "cell(s)"))
 	var main_errs: Array[String] = _hip_errors(f, main)
 	TestFixtures.check(res, "roof_wing the main block keeps the building shape",
-		String(main.get("shape", "")) == "Hip" and main_errs.is_empty(),
-		"%s; %s" % [String(main.get("shape", "")),
+		_shape(main) == "Hip" and main_errs.is_empty(),
+		"%s; %s" % [_shape(main),
 			TestFixtures.detail(main_errs, (main.get("cells", []) as Array).size(), "cell(s)")])
 
 
 static func _case_l_hip(res: Dictionary) -> void:
 	var f: BattlefieldArea = _synth([[Rect2i(2, 2, 10, 6), [0]], [Rect2i(2, 8, 5, 5), [0]]])
-	RoofBuilder.build(f, "Hip", "S", "")
+	RoofBuilder.build(f, "Hip", "S")
 	var part: Dictionary = _first_part(f)
 	var cells: Array = part.get("cells", []) as Array
 	TestFixtures.check(res, "roof_valley an L outline roofs as one hip part",
@@ -518,13 +527,13 @@ static func _case_l_hip(res: Dictionary) -> void:
 
 static func _case_l_gable(res: Dictionary) -> void:
 	var f: BattlefieldArea = _synth([[Rect2i(2, 2, 10, 6), [0]], [Rect2i(2, 8, 5, 5), [0]]])
-	RoofBuilder.build(f, "Gable", "S", "")
+	RoofBuilder.build(f, "Gable", "S")
 	var part: Dictionary = _first_part(f)
 	var cells: Array = part.get("cells", []) as Array
 	TestFixtures.check(res, "roof_fallback a gable on a ragged outline fills as a hip",
-		String(part.get("shape", "")) == "Gable" and String(part.get("kind", "")) == "hip"
+		_shape(part) == "Gable" and _kind(part) == "hip"
 		and String(part.get("axis", "")) == "",
-		"%s/%s axis '%s'" % [String(part.get("shape", "")), String(part.get("kind", "")),
+		"%s/%s axis '%s'" % [_shape(part), _kind(part),
 			String(part.get("axis", ""))])
 	var errs: Array[String] = _hip_errors(f, part)
 	TestFixtures.check(res, "roof_fallback the fallback cells keep the ring step", errs.is_empty(),
@@ -533,19 +542,19 @@ static func _case_l_gable(res: Dictionary) -> void:
 
 static func _case_gable_widths(res: Dictionary) -> void:
 	var odd: BattlefieldArea = _synth([[Rect2i(2, 2, 9, 12), [0]]])
-	RoofBuilder.build(odd, "Gable", "S", "")
+	RoofBuilder.build(odd, "Gable", "S")
 	_check_gable(res, odd, "roof_ridge an odd span peaks on one line", "y", 12)
 	var even: BattlefieldArea = _synth([[Rect2i(2, 2, 8, 12), [0]]])
-	RoofBuilder.build(even, "Gable", "S", "")
+	RoofBuilder.build(even, "Gable", "S")
 	_check_gable(res, even, "roof_ridge an even span peaks on two lines", "y", 24)
 	var square: BattlefieldArea = _synth([[Rect2i(2, 2, 8, 8), [0]]])
-	RoofBuilder.build(square, "Gable", "W", "")
+	RoofBuilder.build(square, "Gable", "W")
 	_check_gable(res, square, "roof_ridge a square part follows its front", "y", 16)
 
 
 static func _case_vertex_heights(res: Dictionary) -> void:
 	var g: BattlefieldArea = _synth([[Rect2i(2, 2, 8, 12), [0]]])
-	RoofBuilder.build(g, "Gable", "S", "")
+	RoofBuilder.build(g, "Gable", "S")
 	var gv: PackedFloat32Array = RoofBuilder.vertex_heights(_first_part(g))
 	var bad_g: Array[String] = []
 	for vy: int in range(13):
@@ -556,7 +565,7 @@ static func _case_vertex_heights(res: Dictionary) -> void:
 	TestFixtures.check(res, "roof_vertex a gable ridge line stands over its eaves", bad_g.is_empty(),
 		TestFixtures.detail(bad_g, 9 * 13, "vertex(es)"))
 	var h: BattlefieldArea = _synth([[Rect2i(2, 2, 6, 6), [0]]])
-	RoofBuilder.build(h, "Hip", "S", "")
+	RoofBuilder.build(h, "Hip", "S")
 	var hv: PackedFloat32Array = RoofBuilder.vertex_heights(_first_part(h))
 	var edge_ok: bool = true
 	for i: int in range(7):
@@ -566,7 +575,7 @@ static func _case_vertex_heights(res: Dictionary) -> void:
 		edge_ok and absf(hv[3 * 7 + 3] - RoofBuilder.PITCH * 3.0) < EPS,
 		"boundary %s, centre %.2f want %.2f" % [str(edge_ok), hv[3 * 7 + 3], RoofBuilder.PITCH * 3.0])
 	var l: BattlefieldArea = _synth([[Rect2i(2, 2, 6, 9), [0]]])
-	RoofBuilder.build(l, "Lean-to", "N", "")
+	RoofBuilder.build(l, "Lean-to", "N")
 	var lv: PackedFloat32Array = RoofBuilder.vertex_heights(_first_part(l))
 	var bad_l: Array[String] = []
 	for vx2: int in range(7):
@@ -580,7 +589,7 @@ static func _case_vertex_heights(res: Dictionary) -> void:
 
 
 static func _case_readers(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Small House", "S", SEED_BASE + 10)
+	var f: BattlefieldArea = GenFixtures.building_field("Small House", "S", SEED_BASE + 10)
 	var part: Dictionary = _first_part(f)
 	var level: int = int(part.get("level", 0))
 	var cell: Vector2i = _slope_cell(f, part)
@@ -604,9 +613,9 @@ static func _case_readers(res: Dictionary) -> void:
 
 
 static func _case_footing(res: Dictionary) -> void:
-	var house: BattlefieldArea = _field("Small House", "S", SEED_BASE + 11)
-	var store: BattlefieldArea = _field("General Store", "S", SEED_BASE + 18)
-	var chapel: BattlefieldArea = _field("Chapel", "S", SEED_BASE + 19)
+	var house: BattlefieldArea = GenFixtures.building_field("Small House", "S", SEED_BASE + 11)
+	var store: BattlefieldArea = GenFixtures.building_field("General Store", "S", SEED_BASE + 18)
+	var chapel: BattlefieldArea = GenFixtures.building_field("Chapel", "S", SEED_BASE + 19)
 	var level: int = int(_first_part(house).get("level", 0))
 	var planed: Array[String] = []
 	for k: Variant in house.roof_cells.keys():
@@ -648,7 +657,7 @@ static func _case_footing(res: Dictionary) -> void:
 	TestFixtures.check(res, "roof_foot slope costs 2, flat and peak cost 1", cost.is_empty(),
 		TestFixtures.detail(cost, 4, "cell(s)"))
 	var g: BattlefieldArea = _synth([[Rect2i(2, 2, 9, 12), [0]]])
-	RoofBuilder.build(g, "Gable", "S", "")
+	RoofBuilder.build(g, "Gable", "S")
 	var over: Array[Vector3i] = Pathfinder.find_path(Vector3i(2, 6, 1), Vector3i(10, 6, 1), g, {})
 	var off: Array[String] = []
 	for step: Vector3i in over:
@@ -693,18 +702,33 @@ static func _case_footing(res: Dictionary) -> void:
 #Synth map with a flat roof and the drop tables rebuilt over it.
 static func _edge_map(blocks: Array) -> BattlefieldArea:
 	var f: BattlefieldArea = _synth(blocks)
-	RoofBuilder.build(f, "Flat", "S", "")
-	f.build_drop_links()
+	RoofBuilder.build(f, "Flat", "S")
+	NavLinkBuilder.build_drop_links(f)
 	return f
 
 
 static func _case_edges(res: Dictionary) -> void:
 	var house: BattlefieldArea = _edge_map([[Rect2i(4, 4, 8, 8), [0]]])
+	var step: BattlefieldArea = _edge_map([[Rect2i(4, 4, 6, 8), [0, 1]], [Rect2i(10, 4, 5, 8), [0]]])
+	_check_edge_drops(res, house)
+	_check_edge_roof_landing(res, step)
+	_check_edge_solid(res)
+	_check_edge_walk(res, house)
+	_check_edge_fall(res, house)
+	_check_edge_flyer(res, house)
+	_check_edge_window(res)
+	_check_edge_landing(res, house)
+	_check_edge_leap(res, house, step)
+	_check_edge_eave(res)
+	_check_edge_fly_table(res, house)
+
+
+static func _check_edge_drops(res: Dictionary, house: BattlefieldArea) -> void:
 	var bad: Array[String] = []
 	var edges: int = 0
 	for k: Variant in house.roof_cells.keys():
 		var r: Vector3i = k as Vector3i
-		for d: Vector2i in BattlefieldArea.DROP_DIRS:
+		for d: Vector2i in PathCost.DIRS4:
 			var n := Vector2i(r.x + d.x, r.y + d.y)
 			if house.in_footprint(n):
 				continue
@@ -723,7 +747,8 @@ static func _case_edges(res: Dictionary) -> void:
 	TestFixtures.check(res, "roof_edge every open roof edge cell drops to the street",
 		edges > 0 and bad.is_empty(), TestFixtures.detail(bad, edges, "edge(s)"))
 
-	var step: BattlefieldArea = _edge_map([[Rect2i(4, 4, 6, 8), [0, 1]], [Rect2i(10, 4, 5, 8), [0]]])
+
+static func _check_edge_roof_landing(res: Dictionary, step: BattlefieldArea) -> void:
 	var lower: Array[String] = []
 	for y: int in range(4, 12):
 		var top3 := Vector3i(9, y, 2)
@@ -735,10 +760,12 @@ static func _case_edges(res: Dictionary) -> void:
 	TestFixtures.check(res, "roof_edge the upper roof drops onto the lower roof",
 		step.roof_parts.size() == 2 and lower.is_empty(), TestFixtures.detail(lower, 8, "edge(s)"))
 
+
+static func _check_edge_solid(res: Dictionary) -> void:
 	var solid: BattlefieldArea = _edge_map([[Rect2i(4, 4, 6, 8), [0, 1]], [Rect2i(10, 4, 5, 8), [0]]])
 	var blocked := Vector3i(10, 6, 1)
 	solid.roof_cells[blocked] = RoofBuilder.SOLID
-	solid.build_drop_links()
+	NavLinkBuilder.build_drop_links(solid)
 	var landed: int = 0
 	for sk: Variant in solid.drop_links.keys():
 		for sl: Dictionary in (solid.drop_links[sk] as Array):
@@ -749,43 +776,43 @@ static func _case_edges(res: Dictionary) -> void:
 		landed == 0 and not beside.is_empty(),
 		"%d link(s) onto %s, beside %s" % [landed, str(blocked), str(not beside.is_empty())])
 
-	var from_roof := Vector3i(4, 6, 1)
-	var to_street := Vector3i(3, 6, 0)
-	var out_path: Array[Vector3i] = Pathfinder.find_path(from_roof, to_street, house, {}, 2.0)
+
+static func _check_edge_walk(res: Dictionary, house: BattlefieldArea) -> void:
+	var out_path: Array[Vector3i] = Pathfinder.find_path(EDGE_ROOF, EDGE_STREET, house, {}, 2.0)
 	var used_drop: bool = false
 	for i: int in range(1, out_path.size()):
 		if out_path[i - 1].z != out_path[i].z \
 				and not PathCost.drop_link(out_path[i - 1], out_path[i], house).is_empty():
 			used_drop = true
-	var back: Array[Vector3i] = Pathfinder.find_path(to_street, from_roof, house, {}, 2.0)
+	var back: Array[Vector3i] = Pathfinder.find_path(EDGE_STREET, EDGE_ROOF, house, {}, 2.0)
 	TestFixtures.check(res, "roof_edge a walker leaves the roof and never walks back",
 		used_drop and back.is_empty(),
 		"down %d cell(s) drop %s, up %d cell(s)" % [out_path.size(), str(used_drop), back.size()])
 
-	var harsh: int = PathCost.cell_pace_cost(from_roof, to_street, house, {}, 0.2)
-	var soft: int = PathCost.cell_pace_cost(from_roof, to_street, house, {}, 2.0)
+
+static func _check_edge_fall(res: Dictionary, house: BattlefieldArea) -> void:
+	var harsh: int = PathCost.cell_pace_cost(EDGE_ROOF, EDGE_STREET, house, {}, 0.2)
+	var soft: int = PathCost.cell_pace_cost(EDGE_ROOF, EDGE_STREET, house, {}, 2.0)
 	TestFixtures.check(res, "roof_edge a fall too severe for the walker is refused",
 		harsh < 0 and soft > 0, "tol 0.2 costs %d, tol 2.0 costs %d" % [harsh, soft])
 
-	var rise: int = PathCost.cell_pace_cost(to_street, from_roof, house, {}, 1.0, true, false, 1, 0)
+
+static func _check_edge_flyer(res: Dictionary, house: BattlefieldArea) -> void:
+	var rise: int = PathCost.cell_pace_cost(EDGE_STREET, EDGE_ROOF, house, {}, 1.0, true, false, 1, 0)
 	var want_rise: int = 1 + int(ceil(house.cell_base_elevation(Vector2i(4, 6), 1)
 		- house.cell_base_elevation(Vector2i(3, 6), 0)))
-	var glide: int = PathCost.cell_pace_cost(from_roof, to_street, house, {}, 1.0, true, false, 1, 0)
-	var walk_up: int = PathCost.cell_pace_cost(to_street, from_roof, house, {}, 1.0, false, false, 1, 0)
-	var alt: int = PathCost.fly_arrival_altitude(to_street, from_roof, house, 3, 1)
-	var flown: Array[Vector3i] = Pathfinder.find_path(to_street, from_roof, house, {}, 1.0, true)
+	var glide: int = PathCost.cell_pace_cost(EDGE_ROOF, EDGE_STREET, house, {}, 1.0, true, false, 1, 0)
+	var walk_up: int = PathCost.cell_pace_cost(EDGE_STREET, EDGE_ROOF, house, {}, 1.0, false, false, 1, 0)
+	var alt: int = PathCost.fly_arrival_altitude(EDGE_STREET, EDGE_ROOF, house, 3, 1)
+	var flown: Array[Vector3i] = Pathfinder.find_path(EDGE_STREET, EDGE_ROOF, house, {}, 1.0, true)
 	TestFixtures.check(res, "roof_edge a flyer rises to the roof and descends free",
 		rise == want_rise and glide == 1 and walk_up < 0 and alt == 0 and not flown.is_empty(),
 		"up %d want %d, down %d, walk %d, altitude %d, path %d" % [rise, want_rise, glide,
 			walk_up, alt, flown.size()])
 
-	var win: BattlefieldArea = _synth([[Rect2i(4, 6, 6, 4), [0, 1, 2]], [Rect2i(10, 6, 5, 4), [0]]])
-	RoofBuilder.build(win, "Flat", "S", "")
-	win.building_interiors[Vector3i(8, 6, 2)] = true
-	win.building_interiors[Vector3i(8, 6, 1)] = true
-	TestFixtures.put(win, Vector3i(9, 6, 2), {"cell_type": "window", "broken": true})
-	TestFixtures.put(win, Vector3i(9, 6, 1), {"cell_type": "window", "broken": true})
-	win.build_drop_links()
+
+static func _check_edge_window(res: Dictionary) -> void:
+	var win: BattlefieldArea = _window_map(true)
 	var wlink: Dictionary = PathCost.drop_link(Vector3i(8, 6, 2), Vector3i(10, 6, 1), win)
 	var low_links: Array = win.drop_links.get(Vector3i(8, 6, 1), []) as Array
 	TestFixtures.check(res, "roof_edge a broken upper window drops onto the lower roof",
@@ -794,11 +821,13 @@ static func _case_edges(res: Dictionary) -> void:
 		and low_links.is_empty(),
 		"upper %s, lower %d link(s)" % [str(wlink), low_links.size()])
 
+
+static func _check_edge_landing(res: Dictionary, house: BattlefieldArea) -> void:
 	var st := BattleState.new()
 	st.battlefield = house
 	var jumper: MercenaryData = TestFixtures.sheet_merc("Roof Leaper")
 	TestFixtures.place(st, jumper, Vector2i(3, 6))
-	var land: Dictionary = JumpAction._landing_at(from_roof, house, st, jumper, 1, 0)
+	var land: Dictionary = JumpAction._landing_at(EDGE_ROOF, house, st, jumper, 1, 0)
 	var survivable: bool = JumpAction._fall_ok(jumper, 2.0, true)
 	var lethal: bool = JumpAction._fall_ok(jumper, 40.0, true)
 	var plain: bool = JumpAction._fall_ok(jumper, 1.0, false)
@@ -807,14 +836,18 @@ static func _case_edges(res: Dictionary) -> void:
 		"why '%s', 2 paces %s, 40 paces %s, ground %s" % [String(land.get("why", "")),
 			str(survivable), str(lethal), str(plain)])
 
-	var over: bool = JumpAction._roof_in_way(step, Vector2i(10, 6), Vector2i(3, 6),
+
+static func _check_edge_leap(res: Dictionary, house: BattlefieldArea, step: BattlefieldArea) -> void:
+	var over: bool = PathJump.roof_in_way(step, Vector2i(10, 6), Vector2i(3, 6),
 		step.cell_base_elevation(Vector2i(10, 6), 1))
-	var open_air: bool = JumpAction._roof_in_way(house, Vector2i(2, 4), Vector2i(2, 10), 0.0)
+	var open_air: bool = PathJump.roof_in_way(house, Vector2i(2, 4), Vector2i(2, 10), 0.0)
 	TestFixtures.check(res, "roof_edge a higher roof part blocks the leap", over and not open_air,
 		"across the upper roof %s, along the street %s" % [str(over), str(open_air)])
 
+
+static func _check_edge_eave(res: Dictionary) -> void:
 	var g: BattlefieldArea = _synth([[Rect2i(2, 2, 9, 12), [0]]])
-	RoofBuilder.build(g, "Gable", "S", "")
+	RoofBuilder.build(g, "Gable", "S")
 	var eave := Vector3i(10, 6, 1)
 	var sides: Array[String] = []
 	for gap: int in [2, 4, 6, 9]:
@@ -826,6 +859,8 @@ static func _case_edges(res: Dictionary) -> void:
 	TestFixtures.check(res, "roof_edge eave sight agrees in both directions", sides.is_empty(),
 		TestFixtures.detail(sides, 4, "range(s)"))
 
+
+static func _check_edge_fly_table(res: Dictionary, house: BattlefieldArea) -> void:
 	var fly_had: int = house.roof_fly_links.size()
 	house.reset_generated_state()
 	var fly_left: int = house.roof_fly_links.size()
@@ -845,47 +880,31 @@ static func _climb_state(field: BattlefieldArea, a: Array, b: Array) -> BattleSt
 	return st
 
 
+#One unit a side on this field, each seated at its own cell.
+static func _seat(field: BattlefieldArea, a: MercenaryData, a_pos: Vector3i, b: MercenaryData,
+		b_pos: Vector3i) -> BattleState:
+	var st: BattleState = _climb_state(field, [a], [b])
+	st.set_pos3(a, a_pos)
+	st.set_pos3(b, b_pos)
+	return st
+
+
 #Melee fixture with the climb skill, so one pace of height costs one pace.
 static func _climber(merc_name: String, size: int = 1) -> MercenaryData:
-	var m := MercenaryData.new()
-	m.merc_name = merc_name
-	m.merc_uid = CampaignKnowledge.next_uid()
-	m.stats = {"level": 5.0, "luck": 5.0, "size": size, "maximum_hit_points": 20,
-		"maximum_endurance_points": 5, "speed": 3.0, "dexterity": 2, "vigor": 3,
-		"pain_limit": 0, "pace": 3, "swim": 0.0, "climb": 1,
-		"melee_accuracy": 8.0, "ranged_accuracy": 1.0}
-	m.current_hp = 20
-	return m
-
-
-#The same fixture with a drawn bow, so CitySpawns calls it ranged focused.
-static func _shooter(merc_name: String) -> MercenaryData:
-	var m: MercenaryData = _climber(merc_name)
-	m.stats["melee_accuracy"] = 1.0
-	m.stats["ranged_accuracy"] = 12.0
-	var w := WeaponData.new()
-	w.item_name = merc_name + " bow (test)"
-	w.weapon_type = "Bow"
-	w.is_ranged = true
-	w.misfire = 0
-	w.damage_formula_1 = "1d6"
-	w.damage_types_1 = ["Impale"] as Array[String]
-	m.equipped_weapon = w
-	m.weapon_drawn = true
-	m.ammo_loaded = 6
-	m.ammo_loaded_type = "Arrow"
+	var m: MercenaryData = TestFixtures.city_melee(merc_name)
+	m.stats["size"] = size
 	return m
 
 
 #The two block step of the edge case with the upper window broken or whole.
 static func _window_map(broken: bool) -> BattlefieldArea:
 	var f: BattlefieldArea = _synth([[Rect2i(4, 6, 6, 4), [0, 1, 2]], [Rect2i(10, 6, 5, 4), [0]]])
-	RoofBuilder.build(f, "Flat", "S", "")
+	RoofBuilder.build(f, "Flat", "S")
 	f.building_interiors[Vector3i(8, 6, 2)] = true
 	f.building_interiors[Vector3i(8, 6, 1)] = true
 	TestFixtures.put(f, Vector3i(9, 6, 2), {"cell_type": "window", "broken": broken})
 	TestFixtures.put(f, Vector3i(9, 6, 1), {"cell_type": "window", "broken": broken})
-	f.build_drop_links()
+	NavLinkBuilder.build_drop_links(f)
 	return f
 
 
@@ -897,7 +916,7 @@ static func _climb_dec(found: Dictionary, down: bool) -> Dictionary:
 
 #Seats a climber and one perched foe on the same house, with an optional roof mate in the party.
 static func _climb_setup(field: BattlefieldArea, climber_name: String, foe_name: String,
-	base: Vector3i, mate_name: String = "") -> Dictionary:
+	base: Vector3i, mate_name: String = "", foe_pos: Vector3i = ROOF_FOE) -> Dictionary:
 	var mover: MercenaryData = _climber(climber_name)
 	var foe: MercenaryData = _climber(foe_name)
 	var party: Array = [mover]
@@ -907,9 +926,9 @@ static func _climb_setup(field: BattlefieldArea, climber_name: String, foe_name:
 		party.append(mate)
 	var st: BattleState = _climb_state(field, party, [foe])
 	st.set_pos3(mover, base)
-	st.set_pos3(foe, Vector3i(6, 6, 1))
+	st.set_pos3(foe, foe_pos)
 	var found: Dictionary = ClimbAction.find_target(mover, st)
-	return {"mover": mover, "mate": mate, "state": st, "found": found,
+	return {"mover": mover, "mate": mate, "foe": foe, "state": st, "found": found,
 		"link": found.get("link", {}) as Dictionary}
 
 
@@ -934,13 +953,12 @@ static func _check_climb_links(res: Dictionary, house: BattlefieldArea, base: Ve
 	TestFixtures.check(res, "roof_climb the climb table reverses every drop link",
 		pairs > 0 and ups == pairs and bad.is_empty(), TestFixtures.detail(bad, pairs, "link(s)"))
 
-	var climber: MercenaryData = _climber("Roof Climber")
-	var perch: MercenaryData = _climber("Roof Foe")
-	var st: BattleState = _climb_state(house, [climber], [perch])
-	st.set_pos3(climber, base)
-	st.set_pos3(perch, Vector3i(6, 6, 1))
-	var found: Dictionary = ClimbAction.find_target(climber, st)
-	var link: Dictionary = found.get("link", {}) as Dictionary
+	var fx: Dictionary = _climb_setup(house, "Roof Climber", "Roof Foe", base)
+	var climber: MercenaryData = fx["mover"]
+	var perch: MercenaryData = fx["foe"]
+	var st: BattleState = fx["state"]
+	var found: Dictionary = fx["found"]
+	var link: Dictionary = fx["link"]
 	var facet := CanStartClimbFacet.new()
 	var score: float = facet.evaluate(climber, {"state": st})
 	var top3: Vector3i = link.get("top", Vector3i(-1, -1, -1)) as Vector3i
@@ -965,7 +983,7 @@ static func _check_climb_target(res: Dictionary, base: Vector3i) -> void:
 	var screen_x: int = base.x - 1
 	for sy: int in range(0, SYNTH_DIM):
 		TestFixtures.put(post_map, Vector3i(screen_x, sy, 0), {"cell_type": "wall", "height": 2.0})
-	var shooter: MercenaryData = _shooter("Roof Shooter")
+	var shooter: MercenaryData = TestFixtures.city_ranged("Roof Shooter")
 	var far_foe: MercenaryData = _climber("Far Foe")
 	var far_two: MercenaryData = _climber("Far Foe Two")
 	var post_st: BattleState = _climb_state(post_map, [shooter], [far_foe, far_two])
@@ -997,7 +1015,7 @@ static func _check_climb_target(res: Dictionary, base: Vector3i) -> void:
 	var hopper: MercenaryData = _climber("Wall Hopper")
 	var wall_st: BattleState = _climb_state(walls, [hopper], [])
 	wall_st.set_pos3(hopper, base)
-	var hop: Vector2i = ClimbAction._find_climb_target(hopper, wall_st)
+	var hop: Vector2i = ClimbAction.find_climb_target(hopper, wall_st)
 	TestFixtures.check(res, "roof_climb a building wall is climbed by link and never hopped",
 		hop == Vector2i(2, 6) and not ClimbAction.wall_hop(walls, Vector2i(4, 6))
 		and ClimbAction.wall_hop(walls, Vector2i(2, 6)), "target (%d,%d)" % [hop.x, hop.y])
@@ -1109,13 +1127,11 @@ static func _check_climb_clear(res: Dictionary, house: BattlefieldArea, base: Ve
 static func _check_climb_down(res: Dictionary, house: BattlefieldArea) -> void:
 	var two: BattlefieldArea = _edge_map([[Rect2i(4, 4, 8, 8), [0, 1]]])
 	var ledge := Vector3i(4, 6, 2)
-	var dropper: MercenaryData = _climber("Roof Dropper")
-	var street_foe: MercenaryData = _climber("Street Foe")
-	var down_st: BattleState = _climb_state(two, [dropper], [street_foe])
-	down_st.set_pos3(dropper, ledge)
-	down_st.set_pos3(street_foe, Vector3i(2, 6, 0))
-	var down: Dictionary = ClimbAction.find_target(dropper, down_st)
-	var down_link: Dictionary = down.get("link", {}) as Dictionary
+	var down_fx: Dictionary = _climb_setup(two, "Roof Dropper", "Street Foe", ledge, "", STREET_FOE)
+	var dropper: MercenaryData = down_fx["mover"]
+	var down_st: BattleState = down_fx["state"]
+	var down: Dictionary = down_fx["found"]
+	var down_link: Dictionary = down_fx["link"]
 	var down_to: Vector3i = down_link.get("to", Vector3i(-1, -1, -1)) as Vector3i
 	var down_paces: int = int(down_link.get("paces", 0))
 	var down_dec: Dictionary = _climb_dec(down, true)
@@ -1130,28 +1146,23 @@ static func _check_climb_down(res: Dictionary, house: BattlefieldArea) -> void:
 		and not ConstStates.has_state(dropper, ConstStates.CLIMBING),
 		"%d pace(s), swung %s, h %d" % [down_paces, str(swung), down_st.get_height(dropper)])
 
-	var shallow: MercenaryData = _climber("Low Dropper")
-	var shallow_foe: MercenaryData = _climber("Low Foe")
-	var shallow_st: BattleState = _climb_state(house, [shallow], [shallow_foe])
-	shallow_st.set_pos3(shallow, Vector3i(4, 6, 1))
-	shallow_st.set_pos3(shallow_foe, Vector3i(2, 6, 0))
-	var shallow_found: Dictionary = ClimbAction.find_target(shallow, shallow_st)
+	var shallow_fx: Dictionary = _climb_setup(house, "Low Dropper", "Low Foe", Vector3i(4, 6, 1), "",
+		STREET_FOE)
+	var shallow_found: Dictionary = shallow_fx["found"]
 	TestFixtures.check(res, "roof_climb a drop the walker survives is left to movement",
 		shallow_found.is_empty() and house.drop_links.has(Vector3i(4, 6, 1)),
 		"%d key(s), table %s" % [shallow_found.size(), str(house.drop_links.has(Vector3i(4, 6, 1)))])
 
-	var faller: MercenaryData = _climber("Wall Faller")
-	var fall_foe: MercenaryData = _climber("Fall Foe")
-	var fall_st: BattleState = _climb_state(two, [faller], [fall_foe])
-	fall_st.set_pos3(faller, ledge)
-	fall_st.set_pos3(fall_foe, Vector3i(2, 6, 0))
-	var fall_found: Dictionary = ClimbAction.find_target(faller, fall_st)
-	var fall_link: Dictionary = fall_found.get("link", {}) as Dictionary
+	var fall_fx: Dictionary = _climb_setup(two, "Wall Faller", "Fall Foe", ledge, "", STREET_FOE)
+	var faller: MercenaryData = fall_fx["mover"]
+	var fall_st: BattleState = fall_fx["state"]
+	var fall_found: Dictionary = fall_fx["found"]
+	var fall_link: Dictionary = fall_fx["link"]
 	var fall_dec: Dictionary = _climb_dec(fall_found, true)
 	fall_st.set_pace_pool(faller, 50)
 	MovementExecutor.execute_climb(faller, fall_dec, "Climb", fall_st)
 	var left: int = int(fall_link.get("paces", 0)) - 1
-	var fall_lines: Array[String] = CombatApplicator.fall_from_wall(faller, fall_st)
+	var fall_lines: Array[String] = FallResolver.fall_from_wall(faller, fall_st)
 	TestFixtures.check(res, "roof_climb a down climber falls the height still under it",
 		left > 0 and not fall_lines.is_empty() and fall_lines[0].contains("falls %d Pace" % left)
 		and fall_st.get_height(faller) == 0
@@ -1167,16 +1178,12 @@ static func _check_climb_window(res: Dictionary) -> void:
 	var foe_pos := Vector3i(7, 6, 2)
 	var vaulter: MercenaryData = _climber("Window Vaulter", 2)
 	var win_foe: MercenaryData = _climber("Window Foe")
-	var open_st: BattleState = _climb_state(open_win, [vaulter], [win_foe])
-	open_st.set_pos3(vaulter, vault_pos)
-	open_st.set_pos3(win_foe, foe_pos)
+	var open_st: BattleState = _seat(open_win, vaulter, vault_pos, win_foe, foe_pos)
 	var through: Dictionary = ClimbAction.find_target(vaulter, open_st)
 	var through_link: Dictionary = through.get("link", {}) as Dictionary
 	var shut_vaulter: MercenaryData = _climber("Window Squeezer", 2)
 	var shut_foe: MercenaryData = _climber("Shut Foe")
-	var shut_st: BattleState = _climb_state(shut_win, [shut_vaulter], [shut_foe])
-	shut_st.set_pos3(shut_vaulter, vault_pos)
-	shut_st.set_pos3(shut_foe, foe_pos)
+	var shut_st: BattleState = _seat(shut_win, shut_vaulter, vault_pos, shut_foe, foe_pos)
 	var shut: Dictionary = ClimbAction.find_target(shut_vaulter, shut_st)
 	TestFixtures.check(res, "roof_climb a broken upper window is climbed back up",
 		not through_link.is_empty() and String(through_link.get("kind", "")) == "window"
@@ -1311,7 +1318,7 @@ static func _check_route_drop_cost(res: Dictionary, two: BattlefieldArea,
 	var climb_cost: int = PathCost.cell_pace_cost(ledge, land, two, {}, 2.0)
 	TestFixtures.check(res, "roof_route a drop that would hurt is priced as a down climb",
 		land_paces > 0 and climb_cost == 1 + land_paces
-		and fall_cost == 1 + PathCost._fall_cost(land_paces, 2.0) and fall_cost > climb_cost,
+		and fall_cost == 1 + PathCost.fall_cost(land_paces, 2.0) and fall_cost > climb_cost,
 		"%d pace(s), climb %d, fall %d" % [land_paces, climb_cost, fall_cost])
 	return land
 
@@ -1321,9 +1328,7 @@ static func _check_route_approach(res: Dictionary, house: BattlefieldArea, start
 	roof: Vector3i) -> void:
 	var seeker: MercenaryData = _climber("Route Seeker")
 	var perch: MercenaryData = _climber("Route Perch")
-	var app_st: BattleState = _climb_state(house, [seeker], [perch])
-	app_st.set_pos3(seeker, start)
-	app_st.set_pos3(perch, roof)
+	var app_st: BattleState = _seat(house, seeker, start, perch, roof)
 	var approach: Vector3i = PathTargeter.best_approach_cell(seeker, perch, app_st)
 	TestFixtures.check(res, "roof_route a melee climber approaches an enemy on the roof",
 		approach != PathTargeter.NO_CELL and approach.z == roof.z
@@ -1354,14 +1359,12 @@ static func _check_route_no_stat(res: Dictionary, house: BattlefieldArea, start:
 	var plain: MercenaryData = _climber("Route Plain")
 	plain.stats["climb"] = 0
 	var plain_foe: MercenaryData = _climber("Route Plain Foe")
-	var plain_st: BattleState = _climb_state(house, [plain], [plain_foe])
-	plain_st.set_pos3(plain, start)
-	plain_st.set_pos3(plain_foe, roof)
+	var plain_st: BattleState = _seat(house, plain, start, plain_foe, roof)
 	PathCost.set_mover_doors(plain, plain_st)
 	var plain_up: Array[Vector3i] = Pathfinder.find_path(start, roof, house, {}, 2.0)
 	var plain_pair: Array[Vector3i] = _climb_pair(plain_up, house)
 	var plain_link: Dictionary = PathCost.climb_link(plain_pair[0], plain_pair[1], house)
-	var pp: int = MovementExecutor.pace_per_move(plain)
+	var pp: int = PaceBudget.pace_per_move(plain)
 	var plain_cost: int = PathCost.cell_pace_cost(plain_pair[0], plain_pair[1], house, {}, 2.0)
 	TestFixtures.check(res, "roof_route a mover with no climb stat climbs at its pace per move",
 		not plain_up.is_empty() and plain_up[plain_up.size() - 1] == roof and pp > 1
@@ -1378,11 +1381,9 @@ static func _check_route_arm(res: Dictionary, house: BattlefieldArea, foot: Vect
 	var footer: MercenaryData = _climber("Route Footer")
 	footer.current_ap = 12
 	var foot_foe: MercenaryData = _climber("Route Foot Foe")
-	var foot_st: BattleState = _climb_state(house, [footer], [foot_foe])
-	foot_st.set_pos3(footer, foot)
-	foot_st.set_pos3(foot_foe, Vector3i(8, 6, 1))
+	var foot_st: BattleState = _seat(house, footer, foot, foot_foe, Vector3i(8, 6, 1))
 	var foot_lines: Array[String] = MovementExecutor.execute_move(footer, "Move Close", foot_foe,
-		foot_st, null, 0, -1, false, no_mercs, no_mercs, ledge_top)
+		foot_st, null, 0, -1, false, no_mercs, ledge_top)
 	var foot_row: Dictionary = foot_st.climb_route(footer)
 	TestFixtures.check(res, "roof_route a walk whose first step is the climb records the foot and takes none",
 		foot_lines.is_empty() and not foot_row.is_empty() and foot_st.pos3(footer) == foot
@@ -1434,11 +1435,9 @@ static func _check_route_walk_off(res: Dictionary, two: BattlefieldArea, ledge: 
 	dropper.current_hp = 4
 	dropper.current_ap = 12
 	var drop_foe: MercenaryData = _climber("Route Drop Foe")
-	var drop_st: BattleState = _climb_state(two, [dropper], [drop_foe])
-	drop_st.set_pos3(dropper, ledge)
-	drop_st.set_pos3(drop_foe, Vector3i(0, 20, 0))
+	var drop_st: BattleState = _seat(two, dropper, ledge, drop_foe, Vector3i(0, 20, 0))
 	var drop_walk: Array[String] = MovementExecutor.execute_move(dropper, "Move Close", drop_foe,
-		drop_st, null, 0, -1, false, no_mercs, no_mercs, land)
+		drop_st, null, 0, -1, false, no_mercs, land)
 	var drop_row: Dictionary = drop_st.climb_route(dropper)
 	TestFixtures.check(res, "roof_route a walk off a roof top records the down climb at its foot",
 		drop_walk.is_empty() and not drop_row.is_empty() and drop_st.pos3(dropper) == ledge
@@ -1455,9 +1454,7 @@ static func _case_routes(res: Dictionary) -> void:
 	var roof := Vector3i(6, 6, 1)
 	var climber: MercenaryData = _climber("Route Climber")
 	var foe: MercenaryData = _climber("Route Foe")
-	var st: BattleState = _climb_state(house, [climber], [foe])
-	st.set_pos3(climber, start)
-	st.set_pos3(foe, roof)
+	var st: BattleState = _seat(house, climber, start, foe, roof)
 	var plan: Dictionary = _check_route_plan(res, house, rect, climber, st, start, roof)
 	var foot: Vector3i = plan["foot"] as Vector3i
 	var route_link: Dictionary = _check_route_walk(res, house, climber, foe, st, start,
@@ -1484,16 +1481,14 @@ static func _case_roof_jumps(res: Dictionary) -> void:
 	jumper.stats["parkour"] = 100.0
 	jumper.current_ap = 12
 	var foe: MercenaryData = _climber("Roof Jump Foe")
-	var st: BattleState = _climb_state(map, [jumper], [foe])
-	st.set_pos3(jumper, start)
-	st.set_pos3(foe, Vector3i(0, 20, 0))
+	var st: BattleState = _seat(map, jumper, start, foe, Vector3i(0, 20, 0))
 	PathCost.set_mover_doors(jumper, st)
 	var tol: float = PathTargeter.fall_tolerance(jumper)
-	var edge: Dictionary = PathCost.roof_jump_step(take, land, map, false, 1)
+	var edge: Dictionary = PathJump.roof_jump_step(take, land, map, false, 1)
 	var over: Array[Vector3i] = Pathfinder.find_path(start, land, map, {}, tol, false, true)
 	var leapt := Vector3i(-1, -1, -1)
 	for i: int in range(over.size() - 1):
-		if not PathCost.roof_jump_step(over[i], over[i + 1], map, false, 1).is_empty():
+		if not PathJump.roof_jump_step(over[i], over[i + 1], map, false, 1).is_empty():
 			leapt = over[i]
 			break
 	TestFixtures.check(res, "roof_xjump a route onto the lower roof crosses the gap on a leap edge",
@@ -1504,7 +1499,7 @@ static func _case_roof_jumps(res: Dictionary) -> void:
 	var no_mercs: Array[MercenaryData] = []
 	MovementExecutor.clear_caches()
 	var lines: Array[String] = MovementExecutor.execute_move(jumper, "Move Close", foe, st,
-		null, 0, -1, false, no_mercs, no_mercs, land)
+		null, 0, -1, false, no_mercs, land)
 	var row: Dictionary = st.jump_route(jumper)
 	TestFixtures.check(res, "roof_xjump the walk stops on the take-off cell and records the leap",
 		not row.is_empty() and st.pos3(jumper) == (row["foot"] as Vector3i)
@@ -1512,11 +1507,11 @@ static func _case_roof_jumps(res: Dictionary) -> void:
 		and st.pos3(jumper) != start,
 		"%d line(s), at %s" % [lines.size(), str(st.pos3(jumper))])
 
-	var jr_ready: bool = MovementExecutor.jump_route_ready(jumper, st)
+	var jr_ready: bool = JumpExecutor.route_ready(jumper, st)
 	jumper.current_ap = 0
 	jumper.excess_ap = 0
 	st.set_pace_pool(jumper, 0)
-	var jr_dry: bool = MovementExecutor.jump_route_ready(jumper, st)
+	var jr_dry: bool = JumpExecutor.route_ready(jumper, st)
 	jumper.current_ap = 12
 	TestFixtures.check(res, "roof_xjump the recorded leap is ready with AP and not without",
 		jr_ready and not jr_dry, "ap %s, dry %s" % [str(jr_ready), str(jr_dry)])
@@ -1529,13 +1524,13 @@ static func _case_roof_jumps(res: Dictionary) -> void:
 		"picked %s, why %s" % [str(picked), act._jump_why])
 
 	PathCost.set_mover_doors(jumper, st)
-	var up_rows: Array = PathCost.roof_jumps(land, map, 1)
+	var up_rows: Array = PathJump.roof_jumps(land, map, 1)
 	TestFixtures.check(res, "roof_xjump a leap onto a roof above the jump stat is refused",
 		up_rows.is_empty(), "%d row(s)" % up_rows.size())
 
 	PathCost.set_mover_doors(foe, st)
-	var none_rows: Array = PathCost.roof_jumps(take, map, 1)
-	var none_step: Dictionary = PathCost.roof_jump_step(take, land, map, false, 1)
+	var none_rows: Array = PathJump.roof_jumps(take, map, 1)
+	var none_step: Dictionary = PathJump.roof_jump_step(take, land, map, false, 1)
 	TestFixtures.check(res, "roof_xjump a unit with no jump stat gets no leap edge",
 		PathCost.jump_roofs == 0 and none_rows.is_empty() and none_step.is_empty(),
 		"%d row(s), step %d key(s)" % [none_rows.size(), none_step.size()])
@@ -1544,8 +1539,8 @@ static func _case_roof_jumps(res: Dictionary) -> void:
 	tall.roof_span[Vector2i(9, 6)] = Vector2(0.0, 99.0)
 	tall.bump_path_version()
 	PathCost.set_mover_doors(jumper, st)
-	var tall_step: Dictionary = PathCost.roof_jump_step(take, land, tall, false, 1)
-	var clear_step: Dictionary = PathCost.roof_jump_step(take, land, map, false, 1)
+	var tall_step: Dictionary = PathJump.roof_jump_step(take, land, tall, false, 1)
+	var clear_step: Dictionary = PathJump.roof_jump_step(take, land, map, false, 1)
 	TestFixtures.check(res, "roof_xjump a taller roof on the line refuses the leap",
 		tall_step.is_empty() and not clear_step.is_empty(),
 		"tall %d key(s), clear %d key(s)" % [tall_step.size(), clear_step.size()])
@@ -1572,8 +1567,8 @@ static func _post_map() -> BattlefieldArea:
 		TestFixtures.put(f, Vector3i(x, POST_WALL_Y, 0), {"cell_type": "wall", "height": 2.0})
 	for y: int in range(0, POST_WALL_Y + 2):
 		TestFixtures.put(f, Vector3i(POST_SCREEN_X, y, 0), {"cell_type": "wall", "height": 8.0})
-	RoofBuilder.build(f, "Flat", "S", "")
-	f.build_drop_links()
+	RoofBuilder.build(f, "Flat", "S")
+	NavLinkBuilder.build_drop_links(f)
 	return f
 
 
@@ -1589,7 +1584,7 @@ static func _post_state(map: BattlefieldArea, unit: MercenaryData, foes: Array[M
 
 #A ranged fixture with the pace to cross the street and the AP to buy the Moves.
 static func _post_shooter(merc_name: String) -> MercenaryData:
-	var m: MercenaryData = _shooter(merc_name)
+	var m: MercenaryData = TestFixtures.city_ranged(merc_name)
 	m.stats["pace"] = 5
 	m.current_ap = 12
 	return m
@@ -1653,7 +1648,7 @@ static func _case_post_score(res: Dictionary) -> void:
 	far.stats["pace"] = 1
 	var far_st: BattleState = _post_state(map, far, foes, Vector3i(13, 25, 0))
 	var far_rows: Array = RoofPostScore._candidates(far, far_st, map, 1,
-		MovementExecutor.pace_per_move(far), RoofPostScore.MAX_MOVES)
+		PaceBudget.pace_per_move(far), RoofPostScore.MAX_MOVES)
 	var far_row: Dictionary = RoofPostScore.best(far, far_st)
 	TestFixtures.check(res, "roof_post a link farther than eight Moves is no candidate",
 		far_rows.is_empty() and far_row.is_empty(), "%d row(s)" % far_rows.size())
@@ -1682,9 +1677,9 @@ static func _case_post_score(res: Dictionary) -> void:
 #A synthetic flat roof carrying the objects named, links rebuilt over the finished roof.
 static func _obj_map(blocks: Array, shape: String, objects: Array) -> BattlefieldArea:
 	var f: BattlefieldArea = _synth(blocks)
-	RoofBuilder.build(f, shape, "S", "")
-	RoofBuilder.place_objects(f, shape, objects)
-	f.build_drop_links()
+	RoofBuilder.build(f, shape, "S")
+	RoofObjects.place_objects(f, objects)
+	NavLinkBuilder.build_drop_links(f)
 	return f
 
 
@@ -1735,7 +1730,7 @@ static func _check_obj_parapet(res: Dictionary, flat: BattlefieldArea, part: Dic
 		TestFixtures.detail(inner, (part.get("cells", []) as Array).size(), "cell(s)"))
 
 	var small: BattlefieldArea = _obj_map([[Rect2i(6, 6, 4, 4), [0]]], "Flat", [])
-	TestFixtures.check(res, "roof_obj a roof under %d cells wide carries no parapet" % RoofBuilder.PARAPET_MIN,
+	TestFixtures.check(res, "roof_obj a roof under %d cells wide carries no parapet" % RoofObjects.PARAPET_MIN,
 		_objs_named(small, "Parapet").is_empty() and not small.roof_parts.is_empty(),
 		"%d object(s)" % small.obstacles.size())
 
@@ -1860,7 +1855,7 @@ static func _check_obj_broken(res: Dictionary, flat: BattlefieldArea, level: int
 	var lost: Dictionary = flat.get_obs(gone, level)
 	flat.obstacles.erase(lost)
 	flat._obs_map.erase(Vector3i(gone.x, gone.y, level))
-	flat.relink_after_obstacle_loss(lost)
+	NavLinkBuilder.relink_after_obstacle_loss(flat, lost)
 	var direct: bool = false
 	for dk: Variant in flat.drop_links.keys():
 		if (dk as Vector3i) != Vector3i(gone.x, gone.y, level):
@@ -1920,7 +1915,7 @@ static func _hut_field() -> BattlefieldArea:
 				f.building_interiors[cell] = true
 	f.building_data.append({"rect": rect})
 	RoofBuilder.add_hut_roof(f, rect, HUT_WALL)
-	f.build_drop_links()
+	NavLinkBuilder.build_drop_links(f)
 	return f
 
 
@@ -1943,7 +1938,7 @@ static func _gen_hut_field(with_roofs: bool) -> BattlefieldArea:
 	seed(HUT_SEED)
 	BuildingGenerator.place_building(f, template)
 	RoofBuilder.enabled = was
-	f.build_drop_links()
+	NavLinkBuilder.build_drop_links(f)
 	return f
 
 
@@ -2019,9 +2014,7 @@ static func _check_hut_climb(res: Dictionary, f: BattlefieldArea, top: Vector2i,
 	base: Vector3i) -> void:
 	var climber: MercenaryData = _climber("Hut Climber", 2)
 	var perch: MercenaryData = _climber("Hut Foe")
-	var st: BattleState = _climb_state(f, [climber], [perch])
-	st.set_pos3(climber, base)
-	st.set_pos3(perch, Vector3i(top.x, top.y, 1))
+	var st: BattleState = _seat(f, climber, base, perch, Vector3i(top.x, top.y, 1))
 	var found: Dictionary = ClimbAction.find_target(climber, st)
 	var link: Dictionary = found.get("link", {}) as Dictionary
 	var dec: Dictionary = _climb_dec(found, false)
@@ -2037,9 +2030,7 @@ static func _check_hut_climb(res: Dictionary, f: BattlefieldArea, top: Vector2i,
 
 	var stander: MercenaryData = _climber("Hut Stander")
 	var below: MercenaryData = _climber("Hut Quarry")
-	var down_st: BattleState = _climb_state(f, [stander], [below])
-	down_st.set_pos3(stander, Vector3i(top.x, top.y, 1))
-	down_st.set_pos3(below, Vector3i(base.x - 2, base.y, 0))
+	var down_st: BattleState = _seat(f, stander, Vector3i(top.x, top.y, 1), below, Vector3i(base.x - 2, base.y, 0))
 	var down: Dictionary = ClimbAction.find_target(stander, down_st)
 	TestFixtures.check(res, "roof_hut a drop the mover survives is taken over a down climb",
 		not bool(down.get("down", false)),
@@ -2138,7 +2129,7 @@ static func _case_huts(res: Dictionary) -> void:
 
 static func _case_sight(res: Dictionary) -> void:
 	var f: BattlefieldArea = _synth([[Rect2i(2, 2, 9, 12), [0]]])
-	RoofBuilder.build(f, "Gable", "S", "")
+	RoofBuilder.build(f, "Gable", "S")
 	var part: Dictionary = _first_part(f)
 	var plane: float = float(FH)
 	var eave := Vector2i(2, 6)
@@ -2162,9 +2153,9 @@ static func _case_sight(res: Dictionary) -> void:
 
 static func _case_disabled(res: Dictionary) -> void:
 	RoofBuilder.enabled = false
-	var off: BattlefieldArea = _field("Small House", "S", SEED_BASE + 12)
+	var off: BattlefieldArea = GenFixtures.building_field("Small House", "S", SEED_BASE + 12)
 	RoofBuilder.enabled = true
-	var on: BattlefieldArea = _field("Small House", "S", SEED_BASE + 12)
+	var on: BattlefieldArea = GenFixtures.building_field("Small House", "S", SEED_BASE + 12)
 	TestFixtures.check(res, "roof_switch the roof pass writes nothing when it is off",
 		off.roof_cells.is_empty() and off.roof_rise.is_empty() and off.rugged_cells.is_empty()
 		and off.roof_parts.is_empty() and off.roof_elevations.is_empty() and off.roof_span.is_empty(),
@@ -2179,19 +2170,19 @@ static func _case_disabled(res: Dictionary) -> void:
 
 
 static func _case_no_rng(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Small House", "S", SEED_BASE + 13)
+	var f: BattlefieldArea = GenFixtures.building_field("Small House", "S", SEED_BASE + 13)
 	seed(77)
 	var before: int = randi()
 	seed(77)
-	RoofBuilder.build(f, "Hip", "S", "")
+	RoofBuilder.build(f, "Hip", "S")
 	var after: int = randi()
 	TestFixtures.check(res, "roof_rng the roof pass draws no random number", before == after,
 		"%d/%d" % [before, after])
 
 
 static func _case_determinism(res: Dictionary) -> void:
-	var a: BattlefieldArea = _field("Medium House", "S", SEED_BASE + 14)
-	var b: BattlefieldArea = _field("Medium House", "S", SEED_BASE + 14)
+	var a: BattlefieldArea = GenFixtures.building_field("Medium House", "S", SEED_BASE + 14)
+	var b: BattlefieldArea = GenFixtures.building_field("Medium House", "S", SEED_BASE + 14)
 	TestFixtures.check(res, "roof_seed one seed roofs the same cells twice",
 		not a.roof_cells.is_empty() and _same_table(a.roof_cells, b.roof_cells),
 		"%d/%d cell(s)" % [a.roof_cells.size(), b.roof_cells.size()])
@@ -2202,7 +2193,7 @@ static func _case_determinism(res: Dictionary) -> void:
 
 
 static func _case_reset(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Small House", "S", SEED_BASE + 15)
+	var f: BattlefieldArea = GenFixtures.building_field("Small House", "S", SEED_BASE + 15)
 	var had: int = f.roof_cells.size()
 	f.reset_generated_state()
 	TestFixtures.check(res, "roof_reset reset empties every roof table",
@@ -2304,7 +2295,7 @@ static func _case_city(res: Dictionary) -> void:
 
 
 static func _case_dump(res: Dictionary) -> void:
-	var f: BattlefieldArea = _field("Small House", "S", SEED_BASE + 17)
+	var f: BattlefieldArea = GenFixtures.building_field("Small House", "S", SEED_BASE + 17)
 	LevelDumpWriter.save(f, DUMP_STEM)
 	var text: String = FileAccess.get_file_as_string(DUMP_STEM + "_level.txt")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(DUMP_STEM + "_level.txt"))
@@ -2343,22 +2334,6 @@ static func _case_wireframe_keys(res: Dictionary) -> void:
 	var data: Dictionary = HtmlWireframeGenerator._extract_data(f)
 	var bi: Array = data.get("building_interiors", []) as Array
 	TestFixtures.check(res, "wireframe_building_keys", bi.size() == 2 and bi.has([2, 3, 0]) and bi.has([4, 5, 1]), "entries %s" % str(bi))
-
-
-static func _field(area_name: String, front: String, seed_i: int) -> BattlefieldArea:
-	seed(seed_i)
-	var ctx := GenerationContext.new()
-	ctx.building_front = front
-	return BattlefieldArea.generate_random(null, ctx, "Interior", DataManager.get_area_by_name(area_name))
-
-
-#Every Buildings.tsv row that carries a layout, in sheet order.
-static func _planned_names() -> Array[String]:
-	var out: Array[String] = []
-	for entry: String in DataManager.get_building_names():
-		if not BuildingRules.is_legacy(DataManager.get_area_by_name(entry)):
-			out.append(entry)
-	return out
 
 
 #Interior map with no generator behind it: each block is [Rect2i, Array of floor numbers].
@@ -2538,8 +2513,8 @@ static func _part_errors(area: BattlefieldArea, part: Dictionary) -> Array[Strin
 		return bad
 	if steps.size() != rect.size.x * rect.size.y:
 		bad.append("%d step(s) for a %dx%d rect" % [steps.size(), rect.size.x, rect.size.y])
-	if not KINDS.has(String(part.get("kind", ""))):
-		bad.append("kind %s" % String(part.get("kind", "")))
+	if not KINDS.has(_kind(part)):
+		bad.append("kind %s" % _kind(part))
 	var tops: Dictionary = _tops(area)
 	var lo: Vector2i = cells[0] as Vector2i
 	var hi: Vector2i = lo
@@ -2872,13 +2847,6 @@ static func _same_table(a: Dictionary, b: Dictionary) -> bool:
 	return true
 
 
-static func _has_line(lines: Array[String], text: String) -> bool:
-	for line: String in lines:
-		if line.findn(text) >= 0:
-			return true
-	return false
-
-
 #A frail climber with one turn of AP that has already broken and is running.
 static func _flee_climber(merc_name: String) -> MercenaryData:
 	var m: MercenaryData = _climber(merc_name)
@@ -2886,14 +2854,13 @@ static func _flee_climber(merc_name: String) -> MercenaryData:
 	m.current_ap = 12
 	m.flee_intent = true
 	var rm: Array[String] = ["interact"]
-	ConstStates.apply_state(m, ConstStates.TERRIFIED, null, "", "engine:flee", rm)
+	StateCascade.apply_state(m, ConstStates.TERRIFIED, null, "", "engine:flee", rm)
 	return m
 
 
 #A runner the roof edge, the wall or the gap stopped: the climb or leap its blocked walk recorded
 #still runs, so a fleeing unit never stands still on a roof.
 static func _case_flee_roof(res: Dictionary) -> void:
-	var no_mercs: Array[MercenaryData] = []
 	MovementExecutor.clear_caches()
 	PathCost.clear_climb()
 	FleeSystem.reset()
@@ -2901,114 +2868,135 @@ static func _case_flee_roof(res: Dictionary) -> void:
 	var ledge := Vector3i(4, 6, 2)
 	var drops: Array = two.drop_links.get(ledge, []) as Array
 	var link: Dictionary = (drops[0] as Dictionary) if not drops.is_empty() else {}
-	var land: Vector3i = link.get("to", Vector3i(-1, -1, -1)) as Vector3i
-	var target_h: int = int(link.get("paces", 0))
-	var down_dec: Dictionary = {"climb_target_pos": Vector2i(land.x, land.y), "climb_link": link,
-		"climb_down": true}
+	_check_flee_recorded_climb(res, two, ledge, link)
+	_check_flee_wall_finish(res, two, ledge, link)
+	_check_flee_wall_hang(res, two, ledge, link)
+	_check_flee_dry(res, two, ledge, link)
+	_check_flee_open_ground(res, two)
+	_check_flee_idle(res, two)
+	_check_flee_leap(res)
+	MovementExecutor.clear_caches()
+	PathCost.clear_climb()
+	FleeSystem.reset()
 
+
+static func _flee_land(link: Dictionary) -> Vector3i:
+	return link.get("to", Vector3i(-1, -1, -1)) as Vector3i
+
+
+static func _flee_down_dec(link: Dictionary) -> Dictionary:
+	var land: Vector3i = _flee_land(link)
+	return {"climb_target_pos": Vector2i(land.x, land.y), "climb_link": link, "climb_down": true}
+
+
+static func _check_flee_recorded_climb(res: Dictionary, two: BattlefieldArea, ledge: Vector3i,
+		link: Dictionary) -> void:
+	var no_mercs: Array[MercenaryData] = []
 	var runner: MercenaryData = _flee_climber("Flee Dropper")
 	var foe: MercenaryData = _climber("Flee Dropper Foe")
-	var st: BattleState = _climb_state(two, [runner], [foe])
-	st.set_pos3(runner, ledge)
-	st.set_pos3(foe, Vector3i(0, 20, 0))
+	var st: BattleState = _seat(two, runner, ledge, foe, FLEE_FOE)
 	FleeSystem.begin_battle(st)
 	var pre: Array[String] = MovementExecutor.execute_move(runner, "Move Close", foe, st, null, 0,
-		-1, false, no_mercs, no_mercs, land)
+		-1, false, no_mercs, _flee_land(link))
 	var recorded: bool = not st.climb_route(runner).is_empty()
 	var lines: Array[String] = []
-	FleeSystem.run_turn(runner, st, lines, 0)
+	FleeMover.run_turn(runner, st, lines, 0)
 	TestFixtures.check(res, "roof_flee a runner the roof edge stopped takes the climb it recorded",
-		target_h > 0 and pre.is_empty() and recorded and st.pos3(runner) != ledge
-		and _has_line(lines, "climb"),
+		int(link.get("paces", 0)) > 0 and pre.is_empty() and recorded and st.pos3(runner) != ledge
+		and TestFixtures.has_line(lines, "climb"),
 		"at %s, %d line(s)" % [str(st.pos3(runner)), lines.size()])
 
+
+static func _check_flee_wall_finish(res: Dictionary, two: BattlefieldArea, ledge: Vector3i,
+		link: Dictionary) -> void:
 	MovementExecutor.clear_caches()
 	var cont: MercenaryData = _flee_climber("Flee Wall")
 	var cfoe: MercenaryData = _climber("Flee Wall Foe")
-	var cst: BattleState = _climb_state(two, [cont], [cfoe])
-	cst.set_pos3(cont, ledge)
-	cst.set_pos3(cfoe, Vector3i(0, 20, 0))
+	var cst: BattleState = _seat(two, cont, ledge, cfoe, FLEE_FOE)
 	FleeSystem.begin_battle(cst)
 	cst.set_pace_pool(cont, 1)
-	var init_lines: Array[String] = MovementExecutor.execute_climb(cont, down_dec, "Climb", cst)
+	var init_lines: Array[String] = MovementExecutor.execute_climb(cont, _flee_down_dec(link), "Climb", cst)
 	var started: bool = ConstStates.has_state(cont, ConstStates.CLIMBING)
 	var mid_h: int = cst.get_height(cont)
 	var cont_lines: Array[String] = []
-	FleeSystem.run_turn(cont, cst, cont_lines, 0)
+	FleeMover.run_turn(cont, cst, cont_lines, 0)
 	TestFixtures.check(res, "roof_flee a runner that starts its turn on the wall finishes the climb",
-		started and not init_lines.is_empty() and mid_h == target_h - 1
+		started and not init_lines.is_empty() and mid_h == int(link.get("paces", 0)) - 1
 		and not ConstStates.has_state(cont, ConstStates.CLIMBING) and cst.get_height(cont) == 0
 		and cst.get_climbing_data(cont).is_empty(),
 		"mid %d, end %d, %d line(s)" % [mid_h, cst.get_height(cont), cont_lines.size()])
 
+
+static func _check_flee_wall_hang(res: Dictionary, two: BattlefieldArea, ledge: Vector3i,
+		link: Dictionary) -> void:
 	MovementExecutor.clear_caches()
 	var stuck: MercenaryData = _flee_climber("Flee Stuck")
 	var sfoe: MercenaryData = _climber("Flee Stuck Foe")
-	var sst: BattleState = _climb_state(two, [stuck], [sfoe])
-	sst.set_pos3(stuck, ledge)
-	sst.set_pos3(sfoe, Vector3i(0, 20, 0))
+	var sst: BattleState = _seat(two, stuck, ledge, sfoe, FLEE_FOE)
 	FleeSystem.begin_battle(sst)
 	sst.set_pace_pool(stuck, 1)
-	MovementExecutor.execute_climb(stuck, down_dec, "Climb", sst)
+	MovementExecutor.execute_climb(stuck, _flee_down_dec(link), "Climb", sst)
 	var hung: Vector3i = sst.pos3(stuck)
 	var hung_h: int = sst.get_height(stuck)
 	stuck.current_ap = 0
 	stuck.excess_ap = 0
 	sst.set_pace_pool(stuck, 0)
 	var stuck_lines: Array[String] = []
-	FleeSystem.run_turn(stuck, sst, stuck_lines, 0)
+	FleeMover.run_turn(stuck, sst, stuck_lines, 0)
 	TestFixtures.check(res, "roof_flee a runner that cannot fund the next grab hangs on the wall",
 		ConstStates.has_state(stuck, ConstStates.CLIMBING) and sst.pos3(stuck) == hung
 		and sst.get_height(stuck) == hung_h and stuck_lines.is_empty(),
 		"at %s h %d, %d line(s)" % [str(sst.pos3(stuck)), sst.get_height(stuck), stuck_lines.size()])
 
+
+static func _check_flee_dry(res: Dictionary, two: BattlefieldArea, ledge: Vector3i,
+		link: Dictionary) -> void:
 	MovementExecutor.clear_caches()
 	var dry: MercenaryData = _flee_climber("Flee Dry")
 	dry.current_ap = 0
 	dry.excess_ap = 0
 	var dfoe: MercenaryData = _climber("Flee Dry Foe")
-	var dst: BattleState = _climb_state(two, [dry], [dfoe])
-	dst.set_pos3(dry, ledge)
-	dst.set_pos3(dfoe, Vector3i(0, 20, 0))
+	var dst: BattleState = _seat(two, dry, ledge, dfoe, FLEE_FOE)
 	dst.set_pace_pool(dry, 0)
 	dst.set_climb_route(dry, link, true, ledge)
 	FleeSystem.begin_battle(dst)
 	var dry_lines: Array[String] = []
-	FleeSystem.run_turn(dry, dst, dry_lines, 0)
+	FleeMover.run_turn(dry, dst, dry_lines, 0)
 	TestFixtures.check(res, "roof_flee a runner with no AP starts no climb and stays on the ledge",
 		dst.pos3(dry) == ledge and not ConstStates.has_state(dry, ConstStates.CLIMBING)
 		and not dst.climb_route(dry).is_empty(),
 		"at %s, %d line(s)" % [str(dst.pos3(dry)), dry_lines.size()])
 
+
+static func _check_flee_open_ground(res: Dictionary, two: BattlefieldArea) -> void:
 	MovementExecutor.clear_caches()
 	var walker: MercenaryData = _flee_climber("Flee Walker")
 	walker.current_hp = 20
 	var wfoe: MercenaryData = _climber("Flee Walker Foe")
-	var wst: BattleState = _climb_state(two, [walker], [wfoe])
-	var street := Vector3i(14, 14, 0)
-	wst.set_pos3(walker, street)
-	wst.set_pos3(wfoe, Vector3i(20, 20, 0))
+	var wst: BattleState = _seat(two, walker, FLEE_STREET, wfoe, FLEE_FAR)
 	FleeSystem.begin_battle(wst)
 	var walk_lines: Array[String] = []
-	FleeSystem.run_turn(walker, wst, walk_lines, 0)
+	FleeMover.run_turn(walker, wst, walk_lines, 0)
 	TestFixtures.check(res, "roof_flee a runner on open ground still walks its turn out",
-		wst.pos3(walker) != street and not ConstStates.has_state(walker, ConstStates.CLIMBING)
+		wst.pos3(walker) != FLEE_STREET and not ConstStates.has_state(walker, ConstStates.CLIMBING)
 		and not walk_lines.is_empty(),
 		"at %s, %d line(s)" % [str(wst.pos3(walker)), walk_lines.size()])
 
+
+static func _check_flee_idle(res: Dictionary, two: BattlefieldArea) -> void:
 	var idle: MercenaryData = _flee_climber("Flee Idle")
 	var ifoe: MercenaryData = _climber("Flee Idle Foe")
-	var ist: BattleState = _climb_state(two, [idle], [ifoe])
-	ist.set_pos3(idle, street)
-	ist.set_pos3(ifoe, Vector3i(20, 20, 0))
+	var ist: BattleState = _seat(two, idle, FLEE_STREET, ifoe, FLEE_FAR)
 	var iturn: Dictionary = AutoBattle.new_turn(idle, ist)
 	var idle_lines: Array[String] = []
-	var idle_climb: bool = FleeSystem._continue_climb(idle, ist, idle_lines, iturn)
-	var idle_hand: bool = FleeSystem._handover(idle, ist, idle_lines, iturn, ifoe, 0)
+	var idle_climb: bool = FleeMover._continue_climb(idle, ist, idle_lines, iturn)
+	var idle_hand: bool = FleeMover._handover(idle, ist, idle_lines, iturn, ifoe, 0)
 	TestFixtures.check(res, "roof_flee a runner with nothing pending neither climbs nor leaps",
 		not idle_climb and not idle_hand and idle_lines.is_empty(),
 		"%d line(s)" % idle_lines.size())
 
+
+static func _check_flee_leap(res: Dictionary) -> void:
 	MovementExecutor.clear_caches()
 	PathCost.clear_climb()
 	var gap: BattlefieldArea = _edge_map([[Rect2i(4, 4, 5, 5), [0, 1]], [Rect2i(10, 4, 5, 5), [0]]])
@@ -3019,9 +3007,7 @@ static func _case_flee_roof(res: Dictionary) -> void:
 	jumper.stats["jump"] = 2
 	jumper.stats["parkour"] = 100.0
 	var jfoe: MercenaryData = _climber("Flee Jump Foe")
-	var jst: BattleState = _climb_state(gap, [jumper], [jfoe])
-	jst.set_pos3(jumper, take)
-	jst.set_pos3(jfoe, Vector3i(0, 20, 0))
+	var jst: BattleState = _seat(gap, jumper, take, jfoe, FLEE_FOE)
 	FleeSystem.begin_battle(jst)
 	var bare_landing: Vector3i = JumpAction.routed_landing_for(jumper, jst)
 	jst.set_jump_route(jumper, leap_land, take)
@@ -3032,13 +3018,10 @@ static func _case_flee_roof(res: Dictionary) -> void:
 
 	var leap_lines: Array[String] = []
 	var jturn: Dictionary = AutoBattle.new_turn(jumper, jst)
-	var leaped: bool = FleeSystem._handover(jumper, jst, leap_lines, jturn, jfoe, 0)
+	var leaped: bool = FleeMover._handover(jumper, jst, leap_lines, jturn, jfoe, 0)
 	TestFixtures.check(res, "roof_flee a runner on a take-off cell takes the leap it recorded",
-		leaped and jst.pos3(jumper) == leap_land and _has_line(leap_lines, "leaps"),
+		leaped and jst.pos3(jumper) == leap_land and TestFixtures.has_line(leap_lines, "leaps"),
 		"at %s, %d line(s)" % [str(jst.pos3(jumper)), leap_lines.size()])
-	MovementExecutor.clear_caches()
-	PathCost.clear_climb()
-	FleeSystem.reset()
 
 
 #No unit is spawned on a roof it cannot climb, drop or fly off, and the probe that answers that
@@ -3059,8 +3042,8 @@ static func _case_spawn_roof(res: Dictionary) -> void:
 	var bare: BattlefieldArea = _edge_map([[Rect2i(4, 4, 8, 8), [0]]])
 	var level: int = int(_first_part(railed).get("level", 1))
 	var perch := Vector3i(6, 6, level)
-	var railed_pass: Dictionary = railed.get_nav_passable_cells()
-	var bare_pass: Dictionary = bare.get_nav_passable_cells()
+	var railed_pass: Dictionary = railed.reserved_corridor_cells
+	var bare_pass: Dictionary = bare.reserved_corridor_cells
 	var small: MercenaryData = _climber("Spawn Small", 1)
 	var big: MercenaryData = _climber("Spawn Big", 2)
 	var flyer: MercenaryData = _climber("Spawn Flyer", 1)
@@ -3097,8 +3080,8 @@ static func _case_spawn_roof(res: Dictionary) -> void:
 
 	var held: MercenaryData = _climber("Spawn Grounded", 1)
 	held.stats["fly"] = 1
-	ConstStates.apply_state(held, ConstStates.GROUNDED)
-	var held_fly: bool = ConstStates.is_blocked(held, "ability:fly")
+	StateCascade.apply_state(held, ConstStates.GROUNDED)
+	var held_fly: bool = StateEffects.is_blocked(held, "ability:fly")
 	var held_out: bool = SpawnPlacer._can_leave_roof(railed, railed_pass, perch, held)
 	TestFixtures.check(res, "roof_spawn a flyer held to the ground is refused the railed roof",
 		held_fly and not held_out, "blocked %s, leaves %s" % [str(held_fly), str(held_out)])
@@ -3136,7 +3119,7 @@ static func _case_spawn_roof(res: Dictionary) -> void:
 	TestFixtures.check(res, "roof_spawn the way down probe hands the climb values back untouched",
 		kept and snap.size() == 5, "pace %d, roofs %d" % [PathCost.climb_pace, PathCost.jump_roofs])
 
-	var index: Dictionary = SpawnPlacer._roof_part_index(railed)
+	var index: Dictionary = SpawnPlacer.roof_part_index(railed)
 	var missing: Array[String] = []
 	var owned: int = 0
 	for i: int in range(railed.roof_parts.size()):
@@ -3231,8 +3214,8 @@ static func _budget_map(mode: String) -> BattlefieldArea:
 	if mode == "blind":
 		for bx: int in range(0, SYNTH_DIM):
 			TestFixtures.put(f, Vector3i(bx, BUDGET_NEAR_Y, 0), {"cell_type": "wall", "height": 2.0})
-	RoofBuilder.build(f, "Flat", "S", "")
-	f.build_drop_links()
+	RoofBuilder.build(f, "Flat", "S")
+	NavLinkBuilder.build_drop_links(f)
 	return f
 
 
@@ -3249,7 +3232,7 @@ static func _budget_state(map: BattlefieldArea, unit: MercenaryData, foes: Array
 static func _budget_walk(unit: MercenaryData, st: BattleState,
 		foes: Array[MercenaryData]) -> int:
 	return RoofPostScore._walk_round(unit, st, st.pos3(unit), foes, 1,
-		MovementExecutor.pace_per_move(unit))
+		PaceBudget.pace_per_move(unit))
 
 
 #The post budget: a climb is taken only when the unit stands on the top in fewer rounds than the
@@ -3258,11 +3241,18 @@ static func _case_post_budget(res: Dictionary) -> void:
 	PathCost.set_door_penalty(0)
 	PathCost.set_water_cost(null, null)
 	PathCost.clear_climb()
-	var open_map: BattlefieldArea = _budget_map("open")
 	var walker: MercenaryData = _post_shooter("Budget Walker")
+	var per_move: int = PaceBudget.pace_per_move(walker)
+	_check_budget_open(res, walker, per_move)
+	_check_budget_blind(res)
+	_check_budget_sealed(res)
+	_check_budget_even(res, per_move)
+
+
+static func _check_budget_open(res: Dictionary, walker: MercenaryData, per_move: int) -> void:
+	var open_map: BattlefieldArea = _budget_map("open")
 	var walk_foes: Array[MercenaryData] = [_climber("Budget Foe")]
 	var open_st: BattleState = _budget_state(open_map, walker, walk_foes, BUDGET_START)
-	var per_move: int = MovementExecutor.pace_per_move(walker)
 	var open_row: Dictionary = RoofPostScore.best(walker, open_st)
 	var open_walk: int = _budget_walk(walker, open_st, walk_foes)
 	TestFixtures.check(res, "roof_budget a walk into sight this round leaves the post no budget",
@@ -3278,6 +3268,8 @@ static func _case_post_budget(res: Dictionary) -> void:
 		"%d row(s), %d pace(s), %d Move(s)" % [open_rows.size(), near_total, near_turns])
 	MovementExecutor.clear_caches()
 
+
+static func _check_budget_blind(res: Dictionary) -> void:
 	var blind_map: BattlefieldArea = _budget_map("blind")
 	var perched: MercenaryData = _post_shooter("Budget Climber")
 	var blind_foes: Array[MercenaryData] = [_climber("Blind Foe")]
@@ -3312,6 +3304,8 @@ static func _case_post_budget(res: Dictionary) -> void:
 		"roof_budget the scored post is held for the turn and dropped at turn start")
 	MovementExecutor.clear_caches()
 
+
+static func _check_budget_sealed(res: Dictionary) -> void:
 	var sealed_map: BattlefieldArea = _budget_map("sealed")
 	var slow: MercenaryData = _post_shooter("Budget Perch")
 	slow.stats["pace"] = 1
@@ -3324,7 +3318,7 @@ static func _case_post_budget(res: Dictionary) -> void:
 		"walk round %d, %d key(s)" % [slow_walk, slow_row.size()])
 
 	var slow_rows: Array = RoofPostScore._candidates(slow, slow_st, sealed_map, 1,
-		MovementExecutor.pace_per_move(slow), RoofPostScore.MAX_MOVES)
+		PaceBudget.pace_per_move(slow), RoofPostScore.MAX_MOVES)
 	var worst: int = 0
 	for row: Array in slow_rows:
 		worst = maxi(worst, int(row[0]))
@@ -3333,6 +3327,8 @@ static func _case_post_budget(res: Dictionary) -> void:
 		"%d row(s), %d pace(s) at most" % [slow_rows.size(), worst])
 	MovementExecutor.clear_caches()
 
+
+static func _check_budget_even(res: Dictionary, per_move: int) -> void:
 	var even_map: BattlefieldArea = _budget_map("open")
 	var even: MercenaryData = _post_shooter("Budget Even")
 	var even_foes: Array[MercenaryData] = [_climber("Even Foe")]
@@ -3351,22 +3347,29 @@ static func _case_post_budget(res: Dictionary) -> void:
 	PathCost.clear_climb()
 
 
-#Fix round 1: a walker one cell from a hovering flyer marks it blocked instead of scanning rings every slot.
-static func _case_hover_reach(res: Dictionary) -> void:
+#One Move Close order against the foe; the lines it printed.
+static func _move_close(unit: MercenaryData, foe: MercenaryData, st: BattleState) -> Array[String]:
 	var no_mercs: Array[MercenaryData] = []
+	return MovementExecutor.execute_move(unit, "Move Close", foe, st, null, 0, -1, false, no_mercs)
+
+
+#True when the unit's move marked the foe as unreachable for it.
+static func _marked_blocked(st: BattleState, unit: MercenaryData, foe: MercenaryData) -> bool:
+	return (st.movement_blocked.get(unit, {}) as Dictionary).has(foe)
+
+
+#A walker one cell from a hovering flyer marks it blocked instead of scanning rings every slot.
+static func _case_hover_reach(res: Dictionary) -> void:
 	MovementExecutor.clear_caches()
 	var field: BattlefieldArea = TestFixtures.exterior_field()
 	var walker: MercenaryData = _climber("Hover Walker")
 	walker.current_ap = 6
 	var flyer: MercenaryData = _climber("Hover Flyer")
 	flyer.stats["fly"] = 3
-	var st: BattleState = _climb_state(field, [walker], [flyer])
-	st.set_pos3(walker, Vector3i(4, 4, 0))
-	st.set_pos3(flyer, Vector3i(5, 4, 0))
+	var st: BattleState = _seat(field, walker, Vector3i(4, 4, 0), flyer, Vector3i(5, 4, 0))
 	st.set_height(flyer, 4)
-	var hover_lines: Array[String] = MovementExecutor.execute_move(walker, "Move Close", flyer, st, null, 0, -1,
-		false, no_mercs, no_mercs)
-	var marked: bool = (st.movement_blocked.get(walker, {}) as Dictionary).has(flyer)
+	var hover_lines: Array[String] = _move_close(walker, flyer, st)
+	var marked: bool = _marked_blocked(st, walker, flyer)
 	TestFixtures.check(res, "hover_reach a walker under a hovering flyer marks it blocked and keeps its AP",
 		hover_lines.is_empty() and marked and walker.current_ap == 6 and st.pos3(walker) == Vector3i(4, 4, 0)
 		and int(walker.active_states.get("_move_blocked_round", -1)) == st.round_number,
@@ -3374,28 +3377,24 @@ static func _case_hover_reach(res: Dictionary) -> void:
 	st.movement_blocked.erase(walker)
 	walker.active_states.erase("_move_blocked_round")
 	st.set_height(flyer, 0)
-	MovementExecutor.execute_move(walker, "Move Close", flyer, st, null, 0, -1, false, no_mercs, no_mercs)
-	var landed_marked: bool = (st.movement_blocked.get(walker, {}) as Dictionary).has(flyer)
+	_move_close(walker, flyer, st)
+	var landed_marked: bool = _marked_blocked(st, walker, flyer)
 	TestFixtures.check(res, "hover_reach a landed flyer beside the walker is not marked blocked",
 		not landed_marked, "marked %s" % str(landed_marked))
 	MovementExecutor.clear_caches()
 
 
-#Fix round 2: a walker whose best cell is its own cannot reach a target standing above melee reach.
+#A walker whose best cell is its own cannot reach a target standing above melee reach.
 static func _case_upper_reach(res: Dictionary) -> void:
-	var no_mercs: Array[MercenaryData] = []
 	MovementExecutor.clear_caches()
 	var field: BattlefieldArea = TestFixtures.exterior_field()
 	field.terrain_heights[Vector2i(6, 4)] = 4.0
 	var walker: MercenaryData = _climber("Upper Walker")
 	walker.current_ap = 6
 	var perched: MercenaryData = _climber("Upper Perched")
-	var st: BattleState = _climb_state(field, [walker], [perched])
-	st.set_pos3(walker, Vector3i(5, 4, 0))
-	st.set_pos3(perched, Vector3i(6, 4, 0))
-	var up_lines: Array[String] = MovementExecutor.execute_move(walker, "Move Close", perched, st, null, 0, -1,
-		false, no_mercs, no_mercs)
-	var marked: bool = (st.movement_blocked.get(walker, {}) as Dictionary).has(perched)
+	var st: BattleState = _seat(field, walker, Vector3i(5, 4, 0), perched, Vector3i(6, 4, 0))
+	var up_lines: Array[String] = _move_close(walker, perched, st)
+	var marked: bool = _marked_blocked(st, walker, perched)
 	TestFixtures.check(res, "upper_reach a walker under a perched target marks it blocked and keeps its AP",
 		up_lines.is_empty() and marked and walker.current_ap == 6 and st.pos3(walker) == Vector3i(5, 4, 0)
 		and int(walker.active_states.get("_move_blocked_round", -1)) == st.round_number,
@@ -3407,18 +3406,15 @@ static func _case_upper_reach(res: Dictionary) -> void:
 	var low_walker: MercenaryData = _climber("Low Walker")
 	low_walker.current_ap = 6
 	var low_perched: MercenaryData = _climber("Low Perched")
-	var low_st: BattleState = _climb_state(low_field, [low_walker], [low_perched])
-	low_st.set_pos3(low_walker, Vector3i(5, 4, 0))
-	low_st.set_pos3(low_perched, Vector3i(6, 4, 0))
-	MovementExecutor.execute_move(low_walker, "Move Close", low_perched, low_st, null, 0, -1, false, no_mercs,
-		no_mercs)
-	var low_marked: bool = (low_st.movement_blocked.get(low_walker, {}) as Dictionary).has(low_perched)
+	var low_st: BattleState = _seat(low_field, low_walker, Vector3i(5, 4, 0), low_perched, Vector3i(6, 4, 0))
+	_move_close(low_walker, low_perched, low_st)
+	var low_marked: bool = _marked_blocked(low_st, low_walker, low_perched)
 	TestFixtures.check(res, "upper_reach a target one pace up beside the walker is not marked blocked",
 		not low_marked, "marked %s" % str(low_marked))
 	MovementExecutor.clear_caches()
 
 
-#Fix round 3: the first shot walk probe leaves no goal, target, far_full or team blocked entry behind.
+#The first shot walk probe leaves no goal, target, far_full or team blocked entry behind.
 static func _case_probe_state(res: Dictionary) -> void:
 	PathCost.set_door_penalty(0)
 	PathCost.set_water_cost(null, null)
@@ -3460,24 +3456,20 @@ static func _case_probe_state(res: Dictionary) -> void:
 	MovementExecutor.clear_caches()
 
 
-#Fix round 3: an empty shooter with ammo in hand is held for the round but never marked blocked for good.
+#An empty shooter with ammo in hand is held for the round but never marked blocked for good.
 static func _case_reload_reach(res: Dictionary) -> void:
-	var no_mercs: Array[MercenaryData] = []
 	MovementExecutor.clear_caches()
 	var field: BattlefieldArea = TestFixtures.exterior_field()
-	var archer: MercenaryData = _shooter("Empty Archer")
+	var archer: MercenaryData = TestFixtures.city_ranged("Empty Archer")
 	archer.current_ap = 6
 	archer.ammo_loaded = 0
 	archer.ammo_inventory = {"Arrow": 3}
 	var flyer: MercenaryData = _climber("Reload Flyer")
 	flyer.stats["fly"] = 3
-	var st: BattleState = _climb_state(field, [archer], [flyer])
-	st.set_pos3(archer, Vector3i(4, 4, 0))
-	st.set_pos3(flyer, Vector3i(5, 4, 0))
+	var st: BattleState = _seat(field, archer, Vector3i(4, 4, 0), flyer, Vector3i(5, 4, 0))
 	st.set_height(flyer, 4)
-	var lines: Array[String] = MovementExecutor.execute_move(archer, "Move Close", flyer, st, null, 0, -1,
-		false, no_mercs, no_mercs)
-	var marked: bool = (st.movement_blocked.get(archer, {}) as Dictionary).has(flyer)
+	var lines: Array[String] = _move_close(archer, flyer, st)
+	var marked: bool = _marked_blocked(st, archer, flyer)
 	TestFixtures.check(res, "reload_reach an empty archer with arrows under a flyer is held this round only",
 		lines.is_empty() and not marked and st.pos3(archer) == Vector3i(4, 4, 0)
 		and int(archer.active_states.get("_move_blocked_round", -1)) == st.round_number,
@@ -3486,24 +3478,21 @@ static func _case_reload_reach(res: Dictionary) -> void:
 	archer.ammo_inventory = {}
 	archer.active_states.erase("_move_blocked_round")
 	MovementExecutor.clear_caches()
-	MovementExecutor.execute_move(archer, "Move Close", flyer, st, null, 0, -1, false, no_mercs, no_mercs)
-	var dry_marked: bool = (st.movement_blocked.get(archer, {}) as Dictionary).has(flyer)
+	_move_close(archer, flyer, st)
+	var dry_marked: bool = _marked_blocked(st, archer, flyer)
 	TestFixtures.check(res, "reload_reach the same archer with no arrows left is marked blocked",
 		dry_marked, "marked %s" % str(dry_marked))
 	MovementExecutor.clear_caches()
 	var up_field: BattlefieldArea = TestFixtures.exterior_field()
 	up_field.terrain_heights[Vector2i(6, 4)] = 4.0
-	var up_archer: MercenaryData = _shooter("Empty Perch Archer")
+	var up_archer: MercenaryData = TestFixtures.city_ranged("Empty Perch Archer")
 	up_archer.current_ap = 6
 	up_archer.ammo_loaded = 0
 	up_archer.ammo_inventory = {"Arrow": 2}
 	var perched: MercenaryData = _climber("Reload Perched")
-	var up_st: BattleState = _climb_state(up_field, [up_archer], [perched])
-	up_st.set_pos3(up_archer, Vector3i(5, 4, 0))
-	up_st.set_pos3(perched, Vector3i(6, 4, 0))
-	var up_lines: Array[String] = MovementExecutor.execute_move(up_archer, "Move Close", perched, up_st, null,
-		0, -1, false, no_mercs, no_mercs)
-	var up_marked: bool = (up_st.movement_blocked.get(up_archer, {}) as Dictionary).has(perched)
+	var up_st: BattleState = _seat(up_field, up_archer, Vector3i(5, 4, 0), perched, Vector3i(6, 4, 0))
+	var up_lines: Array[String] = _move_close(up_archer, perched, up_st)
+	var up_marked: bool = _marked_blocked(up_st, up_archer, perched)
 	TestFixtures.check(res, "reload_reach an empty archer with arrows under a perched foe is not marked",
 		up_lines.is_empty() and not up_marked
 		and int(up_archer.active_states.get("_move_blocked_round", -1)) == up_st.round_number,
@@ -3511,7 +3500,7 @@ static func _case_reload_reach(res: Dictionary) -> void:
 	MovementExecutor.clear_caches()
 
 
-#Fix round 3: the roof level caches survive no rebuild, reset or copy, even at an unchanged cell count.
+#The roof level caches survive no rebuild, reset or copy, even at an unchanged cell count.
 static func _case_roof_cache(res: Dictionary) -> void:
 	var f: BattlefieldArea = _edge_map([[Rect2i(4, 4, 8, 8), [0]]])
 	var c := Vector2i(6, 6)
@@ -3523,7 +3512,7 @@ static func _case_roof_cache(res: Dictionary) -> void:
 	f.roof_cells = shifted.duplicate()
 	f.invalidate_roof_levels()
 	var manual: int = f.roof_level_at(c)
-	RoofBuilder.build(f, "Flat", "S", "")
+	RoofBuilder.build(f, "Flat", "S")
 	var rebuilt: int = f.roof_level_at(c)
 	TestFixtures.check(res, "roof_cache a rebuild at the same cell count reads the new levels",
 		built >= 1 and manual == built + 5 and rebuilt == built,

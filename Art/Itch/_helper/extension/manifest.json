@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Itch Pack Grabber",
+  "version": "1.0",
+  "description": "On itch.io download pages, clicks the Download button of each non-audio file, preferring 32x32 variants.",
+  "content_scripts": [
+    {
+      "matches": ["https://*.itch.io/*/download/*"],
+      "js": ["grab.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

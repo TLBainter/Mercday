@@ -1,19 +1,24 @@
 class_name DroppedItemStore extends RefCounted
 
 
-static func drop_weapon(state: BattleState, merc: MercenaryData) -> void:
-	var weapon := merc.equipped_weapon
-	if weapon == null:
-		return
-	var pos := state.get_position(merc)
+#Adds one dropped weapon entry to the stack at pos, creating the stack when it is missing.
+static func push(state: BattleState, pos: Vector2i, floor_num: int, weapon: WeaponData, ammo: int,
+		ammo_type: String) -> void:
 	if not state.dropped_weapons.has(pos):
 		state.dropped_weapons[pos] = []
 	(state.dropped_weapons[pos] as Array).append({
 		"weapon": weapon,
-		"ammo_loaded": merc.ammo_loaded,
-		"ammo_loaded_type": merc.ammo_loaded_type,
-		"floor": state.get_floor(merc),
+		"ammo_loaded": ammo,
+		"ammo_loaded_type": ammo_type,
+		"floor": floor_num,
 	})
+
+
+static func drop_weapon(state: BattleState, merc: MercenaryData) -> void:
+	var weapon := merc.equipped_weapon
+	if weapon == null:
+		return
+	push(state, state.get_position(merc), state.get_floor(merc), weapon, merc.ammo_loaded, merc.ammo_loaded_type)
 	merc.equipped_weapon = null
 	merc.weapon_drawn = false
 	merc.ammo_loaded = 0
@@ -55,20 +60,12 @@ static func drop_packed_weapon(state: BattleState, merc: MercenaryData, weapon: 
 			break
 	if not found:
 		return false
-	var pos := state.get_position(merc)
-	if not state.dropped_weapons.has(pos):
-		state.dropped_weapons[pos] = []
-	(state.dropped_weapons[pos] as Array).append({
-		"weapon": weapon,
-		"ammo_loaded": 0,
-		"ammo_loaded_type": "",
-		"floor": state.get_floor(merc),
-	})
+	push(state, state.get_position(merc), state.get_floor(merc), weapon, 0, "")
 	return true
 
 
 #Sheds one bundle of reserve ammo; the rounds are gone, loose ammo is not modelled on the ground.
-static func drop_ammo_bundle(_state: BattleState, merc: MercenaryData, ammo_name: String) -> int:
+static func drop_ammo_bundle(merc: MercenaryData, ammo_name: String) -> int:
 	if merc == null or ammo_name == "":
 		return 0
 	var reserve: int = int(merc.ammo_inventory.get(ammo_name, 0))

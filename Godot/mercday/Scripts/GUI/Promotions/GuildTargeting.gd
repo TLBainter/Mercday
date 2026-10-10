@@ -9,8 +9,8 @@ signal changed(sel: Dictionary)
 signal take_me_there(target: Dictionary)
 
 const SECTION_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FilterSection.tscn")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const NOTE_COLOR: Color = Color("#5e7699")
+const FONT_BODY: FontVariation = GuiStyle.BODY
+const NOTE_COLOR: Color = GuiColors.MUTED
 const NOTE_SIZE: int = 10
 const ROW_GAP: int = 10
 const COLUMN_GAP: int = 12
@@ -43,9 +43,7 @@ func _ready() -> void:
 	columns.add_theme_constant_override(&"separation", COLUMN_GAP)
 	type_column.size_flags_horizontal = SIZE_EXPAND_FILL
 	loc_column.size_flags_horizontal = SIZE_EXPAND_FILL
-	note.add_theme_font_override(&"font", FONT_BODY)
-	note.add_theme_font_size_override(&"font_size", NOTE_SIZE)
-	note.add_theme_color_override(&"font_color", NOTE_COLOR)
+	GuiStyle.paint(note, FONT_BODY, NOTE_SIZE, NOTE_COLOR)
 	note.text = NOTE_TEXT
 	_build()
 
@@ -153,8 +151,8 @@ func difficulty_pair() -> Array[float]:
 	return out
 
 
-func contract_types() -> Array[int]:
-	return _indices(TYPE_KEY)
+func contract_types() -> Array[String]:
+	return CampaignData.type_names_of(_indices(TYPE_KEY))
 
 
 func locations() -> Array[int]:
@@ -236,7 +234,7 @@ func _build() -> void:
 		parent.add_child(section)
 		section.setup(_patched(def), _values.get(key, null), _ent)
 		section.value_changed.connect(_on_section_changed)
-		section.take_me_there.connect(_on_take_me_there)
+		section.take_me_there.connect(take_me_there.emit)
 		_sections[key] = section
 
 
@@ -268,17 +266,12 @@ func _patched(def: Dictionary) -> Dictionary:
 
 
 func _clear() -> void:
-	for key: StringName in _sections.keys():
-		var section: FilterSection = _sections[key] as FilterSection
-		section.get_parent().remove_child(section)
-		section.queue_free()
+	GuiNodes.clear(top)
+	GuiNodes.clear(type_column)
+	GuiNodes.clear(loc_column)
 	_sections.clear()
 
 
 func _on_section_changed(key: StringName, value: Variant) -> void:
 	_values[key] = value
 	changed.emit(sel())
-
-
-func _on_take_me_there(target: Dictionary) -> void:
-	take_me_there.emit(target)

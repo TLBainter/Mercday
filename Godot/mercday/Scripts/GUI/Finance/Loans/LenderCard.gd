@@ -1,4 +1,4 @@
-class_name LenderCard extends Button
+class_name LenderCard extends BevelButton
 
 #One row of the lender list in the request window: the hatch portrait, the name, the relationship
 #face and the Offer Pending tag of a lender that already holds an offer or a request.
@@ -22,10 +22,16 @@ var _tag: PanelContainer = null
 
 
 func _ready() -> void:
+	super()
+	click_shade = ButtonFx.ClickShade.INK
+	hover_move = ButtonFx.HoverMove.RAISE
+	edge = 0.0
+	#A busy card fades through its modulate, so the body stays solid.
+	disabled_solid = true
 	custom_minimum_size = Vector2(0.0, HEIGHT)
 	focus_mode = Control.FOCUS_NONE
 	pressed.connect(press_card)
-	var line: HBoxContainer = LoanStyle.hbox(GAP)
+	var line: HBoxContainer = GuiStyle.hbox(GAP)
 	line.set_anchors_preset(Control.PRESET_FULL_RECT)
 	line.offset_left = PAD
 	line.offset_top = PAD
@@ -33,9 +39,9 @@ func _ready() -> void:
 	line.offset_bottom = -PAD
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	line.add_child(LoanGlyphs.portrait(PORTRAIT))
-	var col: VBoxContainer = LoanStyle.vbox(6)
+	var col: VBoxContainer = GuiStyle.vbox(6)
 	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_name_label = LoanStyle.text("", 11, LoanStyle.CREAM, true)
+	_name_label = GuiStyle.label("", GuiStyle.SILK_BOLD, 11, GuiColors.CREAM)
 	col.add_child(_name_label)
 	_face = MoodFace.new()
 	_face.guild = true
@@ -43,13 +49,10 @@ func _ready() -> void:
 	_face.mouse_filter = Control.MOUSE_FILTER_PASS
 	col.add_child(_face)
 	line.add_child(col)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	line.add_child(spacer)
-	_tag = LoanStyle.panel(LoanStyle.YELLOW, 4, 1)
+	line.add_child(GuiStyle.spacer())
+	_tag = LoanStyle.panel(GuiColors.AMBER, 4, 1)
 	_tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	_tag.add_child(LoanStyle.text(BUSY_TEXT, 8, LoanStyle.INK))
+	_tag.add_child(GuiStyle.label(BUSY_TEXT, GuiStyle.SILK, 8, GuiColors.INK))
 	_tag.visible = false
 	line.add_child(_tag)
 	add_child(line)
@@ -100,13 +103,8 @@ func press_card() -> void:
 func _refresh() -> void:
 	var busy: bool = is_busy()
 	var chosen: bool = is_chosen()
-	var bg: Color = LoanStyle.ORANGE if chosen else LoanStyle.BLUE
-	var fg: Color = LoanStyle.INK if chosen else LoanStyle.CREAM
-	add_theme_stylebox_override("normal", LoanStyle.flat(bg))
-	add_theme_stylebox_override("hover", LoanStyle.flat(bg.lightened(0.12)))
-	add_theme_stylebox_override("pressed", LoanStyle.flat(bg.darkened(0.15)))
-	add_theme_stylebox_override("disabled", LoanStyle.flat(bg))
-	add_theme_stylebox_override("focus", LoanStyle.flat(LoanStyle.CLEAR))
+	var fg: Color = GuiColors.INK if chosen else GuiColors.CREAM
+	LoanStyle.shade(self, GuiColors.ORANGE if chosen else GuiColors.BLUE_LO, fg)
 	_name_label.text = lender_name()
 	_name_label.add_theme_color_override("font_color", fg)
 	_face.opinion = clampi(rel_value(), -5, 5)

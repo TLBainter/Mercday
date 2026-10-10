@@ -1,23 +1,13 @@
 class_name NotifyGlyphs
 
-#The notification icon box tile and the drop shadow plate: the 8 px diagonal stripe tile behind an
-#icon and the 2 px ink shadow behind the art. Every glyph itself now comes from the icon atlas.
+#The notification icon box stripe sizes and the drop shadow plate. GuiGlyphs.hatch builds the 8 px
+#stripe tile behind an icon; the 2 px ink shadow sits behind the art. Glyphs come from the icon atlas.
 
 #The icon box stripes: 4 px bands at 45 degrees inside an 8 px tile.
 const STRIPE_TILE: int = 8
 const STRIPE_BAND: int = 4
 const SHADOW_STEP: int = 2
-const SHADOW_COLOR: Color = Color("#0a0f1c")
-
-static var _cache: Dictionary = {}
-
-
-#One tile of the striped icon box background; TextureRect tiles it over the box.
-static func stripes(fill: Color, back: Color) -> ImageTexture:
-	var key: String = "stripes:%s:%s" % [fill.to_html(true), back.to_html(true)]
-	if not _cache.has(key):
-		_cache[key] = ImageTexture.create_from_image(_build_stripes(fill, back))
-	return _cache[key] as ImageTexture
+const SHADOW_COLOR: Color = GuiColors.INK
 
 
 #A glyph with a 2 px ink drop shadow behind it. The art is already baked at its final size, so the
@@ -46,16 +36,3 @@ static func _plate(node_name: String, tex: Texture2D, glyph_size: Vector2, at: V
 	plate.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return plate
-
-
-static func clear_cache() -> void:
-	_cache.clear()
-
-
-static func _build_stripes(fill: Color, back: Color) -> Image:
-	var img: Image = Image.create_empty(STRIPE_TILE, STRIPE_TILE, false, Image.FORMAT_RGBA8)
-	for y: int in STRIPE_TILE:
-		for x: int in STRIPE_TILE:
-			var on: bool = (x + y) % STRIPE_TILE < STRIPE_BAND
-			img.set_pixel(x, y, fill if on else back)
-	return img

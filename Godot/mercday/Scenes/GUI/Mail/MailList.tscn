@@ -1,0 +1,45 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ListPanel.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mail/MailList.gd" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/mail_list.tres" id="5"]
+
+[node name="MailList" instance=ExtResource("1")]
+size_flags_vertical = 3
+script = ExtResource("2")
+archived_path = NodePath("Pad/Rows/Head/Archived")
+
+[node name="Pad" parent="."]
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="Rows" parent="Pad"]
+theme_override_constants/separation = 8
+
+[node name="Head" parent="Pad/Rows"]
+caption = "Mail"
+
+[node name="Archived" parent="Pad/Rows/Head" instance=ExtResource("3")]
+custom_minimum_size = Vector2(96, 28)
+layout_mode = 2
+size_flags_vertical = 4
+tooltip_text = "Show the archived mail of this folder"
+toggle_mode = true
+text = "Archived"
+kind = &"neutral"
+active_kind = &"orange"
+min_size = Vector2(96, 28)
+
+[node name="Scroll" parent="Pad/Rows"]
+size_flags_vertical = 3
+pad_top = 0
+pad_bottom = 0
+separation = 4
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("4")
+hint = ExtResource("5")

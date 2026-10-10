@@ -1,0 +1,22 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TabButton.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/MercdaveTab.gd" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/MercdaveFace.gd" id="3"]
+
+[node name="MercdaveTab" instance=ExtResource("1")]
+custom_minimum_size = Vector2(52, 36)
+toggle_mode = true
+script = ExtResource("2")
+active_kind = &"orange"
+
+[node name="Row" parent="." index="0"]
+offset_top = 2.0
+offset_bottom = -2.0
+
+[node name="Face" type="Control" parent="Row"]
+layout_mode = 2
+mouse_filter = 2
+size_flags_vertical = 4
+script = ExtResource("3")
+pixel_scale = 2

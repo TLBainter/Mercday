@@ -1,27 +1,28 @@
-class_name FilterButton extends Button
+class_name FilterButton extends PopupButton
 
-#Roster filter dropdown: nine status check rows over a reset. Nothing filters yet; the popup only
-#holds the state and reports it.
+#Roster filter dropdown: nine status check rows over a reset. The status rows filter nothing yet; the
+#popup holds the state and reports it. A site can add its own rows under them with add_option.
+#The rows can be grouped into sections under caption headings.
 
 signal changed(states: Dictionary)
 
-const ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FilterCheckRow.tscn")
 const LABELS: Array[String] = ["Available", "Resting", "On a Contract", "On Vacation",
 	"Pursuing a Loan", "Dead", "Fired", "Missing", "Captured"]
 const DEFAULTS: Array[bool] = [true, true, true, true, true, false, false, false, false]
-const GLYPH_COLOR: Color = Color("#f3ead7")
-const MIN_POPUP_WIDTH: int = 220
+const GLYPH_COLOR: Color = GuiColors.CREAM
 
-@onready var menu: PopupPanel = $Menu
 @onready var rows: VBoxContainer = $Menu/Box/Rows
 @onready var reset_button: Button = $Menu/Box/Reset
 
 var _quiet: bool = false
+#The rows a site added after the status rows, in order, with the state each was added with.
+var _option_rows: Array[FilterCheckRow] = []
+var _option_defaults: Array[bool] = []
 
 
 func _ready() -> void:
+	super()
 	icon = GuiGlyphs.funnel(GLYPH_COLOR)
-	pressed.connect(open_popup)
 	reset_button.pressed.connect(reset)
 	_build()
 
@@ -47,6 +48,8 @@ func reset() -> void:
 		var row: FilterCheckRow = _row(i)
 		if row != null:
 			row.on = DEFAULTS[i]
+	for i: int in _option_rows.size():
+		_option_rows[i].on = _option_defaults[i]
 	_quiet = false
 	_emit()
 
@@ -55,28 +58,39 @@ func states() -> Dictionary:
 	var out: Dictionary = {}
 	for i: int in LABELS.size():
 		out[LABELS[i]] = is_on(i)
+	for extra: FilterCheckRow in _option_rows:
+		out[extra.label] = extra.on
 	return out
 
 
-func open_popup() -> void:
-	var rect: Rect2 = get_global_rect()
-	var wanted: Vector2 = menu.get_contents_minimum_size()
-	var width: int = maxi(MIN_POPUP_WIDTH, maxi(int(rect.size.x), int(wanted.x)))
-	var pos := Vector2i(int(rect.position.x), int(rect.end.y))
-	menu.popup(Rect2i(pos, Vector2i(width, int(wanted.y))))
-
-
-func popup_open() -> bool:
-	return is_node_ready() and menu.visible
+#Adds one check row after the status rows; reset puts it back to the state it was added with.
+#states() keys rows by label, so a site reads its own row through the one returned here.
+func add_option(text_value: String, on: bool) -> FilterCheckRow:
+	var row: FilterCheckRow = _add_row(text_value, on)
+	_option_rows.append(row)
+	_option_defaults.append(on)
+	return row
 
 
 func _build() -> void:
 	for i: int in LABELS.size():
-		var row: FilterCheckRow = ROW_SCENE.instantiate()
-		row.label = LABELS[i]
-		row.on = DEFAULTS[i]
-		rows.add_child(row)
-		row.toggled.connect(_on_row_toggled)
+		_add_row(LABELS[i], DEFAULTS[i])
+
+
+#Opens a section of the popup: a caption line over the check rows added after it.
+func _add_heading(text_value: String) -> Label:
+	var head := Label.new()
+	head.text = text_value
+	head.theme_type_variation = &"CaptionLabel"
+	rows.add_child(head)
+	return head
+
+
+func _add_row(text_value: String, on: bool) -> FilterCheckRow:
+	var row: FilterCheckRow = FilterCheckRow.make_check(text_value, on)
+	rows.add_child(row)
+	row.toggled.connect(_on_row_toggled)
+	return row
 
 
 func _on_row_toggled(_now_on: bool) -> void:

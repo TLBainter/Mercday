@@ -2,7 +2,10 @@ class_name WeaponFitnessFacet extends DecisionFacet
 
 #invert = false: returns high score when weapon is a POOR fit (use for MoveClose / AttackMelee)
 #invert = true: returns high score when weapon is a GOOD fit (use for MoveFar / AttackRangeAimed)
-@export var invert: bool = false
+#Applies invert inside evaluate, where the flip is not 1.0 - raw.
+func score(merc: MercenaryData, ctx: Dictionary) -> float:
+	return evaluate(merc, ctx)
+
 
 func evaluate(merc: MercenaryData, _ctx: Dictionary) -> float:
 	var weapon := merc.equipped_weapon

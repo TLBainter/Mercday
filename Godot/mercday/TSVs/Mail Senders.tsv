@@ -1,0 +1,10 @@
+Id	Kind	Name	Sub	Location	Km	About
+mercday	Org	Mercday	Guild Service	Mercday Office		The guild management service your guild subscribes to.
+landlord	Person	Landlord Name	Landlord	Guild Hall	0	Owns the building your guild rents.
+healer	Org	Healer's House Name	Infirmary	Buern	12	Treats injured mercs and bills the guild.
+bazaar	Org	The Bazaar	Marketplace	Buern	3	Sells gear and ships orders to the guild.
+herald	Org	News Outlet 1 Name	News Outlet	Aerdis	140	Regional news, market reports and stock alerts.
+registry	Org	Guild Registry	Registry	Aldurstein	310	Keeps the official guild rankings.
+spam1	Unknown	Prize Office	Unknown	Unknown		Not a client. Sender could not be verified.
+spam2	Unknown	A Friend	Unknown	Unknown		Not a client. Sender could not be verified.
+spam3	Unknown	Royal Court of Umbra	Unknown	Umbra		Not a client. Sender could not be verified.

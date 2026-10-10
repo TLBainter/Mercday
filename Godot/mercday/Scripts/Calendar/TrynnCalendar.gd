@@ -1,7 +1,7 @@
 class_name TrynnCalendar
 
 #The Trynn calendar over CampaignClock minutes. The clock is never changed: minute 0 is Belday,
-#the 1st of Daith 301, 00:00, and every suite keeps reading it as D1 00:00. Ten day weeks, the
+#the 1st of Daith 212, 00:00, and every suite keeps reading it as D1 00:00. Ten day weeks, the
 #first and last day of a week are weekend days, and every month length is a multiple of ten, so
 #every month starts on Belday and its first weekday is always the 2nd.
 
@@ -20,14 +20,14 @@ const MONTHS: Array[Dictionary] = [
 const WEEKDAYS: Array[String] = ["Belday", "Ansday", "Rinday", "Erinday", "Felday",
 	"Rahkday", "Draday", "Asulday", "Bolday", "Zelday"]
 const DAYS_PER_YEAR := 330
-const START_YEAR := 301
-#The 2nd of Daith 301 at 8:00 AM.
-const START_MINUTE := 1920
+const START_YEAR := 212
+#The 3rd of Erta 212 at 8:00 AM: month_start_minute(212, 4) + 2 days + 8 hours.
+const START_MINUTE := 176160
 const MINUTES_PER_DAY := CampaignClock.MINUTES_PER_DAY
 const MINUTES_PER_HOUR := CampaignClock.MINUTES_PER_HOUR
 
 
-#Whole days since Daith 1, 301; 0 is that first day.
+#Whole days since Daith 1, 212; 0 is that first day.
 static func day_index(minute: int) -> int:
 	var days: int = int(minute / float(MINUTES_PER_DAY))
 	if minute < 0 and minute % MINUTES_PER_DAY != 0:
@@ -76,15 +76,43 @@ static func month_start_minute(year: int, month: int) -> int:
 	return days * MINUTES_PER_DAY
 
 
+#Day index of the 1st of that month.
+static func month_first_day(year: int, month: int) -> int:
+	return day_index(month_start_minute(year, month))
+
+
+#(year, month) moved delta months, wrapping across years.
+static func step_month(year: int, month: int, delta: int) -> Vector2i:
+	var total: int = year * MONTHS.size() + month + delta
+	return Vector2i(int(floor(total / float(MONTHS.size()))), posmod(total, MONTHS.size()))
+
+
 #Midnight of the 1st of the month after the one holding this minute; always later than minute.
 static func next_month_start(minute: int) -> int:
 	var date: Dictionary = date_of(minute)
-	var month: int = int(date["month"]) + 1
-	var year: int = int(date["year"])
-	if month >= MONTHS.size():
-		month = 0
-		year += 1
-	return month_start_minute(year, month)
+	var next: Vector2i = step_month(int(date["year"]), int(date["month"]), 1)
+	return month_start_minute(next.x, next.y)
+
+
+#Day index of the next day-of-month dom strictly after day; dom must fit every month (30 or less).
+static func next_day_on(day: int, dom: int) -> int:
+	var date: Dictionary = date_of(day * MINUTES_PER_DAY)
+	var today: int = int(date["day"])
+	if today < dom:
+		return day + dom - today
+	return day + int(MONTHS[int(date["month"])]["days"]) - today + dom
+
+
+#The day-of-month among choices whose next occurrence after day is the farthest away.
+static func farthest_day_on(day: int, choices: Array[int]) -> int:
+	var best: int = choices[0]
+	var best_gap: int = -1
+	for dom: int in choices:
+		var gap: int = next_day_on(day, dom) - day
+		if gap > best_gap:
+			best = dom
+			best_gap = gap
+	return best
 
 
 #The 2nd of that month at hour:00, the first day that is not a weekend day.
@@ -118,7 +146,7 @@ static func ordinal(day: int) -> String:
 	return "%dth" % day
 
 
-#"Ansday, 2nd of Daith 301".
+#"Ansday, 2nd of Daith 212".
 static func date_text(minute: int) -> String:
 	var date: Dictionary = date_of(minute)
 	return "%s, %s of %s %d" % [str(date["weekday_name"]), ordinal(int(date["day"])),

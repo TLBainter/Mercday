@@ -3,6 +3,8 @@ extends RefCounted
 
 #Renders generated fields as ASCII maps and writes the terrain batch file.
 
+const COUNT := 50
+
 
 static func gen_terrain_batch() -> void:
 	var dt := Time.get_datetime_dict_from_system()
@@ -13,19 +15,20 @@ static func gen_terrain_batch() -> void:
 	if f == null:
 		print("ERROR: Could not open terrain batch log.")
 		return
-	print("Generating 50 terrain levels...")
+	print("Generating %d terrain levels..." % COUNT)
 	var lines: PackedStringArray = []
-	lines.append("TERRAIN BATCH - 50 LEVELS")
+	lines.append("TERRAIN BATCH - %d LEVELS" % COUNT)
 	lines.append("Generated: %s %s" % [date_str, time_str.replace("-", ":")])
-	lines.append("Legend:  ! jagged  # solid  D door  s ramp  ~ passthrough  * damaging  | corridor  > spawn-row")
+	lines.append("Legend:  ! jagged  # solid  D door  d open door  W window  w broken window  f fence  s ramp  ~ passthrough"
+		+ "  * damaging  | corridor  > spawn-row")
 	lines.append("Heights: = very-deep(h<-4)  _ deep(h<-2)  , dip(h<-0.5)  . flat  ' rise(h<1.5)  n moderate(h<3)  ^ hill(h<5)  A high(h<7)  M peak(h>=7)")
 	lines.append("")
-	for i: int in range(50):
+	for i: int in range(COUNT):
 		var field := BattlefieldArea.generate_random()
 		if (i + 1) % 10 == 0:
-			print("  Generated %d/50..." % (i + 1))
+			print("  Generated %d/%d..." % [i + 1, COUNT])
 		lines.append("=".repeat(64))
-		lines.append("LEVEL %d - %s" % [i + 1, field.to_header_string()])
+		lines.append("LEVEL %d - %s" % [i + 1, BattlefieldRender.to_header_string(field)])
 		lines.append("Jagged: %d  |  Obstacles: %d  |  Buildings: %d  |  Corridors: %d" % [
 			field.jagged_cells.size(), field.obstacles.size(),
 			field.building_data.size(), field.reserved_corridor_cells.size()])

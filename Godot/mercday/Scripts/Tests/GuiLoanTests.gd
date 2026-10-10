@@ -1,20 +1,50 @@
 class_name GuiLoanTests
 
 #The loan formulas against the prototype figures, then the FinanceManager flow: requests carried
-#by envoys, the offers they come back with, the payments on the 15th and the two ways a loan ends.
-#Every case starts a fresh campaign with 1000 notes, which is the money the prototype worked from.
+#by envoys, the offers they come back with, the payments on each loan's own bill day and the two ways
+#a loan ends. Every case starts a fresh campaign with 1000 notes, which is the money the prototype worked
+#from; a new game holds no loans and no offers, so the cases that need some build them with _fresh_seeded.
 
 const MONEY: int = 1000
 const HOUR: int = CampaignClock.MINUTES_PER_HOUR
 const DAY: int = CampaignClock.MINUTES_PER_DAY
-#Day indexes of the 15th of the first five months: Daith, Ruadd, Kier, Helki and the 40 day Erta.
-const DAITH_15: int = 14
-const RUADD_15: int = 44
-const KIER_15: int = 74
+#Day indexes after the start on the 3rd of Erta (day 122); Erta and Orlin run 40 days.
+const ERTA_START: int = 122
+const ERTA_13: int = 132
+const ERTA_14: int = 133
 const ERTA_15: int = 134
+const KUSARRA_1: int = 160
+const KUSARRA_2: int = 161
+const KUSARRA_15: int = 174
+const KUSARRA_16: int = 175
+const URBAI_2: int = 191
+const URBAI_15: int = 204
+const ORLIN_2: int = 251
+const TEK_15: int = 304
 const SEED_PAY_1: int = 180
 const SEED_PAY_2: int = 150
 const SEED_BILL: int = SEED_PAY_1 + SEED_PAY_2
+#The ids the fixture loans take from FinanceManager.FIRST_LOAN_ID, in the order _seed_fixture adds them.
+const LOAN_1: int = 203
+const LOAN_2: int = 204
+const CLOSED_1: int = 205
+const CLOSED_2: int = 206
+const NEW_LOAN: int = 207
+#The fixture offers: what was asked, what came back and the hours each still stands.
+const FIXTURE_OFFERS: Array[Dictionary] = [
+	{"id": 101, "lender": "Lender 1", "amount": 1500, "rate": 0.08, "term": 6, "first_due": 2,
+		"team": [3], "odds": 71, "outcome": "exact", "approved": true, "offer_amount": 1500,
+		"offer_rate": 0.08, "offer_term": 6, "offer_first_due": 2, "hours": 90},
+	{"id": 102, "lender": "Lender 2", "amount": 1000, "rate": 0.12, "term": 6, "first_due": 2,
+		"team": [3, 8], "odds": 83, "outcome": "better", "approved": true, "offer_amount": 1200,
+		"offer_rate": 0.1, "offer_term": 6, "offer_first_due": 3, "hours": 30},
+	{"id": 103, "lender": "Lender 3", "amount": 4000, "rate": 0.25, "term": 12, "first_due": 3,
+		"team": [5], "odds": 34, "outcome": "worse", "approved": false, "offer_amount": 2800,
+		"offer_rate": 0.29, "offer_term": 12, "offer_first_due": 1, "hours": 8},
+	{"id": 104, "lender": "Lender 4", "amount": 2000, "rate": 0.14, "term": 12, "first_due": 2,
+		"team": [], "odds": 58, "outcome": "exact", "approved": true, "offer_amount": 2000,
+		"offer_rate": 0.14, "offer_term": 12, "offer_first_due": 2, "hours": 60},
+]
 
 
 static func run(host: Node) -> bool:
@@ -39,12 +69,16 @@ static func run(host: Node) -> bool:
 	_case_accept(res)
 	_case_reject(res)
 	_case_bill_day(res)
+	_case_own_bill_day(res)
 	_case_long_month(res)
 	_case_first_due(res)
 	_case_pay_off(res)
 	_case_history(res)
-	await _case_bevel_buttons(res, host)
-	await _case_filter_rows(res, host)
+	_case_seed_alerts(res)
+	_case_expired_escalation(res)
+	_case_offer_urgency(res)
+	_case_default_urgency(res)
+	_case_seeded_raises(res)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	FinanceManager.reset()
 	CampaignClock.reset()
@@ -59,6 +93,36 @@ static func _fresh() -> void:
 	_set_money(MONEY)
 	NotificationCenter.reset()
 	FinanceManager.reset()
+
+
+#A fresh campaign holding the prototype books: two running loans, two closed ones and four offers.
+static func _fresh_seeded() -> void:
+	_fresh()
+	_seed_fixture()
+
+
+#Loan 1 is taken today and bills on the day bill_day_from gives (the 2nd); loan 2 is pinned to the 15th.
+#Offers outside their last day are announced the way a landed offer is; 103 is left to escalate.
+static func _seed_fixture() -> void:
+	var first: LoanData = TestFixtures.add_loan("Lender 1", 2000, 0.08, 12, -1, LoanLogic.FIRST_DUE_MIN)
+	first.paid = 4
+	var second: LoanData = TestFixtures.add_loan("Lender 2", 800, 0.12, 6, 15, LoanLogic.FIRST_DUE_MIN)
+	second.paid = 1
+	var full: LoanData = TestFixtures.add_loan("Lender 2", 600, 0.12, 6, -1, LoanLogic.FIRST_DUE_MIN)
+	full.paid = 6
+	FinanceManager._close_loan(full, "Paid in Full", 672)
+	var early: LoanData = TestFixtures.add_loan("Lender 1", 1200, 0.08, 12, -1, LoanLogic.FIRST_DUE_MIN)
+	early.paid = 7
+	FinanceManager._close_loan(early, "Paid Off Early", 1263)
+	var now: int = CampaignClock.now()
+	for source: Dictionary in FIXTURE_OFFERS:
+		FinanceManager.offers.append(FinanceManager._make_offer(int(source["id"]), source,
+			now + int(source["hours"]) * HOUR))
+	for source: Dictionary in FIXTURE_OFFERS:
+		if float(source["hours"]) > FinanceManager.OFFER_URGENT_HOURS:
+			FinanceManager._push_offer(int(source["id"]))
+	FinanceManager.offers_changed.emit()
+	FinanceManager.loans_changed.emit()
 
 
 static func _set_money(amount: int) -> void:
@@ -81,11 +145,6 @@ static func _busy_now() -> Array[int]:
 	var out: Array[int] = GameState.busy_uids().duplicate()
 	out.sort()
 	return out
-
-
-#True when the busy list has not moved since the case took its own snapshot.
-static func _same_busy(before: Array[int]) -> bool:
-	return _busy_now() == before
 
 
 static func _draft(amount: int, term_idx: int, rate_mul: float, first_due: int) -> Dictionary:
@@ -331,7 +390,7 @@ static func _case_resolve(res: Dictionary) -> void:
 		"%d / %d" % [int(better["offer_term"]), int(worse["offer_term"])])
 
 
-#Case 9: the text and the colours the screens print.
+#The text and the colours the screens print.
 static func _case_text(res: Dictionary) -> void:
 	TestFixtures.check(res, "an offer deadline reads in days and hours",
 		LoanLogic.deadline_text(90.0) == "Offer Expires in 3 Days, 18 Hours",
@@ -344,25 +403,35 @@ static func _case_text(res: Dictionary) -> void:
 		and LoanLogic.deadline_color(30.0) == LoanLogic.DEADLINE_WARN
 		and LoanLogic.deadline_color(8.0) == LoanLogic.DEADLINE_LATE, "colours differ")
 	TestFixtures.check(res, "the odds colour follows the six prototype bands",
-		LoanLogic.odds_color(95) == Color("#3fae5a")
-		and LoanLogic.odds_color(71) == Color("#6cc36a")
-		and LoanLogic.odds_color(57) == Color("#5aa6e8")
-		and LoanLogic.odds_color(45) == Color("#f2b33d")
-		and LoanLogic.odds_color(30) == Color("#f28c28")
-		and LoanLogic.odds_color(10) == LoanLogic.ODDS_WORST, "colours differ")
+		LoanLogic.odds_color(95) == GuiColors.DEEP_GREEN
+		and LoanLogic.odds_color(71) == GuiColors.GREEN
+		and LoanLogic.odds_color(57) == GuiColors.LIGHT_BLUE
+		and LoanLogic.odds_color(45) == GuiColors.AMBER
+		and LoanLogic.odds_color(30) == GuiColors.ORANGE
+		and LoanLogic.odds_color(10) == GuiColors.RED, "colours differ")
 
 
-#Case 10: the seeded loans, closed loans and offers.
+#Case 10: a new game starts with empty books; the fixture loans, closed loans and offers read back.
 static func _case_seed(res: Dictionary) -> void:
 	_fresh()
+	TestFixtures.check(res, "a new game holds no loans, no closed loans, no offers and no requests",
+		FinanceManager.loans.is_empty() and FinanceManager.closed_loans.is_empty()
+		and FinanceManager.offers.is_empty() and FinanceManager.requests.is_empty()
+		and not FinanceManager.has_offers() and FinanceManager.monthly_loans() == 0,
+		"%d loans, %d closed, %d offers" % [FinanceManager.loans.size(),
+		FinanceManager.closed_loans.size(), FinanceManager.offers.size()])
+	_seed_fixture()
 	TestFixtures.check(res, "two loans run and two are closed",
 		FinanceManager.loans.size() == 2 and FinanceManager.closed_loans.size() == 2,
 		"%d loans, %d closed" % [FinanceManager.loans.size(),
 		FinanceManager.closed_loans.size()])
 	var first: LoanData = FinanceManager.loans[0]
 	TestFixtures.check(res, "the first loan owes 2000 over a year with four payments made",
-		first.id == 1 and first.principal == 2000 and first.months == 12 and first.paid == 4
-		and first.first_due == 0 and not first.is_closed(), "%s" % [first.to_row()])
+		first.id == LOAN_1 and first.principal == 2000 and first.months == 12 and first.paid == 4
+		and first.first_due == LoanLogic.FIRST_DUE_MIN and not first.is_closed(), "%s" % [first.to_row()])
+	TestFixtures.check(res, "a loan taken on the 3rd of Erta bills on the 2nd, a pinned one on the 15th",
+		first.bill_day == 2 and FinanceManager.loans[1].bill_day == 15,
+		"%d and %d" % [first.bill_day, FinanceManager.loans[1].bill_day])
 	TestFixtures.check(res, "the first loan pays 180 a month with eight months left",
 		FinanceManager.loan_payment(first) == SEED_PAY_1 and first.months_left() == 8,
 		"%d a month, %d left" % [FinanceManager.loan_payment(first), first.months_left()])
@@ -372,7 +441,7 @@ static func _case_seed(res: Dictionary) -> void:
 	TestFixtures.check(res, "a closed loan keeps how it ended and what it cost",
 		closed.closed_as == "Paid Off Early" and closed.paid_total == 1263,
 		"%s for %d" % [closed.closed_as, closed.paid_total])
-	TestFixtures.check(res, "seeding the loans leaves the bank alone",
+	TestFixtures.check(res, "adding loans without the accept path leaves the bank alone",
 		GameState.bank_notes == MONEY, "%d notes" % GameState.bank_notes)
 	TestFixtures.check(res, "four offers arrive unread",
 		FinanceManager.offers.size() == 4 and FinanceManager.has_offers(),
@@ -397,9 +466,17 @@ static func _case_seed(res: Dictionary) -> void:
 	TestFixtures.check(res, "the offer with three days left is announced once",
 		rows.size() == 1 and rows[0].urgency == NotificationData.Urgency.INFORMATIONAL
 		and rows[0].kind == "Finance", "%d rows" % rows.size())
-	TestFixtures.check(res, "an offer already inside its last three days is left to escalate",
-		NotificationCenter.rows_of(NotificationData.TYPE_LOAN_OFFER, 102).is_empty(),
-		"%d rows" % NotificationCenter.rows_of(NotificationData.TYPE_LOAN_OFFER, 102).size())
+	TestFixtures.check(res, "an offer already inside its last day is left to escalate",
+		NotificationCenter.rows_of(NotificationData.TYPE_LOAN_OFFER, 103).is_empty(),
+		"%d rows" % NotificationCenter.rows_of(NotificationData.TYPE_LOAN_OFFER, 103).size())
+	var announced: Array[int] = []
+	for id: int in [101, 102, 104]:
+		var notice: NotificationData = NotificationCenter.latest(NotificationData.TYPE_LOAN_OFFER, id)
+		var row_count: int = NotificationCenter.rows_of(NotificationData.TYPE_LOAN_OFFER, id).size()
+		if row_count == 1 and notice.alerted and notice.urgency == NotificationData.Urgency.INFORMATIONAL:
+			announced.append(id)
+	TestFixtures.check(res, "every offer outside its last day is announced once and alerted",
+		announced.size() == 3, "announced %s" % [announced])
 	var snap: Dictionary = FinanceManager.offer_snap(101)
 	TestFixtures.check(res, "the snap of an offer carries every pinned key",
 		snap.has("lender") and snap.has("amount") and snap.has("rate") and snap.has("term")
@@ -414,7 +491,7 @@ static func _case_seed(res: Dictionary) -> void:
 
 #Case 11: what the manager tells a lender screen.
 static func _case_lenders(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	var rows: Array[Dictionary] = FinanceManager.lenders()
 	TestFixtures.check(res, "eight lenders are listed with a standing, a rate, a cap and a road",
 		rows.size() == 8 and rows[0].has("name") and rows[0].has("rel") and rows[0].has("base")
@@ -464,7 +541,7 @@ static func _request(lender: String, team: Array[int], per: int) -> Dictionary:
 
 #Case 12: the requests the manager turns down.
 static func _case_refusals(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	var team: Array[int] = _uids(2)
 	var unknown: Dictionary = _request("Lender 5", team, 25)
 	unknown["lender"] = "Nobody"
@@ -490,7 +567,7 @@ static func _case_refusals(res: Dictionary) -> void:
 
 #Case 13: the envoys leave, the road takes 60 hours and they come back with an answer.
 static func _case_envoys(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	var team: Array[int] = _uids(2)
 	var req: Dictionary = _request("Lender 5", team, 25)
 	var sent: int = CampaignClock.now()
@@ -560,7 +637,7 @@ static func _case_no_envoys(res: Dictionary) -> void:
 		and FinanceManager.requests.size() == 1,
 		"%d notes, %d requests" % [GameState.bank_notes, FinanceManager.requests.size()])
 	TestFixtures.check(res, "nobody is away and nobody has a note",
-		_same_busy(busy_before) and FinanceManager.loan_note(_uids(1)[0]) == "",
+		_busy_now() == busy_before and FinanceManager.loan_note(_uids(1)[0]) == "",
 		"busy %s was %s" % [str(_busy_now()), str(busy_before)])
 	_tick_at(arrival)
 	var row: Dictionary = FinanceManager.offer(FinanceManager.FIRST_OFFER_ID)
@@ -578,7 +655,7 @@ static func _case_no_envoys(res: Dictionary) -> void:
 
 #Case 15: an offer nobody answered stays in the list, grayed out and marked expired.
 static func _case_expiry(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	var start: int = CampaignClock.now()
 	_tick_at(start + 9 * HOUR)
 	TestFixtures.check(res, "the offer with eight hours on it stays and is marked expired",
@@ -601,13 +678,11 @@ static func _case_expiry(res: Dictionary) -> void:
 		"%d offers, %d expired" % [FinanceManager.offers.size(), expired_count])
 
 
-#Case 15b: what an expired offer allows once it has been marked, and what Dismiss does to it.
-#Offer 103 has the shortest deadline (eight hours) of the four seeded offers, so ticking just
-#past it leaves 101, 102 and 104 live for the "still open" and "live offer" assertions. Only
-#offer 101 (ninety hours, at or above OFFER_HOURS) is announced at seed time, so the
-#notification-row checks run on it after a second tick past its own deadline.
+#What an expired offer allows once it has been marked, and what Dismiss does to it.
+#Offer 103 expires first, so ticking just past it leaves 101, 102 and 104 live. Offers 101, 102 and 104
+#are announced by the fixture and 103 is not; the notification-row checks run on 101 after its own deadline.
 static func _case_expired_offer(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	var row_103: Dictionary = FinanceManager.offer(103)
 	_tick_at(int(row_103["expires_minute"]) + 1)
 	TestFixtures.check(res, "hours_left never goes negative on an expired offer",
@@ -667,18 +742,22 @@ static func _case_expired_offer(res: Dictionary) -> void:
 
 #Case 16: taking an offer.
 static func _case_accept(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	TestFixtures.check(res, "an offer nobody has cannot be taken",
 		not FinanceManager.accept_offer(999) and FinanceManager.loans.size() == 2,
 		"%d loans" % FinanceManager.loans.size())
 	TestFixtures.check(res, "taking the first offer puts 1500 notes in the bank",
 		FinanceManager.accept_offer(101) and GameState.bank_notes == MONEY + 1500,
 		"%d notes" % GameState.bank_notes)
-	var loan: LoanData = FinanceManager.loan_by_id(FinanceManager.FIRST_LOAN_ID)
+	var loan: LoanData = FinanceManager.loan_by_id(NEW_LOAN)
 	TestFixtures.check(res, "the offer becomes a third loan on the offered terms",
 		FinanceManager.loans.size() == 3 and loan != null and loan.lender == "Lender 1"
 		and loan.principal == 1500 and _near(loan.rate, 0.08) and loan.months == 6
 		and loan.first_due == 2 and loan.paid == 0, "%s" % [loan.to_row() if loan != null else {}])
+	TestFixtures.check(res, "an offer taken on the 3rd of Erta bills on the 2nd",
+		loan != null and loan.bill_day == 2
+		and loan.bill_day == FinanceManager.bill_day_from(TrynnCalendar.day_index(CampaignClock.now())),
+		"bill day %d" % [loan.bill_day if loan != null else -1])
 	TestFixtures.check(res, "the third loan raises the monthly bill to 600",
 		FinanceManager.monthly_loans() == 600, "%d a month" % FinanceManager.monthly_loans())
 	TestFixtures.check(res, "taking one offer turns down every other offer",
@@ -690,14 +769,14 @@ static func _case_accept(res: Dictionary) -> void:
 		rows.size() == 1 and rows[0].read, "%d rows, read %s" % [rows.size(),
 		rows[0].read if rows.size() > 0 else false])
 	TestFixtures.check(res, "the loan starts today and is numbered above the closed ones",
-		loan.start_minute == CampaignClock.now() and loan.id == FinanceManager.FIRST_LOAN_ID
+		loan.start_minute == CampaignClock.now() and loan.id == NEW_LOAN
 		and loan.id > FinanceManager.closed_loans[1].id,
 		"loan %d at %d" % [loan.id, loan.start_minute])
 
 
 #Case 17: turning an offer down.
 static func _case_reject(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	FinanceManager.reject_offer(101)
 	TestFixtures.check(res, "turning an offer down leaves the other three standing",
 		FinanceManager.offers.size() == 3 and FinanceManager.offer(101).is_empty(),
@@ -715,54 +794,113 @@ static func _case_reject(res: Dictionary) -> void:
 		GameState.bank_notes == MONEY, "%d notes" % GameState.bank_notes)
 
 
-#Case 18: the payment that lands on the 15th of every month.
+#Case 18: each loan pays on its own bill day: loan 1 on the 2nd, loan 2 on the 15th, both from Kusarra on.
 static func _case_bill_day(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	FinanceManager.tick(CampaignClock.now())
 	TestFixtures.check(res, "the first tick of a campaign bills nothing",
 		GameState.bank_notes == MONEY and FinanceManager.loans[0].paid == 4,
 		"%d notes, %d paid" % [GameState.bank_notes, FinanceManager.loans[0].paid])
-	_tick_at(DAITH_15 * DAY)
-	TestFixtures.check(res, "the 15th of Daith takes 330 notes for the two loans",
-		GameState.bank_notes == MONEY - SEED_BILL, "%d notes" % GameState.bank_notes)
-	TestFixtures.check(res, "both loans count one more payment made",
-		FinanceManager.loans[0].paid == 5 and FinanceManager.loans[1].paid == 2,
-		"%d and %d" % [FinanceManager.loans[0].paid, FinanceManager.loans[1].paid])
-	_tick_at(DAITH_15 * DAY + 8 * HOUR)
+	_tick_at(ERTA_15 * DAY)
+	TestFixtures.check(res, "the 15th of Erta bills nothing, the first payment falls a month out",
+		GameState.bank_notes == MONEY and FinanceManager.loans[1].paid == 1,
+		"%d notes, %d paid" % [GameState.bank_notes, FinanceManager.loans[1].paid])
+	_tick_at(KUSARRA_2 * DAY)
+	TestFixtures.check(res, "the 2nd of Kusarra takes 180 for the loan that bills on the 2nd alone",
+		GameState.bank_notes == MONEY - SEED_PAY_1 and FinanceManager.loans[0].paid == 5
+		and FinanceManager.loans[1].paid == 1,
+		"%d notes, %d and %d paid" % [GameState.bank_notes, FinanceManager.loans[0].paid,
+		FinanceManager.loans[1].paid])
+	_tick_at(KUSARRA_2 * DAY + 8 * HOUR)
 	TestFixtures.check(res, "a second tick on the same day bills nothing again",
-		GameState.bank_notes == MONEY - SEED_BILL and FinanceManager.loans[0].paid == 5,
+		GameState.bank_notes == MONEY - SEED_PAY_1 and FinanceManager.loans[0].paid == 5,
 		"%d notes, %d paid" % [GameState.bank_notes, FinanceManager.loans[0].paid])
-	_tick_at(RUADD_15 * DAY)
-	TestFixtures.check(res, "the 15th of Ruadd takes the second payment",
-		GameState.bank_notes == MONEY - 2 * SEED_BILL and FinanceManager.loans[0].paid == 6,
-		"%d notes, %d paid" % [GameState.bank_notes, FinanceManager.loans[0].paid])
-	_fresh()
+	_tick_at(KUSARRA_15 * DAY)
+	TestFixtures.check(res, "the 15th of Kusarra takes 150 for the loan that bills on the 15th only",
+		GameState.bank_notes == MONEY - SEED_BILL and FinanceManager.loans[0].paid == 5
+		and FinanceManager.loans[1].paid == 2,
+		"%d notes, %d and %d paid" % [GameState.bank_notes, FinanceManager.loans[0].paid,
+		FinanceManager.loans[1].paid])
+	_fresh_seeded()
 	FinanceManager.tick(CampaignClock.now())
-	_tick_at((RUADD_15 + 15) * DAY)
-	TestFixtures.check(res, "a jump of 58 days bills every 15th it passed",
+	_tick_at(URBAI_15 * DAY)
+	TestFixtures.check(res, "a jump to the 15th of Urbai bills two 15ths and two 2nds",
 		GameState.bank_notes == MONEY - 2 * SEED_BILL
 		and FinanceManager.loans[0].paid == 6 and FinanceManager.loans[1].paid == 3,
 		"%d notes, %d and %d" % [GameState.bank_notes, FinanceManager.loans[0].paid,
 		FinanceManager.loans[1].paid])
 
 
-#Case 19: five months of payments, one of them 40 days long, and the loan that runs out.
-static func _case_long_month(res: Dictionary) -> void:
+#Case 18b: the bill day a loan keeps is the farther of the 2nd and the 15th, strictly ahead of the day taken.
+static func _case_own_bill_day(res: Dictionary) -> void:
+	var want: Dictionary = {ERTA_START: 2, ERTA_14: 2, ERTA_15: 15, KUSARRA_1: 15, KUSARRA_2: 2,
+		KUSARRA_16: 15}
+	var got: Dictionary = {}
+	for day: int in want:
+		got[day] = FinanceManager.bill_day_from(day)
+	TestFixtures.check(res, "the bill day is the farther of the 2nd and the 15th ahead of the day taken",
+		got == want, "%s" % [got])
 	_fresh()
+	_tick_at(KUSARRA_1 * DAY)
+	var added: LoanData = TestFixtures.add_loan("Lender 2", 800, 0.12, 6)
+	TestFixtures.check(res, "a loan taken on the 1st of Kusarra bills on the 15th",
+		added.bill_day == 15, "bill day %d" % added.bill_day)
+	_fresh()
+	_tick_at(ERTA_13 * DAY)
+	var sent: bool = FinanceManager.request_loan(_request("Lender 5", [] as Array[int], 0))
+	_tick_at(ERTA_13 * DAY + int(_lender(4)["away_hours"]) * HOUR)
+	var taken_day: int = TrynnCalendar.day_index(CampaignClock.now())
+	var took: bool = FinanceManager.accept_offer(FinanceManager.FIRST_OFFER_ID)
+	var loan: LoanData = FinanceManager.loan_by_id(FinanceManager.FIRST_LOAN_ID)
+	TestFixtures.check(res, "an offer taken on the 15th of Erta makes a loan that bills on the 15th",
+		sent and took and taken_day == ERTA_15 and loan != null and loan.bill_day == 15,
+		"sent %s, took %s on day %d, bill day %d" % [sent, took, taken_day,
+		loan.bill_day if loan != null else -1])
+	if loan == null:
+		return
+	var bank: int = GameState.bank_notes
+	var pay: int = FinanceManager.loan_payment(loan)
+	var due: int = FinanceManager.next_due_minute(loan.id)
+	var due_day: int = TrynnCalendar.day_index(due)
+	TestFixtures.check(res, "its first payment is due on a 15th",
+		int(TrynnCalendar.date_of(due)["day"]) == 15 and due_day > taken_day,
+		"due on day %d" % due_day)
+	_tick_at((due_day - 13) * DAY)
+	TestFixtures.check(res, "the 2nd of the month it is due in bills nothing",
+		loan.paid == 0 and GameState.bank_notes == bank, "%d paid, %d notes" % [loan.paid,
+		GameState.bank_notes])
+	_tick_at(due)
+	TestFixtures.check(res, "its own day takes one payment",
+		loan.paid == 1 and GameState.bank_notes == bank - pay,
+		"%d paid, %d notes" % [loan.paid, GameState.bank_notes])
+	var next_2nd: int = TrynnCalendar.next_day_on(due_day, 2)
+	_tick_at(next_2nd * DAY)
+	TestFixtures.check(res, "the 2nd after it bills nothing",
+		loan.paid == 1 and GameState.bank_notes == bank - pay,
+		"%d paid, %d notes" % [loan.paid, GameState.bank_notes])
+	_tick_at(TrynnCalendar.next_day_on(next_2nd, 15) * DAY)
+	TestFixtures.check(res, "the next 15th takes the second payment",
+		loan.paid == 2 and GameState.bank_notes == bank - 2 * pay,
+		"%d paid, %d notes" % [loan.paid, GameState.bank_notes])
+
+
+#Case 19: five payments of each loan, two of the months 40 days long, and the loan that runs out.
+static func _case_long_month(res: Dictionary) -> void:
+	_fresh_seeded()
 	FinanceManager.tick(CampaignClock.now())
-	_tick_at(ERTA_15 * DAY)
-	TestFixtures.check(res, "five 15ths passed and five payments were taken for each loan",
+	_tick_at(TEK_15 * DAY)
+	TestFixtures.check(res, "five 15ths and five 2nds passed and five payments were taken for each loan",
 		GameState.bank_notes == MONEY - 5 * SEED_BILL, "%d notes" % GameState.bank_notes)
 	TestFixtures.check(res, "the loans keep paying after the bank runs dry",
 		GameState.bank_notes < 0, "%d notes" % GameState.bank_notes)
 	TestFixtures.check(res, "the six month loan is paid off and closed",
 		FinanceManager.loans.size() == 1 and FinanceManager.closed_loans.size() == 3
-		and FinanceManager.loan_by_id(2) == null,
+		and FinanceManager.loan_by_id(LOAN_2) == null,
 		"%d loans, %d closed" % [FinanceManager.loans.size(),
 		FinanceManager.closed_loans.size()])
 	var closed: LoanData = FinanceManager.closed_loans[2]
 	TestFixtures.check(res, "the closed loan says it was paid in full and what it cost",
-		closed.id == 2 and closed.closed_as == "Paid in Full"
+		closed.id == LOAN_2 and closed.closed_as == "Paid in Full"
 		and closed.paid_total == SEED_PAY_2 * 6 and closed.paid == 6,
 		"%s for %d" % [closed.closed_as, closed.paid_total])
 	TestFixtures.check(res, "the year long loan has nine of its twelve payments made",
@@ -771,28 +909,35 @@ static func _case_long_month(res: Dictionary) -> void:
 		"%d paid, %d a month" % [FinanceManager.loans[0].paid, FinanceManager.monthly_loans()])
 
 
-#Case 20: a loan with two months of grace pays nothing until its month comes.
+#Case 20: a loan with two months of grace pays nothing until its month comes, on the 2nd it keeps.
 static func _case_first_due(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	FinanceManager.tick(CampaignClock.now())
 	FinanceManager.loans.clear()
 	FinanceManager.accept_offer(101)
-	var loan: LoanData = FinanceManager.loan_by_id(FinanceManager.FIRST_LOAN_ID)
+	var loan: LoanData = FinanceManager.loan_by_id(NEW_LOAN)
 	var bank: int = GameState.bank_notes
 	TestFixtures.check(res, "the new loan is the only one and waits two months",
 		FinanceManager.loans.size() == 1 and loan != null and loan.first_due == 2
-		and bank == MONEY + 1500, "%d loans, %d notes" % [FinanceManager.loans.size(), bank])
-	_tick_at(DAITH_15 * DAY)
-	TestFixtures.check(res, "the 15th of the month it was taken in asks for nothing",
+		and loan.bill_day == 2 and bank == MONEY + 1500,
+		"%d loans, %d notes" % [FinanceManager.loans.size(), bank])
+	if loan == null:
+		return
+	_tick_at(ERTA_15 * DAY)
+	TestFixtures.check(res, "the month it was taken in asks for nothing",
 		loan.paid == 0 and GameState.bank_notes == bank, "%d paid" % loan.paid)
-	_tick_at(RUADD_15 * DAY)
-	TestFixtures.check(res, "the 15th of the next month asks for nothing either",
+	_tick_at(KUSARRA_15 * DAY)
+	TestFixtures.check(res, "the next month asks for nothing either",
 		loan.paid == 0 and GameState.bank_notes == bank, "%d paid" % loan.paid)
-	_tick_at(KIER_15 * DAY)
-	TestFixtures.check(res, "the third month takes the first payment of 270",
+	_tick_at(URBAI_2 * DAY)
+	TestFixtures.check(res, "the 2nd of the third month takes the first payment of 270",
 		loan.paid == 1 and GameState.bank_notes == bank - 270,
 		"%d paid, %d notes" % [loan.paid, GameState.bank_notes])
-	_tick_at(ERTA_15 * DAY)
+	_tick_at(URBAI_15 * DAY)
+	TestFixtures.check(res, "the 15th of that month takes nothing",
+		loan.paid == 1 and GameState.bank_notes == bank - 270,
+		"%d paid, %d notes" % [loan.paid, GameState.bank_notes])
+	_tick_at(ORLIN_2 * DAY)
 	TestFixtures.check(res, "the months after it keep taking one payment each",
 		loan.paid == 3 and GameState.bank_notes == bank - 810,
 		"%d paid, %d notes" % [loan.paid, GameState.bank_notes])
@@ -800,24 +945,24 @@ static func _case_first_due(res: Dictionary) -> void:
 
 #Case 21: clearing a loan early.
 static func _case_pay_off(res: Dictionary) -> void:
-	_fresh()
+	_fresh_seeded()
 	TestFixtures.check(res, "clearing the first loan costs 1334 notes",
-		FinanceManager.payoff_amount(1) == 1334 and FinanceManager.payoff_amount(999) == 0,
-		"%d notes" % FinanceManager.payoff_amount(1))
+		FinanceManager.payoff_amount(LOAN_1) == 1334 and FinanceManager.payoff_amount(999) == 0,
+		"%d notes" % FinanceManager.payoff_amount(LOAN_1))
 	TestFixtures.check(res, "a guild that cannot pay the rest keeps the loan",
-		not FinanceManager.pay_off(1) and FinanceManager.loans.size() == 2
+		not FinanceManager.pay_off(LOAN_1) and FinanceManager.loans.size() == 2
 		and GameState.bank_notes == MONEY,
 		"%d loans, %d notes" % [FinanceManager.loans.size(), GameState.bank_notes])
 	TestFixtures.check(res, "a loan nobody has cannot be cleared",
 		not FinanceManager.pay_off(999), "it cleared")
 	_set_money(2000)
 	TestFixtures.check(res, "paying the rest clears the loan and takes the notes",
-		FinanceManager.pay_off(1) and GameState.bank_notes == 2000 - 1334
-		and FinanceManager.loans.size() == 1 and FinanceManager.loan_by_id(1) == null,
+		FinanceManager.pay_off(LOAN_1) and GameState.bank_notes == 2000 - 1334
+		and FinanceManager.loans.size() == 1 and FinanceManager.loan_by_id(LOAN_1) == null,
 		"%d notes, %d loans" % [GameState.bank_notes, FinanceManager.loans.size()])
 	var closed: LoanData = FinanceManager.closed_loans[2]
 	TestFixtures.check(res, "the closed loan says it was paid off early and what it cost",
-		closed.id == 1 and closed.closed_as == "Paid Off Early"
+		closed.id == LOAN_1 and closed.closed_as == "Paid Off Early"
 		and closed.paid_total == SEED_PAY_1 * 4 + 1334 and closed.is_closed(),
 		"%s for %d" % [closed.closed_as, closed.paid_total])
 	TestFixtures.check(res, "only the other loan is still billed",
@@ -827,8 +972,8 @@ static func _case_pay_off(res: Dictionary) -> void:
 
 #Case 22: the payment history of a loan, when the next payment lands and the unread mark.
 static func _case_history(res: Dictionary) -> void:
-	_fresh()
-	var rows: Array[Dictionary] = FinanceManager.payment_rows(1)
+	_fresh_seeded()
+	var rows: Array[Dictionary] = FinanceManager.payment_rows(LOAN_1)
 	TestFixtures.check(res, "a running loan lists one payment row per month",
 		rows.size() == 12, "%d rows" % rows.size())
 	TestFixtures.check(res, "the last payment sent says so and what is left after it",
@@ -840,30 +985,30 @@ static func _case_history(res: Dictionary) -> void:
 		and int(rows[4]["after"]) == 1260, "%s" % [rows[4]["label"]])
 	TestFixtures.check(res, "a loan nobody has has no payment rows",
 		FinanceManager.payment_rows(999).is_empty(), "rows came back")
-	var full: Array[Dictionary] = FinanceManager.payment_rows(201)
+	var full: Array[Dictionary] = FinanceManager.payment_rows(CLOSED_1)
 	TestFixtures.check(res, "a loan paid in full ends on its last payment",
 		full.size() == 6 and String(full[5]["label"]) == "Payment 6 Sent"
 		and int(full[5]["after"]) == 0 and not bool(full[5]["future"]),
 		"%d rows ending %s" % [full.size(), full[5]["label"]])
-	var early: Array[Dictionary] = FinanceManager.payment_rows(202)
+	var early: Array[Dictionary] = FinanceManager.payment_rows(CLOSED_2)
 	TestFixtures.check(res, "a loan cleared early ends on the payoff it took",
 		early.size() == 8 and String(early[7]["label"]) == "Payoff Sent"
 		and int(early[7]["amount"]) == 507 and int(early[7]["after"]) == 0,
 		"%d rows ending %s for %d" % [early.size(), early[7]["label"], int(early[7]["amount"])])
 	TestFixtures.check(res, "the next payment of a running loan is still ahead",
-		FinanceManager.next_due_minute(1) > CampaignClock.now()
-		and FinanceManager.next_due_text(1).begins_with("in "),
-		FinanceManager.next_due_text(1))
+		FinanceManager.next_due_minute(LOAN_1) > CampaignClock.now()
+		and FinanceManager.next_due_text(LOAN_1).begins_with("in "),
+		FinanceManager.next_due_text(LOAN_1))
 	TestFixtures.check(res, "a loan that ended has no next payment",
-		FinanceManager.next_due_minute(201) == -1 and FinanceManager.next_due_text(201) == ""
-		and FinanceManager.next_due_text(999) == "", FinanceManager.next_due_text(201))
+		FinanceManager.next_due_minute(CLOSED_1) == -1 and FinanceManager.next_due_text(CLOSED_1) == ""
+		and FinanceManager.next_due_text(999) == "", FinanceManager.next_due_text(CLOSED_1))
 	TestFixtures.check(res, "an offer nobody has is never unread",
 		not FinanceManager.offer_unread(999), "it read unread")
 	TestFixtures.check(res, "an offer with an unread notice reads unread",
-		FinanceManager.offer_unread(101) and FinanceManager.offer_unread(102), "both unread")
-	FinanceManager.mark_offer_seen(102)
+		FinanceManager.offer_unread(101) and FinanceManager.offer_unread(103), "both unread")
+	FinanceManager.mark_offer_seen(103)
 	TestFixtures.check(res, "marking an offer seen clears its own unread mark",
-		not FinanceManager.offer_unread(102), "still unread")
+		not FinanceManager.offer_unread(103), "still unread")
 	FinanceManager.mark_offer_seen(101)
 	TestFixtures.check(res, "an unread notice keeps the offer unread anyway",
 		FinanceManager.offer_unread(101), "the notice was ignored")
@@ -872,71 +1017,148 @@ static func _case_history(res: Dictionary) -> void:
 		FinanceManager.offers.size() == 4, "%d offers" % FinanceManager.offers.size())
 
 
-#Item 11: the page button builder hands back the core action button, shaded as the caller asked.
-static func _case_bevel_buttons(res: Dictionary, host: Node) -> void:
-	var node: Button = LoanStyle.button("Accept", LoanStyle.GREEN, LoanStyle.CREAM, 26.0)
-	host.add_child(node)
-	await host.get_tree().process_frame
-	var core: BevelButton = node as BevelButton
-	TestFixtures.check(res, "a loans page button is the one core action button scene",
-		core != null and core.scene_file_path == BevelButton.SCENE_PATH,
-		"scene '%s'" % (core.scene_file_path if core != null else "not a BevelButton"))
-	if core == null:
-		node.queue_free()
-		return
-	TestFixtures.check(res, "the builder keeps the caller's text, height and label colour",
-		core.text == "Accept" and is_equal_approx(core.custom_minimum_size.y, 26.0)
-		and core.text_color == LoanStyle.CREAM,
-		"'%s' %.1f %s" % [core.text, core.custom_minimum_size.y, core.text_color.to_html(false)])
-	TestFixtures.check(res, "the builder shades the button from the fill it was handed",
-		core.fill == LoanStyle.GREEN and core.hi == LoanStyle.GREEN.lightened(0.25)
-		and core.lo == LoanStyle.GREEN.darkened(0.35),
-		"%s %s %s" % [core.fill.to_html(false), core.hi.to_html(false), core.lo.to_html(false)])
-	var empty: bool = true
-	for state: StringName in [&"normal", &"hover", &"pressed", &"disabled", &"focus"]:
-		if not (core.get_theme_stylebox(state) is StyleBoxEmpty):
-			empty = false
-	TestFixtures.check(res, "the button carries no style resource of its own any more",
-		empty, "a state still wears a StyleBoxFlat")
-	node.queue_free()
+#Case 23: a new game opens no offers, so nothing escalates, and an offer the envoys bring back alerts on arrival.
+static func _case_seed_alerts(res: Dictionary) -> void:
+	_fresh()
+	FinanceManager._register_rule()
+	var alerts: Array[int] = []
+	var on_alert: Callable = func(alerted_row: NotificationData) -> void: alerts.append(alerted_row.trigger_id)
+	NotificationCenter.alerted.connect(on_alert)
+	NotificationCenter.escalate(CampaignClock.now())
+	TestFixtures.check(res, "a new game has no offer to escalate and raises no offer row",
+		FinanceManager.offers.is_empty() and alerts.is_empty()
+		and NotificationCenter.latest(NotificationData.TYPE_LOAN_OFFER, FinanceManager.FIRST_OFFER_ID) == null,
+		"%d offers, alerted %s" % [FinanceManager.offers.size(), alerts])
+	var team: Array[int] = _uids(2)
+	var arrival: int = CampaignClock.now() + int(_lender(4)["away_hours"]) * HOUR
+	var sent: bool = FinanceManager.request_loan(_request("Lender 5", team, 25))
+	_tick_at(arrival)
+	var landed: NotificationData = NotificationCenter.latest(NotificationData.TYPE_LOAN_OFFER,
+		FinanceManager.FIRST_OFFER_ID)
+	TestFixtures.check(res, "an offer the envoys bring back alerts on arrival",
+		sent and landed != null and landed.alerted and alerts.has(FinanceManager.FIRST_OFFER_ID),
+		"sent %s, alerted %s" % [sent, alerts])
+	NotificationCenter.alerted.disconnect(on_alert)
 
 
-#Item 12: the filter switches are the shared check row, with no outline and no hover shift.
-static func _case_filter_rows(res: Dictionary, host: Node) -> void:
-	var scene: PackedScene = load(LoanFilterPopup.SCENE_PATH) as PackedScene
-	var popup: LoanFilterPopup = scene.instantiate() as LoanFilterPopup
-	host.add_child(popup)
-	await host.get_tree().process_frame
-	var row: FilterCheckRow = popup.request_row()
-	var expired: FilterCheckRow = popup.expired_row()
-	TestFixtures.check(res, "both filter switches are the shared filter check row",
-		row != null and expired != null, "requests %s expired %s" % [row != null, expired != null])
-	if row == null or expired == null:
-		popup.queue_free()
-		return
-	TestFixtures.check(res, "each row wears its own label and starts ticked",
-		row.label == LoanFilterPopup.CHECK_TEXT and row.text == LoanFilterPopup.CHECK_TEXT
-		and expired.label == LoanFilterPopup.EXPIRED_CHECK_TEXT and row.on and expired.on,
-		"'%s' '%s'" % [row.text, expired.text])
-	var static_look: bool = true
-	var left: float = row.get_theme_stylebox(&"normal").get_margin(SIDE_LEFT)
-	for state: StringName in [&"normal", &"hover", &"pressed", &"hover_pressed", &"focus"]:
-		var box: StyleBox = row.get_theme_stylebox(state)
-		if not (box is StyleBoxEmpty) or not is_equal_approx(box.get_margin(SIDE_LEFT), left):
-			static_look = false
-	TestFixtures.check(res, "the row holds its label still and draws no outline in any state",
-		static_look and is_equal_approx(left, FilterCheckRow.TEXT_MARGIN), "%.1f left" % left)
-	var toggles: Array[bool] = []
-	popup.requests_toggled.connect(func(on: bool) -> void: toggles.append(on))
-	var expiries: Array[bool] = []
-	popup.expired_toggled.connect(func(on: bool) -> void: expiries.append(on))
-	popup.toggle_requests(false)
-	popup.toggle_expired(false)
-	TestFixtures.check(res, "toggling a row once tells the page once and reads back off",
-		toggles == [false] and expiries == [false] and not popup.show_requests()
-		and not popup.show_expired(), "%s %s" % [toggles, expiries])
-	popup.set_state(true, true, {}, {})
-	TestFixtures.check(res, "set_state writes both rows back on without telling the page",
-		popup.show_requests() and popup.show_expired() and row.on and expired.on
-		and toggles == [false] and expiries == [false], "%s %s" % [toggles, expiries])
-	popup.queue_free()
+#Case 24: an offer that expires leaves the escalation pass, so its read urgent row never re-fires or alerts.
+static func _case_expired_escalation(res: Dictionary) -> void:
+	_fresh_seeded()
+	FinanceManager._register_rule()
+	var expiry: int = int(FinanceManager.offer(101)["expires_minute"])
+	_tick_at(expiry - 12 * HOUR)
+	NotificationCenter.escalate(CampaignClock.now())
+	var urgent: NotificationData = NotificationCenter.latest(NotificationData.TYPE_LOAN_OFFER, 101)
+	_tick_at(expiry + 1)
+	var alerts: Array[int] = []
+	var on_alert: Callable = func(alerted_row: NotificationData) -> void: alerts.append(alerted_row.trigger_id)
+	NotificationCenter.alerted.connect(on_alert)
+	NotificationCenter.escalate(CampaignClock.now())
+	var rows: Array[NotificationData] = NotificationCenter.rows_of(
+		NotificationData.TYPE_LOAN_OFFER, 101)
+	TestFixtures.check(res, "at its deadline an expired offer keeps one read urgent row and alerts nothing",
+		urgent != null and urgent.urgency == NotificationData.Urgency.URGENT and alerts.is_empty()
+		and rows.size() == 1 and rows[0] == urgent and urgent.read,
+		"alerts %s, %d rows" % [alerts, rows.size()])
+	_tick_at(CampaignClock.now() + NotificationCenter.REFIRE_MINUTES)
+	NotificationCenter.escalate(CampaignClock.now())
+	rows = NotificationCenter.rows_of(NotificationData.TYPE_LOAN_OFFER, 101)
+	TestFixtures.check(res, "eight hours on the expired offer is still listed and its read row never re-fires",
+		alerts.is_empty() and rows.size() == 1 and rows[0] == urgent and urgent.read
+		and FinanceManager.offers.size() == 4 and FinanceManager.offer_expired(101),
+		"alerts %s, %d rows, %d offers" % [alerts, rows.size(), FinanceManager.offers.size()])
+	NotificationCenter.alerted.disconnect(on_alert)
+
+
+#Case 25: an offer notice goes urgent inside its last 24 hours, where other notices use 72, and that raise alerts.
+static func _case_offer_urgency(res: Dictionary) -> void:
+	_fresh()
+	FinanceManager._register_rule()
+	var team: Array[int] = _uids(2)
+	var arrival: int = CampaignClock.now() + int(_lender(4)["away_hours"]) * HOUR
+	var sent: bool = FinanceManager.request_loan(_request("Lender 5", team, 25))
+	_tick_at(arrival)
+	var id: int = FinanceManager.FIRST_OFFER_ID
+	var landed: NotificationData = NotificationCenter.latest(NotificationData.TYPE_LOAN_OFFER, id)
+	var expiry: int = int(FinanceManager.offer(id).get("expires_minute", arrival))
+	var alerts: Array[int] = []
+	var on_alert: Callable = func(alerted_row: NotificationData) -> void:
+		if alerted_row.type == NotificationData.TYPE_LOAN_OFFER:
+			alerts.append(alerted_row.trigger_id)
+	NotificationCenter.alerted.connect(on_alert)
+	_tick_at(expiry - 30 * HOUR)
+	NotificationCenter.escalate(CampaignClock.now())
+	TestFixtures.check(res, "an offer with 30 hours left stays informational and alerts nothing",
+		sent and landed != null and landed.urgency == NotificationData.Urgency.INFORMATIONAL
+		and NotificationCenter.latest(NotificationData.TYPE_LOAN_OFFER, id) == landed and alerts.is_empty(),
+		"sent %s, %.1f hours left, alerted %s" % [sent, FinanceManager.hours_left(id), alerts])
+	_tick_at(expiry - 23 * HOUR)
+	NotificationCenter.escalate(CampaignClock.now())
+	var rows: Array[NotificationData] = NotificationCenter.rows_of(NotificationData.TYPE_LOAN_OFFER, id)
+	TestFixtures.check(res, "at 23 hours left the offer goes urgent in one row with one alert",
+		rows.size() == 1 and rows[0].urgency == NotificationData.Urgency.URGENT
+		and alerts.size() == 1 and alerts[0] == id, "%d rows, alerted %s" % [rows.size(), alerts])
+	NotificationCenter.alerted.disconnect(on_alert)
+
+
+#Case 26: a notice rule that sets no urgent_hours keeps the 72 hour default.
+static func _case_default_urgency(res: Dictionary) -> void:
+	_fresh()
+	var probe: StringName = &"loanTestProbe"
+	var table: Dictionary = {1: 72.0, 2: 50.0}
+	var open_fn: Callable = func() -> Array: return table.keys()
+	var hours_fn: Callable = func(trigger: int) -> float: return float(table.get(trigger, 100.0))
+	var alerts: Array[int] = []
+	var on_alert: Callable = func(alerted_row: NotificationData) -> void:
+		if alerted_row.type == probe:
+			alerts.append(alerted_row.trigger_id)
+	NotificationCenter.alerted.connect(on_alert)
+	NotificationCenter.add_rule(probe, {"open": open_fn, "hours_left": hours_fn,
+		"kind": FinanceManager.KIND_FINANCE})
+	NotificationCenter.escalate(CampaignClock.now())
+	var far: NotificationData = NotificationCenter.latest(probe, 1)
+	var near: NotificationData = NotificationCenter.latest(probe, 2)
+	TestFixtures.check(res, "a rule without urgent_hours raises at 50 hours left and leaves 72 hours alone",
+		far == null and near != null and near.urgency == NotificationData.Urgency.URGENT
+		and alerts.size() == 1 and alerts[0] == 2,
+		"far %s, near %s, alerted %s" % [far != null, near != null, alerts])
+	NotificationCenter.alerted.disconnect(on_alert)
+	NotificationCenter.remove_rule(probe)
+
+
+#Case 27: every offer goes urgent inside its last day with an alert, and a read urgent row re-fires with another.
+static func _case_seeded_raises(res: Dictionary) -> void:
+	_fresh_seeded()
+	FinanceManager._register_rule()
+	var lead: int = (int(FinanceManager.OFFER_URGENT_HOURS) - 1) * HOUR
+	var raise_at: Array[int] = []
+	for offer_row: Dictionary in FinanceManager.offers:
+		raise_at.append(maxi(CampaignClock.now(), int(offer_row["expires_minute"]) - lead))
+	raise_at.sort()
+	var alerts: Array[int] = []
+	var on_alert: Callable = func(alerted_row: NotificationData) -> void:
+		if alerted_row.type == NotificationData.TYPE_LOAN_OFFER:
+			alerts.append(alerted_row.trigger_id)
+	NotificationCenter.alerted.connect(on_alert)
+	for minute: int in raise_at:
+		_tick_at(minute)
+		NotificationCenter.escalate(CampaignClock.now())
+	var raised: Array[int] = []
+	for id: int in [101, 102, 103, 104]:
+		var row: NotificationData = NotificationCenter.latest(NotificationData.TYPE_LOAN_OFFER, id)
+		if row != null and row.alerted and row.urgency == NotificationData.Urgency.URGENT:
+			raised.append(id)
+	var sorted_alerts: Array[int] = alerts.duplicate()
+	sorted_alerts.sort()
+	var all_four: Array[int] = [101, 102, 103, 104]
+	TestFixtures.check(res, "each fixture offer goes urgent inside its last day with one alert",
+		raised.size() == 4 and sorted_alerts == all_four,
+		"raised %s, alerted %s" % [raised, alerts])
+	var urgent: NotificationData = NotificationCenter.latest(NotificationData.TYPE_LOAN_OFFER, 101)
+	if urgent != null:
+		NotificationCenter.mark_read(urgent.id)
+	_tick_at(CampaignClock.now() + NotificationCenter.REFIRE_MINUTES)
+	NotificationCenter.escalate(CampaignClock.now())
+	TestFixtures.check(res, "a read urgent offer row re-fires with an alert of its own",
+		alerts.size() == 5 and alerts[4] == 101, "alerted %s" % [alerts])
+	NotificationCenter.alerted.disconnect(on_alert)

@@ -17,3 +17,4 @@ possible_locations = Array[String]([])
 enemy = "Bandit Leader, Bandit Melee, Bandit Ranged"
 enemy_counter = "max(2, party.merc_count * difficulty_factor)"
 map_rule = "Dungeon"
+fail_ends_contract = false

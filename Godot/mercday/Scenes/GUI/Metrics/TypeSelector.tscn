@@ -1,10 +1,14 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Metrics/TypeSelector.gd" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/DropPanel.gd" id="dp"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="2"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_TypeSelector.tres" id="3"]
 
 [node name="TypeSelector" type="Button"]
 custom_minimum_size = Vector2(0, 44)
 script = ExtResource("1")
+popup_width = 260
 
 [node name="Row" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -37,8 +41,9 @@ clip_text = true
 text_overrun_behavior = 3
 text = "Showing totals across every type"
 
-[node name="Menu" type="PopupPanel" parent="."]
-size = Vector2i(260, 120)
+[node name="Menu" type="PanelContainer" parent="."]
+visible = false
+script = ExtResource("dp")
 
 [node name="Margin" type="MarginContainer" parent="Menu"]
 theme_override_constants/margin_left = 8
@@ -49,3 +54,7 @@ theme_override_constants/margin_bottom = 8
 [node name="List" type="VBoxContainer" parent="Menu/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 2
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("2")
+hint = ExtResource("3")

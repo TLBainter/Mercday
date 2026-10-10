@@ -27,7 +27,7 @@ static func fit(frame: Control, backdrop: Control, box: Control) -> void:
 	hook.bind(frame, backdrop, box)
 
 
-#The hook of a frame, for a caller that wants to re-fit it by hand.
+#Test probe: the hook of a frame, for a caller that wants to re-fit it by hand.
 static func hook_of(frame: Control) -> ModalFrame:
 	if frame == null or not frame.has_meta(HOOK_META):
 		return null
@@ -83,7 +83,7 @@ func _place_box(view_size: Vector2, band: float) -> void:
 	var wanted: Vector2 = _box.size.max(_box.get_combined_minimum_size())
 	_box.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_box.size = wanted
-	_box.position = Vector2((view_size.x - wanted.x) / 2.0, (band - wanted.y) / 2.0)
+	_box.position = Vector2(floorf((view_size.x - wanted.x) / 2.0), maxf(floorf((band - wanted.y) / 2.0), 0.0))
 
 
 func _on_resized() -> void:

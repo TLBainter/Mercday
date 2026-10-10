@@ -62,10 +62,10 @@ var _search_active: bool = false
 
 func _ready() -> void:
 	custom_minimum_size.x = PANEL_WIDTH
-	add_theme_stylebox_override("panel", BazaarUi.flat(BazaarUi.NAVY, 2, BazaarUi.BLUE, 12.0))
-	_scroll = BazaarUi.scroll()
+	add_theme_stylebox_override("panel", GuiStyle.flat(GuiColors.ROW_FILL, 2, GuiColors.BLUE_LO, 12.0))
+	_scroll = GuiStyle.scroll()
 	add_child(_scroll)
-	_rows = BazaarUi.vbox(SECTION_GAP)
+	_rows = GuiStyle.vbox(SECTION_GAP)
 	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_rows)
 	refresh()
@@ -222,15 +222,13 @@ func refresh(q: Dictionary = {}) -> void:
 	var full: Dictionary = q if not q.is_empty() else query()
 	_search_active = str(full.get("search", "")) != ""
 	_syncing = true
-	for child: Node in _rows.get_children():
-		_rows.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(_rows)
 	_build_department(full)
 	_build_type(full)
 	_build_price(full)
 	_build_rarity(full)
 	if any_active() or _search_active:
-		var link: Button = BazaarUi.link(CLEAR_TEXT, BazaarUi.SKY, LINK_SIZE)
+		var link: Button = BazaarUi.link(CLEAR_TEXT, GuiColors.SKY, LINK_SIZE)
 		link.pressed.connect(_on_clear_pressed)
 		_rows.add_child(link)
 	_syncing = false
@@ -248,7 +246,7 @@ func _all_rows() -> Array[Node]:
 func _build_department(q: Dictionary) -> void:
 	_rows.add_child(_head("Department", "department_head"))
 	var counts: Dictionary = BazaarManager.option_counts(q, &"department")
-	var group: VBoxContainer = BazaarUi.vbox(ROW_GAP)
+	var group: VBoxContainer = GuiStyle.vbox(ROW_GAP)
 	_rows.add_child(group)
 	group.add_child(_pick_row(ALL_LABEL, "", int(counts.get("", 0)), department_key() == "", false))
 	for dept: Dictionary in BazaarManager.DEPARTMENTS:
@@ -261,15 +259,15 @@ func _build_type(q: Dictionary) -> void:
 	var dept: String = department_key()
 	if dept == "":
 		return
-	_rows.add_child(_head("%s Type" % _dept_label(dept), "type_head"))
+	_rows.add_child(_head("%s Type" % BazaarUi.dept_label(dept), "type_head"))
 	var counts: Dictionary = BazaarManager.option_counts(q, &"subtype")
 	var held: Array[String] = checked_subtypes()
-	var group: VBoxContainer = BazaarUi.vbox(ROW_GAP)
+	var group: VBoxContainer = GuiStyle.vbox(ROW_GAP)
 	_rows.add_child(group)
 	for key: Variant in counts:
 		var subtype: String = str(key)
 		var row: FilterCheckRow = _check_row(subtype, held.has(subtype), int(counts[key]),
-			BazaarUi.CREAM)
+			GuiColors.CREAM)
 		group.add_child(row)
 		row.toggled.connect(_on_subtype_toggled.bind(subtype))
 
@@ -277,21 +275,21 @@ func _build_type(q: Dictionary) -> void:
 func _build_price(q: Dictionary) -> void:
 	_rows.add_child(_head("Price", "price_head"))
 	var counts: Dictionary = BazaarManager.option_counts(q, &"price")
-	var group: VBoxContainer = BazaarUi.vbox(ROW_GAP)
+	var group: VBoxContainer = GuiStyle.vbox(ROW_GAP)
 	_rows.add_child(group)
 	for row_def: Dictionary in BazaarManager.PRICE_PRESETS:
 		var key: StringName = row_def["key"] as StringName
 		var picked: bool = not custom_active() and price_preset == key
 		group.add_child(_pick_row(str(row_def["label"]), str(key), int(counts.get(key, 0)),
 			picked, true))
-	var custom: HBoxContainer = BazaarUi.hbox(6)
+	var custom: HBoxContainer = GuiStyle.hbox(6)
 	_rows.add_child(custom)
 	_min_field = _number_field(MIN_HINT, price_custom.x)
 	custom.add_child(_min_field)
-	custom.add_child(BazaarUi.body("-", LABEL_SIZE, BazaarUi.MUTED))
+	custom.add_child(GuiStyle.label("-", GuiStyle.BODY, LABEL_SIZE, GuiColors.MUTED))
 	_max_field = _number_field(MAX_HINT, price_custom.y)
 	custom.add_child(_max_field)
-	var go: Button = BazaarUi.button(GO_TEXT, &"ButtonOrange", FIELD_HEIGHT, 10)
+	var go: Button = BazaarUi.button(GO_TEXT, &"orange", FIELD_HEIGHT, 10)
 	go.pressed.connect(_on_go_pressed)
 	custom.add_child(go)
 
@@ -300,7 +298,7 @@ func _build_rarity(q: Dictionary) -> void:
 	_rows.add_child(_head("Rarity", "rarity_head"))
 	var counts: Dictionary = BazaarManager.option_counts(q, &"rarity")
 	var cap: int = BazaarManager.rarity_cap()
-	var group: VBoxContainer = BazaarUi.vbox(ROW_GAP)
+	var group: VBoxContainer = GuiStyle.vbox(ROW_GAP)
 	_rows.add_child(group)
 	for index: int in range(BazaarManager.RARITIES.size()):
 		var label_text: String = BazaarUi.rarity_name(index)
@@ -310,7 +308,7 @@ func _build_rarity(q: Dictionary) -> void:
 			lock.entitlement = RARITY_ENTITLEMENT
 			lock.entitlement_tier = index
 			lock.set_meta("rarity", index)
-			lock.take_me_there.connect(_on_take_me_there)
+			lock.take_me_there.connect(take_me_there.emit)
 			group.add_child(lock)
 			continue
 		var row: FilterCheckRow = _check_row(label_text, rarities.has(index),
@@ -333,20 +331,18 @@ func _pick_row(body_text: String, key: String, count: int, picked: bool,
 	row.focus_mode = Control.FOCUS_NONE
 	row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	row.custom_minimum_size.y = ROW_HEIGHT
-	row.add_theme_font_override("font", BazaarUi.FONT_BODY)
+	row.add_theme_font_override("font", GuiStyle.BODY)
 	row.add_theme_font_size_override("font_size", LABEL_SIZE)
 	row.set_meta("filter_key", key)
 	row.set_meta("price_row", price)
-	var fill: Color = BazaarUi.ORANGE if picked else BazaarUi.NAVY2
-	var ink: Color = BazaarUi.INK if picked else BazaarUi.CREAM
-	var box: StyleBoxFlat = BazaarUi.flat(fill, 0, fill, 4.0)
+	var fill: Color = GuiColors.ORANGE if picked else GuiColors.ROW_HOVER
+	var ink: Color = GuiColors.INK if picked else GuiColors.CREAM
+	var box: StyleBoxFlat = GuiStyle.flat(fill, 0, fill, 4.0)
 	box.content_margin_left = 8.0
 	box.content_margin_right = 8.0
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		row.add_theme_stylebox_override(state, box)
-	for state: String in ["font_color", "font_hover_color", "font_pressed_color"]:
-		row.add_theme_color_override(state, ink)
-	var count_label: Label = BazaarUi.body(str(count), COUNT_SIZE, ink)
+	GuiStyle.set_all_boxes(row, box)
+	GuiStyle.set_all_font_colors(row, ink)
+	var count_label: Label = GuiStyle.label(str(count), GuiStyle.BODY, COUNT_SIZE, ink)
 	count_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	count_label.offset_right = -8.0
 	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -362,7 +358,7 @@ func _check_row(body_text: String, on: bool, count: int, tint: Color) -> FilterC
 	row.on = on
 	row.custom_minimum_size.y = CHECK_HEIGHT
 	row.set_meta("filter_key", body_text)
-	var count_label: Label = BazaarUi.body(str(count), COUNT_SIZE, BazaarUi.MUTED)
+	var count_label: Label = GuiStyle.label(str(count), GuiStyle.BODY, COUNT_SIZE, GuiColors.MUTED)
 	count_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	count_label.offset_right = -4.0
 	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -380,22 +376,15 @@ func _number_field(hint: String, value: int) -> LineEdit:
 	field.text = "" if value < 0 else str(value)
 	field.custom_minimum_size = Vector2(FIELD_WIDTH, FIELD_HEIGHT)
 	field.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	field.add_theme_font_override("font", BazaarUi.FONT_BODY)
+	field.add_theme_font_override("font", GuiStyle.BODY)
 	field.add_theme_font_size_override("font_size", LABEL_SIZE)
-	field.add_theme_color_override("font_color", BazaarUi.CREAM)
-	var ring: Color = BazaarUi.ORANGE if custom_active() else BazaarUi.BLUE3
-	field.add_theme_stylebox_override("normal", BazaarUi.flat(BazaarUi.INK, 2, ring, 4.0))
-	field.add_theme_stylebox_override("focus", BazaarUi.flat(BazaarUi.INK, 2, BazaarUi.ORANGE, 4.0))
+	field.add_theme_color_override("font_color", GuiColors.CREAM)
+	var ring: Color = GuiColors.ORANGE if custom_active() else GuiColors.BLUE_HI
+	field.add_theme_stylebox_override("normal", GuiStyle.flat(GuiColors.INK, 2, ring, 4.0))
+	field.add_theme_stylebox_override("focus", GuiStyle.flat(GuiColors.INK, 2, GuiColors.ORANGE, 4.0))
 	field.text_submitted.connect(_on_field_submitted)
 	field.text_changed.connect(_on_number_text_changed.bind(field))
 	return field
-
-
-func _dept_label(key: String) -> String:
-	for dept: Dictionary in BazaarManager.DEPARTMENTS:
-		if str(dept["key"]) == key:
-			return str(dept["name"])
-	return key
 
 
 func _digits(field: LineEdit) -> int:
@@ -472,7 +461,3 @@ func type_field(which: String, text: String) -> void:
 
 func _on_clear_pressed() -> void:
 	clear_all_requested.emit()
-
-
-func _on_take_me_there(target: Dictionary) -> void:
-	take_me_there.emit(target)

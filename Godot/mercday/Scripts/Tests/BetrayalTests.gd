@@ -32,18 +32,6 @@ static func _merc(name: String, luck: float, unsavory: float) -> MercenaryData:
 	return TestFixtures.fixed_merc(name, {"luck": luck, "unsavory": unsavory})
 
 
-static func _state(side_a: Array[MercenaryData], side_b: Array[MercenaryData]) -> BattleState:
-	return TestFixtures.battle_state(side_a, side_b)
-
-
-static func _run(team: Array[MercenaryData], unsavory_contract: bool) -> ContractRun:
-	var r := ContractRun.new()
-	r.contract = ContractData.new()
-	r.contract.unsavory = unsavory_contract
-	r.team.assign(team)
-	return r
-
-
 static func _event(enemy_cell: String) -> EventData:
 	var ev := EventData.new()
 	ev.event_name = "Test Battle"
@@ -66,19 +54,11 @@ static func _foes() -> Array[MercenaryData]:
 
 #One pre-battle pass on an unmarked contract against one bandit; returns run, state and switched.
 static func _pass(team: Array[MercenaryData], rolls: Array) -> Dictionary:
-	var cr := _run(team, false)
-	var st := _state(_copy(team), _foes())
+	var cr := ContractFixtures.bare_run(team)
+	var st := TestFixtures.battle_state(_copy(team), _foes())
 	BetrayalSystem.forced_rolls.assign(rolls)
 	var switched: Array[MercenaryData] = BetrayalSystem.run_pre_battle(cr, st, team)
 	return {"run": cr, "state": st, "switched": switched}
-
-
-static func _count(lines: Array[String], prefix: String) -> int:
-	var n: int = 0
-	for line: String in lines:
-		if line.begins_with(prefix):
-			n += 1
-	return n
 
 
 static func _first(lines: Array[String], prefix: String) -> String:
@@ -104,8 +84,8 @@ static func _gate_detail() -> String:
 
 static func _case_qualifies(res: Dictionary) -> void:
 	var none: Array[MercenaryData] = []
-	var plain := _run(none, false)
-	var marked := _run(none, true)
+	var plain := ContractFixtures.bare_run(none)
+	var marked := ContractFixtures.bare_run(none, 0.0, true)
 	TestFixtures.check(res, "qualifies_bar", BetrayalSystem.qualifies(_merc("A", 40.0, 50.0), plain),
 		"unsavory 50, unmarked contract")
 	TestFixtures.check(res, "qualifies_below_bar", not BetrayalSystem.qualifies(_merc("B", 40.0, 49.9), plain),
@@ -171,7 +151,7 @@ static func _case_first_time(res: Dictionary) -> void:
 	var st: BattleState = p["state"]
 	var roll: String = _first(st.pre_battle_lines, "BETRAYAL ROLL: ")
 	TestFixtures.check(res, "first_time_no_gate", _only(p["switched"], t) and roll.contains(" d100 100 ")
-		and _count(st.pre_battle_lines, "BETRAYAL GATE: ") == 0, " | ".join(st.pre_battle_lines))
+		and TestFixtures.count_lines(st.pre_battle_lines, "BETRAYAL GATE: ", true) == 0, " | ".join(st.pre_battle_lines))
 	_drained(res, "first_time_one_roll")
 
 
@@ -186,22 +166,23 @@ static func _case_gate(res: Dictionary) -> void:
 	var shut_st: BattleState = shut["state"]
 	TestFixtures.check(res, "gate_shut", (shut["switched"] as Array).is_empty()
 		and _first(shut_st.pre_battle_lines, "BETRAYAL GATE: ") == "BETRAYAL GATE: d100 2 vs 1% -> shut"
-		and _count(shut_st.pre_battle_lines, "BETRAYAL ROLL: ") == 0, " | ".join(shut_st.pre_battle_lines))
+		and TestFixtures.count_lines(shut_st.pre_battle_lines, "BETRAYAL ROLL: ", true) == 0,
+		" | ".join(shut_st.pre_battle_lines))
 	TestFixtures.check(res, "gate_shut_unchanged", is_equal_approx(BetrayalSystem.gate_percent, 1.0)
 		and BetrayalSystem.betrayals == 1 and BetrayalSystem.forced_rolls.is_empty(), _gate_detail())
 	var hold_team: Array[MercenaryData] = [_merc("Cy", 80.0, 0.0), _merc(TRAITOR, 80.0, 50.0)]
 	var held: Dictionary = _pass(hold_team, [1, 20])
 	var held_st: BattleState = held["state"]
 	TestFixtures.check(res, "gate_doubles", is_equal_approx(BetrayalSystem.gate_percent, 2.0)
-		and _count(held_st.pre_battle_lines, "BETRAYAL GATE: every roll held") == 1
+		and TestFixtures.count_lines(held_st.pre_battle_lines, "BETRAYAL GATE: every roll held", true) == 1
 		and BetrayalSystem.forced_rolls.is_empty(), _gate_detail())
 	var pair_hold: Array[MercenaryData] = [_merc("Di", 80.0, 0.0), _merc("Hold One", 80.0, 50.0),
 		_merc("Hold Two", 80.0, 50.0)]
 	var both: Dictionary = _pass(pair_hold, [1, 20, 20])
 	var both_st: BattleState = both["state"]
 	TestFixtures.check(res, "gate_doubles_once", is_equal_approx(BetrayalSystem.gate_percent, 4.0)
-		and _count(both_st.pre_battle_lines, "BETRAYAL ROLL: ") == 2
-		and _count(both_st.pre_battle_lines, "BETRAYAL GATE: every roll held") == 1
+		and TestFixtures.count_lines(both_st.pre_battle_lines, "BETRAYAL ROLL: ", true) == 2
+		and TestFixtures.count_lines(both_st.pre_battle_lines, "BETRAYAL GATE: every roll held", true) == 1
 		and BetrayalSystem.forced_rolls.is_empty(), _gate_detail())
 	BetrayalSystem.gate_percent = 64.0
 	var cap_team: Array[MercenaryData] = [_merc("Ed", 80.0, 0.0), _merc(TRAITOR, 80.0, 50.0)]
@@ -235,7 +216,8 @@ static func _case_several(res: Dictionary) -> void:
 	var sw2: Array = p2["switched"]
 	var stayed: MercenaryData = d if sw2.has(c) else c
 	TestFixtures.check(res, "several_first_switches", sw2.size() == 1
-		and _count(st2.pre_battle_lines, "BETRAYAL ROLL: ") == 1 and BetrayalSystem.forced_rolls.is_empty(),
+		and TestFixtures.count_lines(st2.pre_battle_lines, "BETRAYAL ROLL: ", true) == 1
+		and BetrayalSystem.forced_rolls.is_empty(),
 		" | ".join(st2.pre_battle_lines))
 	TestFixtures.check(res, "several_second_skipped", _first(st2.pre_battle_lines, "BETRAYAL SKIPPED: ")
 		== "BETRAYAL SKIPPED: %s (no loyal merc would remain)" % stayed.merc_name, " | ".join(st2.pre_battle_lines))
@@ -245,8 +227,8 @@ static func _case_several(res: Dictionary) -> void:
 	var p3: Dictionary = _pass(one, [])
 	var st3: BattleState = p3["state"]
 	TestFixtures.check(res, "several_lone_skipped", (p3["switched"] as Array).is_empty()
-		and _count(st3.pre_battle_lines, "BETRAYAL SKIPPED: ") == 1
-		and _count(st3.pre_battle_lines, "BETRAYAL ROLL: ") == 0 and (st3.teams[0] as Array).has(lone),
+		and TestFixtures.count_lines(st3.pre_battle_lines, "BETRAYAL SKIPPED: ", true) == 1
+		and TestFixtures.count_lines(st3.pre_battle_lines, "BETRAYAL ROLL: ", true) == 0 and (st3.teams[0] as Array).has(lone),
 		" | ".join(st3.pre_battle_lines))
 
 
@@ -256,7 +238,7 @@ static func _case_switch_team(res: Dictionary) -> void:
 	var foe := _merc("Bandit", 40.0, 0.0)
 	var side_a: Array[MercenaryData] = [ally, t]
 	var side_b: Array[MercenaryData] = [foe]
-	var st := _state(side_a, side_b)
+	var st := TestFixtures.battle_state(side_a, side_b)
 	TestFixtures.place(st, ally, Vector2i(2, 2))
 	TestFixtures.place(st, t, Vector2i(3, 4))
 	TestFixtures.place(st, foe, Vector2i(9, 9))
@@ -337,7 +319,7 @@ static func _case_helpers(res: Dictionary) -> void:
 	var e2 := _merc("Bandit Two", 40.0, 0.0)
 	var roster: Array[MercenaryData] = [a, b, t]
 	var enemies: Array[MercenaryData] = [e1, e2]
-	var st := _state(_copy(roster), _copy(enemies))
+	var st := TestFixtures.battle_state(_copy(roster), _copy(enemies))
 	var _side: int = st.switch_team(t)
 	var foe_list := BetrayalSystem.foes(enemies, st)
 	TestFixtures.check(res, "helpers_foes", foe_list.size() == 3 and foe_list[0] == e1 and foe_list[1] == e2
@@ -345,7 +327,7 @@ static func _case_helpers(res: Dictionary) -> void:
 	var loyal_list := BetrayalSystem.loyal(roster, st)
 	TestFixtures.check(res, "helpers_loyal", loyal_list.size() == 2 and loyal_list[0] == a and loyal_list[1] == b,
 		"loyal %d" % loyal_list.size())
-	var cr := _run(roster, false)
+	var cr := ContractFixtures.bare_run(roster)
 	cr.betrayers.append(t)
 	var lines := BetrayalSystem.settle(cr, st)
 	TestFixtures.check(res, "helpers_settle_living", not cr.team.has(t) and _only(cr.defectors, t)
@@ -357,13 +339,13 @@ static func _case_helpers(res: Dictionary) -> void:
 		", ".join(cr.merc_names(dead)))
 	var t2 := _merc("Dead Traitor", 40.0, 60.0)
 	var roster2: Array[MercenaryData] = [_merc("Cy", 40.0, 0.0), _merc("Di", 40.0, 0.0), t2]
-	var st2 := _state(_copy(roster2), _copy(enemies))
+	var st2 := TestFixtures.battle_state(_copy(roster2), _copy(enemies))
 	var _side2: int = st2.switch_team(t2)
 	t2.is_dead = true
 	t2.current_hp = 0
 	var fallen: Array[MercenaryData] = [t2]
 	st2.casualties.assign(fallen)
-	var cr2 := _run(roster2, false)
+	var cr2 := ContractFixtures.bare_run(roster2)
 	cr2.betrayers.append(t2)
 	var lines2 := BetrayalSystem.settle(cr2, st2)
 	TestFixtures.check(res, "helpers_settle_dead", lines2.is_empty() and cr2.team.has(t2) and cr2.defectors.is_empty(),
@@ -375,10 +357,9 @@ static func _case_helpers(res: Dictionary) -> void:
 	t.stats[key] = 14.0
 	a.stats[key] = 22.5
 	var record: Dictionary = {t: 4.0, a: 2.5}
-	BetrayalSystem.drop_delta(record, t)
-	var after_drop: float = float(t.stats[key])
+	var kept: float = float(t.stats[key])
 	OverallSuccess.revert_event_delta(record)
-	TestFixtures.check(res, "helpers_drop_delta", is_equal_approx(after_drop, 10.0) and not record.has(t)
+	TestFixtures.check(res, "helpers_defector_keeps_delta", is_equal_approx(kept, 14.0) and record.has(t)
 		and is_equal_approx(float(t.stats[key]), 10.0) and is_equal_approx(float(a.stats[key]), 20.0),
 		"traitor %.1f loyal %.1f" % [float(t.stats[key]), float(a.stats[key])])
 
@@ -390,7 +371,7 @@ static func _case_lifepath(res: Dictionary) -> void:
 	var mate := _merc("Bo", 40.0, 0.0)
 	var t := _merc(TRAITOR, 40.0, 60.0)
 	var team: Array[MercenaryData] = [m, mate, t]
-	var cr := _run(team, false)
+	var cr := ContractFixtures.bare_run(team)
 	cr.betrayers.append(t)
 	RelationshipSystem.set_value(m, t, 3)
 	TestFixtures.check(res, "lifepath_betrayer_3", TestFixtures.ok(m, cr, "Betrayer Relationship", "IS >=", "3"), "relationship 3")
@@ -407,7 +388,7 @@ static func _case_lifepath(res: Dictionary) -> void:
 	var _moved: Array[MercenaryData] = cr.remove_dead(fallen)
 	TestFixtures.check(res, "lifepath_dead_betrayer", TestFixtures.ok(m, cr, "Betrayer Relationship", "IS >=", "3")
 		and cr.casualties.has(t), "betrayer dead and in casualties")
-	var clean := _run(team, false)
+	var clean := ContractFixtures.bare_run(team)
 	TestFixtures.check(res, "lifepath_no_betrayers", not TestFixtures.ok(m, clean, "Betrayer Relationship", "IS >=", "3"),
 		"betrayers empty")
 	TestFixtures.check(res, "lifepath_event_unmarked", not TestFixtures.ok(m, cr, "Contract Event", "IS", "Betrayal"), "no mark")
@@ -433,11 +414,11 @@ static func _case_review(res: Dictionary) -> void:
 	var ally := _merc("Ada", 40.0, 0.0)
 	var t := _merc(TRAITOR, 40.0, 60.0)
 	var roster: Array[MercenaryData] = [ally, t]
-	var st := _state(_copy(roster), _foes())
+	var st := TestFixtures.battle_state(_copy(roster), _foes())
 	var _side: int = st.switch_team(t)
 	t.current_hp = 0
-	ConstStates.apply_state(t, ConstStates.DYING)
-	var cr := _run(roster, false)
+	StateCascade.apply_state(t, ConstStates.DYING)
+	var cr := ContractFixtures.bare_run(roster)
 	var saved: Array[MercenaryData] = []
 	saved.assign(BeauSystem.roster)
 	BeauSystem.set_roster(roster)
@@ -470,14 +451,14 @@ static func _case_review(res: Dictionary) -> void:
 	var downed := _merc("Fay", 40.0, 0.0)
 	downed.current_hp = 0
 	var dying := _merc("Gus", 40.0, 0.0)
-	ConstStates.apply_state(dying, ConstStates.DYING)
+	StateCascade.apply_state(dying, ConstStates.DYING)
 	TestFixtures.check(res, "review_standing", BetrayalSystem._standing(healthy)
 		and not BetrayalSystem._standing(downed) and not BetrayalSystem._standing(dying),
 		"healthy true, hp 0 and Dying false")
 	var mate := _merc("Hal", 40.0, 0.0)
 	var solo := _merc("Lone Traitor", 40.0, 60.0)
 	var self_team: Array[MercenaryData] = [mate, solo]
-	var self_run := _run(self_team, false)
+	var self_run := ContractFixtures.bare_run(self_team)
 	self_run.betrayers.append(solo)
 	RelationshipSystem.set_value(mate, solo, 5)
 	RelationshipSystem.set_value(solo, mate, 5)
@@ -494,8 +475,8 @@ static func _case_review(res: Dictionary) -> void:
 	var open_st: BattleState = opened["state"]
 	TestFixtures.check(res, "review_gate_no_attempt", is_equal_approx(BetrayalSystem.gate_percent, 50.0)
 		and _first(open_st.pre_battle_lines, "BETRAYAL GATE: ") == "BETRAYAL GATE: d100 1 vs 50% -> open"
-		and _count(open_st.pre_battle_lines, "BETRAYAL SKIPPED: ") == 1
-		and _count(open_st.pre_battle_lines, "BETRAYAL ROLL: ") == 0, _gate_detail())
+		and TestFixtures.count_lines(open_st.pre_battle_lines, "BETRAYAL SKIPPED: ", true) == 1
+		and TestFixtures.count_lines(open_st.pre_battle_lines, "BETRAYAL ROLL: ", true) == 0, _gate_detail())
 	_drained(res, "review_gate_no_attempt_drained")
 	BetrayalSystem.reset()
 
@@ -503,11 +484,7 @@ static func _case_review(res: Dictionary) -> void:
 #The only awaited case: a real Ambush through BattleEventResolver with merc 0 forced to betray.
 static func _case_end_to_end(res: Dictionary) -> void:
 	CampaignKnowledge.clear()
-	var mercs: Array[MercenaryData] = []
-	for i: int in range(3):
-		mercs.append(HarnessRoster.roster_merc(i))
-	BeauSystem.set_roster(mercs)
-	GuildRoster.set_roster(mercs)
+	var mercs: Array[MercenaryData] = ContractFixtures.roster_team(3)
 	var contract: ContractData = ContractGenerator.generate(ContractLibrary.config().default_contract_type)
 	var event: EventData = ContractLibrary.event("Ambush")
 	var places: Array[LocationData] = TestFixtures.wilderness_pool()
@@ -518,11 +495,8 @@ static func _case_end_to_end(res: Dictionary) -> void:
 	contract.difficulty = 1.0
 	contract.unsavory = false
 	var lines: Array[String] = []
-	var cr := ContractRun.new()
-	cr.contract = contract
-	cr.team.assign(mercs)
-	cr.location = places[randi() % places.size()]
-	cr.line_fn = func(line: String) -> void: lines.append(line)
+	var cr: ContractRun = ContractFixtures.contract_run(contract, mercs, places[randi() % places.size()],
+		func(line: String) -> void: lines.append(line))
 	var m0: MercenaryData = mercs[0]
 	var m1: MercenaryData = mercs[1]
 	var m2: MercenaryData = mercs[2]
@@ -555,7 +529,8 @@ static func _case_end_to_end(res: Dictionary) -> void:
 	TestFixtures.check(res, "e2e_left_team", cr.defectors.has(m0) != cr.casualties.has(m0) and not cr.team.has(m0),
 		"defectors %d casualties %d team %d" % [cr.defectors.size(), cr.casualties.size(), cr.team.size()])
 	TestFixtures.check(res, "e2e_event_mark", cr.event_marks.has("Betrayal"), ", ".join(cr.event_marks))
-	TestFixtures.check(res, "e2e_betrayal_line", _count(lines, "BETRAYAL: ") >= 1, "%d lines" % lines.size())
+	TestFixtures.check(res, "e2e_betrayal_line", TestFixtures.count_lines(lines, "BETRAYAL: ", true) >= 1,
+		"%d lines" % lines.size())
 	_drained(res, "e2e_drained")
 	var drift: Array[String] = []
 	for merc: MercenaryData in mercs:

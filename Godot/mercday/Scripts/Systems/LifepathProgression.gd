@@ -84,10 +84,7 @@ static func has_payoff(lp: LifepathData) -> bool:
 		return false
 	if CODED_EVENTS.has(lp.event_name):
 		return true
-	var names: Array[String] = []
-	names.append_array(lp.perks)
-	names.append_array(lp.drawbacks)
-	for trait_name: String in names:
+	for trait_name: String in trait_names(lp):
 		if trait_name.contains("["):
 			for variant: String in TraitDSL.placeholder_variants(trait_name):
 				var vt: TraitData = DataManager.traits.get(variant, null) as TraitData
@@ -122,7 +119,7 @@ static func chance_for(merc: MercenaryData) -> int:
 static func draw(pool: Array[String]) -> String:
 	var items: Array[Dictionary] = []
 	for event_name: String in pool:
-		var lp: LifepathData = _find(event_name)
+		var lp: LifepathData = find_event(event_name)
 		if lp == null:
 			continue
 		items.append({"name": event_name, "rarity": lp.rarity})
@@ -160,7 +157,7 @@ static func on_level_up(merc: MercenaryData) -> Array[String]:
 #Adds an Experienced event and runs its pairing, returning empty when no slot could be freed.
 static func grant(merc: MercenaryData, event_name: String) -> Array[String]:
 	var lines: Array[String] = []
-	var lp: LifepathData = _find(event_name)
+	var lp: LifepathData = find_event(event_name)
 	if merc == null or lp == null or has_event(merc, event_name):
 		return lines
 	if not _make_room(merc, false, lines):
@@ -179,7 +176,7 @@ static func grant(merc: MercenaryData, event_name: String) -> Array[String]:
 #Adds a Forced event, replacing the event it stands in for when the merc holds it.
 static func force(merc: MercenaryData, event_name: String) -> Array[String]:
 	var lines: Array[String] = []
-	var lp: LifepathData = _find(event_name)
+	var lp: LifepathData = find_event(event_name)
 	if merc == null or lp == null or has_event(merc, event_name):
 		return lines
 	var replaces: String = str(FORCED_REPLACES.get(event_name, ""))
@@ -218,11 +215,16 @@ static func _oldest_of(merc: MercenaryData, event_type: String) -> LifepathData:
 	return null
 
 
-static func _find(event_name: String) -> LifepathData:
+#First row with this name across the categories, then Starting; a category limits the search to that one list.
+static func find_event(event_name: String, only_category: String = "") -> LifepathData:
 	for category: String in DataManager.lifepaths_by_category:
+		if only_category != "" and category != only_category:
+			continue
 		for lp: LifepathData in DataManager.lifepaths_by_category[category] as Array:
 			if lp != null and lp.event_name == event_name:
 				return lp
+	if only_category != "":
+		return null
 	return DataManager.starting_lifepaths.get(event_name, null) as LifepathData
 
 
@@ -240,14 +242,14 @@ static func _apply(merc: MercenaryData, lp: LifepathData) -> void:
 	var flat_before: Dictionary = merc.stat_flat_bonuses.duplicate(true)
 	var mult_before: Dictionary = merc.stat_multipliers.duplicate(true)
 	var resolved: Array[String] = []
-	for trait_name: String in _trait_names(lp):
+	for trait_name: String in trait_names(lp):
 		var td: TraitData = TraitDSL.lookup_trait(trait_name)
 		if td == null:
 			continue
-		MercGenerator.assign_trait(merc, td)
+		TraitDSL.assign_trait(merc, td)
 		TraitDSL.apply_dsl_to_merc(merc, td.effect_dsl)
 		resolved.append(td.trait_name)
-	MercGenerator.apply_stat_bonus_5pct(merc, lp.stat_bonus_5pct)
+	GenerationSteps.apply_stat_bonus_5pct(merc, lp.stat_bonus_5pct)
 	merc.lifepath_stat_deltas[lp.event_name] = {
 		"flat": _delta(flat_before, merc.stat_flat_bonuses),
 		"mult": _delta(mult_before, merc.stat_multipliers),
@@ -270,7 +272,7 @@ static func _strip_traits(merc: MercenaryData, lp: LifepathData) -> void:
 	var record: Dictionary = merc.lifepath_stat_deltas.get(lp.event_name, {}) as Dictionary
 	var granted: Array = record.get("traits", []) as Array
 	if granted.is_empty():
-		for trait_name: String in _trait_names(lp):
+		for trait_name: String in trait_names(lp):
 			var td: TraitData = TraitDSL.lookup_trait(trait_name)
 			if td == null:
 				continue
@@ -305,7 +307,7 @@ static func _unwind(store: Dictionary, moved: Dictionary) -> void:
 			store[key] = left
 
 
-static func _trait_names(lp: LifepathData) -> Array[String]:
+static func trait_names(lp: LifepathData) -> Array[String]:
 	var names: Array[String] = []
 	names.append_array(lp.perks)
 	names.append_array(lp.drawbacks)
@@ -364,7 +366,7 @@ static func _settle_beau(merc: MercenaryData, run: ContractRun) -> Array[String]
 	var lines: Array[String] = []
 	if merc == null or merc.beau_uid <= 0 or not has_event(merc, IN_LOVE):
 		return lines
-	var beau: MercenaryData = _in_team(run, merc.beau_uid)
+	var beau: MercenaryData = GuildRoster.by_uid(run.team, merc.beau_uid)
 	if beau == null or has_event(beau, IN_LOVE):
 		return lines
 	var decide := clampi(DECIDE_CHANCE + int(beau.stats.get("luck", 0)), 0, 100)
@@ -383,10 +385,3 @@ static func _settle_beau(merc: MercenaryData, run: ContractRun) -> Array[String]
 	lines.append("IN LOVE: %s turns %s down" % [beau.merc_name, merc.merc_name])
 	lines.append_array(force(merc, FOREVER_YEARNING))
 	return lines
-
-
-static func _in_team(run: ContractRun, uid: int) -> MercenaryData:
-	for merc: MercenaryData in run.team:
-		if merc != null and merc.merc_uid == uid:
-			return merc
-	return null

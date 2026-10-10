@@ -1,7 +1,7 @@
 class_name OrdersPage extends Control
 
 #The Orders tab: the three filter buttons with their counts over a scrolling list of order cards,
-#newest first. The page rebuilds on order_placed, order_arrived and the day change.
+#newest first. BazaarViewer rebuilds the page on order_placed, order_arrived and the day change.
 
 signal filter_changed(key: StringName)
 
@@ -31,9 +31,6 @@ var _buttons: Dictionary = {}
 
 func _ready() -> void:
 	_build()
-	BazaarManager.order_placed.connect(_on_order_changed)
-	BazaarManager.order_arrived.connect(_on_order_changed)
-	GameState.day_changed.connect(_on_day_changed)
 	refresh()
 
 
@@ -96,9 +93,7 @@ func refresh() -> void:
 			continue
 		button.text = "%s (%d)" % [FILTER_LABELS[i], int(counts.get(key, 0))]
 		_paint(button, key == filter)
-	for child: Node in _list.get_children():
-		_list.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(_list)
 	var found: Array[OrderData] = BazaarManager.orders_filtered(filter)
 	for order: OrderData in found:
 		var card: OrderCard = CARD_SCENE.instantiate() as OrderCard
@@ -109,29 +104,29 @@ func refresh() -> void:
 
 
 func _build() -> void:
-	var rows: VBoxContainer = BazaarUi.vbox(ROW_GAP)
+	var rows: VBoxContainer = GuiStyle.vbox(ROW_GAP)
 	rows.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(rows)
-	var head: HBoxContainer = BazaarUi.hbox(12)
+	var head: HBoxContainer = GuiStyle.hbox(12)
 	rows.add_child(head)
-	_title = BazaarUi.silk_bold(TITLE, TITLE_SIZE, BazaarUi.CREAM)
+	_title = GuiStyle.label(TITLE, GuiStyle.SILK_BOLD, TITLE_SIZE, GuiColors.CREAM)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(_title)
-	_filter_row = BazaarUi.hbox(8)
+	_filter_row = GuiStyle.hbox(8)
 	head.add_child(_filter_row)
 	for i: int in range(BazaarManager.ORDER_FILTERS.size()):
 		var key: StringName = BazaarManager.ORDER_FILTERS[i]
-		var button: Button = BazaarUi.button(FILTER_LABELS[i], &"ButtonNeutral", FILTER_HEIGHT,
+		var button: Button = BazaarUi.button(FILTER_LABELS[i], &"neutral", FILTER_HEIGHT,
 			FILTER_SIZE)
 		button.pressed.connect(pick_filter.bind(key))
 		_filter_row.add_child(button)
 		_buttons[key] = button
-	_scroll = BazaarUi.scroll()
+	_scroll = GuiStyle.scroll()
 	rows.add_child(_scroll)
-	_list = BazaarUi.vbox(LIST_GAP)
+	_list = GuiStyle.vbox(LIST_GAP)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_list)
-	_empty = BazaarUi.body(EMPTY_TEXT, EMPTY_SIZE, BazaarUi.SKY)
+	_empty = GuiStyle.label(EMPTY_TEXT, GuiStyle.BODY, EMPTY_SIZE, GuiColors.SKY)
 	_empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_empty.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -142,11 +137,3 @@ func _paint(button: Button, picked: bool) -> void:
 	var bevel: BevelButton = button as BevelButton
 	if bevel != null:
 		bevel.kind = &"orange" if picked else &"neutral"
-
-
-func _on_order_changed(_order: OrderData) -> void:
-	refresh()
-
-
-func _on_day_changed(_day_index: int) -> void:
-	refresh()

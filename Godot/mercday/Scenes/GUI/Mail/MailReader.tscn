@@ -1,0 +1,79 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mail/MailReader.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mail/MailOptions.tscn" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/mail_sender.tres" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/mail_options.tres" id="6"]
+
+[node name="MailReader" type="VBoxContainer"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+script = ExtResource("1")
+header_path = NodePath("Header")
+subject_path = NodePath("Header/Texts/Subject")
+from_path = NodePath("Header/Texts/From")
+archive_path = NodePath("Header/Archive")
+scroll_path = NodePath("Scroll")
+thread_path = NodePath("Scroll/Thread")
+options_path = NodePath("Options")
+empty_path = NodePath("Empty")
+
+[node name="Header" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Texts" type="VBoxContainer" parent="Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="Subject" type="Label" parent="Header/Texts"]
+layout_mode = 2
+theme_type_variation = &"PanelTitle"
+text_overrun_behavior = 3
+
+[node name="From" type="Label" parent="Header/Texts"]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"
+text_overrun_behavior = 3
+
+[node name="Archive" parent="Header" instance=ExtResource("2")]
+custom_minimum_size = Vector2(120, 42)
+layout_mode = 2
+size_flags_vertical = 4
+text = "Archive"
+kind = &"neutral"
+min_size = Vector2(120, 42)
+
+[node name="Empty" type="Label" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"SmallLabel"
+text = "Select an email to read it."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Thread" type="VBoxContainer" parent="Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Options" parent="." instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="HelpTarget" type="Node" parent="Header/Texts/From"]
+script = ExtResource("4")
+hint = ExtResource("5")
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("4")
+hint = ExtResource("6")
+target = NodePath("../Options")

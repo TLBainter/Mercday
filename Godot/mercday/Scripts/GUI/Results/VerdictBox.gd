@@ -8,7 +8,7 @@ const RING_PX: float = 6.0
 const INSET_COLOR_PX: float = 6.0
 const INSET_DARK_PX: float = 10.0
 const LETTER_SPACING: int = 4
-const RING_COLOR: Color = Color("#0a0f1c")
+const RING_COLOR: Color = GuiColors.INK
 const BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
 
 @onready var shadow: ColorRect = $Shadow
@@ -86,22 +86,8 @@ func box_size() -> Vector2:
 
 func _on_box_draw() -> void:
 	var rect := Rect2(Vector2.ZERO, box.size)
-	_ring(rect, RING_PX, RING_COLOR)
-	_inset(rect, 0.0, INSET_COLOR_PX, _color)
-	_inset(rect, INSET_COLOR_PX, INSET_DARK_PX - INSET_COLOR_PX, _dark)
-
-
-#Four straight bands outside the box, the way the prototype stacks four offset shadows.
-func _ring(rect: Rect2, thick: float, color: Color) -> void:
-	box.draw_rect(Rect2(rect.position.x, rect.position.y - thick, rect.size.x, thick), color)
-	box.draw_rect(Rect2(rect.position.x, rect.end.y, rect.size.x, thick), color)
-	box.draw_rect(Rect2(rect.position.x - thick, rect.position.y, thick, rect.size.y), color)
-	box.draw_rect(Rect2(rect.end.x, rect.position.y, thick, rect.size.y), color)
-
-
-func _inset(rect: Rect2, offset: float, thick: float, color: Color) -> void:
-	var inner: Rect2 = rect.grow(-offset)
-	box.draw_rect(Rect2(inner.position.x, inner.position.y, inner.size.x, thick), color)
-	box.draw_rect(Rect2(inner.position.x, inner.end.y - thick, inner.size.x, thick), color)
-	box.draw_rect(Rect2(inner.position.x, inner.position.y, thick, inner.size.y), color)
-	box.draw_rect(Rect2(inner.end.x - thick, inner.position.y, thick, inner.size.y), color)
+	#Four straight bands outside the box, the way the prototype stacks four offset shadows.
+	BevelButton.paint_ring(box, rect, RING_COLOR, RING_PX)
+	BevelButton.paint_edges(box, rect, _color, _color, INSET_COLOR_PX)
+	BevelButton.paint_edges(box, rect.grow(-INSET_COLOR_PX), _dark, _dark,
+		INSET_DARK_PX - INSET_COLOR_PX)

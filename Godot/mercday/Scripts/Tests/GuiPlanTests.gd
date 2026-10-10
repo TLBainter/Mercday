@@ -5,7 +5,8 @@ extends RefCounted
 #helpers on GameState, the coached level-up modes and the shared pulse clock. No scene is built
 #here; every case drives the autoloads straight.
 
-#Every key entitlements() must carry, in the handoff's spelling.
+const VIEWER: PackedScene = preload("res://Scenes/GUI/Subscription/SubscriptionViewer.tscn")
+#Every key entitlements() must carry, each in its exact spelling.
 const EXPECTED_KEYS: Array[String] = ["plan", "metrics", "contract_metrics", "merc_metrics",
 	"guild_opinion", "client_opinion", "peer", "fastmetrics", "pip", "lvSupport", "lvDefensive",
 	"lvOffensive", "lvExisting", "lvNewSkills", "lvUniversal", "lvAncestral", "lvTradition",
@@ -65,9 +66,10 @@ static func run(host: Node) -> bool:
 	await _case_promo_table(res, host)
 	await _case_promo_keys(res, host)
 	await _case_promo_costs(res, host)
-	await _case_hiring_handoff(res, host)
+	await _case_promo_to_hiring(res, host)
 	await _case_proto_keys(res, host)
-	SubscriptionManager.reset()
+	await _case_fit(res, host)
+	SubscriptionManager.max_out()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	TestFixtures.reset_campaign()
 	return TestFixtures.summarize(res, "GUI PLAN")
@@ -114,7 +116,7 @@ static func _case_table(res: Dictionary, host: Node) -> void:
 			UpgradeDefs.UPGRADES.size(), str(missing)])
 	TestFixtures.check(res, "monthly_of sums the tiers up to the one owned",
 		UpgradeDefs.monthly_of("seats", 0) == 0 and UpgradeDefs.monthly_of("seats", 3) == 21
-			and UpgradeDefs.monthly_of("seats", 99) == 189,
+			and UpgradeDefs.monthly_of("seats", 99) == 765,
 		"got %d, %d, %d" % [UpgradeDefs.monthly_of("seats", 0), UpgradeDefs.monthly_of("seats", 3),
 			UpgradeDefs.monthly_of("seats", 99)])
 	TestFixtures.check(res, "a second category counts as membership",
@@ -166,16 +168,16 @@ static func _case_requirements(res: Dictionary, host: Node) -> void:
 		"pip %s" % str(UpgradeDefs.dependants_of("pip")))
 
 
-#Case 3: the dev default every screen is reviewed on.
+#Case 3: the state max_out() leaves: Enterprise with every upgrade at its top tier, and the entitlements it grants.
 static func _case_default_state(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var bad: Array[String] = []
 	for id: String in UpgradeDefs.ORDER:
 		if SubscriptionManager.tier_of(id) != UpgradeDefs.tier_count(id):
 			bad.append("%s at %d of %d" % [id, SubscriptionManager.tier_of(id),
 				UpgradeDefs.tier_count(id)])
-	TestFixtures.check(res, "a reset buys every upgrade to its top tier",
+	TestFixtures.check(res, "max_out buys every upgrade to its top tier",
 		bad.is_empty() and SubscriptionManager.plan() == SubscriptionManager.Plan.ENTERPRISE,
 		TestFixtures.detail(bad, UpgradeDefs.ORDER.size(), "upgrades"))
 	var ent: Dictionary = SubscriptionManager.entitlements()
@@ -188,7 +190,7 @@ static func _case_default_state(res: Dictionary, host: Node) -> void:
 	for key: String in EXPECTED_KEYS:
 		if not ent.has(key):
 			missing.append(key)
-	TestFixtures.check(res, "entitlements carry every handoff key", missing.is_empty(),
+	TestFixtures.check(res, "entitlements carry every expected key", missing.is_empty(),
 		TestFixtures.detail(missing, EXPECTED_KEYS.size(), "keys"))
 	TestFixtures.check(res, "the plan name and key read off the plan",
 		String(ent["plan"]) == "enterprise"
@@ -200,15 +202,14 @@ static func _case_default_state(res: Dictionary, host: Node) -> void:
 #Case 4: dropping the plan drops every upgrade with it.
 static func _case_downgrade(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_plan(SubscriptionManager.Plan.PRO)
 	var ent: Dictionary = SubscriptionManager.entitlements()
 	var leaks: Array[String] = []
 	for key: String in EXPECTED_KEYS:
 		if PLAN_DERIVED_KEYS.has(key):
 			continue
-		var value: Variant = ent[key]
-		if (value is bool and bool(value)) or (value is int and int(value) != 0):
+		if _is_open(ent[key]):
 			leaks.append(key)
 	TestFixtures.check(res, "Pro holds the guild metrics and nothing an upgrade bought",
 		leaks.is_empty() and bool(ent["metrics"]) and String(ent["plan"]) == "pro"
@@ -225,7 +226,7 @@ static func _case_downgrade(res: Dictionary, host: Node) -> void:
 		SubscriptionManager.tiers().is_empty()
 			and not bool(SubscriptionManager.entitlements()["pip"]),
 		"tiers %s" % str(SubscriptionManager.tiers()))
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 #Case 5: what set_tier refuses.
@@ -256,7 +257,7 @@ static func _case_set_tier(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "nothing is for sale below Enterprise",
 		not SubscriptionManager.can_buy("seats", 1) and not SubscriptionManager.set_tier("seats", 1),
 		"seats at %d" % SubscriptionManager.tier_of("seats"))
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 #Case 6: every derived key against a hand written state.
@@ -318,13 +319,13 @@ static func _case_derived_keys(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the fourth discrimination tier opens hiring discrimination",
 		bool(SubscriptionManager.entitlements()["hiringDiscrim"]),
 		"hiring %s" % SubscriptionManager.entitlements()["hiringDiscrim"])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 #Case 7: the override layer sits on top of the derived keys until a reset.
 static func _case_overrides(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_entitlements({"bazaar": false, "bazaarRarity": 1, "merc_metrics": 1})
 	var ent: Dictionary = SubscriptionManager.entitlements()
 	TestFixtures.check(res, "an override wins over the derived key",
@@ -333,9 +334,9 @@ static func _case_overrides(res: Dictionary, host: Node) -> void:
 			and SubscriptionManager.tier_of("betteritems") == 4,
 		"bazaar %s, rarity %d, tier %d" % [ent["bazaar"], ent["bazaarRarity"],
 			SubscriptionManager.tier_of("betteritems")])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var back: Dictionary = SubscriptionManager.entitlements()
-	TestFixtures.check(res, "a reset drops the overrides",
+	TestFixtures.check(res, "max_out drops the overrides",
 		bool(back["bazaar"]) and int(back["bazaarRarity"]) == 4
 			and SubscriptionManager.merc_slots() == 3,
 		"bazaar %s, rarity %d" % [back["bazaar"], back["bazaarRarity"]])
@@ -348,7 +349,7 @@ static func _case_overrides(res: Dictionary, host: Node) -> void:
 #screen that knows only the prototype spelling and one that knows only the wave 1 spelling agree.
 static func _case_pair_spellings(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_entitlements({"mercMetrics": 1})
 	var camel: Dictionary = SubscriptionManager.entitlements()
 	TestFixtures.check(res, "a camel override reads back under the wave 1 spelling",
@@ -356,7 +357,7 @@ static func _case_pair_spellings(res: Dictionary, host: Node) -> void:
 			and SubscriptionManager.merc_slots() == 1,
 		"merc_metrics %s, mercMetrics %s" % [str(camel["merc_metrics"]),
 			str(camel["mercMetrics"])])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_entitlements({"guild_opinion": false})
 	var snake: Dictionary = SubscriptionManager.entitlements()
 	TestFixtures.check(res, "a wave 1 override reads back under the prototype spelling",
@@ -369,7 +370,7 @@ static func _case_pair_spellings(res: Dictionary, host: Node) -> void:
 		not bool(both["contract_metrics"]) and bool(both["contractMetrics"]),
 		"contract_metrics %s, contractMetrics %s" % [str(both["contract_metrics"]),
 			str(both["contractMetrics"])])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 #Case 8: the monthly bill.
@@ -392,7 +393,7 @@ static func _case_costs(res: Dictionary, host: Node) -> void:
 	SubscriptionManager.set_plan(SubscriptionManager.Plan.FREE)
 	TestFixtures.check(res, "the Free plan bills nothing",
 		SubscriptionManager.monthly_cost() == 0, "got %d" % SubscriptionManager.monthly_cost())
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 #Case 9: the roster and board caps per plan.
@@ -405,14 +406,14 @@ static func _case_caps(res: Dictionary, host: Node) -> void:
 	var pro_mercs: int = SubscriptionManager.max_mercs()
 	var pro_contracts: int = SubscriptionManager.max_contracts()
 	TestFixtures.check(res, "Free and Pro carry fixed caps",
-		free_mercs == 5 and free_contracts == 5 and pro_mercs == 20 and pro_contracts == 12,
+		free_mercs == 5 and free_contracts == 5 and pro_mercs == 8 and pro_contracts == 8,
 		"free %d/%d, pro %d/%d" % [free_mercs, free_contracts, pro_mercs, pro_contracts])
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	var base_mercs: int = SubscriptionManager.max_mercs()
 	var base_contracts: int = SubscriptionManager.max_contracts()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	TestFixtures.check(res, "Enterprise seats and contract slots stack onto the base",
-		base_mercs == 20 and base_contracts == 12 and SubscriptionManager.max_mercs() == 50
+		base_mercs == 8 and base_contracts == 8 and SubscriptionManager.max_mercs() == 32
 			and SubscriptionManager.max_contracts() == 20,
 		"base %d/%d, maxed %d/%d" % [base_mercs, base_contracts, SubscriptionManager.max_mercs(),
 			SubscriptionManager.max_contracts()])
@@ -451,7 +452,7 @@ static func _case_money(res: Dictionary, host: Node) -> void:
 #Case 11: the coached level-up modes, their gates and the engine field they mirror onto.
 static func _case_pip(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var uid: int = GameState.roster[0].uid
 	TestFixtures.check(res, "a met mode is stored and mirrored onto the engine field",
 		GameState.set_pip_mode(uid, &"Offensive")
@@ -485,7 +486,7 @@ static func _case_pip(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "an unmet mode cannot be set at all",
 		not GameState.set_pip_mode(uid, &"Offensive") and GameState.set_pip_mode(uid, &"Random"),
 		"stored %s" % GameState.stored_pip_mode(uid))
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	TestFixtures.check(res, "a met mode survives a subscription change",
 		GameState.stored_pip_mode(uid) == &"Random", "stored %s" % GameState.stored_pip_mode(uid))
 	GameState.pip_modes.clear()
@@ -526,8 +527,8 @@ static func _case_pip_defs(res: Dictionary, host: Node) -> void:
 		"random %s, defensive %s" % [PipDefs.unlocked(&"Random", ent),
 			PipDefs.unlocked(&"Defensive", ent)])
 	TestFixtures.check(res, "each group carries its own color",
-		PipDefs.group_color(PipDefs.GROUP_COMBAT) == Color("#e8583f")
-			and PipDefs.group_color(PipDefs.GROUP_SKILL) == Color("#6cc36a"),
+		PipDefs.group_color(PipDefs.GROUP_COMBAT) == GuiColors.RED
+			and PipDefs.group_color(PipDefs.GROUP_SKILL) == GuiColors.GREEN,
 		"combat %s" % PipDefs.group_color(PipDefs.GROUP_COMBAT).to_html(false))
 
 
@@ -585,7 +586,7 @@ static func _case_promo_table(res: Dictionary, host: Node) -> void:
 			bad.append("%s has %d tiers" % [id, UpgradeDefs.tier_count(id)])
 	TestFixtures.check(res, "the five promotions rows carry their own tier counts", bad.is_empty(),
 		TestFixtures.detail(bad, counts.size(), "rows"))
-	TestFixtures.check(res, "the promotions prices are the handoff prices",
+	TestFixtures.check(res, "the promotions prices are the expected prices",
 		UpgradeDefs.of("promotions")["monthly"] == [20]
 			and UpgradeDefs.of("promomethods")["monthly"] == [25, 25, 25]
 			and UpgradeDefs.of("longpromos")["monthly"] == [10, 10, 15, 15, 25]
@@ -611,7 +612,7 @@ static func _case_promo_table(res: Dictionary, host: Node) -> void:
 	for row: Array in texts:
 		if UpgradeDefs.tier_text(String(row[0]), int(row[1])) != String(row[2]):
 			wrong.append("%s tier %d" % [row[0], int(row[1])])
-	TestFixtures.check(res, "every promotions tier text reads as the handoff wrote it",
+	TestFixtures.check(res, "every promotions tier text reads as expected",
 		wrong.is_empty(), TestFixtures.detail(wrong, texts.size(), "tier texts"))
 	TestFixtures.check(res, "the promotions category lists its five in table order",
 		UpgradeDefs.ids_in_category("promoCat") == ["promotions", "promomethods", "longpromos",
@@ -706,14 +707,13 @@ static func _case_promo_keys(res: Dictionary, host: Node) -> void:
 		SubscriptionManager.set_state(low_plan, owned)
 		var low: Dictionary = SubscriptionManager.entitlements()
 		for key: String in keys:
-			var value: Variant = low[key]
-			if (value is bool and bool(value)) or (value is int and int(value) != 0):
+			if _is_open(low[key]):
 				leaks.append("%s on %s" % [key, SubscriptionManager.plan_key()])
 	TestFixtures.check(res, "no promotions key survives below Enterprise", leaks.is_empty(),
 		TestFixtures.detail(leaks, 2 * keys.size(), "keys"))
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var full: Dictionary = SubscriptionManager.entitlements()
-	TestFixtures.check(res, "a reset owns every promotions tier",
+	TestFixtures.check(res, "max_out owns every promotions tier",
 		bool(full["promotions"]) and bool(full["jobPostings"]) and bool(full["adSponsor"])
 			and bool(full["guildPromo"]) and bool(full["gpContractType"])
 			and int(full["maxPromoDays"]) == SubscriptionManager.PROMO_DAYS_INFINITE
@@ -735,11 +735,11 @@ static func _case_promo_costs(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the whole promotions branch bills every tier it holds",
 		SubscriptionManager.monthly_upgrade_cost() == branch and branch == 500,
 		"got %d of %d" % [SubscriptionManager.monthly_upgrade_cost(), branch])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 #Case 17: the hand off from Promotions to Hiring and the money the HUD flies.
-static func _case_hiring_handoff(res: Dictionary, host: Node) -> void:
+static func _case_promo_to_hiring(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	var seen: Array[int] = []
 	var handler: Callable = func(campaign_id: int) -> void: seen.append(campaign_id)
@@ -782,24 +782,11 @@ static func _case_proto_keys(res: Dictionary, host: Node) -> void:
 		leaks.is_empty() and bool(bare["physical"]) and bool(bare["veryFast"])
 			and int(bare["perMerc"]) == 15,
 		TestFixtures.detail(leaks, PROTO_UPGRADE_KEYS.size(), "keys"))
-	var ladder: Array[String] = []
-	var discrim: Array[String] = ["ancestry", "bloodline", "age"]
-	for tier: int in range(0, 4):
-		SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"discrim": tier})
-		var ent: Dictionary = SubscriptionManager.entitlements()
-		for i: int in discrim.size():
-			if bool(ent[discrim[i]]) != (tier >= i + 1):
-				ladder.append("%s at %d" % [discrim[i], tier])
+	var ladder: Array[String] = _ladder_steps("discrim", ["ancestry", "bloodline", "age"])
 	TestFixtures.check(res, "the discrimination tiers open ancestry, bloodline and age in order",
 		ladder.is_empty(), TestFixtures.detail(ladder, 12, "steps"))
-	var back: Array[String] = []
-	var background: Array[String] = ["heritage", "perks", "drawbacks", "skills", "lifepath"]
-	for tier: int in range(0, 6):
-		SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"background": tier})
-		var ent: Dictionary = SubscriptionManager.entitlements()
-		for i: int in background.size():
-			if bool(ent[background[i]]) != (tier >= i + 1):
-				back.append("%s at %d" % [background[i], tier])
+	var back: Array[String] = _ladder_steps("background",
+		["heritage", "perks", "drawbacks", "skills", "lifepath"])
 	TestFixtures.check(res, "the background tiers open their five keys in order", back.is_empty(),
 		TestFixtures.detail(back, 30, "steps"))
 	var refresh: Array[String] = []
@@ -819,8 +806,8 @@ static func _case_proto_keys(res: Dictionary, host: Node) -> void:
 	var pro_leaks: Array[String] = _upgrade_leaks(pro)
 	TestFixtures.check(res, "Pro carries the physical and speed keys and no upgrade key",
 		pro_leaks.is_empty() and bool(pro["physical"]) and bool(pro["veryFast"])
-			and int(pro["perMerc"]) == 5 and int(pro["maxMercs"]) == 20
-			and int(pro["maxContracts"]) == 12,
+			and int(pro["perMerc"]) == 5 and int(pro["maxMercs"]) == 8
+			and int(pro["maxContracts"]) == 8,
 		TestFixtures.detail(pro_leaks, PROTO_UPGRADE_KEYS.size(), "keys"))
 	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
 	var free: Dictionary = SubscriptionManager.entitlements()
@@ -830,7 +817,7 @@ static func _case_proto_keys(res: Dictionary, host: Node) -> void:
 		"perMerc %d, mercs %d, contracts %d" % [int(free["perMerc"]), int(free["maxMercs"]),
 			int(free["maxContracts"])])
 	var splits: Array[String] = []
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var full: Dictionary = SubscriptionManager.entitlements()
 	for state: Dictionary in [full, bare, pro]:
 		for key: Variant in ALIAS_KEYS:
@@ -839,16 +826,55 @@ static func _case_proto_keys(res: Dictionary, host: Node) -> void:
 				splits.append("%s vs %s" % [key, old_key])
 	TestFixtures.check(res, "every prototype alias reads its wave 1 spelling", splits.is_empty(),
 		TestFixtures.detail(splits, ALIAS_KEYS.size() * 3, "aliases"))
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 #The new upgrade keys that are open, which on any state below a bought tier must be none.
 static func _upgrade_leaks(ent: Dictionary) -> Array[String]:
 	var leaks: Array[String] = []
 	for key: String in PROTO_UPGRADE_KEYS:
-		var value: Variant = ent[key]
-		if (value is bool and bool(value)) or (value is int and int(value) != 0):
+		if _is_open(ent[key]):
 			leaks.append(key)
 	if String(ent["surveyRefresh"]) != "none":
 		leaks.append("surveyRefresh")
 	return leaks
+
+
+#The keys that fail to open one tier at a time as the upgrade climbs from zero to full.
+static func _ladder_steps(upgrade: String, keys: Array[String]) -> Array[String]:
+	var steps: Array[String] = []
+	for tier: int in range(0, keys.size() + 1):
+		SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {upgrade: tier})
+		var ent: Dictionary = SubscriptionManager.entitlements()
+		for i: int in keys.size():
+			if bool(ent[keys[i]]) != (tier >= i + 1):
+				steps.append("%s at %d" % [keys[i], tier])
+	return steps
+
+
+#An entitlement value that grants something: a true flag or a nonzero count.
+static func _is_open(value: Variant) -> bool:
+	return (value is bool and bool(value)) or (value is int and int(value) != 0)
+
+
+#The My Plan window on the 1280 x 644 band, on the starting plan and on Enterprise: every tab
+#fits, stays on the canvas and keeps the tab row off the close X.
+static func _case_fit(res: Dictionary, host: Node) -> void:
+	for plan: int in [-1, SubscriptionManager.Plan.ENTERPRISE]:
+		_fresh()
+		SubscriptionManager.max_out()
+		if plan >= 0:
+			SubscriptionManager.set_state(plan, {})
+		var viewer: SubscriptionViewer = VIEWER.instantiate() as SubscriptionViewer
+		host.add_child(viewer)
+		GuiAdsTests.fit_band(viewer)
+		var pages: Array[Control] = [viewer.plans_page(), viewer.customize_page()]
+		for i: int in range(SubscriptionViewer.TAB_KEYS.size()):
+			viewer.open_tab(SubscriptionViewer.TAB_KEYS[i])
+			await host.get_tree().process_frame
+			await host.get_tree().process_frame
+			var label: String = "Plan %d %s" % [plan, SubscriptionViewer.TAB_KEYS[i]]
+			GuiAdsTests.check_fit(res, label, viewer, pages[i], [viewer.tab_strip])
+		host.remove_child(viewer)
+		viewer.queue_free()
+		await host.get_tree().process_frame

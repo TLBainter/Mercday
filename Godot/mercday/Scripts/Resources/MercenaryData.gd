@@ -56,7 +56,13 @@ var excess_hp: int = 0
 var excess_ep: int = 0
 var excess_mp: int = 0
 var rest_lockout_until: int = 0      #campaign minute; deployable when CampaignClock.now() >= this
-var rest_lockout_kind: String = ""   #respite or furlough while a lockout runs
+var rest_lockout_start: int = -1     #campaign minute the running lockout began; -1 none
+var rest_lockout_kind: String = ""   #respite, furlough or vacation while a lockout runs
+var furlough_pressure: float = 0.0   #effective days since the last completed Furlough
+var deficit_pressure: float = 0.0    #effective days spent at a pool deficit
+var fail_stress: float = 0.0         #survived failed contracts, decaying
+var idle_since_minute: int = -1      #minute the idle window began; -1 working, -2 idle but its Furlough is spent
+var last_furlough_minute: int = -1   #minute the last Furlough completed; -1 none
 var on_contract: bool = false
 var campaign_states: Dictionary = {}  #state_name -> expiry campaign minute, -1 when the state has no timer
 var beau_together: bool = false
@@ -65,22 +71,22 @@ var beau_last_tick_minute: int = -1
 var beau_last_seen_minute: int = -1
 var beau_hp_ticks: int = 0
 var group_perk_cells_applied: Dictionary = {}  #trait_name -> true; group perks whose cell already ran
-var active_states: Dictionary = {}   # state_name -> int or {count, source}
-var death_test_hp_loss: int = 0      # accumulated max HP loss from failed death tests this combat
-var rot_hp_loss: int = 0             # accumulated max HP loss from Rot damage; recovered at end of battle
+var active_states: Dictionary = {}  #state_name -> int or {count, source}
+var death_test_hp_loss: int = 0  #accumulated max HP loss from failed death tests this combat
+var rot_hp_loss: int = 0  #accumulated max HP loss from Rot damage; recovered at end of battle
 var crawling: bool = false           #moving prone through a cell too low for the merc's Size
 var suffocate_rounds: int = 0        #rounds held with Suffocating or Drowning; the breath countdown
 var breath_clear_rounds: int = 0     #rounds since the last breathless round; clears the loss at Vigor
 var suffocation_hp_loss: int = 0     #accumulated max HP loss from the breath countdown
-var ammo_inventory: Dictionary = {}  # ammo_name -> int (rounds remaining)
+var ammo_inventory: Dictionary = {}  #ammo_name -> int (rounds remaining)
 var ammo_loaded: int = 0
 var ammo_loaded_type: String = ""
 var max_ammo: int = -1               #cap on the rounds carried into a battle; -1 = uncapped
 var weapon_misfired: bool = false
-var aim_active: bool = false    # cleared at start of each turn
-var weapon_drawn: bool = false       # true = weapon in hand; toggled by _randomize_starting_draw and Draw action
-var inventory: Array = []            # Array of {"type": String, "data": Resource}, e.g. {"type": "weapon", "data": WeaponData}
-var deferred_effects: Array = []  # Array of {target: MercenaryData, damage: int, type: String, timing: String}
+var aim_active: bool = false  #cleared at start of each turn
+var weapon_drawn: bool = false  #true = weapon in hand; toggled by _randomize_starting_draw and Draw action
+var inventory: Array = []  #Array of {"type": String, "data": Resource}, e.g. {"type": "weapon", "data": WeaponData}
+var deferred_effects: Array = []  #Array of {target: MercenaryData, damage: int, type: String, timing: String}
 var action_set: MercActionSet
 var last_known_enemy_positions: Dictionary = {}  #MercenaryData -> Vector3i
 var known_immunities: Dictionary = {}  #MercenaryData -> Array[String] immune/protected/susceptible tokens seen
@@ -89,6 +95,8 @@ var merc_uid: int = 0  #campaign identity; 0 = none
 var xp: int = 0  #lifetime experience; level is floor(xp / 100)
 var age: int = 0
 var age_category: String = ""  #Young, Adult or Elder once generated; empty until then
+var appearance_seed: int = 0  #CharacterAppearance.roll seed stamped at generation; 0 = none
+var appearance: CharacterAppearance = null  #rolled from appearance_seed at generation; null = none
 var lifepath_pool: Array[String] = []  #event names this merc has qualified for
 var lifepath_roll_step: int = 0         #levels gained since the last lifepath event
 var beau_uid: int = 0                   #merc this one is In Love with; 0 = none
@@ -102,9 +110,12 @@ var level_ups_resolved: int = -1
 #Guild employment: the hire order, the minute of the hire, the flat wage and the guild's standing.
 var hire_index: int = -1     #order of hire from 0; -1 never hired
 var hired_minute: int = -1   #CampaignClock minute of the hire; -1 never hired
+var missing_since: int = -1  #CampaignClock minute the merc abandoned a contract and went missing; -1 not missing
 var monthly_salary: int = 0
+var salary_ask: int = 0      #solo asking salary stamped at generation
 var guild_opinion: int = 0   #-5..5
 var backpay: int = 0         #salary withheld while captive
+var bonus_owed: int = 0      #contract bonus share withheld while away
 var action_uses: Dictionary = {}  #action name -> times used in battle, read by the Merc Viewer
 var banked_experience_points: int = 0
 var skill_points: int = 0
@@ -141,6 +152,32 @@ var turn_attack_total: int = 0
 var turn_weapon_attacks: Dictionary = {}
 #ReP a perk granted for the rest of the turn; cleared when the turn ends.
 var temp_rep: int = 0
+
+
+#Footprint side in cells; never below 1.
+func unit_size() -> int:
+	return maxi(1, int(stats.get("size", 1)))
+
+
+#Current hp over max hp, with max hp floored at 1.
+func hp_ratio() -> float:
+	return float(current_hp) / maxf(1.0, float(stats.get("maximum_hit_points", 1)))
+
+
+#Salary and bonus withheld while the merc was away; nothing pays it out yet.
+func back_owed() -> int:
+	return backpay + bonus_owed
+
+
+#Weapons carried in the inventory, in inventory order; entries with no data are skipped.
+func inventory_weapons() -> Array[WeaponData]:
+	var out: Array[WeaponData] = []
+	for entry: Dictionary in inventory:
+		if entry.get("type") == "weapon":
+			var w := entry.get("data") as WeaponData
+			if w != null:
+				out.append(w)
+	return out
 
 
 #True when the merc still carries rounds of any ammo type outside the loaded weapon.

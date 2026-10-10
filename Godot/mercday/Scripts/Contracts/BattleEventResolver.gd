@@ -29,7 +29,8 @@ static func resolve(event: EventData, run: ContractRun, opts: Dictionary = {}) -
 		run.emit("EVENT FAILED: %s (no enemies generated)" % event.event_name)
 		return out
 	last_enemies = enemies
-	if run.contract != null and event.event_name == run.contract.assigned_primary_event:
+	if run.contract != null and (event.event_name == run.contract.assigned_primary_event
+			or (run.contract.style == "timeline" and event.event_type == "Primary")):
 		run.target_record = _target_record(event, enemies)
 	run.emit("ENEMY TEAM: %d x %s" % [enemies.size(), event.enemy])
 	for enemy: MercenaryData in enemies:
@@ -40,27 +41,26 @@ static func resolve(event: EventData, run: ContractRun, opts: Dictionary = {}) -
 	run.emit("TERRAIN: %s" % ContractTerrain.last_draw)
 	run.emit("MAP: %s %dx%d %s" % [field.area_name, field.width, field.length,
 		"interior" if field.is_interior_map else "exterior"])
+	var leader: MercenaryData = run.leader()
 	for merc: MercenaryData in team_a:
-		run.emit(OverallSuccess.describe(merc, OverallSuccess.for_merc(run.contract, team_a, merc, event)))
-	var record: Dictionary = OverallSuccess.apply_event_delta(run.contract, team_a, event)
+		run.emit(OverallSuccess.describe(merc, OverallSuccess.for_merc(run.contract, team_a, merc, event, leader)))
+	var record: Dictionary = OverallSuccess.apply_event_delta(run.contract, team_a, event, leader)
 	var side_a: Array[MercenaryData] = []
 	side_a.assign(team_a)
 	if not rescue.is_empty():
 		side_a.append(rescue["captive"])
 	var side_b: Array[MercenaryData] = []
 	side_b.assign(enemies)
-	var state: BattleState = BattleState.create(side_a, side_b, field, true)
+	var state: BattleState = BattleState.create(side_a, side_b, field)
 	last_state = state
 	state.flee_enabled = bool(opts.get("flee", true))
 	if not rescue.is_empty():
 		state.flee_enabled = false
-		for line: String in RescueSystem.attach(state, rescue["captive"], String(rescue["mode"]),
-				run.difficulty()):
-			run.emit(line)
+		run.emit_all(RescueSetup.attach(state, rescue["captive"], String(rescue["mode"]), run.difficulty()))
 	_apply_opts(state, opts)
+	#A defector fights its old side with its delta; the revert below restores it with the rest.
 	if BetrayalSystem.should_run(event, opts):
-		for merc: MercenaryData in BetrayalSystem.run_pre_battle(run, state, roster):
-			BetrayalSystem.drop_delta(record, merc)
+		var _switched: Array[MercenaryData] = BetrayalSystem.run_pre_battle(run, state, roster)
 	var result: Dictionary = await AutoBattle.run_battle(state, run.line_fn, event.event_name)
 	OverallSuccess.revert_event_delta(record)
 	_settle(run, state, roster, event, enemies, rescue, result, out)
@@ -75,6 +75,10 @@ static func _build_enemies(event: EventData, run: ContractRun, team_a: Array[Mer
 		rescue = RescueContractBuilder.battle_setup(run, event)
 		if rescue.is_empty():
 			run.emit("RESCUE: no captive found; plain battle")
+	elif event.event_name == RescueContractBuilder.PRISON_EVENT:
+		rescue = RescueContractBuilder.prison_setup(run, run.contract, event)
+		if rescue.is_empty():
+			run.emit("PRISON BREAK: no prisoner built; plain battle")
 	var enemies: Array[MercenaryData] = []
 	if opts.has("enemies"):
 		enemies.assign(opts["enemies"])
@@ -103,7 +107,7 @@ static func _apply_opts(state: BattleState, opts: Dictionary) -> void:
 	var surprised: Array = opts.get("surprised", [])
 	var rm: Array[String] = ["time"]
 	for merc: MercenaryData in surprised:
-		ConstStates.apply_state(merc, ConstStates.SURPRISED, null, "", "engine:kidnap", rm)
+		StateCascade.apply_state(merc, ConstStates.SURPRISED, null, "", "engine:kidnap", rm)
 
 
 #What the finished battle leaves behind: the log path, the tallies and every post battle system in turn.
@@ -129,26 +133,21 @@ static func _settle(run: ContractRun, state: BattleState, roster: Array[Mercenar
 	out["foes_abandoned"] = abandoned
 	out["success"] = defeated == foe_list.size()
 	if not rescue.is_empty():
-		var ro: Dictionary = RescueSystem.outcome(state)
+		var ro: Dictionary = RescueOutcome.outcome(state)
 		out["success"] = bool(ro.get("success", false))
 		out["rescue"] = ro
 		out["rescue_result"] = String(ro.get("result", ""))
-		RescueContractBuilder.complete(run, ro)
-	for line: String in ExperienceSystem.award_encounter(loyal_list, foe_list, state.damage_dealt_total, event.event_name):
-		run.emit(line)
+		RescueContractBuilder.complete(run, ro, String(rescue.get("kind", "")))
+	run.emit_all(ExperienceSystem.award_encounter(loyal_list, foe_list, state.damage_dealt_total, event.event_name))
 	var dead := BetrayalSystem.dead_of(state, roster)
 	var moved: Array[MercenaryData] = run.remove_dead(dead)
 	for merc: MercenaryData in moved:
 		run.emit("CASUALTY: %s" % merc.merc_name)
 	out["casualties"] = run.merc_names(moved)
-	for line: String in BetrayalSystem.settle(run, state):
-		run.emit(line)
-	for line: String in FleeSettlement.settle(run, state, loyal_list):
-		run.emit(line)
-	for line: String in CaveInSystem.settle(run, state, roster):
-		run.emit(line)
-	for line: String in KidnapSystem.settle(run, state, roster, event.enemy):
-		run.emit(line)
+	run.emit_all(BetrayalSystem.settle(run, state))
+	run.emit_all(FleeSettlement.settle(run, state, loyal_list))
+	run.emit_all(CaveInSystem.settle(run, state, roster))
+	run.emit_all(KidnapSystem.settle(run, state, roster, event.enemy))
 	for name: String in stabilize(run):
 		run.emit("STABILIZED: %s" % name)
 	TraitRuntime.on_combat_complete(run, event.event_name)
@@ -190,13 +189,18 @@ static func _target_record(event: EventData, enemies: Array[MercenaryData]) -> D
 	return {"tags": tags, "count": enemies.size(), "speed": speed, "max_hp": max_hp, "failed": {}}
 
 
+#Leaves a downed merc at 1 HP and no longer Dying.
+static func stabilize_merc(merc: MercenaryData) -> void:
+	merc.current_hp = 1
+	if ConstStates.has_state(merc, ConstStates.DYING):
+		StateCascade.remove_state(merc, ConstStates.DYING)
+
+
 static func stabilize(run: ContractRun) -> Array[String]:
 	var names: Array[String] = []
 	for merc: MercenaryData in run.living_team():
 		if merc.current_hp > 0:
 			continue
-		merc.current_hp = 1
-		if ConstStates.has_state(merc, ConstStates.DYING):
-			ConstStates.remove_state(merc, ConstStates.DYING)
+		stabilize_merc(merc)
 		names.append(merc.merc_name)
 	return names

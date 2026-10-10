@@ -19,17 +19,10 @@ const GOOD_RELATION: int = MercView.NEUTRAL_RELATION
 
 const PERCENT_MAX: int = 100
 const NO_MAX: int = -1
-const MONTHS_PER_YEAR: int = VacationPolicy.MONTHS_PER_YEAR
 const LOCK_TEXT: String = "Only Available or Resting mercs can have their salary changed"
-const REJECT_SECONDS: float = 0.42
 const HOURS_PER_DAY: float = 24.0
 const LOAN_NOTE: String = "Pursuing a loan."
 const UNDER_MONTH_TEXT: String = "Under a Month"
-const ON_COLOR: Color = PayrollLogic.OK_COLOR
-const OFF_COLOR: Color = PayrollLogic.OFF_COLOR
-const NOTE_COLOR: Color = PayrollLogic.NOTE_COLOR
-const FRIEND_COLOR: Color = PayrollLogic.OVER_COLOR
-const PLAIN_COLOR: Color = Color("#f3ead7")
 const PAYDAY_GOOD_DAYS: int = 20
 const PAYDAY_OK_DAYS: int = 9
 const PAYDAY_WARN_DAYS: int = 4
@@ -53,6 +46,8 @@ const STATUS_NOTES: Dictionary = {
 	GuiTypes.MercStatus.DEAD: "Deceased.",
 	GuiTypes.MercStatus.MISSING: "Missing.",
 	GuiTypes.MercStatus.CAPTURED: "Held captive.",
+	GuiTypes.MercStatus.PREPARING: "Waiting to depart on a contract.",
+	GuiTypes.MercStatus.DEFECTED: "Switched sides on a contract.",
 }
 const TRAIT_KINDS: Array[Dictionary] = [
 	{"kind": "Knowledge", "field": "knowledges"},
@@ -70,14 +65,16 @@ var vacation_taken: Dictionary = {}
 #Merc uid to true once it has been let go; the merc is out of the guild and holds no row.
 var fired: Dictionary = {}
 var _policy: VacationPolicy = VacationPolicy.new()
+#Every vacation row; one book for the session, so the signal links MailCenter makes survive a reset.
+var book: VacationBook = VacationBook.new()
 var _tick_day: int = -1
 #True while a writer of this manager runs, so the roster signal it raises adds no second
 #changed signal on top of the one the writer emits itself.
 var _quiet: bool = false
-var _seeded: bool = false
 
 
 func _ready() -> void:
+	GameState.game_started.connect(reset)
 	GameState.roster_changed.connect(_on_roster_changed)
 	GameState.day_changed.connect(_on_day_changed)
 	GameState.results_recorded.connect(_on_results_recorded)
@@ -93,47 +90,35 @@ func reset() -> void:
 	vacation = _policy.to_dict()
 	vacation_taken.clear()
 	fired.clear()
+	book.clear()
+	book.furlough_lines.clear()
 	_tick_day = -1
-	_seeded = GameState.started
 	changed.emit()
 
 
 func _on_roster_changed() -> void:
-	if _seed_if_started():
-		return
 	if _quiet:
 		return
 	changed.emit()
 
 
 func _on_day_changed(_day_index: int) -> void:
-	if _seed_if_started():
-		return
 	tick(CampaignClock.now())
-
-
-#Reseeds once, on the first signal after a campaign starts; true when this call did it.
-func _seed_if_started() -> bool:
-	if _seeded or not GameState.started:
-		return false
-	reset()
-	return true
 
 
 #One calendar day of guild business at a time: every day passed since the last tick is handled
 #in order, and the first call after reset() only records the day.
 func tick(now: int) -> void:
-	var today: int = TrynnCalendar.day_index(now)
-	if _tick_day < 0:
-		_tick_day = today
-		return
-	while _tick_day < today:
-		_tick_day += 1
-		_day_passed(_tick_day)
+	_tick_day = GameState.for_each_new_day(_tick_day, now, _day_passed)
 
 
-#The 1st of a calendar month owes the profit share while the benefit is switched on.
+#Each vacation day the book counts; the 1st of a calendar month owes the profit share while it is switched on.
 func _day_passed(day: int) -> void:
+	for uid: int in book.day_passed(day):
+		add_vacation_taken(uid, 1)
+	#Daith 2 opens the vacation year; the count above has already put Daith 1 against the old one.
+	if day % TrynnCalendar.DAYS_PER_YEAR == 1:
+		vacation_taken.clear()
 	var date: Dictionary = TrynnCalendar.date_of(day * CampaignClock.MINUTES_PER_DAY)
 	if int(date["day"]) == 1 and profit_pct > 0:
 		profit_share_due.emit(profit_pct)
@@ -199,7 +184,7 @@ func benefit_rows() -> Array[Dictionary]:
 		var value: int = benefit(key)
 		out.append({"key": key, "label": String(def["label"]), "desc": String(def["desc"]),
 			"value": value, "value_text": benefit_text(key, value),
-			"color": ON_COLOR if value != 0 else OFF_COLOR, "unit": String(def["unit"]),
+			"color": PayrollLogic.OK_COLOR if value != 0 else PayrollLogic.OFF_COLOR, "unit": String(def["unit"]),
 			"step_label": step_label(key), "step_max": step_max(key)})
 	return out
 
@@ -239,12 +224,13 @@ func employed_text(uid: int) -> String:
 	var months: int = employment_months(uid)
 	if months <= 0:
 		return UNDER_MONTH_TEXT
-	var years: int = int(months / float(MONTHS_PER_YEAR))
-	var rest: int = months % MONTHS_PER_YEAR
+	var per_year: int = TrynnCalendar.MONTHS.size()
+	var years: int = int(months / float(per_year))
+	var rest: int = months % per_year
 	var text: String = "Employed for "
 	if years > 0:
-		text += VacationPolicy.plural(years, "Year") + ", "
-	return text + VacationPolicy.plural(rest, "Month")
+		text += GuiDates.plural(years, "Year") + ", "
+	return text + GuiDates.plural(rest, "Month")
 
 
 func vacation_days_max(uid: int) -> int:
@@ -265,10 +251,7 @@ func add_vacation_taken(uid: int, days: int) -> void:
 
 
 func view_of(uid: int) -> MercView:
-	for view: MercView in GameState.roster:
-		if view != null and view.uid == uid:
-			return view
-	return null
+	return GameState.view_by_uid(uid)
 
 
 #Everyone the guild still employs: the roster hides the dead and the captive, this drops the fired.
@@ -280,11 +263,16 @@ func employed_views() -> Array[MercView]:
 	return out
 
 
-#The status the Payroll list shows, with FIRED and DEAD on top of what GameState reports.
+#The status the Payroll list shows, with FIRED, DEFECTED and DEAD on top of what GameState reports.
 func status_of(uid: int) -> int:
 	var merc: MercenaryData = GameState.merc_by_uid(uid)
 	if merc == null:
-		return GuiTypes.MercStatus.FIRED if fired.has(uid) else GuiTypes.MercStatus.DEAD
+		if fired.has(uid):
+			return GuiTypes.MercStatus.FIRED
+		var record: RemovedMercRecord = GameState.removed_by_uid(uid)
+		if record != null and record.reason == GameState.REMOVED_DEFECTED:
+			return GuiTypes.MercStatus.DEFECTED
+		return GuiTypes.MercStatus.DEAD
 	if merc.is_dead:
 		return GuiTypes.MercStatus.DEAD
 	if SalarySystem.is_captive(merc):
@@ -324,11 +312,13 @@ func salary_preview(uid: int, new_salary: int) -> Dictionary:
 		pct = float(delta) / float(base) * 100.0
 	var shift: int = PayrollLogic.opinion_shift(base, new_salary, opinion)
 	var preview: int = opinion + shift
+	var delta_text: String = "" if delta == 0 else PayrollLogic.delta_text(base, new_salary)
+	var was: String = "" if delta == 0 else "Was " + str(base)
 	return {"base": base, "salary": new_salary, "delta": delta, "pct": pct,
-		"delta_text": PayrollLogic.delta_text(base, new_salary), "shift": shift,
+		"delta_text": delta_text, "shift": shift,
 		"opinion": opinion, "preview": preview,
 		"title": PayrollLogic.mood_title(preview, shift),
-		"color": PayrollLogic.delta_color(delta), "was": "Was " + str(base),
+		"color": PayrollLogic.delta_color(delta), "was": was,
 		"step_max": maxi(new_salary, GameState.bank_notes),
 		"affordable": can_raise(uid, new_salary)}
 
@@ -360,7 +350,7 @@ func _contract_note(uid: int) -> String:
 	if merc != null:
 		hours = float(GameState.merc_status(merc)["hours_left"])
 	var days: int = maxi(0, ceili(hours / HOURS_PER_DAY))
-	var text: String = VacationPolicy.plural(days, "Day") + " Left"
+	var text: String = GuiDates.plural(days, "Day") + " Left"
 	var title: String = _contract_name(uid)
 	if title == "":
 		return text
@@ -368,13 +358,8 @@ func _contract_note(uid: int) -> String:
 
 
 func _contract_name(uid: int) -> String:
-	var entry_id: int = _run_entry_of(uid)
-	if entry_id < 0:
-		return ""
-	for view: ContractView in GameState.contracts:
-		if view != null and view.entry_id == entry_id:
-			return view.name
-	return ""
+	var view: ContractView = GameState.contract_view(_run_entry_of(uid))
+	return view.name if view != null else ""
 
 
 func _run_entry_of(uid: int) -> int:
@@ -388,11 +373,9 @@ func _run_entry_of(uid: int) -> int:
 
 
 func _loan_note(uid: int) -> String:
-	var manager: Node = get_node_or_null("/root/FinanceManager")
-	if manager != null and manager.has_method("loan_note"):
-		var text: String = String(manager.call("loan_note", uid))
-		if text != "":
-			return text
+	var text: String = FinanceManager.loan_note(uid)
+	if text != "":
+		return text
 	return LOAN_NOTE
 
 
@@ -422,30 +405,12 @@ func payroll_rows() -> Array[Dictionary]:
 
 #What the wages cost a month; a merc that has been let go is never paid.
 func payroll_total() -> int:
-	var total: int = GameState.month_expenses()
-	if GameState.has_method("payroll_mercs"):
-		return total
-	for uid: int in fired:
-		var merc: MercenaryData = GameState.merc_by_uid(uid)
-		if merc == null or merc.is_dead or SalarySystem.is_captive(merc):
-			continue
-		total -= merc.monthly_salary
-	return maxi(0, total)
+	return GameState.month_expenses()
 
 
-#The minute the next wages come due. GameState owns the rule; this mirrors it when that reader is
-#missing, so the tile never reads zero.
+#The minute the next wages come due; GameState owns the rule.
 func next_payday_minute() -> int:
-	if GameState.has_method("next_payday_minute"):
-		return int(GameState.call("next_payday_minute"))
-	var now: int = CampaignClock.now()
-	var date: Dictionary = TrynnCalendar.date_of(now)
-	var hour: int = int(GameState.SALARY_HOUR)
-	var at: int = TrynnCalendar.first_weekday_minute(int(date["year"]), int(date["month"]), hour)
-	if at > now:
-		return at
-	var next: Dictionary = TrynnCalendar.date_of(TrynnCalendar.next_month_start(now))
-	return TrynnCalendar.first_weekday_minute(int(next["year"]), int(next["month"]), hour)
+	return GameState.next_payday_minute()
 
 
 func payday_minutes_left() -> int:
@@ -460,17 +425,17 @@ func payday_days_left() -> int:
 func payday_text() -> String:
 	var days: int = payday_days_left()
 	if days >= 1:
-		return VacationPolicy.plural(days, "Day")
+		return GuiDates.plural(days, "Day")
 	var hours: int = maxi(1, ceili(payday_minutes_left() / float(TrynnCalendar.MINUTES_PER_HOUR)))
-	return VacationPolicy.plural(hours, "Hour")
+	return GuiDates.plural(hours, "Hour")
 
 
 func payday_color() -> Color:
 	var days: int = payday_days_left()
 	if days >= PAYDAY_GOOD_DAYS:
-		return ON_COLOR
+		return PayrollLogic.OK_COLOR
 	if days >= PAYDAY_OK_DAYS:
-		return PLAIN_COLOR
+		return GuiColors.CREAM
 	if days >= PAYDAY_WARN_DAYS:
 		return PayrollLogic.WARN_COLOR
 	return PayrollLogic.OVER_COLOR
@@ -541,7 +506,7 @@ func fire_summary(uid: int) -> Dictionary:
 		"employed_text": employed_text(uid), "salary": salary_of(uid),
 		"notes": fire_notes(uid), "friends": friends,
 		"friends_text": friends_text(friends),
-		"friends_color": FRIEND_COLOR if friends > 0 else OFF_COLOR,
+		"friends_color": PayrollLogic.OVER_COLOR if friends > 0 else PayrollLogic.OFF_COLOR,
 		"opinion": opinion, "drop": drop,
 		"opinion_after": maxi(SalarySystem.OPINION_MIN, opinion - drop)}
 
@@ -559,7 +524,7 @@ func fire_notes(uid: int) -> Array[Dictionary]:
 		var value: String = String(row["value"])
 		if value == "" or _others_share(uid, String(row["kind"]), value):
 			continue
-		out.append({"text": "You have no other " + value + "s", "color": NOTE_COLOR})
+		out.append({"text": "You have no other " + value + "s", "color": PayrollLogic.NOTE_COLOR})
 	return out
 
 
@@ -608,8 +573,7 @@ func fire(uid: int) -> bool:
 	var merc: MercenaryData = GameState.merc_by_uid(uid)
 	if merc == null:
 		return false
-	merc.guild_opinion = maxi(SalarySystem.OPINION_MIN,
-		merc.guild_opinion - PayrollLogic.fire_drop(merc.guild_opinion))
+	SalarySystem.adjust_opinion(merc, -PayrollLogic.fire_drop(merc.guild_opinion))
 	fired[uid] = true
 	_quiet = true
 	GameState.remove_merc(uid, "fired", GuiTypes.MercStatus.FIRED)
@@ -619,7 +583,7 @@ func fire(uid: int) -> bool:
 	return true
 
 
-#The per-contract bonus is the only writer of bonus_pct; the notes themselves are not moved yet.
+#Stamps the per-contract percent on each result and splits its bonus; GameState debits the notes at settlement.
 func _on_results_recorded(entry_id: int) -> void:
 	var result: ContractResultData = GameState.result_of(entry_id)
 	if result == null:

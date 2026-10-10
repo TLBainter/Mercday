@@ -13,6 +13,24 @@ static func save(field: BattlefieldArea, stem: String) -> void:
 	if fa == null:
 		return
 	var lines: Array[String] = []
+	_write_header(field, lines)
+	if field.is_cavern:
+		CavernDumpWriter.append_cavern(field, lines)
+	else:
+		_write_floors(field, lines)
+		_write_stairs(field, lines)
+		_write_buildings(field, lines)
+		if field.is_city:
+			CityDumpWriter.append_city_model(field, lines)
+		_write_links(field, lines)
+		_write_objects(field, lines)
+		_write_rooms(field, lines)
+		_write_grids(field, lines)
+	fa.store_string("\n".join(lines) + "\n")
+	fa.close()
+
+
+static func _write_header(field: BattlefieldArea, lines: Array[String]) -> void:
 	lines.append("=== Level Structure ===")
 	lines.append("Map: %dx%d  fh: %d" % [field.width, field.length, field.interior_floor_height])
 	for f_num: Variant in field.interior_floor_elevations.keys():
@@ -20,11 +38,9 @@ static func save(field: BattlefieldArea, stem: String) -> void:
 		var elev: int = field.interior_floor_elevations[floor_num]
 		lines.append("F%d: elevation=%d" % [floor_num, elev])
 	lines.append("")
-	if field.is_cavern:
-		CavernDumpWriter.append_cavern(field, lines)
-		fa.store_string("\n".join(lines) + "\n")
-		fa.close()
-		return
+
+
+static func _write_floors(field: BattlefieldArea, lines: Array[String]) -> void:
 	if field.is_interior_map:
 		var fp: Rect2i = field.building_footprint
 		lines.append("FOOTPRINT: %d,%d %dx%d" % [fp.position.x, fp.position.y, fp.size.x, fp.size.y])
@@ -34,6 +50,9 @@ static func save(field: BattlefieldArea, stem: String) -> void:
 	elev_keys.sort()
 	for ek: Variant in elev_keys:
 		lines.append("FLOOR ELEV: F%d=%d" % [ek as int, field.interior_floor_elevations[ek] as int])
+
+
+static func _write_stairs(field: BattlefieldArea, lines: Array[String]) -> void:
 	var run_keys: Array = field.stair_runs.keys()
 	run_keys.sort()
 	for rk: Variant in run_keys:
@@ -41,32 +60,41 @@ static func save(field: BattlefieldArea, stem: String) -> void:
 		var runs: Array = field.stair_runs[rf] as Array
 		for entry: Variant in runs:
 			var run: Dictionary = entry as Dictionary
-			var rcount: int = 0
-			for sk: Variant in field.stair_run_cells.keys():
-				var sc: Vector3i = sk as Vector3i
-				if sc.z != rf:
-					continue
-				if runs.size() > 1 and (absi(sc.x - int(run["sx"])) > 1 or sc.y < int(run["ly"]) or sc.y > int(run["uy"])):
-					continue
-				rcount += 1
 			var rdir: String = "up" if int(run.get("up", 1)) > 0 else "down"
 			lines.append("STAIRS: F%d (%d,%d) -> F%d (%d,%d) run=%d cells dir=%s" % [
 				rf, int(run["sx"]), BattlefieldArea.run_top_y(run), rf - 1, int(run["sx"]),
-				BattlefieldArea.run_bottom_y(run), rcount, rdir])
-	if not field.buildings.is_empty():
-		lines.append("BUILDINGS: %d" % field.buildings.size())
-		for rec: Dictionary in field.buildings:
-			var floors: Array = rec.get("floors", []) as Array
-			var lo_f: int = int(floors[0]) if not floors.is_empty() else 0
-			var hi_f: int = int(floors[floors.size() - 1]) if not floors.is_empty() else 0
-			var br: Rect2i = rec.get("rect", Rect2i())
-			var fd: Vector3i = rec.get("front_door", Vector3i(-1, -1, 0))
-			lines.append("BUILDING: id=%d name=%s class=%s front=%s fh=%d floors=%d..%d rect=%d,%d %dx%d door=%d,%d" % [
-				int(rec.get("id", -1)), String(rec.get("name", "")), String(rec.get("size_class", "")),
-				String(rec.get("front", "")), int(rec.get("fh", 0)), lo_f, hi_f, br.position.x, br.position.y,
-				br.size.x, br.size.y, fd.x, fd.y])
-	if field.is_city:
-		CityDumpWriter.append_city_model(field, lines)
+				BattlefieldArea.run_bottom_y(run), _run_cell_count(field, rf, runs, run), rdir])
+
+
+static func _run_cell_count(field: BattlefieldArea, rf: int, runs: Array, run: Dictionary) -> int:
+	var count: int = 0
+	for sk: Variant in field.stair_run_cells.keys():
+		var sc: Vector3i = sk as Vector3i
+		if sc.z != rf:
+			continue
+		if runs.size() > 1 and (absi(sc.x - int(run["sx"])) > 1 or sc.y < int(run["ly"]) or sc.y > int(run["uy"])):
+			continue
+		count += 1
+	return count
+
+
+static func _write_buildings(field: BattlefieldArea, lines: Array[String]) -> void:
+	if field.buildings.is_empty():
+		return
+	lines.append("BUILDINGS: %d" % field.buildings.size())
+	for rec: Dictionary in field.buildings:
+		var floors: Array = rec.get("floors", []) as Array
+		var lo_f: int = int(floors[0]) if not floors.is_empty() else 0
+		var hi_f: int = int(floors[floors.size() - 1]) if not floors.is_empty() else 0
+		var br: Rect2i = rec.get("rect", Rect2i())
+		var fd: Vector3i = rec.get("front_door", Vector3i(-1, -1, 0))
+		lines.append("BUILDING: id=%d name=%s class=%s front=%s fh=%d floors=%d..%d rect=%d,%d %dx%d door=%d,%d" % [
+			int(rec.get("id", -1)), String(rec.get("name", "")), String(rec.get("size_class", "")),
+			String(rec.get("front", "")), int(rec.get("fh", 0)), lo_f, hi_f, br.position.x, br.position.y,
+			br.size.x, br.size.y, fd.x, fd.y])
+
+
+static func _write_links(field: BattlefieldArea, lines: Array[String]) -> void:
 	var drop_count: int = 0
 	var drop_balcony: int = 0
 	var drop_window: int = 0
@@ -98,6 +126,9 @@ static func save(field: BattlefieldArea, stem: String) -> void:
 		climb_count += (field.climb_links[ck] as Array).size()
 	if climb_count > 0:
 		lines.append("CLIMB LINKS: %d" % climb_count)
+
+
+static func _write_objects(field: BattlefieldArea, lines: Array[String]) -> void:
 	var roof_obj_count: int = 0
 	for robs: Dictionary in field.obstacles:
 		if bool(robs.get("roof_object", false)):
@@ -111,6 +142,9 @@ static func save(field: BattlefieldArea, stem: String) -> void:
 		var wpos := Vector3i(wcell.x, wcell.y, BattlefieldArea.floor_of(wobs["pos"]))
 		lines.append("WINDOWS: F%d (%d,%d) %s" % [
 			wpos.z, wpos.x, wpos.y, "broken" if wobs.get("broken", false) else "intact"])
+
+
+static func _write_rooms(field: BattlefieldArea, lines: Array[String]) -> void:
 	lines.append("")
 	lines.append("--- Rooms ---")
 	for entry: Dictionary in field.interior_rooms:
@@ -135,8 +169,11 @@ static func save(field: BattlefieldArea, stem: String) -> void:
 	lines.append("")
 	lines.append("--- Stairwells ---")
 	for p: Variant in field.stairwell_cells.keys():
-		var pos: Vector3i = p as Vector3i
-		lines.append("stairwell (%d,%d) F%d" % [pos.x, pos.y, pos.z])
+		var spos: Vector3i = p as Vector3i
+		lines.append("stairwell (%d,%d) F%d" % [spos.x, spos.y, spos.z])
+
+
+static func _write_grids(field: BattlefieldArea, lines: Array[String]) -> void:
 	if field.is_dungeon:
 		_append_dungeon(field, lines)
 	elif field.is_interior_map:
@@ -145,8 +182,6 @@ static func save(field: BattlefieldArea, stem: String) -> void:
 		CityDumpWriter.append_city_surface(field, lines)
 		CityDumpWriter.append_city_objects(field, lines)
 	_append_roof_maps(field, lines)
-	fa.store_string("\n".join(lines) + "\n")
-	fa.close()
 
 
 #One MASK line per floor: cell count and how much of that floor's own bounding box it fills.

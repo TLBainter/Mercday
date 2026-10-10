@@ -2,12 +2,12 @@ class_name RemovedMercRecord extends RefCounted
 
 #One merc the guild no longer has. The merc object itself is kept whole so a later system can bring
 #them back as an applicant, as a rival hand or as a bandit; the flat fields record what they were
-#worth the minute they left. Nothing reads the queue yet.
+#worth the minute they left. GameState.defectors() reads the defector part of the queue.
 
 var merc: MercenaryData = null
 var uid: int = 0
 var name: String = ""
-#Why the guild lost them: "fired" is the only reason written so far.
+#Why the guild lost them: "fired", or "defected" for a merc who switched sides on a contract.
 var reason: String = ""
 var day_index: int = 0
 var minute: int = 0

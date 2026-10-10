@@ -1,0 +1,79 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mail/MailViewer.gd" id="1"]
+[ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/TabStrip.gd" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mail/MailList.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mail/MailReader.tscn" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="6"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/mail_tabs.tres" id="7"]
+
+[node name="MailViewer" type="Control"]
+custom_minimum_size = Vector2(1280, 644)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2")
+script = ExtResource("1")
+tab_strip_path = NodePath("Margin/Columns/Left/TabsWrap/Tabs")
+default_tab = &"inbox"
+list_path = NodePath("Margin/Columns/Left/List")
+reader_path = NodePath("Margin/Columns/ReaderPanel/Pad/Reader")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="Columns" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Left" type="VBoxContainer" parent="Margin/Columns"]
+custom_minimum_size = Vector2(460, 0)
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="TabsWrap" type="MarginContainer" parent="Margin/Columns/Left"]
+layout_mode = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 0
+
+[node name="Tabs" type="HBoxContainer" parent="Margin/Columns/Left/TabsWrap"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_constants/separation = 8
+script = ExtResource("3")
+keys = Array[StringName]([&"inbox", &"requests", &"bills", &"news", &"spam"])
+labels = Array[String](["Inbox", "Requests", "Bills", "News", "Spam"])
+tips = Array[String](["Mail to the guild", "Vacation requests from your mercs", "Bills and payment notices", "News and announcements", "Unwanted mail"])
+icon_ids = Array[String](["mail", "request", "bill", "news", "spam"])
+
+[node name="List" parent="Margin/Columns/Left" instance=ExtResource("4")]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ReaderPanel" type="PanelContainer" parent="Margin/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"RaisedPanel"
+
+[node name="Pad" type="MarginContainer" parent="Margin/Columns/ReaderPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="Reader" parent="Margin/Columns/ReaderPanel/Pad" instance=ExtResource("5")]
+layout_mode = 2
+
+[node name="HelpTarget" type="Node" parent="Margin/Columns/Left/TabsWrap/Tabs"]
+script = ExtResource("6")
+hint = ExtResource("7")

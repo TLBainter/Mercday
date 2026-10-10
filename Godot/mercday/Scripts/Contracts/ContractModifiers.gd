@@ -7,15 +7,6 @@ static func stat_key(display: String) -> String:
 	return display.to_lower().replace(" ", "_")
 
 
-static func set_level(merc: MercenaryData, level: int) -> void:
-	if merc == null:
-		return
-	StatCalculator.prime(merc)
-	merc.stats["level"] = float(level)
-	merc.xp = ExperienceSystem.xp_for_level(level)
-	StatCalculator.refresh(merc)
-
-
 static func apply(contract: ContractData, team: Array[MercenaryData]) -> Dictionary:
 	var record: Dictionary = {"stats": {}, "circ": {}, "lines": []}
 	var lines: Array[String] = []
@@ -98,8 +89,9 @@ static func revert(record: Dictionary) -> Array[String]:
 static func knowledge_matches(merc: MercenaryData, name: String) -> bool:
 	if merc == null:
 		return false
+	var want: String = name.to_lower()
 	for k: UtilityTraitData in merc.knowledges:
-		if k != null and k.utility_name == name:
+		if k != null and k.utility_name.to_lower() == want:
 			return true
 	return false
 
@@ -107,8 +99,9 @@ static func knowledge_matches(merc: MercenaryData, name: String) -> bool:
 static func tool_matches(merc: MercenaryData, name: String) -> bool:
 	if merc == null or name == "":
 		return false
+	var want: String = name.to_lower()
 	for t: UtilityTraitData in merc.tools:
-		if t != null and t.utility_name.begins_with(name):
+		if t != null and t.utility_name.to_lower().begins_with(want):
 			return true
 	return false
 
@@ -119,20 +112,42 @@ static func tradition_matches(merc: MercenaryData, name: String) -> bool:
 	return merc.tradition.tradition_name.to_lower() == name.to_lower()
 
 
-static func boost_percent(contract: ContractData, merc: MercenaryData) -> float:
+#Every knowledge, tool and tradition boost row the merc matches, as {kind, name, pct}.
+static func matched_rows(contract: ContractData, merc: MercenaryData) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
 	if contract == null or merc == null:
-		return 0.0
-	var total: float = 0.0
-	for name: String in contract.tool_boosts:
-		if tool_matches(merc, name):
-			total += float(contract.tool_boosts[name])
+		return out
 	for name: String in contract.knowledge_boosts:
 		if knowledge_matches(merc, name):
-			total += float(contract.knowledge_boosts[name])
+			out.append({"kind": "knowledge", "name": name, "pct": float(contract.knowledge_boosts[name])})
+	for name: String in contract.tool_boosts:
+		if tool_matches(merc, name):
+			out.append({"kind": "tool", "name": name, "pct": float(contract.tool_boosts[name])})
 	for name: String in contract.tradition_boosts:
 		if tradition_matches(merc, name):
-			total += float(contract.tradition_boosts[name])
+			out.append({"kind": "tradition", "name": name, "pct": float(contract.tradition_boosts[name])})
+	return out
+
+
+#The merc's own matched rows plus each shared row it does not already match.
+static func boost_percent(contract: ContractData, merc: MercenaryData, shared: Array[Dictionary] = []) -> float:
+	if contract == null or merc == null:
+		return 0.0
+	var own: Array[Dictionary] = matched_rows(contract, merc)
+	var total: float = 0.0
+	for row: Dictionary in own:
+		total += float(row["pct"])
+	for row: Dictionary in shared:
+		if not has_row(own, row):
+			total += float(row["pct"])
 	return total
+
+
+static func has_row(rows: Array[Dictionary], row: Dictionary) -> bool:
+	for other: Dictionary in rows:
+		if String(other["kind"]) == String(row["kind"]) and String(other["name"]) == String(row["name"]):
+			return true
+	return false
 
 
 static func _pct_text(percent: float) -> String:

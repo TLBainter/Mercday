@@ -11,8 +11,6 @@ const DIRS4: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1),
 
 #Picks both centres and zones, writes them on area and fills area.city["spawn"].
 static func build(area: BattlefieldArea, ctx: GenerationContext) -> void:
-	if area == null:
-		return
 	var team: int = 4
 	if ctx != null:
 		team = maxi(ctx.team_size_a, ctx.team_size_b)
@@ -192,7 +190,7 @@ static func _snap(area: BattlefieldArea, from: Vector2i, ground: PackedByteArray
 
 
 static func _on_ground(area: BattlefieldArea, ground: PackedByteArray, cell: Vector2i) -> bool:
-	if cell.x < 0 or cell.x >= area.width or cell.y < 0 or cell.y >= area.length:
+	if not area.in_bounds_xy(cell.x, cell.y):
 		return false
 	var idx: int = cell.y * area.width + cell.x
 	if idx >= ground.size():
@@ -208,7 +206,7 @@ static func _zone_of(area: BattlefieldArea, team: int) -> Dictionary:
 static func _inside_cell(area: BattlefieldArea, id: int, win: Vector2i, fl: int) -> Vector2i:
 	for d: Vector2i in DIRS4:
 		var nb := Vector2i(win.x + d.x, win.y + d.y)
-		if nb.x < 0 or nb.x >= area.width or nb.y < 0 or nb.y >= area.length:
+		if not area.in_bounds_xy(nb.x, nb.y):
 			continue
 		if int(area.building_id_at.get(nb, -1)) != id:
 			continue

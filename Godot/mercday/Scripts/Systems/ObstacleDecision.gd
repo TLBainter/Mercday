@@ -23,10 +23,10 @@ static func decide_obstacle_or_flank(
 		return attack_obs_result
 	var merc_pos := state.get_position(merc)
 	var merc_floor := state.get_floor(merc)
-	var _bo: Dictionary = _blocking_obstacle(merc, state, merc_pos, merc_floor)
-	if _bo["interact"] as bool:
+	var bo: Dictionary = _blocking_obstacle(merc, state, merc_pos, merc_floor)
+	if bo["interact"] as bool:
 		return {"type": "special", "action_name": "Interact", "target": null}
-	var blocking_obs: Dictionary = _bo["obs"] as Dictionary
+	var blocking_obs: Dictionary = bo["obs"] as Dictionary
 	if blocking_obs.is_empty():
 		return {"type": "pass", "action_name": "", "target": null}
 
@@ -42,8 +42,8 @@ static func decide_obstacle_or_flank(
 			return attack_obs_result
 		EncounterLogger.log_verbose("  obstacle choice: destroy~%d rounds, no flank, too slow -> pass" % rounds_to_destroy)
 		return {"type": "pass", "action_name": "", "target": null}
-	var pace := maxi(1, int(MovementExecutor.turn_paces(merc, state, 0)["paces"]))
-	var flank_dist := maxi(abs(flank_cell.x - merc_pos.x), abs(flank_cell.y - merc_pos.y))
+	var pace := maxi(1, int(PaceBudget.turn_paces(merc, state, 0)["paces"]))
+	var flank_dist := Pathfinder.chebyshev2(flank_cell, merc_pos)
 	var rounds_to_flank := ceili(float(flank_dist) / float(pace))
 
 	if rounds_to_destroy * 2 < rounds_to_flank:
@@ -75,7 +75,7 @@ static func _blocking_obstacle(merc: MercenaryData, state: BattleState, merc_pos
 			continue
 		#A shut door is opened with Interact, never shot at.
 		if PathCost.is_shut_door(state.battlefield, obs_cell):
-			if state.can_afford(merc, state.get_cost(merc, "Interact", 2)):
+			if state.can_afford(merc, state.get_cost(merc, "Interact", InteractTargetFacet.INTERACT_AP)):
 				state.pending_interact[merc] = obs_cell
 				EncounterLogger.log_verbose("  obstacle choice: shut door at (%d,%d) -> interact" % [obs_cell.x, obs_cell.y])
 				return {"obs": {}, "interact": true}

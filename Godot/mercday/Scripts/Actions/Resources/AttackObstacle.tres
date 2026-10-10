@@ -1,9 +1,10 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://dxhfpqsr2s4wi"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/ObstacleBlockingFacet.gd" id="ObstacleBlockingFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_hoi5j"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://cemgd24qtn3nn" path="res://Scripts/Decisions/ObstacleBlockingFacet.gd" id="ObstacleBlockingFacet"]
+[ext_resource type="Script" uid="uid://fueokp4cffvl" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
 
 [sub_resource type="Resource" id="facet_blocked"]
 script = ExtResource("ObstacleBlockingFacet")
@@ -12,13 +13,10 @@ is_required = true
 [sub_resource type="Resource" id="facet_weapon"]
 script = ExtResource("WeaponTypeFacet")
 is_required = true
-require_ranged = false
-require_drawn = true
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_blocked"), SubResource("facet_weapon")]
-threshold = 0.5
+facets = Array[ExtResource("1_hoi5j")]([SubResource("facet_blocked"), SubResource("facet_weapon")])
 
 [resource]
 script = ExtResource("ActionData")
@@ -26,6 +24,4 @@ action_name = "attack_obstacle"
 ap_cost = 3
 ap_cost_mode = "attack_base"
 priority = 75
-execution_type = "special"
-target_mode = "none"
 decision = SubResource("decision")

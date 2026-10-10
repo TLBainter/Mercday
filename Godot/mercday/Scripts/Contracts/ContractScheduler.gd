@@ -26,7 +26,9 @@ var resume_minutes: int = 0
 var mishap_index: int = 0
 var events_run: int = 0
 var gap_kind: String = ""
-var night_active: bool = false
+var night_active: bool:
+	get:
+		return phase == Phase.NIGHT
 
 #Whether the camp now running takes its respite roll and its rest; false for a camp under two hours.
 var night_rests: bool = true
@@ -39,15 +41,21 @@ var night_minutes: int = 0
 
 
 #The party leaves now: the boosts, penalties and log header land at once and travel is the first step.
+#A Local run has no travel, so its first event is due at once.
 static func create(contract_run: ContractRun, minutes: int, now: int) -> ContractScheduler:
 	var scheduler := ContractScheduler.new()
 	scheduler.run = contract_run
-	scheduler.travel_minutes = maxi(0, minutes)
+	var local: bool = ContractManager.is_local(contract_run)
+	scheduler.travel_minutes = 0 if local else maxi(0, minutes)
 	ContractManager.depart(contract_run)
-	scheduler.phase = Phase.TRAVEL_OUT
+	scheduler.phase = Phase.EVENT if local else Phase.TRAVEL_OUT
 	scheduler.phase_minutes = scheduler.travel_minutes
 	scheduler.next_minute = now + scheduler.travel_minutes
-	if scheduler._is_night(now):
+	if local and contract_run.deadline_minute > 0 and now + contract_run.completion_minutes > contract_run.deadline_minute:
+		ContractManager.fail_late(contract_run)
+		scheduler._head_home()
+		return scheduler
+	if is_night_minute(now):
 		scheduler._suspend()
 	return scheduler
 
@@ -91,11 +99,15 @@ func step() -> void:
 func _should_camp() -> bool:
 	if phase == Phase.NIGHT or phase == Phase.DONE:
 		return false
-	return _is_night(CampaignClock.now()) and next_minute > CampaignClock.now()
+	return is_night_minute(CampaignClock.now()) and next_minute > CampaignClock.now()
 
 
 func _arrive() -> void:
 	run.emit(CampaignClock.line("travel out", travel_minutes))
+	if run.deadline_minute > 0 and CampaignClock.now() + run.completion_minutes > run.deadline_minute:
+		ContractManager.fail_late(run)
+		_head_home()
+		return
 	_queue(Phase.EVENT, 0)
 
 
@@ -104,12 +116,10 @@ func _event_step() -> void:
 	var name: String = String(due["name"])
 	var is_primary: bool = bool(due["is_primary"])
 	if bool(due["missing"]):
+		ContractManager.emit_missing(run, name, is_primary)
 		if is_primary:
-			run.failed_event = name if name != "" else "(no primary event)"
-			run.emit("EVENT MISSING: %s" % run.failed_event)
 			_head_home()
 			return
-		run.emit("EVENT MISSING: %s" % name)
 		mishap_index += 1
 		_queue(Phase.EVENT, 0)
 		return
@@ -120,7 +130,10 @@ func _event_step() -> void:
 	if run.living_team().is_empty():
 		_died()
 		return
-	if is_primary:
+	if is_primary or run.failed_event != "":
+		if ContractManager.is_local(run):
+			_head_home()
+			return
 		var rest: int = ContractManager.rest_minutes(run, RestSystem.KIND_RESPITE)
 		if rest <= 0:
 			_head_home()
@@ -143,7 +156,7 @@ func _gap_step() -> void:
 
 func _closing_step() -> void:
 	run.emit(CampaignClock.line("respite", phase_minutes))
-	await ContractManager.settle_rest(run, RestSystem.KIND_RESPITE, "respite", RestSystem.RESPITE_MINUTES)
+	await ContractManager.settle_rest(run, RestSystem.KIND_RESPITE, RestSystem.RESPITE_MINUTES)
 	if run.living_team().is_empty():
 		_died()
 		return
@@ -151,7 +164,8 @@ func _closing_step() -> void:
 
 
 func _home_step() -> void:
-	run.emit(CampaignClock.line("travel back", travel_minutes))
+	if not ContractManager.is_local(run):
+		run.emit(CampaignClock.line("travel back", travel_minutes))
 	ContractManager.arrive_home(run)
 	phase = Phase.DONE
 	next_minute = CampaignClock.now()
@@ -162,8 +176,7 @@ func _suspend() -> void:
 	var now: int = CampaignClock.now()
 	resume_phase = phase
 	resume_minutes = maxi(0, next_minute - now)
-	night_active = true
-	var wake6: int = _next_wake(now)
+	var wake6: int = next_wake_minute(now)
 	night_rests = (wake6 - now) >= SHORT_NIGHT_MINUTES
 	var wake: int = wake6
 	if night_rests:
@@ -175,10 +188,10 @@ func _suspend() -> void:
 
 #Camp breaks: a camp long enough takes the night's respite roll and rest, then the phase picks up again.
 func _wake_step() -> void:
-	night_active = false
 	run.emit(CampaignClock.line("night", night_minutes))
 	if night_rests:
-		await ContractManager.settle_rest(run, RestSystem.KIND_RESPITE, "night", RestSystem.RESPITE_MINUTES)
+		await ContractManager.settle_rest(run, RestSystem.KIND_RESPITE, RestSystem.RESPITE_MINUTES,
+			not ContractManager.is_local(run))
 		if run.living_team().is_empty():
 			_died()
 			return
@@ -187,6 +200,9 @@ func _wake_step() -> void:
 
 
 func _head_home() -> void:
+	if ContractManager.is_local(run):
+		_home_step()
+		return
 	_queue(Phase.TRAVEL_BACK, travel_minutes)
 
 
@@ -202,16 +218,8 @@ func _queue(next_phase: int, minutes: int) -> void:
 	phase = next_phase
 	phase_minutes = maxi(0, minutes)
 	next_minute = CampaignClock.now() + phase_minutes
-	if _is_night(CampaignClock.now()):
+	if is_night_minute(CampaignClock.now()):
 		_suspend()
-
-
-func _is_night(minute: int) -> bool:
-	return is_night_minute(minute)
-
-
-func _next_wake(minute: int) -> int:
-	return next_wake_minute(minute)
 
 
 #Shared with GameState: 22:00 to 6:00 is night, when nothing in the field moves.
@@ -220,19 +228,20 @@ static func is_night_minute(minute: int) -> bool:
 	return hour >= NIGHT_START_HOUR or hour < NIGHT_END_HOUR
 
 
+#The next time the clock reads this hour:00 strictly after this minute.
+static func next_hour_after(minute: int, hour: int) -> int:
+	var day_start: int = minute - (minute % CampaignClock.MINUTES_PER_DAY)
+	var at: int = day_start + hour * CampaignClock.MINUTES_PER_HOUR
+	if at <= minute:
+		at += CampaignClock.MINUTES_PER_DAY
+	return at
+
+
 #The next 6:00 strictly after this minute.
 static func next_wake_minute(minute: int) -> int:
-	var day_start: int = minute - (minute % CampaignClock.MINUTES_PER_DAY)
-	var wake: int = day_start + NIGHT_END_HOUR * CampaignClock.MINUTES_PER_HOUR
-	if wake <= minute:
-		wake += CampaignClock.MINUTES_PER_DAY
-	return wake
+	return next_hour_after(minute, NIGHT_END_HOUR)
 
 
 #The next 22:00 strictly after this minute.
 func _next_night_start(minute: int) -> int:
-	var day_start: int = minute - (minute % CampaignClock.MINUTES_PER_DAY)
-	var start: int = day_start + NIGHT_START_HOUR * CampaignClock.MINUTES_PER_HOUR
-	if start <= minute:
-		start += CampaignClock.MINUTES_PER_DAY
-	return start
+	return next_hour_after(minute, NIGHT_START_HOUR)

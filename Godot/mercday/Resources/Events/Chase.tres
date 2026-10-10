@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="EventData" format=3]
+
+[ext_resource type="Script" uid="uid://dwcg7h68jvfcy" path="res://Scripts/Resources/EventData.gd" id="1_EventData"]
+
+[resource]
+script = ExtResource("1_EventData")
+event_name = "Chase"
+event_type = "Primary"
+trigger = ""
+check_stats = Array[String](["Dexterity", "Vigor"])
+circumstances = Array[String](["Athletics (Vigor)", "Grace (Dexterity)", "Notice (Cognition)"])
+knowledges = Array[String](["Hunting", "Reconnaissance", "Travel"])
+tools = Array[String](["Scout's", "Tracker's"])
+success_formula = "Chase"
+possible_contracts = Array[String]([])
+possible_locations = Array[String](["Aerdis", "Aldurstein", "Miliim", "Zukei", "Kathaya", "Copari", "Suorr", "Rossade", "Buern", "Vaernebo"])
+enemy = ""
+enemy_counter = ""
+map_rule = ""
+fail_ends_contract = false

@@ -20,15 +20,15 @@ const MODE_TWO_TONE: StringName = &"two_tone"
 const STAR_STOPS: Array[Color] = [Color("#29e029"), Color("#50e029"), Color("#77e029"),
 	Color("#a6e33b"), Color("#cae33b"), Color("#e3d83b"), Color("#e3b43b"), Color("#e08629"),
 	Color("#e05f29"), Color("#e03829")]
-const UNUSED_STAR: Color = Color("#1f3560")
-const UNUSED_STAR_CLIENT: Color = Color("#2b4f8a")
+const UNUSED_STAR: Color = GuiColors.BLUE_LO
+const UNUSED_STAR_CLIENT: Color = GuiColors.BLUE
 const STAR_GAP: int = 2
 const STAR_COUNT: int = 5
 
 const TAB_ON_LIGHT: Color = Color("#5a3510")
 const TAB_ON_MID: Color = Color("#3a2008")
-const TAB_ON_INK: Color = Color("#0a0f1c")
-const FACE_OUTLINE: Color = Color("#2b4f8a")
+const TAB_ON_INK: Color = GuiColors.INK
+const FACE_OUTLINE: Color = GuiColors.BLUE
 
 #Mood index 0 Angry to 4 Happy, mapped onto the face levels.
 const MOOD_LEVELS: Array[int] = [-5, -3, 0, 3, 5]
@@ -165,7 +165,7 @@ static func tex(id: String, trimmed: bool = false) -> AtlasTexture:
 
 
 static func centered_box(w: int, h: int) -> Rect2i:
-	return Rect2i((CELL - w) / 2, (CELL - h) / 2, w, h)
+	return Rect2i(int((CELL - w) / 2.0), int((CELL - h) / 2.0), w, h)
 
 
 static func window(id: String, box: Rect2i) -> AtlasTexture:
@@ -343,7 +343,7 @@ static func _ringed(src: Image, fill: Color, use_fill: bool, outline: Color) -> 
 	var w: int = src.get_width() + 2
 	var h: int = src.get_height() + 2
 	var out: Image = Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
-	out.fill(Color(0.0, 0.0, 0.0, 0.0))
+	out.fill(GuiColors.CLEAR)
 	var mask: Array[bool] = []
 	mask.resize(w * h)
 	for y: int in src.get_height():
@@ -382,7 +382,7 @@ static func star_image(fill: float, color: Color, empty: Color = UNUSED_STAR) ->
 	if is_zero_approx(step):
 		return unused_img
 	for y: int in unused_img.get_height():
-		for x: int in range(CELL / 2, unused_img.get_width()):
+		for x: int in range(int(CELL / 2.0), unused_img.get_width()):
 			set_img.set_pixel(x, y, unused_img.get_pixel(x, y))
 	return set_img
 

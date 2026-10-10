@@ -1,7 +1,7 @@
 class_name ObstacleGenerator
 
 
-static func _instance_size(template: ObstacleData) -> int:
+static func instance_size(template: ObstacleData) -> int:
 	if template.obstacle_type == "Vegetation" or template.obstacle_type == "Terrain":
 		var eff_z: float = template.size_z * randf_range(0.75, 1.25)
 		if template.size_z == 0.0:
@@ -12,7 +12,7 @@ static func _instance_size(template: ObstacleData) -> int:
 
 static func _make_obs(template: ObstacleData, pos: Vector2i) -> Dictionary:
 	var rotated := template.size_x != template.size_y and randi() % 2 == 0
-	return {"pos": pos, "size": _instance_size(template), "data": template, "rotated": rotated, "floor": 0}
+	return {"pos": pos, "size": instance_size(template), "data": template, "rotated": rotated, "floor": 0}
 
 
 static func place_terrain_obstacles(area: BattlefieldArea, target_count: int) -> int:
@@ -46,8 +46,7 @@ static func _place_from_pool(area: BattlefieldArea, target_count: int, terrain_o
 			if not _terrain_compatible(template, area, pos):
 				continue
 		var new_obs := _make_obs(template, pos)
-		area.obstacles.append(new_obs)
-		area._obs_map[pos] = new_obs
+		area.add_obstacle(new_obs, pos)
 		placed += 1
 		placed += _expand_obstacle(area, template, pos, target_count - placed)
 	return placed
@@ -60,7 +59,6 @@ static func _expand_obstacle(area: BattlefieldArea, template: ObstacleData, orig
 		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
 		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)
 	]
-	var corridor_cells: Array = area.reserved_corridor_cells.keys()
 	var expansion_safety_radius: int = 1 + (area.path_width >> 1)
 	var frontier: Array[Vector2i] = [origin]
 	while odds > 0 and added < budget and not frontier.is_empty() and randi() % 100 < odds:
@@ -69,24 +67,18 @@ static func _expand_obstacle(area: BattlefieldArea, template: ObstacleData, orig
 		var placed := false
 		for d: Vector2i in dirs:
 			var np: Vector2i = parent + d
-			if np.x < 0 or np.x >= area.width or np.y < 0 or np.y >= area.length:
+			if not area.in_bounds(np):
 				continue
 			if area._in_spawn_zone(np) or area.is_obstacle(np):
 				continue
 			if area.reserved_corridor_cells.has(np) or area.building_interiors.has(np):
 				continue
-			var too_close := false
-			for cc: Vector2i in corridor_cells:
-				if maxi(abs(np.x - cc.x), abs(np.y - cc.y)) <= expansion_safety_radius:
-					too_close = true
-					break
-			if too_close:
+			if _near_corridor(area, np, expansion_safety_radius):
 				continue
 			if not _terrain_compatible(template, area, np):
 				continue
 			var exp_obs := _make_obs(template, np)
-			area.obstacles.append(exp_obs)
-			area._obs_map[np] = exp_obs
+			area.add_obstacle(exp_obs, np)
 			frontier.append(np)
 			added += 1
 			placed = true
@@ -95,6 +87,15 @@ static func _expand_obstacle(area: BattlefieldArea, template: ObstacleData, orig
 			break
 		odds = int(odds * 0.75)
 	return added
+
+
+#True when a reserved corridor cell lies within radius cells of pos, counting diagonals as one step.
+static func _near_corridor(area: BattlefieldArea, pos: Vector2i, radius: int) -> bool:
+	for dy: int in range(-radius, radius + 1):
+		for dx: int in range(-radius, radius + 1):
+			if area.reserved_corridor_cells.has(Vector2i(pos.x + dx, pos.y + dy)):
+				return true
+	return false
 
 
 static func _terrain_compatible(template: ObstacleData, area: BattlefieldArea, pos: Vector2i) -> bool:
@@ -129,7 +130,7 @@ static func _apply_radial_deformation(area: BattlefieldArea, center: Vector2i, a
 	for dy: int in range(-ri, ri + 1):
 		for dx: int in range(-ri, ri + 1):
 			var cell := Vector2i(center.x + dx, center.y + dy)
-			if cell.x < 0 or cell.x >= area.width or cell.y < 0 or cell.y >= area.length:
+			if not area.in_bounds(cell):
 				continue
 			if area.reserved_corridor_cells.has(cell):
 				continue
@@ -153,7 +154,7 @@ static func _apply_linear_deformation(area: BattlefieldArea, center: Vector2i, a
 			var cell := Vector2i(
 				center.x + main_axis.x * mi + perp.x * pi,
 				center.y + main_axis.y * mi + perp.y * pi)
-			if cell.x < 0 or cell.x >= area.width or cell.y < 0 or cell.y >= area.length:
+			if not area.in_bounds(cell):
 				continue
 			if area.reserved_corridor_cells.has(cell):
 				continue
@@ -178,7 +179,7 @@ static func _apply_cliff_deformation(area: BattlefieldArea, center: Vector2i, am
 		for bd: int in range(d, d + tier_w):
 			for p: int in range(-tier_perp, tier_perp + 1):
 				var cell := center + facing * bd + perp * p
-				if cell.x < 0 or cell.x >= area.width or cell.y < 0 or cell.y >= area.length:
+				if not area.in_bounds(cell):
 					continue
 				if area.reserved_corridor_cells.has(cell):
 					continue
@@ -188,13 +189,13 @@ static func _apply_cliff_deformation(area: BattlefieldArea, center: Vector2i, am
 		d += tier_w
 
 
-#True when the cell sits inside either spawn radius plus the 4 pace margin.
+#True when the cell sits inside either spawn radius plus the clear margin.
 static func _near_spawn(area: BattlefieldArea, cell: Vector2i) -> bool:
 	var da: float = Vector2(float(cell.x - area.spawn_center_a.x), float(cell.y - area.spawn_center_a.y)).length()
-	if da < area.spawn_radius + 4.0:
+	if da < area.spawn_radius + BattlefieldArea.SPAWN_CLEAR_MARGIN:
 		return true
 	var db: float = Vector2(float(cell.x - area.spawn_center_b.x), float(cell.y - area.spawn_center_b.y)).length()
-	return db < area.spawn_radius + 4.0
+	return db < area.spawn_radius + BattlefieldArea.SPAWN_CLEAR_MARGIN
 
 
 static func _cliff_facing(area: BattlefieldArea, pos: Vector2i) -> Vector2i:

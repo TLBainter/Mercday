@@ -1,5 +1,13 @@
 class_name WeaponReactiveDsl
 
+#Tokens that sit between the trigger and the verb in a reactive_action DSL string.
+const KNOWN_CONDITIONS: PackedStringArray = [
+	"any", "surprised", "deposed", "vulnerable", "two_handed",
+	"size_5_or_less", "size_gte_self", "size_lte_self", "thrown",
+	"within_2", "melee", "intended_range", "once_per_combat", "1hp",
+	"size_1_plus", "melee_reach",
+]
+
 
 #Parsed DSL for a reactive perk on this trigger; empty when the perk does not match.
 static func token_for(perk: TraitData, trigger: String) -> Dictionary:
@@ -38,7 +46,7 @@ static func _is_condition(token: String) -> bool:
 	if token == "":
 		return false
 	for piece: String in token.split(","):
-		if not WeaponReactiveSystem.KNOWN_CONDITIONS.has(piece.strip_edges()):
+		if not KNOWN_CONDITIONS.has(piece.strip_edges()):
 			return false
 	return true
 
@@ -105,6 +113,12 @@ static func _single_condition(
 		"melee":
 			var m_weapon: WeaponData = attacker.equipped_weapon
 			return m_weapon == null or not m_weapon.is_ranged
+		"melee_reach":
+			if not _single_condition("melee", attacker, target, atk, state, perk):
+				return false
+			if state == null or state.battlefield == null:
+				return true
+			return state.distance_to(attacker, target) <= WeaponArmorPerkLibrary.get_effective_melee_range(attacker)
 		"intended_range":
 			return _within_intended(attacker, target, atk, state)
 		"once_per_combat":

@@ -8,34 +8,30 @@ class_name CustomizeBlock extends Control
 signal pressed_block(id: String)
 
 const BASE_ID: String = "base"
-const BASE_NAME: String = "Base Plan"
-const BASE_DESC: String = "The root of your Enterprise customizations. Every branch starts here."
-const BASE_KIND: String = "Enterprise"
-const BG: Color = Color("#2b4f8a")
-const BG_MAX: Color = Color("#1f3560")
-const HI: Color = Color("#3b6fb6")
-const HI_MAX: Color = Color("#2b4f8a")
-const LO: Color = Color("#111c33")
-const BASE_BG: Color = Color("#0a0f1c")
-const BASE_HI: Color = Color("#1a2b4d")
-const BASE_LO: Color = Color("#000000")
-const RING: Color = Color("#f28c28")
-const RING_MAX: Color = Color("#f2d33d")
-const RING_OFF: Color = Color("#1f3560")
-const RING_BASE_OFF: Color = Color("#3b6fb6")
-const NAME_COLOR: Color = Color("#f3ead7")
-const FEE_COLOR: Color = Color("#f3ead7")
-const FEE_OFF: Color = Color("#5e7699")
-const MUTED_ICON: Color = Color("#5e7699")
-const TUBE_BG: Color = Color("#05080f")
-const TUBE_HI: Color = Color("#3b6fb6")
-const TUBE_LO: Color = Color("#1f3560")
-const CHUNK_BG: Color = Color("#15223d")
-const CHUNK_HI: Color = Color("#1f3560")
-const CHUNK_LO: Color = Color("#0e1628")
-const LL_COLOR: Color = Color("#e8583f")
+const BG: Color = GuiColors.BLUE
+const BG_MAX: Color = GuiColors.BLUE_LO
+const HI: Color = GuiColors.BLUE_HI
+const HI_MAX: Color = GuiColors.BLUE
+const LO: Color = GuiColors.EDGE_LO
+const BASE_BG: Color = GuiColors.INK
+const BASE_HI: Color = GuiColors.BOX_BG
+const BASE_LO: Color = Color.BLACK
+const RING: Color = GuiColors.ORANGE
+const RING_MAX: Color = GuiColors.RAMP_YELLOW
+const RING_OFF: Color = GuiColors.BLUE_LO
+const RING_BASE_OFF: Color = GuiColors.BLUE_HI
+const NAME_COLOR: Color = GuiColors.CREAM
+const FEE_COLOR: Color = GuiColors.CREAM
+const FEE_OFF: Color = GuiColors.MUTED
+const TUBE_BG: Color = GuiColors.TUBE_BG
+const TUBE_HI: Color = GuiColors.BLUE_HI
+const TUBE_LO: Color = GuiColors.BLUE_LO
+const CHUNK_BG: Color = GuiColors.ROW_HOVER
+const CHUNK_HI: Color = GuiColors.BLUE_LO
+const CHUNK_LO: Color = GuiColors.ROW_FILL
+const LL_COLOR: Color = GuiColors.RED
 const DIM_ALPHA: float = 0.45
-const BEVEL: float = 2.0
+const BEVEL: float = 3.0
 const RING_WIDTH: float = 2.0
 const ICON_SCALE: int = 3
 const ICON_TOP: float = 12.0
@@ -48,12 +44,18 @@ const PIP_PAD_X: float = 3.0
 const PIP_PAD_Y: float = 2.0
 const PIP_LIFT: float = 8.0
 const TUBE_TIGHT_MAX: int = 8
-const NAME_DROP: float = 6.0
-const FEE_DROP: float = 24.0
-const LABEL_WIDTH: float = 140.0
+#Caption: a name wraps inside LABEL_WIDTH onto at most NAME_MAX_LINES lines NAME_PITCH apart, and FEE_SPACE keeps the fee
+#tile clear of the last line. The block is centred by its ink: capitals rise CAP_RISE_EM of the em above the baseline
+#and the fee tile hangs FEE_TILE_DROP below its baseline (NoteIcon.draw_run).
+const LABEL_WIDTH: float = 144.0
+const NAME_MAX_LINES: int = 2
+const NAME_PITCH: float = 10.0
+const FEE_SPACE: float = 6.0
+const CAP_RISE_EM: float = 0.625
+const FEE_TILE_DROP: float = 1.0
 const SUFFIX: String = "/month"
-const NAME_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FEE_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
+const NAME_FONT: FontVariation = GuiStyle.SILK_BOLD
+const FEE_FONT: FontVariation = GuiStyle.SILK
 const NAME_SIZE: int = 10
 const FEE_SIZE: int = 12
 
@@ -62,19 +64,24 @@ const FEE_SIZE: int = 12
 var _tier: int = 0
 var _max: int = 1
 var _fee: int = 0
-var _progress: float = 0.0
+var _tiers: Dictionary = {}
 var _usable: bool = true
 var _enterprise: bool = true
 var _gated: bool = false
 var _glow: float = 0.0
 var _sweep: PackedFloat32Array = PackedFloat32Array()
+var _hovered: bool = false
+var _down: bool = false
 
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	_apply_cursor()
 	_apply_size()
 	PulseClock.pulse.connect(_on_pulse)
+	mouse_entered.connect(_on_hover.bind(true))
+	mouse_exited.connect(_on_hover.bind(false))
 
 
 func setup(id: String) -> void:
@@ -91,21 +98,22 @@ func is_base() -> bool:
 #Reads one tree state: the owned tier, the fee it bills, and whether the module can be clicked.
 func refresh(tiers: Dictionary, enterprise: bool) -> void:
 	_enterprise = enterprise
+	_tiers = tiers
 	if is_base():
 		_tier = 0
 		_max = 1
-		_progress = TreeLayout.base_progress(tiers)
 		_fee = SubscriptionManager.service_fee(SubscriptionManager.Plan.ENTERPRISE)
 		_gated = false
 		_usable = false
+		_apply_cursor()
 		queue_redraw()
 		return
 	_max = maxi(1, UpgradeDefs.tier_count(upgrade_id))
 	_tier = clampi(int(tiers.get(upgrade_id, 0)), 0, _max)
 	_fee = UpgradeDefs.monthly_of(upgrade_id, _tier)
-	_progress = float(_tier) / float(_max)
 	_gated = not UpgradeDefs.requirement_met(upgrade_id, tiers)
 	_usable = enterprise and not _gated
+	_apply_cursor()
 	queue_redraw()
 
 
@@ -130,18 +138,23 @@ func is_gated() -> bool:
 
 
 func name_text() -> String:
-	return BASE_NAME if is_base() else UpgradeDefs.name_of(upgrade_id)
+	return TreeLayout.BASE_NAME if is_base() else UpgradeDefs.name_of(upgrade_id)
+
+
+#The lines the name prints on, wrapped to LABEL_WIDTH.
+func name_lines() -> PackedStringArray:
+	return wrap_name(name_text())
 
 
 func desc_text() -> String:
 	if is_base():
-		return BASE_DESC
+		return TreeLayout.BASE_DESC
 	return String(UpgradeDefs.of(upgrade_id).get("desc", ""))
 
 
 func kind_text() -> String:
 	if is_base():
-		return BASE_KIND
+		return TreeLayout.BASE_KIND
 	return TreeLayout.cat_label(UpgradeDefs.category_of(upgrade_id))
 
 
@@ -159,20 +172,28 @@ func fee_color() -> Color:
 	return FEE_COLOR if _tier > 0 else FEE_OFF
 
 
+#The face lifts under the pointer and sinks while pressed, like a button face; a module the plan
+#cannot use stays flat.
 func bg_color() -> Color:
-	if is_base():
-		return BASE_BG
-	return BG_MAX if is_maxed() else BG
+	var base: Color = BASE_BG if is_base() else (BG_MAX if is_maxed() else BG)
+	if is_down():
+		return base.darkened(BevelButton.PRESS_DROP)
+	if _hovered and _usable:
+		return base.lightened(BevelButton.HOVER_LIFT)
+	return base
+
+
+#Pressed means a left press is held on a module the plan can use.
+func is_down() -> bool:
+	return _down and _usable
 
 
 func hi_color() -> Color:
-	if is_base():
-		return BASE_HI
-	return HI_MAX if is_maxed() else HI
+	return _edge(not is_down())
 
 
 func lo_color() -> Color:
-	return BASE_LO if is_base() else LO
+	return _edge(is_down())
 
 
 func ring_color() -> Color:
@@ -184,11 +205,7 @@ func ring_color() -> Color:
 
 
 func icon_color() -> Color:
-	if is_base():
-		return GuiColors.cat_color(_progress)
-	if _tier <= 0:
-		return MUTED_ICON
-	return GuiColors.tier_color(_tier - 1, _max)
+	return TreeLayout.block_color(upgrade_id, _tiers)
 
 
 func alpha_value() -> float:
@@ -207,27 +224,64 @@ func pip_color(i: int) -> Color:
 func glow_factor() -> float:
 	if not is_maxed():
 		return 1.0
-	return 1.0 + _glow * 0.8
+	return PulseClock.glow_of(_glow)
 
 
 #Chunk i shines a step behind chunk i minus one once every tier is owned.
 func pip_glow(i: int) -> float:
-	if not is_maxed() or _sweep.is_empty():
+	if not is_maxed():
 		return 1.0
-	return 1.0 + _sweep[i % _sweep.size()] * 0.9
+	return PulseClock.sweep_of(_sweep, i)
 
 
-#The click a headless run makes; a drag on the canvas suppresses the real one.
+#The click a headless run makes; a drag on the canvas suppresses the real one. A dimmed module plays the Bad Click cue.
 func press() -> void:
 	if not _usable:
+		if not is_base() and not _tree_panning():
+			UiSfx.play_disabled_press(self)
 		return
 	pressed_block.emit(upgrade_id)
+
+
+#The SkillTree two parents up reports a pan; read by method name, since a SkillTree type here would close a
+#preload loop through TreeCanvas.tscn and CustomizeBlock.tscn.
+func _tree_panning() -> bool:
+	var tree: Node = null if get_parent() == null else get_parent().get_parent()
+	return tree != null and tree.has_method(&"is_dragging") and bool(tree.call(&"is_dragging"))
+
+
+#True while the tree has a popover open or a drag under way; read by method name for the same reason.
+func _tree_hover_blocked() -> bool:
+	var tree: Node = null if get_parent() == null else get_parent().get_parent()
+	return tree != null and tree.has_method(&"hover_blocked") and bool(tree.call(&"hover_blocked"))
+
+
+func _apply_cursor() -> void:
+	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if _usable else Control.CURSOR_ARROW
 
 
 func _apply_size() -> void:
 	var side: float = TreeLayout.block_size(upgrade_id)
 	custom_minimum_size = Vector2(side, side)
 	size = Vector2(side, side)
+
+
+func _on_hover(on: bool) -> void:
+	_hovered = on
+	if not on:
+		_down = false
+	elif not _usable and not is_base() and not _tree_panning() and not _tree_hover_blocked():
+		UiSfx.play_disabled_hover(self)
+	queue_redraw()
+
+
+#The light bevel colour of this module when lit is true, else its dark one.
+func _edge(lit: bool) -> Color:
+	if is_base():
+		return BASE_HI if lit else BASE_LO
+	if lit:
+		return HI_MAX if is_maxed() else HI
+	return LO
 
 
 func _on_pulse(g: float, sweep: PackedFloat32Array) -> void:
@@ -240,21 +294,23 @@ func _on_pulse(g: float, sweep: PackedFloat32Array) -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	var click: InputEventMouseButton = event as InputEventMouseButton
-	if click == null or click.button_index != MOUSE_BUTTON_LEFT or click.pressed:
+	if click == null or click.button_index != MOUSE_BUTTON_LEFT:
 		return
-	press()
+	_down = click.pressed
+	queue_redraw()
+	if not click.pressed:
+		press()
 
 
 func _draw() -> void:
 	var side: float = TreeLayout.block_size(upgrade_id)
 	var box: Rect2 = Rect2(Vector2.ZERO, Vector2(side, side))
 	var a: float = alpha_value()
-	draw_rect(box, _fade(bg_color(), a))
-	draw_rect(Rect2(0.0, 0.0, side, BEVEL), _fade(hi_color(), a))
-	draw_rect(Rect2(0.0, 0.0, BEVEL, side), _fade(hi_color(), a))
-	draw_rect(Rect2(0.0, side - BEVEL, side, BEVEL), _fade(lo_color(), a))
-	draw_rect(Rect2(side - BEVEL, 0.0, BEVEL, side), _fade(lo_color(), a))
-	draw_rect(box, _fade(ring_color(), a), false, RING_WIDTH)
+	var ring: Color = GuiColors.fade(ring_color(), a)
+	_paint_bands(box, ring, ring, RING_WIDTH)
+	_paint_bands(box.grow(-RING_WIDTH), GuiColors.fade(hi_color(), a),
+		GuiColors.fade(lo_color(), a), BEVEL)
+	draw_rect(box.grow(-(RING_WIDTH + BEVEL)), GuiColors.fade(bg_color(), a))
 	_draw_icon(side, a)
 	if not is_base():
 		_draw_pips(side, a)
@@ -262,9 +318,18 @@ func _draw() -> void:
 	_draw_labels(side, a)
 
 
+#Four bands of px along the edges of rect that never overlap, so a dimmed module shows no doubled
+#corner: the top and bottom run the full width and the left and right fit between them.
+func _paint_bands(rect: Rect2, edge_hi: Color, edge_lo: Color, px: float) -> void:
+	BevelButton.paint_edges(self, rect, edge_hi, edge_lo, px,
+		BevelButton.BEVEL_TOP | BevelButton.BEVEL_BOTTOM)
+	BevelButton.paint_edges(self, rect.grow_individual(0.0, -px, 0.0, -px), edge_hi, edge_lo, px,
+		BevelButton.BEVEL_LEFT | BevelButton.BEVEL_RIGHT)
+
+
 func _draw_icon(side: float, a: float) -> void:
 	var span: float = 16.0 * float(ICON_SCALE)
-	var tint: Color = _lit(icon_color(), glow_factor())
+	var tint: Color = GuiColors.brighter(icon_color(), glow_factor())
 	var at: Vector2 = Vector2((side - span) / 2.0,
 		(side - span) / 2.0 if is_base() else ICON_TOP)
 	if is_base():
@@ -283,18 +348,18 @@ func _draw_pips(side: float, a: float) -> void:
 	var tube: Rect2 = Rect2((side - inner - PIP_PAD_X * 2.0) / 2.0,
 		side - PIP_LIFT - PIP_H - PIP_PAD_Y * 2.0, inner + PIP_PAD_X * 2.0,
 		PIP_H + PIP_PAD_Y * 2.0)
-	draw_rect(tube, _fade(TUBE_BG, a))
-	draw_rect(Rect2(tube.position, Vector2(tube.size.x, 1.0)), _fade(TUBE_LO, a))
+	draw_rect(tube, GuiColors.fade(TUBE_BG, a))
+	draw_rect(Rect2(tube.position, Vector2(tube.size.x, 1.0)), GuiColors.fade(TUBE_LO, a))
 	draw_rect(Rect2(tube.position + Vector2(0.0, tube.size.y - 1.0), Vector2(tube.size.x, 1.0)),
-		_fade(TUBE_HI, a))
+		GuiColors.fade(TUBE_HI, a))
 	for i: int in range(_max):
 		var at: Vector2 = tube.position + Vector2(PIP_PAD_X + float(i) * (w + PIP_GAP), PIP_PAD_Y)
-		var c: Color = _lit(pip_color(i), pip_glow(i))
-		draw_rect(Rect2(at, Vector2(w, PIP_H)), _fade(c, a))
+		var c: Color = GuiColors.brighter(pip_color(i), pip_glow(i))
+		draw_rect(Rect2(at, Vector2(w, PIP_H)), GuiColors.fade(c, a))
 		var hi: Color = c.lerp(Color.WHITE, 0.4) if i < _tier else CHUNK_HI
 		var lo: Color = c.lerp(Color.BLACK, 0.35) if i < _tier else CHUNK_LO
-		draw_rect(Rect2(at, Vector2(w, 1.0)), _fade(hi, a))
-		draw_rect(Rect2(at + Vector2(0.0, PIP_H - 1.0), Vector2(w, 1.0)), _fade(lo, a))
+		draw_rect(Rect2(at, Vector2(w, 1.0)), GuiColors.fade(hi, a))
+		draw_rect(Rect2(at + Vector2(0.0, PIP_H - 1.0), Vector2(w, 1.0)), GuiColors.fade(lo, a))
 
 
 #Upgrades that also sit in Less Legal carry the bandit mask in the corner.
@@ -308,29 +373,56 @@ func _draw_mask(side: float, a: float) -> void:
 		Color(LL_COLOR.r, LL_COLOR.g, LL_COLOR.b, a), false)
 
 
+#Greedy word wrap of a module name to LABEL_WIDTH. Once NAME_MAX_LINES lines are open the rest stays on the last one.
+static func wrap_name(text: String) -> PackedStringArray:
+	var lines: PackedStringArray = PackedStringArray()
+	var line: String = ""
+	for word: String in text.split(" ", false):
+		var joined: String = word if line == "" else line + " " + word
+		if line != "" and lines.size() < NAME_MAX_LINES - 1 and name_width(joined) > LABEL_WIDTH:
+			lines.append(line)
+			line = word
+		else:
+			line = joined
+	lines.append(line)
+	return lines
+
+
+static func name_width(text: String) -> float:
+	return NAME_FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, NAME_SIZE).x
+
+
+#How far the name capitals rise above their baseline.
+static func name_rise() -> float:
+	return CAP_RISE_EM * float(NAME_SIZE)
+
+
+#Ink height of a caption with line_count name lines: the top of the first capitals to the bottom of the fee tile.
+static func caption_height(line_count: int) -> float:
+	var extra: float = float(maxi(1, line_count) - 1) * NAME_PITCH
+	return name_rise() + extra + FEE_SPACE + NoteIcon.TILE_SIZE_PX.y
+
+
+#Baselines of a caption under a module of the given side, in module space: one per name line, then the fee last.
+#The ink is centred in the gap TreeLayout leaves between the node stub and the line that resumes.
+static func caption_baselines(side: float, line_count: int) -> PackedFloat32Array:
+	var count: int = maxi(1, line_count)
+	var gap_mid: float = side + (TreeLayout.NODE_STUB + TreeLayout.LABEL_DROP) / 2.0
+	var first: float = roundf(gap_mid - caption_height(count) / 2.0 + name_rise())
+	var out: PackedFloat32Array = PackedFloat32Array()
+	for i: int in range(count):
+		out.append(first + float(i) * NAME_PITCH)
+	out.append(out[count - 1] + FEE_SPACE + NoteIcon.TILE_SIZE_PX.y - FEE_TILE_DROP)
+	return out
+
+
 func _draw_labels(side: float, a: float) -> void:
+	var lines: PackedStringArray = name_lines()
+	var rows: PackedFloat32Array = caption_baselines(side, lines.size())
 	var left: float = (side - LABEL_WIDTH) / 2.0
-	draw_string(NAME_FONT, Vector2(left, side + NAME_DROP + float(NAME_SIZE)), name_text(),
-		HORIZONTAL_ALIGNMENT_CENTER, LABEL_WIDTH, NAME_SIZE, _fade(NAME_COLOR, a))
-	var amount: String = fee_text()
-	var w1: float = FEE_FONT.get_string_size(amount, HORIZONTAL_ALIGNMENT_LEFT, -1.0, FEE_SIZE).x
-	var w2: float = FEE_FONT.get_string_size(SUFFIX, HORIZONTAL_ALIGNMENT_LEFT, -1.0, FEE_SIZE).x
-	var tile: Vector2 = NoteIcon.tile_size(1)
-	var total: float = w1 + 2.0 + tile.x + 2.0 + w2
-	var x: float = side / 2.0 - total / 2.0
-	var y: float = side + FEE_DROP + float(FEE_SIZE)
-	var color: Color = _fade(fee_color(), a)
-	draw_string(FEE_FONT, Vector2(x, y), amount, HORIZONTAL_ALIGNMENT_LEFT, -1.0, FEE_SIZE, color)
-	var tile_at: Vector2 = Vector2(x + w1 + 2.0, y - tile.y + 1.0)
-	draw_rect(Rect2(tile_at, tile), _fade(NoteIcon.TILE_COLOR, a))
-	Icons.draw(self, "note", tile_at + Vector2(2, 1), 1, _fade(NoteIcon.GLYPH_COLOR, a), true)
-	draw_string(FEE_FONT, Vector2(x + w1 + 4.0 + tile.x, y), SUFFIX, HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0, FEE_SIZE, color)
-
-
-func _fade(c: Color, a: float) -> Color:
-	return Color(c.r, c.g, c.b, c.a * a)
-
-
-func _lit(c: Color, k: float) -> Color:
-	return Color(minf(1.0, c.r * k), minf(1.0, c.g * k), minf(1.0, c.b * k), c.a)
+	var tint: Color = GuiColors.fade(NAME_COLOR, a)
+	for i: int in range(lines.size()):
+		draw_string(NAME_FONT, Vector2(left, rows[i]), lines[i], HORIZONTAL_ALIGNMENT_CENTER,
+			LABEL_WIDTH, NAME_SIZE, tint)
+	NoteIcon.draw_run(self, FEE_FONT, FEE_SIZE, fee_text(), SUFFIX, side / 2.0,
+		rows[rows.size() - 1], GuiColors.fade(fee_color(), a))

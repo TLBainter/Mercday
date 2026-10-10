@@ -1,68 +1,60 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Finance/Overview/FinanceProjection.gd" id="1"]
-[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/finance_box.tres" id="2"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/OptionDropdown.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ListPanel.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Finance/Overview/FinanceProjection.gd" id="2"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/dark_fill.tres" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/OptionDropdown.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="6"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_ProjectionPanel.tres" id="7"]
 
-[node name="FinanceProjection" type="PanelContainer"]
+[node name="FinanceProjection" instance=ExtResource("1")]
 mouse_filter = 2
-theme_override_styles/panel = ExtResource("2")
-script = ExtResource("1")
+theme_override_styles/panel = ExtResource("3")
+script = ExtResource("2")
 
-[node name="Pad" type="MarginContainer" parent="."]
-layout_mode = 2
+[node name="Pad" parent="."]
 mouse_filter = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
-[node name="Rows" type="VBoxContainer" parent="Pad"]
-layout_mode = 2
+[node name="Rows" parent="Pad"]
 mouse_filter = 2
-theme_override_constants/separation = 12
 
-[node name="Head" type="HBoxContainer" parent="Pad/Rows"]
-layout_mode = 2
+[node name="Head" parent="Pad/Rows"]
 mouse_filter = 2
 theme_override_constants/separation = 10
+caption = "Projection"
 
-[node name="Title" type="Label" parent="Pad/Rows/Head"]
-layout_mode = 2
-size_flags_horizontal = 3
+[node name="Caption" parent="Pad/Rows/Head"]
 size_flags_vertical = 4
-mouse_filter = 2
-text = "Projection"
 
-[node name="Horizon" parent="Pad/Rows/Head" instance=ExtResource("3")]
+[node name="Horizon" parent="Pad/Rows/Head" instance=ExtResource("4")]
 layout_mode = 2
 size_flags_vertical = 4
 
-[node name="Total" parent="Pad/Rows" instance=ExtResource("4")]
+[node name="Total" parent="Pad/Rows" index="2" instance=ExtResource("5")]
 layout_mode = 2
 
-[node name="When" type="Label" parent="Pad/Rows"]
+[node name="When" type="Label" parent="Pad/Rows" index="3"]
 layout_mode = 2
 mouse_filter = 2
 
-[node name="Scroll" type="ScrollContainer" parent="Pad/Rows"]
-layout_mode = 2
-size_flags_vertical = 3
-mouse_filter = 2
-horizontal_scroll_mode = 0
+[node name="Scroll" parent="Pad/Rows"]
+pad_side = 14
+separation = 6
 
-[node name="Pad2" type="MarginContainer" parent="Pad/Rows/Scroll"]
-layout_mode = 2
-size_flags_horizontal = 3
+[node name="Pad" parent="Pad/Rows/Scroll"]
 mouse_filter = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
 
-[node name="List" type="VBoxContainer" parent="Pad/Rows/Scroll/Pad2"]
-layout_mode = 2
-size_flags_horizontal = 3
+[node name="Items" parent="Pad/Rows/Scroll/Pad"]
 mouse_filter = 2
-theme_override_constants/separation = 6
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("6")
+hint = ExtResource("7")
+
+[editable path="Pad/Rows/Head"]
+[editable path="Pad/Rows/Scroll"]

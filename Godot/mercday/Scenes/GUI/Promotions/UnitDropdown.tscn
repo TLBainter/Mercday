@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Promotions/UnitDropdown.gd" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/DropPanel.gd" id="dp"]
 
 [node name="UnitDropdown" type="Button"]
 custom_minimum_size = Vector2(128, 38)
@@ -27,9 +28,8 @@ custom_minimum_size = Vector2(10, 10)
 mouse_filter = 2
 stretch_mode = 3
 
-[node name="Menu" type="PopupPanel" parent="."]
+[node name="Menu" type="PanelContainer" parent="."]
+visible = false
+script = ExtResource("dp")
 
 [node name="List" type="VBoxContainer" parent="Menu"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0

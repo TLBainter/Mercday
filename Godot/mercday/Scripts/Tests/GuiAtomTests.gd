@@ -8,22 +8,11 @@ const PIXEL_SLIDER_SCENE := "res://Scenes/GUI/Shared/PixelSlider.tscn"
 const DUAL_SLIDER_SCENE := "res://Scenes/GUI/Shared/DualSlider.tscn"
 const OPTION_DROPDOWN_SCENE := "res://Scenes/GUI/Shared/OptionDropdown.tscn"
 const TEXT_ENTRY_SCENE := "res://Scenes/GUI/Shared/TextEntryDialog.tscn"
-const CONFIRM_SCENE := "res://Scenes/GUI/Shared/ConfirmDialog.tscn"
 const DIALOG_PAD: int = 14
 const BEVEL_STATES: Array[StringName] = [&"normal", &"hover", &"pressed", &"disabled", &"focus",
 	&"hover_pressed"]
-
-
-#The effect script the effect export is pointed at: it counts the two hooks it is handed.
-class ProbeEffect extends BevelButtonEffect:
-	var attached: int = 0
-	var painted: int = 0
-
-	func attach(_button: BevelButton) -> void:
-		attached += 1
-
-	func draw(_button: BevelButton) -> void:
-		painted += 1
+const STEPPER_BOX_STYLE: StringName = &"panel"
+const STEPPER_DIGIT_COLOR: StringName = &"font_color"
 
 
 #A Control that runs the two static painters inside a real draw pass.
@@ -36,8 +25,8 @@ class PaintProbe extends Control:
 		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 			failed += 1
 			return
-		BevelButton.paint_body(self, rect, BevelButton.BLUE_FILL, 2.0, BevelButton.INK)
-		BevelButton.paint_edges(self, rect, BevelButton.BLUE_HI, BevelButton.BLUE_LO, 2.0)
+		BevelButton.paint_body(self, rect, GuiColors.BLUE, 2.0, GuiColors.INK)
+		BevelButton.paint_edges(self, rect, GuiColors.BLUE_HI, GuiColors.BLUE_LO, 2.0)
 		painted += 1
 
 
@@ -51,8 +40,8 @@ static func run(host: Node) -> bool:
 	await _case_confirm_rich(res, host)
 	await _case_bevel_button(res, host)
 	await _case_bevel_paint(res, host)
+	await _case_bevel_no_shadow(res, host)
 	await _case_confirm_buttons(res, host)
-	await _case_confirm_dialog_legacy(res, host)
 	return TestFixtures.summarize(res, "GUI ATOM")
 
 
@@ -72,10 +61,7 @@ static func _key(keycode: Key, pressed: bool = true, unicode: int = 0) -> InputE
 	return k
 
 
-#_unhandled_key_input is an engine virtual and cannot be resolved as an external class
-#member for a direct call, so physical-keyboard tests push the event through the viewport
-#and let normal input dispatch reach it, matching the _push_escape convention in
-#GuiFrameTests.gd.
+#Key tests push the event through the viewport because _unhandled_key_input is an engine virtual.
 static func _push_key(host: Node, event: InputEventKey) -> void:
 	host.get_viewport().push_input(event)
 	await host.get_tree().process_frame
@@ -110,17 +96,42 @@ static func _case_quantity_stepper(res: Dictionary, host: Node) -> void:
 	stepper.press_plus()
 	TestFixtures.check(res, "a wider step multiplies the change",
 		stepper.value == 2 and events == [4, 5, 2], "value %d events %s" % [stepper.value, str(events)])
+	var minus_glyph: IconRect = stepper.minus_button.get_node(^"Glyph") as IconRect
+	var plus_glyph: IconRect = stepper.plus_button.get_node(^"Glyph") as IconRect
 	TestFixtures.check(res, "the stepper wears the atlas minus and plus instead of a letter",
 		stepper.minus_button.text == "" and stepper.plus_button.text == ""
-			and stepper.minus_button.icon != null and stepper.plus_button.icon != null
-			and stepper.minus_button.icon.get_size() == Vector2(10, 2)
-			and stepper.plus_button.icon.get_size() == Vector2(10, 10),
-		"minus %s plus %s" % [str(stepper.minus_button.icon), str(stepper.plus_button.icon)])
+			and minus_glyph != null and plus_glyph != null
+			and minus_glyph.icon_id == "minus" and plus_glyph.icon_id == "plus",
+		"minus %s plus %s" % [str(minus_glyph), str(plus_glyph)])
 	TestFixtures.check(res, "the stepper buttons stand 28 px square and tint their art cream",
 		stepper.minus_button.custom_minimum_size == Vector2(28, 28)
 			and stepper.plus_button.custom_minimum_size == Vector2(28, 28)
-			and stepper.minus_button.get_theme_color(&"icon_normal_color") == QuantityStepper.ICON_COLOR,
+			and minus_glyph.tint == Color(0.952941, 0.917647, 0.843137, 1),
 		"minus %s" % str(stepper.minus_button.custom_minimum_size))
+	stepper.end_reject()
+	stepper.set_value_silent(stepper.min_value)
+	var rest_panel: StyleBox = stepper.value_box.get_theme_stylebox(STEPPER_BOX_STYLE)
+	var rest_font: Color = stepper.value_label.get_theme_color(STEPPER_DIGIT_COLOR)
+	stepper.press_minus()
+	var red_panel: StyleBox = stepper.value_box.get_theme_stylebox(STEPPER_BOX_STYLE)
+	var red_font: Color = stepper.value_label.get_theme_color(STEPPER_DIGIT_COLOR)
+	TestFixtures.check(res, "a refused press paints the value box red",
+		stepper.is_rejecting() and rest_panel == QuantityStepper.STYLE_REST
+			and red_panel == QuantityStepper.STYLE_REJECT and red_font == rest_font
+			and red_font.is_equal_approx(GuiColors.CREAM) and stepper.shake_offset() != 0.0,
+		"panel %s font %s shake %.1f" % [red_panel.resource_path.get_file(), red_font.to_html(false),
+			stepper.shake_offset()])
+	stepper.step_reject(QuantityStepper.REJECT_SECONDS)
+	var end_panel: StyleBox = stepper.value_box.get_theme_stylebox(STEPPER_BOX_STYLE)
+	TestFixtures.check(res, "the red ends with the shake",
+		end_panel == QuantityStepper.STYLE_REST and not stepper.is_rejecting(),
+		"panel %s rejecting %s" % [end_panel.resource_path.get_file(), stepper.is_rejecting()])
+	var reject_style: StyleBoxFlat = QuantityStepper.STYLE_REJECT
+	var rest_style: StyleBoxFlat = QuantityStepper.STYLE_REST
+	TestFixtures.check(res, "the reject style is red on red",
+		reject_style != rest_style and reject_style.bg_color.is_equal_approx(GuiColors.DANGER_FILL)
+			and reject_style.border_color.is_equal_approx(GuiColors.RED),
+		"fill %s border %s" % [reject_style.bg_color.to_html(false), reject_style.border_color.to_html(false)])
 	stepper.queue_free()
 
 
@@ -224,7 +235,7 @@ static func _case_option_dropdown(res: Dictionary, host: Node) -> void:
 		dropdown.selected == &"a" and chosen == [&"a"],
 		"selected %s chosen %s" % [dropdown.selected, str(chosen)])
 	var rect: Rect2 = dropdown.toggle.get_global_rect()
-	var wanted: Vector2 = dropdown.menu.get_contents_minimum_size()
+	var wanted: Vector2 = dropdown.menu.get_combined_minimum_size()
 	var target: Rect2i = dropdown._target_rect(rect, wanted)
 	TestFixtures.check(res, "the open popup is right aligned under the button",
 		target.position.x + target.size.x == int(rect.end.x) and target.position.y == int(rect.end.y),
@@ -247,8 +258,7 @@ static func _case_option_dropdown(res: Dictionary, host: Node) -> void:
 
 
 static func _case_text_entry_dialog(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	GuiFrameStack.bottom_reserve = 0.0
+	GuiFrameTests.reset_frames()
 	var dialog: TextEntryDialog = (load(TEXT_ENTRY_SCENE) as PackedScene).instantiate()
 	host.add_child(dialog)
 	await host.get_tree().process_frame
@@ -341,12 +351,7 @@ static func _case_text_entry_dialog(res: Dictionary, host: Node) -> void:
 
 
 static func _case_confirm_rich(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	GuiFrameStack.bottom_reserve = 0.0
-	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
-	host.add_child(dlg)
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	var dlg: ConfirmDialog = await GuiFrameTests.mount_confirm(host)
 	var shown_count: Array[int] = [0]
 	var hidden_count: Array[int] = [0]
 	dlg.shown.connect(func() -> void: shown_count[0] += 1)
@@ -382,7 +387,7 @@ static func _case_confirm_rich(res: Dictionary, host: Node) -> void:
 	dlg.queue_free()
 
 
-#The core action button scene: the palettes, the shading members and the effect hook.
+#The core action button scene: the palettes, and the shading members.
 static func _case_bevel_button(res: Dictionary, host: Node) -> void:
 	var made: BevelButton = BevelButton.make("Accept", &"go", Vector2(120.0, 30.0))
 	host.add_child(made)
@@ -399,23 +404,23 @@ static func _case_bevel_button(res: Dictionary, host: Node) -> void:
 		var one: Color = pal["fill"]
 		fills.append(one)
 	TestFixtures.check(res, "the five kinds each carry their own fill",
-		fills.size() == 5 and fills[0] == BevelButton.GO_FILL and fills[1] == BevelButton.DANGER_FILL
-		and fills[2] == BevelButton.ORANGE_FILL and fills[3] == BevelButton.BLUE_FILL
-		and fills[4] == BevelButton.NEUTRAL_FILL, "%s" % [fills])
+		fills.size() == 5 and fills[0] == GuiColors.GO_FILL and fills[1] == GuiColors.DANGER_FILL
+		and fills[2] == GuiColors.ORANGE and fills[3] == GuiColors.BLUE
+		and fills[4] == GuiColors.NEUTRAL_FILL, "%s" % [fills])
 	var go_pal: Dictionary = BevelButton.palette(&"go")
 	TestFixtures.check(res, "a palette carries the fill, the two bevel tones and the label colour",
-		go_pal["hi"] == BevelButton.GO_HI and go_pal["lo"] == BevelButton.GO_LO
-		and go_pal["text"] == BevelButton.CREAM, "%s" % [go_pal])
+		go_pal["hi"] == GuiColors.GO_HI and go_pal["lo"] == GuiColors.GO_LO
+		and go_pal["text"] == GuiColors.CREAM, "%s" % [go_pal])
 	TestFixtures.check(res, "an unknown kind falls back to the blue palette",
-		BevelButton.palette(&"nonsense")["fill"] == BevelButton.BLUE_FILL,
+		BevelButton.palette(&"nonsense")["fill"] == GuiColors.BLUE,
 		"%s" % [BevelButton.palette(&"nonsense")["fill"]])
 	TestFixtures.check(res, "make wrote the kind it was handed into the button",
-		made.fill == BevelButton.GO_FILL and made.text_color == BevelButton.CREAM,
+		made.fill == GuiColors.GO_FILL and made.text_color == GuiColors.CREAM,
 		"fill %s text %s" % [made.fill.to_html(false), made.text_color.to_html(false)])
 	made.apply_palette(&"danger")
 	TestFixtures.check(res, "apply_palette writes all four colours of the named kind",
-		made.fill == BevelButton.DANGER_FILL and made.hi == BevelButton.DANGER_HI
-		and made.lo == BevelButton.DANGER_LO and made.text_color == BevelButton.CREAM,
+		made.fill == GuiColors.DANGER_FILL and made.hi == GuiColors.DANGER_HI
+		and made.lo == GuiColors.DANGER_LO and made.text_color == GuiColors.CREAM,
 		"%s %s %s" % [made.fill.to_html(false), made.hi.to_html(false), made.lo.to_html(false)])
 	var own := Color("#123456")
 	made.set_colors(own, Color("#224466"), Color("#0a1a2a"), Color("#ffffff"))
@@ -448,16 +453,6 @@ static func _case_bevel_button(res: Dictionary, host: Node) -> void:
 			margins_ok = false
 	TestFixtures.check(res, "every state of the core button wears an empty box, so _draw is the look",
 		boxes_empty and margins_ok, "empty %s margins %s" % [boxes_empty, margins_ok])
-	made.effect = ProbeEffect
-	var hook: Object = made.effect_node()
-	TestFixtures.check(res, "the effect export hangs one child of that script and attaches it",
-		hook != null and made.get_child_count() == 1 and int(hook.get("attached")) == 1,
-		"children %d attached %s" % [made.get_child_count(),
-			str(hook.get("attached")) if hook != null else "none"])
-	made.effect = null
-	TestFixtures.check(res, "clearing the effect frees the child it hung",
-		made.effect_node() == null and made.get_child_count() == 0,
-		"children %d" % made.get_child_count())
 	made.queue_free()
 
 
@@ -479,11 +474,7 @@ static func _case_bevel_paint(res: Dictionary, host: Node) -> void:
 
 #Every dialog button is the core scene, shaded from the kind the dialog asked for.
 static func _case_confirm_buttons(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	GuiFrameStack.bottom_reserve = 0.0
-	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
-	host.add_child(dlg)
-	await host.get_tree().process_frame
+	var dlg: ConfirmDialog = await GuiFrameTests.mount_confirm(host)
 	dlg.ask("Pay Fine", "Settle the outstanding fine.", "Pay", "No",
 		ConfirmDialog.Severity.ORANGE, ConfirmDialog.Kind.GO)
 	await host.get_tree().process_frame
@@ -497,18 +488,18 @@ static func _case_confirm_buttons(res: Dictionary, host: Node) -> void:
 	var cancel: BevelButton = kids[0] as BevelButton
 	var confirm: BevelButton = kids[1] as BevelButton
 	TestFixtures.check(res, "the cancel button wears the neutral shading",
-		cancel != null and cancel.fill == BevelButton.NEUTRAL_FILL
+		cancel != null and cancel.fill == GuiColors.NEUTRAL_FILL
 		and cancel.custom_minimum_size == ConfirmDialog.BUTTON_SIZE,
 		"fill %s" % (cancel.fill.to_html(false) if cancel != null else "none"))
 	TestFixtures.check(res, "a go dialog shades its confirm button green",
-		confirm != null and confirm.fill == BevelButton.GO_FILL and confirm.text == "Pay",
+		confirm != null and confirm.fill == GuiColors.GO_FILL and confirm.text == "Pay",
 		"fill %s" % (confirm.fill.to_html(false) if confirm != null else "none"))
 	dlg.ask("Break Contract", "This cannot be undone.", "Break", "Keep",
 		ConfirmDialog.Severity.RED, ConfirmDialog.Kind.BAD)
 	await host.get_tree().process_frame
 	var bad: BevelButton = dlg.button_row.get_child(1) as BevelButton
 	TestFixtures.check(res, "a bad dialog shades its confirm button red",
-		bad != null and bad.fill == BevelButton.DANGER_FILL, "fill %s" % bad.fill.to_html(false))
+		bad != null and bad.fill == GuiColors.DANGER_FILL, "fill %s" % bad.fill.to_html(false))
 	TestFixtures.check(res, "the warn kind shades blue and an unknown kind falls back to neutral",
 		dlg._shade_of(ConfirmDialog.Kind.WARN) == &"blue" and dlg._shade_of(9) == &"neutral",
 		"%s %s" % [dlg._shade_of(ConfirmDialog.Kind.WARN), dlg._shade_of(9)])
@@ -528,7 +519,26 @@ static func _case_confirm_buttons(res: Dictionary, host: Node) -> void:
 	dlg.queue_free()
 
 
-static func _case_confirm_dialog_legacy(res: Dictionary, host: Node) -> void:
-	var ok: bool = await GuiFrameTests.run(host)
-	TestFixtures.check(res, "the existing gui frame suite still passes with the rich extension in place",
-		ok, "GuiFrameTests.run returned %s" % ok)
+#No BevelButton kind draws a text shadow unless a caller asks for one; orange keeps ink text.
+static func _case_bevel_no_shadow(res: Dictionary, host: Node) -> void:
+	var miss: String = ""
+	for which: StringName in [&"blue", &"go", &"danger", &"orange", &"neutral"] as Array[StringName]:
+		var button: BevelButton = BevelButton.make("Hire", which)
+		host.add_child(button)
+		await host.get_tree().process_frame
+		var want: Color = BevelButton.palette(which).text as Color
+		if button.shadow or button.draws_shadow() or not button.text_color.is_equal_approx(want):
+			miss = "%s shadow %s draws %s text %s" % [which, button.shadow, button.draws_shadow(),
+				button.text_color.to_html()]
+		button.queue_free()
+		if miss != "":
+			break
+	TestFixtures.check(res, "a made BevelButton of any kind draws no text shadow", miss == "", miss)
+	var lit: BevelButton = BevelButton.make("Hire", &"orange")
+	host.add_child(lit)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "an orange BevelButton prints ink text",
+		lit.text_color.is_equal_approx(GuiColors.INK), lit.text_color.to_html())
+	lit.shadow = true
+	TestFixtures.check(res, "a caller can still ask for the shadow", lit.draws_shadow(), "")
+	lit.queue_free()

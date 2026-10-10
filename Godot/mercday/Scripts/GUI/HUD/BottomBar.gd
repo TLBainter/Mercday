@@ -1,12 +1,12 @@
 class_name BottomBar extends PanelContainer
 
-#76 px strip: an orange top border over an inset 40 px row (#0e1628 inside a 3 px #0a0f1c frame)
+#76 px strip: an orange top border over an inset 40 px row (GuiColors.ROW_FILL inside a 3 px GuiColors.INK frame)
 #holding the MoneyMenu at the left and the TimeMenu at the right, each with its own divider.
 #Edges draws the three inset lines that sit between the border and the row.
 
-const EDGE_DARK := Color("#0a0f1c")
-const EDGE_HI := Color("#28447a")
-const EDGE_LO := Color("#111c33")
+const EDGE_DARK: Color = GuiColors.INK
+const EDGE_HI: Color = GuiColors.EDGE_HI
+const EDGE_LO: Color = GuiColors.EDGE_LO
 const EDGE_PX := 4.0
 
 @export var inset_path: NodePath = ^"Pad/Inset"
@@ -26,7 +26,7 @@ func _ready() -> void:
 	time_menu_node = get_node_or_null(time_menu_path) as TimeMenu
 	edges = get_node_or_null(edges_path) as Control
 	if edges != null:
-		edges.draw.connect(_draw_edges)
+		edges.draw.connect(_on_edges_draw)
 		edges.resized.connect(edges.queue_redraw)
 
 
@@ -53,8 +53,8 @@ func dividers() -> Array[ColorRect]:
 	return out
 
 
-func _draw_edges() -> void:
+func _on_edges_draw() -> void:
 	var span: Vector2 = edges.size
 	edges.draw_rect(Rect2(0.0, 0.0, span.x, EDGE_PX), EDGE_DARK)
-	edges.draw_rect(Rect2(0.0, EDGE_PX, span.x, EDGE_PX), EDGE_HI)
-	edges.draw_rect(Rect2(0.0, span.y - EDGE_PX, span.x, EDGE_PX), EDGE_LO)
+	BevelButton.paint_edges(edges, Rect2(0.0, EDGE_PX, span.x, span.y - EDGE_PX), EDGE_HI, EDGE_LO, EDGE_PX,
+		BevelButton.BEVEL_TOP | BevelButton.BEVEL_BOTTOM)

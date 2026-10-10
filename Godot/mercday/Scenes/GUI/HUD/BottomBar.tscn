@@ -1,8 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/HUD/BottomBar.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/HUD/MoneyMenu.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/HUD/TimeMenu.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercdave/MercdaveTab.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/hud_mercdave.tres" id="6"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bar"]
 content_margin_left = 0.0
@@ -61,6 +64,13 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 0)
 size_flags_vertical = 4
 
+[node name="MercdaveTab" parent="Pad/Inset/Row" instance=ExtResource("4")]
+layout_mode = 2
+
 [node name="Edges" type="Control" parent="."]
 layout_mode = 2
 mouse_filter = 2
+
+[node name="HelpTarget" type="Node" parent="Pad/Inset/Row/MercdaveTab"]
+script = ExtResource("5")
+hint = ExtResource("6")

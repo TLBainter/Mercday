@@ -4,14 +4,7 @@
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres" id="4"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_face"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.231373, 0.435294, 0.713725, 1)
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Clients/ClientFace.tscn" id="5"]
 
 [node name="ClientListItem" type="Button"]
 custom_minimum_size = Vector2(0, 60)
@@ -27,24 +20,7 @@ offset_right = -6.0
 offset_bottom = -6.0
 theme_override_constants/separation = 10
 
-[node name="FaceHolder" type="Control" parent="Row"]
-custom_minimum_size = Vector2(48, 48)
-mouse_filter = 2
-size_flags_vertical = 4
-
-[node name="Fill" type="TextureRect" parent="Row/FaceHolder"]
-texture_filter = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-
-[node name="Frame" type="Panel" parent="Row/FaceHolder"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_face")
+[node name="Face" parent="Row" instance=ExtResource("5")]
 
 [node name="Names" type="VBoxContainer" parent="Row"]
 mouse_filter = 2

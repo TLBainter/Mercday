@@ -7,7 +7,7 @@ static func pick_target(
 		state: BattleState = null) -> MercenaryData:
 	if enemies.is_empty():
 		return null
-	var barred := ConstStates.blocked_targets(attacker)
+	var barred := StateEffects.blocked_targets(attacker)
 	if not barred.is_empty():
 		var allowed: Array = enemies.filter(func(e: MercenaryData) -> bool: return not barred.has(e))
 		if allowed.size() != enemies.size():
@@ -34,10 +34,7 @@ static func pick_target(
 
 	var weights: Array[int] = []
 	for enemy: MercenaryData in enemies:
-		var avoid_val := float(enemy.stats.get(avoid_key, 0))
-		if ConstStates.has_state(enemy, ConstStates.FLANKED):
-			avoid_val = maxf(0.0, avoid_val - 15.0)
-		var base := maxi(1, 100 - int(avoid_val))
+		var base := _base_weight(enemy, avoid_key)
 		var mult := 1.0
 
 		if state != null and state.battlefield != null and weapon != null:
@@ -64,25 +61,8 @@ static func pick_target(
 		mult += AuraTactics.leader_bonus(enemy, state)
 		mult += FleeSystem.escaping_bonus(enemy, state)
 
-		if state != null and state.battlefield != null:
-			var att_pos := state.get_position(attacker)
-			var emy_pos := state.get_position(enemy)
-			var to_enemy := Vector2(float(emy_pos.x - att_pos.x), float(emy_pos.y - att_pos.y))
-			var emy_dist := to_enemy.length()
-			for other: MercenaryData in enemies:
-				if other == enemy:
-					continue
-				var other_pos := state.get_position(other)
-				var to_other := Vector2(float(other_pos.x - att_pos.x), float(other_pos.y - att_pos.y))
-				var other_dist := to_other.length()
-				if emy_dist >= other_dist:
-					continue
-				if emy_dist < 0.5:
-					continue
-				var dot := to_enemy.normalized().dot(to_other.normalized())
-				if dot >= 0.7:
-					mult += 0.4
-					break
+		if state != null and state.battlefield != null and _screens_another(attacker, enemy, enemies, state):
+			mult += 0.4
 
 		if weapon != null and not weapon.damage_types_1.is_empty():
 			var all_types: Array = weapon.damage_types_1.duplicate()
@@ -103,42 +83,39 @@ static func pick_target(
 	return enemies[-1]
 
 
-static func find_flankable_target(
-		mover: MercenaryData,
-		enemies: Array,
-		allies: Array,
-		state: BattleState) -> Dictionary:
-	var mover_size := int(mover.stats.get("size", 1))
-	var best_enemy: MercenaryData = null
-	var best_ally: MercenaryData = null
-	var best_dist := 999999
-	var barred := ConstStates.blocked_targets(mover)
-	var barred_logged := false
-	for enemy: MercenaryData in enemies:
-		if barred.has(enemy):
-			if not barred_logged:
-				barred_logged = true
-				log_target_blocked(mover, enemies, barred)
+#Base pick weight of an enemy: 100 minus its avoid value, which drops by 15 while it is flanked.
+static func _base_weight(enemy: MercenaryData, avoid_key: String) -> int:
+	var avoid_val := float(enemy.stats.get(avoid_key, 0))
+	if ConstStates.has_state(enemy, ConstStates.FLANKED):
+		avoid_val = maxf(0.0, avoid_val - 15.0)
+	return maxi(1, 100 - int(avoid_val))
+
+
+#True when the enemy stands nearer to the attacker than another enemy along almost the same line.
+static func _screens_another(attacker: MercenaryData, enemy: MercenaryData, enemies: Array,
+		state: BattleState) -> bool:
+	var att_pos := state.get_position(attacker)
+	var emy_pos := state.get_position(enemy)
+	var to_enemy := Vector2(float(emy_pos.x - att_pos.x), float(emy_pos.y - att_pos.y))
+	var emy_dist := to_enemy.length()
+	for other: MercenaryData in enemies:
+		if other == enemy:
 			continue
-		var target_size := int(enemy.stats.get("size", 1))
-		if mover_size < target_size - 1:
+		var other_pos := state.get_position(other)
+		var to_other := Vector2(float(other_pos.x - att_pos.x), float(other_pos.y - att_pos.y))
+		var other_dist := to_other.length()
+		if emy_dist >= other_dist:
 			continue
-		var enemy_pos := state.get_position(enemy)
-		for ally: MercenaryData in allies:
-			if int(ally.stats.get("size", 1)) < target_size - 1:
-				continue
-			var ally_pos := state.get_position(ally)
-			var da_x := ally_pos.x - enemy_pos.x
-			var da_y := ally_pos.y - enemy_pos.y
-			if da_x == 0 and da_y == 0:
-				continue
-			var d := state.distance_to(mover, enemy)
-			if d < best_dist:
-				best_dist = d
-				best_enemy = enemy
-				best_ally = ally
-			break
-	return {"target": best_enemy, "ally": best_ally}
+		if emy_dist < 0.5:
+			continue
+		if to_enemy.normalized().dot(to_other.normalized()) >= 0.7:
+			return true
+	return false
+
+
+#Chebyshev distance on the floor plane plus 4 per floor of height difference.
+static func _pos_distance(a: Vector3i, b: Vector3i) -> float:
+	return float(maxi(absi(a.x - b.x), absi(a.y - b.y)) + absi(a.z - b.z) * 4)
 
 
 static func _enemy_in_intended_range(
@@ -164,7 +141,7 @@ static func pick_move_target(
 			blocked[pb] = true
 
 	var enemies: Array = ctx.get("enemies", [])
-	var barred := ConstStates.blocked_targets(merc)
+	var barred := StateEffects.blocked_targets(merc)
 	if not barred.is_empty():
 		var removed := false
 		for b: MercenaryData in barred:
@@ -182,21 +159,21 @@ static func pick_move_target(
 	if candidates.is_empty():
 		candidates = enemies
 
-	var _team_pref: Array = candidates.filter(func(e: MercenaryData) -> bool:
-		var _r: int = state.team_blocked_round.get(e, -1) as int
-		if _r != state.round_number: return true
+	var team_pref: Array = candidates.filter(func(e: MercenaryData) -> bool:
+		var r: int = state.team_blocked_round.get(e, -1) as int
+		if r != state.round_number: return true
 		return (state.team_blocked_count.get(e, 0) as int) < 2)
-	if not _team_pref.is_empty():
-		candidates = _team_pref
+	if not team_pref.is_empty():
+		candidates = team_pref
 
 	if not valid.is_empty():
 		var valid_candidates: Array = valid.filter(func(e: MercenaryData) -> bool: return candidates.has(e))
 		if not valid_candidates.is_empty():
 			var nearest: MercenaryData = null
 			var best_score := INF
-			var _interior := state.battlefield != null and state.battlefield.is_interior_map
+			var interior := state.battlefield != null and state.battlefield.is_interior_map
 			for enemy: MercenaryData in valid_candidates:
-				var d := state.path_distance_to(merc, enemy) if _interior else state.distance_to(merc, enemy)
+				var d := state.path_distance_to(merc, enemy) if interior else state.distance_to(merc, enemy)
 				var max_hp := float(enemy.stats.get("maximum_hit_points", 1))
 				var hp_ratio := clampf(float(enemy.current_hp) / max_hp, 0.0, 1.0)
 				var s := d - (1.0 - hp_ratio) - FleeSystem.pursuit_paces(enemy, state)
@@ -211,8 +188,7 @@ static func pick_move_target(
 		var best_dist := INF
 		for enemy: MercenaryData in candidates:
 			var epos := state.pos3(enemy)
-			var d := float(maxi(absi(merc.last_seen_position.x - epos.x), absi(merc.last_seen_position.y - epos.y))
-				+ absi(merc.last_seen_position.z - epos.z) * 4)
+			var d := _pos_distance(merc.last_seen_position, epos)
 			if d < best_dist:
 				best_dist = d
 				best_enemy = enemy
@@ -227,8 +203,7 @@ static func pick_move_target(
 			if not candidates.has(enemy):
 				continue
 			var known_pos: Vector3i = merc.last_known_enemy_positions[enemy] as Vector3i
-			var d := float(maxi(absi(known_pos.x - merc_pos.x), absi(known_pos.y - merc_pos.y))
-				+ absi(known_pos.z - merc_pos.z) * 4)
+			var d := _pos_distance(known_pos, merc_pos)
 			d -= FleeSystem.pursuit_paces(enemy, state)
 			if d < best_dist:
 				best_dist = d
@@ -237,11 +212,11 @@ static func pick_move_target(
 			return best_enemy
 
 	if not candidates.is_empty():
-		var _interior2 := state.battlefield != null and state.battlefield.is_interior_map
+		var interior2 := state.battlefield != null and state.battlefield.is_interior_map
 		var nearest: MercenaryData = null
 		var best_dist := INF
 		for enemy: MercenaryData in candidates:
-			var d := float(state.path_distance_to(merc, enemy)) if _interior2 else float(state.distance_to(merc, enemy))
+			var d := float(state.path_distance_to(merc, enemy)) if interior2 else float(state.distance_to(merc, enemy))
 			d -= FleeSystem.pursuit_paces(enemy, state)
 			if d < best_dist:
 				best_dist = d
@@ -293,7 +268,7 @@ static func log_target_blocked(merc: MercenaryData, enemies: Array, barred: Arra
 #States whose target:block:source token names this source.
 static func _blocking_states(merc: MercenaryData, source: MercenaryData) -> String:
 	var names: Array[String] = []
-	for e: Dictionary in ConstStates.active_effects(merc):
+	for e: Dictionary in StateEffects.active_effects(merc):
 		if str(e["token"]).begins_with("target:block:source") and e["source"] == source:
 			names.append(str(e["state"]))
 	return CheckSystem.states_text(names)
@@ -331,3 +306,14 @@ static func weapon_target_range(merc: MercenaryData) -> int:
 	if weapon.is_throwable:
 		return int(ThrownWeaponRules.thrown_ranges(merc, weapon)["extended"])
 	return WeaponArmorPerkLibrary.get_effective_melee_range(merc)
+
+
+#Target rule shared by actions whose .tres sets target_mode = "current_or_best".
+static func current_or_best(merc: MercenaryData, ctx: Dictionary, state: BattleState) -> MercenaryData:
+	var valid: Array = ctx.get("valid_targets", [])
+	var cur: MercenaryData = ctx.get("current_target") as MercenaryData
+	if cur != null and valid.has(cur) and not FleeSystem.has_better_quarry(cur, valid, state):
+		return cur
+	if valid.is_empty():
+		return null
+	return TargetSelector.pick_target(merc, valid, state)

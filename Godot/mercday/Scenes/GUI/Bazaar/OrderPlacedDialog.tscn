@@ -1,11 +1,52 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Bazaar/OrderPlacedDialog.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ModalDialog.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Bazaar/OrderPlacedDialog.gd" id="2"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/confirm_box.tres" id="3"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_OrderPlacedDialog.tres" id="6"]
 
-[node name="OrderPlacedDialog" type="Control"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-visible = false
-script = ExtResource("1")
+[node name="OrderPlacedDialog" instance=ExtResource("1")]
+script = ExtResource("2")
+backdrop_closes = false
+title = "Order Placed!"
+box_width = 460.0
+box_style = ExtResource("3")
+edge_px = 0
+show_close = false
+cancel_text = "Keep Shopping"
+confirm_text = "View Orders"
+cancel_kind = &"neutral"
+confirm_kind = &"go"
+
+[node name="Pad" parent="Box"]
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
+
+[node name="Rows" parent="Box/Pad"]
+theme_override_constants/separation = 16
+
+[node name="Title" parent="Box/Pad/Rows/Head/TitleRow"]
+theme_override_colors/font_color = Color(0.423529, 0.764706, 0.415686, 1)
+theme_override_font_sizes/font_size = 16
+
+[node name="Cancel" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 38)
+focus_mode = 0
+theme_override_fonts/font = ExtResource("4")
+theme_override_font_sizes/font_size = 10
+min_size = Vector2(0, 38)
+
+[node name="Confirm" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 38)
+focus_mode = 0
+theme_override_fonts/font = ExtResource("4")
+theme_override_font_sizes/font_size = 11
+min_size = Vector2(0, 38)
+
+[node name="HelpTarget" type="Node" parent="Box"]
+script = ExtResource("5")
+hint = ExtResource("6")

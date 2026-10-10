@@ -8,12 +8,16 @@ static var _frames: Array[Control] = []
 #The height of the bottom bar in viewport pixels; overlays keep the band above it clear.
 static var bottom_reserve: float = 0.0
 
+#Called after every push and remove; the MercDave layer and the world map register here.
+static var changed_hooks: Array[Callable] = []
+
 #The z ladder of the open frames: 110 for the first, one rung above the Popup layer at 100,
-#then 10 more for each frame above it, capped at 190. MoneyFly keeps 200 and tooltips draw
-#at 250, so neither is ever covered by a frame.
+#then 10 more for each frame above it, capped at 190. The MercDave layer sits at 195, MoneyFly
+#keeps 200 and tooltips draw at 250, so none of them is ever covered by a frame.
 const BASE_Z: int = 100
 const STEP_Z: int = 10
 const MAX_Z: int = 190
+const HINT_Z: int = 195
 
 
 #The z of the frame that sits at this index of the stack.
@@ -35,6 +39,7 @@ static func push(frame: Control) -> void:
 	_frames.append(frame)
 	if frame.top_level:
 		frame.z_index = z_for(depth())
+	_notify()
 
 
 static func remove(frame: Control) -> void:
@@ -43,6 +48,22 @@ static func remove(frame: Control) -> void:
 	for i: int in range(_frames.size() - 1, -1, -1):
 		if _frames[i] == frame:
 			_frames.remove_at(i)
+	_notify()
+
+
+static func _notify() -> void:
+	for hook: Callable in changed_hooks.duplicate():
+		if hook.is_valid():
+			hook.call()
+
+
+static func add_changed_hook(hook: Callable) -> void:
+	if not changed_hooks.has(hook):
+		changed_hooks.append(hook)
+
+
+static func remove_changed_hook(hook: Callable) -> void:
+	changed_hooks.erase(hook)
 
 
 static func top() -> Control:

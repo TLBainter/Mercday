@@ -1,0 +1,66 @@
+{
+ "_doc": "Trade-route ground cells (1 px = one ½-res terrain cell = 2 map px). Each class has 2 variants (x, x+1): variant 1 on every 5th cell. Track cross-section = rut · center · rut; center = dirt (86 %), stone (7 %), grass tuft (6 %).",
+ "tiles": [
+  {
+   "name": "dirt",
+   "x": 0,
+   "v0": [
+    150,
+    118,
+    78
+   ],
+   "v1": [
+    160,
+    128,
+    86
+   ]
+  },
+  {
+   "name": "rut",
+   "x": 3,
+   "v0": [
+    110,
+    82,
+    52
+   ],
+   "v1": [
+    100,
+    76,
+    48
+   ]
+  },
+  {
+   "name": "stone",
+   "x": 6,
+   "v0": [
+    152,
+    148,
+    138
+   ],
+   "v1": [
+    128,
+    124,
+    116
+   ]
+  },
+  {
+   "name": "grass",
+   "x": 9,
+   "v0": [
+    118,
+    140,
+    70
+   ],
+   "v1": [
+    108,
+    128,
+    62
+   ]
+  }
+ ],
+ "props": [
+  "p_cart",
+  "p_milestone",
+  "p_signpost"
+ ]
+}

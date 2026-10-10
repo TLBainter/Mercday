@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://dqxtid51akhyi"]
+
+[ext_resource type="PackedScene" uid="uid://bqxr6sstfy2yv" path="res://Scenes/Tools/Shared/ToolModalDialog.tscn" id="1"]
+[ext_resource type="Script" uid="uid://dv3ft5yawm7kr" path="res://Scripts/Tools/ContractBuilder/CheckBuilder.gd" id="2"]
+
+[node name="CheckBuilder" instance=ExtResource("1")]
+script = ExtResource("2")
+kicker = "Contract Builder"
+title = "New check"
+box_width = 1200.0
+backdrop_closes = false
+cancel_text = "Cancel"
+confirm_text = "Add check"
+show_close = true
+free_on_close = false

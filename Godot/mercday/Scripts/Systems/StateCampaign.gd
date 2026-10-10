@@ -71,7 +71,7 @@ static func expire_campaign_states(merc: MercenaryData, now: int) -> Array[Strin
 		if not ConstStates.has_state(merc, state_name):
 			merc.campaign_states.erase(state_name)
 			continue
-		if not ConstStates.remove_state(merc, state_name)["removed"]:
+		if not StateCascade.remove_state(merc, state_name)["removed"]:
 			continue
 		lines.append("  " + StateText.remove_line(merc, state_name))
 	return lines

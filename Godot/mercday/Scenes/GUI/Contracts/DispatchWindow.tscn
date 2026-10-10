@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/DispatchWindow.gd" id="1"]
 [ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
@@ -8,8 +8,20 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/TeamSlot.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ContractPreview.tscn" id="8"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ConfirmDialog.tscn" id="9"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/MercPicker.tscn" id="12"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPicker.tscn" id="12"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ActionBar.tscn" id="13"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_picker"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+bg_color = Color(0.101961, 0.168627, 0.301961, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.949020, 0.549020, 0.156863, 1)
 
 [node name="DispatchWindow" type="Control"]
 custom_minimum_size = Vector2(1280, 644)
@@ -128,6 +140,19 @@ layout_mode = 2
 layout_mode = 2
 
 [node name="Picker" parent="." instance=ExtResource("12")]
+box_width = 380.0
+box_style = SubResource("StyleBoxFlat_picker")
+edge_px = 0
+subtitle = "Sorted by best match for this role"
+show_detail = true
+
+[node name="Rows" parent="Picker/Box/Pad"]
+theme_override_constants/separation = 8
+
+[node name="Remove" parent="Picker/Box/Pad/Rows"]
+kind = &"danger"
 
 [node name="Confirm" parent="." instance=ExtResource("9")]
 layout_mode = 1
+
+[editable path="Picker"]

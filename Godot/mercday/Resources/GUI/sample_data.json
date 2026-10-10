@@ -1,5 +1,5 @@
 {
-  "_note": "Sample data suite mirroring the HTML prototypes. Load into Resources (MercData, ContractData) or a JSON seed for GameState. Placeholder names are intentional.",
+  "_note": "Seed data for the GUI view models",
   "bank_notes": 1000,
   "traditions": [
     {
@@ -434,7 +434,7 @@
       "description": "Contract 1 Description",
       "location": "Location 1",
       "issuer": "Issuer 1 Name",
-      "issuer_type": 1,
+      "issuer_type": "person",
       "recommended": {
         "knowledges": [
           {
@@ -565,7 +565,7 @@
       "description": "Contract 2 Description",
       "location": "Location 2",
       "issuer": "Issuer 2 Name",
-      "issuer_type": 2,
+      "issuer_type": "place",
       "recommended": {
         "knowledges": [
           {
@@ -696,7 +696,7 @@
       "description": "Contract 3 Description",
       "location": "Location 3",
       "issuer": "Issuer 3 Name",
-      "issuer_type": 3,
+      "issuer_type": "org",
       "recommended": {
         "knowledges": [
           {
@@ -827,7 +827,7 @@
       "description": "Contract 4 Description",
       "location": "Location 4",
       "issuer": "Issuer 4 Name",
-      "issuer_type": 4,
+      "issuer_type": "person",
       "recommended": {
         "knowledges": [
           {
@@ -958,7 +958,7 @@
       "description": "Contract 5 Description",
       "location": "Location 5",
       "issuer": "Issuer 5 Name",
-      "issuer_type": 1,
+      "issuer_type": "person",
       "recommended": {
         "knowledges": [
           {
@@ -1089,7 +1089,7 @@
       "description": "Contract 6 Description",
       "location": "Location 6",
       "issuer": "Issuer 6 Name",
-      "issuer_type": 2,
+      "issuer_type": "place",
       "recommended": {
         "knowledges": [
           {
@@ -1220,7 +1220,7 @@
       "description": "Contract 7 Description",
       "location": "Location 7",
       "issuer": "Issuer 7 Name",
-      "issuer_type": 3,
+      "issuer_type": "org",
       "recommended": {
         "knowledges": [
           {
@@ -1351,7 +1351,7 @@
       "description": "Contract 8 Description",
       "location": "Location 8",
       "issuer": "Issuer 8 Name",
-      "issuer_type": 4,
+      "issuer_type": "person",
       "recommended": {
         "knowledges": [
           {
@@ -1482,7 +1482,7 @@
       "description": "Contract 9 Description",
       "location": "Location 9",
       "issuer": "Issuer 9 Name",
-      "issuer_type": 1,
+      "issuer_type": "person",
       "recommended": {
         "knowledges": [
           {
@@ -1613,7 +1613,7 @@
       "description": "Contract 10 Description",
       "location": "Location 10",
       "issuer": "Issuer 10 Name",
-      "issuer_type": 2,
+      "issuer_type": "place",
       "recommended": {
         "knowledges": [
           {
@@ -1744,7 +1744,7 @@
       "description": "Contract 11 Description",
       "location": "Location 11",
       "issuer": "Issuer 11 Name",
-      "issuer_type": 3,
+      "issuer_type": "org",
       "recommended": {
         "knowledges": [
           {
@@ -1875,7 +1875,7 @@
       "description": "Contract 12 Description",
       "location": "Location 12",
       "issuer": "Issuer 12 Name",
-      "issuer_type": 4,
+      "issuer_type": "person",
       "recommended": {
         "knowledges": [
           {

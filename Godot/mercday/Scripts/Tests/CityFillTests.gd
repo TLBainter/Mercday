@@ -13,8 +13,6 @@ const RNG_SEED := 77
 const BATTLE_SEED := 9800
 const BATTLE_MAPS := 12
 const BATTLE_USE := 3
-const DUMP_TIER := "Small"
-const DUMP_SEED := 9200
 const TAGS: Array[String] = ["nature", "lamp", "alley", "sidewalk", "square"]
 const DX: Array[int] = [0, 1, 0, -1]
 const DY: Array[int] = [-1, 0, 1, 0]
@@ -34,20 +32,13 @@ static func run_cases(res: Dictionary, maps: Array[Dictionary]) -> void:
 	_case_squares(res, maps)
 	_case_spawn_zones(res, maps)
 	_case_window_posts(res, maps)
-	_case_dump(res, maps)
+	_case_dump(res)
 	_case_spawn_battle(res)
 
 
-#### Shared helpers.
-
-
-#The first city map of tier that generates within tries attempts, or null when none does.
-static func city_map(tier: String, seed_base: int, tries: int) -> BattlefieldArea:
-	for i: int in range(tries):
-		var map: BattlefieldArea = TestFixtures.city_gen(tier, seed_base + i, CityGenTests.ROW)
-		if map != null:
-			return map
-	return null
+#The city map of tier generated from seed_base; _tries is ignored and stays only for callers that pass it.
+static func city_map(tier: String, seed_base: int, _tries: int = 1) -> BattlefieldArea:
+	return TestFixtures.city_gen(tier, seed_base, CityGenTests.ROW)
 
 
 static func _note(bad: Array[String], hits: int, text: String) -> int:
@@ -93,6 +84,23 @@ static func _row_name(obs: Dictionary) -> String:
 	return "?" if d == null else d.obstacle_name
 
 
+static func _failed_lots(map: BattlefieldArea) -> int:
+	var out: int = 0
+	for lot: Dictionary in (map.city.get("lots", []) as Array):
+		if lot.has("failed"):
+			out += 1
+	return out
+
+
+#City objects that are not nature plantings.
+static func _street_objects(map: BattlefieldArea) -> int:
+	var out: int = 0
+	for obs: Dictionary in _city_objects(map):
+		if String(obs.get("city", "")) != "nature":
+			out += 1
+	return out
+
+
 static func _mains(map: BattlefieldArea) -> int:
 	var out: int = 0
 	for st: Dictionary in (map.city.get("streets", []) as Array):
@@ -106,9 +114,6 @@ static func _touches(map: BattlefieldArea, cell: Vector2i, want: Array[int]) -> 
 		if want.has(CityGrid.surf(map, cell.x + DX[d], cell.y + DY[d])):
 			return true
 	return false
-
-
-#### Obstacle rows and lots.
 
 
 static func _case_city_column(res: Dictionary) -> void:
@@ -224,9 +229,6 @@ static func _fit_check(map: BattlefieldArea, lot: Dictionary, li: int, bid: int,
 	return hits
 
 
-#### Spacing.
-
-
 static func _case_spacing(res: Dictionary, maps: Array[Dictionary]) -> void:
 	var bad: Array[String] = []
 	var total: int = 0
@@ -265,9 +267,6 @@ static func _near_other(map: BattlefieldArea, cell: Vector2i, id: int) -> int:
 			if other >= 0 and other != id:
 				return other
 	return -1
-
-
-#### Doors.
 
 
 static func _case_doors(res: Dictionary, maps: Array[Dictionary]) -> void:
@@ -334,7 +333,7 @@ static func _door_check(map: BattlefieldArea, e: Dictionary, s: int, protected: 
 	var rec: Dictionary = map.buildings[id] if id >= 0 and id < map.buildings.size() else {}
 	var side: String = String(rec.get("front", ""))
 	if kind == "back":
-		side = CityAccess._opposite(side)
+		side = BuildingLayouts.opposite(side)
 	var raw: Vector2i = Vector2i(door.x, door.y) - CityAccess._inward(side)
 	if not bool(e.get("yard", false)):
 		if outside != raw:
@@ -346,9 +345,6 @@ static func _door_check(map: BattlefieldArea, e: Dictionary, s: int, protected: 
 		return _note(bad, hits, "s%d building %d %s yard door %d,%d opens on no yard cell"
 			% [s, id, kind, raw.x, raw.y])
 	return hits
-
-
-#### Back lanes and stats.
 
 
 static func _case_lanes(res: Dictionary, maps: Array[Dictionary]) -> void:
@@ -455,10 +451,6 @@ static func _case_stats(res: Dictionary, maps: Array[Dictionary]) -> void:
 		var hits: int = 0
 		total += 1
 		var stats: Dictionary = map.city.get("stats", {})
-		var failed: int = 0
-		for lot: Dictionary in (map.city.get("lots", []) as Array):
-			if lot.has("failed"):
-				failed += 1
 		var lanes: int = 0
 		var ring_cells: int = 0
 		var link_cells: int = 0
@@ -477,30 +469,20 @@ static func _case_stats(res: Dictionary, maps: Array[Dictionary]) -> void:
 			ring_cells += painted
 			if bool(st.get("isolated", false)):
 				lone += 1
-		var nature: int = 0
-		var street_obs: int = 0
-		for obs: Dictionary in _city_objects(map):
-			if String(obs.get("city", "")) == "nature":
-				nature += 1
-			else:
-				street_obs += 1
-		var want: Dictionary = {"buildings": map.buildings.size(), "failed_lots": failed,
-			"back_lanes": lanes, "nature_objects": nature, "street_objects": street_obs,
+		var street_obs: int = _street_objects(map)
+		var want: Dictionary = {"buildings": map.buildings.size(), "failed_lots": _failed_lots(map),
+			"back_lanes": lanes, "nature_objects": _city_objects(map).size() - street_obs,
+			"street_objects": street_obs,
 			"alley_ring_cells": ring_cells, "alley_connector_cells": link_cells,
 			"alley_connectors": links, "alley_isolated": lone,
 			"alley_connect_d": CityAlleys.connect_d_for(mini(map.width, map.length))}
-		for key: String in ["buildings", "failed_lots", "back_lanes", "nature_objects",
-				"street_objects", "alley_ring_cells", "alley_connector_cells", "alley_connectors",
-				"alley_isolated", "alley_connect_d"]:
+		for key: Variant in want.keys():
 			if int(stats.get(key, -1)) != int(want[key]):
 				hits = _note(bad, hits, "s%d stats %s %d of %d"
-					% [s, key, int(stats.get(key, -1)), int(want[key])])
+					% [s, String(key), int(stats.get(key, -1)), int(want[key])])
 		if map.buildings.is_empty():
 			hits = _note(bad, hits, "s%d holds no building" % s)
 	TestFixtures.check(res, "citygen_fill_stats", bad.is_empty(), TestFixtures.detail(bad, total, "map(s)"))
-
-
-#### Objects.
 
 
 static func _case_obj_legal(res: Dictionary, maps: Array[Dictionary]) -> void:
@@ -541,7 +523,7 @@ static func _legal_check(map: BattlefieldArea, obs: Dictionary, s: int, bad: Arr
 			pw, ph])
 	var blocking: bool = not (data.passthrough or data.ramp)
 	for c: Vector2i in _cells_of(obs):
-		if not CityGrid.inside(map, c.x, c.y) or map.building_id_at.has(c):
+		if not map.in_bounds_xy(c.x, c.y) or map.building_id_at.has(c):
 			return _note(bad, hits, "s%d object %s cell %d,%d is off the open map"
 				% [s, data.obstacle_name, c.x, c.y])
 		var surf: int = CityGrid.surf(map, c.x, c.y)
@@ -671,9 +653,6 @@ static func _case_lamps(res: Dictionary, maps: Array[Dictionary]) -> void:
 	TestFixtures.check(res, "citygen_lamps", bad.is_empty(), TestFixtures.detail(bad, total, "lamp(s)"))
 
 
-#### Squares.
-
-
 static func _case_squares(res: Dictionary, maps: Array[Dictionary]) -> void:
 	var bad: Array[String] = []
 	var total: int = 0
@@ -706,7 +685,7 @@ static func _square_check(map: BattlefieldArea, obs: Dictionary, s: int, bad: Ar
 	var walk: bool = false
 	for y: int in range(block.position.y, block.end.y):
 		for x: int in range(block.position.x, block.end.x):
-			if not CityGrid.inside(map, x, y):
+			if not map.in_bounds_xy(x, y):
 				return _note(bad, hits, "s%d square %d,%d leaves the map" % [s, pos.x, pos.y])
 			var c := Vector2i(x, y)
 			if not foot.has_point(c):
@@ -732,9 +711,6 @@ static func _main_walk(map: BattlefieldArea, cell: Vector2i) -> bool:
 		if String((streets[sid] as Dictionary).get("kind", "")) == "main":
 			return true
 	return false
-
-
-#### Spawn zones and window posts.
 
 
 static func _case_spawn_zones(res: Dictionary, maps: Array[Dictionary]) -> void:
@@ -823,72 +799,39 @@ static func _case_window_posts(res: Dictionary, maps: Array[Dictionary]) -> void
 		"%s; %d map(s) with a post" % [TestFixtures.detail(bad, total, "map(s)"), with_post])
 
 
-#### Dump lines.
-
-
-static func _case_dump(res: Dictionary, maps: Array[Dictionary]) -> void:
-	var map: BattlefieldArea = null
-	for item: Dictionary in maps:
-		if String(item.get("tier", "")) == DUMP_TIER and int(item.get("seed", -1)) == DUMP_SEED:
-			map = item["map"]
-			break
+static func _case_dump(res: Dictionary) -> void:
+	var map: BattlefieldArea = CityGenTests.ref_map()
 	if map == null:
 		TestFixtures.check(res, "citygen_fill_dump", false, "no cached map")
 		return
-	EncounterLogger._ensure_dir()
-	var dir: String = "%s/%s" % [EncounterLogger.LOG_DIR, CityGenTests.SUB_DIR]
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
-	var stem: String = "%s/%s" % [dir, DUMP_NAME]
-	LevelDumpWriter.save(map, stem)
-	var lines: PackedStringArray = FileAccess.get_file_as_string(stem + "_level.txt").split("\n")
+	var lines: PackedStringArray = GenFixtures.dump_lines(map, CityGenTests.SUB_DIR, DUMP_NAME)
 	var seen: Dictionary = {"SPAWN A:": 0, "SPAWN B:": 0, "OBJECTS:": 0, "DOOR:": 0, "CITYOBJ:": 0,
 		"LOTFAIL ": 0}
 	var lanes: int = 0
-	var head: int = -1
-	for i: int in range(lines.size()):
-		var line: String = lines[i]
+	for line: String in lines:
 		for key: Variant in seen.keys():
 			if line.begins_with(String(key)):
 				seen[key] = int(seen[key]) + 1
 		if line.contains(" backdoor="):
 			lanes += 1
-		if head < 0 and line == OBJ_HEAD:
-			head = i
 	var bad: Array[String] = []
 	_want(bad, "SPAWN A:", int(seen["SPAWN A:"]), 1)
 	_want(bad, "SPAWN B:", int(seen["SPAWN B:"]), 1)
 	_want(bad, "OBJECTS:", int(seen["OBJECTS:"]), 1)
 	var access: Dictionary = map.city.get("access", {})
 	_want(bad, "DOOR:", int(seen["DOOR:"]), (access.get("doors", []) as Array).size())
-	var street_obs: int = 0
-	for obs: Dictionary in _city_objects(map):
-		if String(obs.get("city", "")) != "nature":
-			street_obs += 1
-	_want(bad, "CITYOBJ:", int(seen["CITYOBJ:"]), street_obs)
-	var failed: int = 0
-	for lot: Dictionary in (map.city.get("lots", []) as Array):
-		if lot.has("failed"):
-			failed += 1
-	_want(bad, "LOTFAIL ", int(seen["LOTFAIL "]), failed)
+	_want(bad, "CITYOBJ:", int(seen["CITYOBJ:"]), _street_objects(map))
+	_want(bad, "LOTFAIL ", int(seen["LOTFAIL "]), _failed_lots(map))
 	_want(bad, "backdoor=", lanes, int((map.city.get("stats", {}) as Dictionary).get("back_lanes", -1)))
-	var rows: int = 0
-	var legend: bool = head >= 0 and head + 1 < lines.size() and lines[head + 1].begins_with("Legend:")
-	if legend and head + 1 + map.length < lines.size():
-		for i2: int in range(map.length):
-			if lines[head + 2 + i2].length() != map.width:
-				break
-			rows += 1
-	if not legend or rows != map.length:
-		bad.append("grid legend %s, %d of %d row(s)" % [str(legend), rows, map.length])
+	var rows: int = GenFixtures.grid_rows(lines, OBJ_HEAD, map)
+	if rows != map.length:
+		bad.append("grid legend %s, %d of %d row(s)" % [str(rows >= 0), maxi(rows, 0), map.length])
 	TestFixtures.check(res, "citygen_fill_dump", bad.is_empty(), TestFixtures.detail(bad, 8, "dump rule(s)"))
 
 
 static func _want(bad: Array[String], label: String, got: int, want: int) -> void:
 	if got != want:
 		bad.append("%s %d of %d" % [label, got, want])
-
-
-#### Battle spawn.
 
 
 static func _case_spawn_battle(res: Dictionary) -> void:
@@ -903,8 +846,8 @@ static func _case_spawn_battle(res: Dictionary) -> void:
 	for i: int in range(BATTLE_MAPS):
 		if picked.size() >= BATTLE_USE:
 			break
-		var map: BattlefieldArea = TestFixtures.city_gen("Medium", BATTLE_SEED + i, CityGenTests.ROW)
-		if map == null or CitySpawns.window_posts(map, 0).is_empty():
+		var map: BattlefieldArea = city_map("Medium", BATTLE_SEED + i)
+		if CitySpawns.window_posts(map, 0).is_empty():
 			continue
 		picked.append(map)
 	var foot: Array[String] = []

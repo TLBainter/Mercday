@@ -28,11 +28,10 @@ const SEARCH_BTN_H: float = 30.0
 const SEARCH_PAD_X: float = 8.0
 const SEARCH_PAD_Y: float = 1.0
 const MINI_CLOSE: float = 18.0
-const SEARCH_ICON_INK: Color = Color("#0a0f1c")
+const SEARCH_ICON_INK: Color = GuiColors.INK
 const SEARCH_ICON_SCALE: int = 2
 const CRUMB_SIZE: int = 11
 const COUNT_SIZE: int = 11
-const EMPTY_TITLE_SIZE: int = 13
 const EMPTY_NOTE_SIZE: int = 11
 const EMPTY_HEIGHT: float = 30.0
 
@@ -192,9 +191,7 @@ func refresh() -> void:
 	var q: Dictionary = query()
 	_filters.refresh(q)
 	var found: Array[BazaarItemData] = BazaarManager.filter_items(q)
-	for child: Node in _grid.get_children():
-		_grid.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(_grid)
 	for entry: BazaarItemData in found:
 		var card: ItemCard = CARD_SCENE.instantiate() as ItemCard
 		card.item = entry
@@ -209,22 +206,22 @@ func refresh() -> void:
 
 
 func _build() -> void:
-	var columns: HBoxContainer = BazaarUi.hbox(COLUMN_GAP)
+	var columns: HBoxContainer = GuiStyle.hbox(COLUMN_GAP)
 	columns.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(columns)
 	_filters = PANEL_SCENE.instantiate() as FilterPanel
 	_filters.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_filters.filters_changed.connect(_on_filters_changed)
 	_filters.clear_all_requested.connect(clear_filters)
-	_filters.take_me_there.connect(_on_take_me_there)
+	_filters.take_me_there.connect(take_me_there.emit)
 	columns.add_child(_filters)
-	var right: VBoxContainer = BazaarUi.vbox(ROW_GAP)
+	var right: VBoxContainer = GuiStyle.vbox(ROW_GAP)
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(right)
 	right.add_child(_build_top_bar())
 	_trim_search_box()
 	right.add_child(_build_crumb_row())
-	_scroll = BazaarUi.scroll()
+	_scroll = GuiStyle.scroll()
 	right.add_child(_scroll)
 	_grid = GridContainer.new()
 	_grid.columns = GRID_COLUMNS
@@ -237,20 +234,20 @@ func _build() -> void:
 
 
 func _build_top_bar() -> HBoxContainer:
-	var bar: HBoxContainer = BazaarUi.hbox(10)
-	var field_box: PanelContainer = BazaarUi.panel_box(BazaarUi.INK, 2, BazaarUi.BLUE3,
+	var bar: HBoxContainer = GuiStyle.hbox(10)
+	var field_box: PanelContainer = BazaarUi.panel_box(GuiColors.INK, 2, GuiColors.BLUE_HI,
 		SEARCH_BOX_PAD)
 	field_box.custom_minimum_size = Vector2(SEARCH_WIDTH, SEARCH_HEIGHT)
 	bar.add_child(field_box)
-	var field_row: HBoxContainer = BazaarUi.hbox(4)
+	var field_row: HBoxContainer = GuiStyle.hbox(4)
 	field_box.add_child(field_row)
 	_search = LineEdit.new()
 	_search.placeholder_text = SEARCH_HINT
 	_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_search.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_search.add_theme_font_override("font", BazaarUi.FONT_BODY)
+	_search.add_theme_font_override("font", GuiStyle.BODY)
 	_search.add_theme_font_size_override("font_size", 13)
-	_search.add_theme_color_override("font_color", BazaarUi.CREAM)
+	_search.add_theme_color_override("font_color", GuiColors.CREAM)
 	_search.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	_search.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	_search.text_submitted.connect(_on_search_submitted)
@@ -262,7 +259,7 @@ func _build_top_bar() -> HBoxContainer:
 	_clear_x.tooltip_text = "Clear search"
 	_clear_x.pressed.connect(_on_clear_x_pressed)
 	field_row.add_child(_clear_x)
-	_search_button = BazaarUi.button("", &"ButtonOrange", SEARCH_BTN_H, 10)
+	_search_button = BazaarUi.button("", &"orange", SEARCH_BTN_H, 10)
 	_search_button.icon = Icons.tinted("magnifier", SEARCH_ICON_INK, SEARCH_ICON_SCALE, true)
 	_search_button.expand_icon = false
 	_search_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -300,33 +297,20 @@ func _trim_search_box() -> void:
 
 
 func _build_crumb_row() -> HBoxContainer:
-	var row: HBoxContainer = BazaarUi.hbox(10)
-	_crumb = BazaarUi.body(ALL_CRUMB, CRUMB_SIZE, BazaarUi.SKY)
+	var row: HBoxContainer = GuiStyle.hbox(10)
+	_crumb = GuiStyle.label(ALL_CRUMB, GuiStyle.BODY, CRUMB_SIZE, GuiColors.SKY)
 	_crumb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_crumb)
-	_count = BazaarUi.body("", COUNT_SIZE, BazaarUi.MUTED)
+	_count = GuiStyle.label("", GuiStyle.BODY, COUNT_SIZE, GuiColors.MUTED)
 	row.add_child(_count)
 	return row
 
 
 func _build_empty() -> VBoxContainer:
-	var box: VBoxContainer = BazaarUi.vbox(10)
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(_centered(BazaarUi.silk_bold(EMPTY_TITLE, EMPTY_TITLE_SIZE, BazaarUi.CREAM)))
-	_empty_note = BazaarUi.body(EMPTY_NOTE, EMPTY_NOTE_SIZE, BazaarUi.SKY)
-	box.add_child(_centered(_empty_note))
-	var link: Button = BazaarUi.button(CLEAR_TEXT, &"ButtonNeutral", EMPTY_HEIGHT, 10)
+	_empty_note = GuiStyle.label(EMPTY_NOTE, GuiStyle.BODY, EMPTY_NOTE_SIZE, GuiColors.SKY)
+	var link: Button = BazaarUi.button(CLEAR_TEXT, &"neutral", EMPTY_HEIGHT, 10)
 	link.pressed.connect(clear_filters)
-	box.add_child(_centered(link))
-	return box
-
-
-func _centered(inner: Control) -> HBoxContainer:
-	var row: HBoxContainer = BazaarUi.hbox(0)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_child(inner)
-	return row
+	return BazaarUi.empty_state(EMPTY_TITLE, _empty_note, link)
 
 
 func _sort_options() -> Array[Dictionary]:
@@ -340,20 +324,13 @@ func _sort_options() -> Array[Dictionary]:
 func _crumb_text() -> String:
 	var parts: Array[String] = []
 	var dept: String = _filters.department_key()
-	parts.append(ALL_CRUMB if dept == "" else _dept_label(dept))
+	parts.append(ALL_CRUMB if dept == "" else BazaarUi.dept_label(dept))
 	var picked: Array[String] = _filters.checked_subtypes()
 	if not picked.is_empty():
 		parts.append(", ".join(picked))
 	if _search_text != "":
 		parts.append("\"%s\"" % _search_text)
 	return CRUMB_JOIN.join(parts)
-
-
-func _dept_label(key: String) -> String:
-	for dept: Dictionary in BazaarManager.DEPARTMENTS:
-		if str(dept["key"]) == key:
-			return str(dept["name"])
-	return key
 
 
 func _on_filters_changed() -> void:
@@ -374,7 +351,3 @@ func _on_clear_x_pressed() -> void:
 
 func _on_sort_selected(key: StringName) -> void:
 	pick_sort(key)
-
-
-func _on_take_me_there(target: Dictionary) -> void:
-	take_me_there.emit(target)

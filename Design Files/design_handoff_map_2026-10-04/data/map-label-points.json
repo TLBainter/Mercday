@@ -1,0 +1,843 @@
+{
+ "description": "Label Points layer. One opaque pixel per interest point; color gives the type. Coordinates are canvas pixels (x right, y down). Source: elzveirMapv1a.png icons; city = filled circle, capital = filled square, poi = empty circle. name = the label printed on the source map. type \"water\" + sub (lake, bay, …) = a water name label (no pin; shown like region water labels, e.g. Petalshore water:lake).",
+ "layer": "Label Points",
+ "colors": {
+  "city": "#ff0000",
+  "capital": "#ff00ff",
+  "poi": "#0000ff"
+ },
+ "counts": {
+  "city": 94,
+  "capital": 10,
+  "poi": 32,
+  "water": 1
+ },
+ "points": [
+  {
+   "type": "capital",
+   "name": "Austyg",
+   "x": 2722,
+   "y": 736
+  },
+  {
+   "type": "capital",
+   "name": "Flykst",
+   "x": 4377,
+   "y": 800
+  },
+  {
+   "type": "capital",
+   "name": "Okun",
+   "x": 1088,
+   "y": 870
+  },
+  {
+   "type": "capital",
+   "name": "Cidmolha",
+   "x": 2427,
+   "y": 1011
+  },
+  {
+   "type": "capital",
+   "name": "Rausa",
+   "x": 3971,
+   "y": 1052
+  },
+  {
+   "type": "capital",
+   "name": "Makaliim",
+   "x": 1711,
+   "y": 1176
+  },
+  {
+   "type": "capital",
+   "name": "Kahfald",
+   "x": 3064,
+   "y": 1490
+  },
+  {
+   "type": "capital",
+   "name": "Chein",
+   "x": 4177,
+   "y": 1741
+  },
+  {
+   "type": "capital",
+   "name": "Cathistii",
+   "x": 2900,
+   "y": 2129
+  },
+  {
+   "type": "capital",
+   "name": "Beldapor",
+   "x": 2183,
+   "y": 2162
+  },
+  {
+   "type": "city",
+   "name": "Ostgeln",
+   "x": 4548,
+   "y": 607
+  },
+  {
+   "type": "city",
+   "name": "Zashnik",
+   "x": 2084,
+   "y": 632
+  },
+  {
+   "type": "city",
+   "name": "Ostravid",
+   "x": 4461,
+   "y": 675
+  },
+  {
+   "type": "city",
+   "name": "Priliv",
+   "x": 1144,
+   "y": 690
+  },
+  {
+   "type": "city",
+   "name": "Kaltam",
+   "x": 3066,
+   "y": 709
+  },
+  {
+   "type": "city",
+   "name": "Durton",
+   "x": 3401,
+   "y": 683
+  },
+  {
+   "type": "city",
+   "name": "Strid",
+   "x": 4620,
+   "y": 705
+  },
+  {
+   "type": "city",
+   "name": "Skolot",
+   "x": 1650,
+   "y": 612,
+   "nation": "Vaernebo",
+   "region": "Zamstrov Isles"
+  },
+  {
+   "type": "city",
+   "name": "Sudein",
+   "x": 3600,
+   "y": 727
+  },
+  {
+   "type": "city",
+   "name": "Gonj",
+   "x": 3220,
+   "y": 763
+  },
+  {
+   "type": "city",
+   "name": "Vastgen",
+   "x": 4285,
+   "y": 764
+  },
+  {
+   "type": "city",
+   "name": "Ora'Luli",
+   "x": 3715,
+   "y": 865
+  },
+  {
+   "type": "city",
+   "name": "Ahfand",
+   "x": 2900,
+   "y": 687
+  },
+  {
+   "type": "city",
+   "name": "Drekahorn",
+   "x": 3468,
+   "y": 813
+  },
+  {
+   "type": "city",
+   "name": "Hjalt",
+   "x": 2905,
+   "y": 824
+  },
+  {
+   "type": "city",
+   "name": "Pannor",
+   "x": 2183,
+   "y": 831
+  },
+  {
+   "type": "city",
+   "name": "Vergrur",
+   "x": 3200,
+   "y": 836
+  },
+  {
+   "type": "city",
+   "name": "Kale Vidneku",
+   "x": 1303,
+   "y": 843
+  },
+  {
+   "type": "city",
+   "name": "Boragel",
+   "x": 4042,
+   "y": 861
+  },
+  {
+   "type": "city",
+   "name": "Tanskjol",
+   "x": 3304,
+   "y": 908
+  },
+  {
+   "type": "city",
+   "name": "Gelryad",
+   "x": 4315,
+   "y": 886
+  },
+  {
+   "type": "city",
+   "name": "Dromar",
+   "x": 4489,
+   "y": 888
+  },
+  {
+   "type": "city",
+   "name": "Lemnor",
+   "x": 3490,
+   "y": 908
+  },
+  {
+   "type": "city",
+   "name": "Rebnok",
+   "x": 1549,
+   "y": 919
+  },
+  {
+   "type": "city",
+   "name": "Yuzreg",
+   "x": 973,
+   "y": 939
+  },
+  {
+   "type": "city",
+   "name": "Ukwam",
+   "x": 1336,
+   "y": 962
+  },
+  {
+   "type": "city",
+   "name": "Kazini",
+   "x": 1613,
+   "y": 962
+  },
+  {
+   "type": "city",
+   "name": "Uldescan",
+   "x": 2244,
+   "y": 962
+  },
+  {
+   "type": "city",
+   "name": "Norromberg",
+   "x": 4085,
+   "y": 964
+  },
+  {
+   "type": "city",
+   "name": "Kilm",
+   "x": 1162,
+   "y": 1010
+  },
+  {
+   "type": "city",
+   "name": "Lageira",
+   "x": 2129,
+   "y": 980
+  },
+  {
+   "type": "city",
+   "name": "Panvila",
+   "x": 2899,
+   "y": 1005
+  },
+  {
+   "type": "city",
+   "name": "Polmun",
+   "x": 3849,
+   "y": 1014
+  },
+  {
+   "type": "city",
+   "name": "Bergsvid",
+   "x": 4283,
+   "y": 1022
+  },
+  {
+   "type": "city",
+   "name": "D'Regel",
+   "x": 4091,
+   "y": 1004
+  },
+  {
+   "type": "city",
+   "name": "Capria",
+   "x": 3284,
+   "y": 1067
+  },
+  {
+   "type": "city",
+   "name": "D'Casta",
+   "x": 3551,
+   "y": 1088
+  },
+  {
+   "type": "city",
+   "name": "Castelo Divirio",
+   "x": 2111,
+   "y": 1097
+  },
+  {
+   "type": "city",
+   "name": "Kilsiini",
+   "x": 1777,
+   "y": 1110
+  },
+  {
+   "type": "city",
+   "name": "Kimachi",
+   "x": 4627,
+   "y": 1111
+  },
+  {
+   "type": "city",
+   "name": "Cipex",
+   "x": 2351,
+   "y": 1125
+  },
+  {
+   "type": "city",
+   "name": "Marvest",
+   "x": 4029,
+   "y": 1115
+  },
+  {
+   "type": "city",
+   "name": "Nosutan",
+   "x": 4416,
+   "y": 1158
+  },
+  {
+   "type": "city",
+   "name": "Ninhar",
+   "x": 2591,
+   "y": 1154
+  },
+  {
+   "type": "city",
+   "name": "Shilatur",
+   "x": 3821,
+   "y": 1158
+  },
+  {
+   "type": "city",
+   "name": "Satizo",
+   "x": 3458,
+   "y": 1175
+  },
+  {
+   "type": "city",
+   "name": "Lunora",
+   "x": 3686,
+   "y": 1201
+  },
+  {
+   "type": "city",
+   "name": "Madijara",
+   "x": 3136,
+   "y": 1202
+  },
+  {
+   "type": "city",
+   "name": "Viin",
+   "x": 1958,
+   "y": 1204
+  },
+  {
+   "type": "city",
+   "name": "Port Stramtor",
+   "x": 3982,
+   "y": 1215
+  },
+  {
+   "type": "city",
+   "name": "Raha",
+   "x": 3314,
+   "y": 1224
+  },
+  {
+   "type": "city",
+   "name": "Mjwaka",
+   "x": 1802,
+   "y": 1235
+  },
+  {
+   "type": "city",
+   "name": "Prateri",
+   "x": 3868,
+   "y": 1238
+  },
+  {
+   "type": "city",
+   "name": "Halsoba",
+   "x": 4625,
+   "y": 1266
+  },
+  {
+   "type": "city",
+   "name": "Maluvi",
+   "x": 3620,
+   "y": 1294
+  },
+  {
+   "type": "city",
+   "name": "Marrigwani",
+   "x": 1231,
+   "y": 1295
+  },
+  {
+   "type": "city",
+   "name": "Gurulu",
+   "x": 3479,
+   "y": 1307
+  },
+  {
+   "type": "city",
+   "name": "Almahr",
+   "x": 2872,
+   "y": 1320
+  },
+  {
+   "type": "city",
+   "name": "Caer Baqal",
+   "x": 3785,
+   "y": 1240
+  },
+  {
+   "type": "city",
+   "name": "Rasaido",
+   "x": 4100,
+   "y": 1407
+  },
+  {
+   "type": "city",
+   "name": "Hachbal",
+   "x": 2140,
+   "y": 1442
+  },
+  {
+   "type": "city",
+   "name": "Hafna",
+   "x": 3298,
+   "y": 1458
+  },
+  {
+   "type": "city",
+   "name": "Okasu",
+   "x": 4495,
+   "y": 1500
+  },
+  {
+   "type": "city",
+   "name": "Erdwadi",
+   "x": 2721,
+   "y": 1553
+  },
+  {
+   "type": "city",
+   "name": "Aliunu",
+   "x": 3480,
+   "y": 1581
+  },
+  {
+   "type": "city",
+   "name": "Norton",
+   "x": 2246,
+   "y": 1587
+  },
+  {
+   "type": "city",
+   "name": "Reiku",
+   "x": 3838,
+   "y": 1638
+  },
+  {
+   "type": "city",
+   "name": "Waterview",
+   "x": 2426,
+   "y": 1648
+  },
+  {
+   "type": "city",
+   "name": "Sidara's Edge",
+   "x": 2725,
+   "y": 1717
+  },
+  {
+   "type": "city",
+   "name": "Konago",
+   "x": 4594,
+   "y": 1742
+  },
+  {
+   "type": "city",
+   "name": "Pascol",
+   "x": 3034,
+   "y": 1777
+  },
+  {
+   "type": "city",
+   "name": "Erakhaton",
+   "x": 2173,
+   "y": 1792
+  },
+  {
+   "type": "city",
+   "name": "Erakha's Hollow",
+   "x": 2397,
+   "y": 1830
+  },
+  {
+   "type": "city",
+   "name": "Westville",
+   "x": 1646,
+   "y": 1869
+  },
+  {
+   "type": "city",
+   "name": "Achtain",
+   "x": 2956,
+   "y": 1871
+  },
+  {
+   "type": "city",
+   "name": "Hebino",
+   "x": 3605,
+   "y": 1911
+  },
+  {
+   "type": "city",
+   "name": "Adalville",
+   "x": 2622,
+   "y": 1902
+  },
+  {
+   "type": "city",
+   "name": "Ancaton",
+   "x": 2670,
+   "y": 1983
+  },
+  {
+   "type": "city",
+   "name": "Alaicost",
+   "x": 3150,
+   "y": 1966
+  },
+  {
+   "type": "city",
+   "name": "Northmount",
+   "x": 1923,
+   "y": 1973
+  },
+  {
+   "type": "city",
+   "name": "Mondtau",
+   "x": 3879,
+   "y": 2011
+  },
+  {
+   "type": "city",
+   "name": "Fork",
+   "x": 2199,
+   "y": 2027
+  },
+  {
+   "type": "city",
+   "name": "Bairao",
+   "x": 3105,
+   "y": 2046
+  },
+  {
+   "type": "city",
+   "name": "Dharsl",
+   "x": 2738,
+   "y": 2070
+  },
+  {
+   "type": "city",
+   "name": "Zetsu",
+   "x": 4350,
+   "y": 2097
+  },
+  {
+   "type": "city",
+   "name": "Tuckington",
+   "x": 2399,
+   "y": 2141
+  },
+  {
+   "type": "city",
+   "name": "Leitho",
+   "x": 3366,
+   "y": 2169
+  },
+  {
+   "type": "city",
+   "name": "Taliton",
+   "x": 1669,
+   "y": 2207
+  },
+  {
+   "type": "city",
+   "name": "Nanchi",
+   "x": 4006,
+   "y": 2235
+  },
+  {
+   "type": "city",
+   "name": "O'Dai",
+   "x": 3080,
+   "y": 2242
+  },
+  {
+   "type": "city",
+   "name": "Reilea",
+   "x": 2790,
+   "y": 2283
+  },
+  {
+   "type": "city",
+   "name": "O'Beil",
+   "x": 2506,
+   "y": 2386
+  },
+  {
+   "type": "city",
+   "name": "Bhrisea",
+   "x": 3370,
+   "y": 2515
+  },
+  {
+   "type": "city",
+   "name": "Folach",
+   "x": 2881,
+   "y": 2624
+  },
+  {
+   "type": "poi",
+   "name": "Temple of Stars",
+   "x": 1266,
+   "y": 619
+  },
+  {
+   "type": "poi",
+   "name": "Roserun Temple",
+   "x": 2824,
+   "y": 723
+  },
+  {
+   "type": "poi",
+   "name": "Kardmen Deep",
+   "x": 3340,
+   "y": 728
+  },
+  {
+   "type": "poi",
+   "name": "Anadol Station",
+   "x": 2791,
+   "y": 756
+  },
+  {
+   "type": "poi",
+   "name": "Temple of War",
+   "x": 4638,
+   "y": 808
+  },
+  {
+   "type": "poi",
+   "name": "Bayoubend Station",
+   "x": 2126,
+   "y": 826
+  },
+  {
+   "type": "poi",
+   "name": "Lavanta Station",
+   "x": 3267,
+   "y": 836
+  },
+  {
+   "type": "poi",
+   "name": "Bleeding Mountain",
+   "x": 3530,
+   "y": 878
+  },
+  {
+   "type": "poi",
+   "name": "Ushoroba Station",
+   "x": 1474,
+   "y": 1027
+  },
+  {
+   "type": "poi",
+   "name": "Loebleu Station",
+   "x": 4119,
+   "y": 1033
+  },
+  {
+   "type": "poi",
+   "name": "Mlinzjia",
+   "x": 3521,
+   "y": 1075
+  },
+  {
+   "type": "poi",
+   "name": "Temple of the Drunkard",
+   "x": 2312,
+   "y": 1082
+  },
+  {
+   "type": "poi",
+   "name": "Canopy Junction",
+   "x": 3053,
+   "y": 1101
+  },
+  {
+   "type": "poi",
+   "name": "Fenwyn Memorial Station",
+   "x": 2628,
+   "y": 1105
+  },
+  {
+   "type": "poi",
+   "name": "Cypress Junction",
+   "x": 2154,
+   "y": 1114
+  },
+  {
+   "type": "poi",
+   "name": "Majii Junction",
+   "x": 1769,
+   "y": 1187
+  },
+  {
+   "type": "poi",
+   "name": "Voidela Station",
+   "x": 3742,
+   "y": 1319
+  },
+  {
+   "type": "poi",
+   "name": "Alcazar Central Station",
+   "x": 3089,
+   "y": 1319
+  },
+  {
+   "type": "poi",
+   "name": "Marida Station",
+   "x": 1267,
+   "y": 1360
+  },
+  {
+   "type": "poi",
+   "name": "Temple of Dragons",
+   "x": 2101,
+   "y": 1486
+  },
+  {
+   "type": "poi",
+   "name": "Sierra Station",
+   "x": 2863,
+   "y": 1555
+  },
+  {
+   "type": "poi",
+   "name": "Temple of Knowledge",
+   "x": 2950,
+   "y": 1843
+  },
+  {
+   "type": "poi",
+   "name": "Temple of the Dead",
+   "x": 2645,
+   "y": 1898
+  },
+  {
+   "type": "water",
+   "name": "Petalshore",
+   "x": 2645,
+   "y": 1939,
+   "sub": "lake"
+  },
+  {
+   "type": "poi",
+   "name": "Bardsborough Station",
+   "x": 2848,
+   "y": 1965
+  },
+  {
+   "type": "poi",
+   "name": "Temple of Shadows",
+   "x": 3541,
+   "y": 1977
+  },
+  {
+   "type": "poi",
+   "name": "Temple of Life",
+   "x": 2689,
+   "y": 2000
+  },
+  {
+   "type": "poi",
+   "name": "Shadetrail",
+   "x": 3753,
+   "y": 2025
+  },
+  {
+   "type": "poi",
+   "name": "Church of Eternal Night",
+   "x": 3388,
+   "y": 2178
+  },
+  {
+   "type": "poi",
+   "name": "Temple of Elements",
+   "x": 3141,
+   "y": 2216
+  },
+  {
+   "type": "poi",
+   "name": "Dukstalon Memorial Station",
+   "x": 2784,
+   "y": 2387
+  },
+  {
+   "type": "poi",
+   "name": "Aerdan South",
+   "x": 3396,
+   "y": 2552
+  },
+  {
+   "type": "poi",
+   "name": "Snout of Revansa",
+   "x": 2132,
+   "y": 1357,
+   "volcano": true
+  }
+ ]
+}

@@ -1,4 +1,4 @@
-class_name EnvoySlot extends Button
+class_name EnvoySlot extends BevelButton
 
 #One crew slot in an Odd Job. Empty shows a dashed add prompt and a hover tip; filled shows the
 #merc's portrait, name and fit stars plus a remove button. Clicking anywhere but the remove
@@ -8,23 +8,21 @@ signal slot_pressed(index: int)
 signal remove_pressed(index: int)
 
 const SLOT_SIZE: Vector2 = Vector2(84.0, 84.0)
-const EMPTY_BG: Color = Color("#0e1628")
+const EMPTY_BG: Color = GuiColors.ROW_FILL
 const EMPTY_OPACITY: float = 0.6
-const DASH_COLOR: Color = Color("#3b6fb6")
-const PLUS_COLOR: Color = Color("#3b6fb6")
-const ADD_TEXT_COLOR: Color = Color("#9cc6ef")
-const PORTRAIT_RING: Color = Color("#3b6fb6")
-const NAME_COLOR: Color = Color("#f3ead7")
+const DASH_COLOR: Color = GuiColors.BLUE_HI
+const PLUS_COLOR: Color = GuiColors.BLUE_HI
+const ADD_TEXT_COLOR: Color = GuiColors.SKY
+const PORTRAIT_RING: Color = GuiColors.BLUE_HI
+const NAME_COLOR: Color = GuiColors.CREAM
 const REMOVE_COLOR: Color = Color("#ff3b2f")
 const REMOVE_HOVER_COLOR: Color = Color("#ff6a55")
-const OUTLINE_COLOR: Color = Color("#0a0f1c")
 const PORTRAIT_PX: int = 40
 const TIP_WIDTH: float = 320.0
 
-const FONT_BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
+const FONT_BOLD: FontVariation = GuiStyle.SILK_BOLD
+const FONT_REGULAR: FontVariation = GuiStyle.SILK
 const MERC_PORTRAIT_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MercPortrait.tscn")
-const FIT_STARS_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FitStars.tscn")
 const TOOLTIP_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/TooltipPanel.tscn")
 
 @export var index: int = 0
@@ -59,22 +57,33 @@ const TOOLTIP_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/TooltipPanel
 @onready var remove_button: Button = $RemoveButton
 
 var _portrait: MercPortrait = null
-var _stars: FitStars = null
+var _stars: Stars = null
 var _tip: TooltipPanel = null
 
 
+func _init() -> void:
+	fill = Color(EMPTY_BG, EMPTY_OPACITY)
+	hi = fill.lightened(0.18)
+	lo = fill.darkened(0.25)
+	click_move = ButtonFx.ClickMove.NONE
+	click_shade = ButtonFx.ClickShade.FLASH
+	hover_move = ButtonFx.HoverMove.NONE
+	hover_shade = ButtonFx.HoverShade.LIGHTEN
+	stay_move = ButtonFx.StayMove.NONE
+	stay_shade = ButtonFx.StayShade.NONE
+	active_move = ButtonFx.HoverMove.NONE
+	active_shade = ButtonFx.HoverShade.RING
+
+
 func _ready() -> void:
+	super()
 	custom_minimum_size = SLOT_SIZE
 	focus_mode = Control.FOCUS_NONE
 	empty_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	empty_box.draw.connect(_draw_empty)
-	plus_label.add_theme_font_override(&"font", FONT_BOLD)
-	plus_label.add_theme_font_size_override(&"font_size", 22)
-	plus_label.add_theme_color_override(&"font_color", PLUS_COLOR)
+	GuiStyle.paint(plus_label, FONT_BOLD, 22, PLUS_COLOR)
 	plus_label.text = "+"
-	add_label.add_theme_font_override(&"font", FONT_REGULAR)
-	add_label.add_theme_font_size_override(&"font_size", 12)
-	add_label.add_theme_color_override(&"font_color", ADD_TEXT_COLOR)
+	GuiStyle.paint(add_label, FONT_REGULAR, 12, ADD_TEXT_COLOR)
 	add_label.text = "Add Merc"
 	filled_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	filled_box.add_theme_stylebox_override(&"panel", _slot_filled_style())
@@ -84,26 +93,19 @@ func _ready() -> void:
 	_portrait.pixel_size = PORTRAIT_PX
 	_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait_wrap.add_child(_portrait)
-	name_label.add_theme_font_override(&"font", FONT_BOLD)
-	name_label.add_theme_font_size_override(&"font_size", 8)
-	name_label.add_theme_color_override(&"font_color", NAME_COLOR)
+	GuiStyle.paint(name_label, FONT_BOLD, 8, NAME_COLOR)
 	name_label.clip_text = true
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_stars = FIT_STARS_SCENE.instantiate() as FitStars
-	_stars.cell = 1
+	_stars = Stars.fit_stars(1)
 	_stars.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stars_slot.add_child(_stars)
 	remove_button.text = "X"
 	remove_button.flat = true
 	remove_button.focus_mode = Control.FOCUS_NONE
-	remove_button.add_theme_font_override(&"font", FONT_BOLD)
-	remove_button.add_theme_font_size_override(&"font_size", 18)
-	remove_button.add_theme_color_override(&"font_color", REMOVE_COLOR)
+	GuiStyle.paint(remove_button, FONT_BOLD, 18, REMOVE_COLOR)
 	remove_button.add_theme_color_override(&"font_hover_color", REMOVE_HOVER_COLOR)
 	remove_button.add_theme_color_override(&"font_pressed_color", REMOVE_HOVER_COLOR)
-	remove_button.add_theme_color_override(&"font_outline_color", OUTLINE_COLOR)
-	remove_button.add_theme_constant_override(&"outline_size", 2)
 	remove_button.anchor_left = 1.0
 	remove_button.anchor_right = 1.0
 	remove_button.anchor_top = 0.0
@@ -172,8 +174,7 @@ func _refresh() -> void:
 			_tip.hide_tip()
 		name_label.text = merc_name
 		_stars.value = fit
-		_portrait.merc_uid = merc_id
-		_portrait.tooltip_text = merc_name
+		_portrait.show_uid(merc_id, merc_name)
 
 
 func _slot_filled_style() -> StyleBoxFlat:
@@ -183,7 +184,6 @@ func _slot_filled_style() -> StyleBoxFlat:
 
 func _draw_empty() -> void:
 	var span: Vector2 = empty_box.size
-	empty_box.draw_rect(Rect2(Vector2.ZERO, span), EMPTY_BG)
 	var inset: float = 1.0
 	var top_left := Vector2(inset, inset)
 	var top_right := Vector2(span.x - inset, inset)

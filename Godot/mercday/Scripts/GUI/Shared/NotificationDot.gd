@@ -4,8 +4,8 @@ class_name NotificationDot extends Control
 #and no colour variants beyond tint. attach() anchors an instance to a host control's corner.
 
 const DOT_SIZE: Vector2 = Vector2(10, 10)
-const DOT_COLOR: Color = Color("#e8583f")
-const OUTLINE_COLOR: Color = Color("#0a0f1c")
+const DOT_COLOR: Color = GuiColors.RED
+const OUTLINE_COLOR: Color = GuiColors.INK
 const OUTLINE_WIDTH: float = 2.0
 const SCENE_PATH: String = "res://Scenes/GUI/Shared/NotificationDot.tscn"
 const FRAME_SIZE: Vector2 = Vector2(28, 28)
@@ -71,7 +71,7 @@ func frame_rect() -> Rect2:
 
 
 #Fraction of a ring's own cycle lit at a clock phase: rises to 1 by RING_RISE, back to 0 by
-#RING_FALL, then dark; ring i trails ring 0 by index / 6 of the cycle. Prototype lines 13, 29-31.
+#RING_FALL, then dark; ring i trails ring 0 by index / 6 of the cycle, scaled by its RING_PEAKS entry.
 static func ring_alpha(index: int, phase: float) -> float:
 	var x: float = fposmod(phase - float(index) / 6.0, 1.0)
 	var value: float = 0.0
@@ -113,30 +113,35 @@ static func paint(canvas: CanvasItem, centre: Vector2, tint: Color, phase: float
 		Icons.draw(canvas, "ring%d" % n, pos, CELL, Color(tint.r, tint.g, tint.b, alpha), true)
 
 
-#Anchors this dot to a corner of its current parent, offset pixels in from that corner. A parent
-#that is a Container (PanelContainer and the like) fits every visible direct child into its own
-#content rect on NOTIFICATION_SORT_CHILDREN, which overwrites anchors and offsets set here the
-#moment this dot turns visible; a Container-derived host must call repin() from its own
-#NOTIFICATION_SORT_CHILDREN handler (after the base class runs) to hold this corner.
+#Anchors this dot to a corner of its current parent, offset pixels in from that corner, and keeps
+#both for repin(). A Container parent (PanelContainer and the like) fits every visible direct child
+#into its own content rect on each sort, which overwrites what is set here; attach() repins after
+#that fit, and a host that pins a dot by hand repins it from its own sort.
 func pin(offset: Vector2, corner: Corner = CORNER_TOP_RIGHT) -> void:
 	_pin_offset = offset
 	_pin_corner = corner
+	NotificationDot.pin_corner(self, corner, offset)
+
+
+#Sets the anchors and offsets that hold a FRAME_SIZE box inset pixels in from a top corner of its
+#parent; every corner but CORNER_TOP_LEFT reads as the top right.
+static func pin_corner(dot: Control, corner: Corner, inset: Vector2) -> void:
 	if corner == CORNER_TOP_LEFT:
-		anchor_left = 0.0
-		anchor_right = 0.0
-		offset_left = offset.x
-		offset_right = offset.x + FRAME_SIZE.x
+		dot.anchor_left = 0.0
+		dot.anchor_right = 0.0
+		dot.offset_left = inset.x
+		dot.offset_right = inset.x + FRAME_SIZE.x
 	else:
-		anchor_left = 1.0
-		anchor_right = 1.0
-		offset_right = -offset.x
-		offset_left = -offset.x - FRAME_SIZE.x
-	anchor_top = 0.0
-	anchor_bottom = 0.0
-	offset_top = offset.y
-	offset_bottom = offset.y + FRAME_SIZE.y
-	grow_horizontal = Control.GROW_DIRECTION_BOTH
-	grow_vertical = Control.GROW_DIRECTION_BOTH
+		dot.anchor_left = 1.0
+		dot.anchor_right = 1.0
+		dot.offset_right = -inset.x
+		dot.offset_left = -inset.x - FRAME_SIZE.x
+	dot.anchor_top = 0.0
+	dot.anchor_bottom = 0.0
+	dot.offset_top = inset.y
+	dot.offset_bottom = inset.y + FRAME_SIZE.y
+	dot.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	dot.grow_vertical = Control.GROW_DIRECTION_BOTH
 
 
 #Re-applies the last pin() geometry, undoing a Container's own child-fit pass.
@@ -144,8 +149,9 @@ func repin() -> void:
 	pin(_pin_offset, _pin_corner)
 
 
-#Adds a dot anchored to a corner of host, offset pixels in from that corner. The host's own
-#resize repins it, so a host that lays its children out again cannot drag the dot off its corner.
+#Adds a dot anchored to a corner of host, offset pixels in from that corner. The host's resize
+#repins it, and a Container host repins it once each sort has fitted its children, so a host that
+#lays its children out again cannot drag the dot off its corner.
 static func attach(host: Control, offset: Vector2 = Vector2(2, 2),
 		corner: Corner = CORNER_TOP_RIGHT) -> NotificationDot:
 	var scene: PackedScene = load(SCENE_PATH) as PackedScene
@@ -155,4 +161,7 @@ static func attach(host: Control, offset: Vector2 = Vector2(2, 2),
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if not host.resized.is_connected(dot.repin):
 		host.resized.connect(dot.repin)
+	var box: Container = host as Container
+	if box != null and not box.sort_children.is_connected(dot.repin):
+		box.sort_children.connect(dot.repin)
 	return dot

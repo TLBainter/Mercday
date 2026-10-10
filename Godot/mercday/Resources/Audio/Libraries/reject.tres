@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Reject/ESM_Empire_Game_Foley_Impact_Metal_Junk_Hit_5_Bass_Soft.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Reject/ESM_Empire_Game_Settlement_UI_Demolish_2_with_Big_Whosh_Accent_1.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Reject/ESM_Empire_Game_Settlement_UI_Upgrade_2_Cymbal_Impact_Enhance_Shine.wav" id="4_s3"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3")])

@@ -15,31 +15,30 @@ const EDGE_GAP: float = 2.0
 const SIDE_INSET: float = 24.0
 const RIGHT_ROOM: float = 340.0
 const TOP_MIN: float = 4.0
+#The cursor image reaches this far below and right of its hotspot; the card clears it.
+const POINTER_GAP: float = 12.0
 const STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_tooltip.tres")
-const KIND_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const NAME_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const BODY_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const KIND_COLOR: Color = Color("#f28c28")
-const NAME_COLOR: Color = Color("#f3ead7")
-const BODY_COLOR: Color = Color("#9cc6ef")
-const NEXT_COLOR: Color = Color("#c8d3e6")
-const FEE_COLOR: Color = Color("#f2d33d")
-const NOTE_COLOR: Color = Color("#e8583f")
-const OWNED_COLOR: Color = Color("#f3ead7")
+const KIND_FONT: FontVariation = GuiStyle.SILK
+const NAME_FONT: FontVariation = GuiStyle.SILK_BOLD
+const BODY_FONT: FontVariation = GuiStyle.BODY
+const KIND_COLOR: Color = GuiColors.ORANGE
+const NAME_COLOR: Color = GuiColors.CREAM
+const BODY_COLOR: Color = GuiColors.SKY
+const NEXT_COLOR: Color = GuiColors.PALE_SKY
+const FEE_COLOR: Color = GuiColors.RAMP_YELLOW
+const NOTE_COLOR: Color = GuiColors.RED
+const OWNED_COLOR: Color = GuiColors.CREAM
 const SUFFIX: String = "/month"
 const NEXT_HEAD: String = "Next Tier"
 const CAT_KIND: String = "Category"
 const GATE_KIND: String = "Requirement"
-const BASE_KIND: String = "Enterprise"
-const BASE_NAME: String = "Base Plan"
-const BASE_DESC: String = "The root of your Enterprise customizations. Every branch starts here."
-const OWNED_SUFFIX: String = " upgrades owned"
 const MET_TEXT: String = "Requirement met"
 const GLYPH_SCALE: int = 1
 const ICON_SCALE: int = 2
 
 var _rich: bool = false
 var _height: float = PLAIN_HEIGHT
+var _frame: Rect2 = Rect2()
 var _icon: IconRect = null
 var _kind: Label = null
 var _name: Label = null
@@ -58,10 +57,10 @@ var _note: Label = null
 
 func _ready() -> void:
 	z_index = TooltipPanel.TOOLTIP_Z
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(WIDTH, 0.0)
 	add_theme_stylebox_override("panel", STYLE)
 	_build()
+	GuiNodes.ignore_mouse(self)
 	hide()
 
 
@@ -78,6 +77,7 @@ func show_for(kind: String, key: String, at: Rect2, view: Vector2) -> void:
 		_fill_base()
 	else:
 		_fill_block(key)
+	_frame = Rect2(Vector2.ZERO, view)
 	place(at, view)
 	show()
 
@@ -94,6 +94,22 @@ func place(at: Rect2, view: Vector2) -> void:
 	if below + _height > view.y:
 		y = maxf(TOP_MIN, at.position.y - _height)
 	position = Vector2(x, y)
+
+
+#Below and right of the pointer; the card flips above or to the left where it would leave the view.
+func place_at_pointer(pointer: Vector2, view: Rect2) -> void:
+	var wanted: Vector2 = Vector2(WIDTH, _height)
+	var cursor: Rect2 = Rect2(pointer, Vector2(POINTER_GAP, POINTER_GAP))
+	var inner: Rect2 = view.grow(-TOP_MIN)
+	var beside: Vector2 = TooltipPanel.tip_position(cursor, wanted, inner, &"right")
+	var under: Vector2 = TooltipPanel.tip_position(cursor, wanted, inner, &"below")
+	position = Vector2(beside.x, under.y)
+
+
+#Keeps a shown card at the pointer as it moves inside the frame the card was shown for.
+func follow(pointer: Vector2) -> void:
+	if visible:
+		place_at_pointer(pointer, _frame)
 
 
 func is_rich() -> bool:
@@ -152,12 +168,12 @@ func _fill_cat(cat: String) -> void:
 	var tiers: Dictionary = SubscriptionManager.tiers()
 	var counts: Vector2i = TreeLayout.category_counts(cat, tiers)
 	_plain(CAT_KIND, String(def.get("name", cat)), String(def.get("desc", "")),
-		str(counts.x) + "/" + str(counts.y) + OWNED_SUFFIX, OWNED_COLOR)
+		str(counts.x) + "/" + str(counts.y) + TreeLayout.OWNED_SUFFIX, OWNED_COLOR)
 
 
 func _fill_base() -> void:
 	_set_icon("mercday", NAME_COLOR, Icons.MODE_GRAY)
-	_plain(BASE_KIND, BASE_NAME, BASE_DESC, "", BODY_COLOR)
+	_plain(TreeLayout.BASE_KIND, TreeLayout.BASE_NAME, TreeLayout.BASE_DESC, "", BODY_COLOR)
 
 
 func _fill_gate(id: String) -> void:
@@ -272,11 +288,8 @@ func _money_row(rows: VBoxContainer, label: String, font: FontVariation, size_px
 
 
 func _cell(label: String, font: FontVariation, size_px: int, tint: Color) -> Label:
-	var out: Label = Label.new()
+	var out: Label = GuiStyle.label("", font, size_px, tint)
 	out.name = label
-	out.add_theme_font_override("font", font)
-	out.add_theme_font_size_override("font_size", size_px)
-	out.add_theme_color_override("font_color", tint)
 	return out
 
 
@@ -286,9 +299,7 @@ func _row(rows: VBoxContainer, label: String, font: FontVariation, size_px: int,
 	out.name = label
 	out.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	out.custom_minimum_size = Vector2(width, 0.0)
-	out.add_theme_font_override("font", font)
-	out.add_theme_font_size_override("font_size", size_px)
-	out.add_theme_color_override("font_color", tint)
+	GuiStyle.paint(out, font, size_px, tint)
 	rows.add_child(out)
 	return out
 

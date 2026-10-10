@@ -5,6 +5,9 @@ class_name SkillTree extends Control
 #this node hands out is frame space, so the canvas offset is added once here.
 
 signal go_to_plans_pressed
+#UiSfx hooks the tree through these: pressed clicks on a module press, sfx_hovered hovers a usable module.
+signal pressed
+signal sfx_hovered
 
 const CANVAS_SCENE: PackedScene = preload("res://Scenes/GUI/Subscription/TreeCanvas.tscn")
 const TIP_SCENE: PackedScene = preload("res://Scenes/GUI/Subscription/TreeTooltip.tscn")
@@ -128,6 +131,7 @@ func _dialog_at(id: String) -> Vector2:
 func _on_block_pressed(id: String) -> void:
 	if _dragged:
 		return
+	pressed.emit()
 	press_block(id)
 
 
@@ -142,12 +146,20 @@ func _on_resized() -> void:
 		home()
 
 
+func hover_blocked() -> bool:
+	return _drag or _dialog.is_open()
+
+
 #No hover card behind an open popover, and none while the world is being dragged.
 func _on_hover(kind: String, key: String, at: Rect2) -> void:
-	if kind == "" or _drag or _dialog.is_open():
+	if kind == "" or hover_blocked():
 		_tip.hide_tip()
 		return
+	var mod: CustomizeBlock = _canvas.block(key) if kind == "block" else null
+	if mod != null and mod.is_usable():
+		sfx_hovered.emit()
 	_tip.show_for(kind, key, Rect2(at.position + _pan, at.size), view())
+	_tip.follow(get_local_mouse_position())
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -165,13 +177,18 @@ func _gui_input(event: InputEvent) -> void:
 		if _dragged:
 			accept_event()
 		_dragged = false
-		return
-	if not (event is InputEventMouseMotion) or not _drag:
+		mouse_default_cursor_shape = Control.CURSOR_ARROW
 		return
 	var move: InputEventMouseMotion = event as InputEventMouseMotion
+	if move == null:
+		return
+	if not _drag:
+		_tip.follow(move.position)
+		return
 	var delta: Vector2 = move.position - _press_at
 	if not _dragged and delta.length() < TreeLayout.DRAG_SLOP:
 		return
 	_dragged = true
+	mouse_default_cursor_shape = Control.CURSOR_DRAG
 	_tip.hide_tip()
 	set_pan(_pan_at + delta)

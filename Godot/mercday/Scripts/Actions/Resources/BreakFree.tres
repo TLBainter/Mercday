@@ -1,24 +1,22 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://dimmuqoo5u74h"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/StateReliefFacet.gd" id="StateReliefFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_uuxy7"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://dkhlstj70hi1y" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://cksurcu7jr418" path="res://Scripts/Decisions/StateReliefFacet.gd" id="StateReliefFacet"]
 
 [sub_resource type="Resource" id="facet_1"]
 script = ExtResource("AnyStateFacet")
 is_required = true
-states = PackedStringArray("Grappled", "Inhibited", "Suffocating")
 
 [sub_resource type="Resource" id="facet_relief"]
 script = ExtResource("StateReliefFacet")
-weight = 1.0
 action_key = "break_free"
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_1"), SubResource("facet_relief")]
-threshold = 0.5
+facets = Array[ExtResource("1_uuxy7")]([SubResource("facet_1"), SubResource("facet_relief")])
 
 [resource]
 script = ExtResource("ActionData")

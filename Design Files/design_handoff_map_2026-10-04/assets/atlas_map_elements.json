@@ -1,0 +1,537 @@
+{
+ "atlas": "atlas_map_elements",
+ "size": [
+  351,
+  18
+ ],
+ "generated": "2026-10-08",
+ "layout": "shelf-packed, 1 px gaps, max width 512",
+ "light": "atlas_map_elements_light.png (same layout; white = glows at night)",
+ "note": "tile = repeats 1 texel per model unit (bottom-left anchored); frames = animated strip (fire: 4 frames, 6 fps); grayscale textures are tinted per part (see map-elements.js / map-vehicles.js)",
+ "textures": [
+  {
+   "id": "awning_stripe",
+   "x": 342,
+   "y": 0,
+   "w": 2,
+   "h": 1,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "bark_g",
+   "x": 276,
+   "y": 0,
+   "w": 2,
+   "h": 3,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "brick_red",
+   "x": 85,
+   "y": 0,
+   "w": 4,
+   "h": 8,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "bridge_end",
+   "x": 106,
+   "y": 0,
+   "w": 8,
+   "h": 7,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "bridge_mid",
+   "x": 93,
+   "y": 0,
+   "w": 12,
+   "h": 7,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "clapboard",
+   "x": 200,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "clock_face",
+   "x": 313,
+   "y": 0,
+   "w": 2,
+   "h": 2,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "coals",
+   "x": 240,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "corrugated",
+   "x": 254,
+   "y": 0,
+   "w": 2,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "deck_plank",
+   "x": 306,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "dome_rib",
+   "x": 115,
+   "y": 0,
+   "w": 12,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "dome_stripe",
+   "x": 128,
+   "y": 0,
+   "w": 12,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "door_horseshoe",
+   "x": 250,
+   "y": 0,
+   "w": 3,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "door_plain",
+   "x": 273,
+   "y": 0,
+   "w": 2,
+   "h": 3,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "door_small",
+   "x": 316,
+   "y": 0,
+   "w": 1,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "fence",
+   "x": 178,
+   "y": 0,
+   "w": 12,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "finial_gold",
+   "x": 279,
+   "y": 0,
+   "w": 1,
+   "h": 3,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "fire_anim",
+   "x": 31,
+   "y": 0,
+   "w": 20,
+   "h": 8,
+   "tile": false,
+   "light": false,
+   "frames": 4,
+   "frameW": 5
+  },
+  {
+   "id": "flag_cloth",
+   "x": 269,
+   "y": 0,
+   "w": 3,
+   "h": 3,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "gate_horseshoe",
+   "x": 148,
+   "y": 0,
+   "w": 5,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "half_timber",
+   "x": 141,
+   "y": 0,
+   "w": 6,
+   "h": 6,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "leaf_g",
+   "x": 215,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "leaf_g_side",
+   "x": 264,
+   "y": 0,
+   "w": 4,
+   "h": 3,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "lit_white",
+   "x": 349,
+   "y": 0,
+   "w": 1,
+   "h": 1,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "mashrabiya",
+   "x": 310,
+   "y": 0,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": true
+  },
+  {
+   "id": "merlon_step",
+   "x": 281,
+   "y": 0,
+   "w": 4,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "merlon_swallowtail",
+   "x": 291,
+   "y": 0,
+   "w": 4,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "metal_panel",
+   "x": 235,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "minaret_sebka",
+   "x": 9,
+   "y": 0,
+   "w": 3,
+   "h": 12,
+   "tile": true,
+   "light": true
+  },
+  {
+   "id": "pal_gate_L",
+   "x": 13,
+   "y": 0,
+   "w": 8,
+   "h": 10,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "pal_gate_R",
+   "x": 22,
+   "y": 0,
+   "w": 8,
+   "h": 10,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "pise_wall",
+   "x": 154,
+   "y": 0,
+   "w": 8,
+   "h": 5,
+   "tile": true,
+   "light": true
+  },
+  {
+   "id": "plain_white",
+   "x": 345,
+   "y": 0,
+   "w": 1,
+   "h": 1,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "plank_v",
+   "x": 245,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "rail_ballast",
+   "x": 65,
+   "y": 0,
+   "w": 10,
+   "h": 8,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "rail_ballastSide",
+   "x": 191,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "rail_railSide",
+   "x": 337,
+   "y": 0,
+   "w": 4,
+   "h": 1,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "rail_railTop",
+   "x": 257,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "rail_tieSide",
+   "x": 318,
+   "y": 0,
+   "w": 8,
+   "h": 1,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "rail_tieTop",
+   "x": 90,
+   "y": 0,
+   "w": 2,
+   "h": 8,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "rock_g",
+   "x": 220,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "roof_tile_s",
+   "x": 286,
+   "y": 0,
+   "w": 4,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "sand_g",
+   "x": 301,
+   "y": 0,
+   "w": 4,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "shoji_wall",
+   "x": 168,
+   "y": 0,
+   "w": 4,
+   "h": 5,
+   "tile": true,
+   "light": true
+  },
+  {
+   "id": "sign_board",
+   "x": 296,
+   "y": 0,
+   "w": 4,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "stone_tile",
+   "x": 205,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "stone_wall",
+   "x": 0,
+   "y": 0,
+   "w": 8,
+   "h": 18,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "strip_window",
+   "x": 210,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": true
+  },
+  {
+   "id": "swatches",
+   "x": 332,
+   "y": 0,
+   "w": 4,
+   "h": 1,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "thatch",
+   "x": 259,
+   "y": 0,
+   "w": 4,
+   "h": 3,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "tower_conc",
+   "x": 173,
+   "y": 0,
+   "w": 4,
+   "h": 5,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "tower_glass",
+   "x": 225,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "tower_scorch",
+   "x": 230,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "ubridge_end",
+   "x": 76,
+   "y": 0,
+   "w": 8,
+   "h": 8,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "ubridge_mid",
+   "x": 52,
+   "y": 0,
+   "w": 12,
+   "h": 8,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "wall_window",
+   "x": 163,
+   "y": 0,
+   "w": 4,
+   "h": 5,
+   "tile": true,
+   "light": true
+  },
+  {
+   "id": "window_glow",
+   "x": 347,
+   "y": 0,
+   "w": 1,
+   "h": 1,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "zellige_band",
+   "x": 327,
+   "y": 0,
+   "w": 4,
+   "h": 1,
+   "tile": true,
+   "light": false
+  }
+ ]
+}

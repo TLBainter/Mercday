@@ -1,0 +1,63 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mail/BillBlock.gd" id="1"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/ListItem.tres" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/StatusMark.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/mail_bill.tres" id="6"]
+
+[node name="BillBlock" type="PanelContainer"]
+size_flags_horizontal = 3
+theme_override_styles/panel = ExtResource("2")
+script = ExtResource("1")
+calendar_path = NodePath("Rows/Bottom/Calendar")
+amount_path = NodePath("Rows/Top/Amount")
+due_path = NodePath("Rows/Due")
+mark_path = NodePath("Rows/Bottom/Mark")
+status_path = NodePath("Rows/Bottom/Status")
+
+[node name="Rows" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Top" type="HBoxContainer" parent="Rows"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Caption" type="Label" parent="Rows/Top"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Amount"
+
+[node name="Amount" parent="Rows/Top" instance=ExtResource("4")]
+layout_mode = 2
+
+[node name="Due" type="Label" parent="Rows"]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"
+text_overrun_behavior = 3
+
+[node name="Bottom" type="HBoxContainer" parent="Rows"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Mark" parent="Rows/Bottom" instance=ExtResource("3")]
+layout_mode = 2
+size_flags_vertical = 4
+mark_scale = 1
+
+[node name="Status" type="Label" parent="Rows/Bottom"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SmallLabel"
+text_overrun_behavior = 3
+
+[node name="Calendar" type="LinkButton" parent="Rows/Bottom"]
+layout_mode = 2
+size_flags_vertical = 4
+text = "View in Calendar"
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("5")
+hint = ExtResource("6")

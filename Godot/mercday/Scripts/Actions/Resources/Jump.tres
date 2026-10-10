@@ -1,42 +1,40 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="JumpAction" format=3 uid="uid://db03vgp8xftar"]
 
-[ext_resource type="Script" path="res://Scripts/Actions/JumpAction.gd" id="JumpAction"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/EnemiesExistFacet.gd" id="EnemiesExistFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_p66n5"]
+[ext_resource type="Script" uid="uid://dkhlstj70hi1y" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
+[ext_resource type="Script" uid="uid://daqe10omsn4iq" path="res://Scripts/Decisions/CtxFlagFacet.gd" id="CtxFlagFacet"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://cc0v77wme2mqr" path="res://Scripts/Actions/JumpAction.gd" id="JumpAction"]
 
 [sub_resource type="Resource" id="facet_enemies"]
-script = ExtResource("EnemiesExistFacet")
+script = ExtResource("CtxFlagFacet")
+key = "enemies"
 is_required = true
 
 [sub_resource type="Resource" id="facet_grapple"]
-script = ExtResource("ActiveStateFacet")
+script = ExtResource("AnyStateFacet")
 is_required = true
-state_name = "Grappled"
-present_is_high = false
+invert = true
 
 [sub_resource type="Resource" id="facet_terrified"]
-script = ExtResource("ActiveStateFacet")
+script = ExtResource("AnyStateFacet")
 is_required = true
-state_name = "Terrified"
-present_is_high = false
+invert = true
 
 [sub_resource type="Resource" id="facet_deposed"]
-script = ExtResource("ActiveStateFacet")
+script = ExtResource("AnyStateFacet")
 is_required = true
-state_name = "Deposed"
-present_is_high = false
+invert = true
 
 [sub_resource type="Resource" id="facet_no_attack_target"]
-script = ExtResource("ValidTargetsFacet")
+script = ExtResource("CtxFlagFacet")
+key = "valid_targets"
 is_required = true
-has_targets_is_high = false
+invert = true
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_enemies"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_deposed"), SubResource("facet_no_attack_target")]
-threshold = 0.5
+facets = Array[ExtResource("1_p66n5")]([SubResource("facet_enemies"), SubResource("facet_grapple"), SubResource("facet_terrified"), SubResource("facet_deposed"), SubResource("facet_no_attack_target")])
 
 [resource]
 script = ExtResource("JumpAction")

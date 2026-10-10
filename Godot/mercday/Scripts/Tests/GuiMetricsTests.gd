@@ -9,6 +9,8 @@ const VIEWER_SCENE := preload("res://Scenes/GUI/Metrics/MetricsViewer.tscn")
 const CHART_PATH := "Margin/Columns/RightBox/ChartColumn/ChartPanel/ChartMargin/ChartBox/Chart"
 const HISTORY_PATH := "res://Scripts/GUI/Autoloads/MetricsHistory.gd"
 const PREVIEW_DAYS := 120
+#The lock case reads the third merc, one past the start roster.
+const LOCK_EXTRA := 1
 const SEED_DAYS := 50
 const LONG_DAYS := 200
 #Three dates for the period table: the first day of a Trynn year, mid year and the last day.
@@ -46,6 +48,8 @@ static func run(host: Node) -> bool:
 	_case_combined_weight(res)
 	_case_event_avg_carry(res)
 	await _case_bevel_sweep(res, host)
+	await _case_window_fit(res, host)
+	await _case_reopen_metrics(res, host)
 	_reset()
 	return TestFixtures.summarize(res, "GUI METRICS")
 
@@ -55,11 +59,12 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
+	SubscriptionManager.max_out()
 
 
 static func _reset() -> void:
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	MetricsHistory.clear()
 	MetricsHistory.clear_preview()
 	GuildRoster.reset()
@@ -73,9 +78,10 @@ static func _uids() -> Array[int]:
 	return out
 
 
-#A fresh campaign, the preview history renamed onto its roster, and the viewer opened on it.
-static func _open(host: Node) -> MetricsViewer:
+#A fresh campaign with extra mercs hired, the preview history renamed onto its roster, and the viewer opened on it.
+static func _open(host: Node, extra: int = 0) -> MetricsViewer:
 	_fresh()
+	TestFixtures.add_mercs(extra)
 	MetricsHistory.seed_preview(PREVIEW_DAYS, _uids())
 	var viewer: MetricsViewer = VIEWER_SCENE.instantiate()
 	(viewer.get_node(CHART_PATH) as LineChart).tween_seconds = 0.0
@@ -84,11 +90,107 @@ static func _open(host: Node) -> MetricsViewer:
 	return viewer
 
 
+#The picks the designer rule resets, less the merc on show, which a re-lock moves on purpose.
+static func _picks(viewer: MetricsViewer) -> Dictionary:
+	return {"source": viewer.source(), "period": int(viewer.period), "scale": viewer.wanted_scale(),
+		"guild": viewer.metric_list.active_keys("Guild"),
+		"contract": viewer.metric_list.active_keys("Contract"),
+		"merc": viewer.metric_list.active_keys("Merc"), "types": viewer.type_selector.selected_types(),
+		"comparing": viewer.comparing(), "averages": viewer.averages_on()}
+
+
+#Designer rule 2026-10-04: the picks reset once the Metrics window is fully closed.
+static func _case_reopen_metrics(res: Dictionary, host: Node) -> void:
+	_fresh()
+	TestFixtures.add_mercs(LOCK_EXTRA)
+	MetricsHistory.seed_preview(PREVIEW_DAYS, _uids())
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var viewer: MetricsViewer = hud.open_viewer(&"metrics") as MetricsViewer
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the HUD opens the Metrics window", viewer != null, "viewer %s" % str(viewer))
+	if viewer == null:
+		await GuiClickJBTests._close(host, hud)
+		_reset()
+		return
+	var first: Dictionary = _picks(viewer)
+	var first_uid: int = viewer.merc_selector.selected_uid()
+	var first_series: int = viewer.chart.series_count()
+	viewer.show_all.pressed.emit()
+	await host.get_tree().process_frame
+	var all_series: int = viewer.chart.series_count()
+	viewer.select_source("Contract")
+	var types: Array[String] = viewer.type_selector.selected_types()
+	types.pop_back()
+	viewer.type_selector.set_types(types)
+	viewer.hide_all.pressed.emit()
+	viewer.select_source("Merc")
+	viewer.merc_selector.select_uid(GameState.roster[0].uid)
+	viewer.hide_all.pressed.emit()
+	viewer.show_averages.set_pressed(true)
+	var averaged: bool = viewer.averages_on()
+	viewer.compare_button.pressed.emit()
+	viewer.compare_selector.select_uid(GameState.roster[1].uid)
+	viewer.period_drop.option_selected.emit(MetricsPeriod.period_key(
+		(int(viewer.period) + 1) % MetricsPeriod.PERIOD_KEYS.size()))
+	viewer.scale_drop.option_selected.emit(MetricsPeriod.scale_key(
+		(viewer.wanted_scale() + 1) % MetricsPeriod.SCALE_KEYS.size()))
+	await host.get_tree().process_frame
+	var moved: Dictionary = _picks(viewer)
+	var still: Array[String] = []
+	for key: String in first:
+		if key != "averages" and moved[key] == first[key]:
+			still.append(key)
+	TestFixtures.check(res, "the Metrics window picks under test moved",
+		still.is_empty() and averaged and all_series > first_series
+			and viewer.merc_selector.selected_uid() != first_uid,
+		"unmoved %s averaged %s series %d of %d" % [str(still), averaged, all_series, first_series])
+	hud.popup().close()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "closing the Metrics window frees its content",
+		not is_instance_valid(viewer), "valid %s" % is_instance_valid(viewer))
+	var again: MetricsViewer = hud.open_viewer(&"metrics") as MetricsViewer
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var picks: Dictionary = {} if again == null else _picks(again)
+	TestFixtures.check(res,
+		"a fully closed Metrics window opens again with its source, lists, types and period reset",
+		again != null and picks == first, "first %s again %s" % [str(first), str(picks)])
+	TestFixtures.check(res, "a fully closed Metrics window opens again on All Mercs with no compare",
+		again != null and again.merc_selector.selected_uid() == first_uid and not again.comparing()
+			and again.chart.series_count() == first_series,
+		"merc %d comparing %s series %d" % [again.merc_selector.selected_uid() if again != null else -9,
+			again != null and again.comparing(), again.chart.series_count() if again != null else -1])
+	if again == null:
+		await GuiClickJBTests._close(host, hud)
+		_reset()
+		return
+	#Compare holds the averages switch off, so a second close runs with averages on and no compare.
+	again.select_source("Merc")
+	again.merc_selector.select_uid(GameState.roster[0].uid)
+	again.show_averages.set_pressed(true)
+	await host.get_tree().process_frame
+	var lit: bool = again.averages_on() and not again.comparing()
+	hud.popup().close()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var third: MetricsViewer = hud.open_viewer(&"metrics") as MetricsViewer
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a fully closed Metrics window opens again with its averages switch off",
+		lit and third != null and not third.averages_on() and not first["averages"],
+		"lit %s third %s averages %s" % [lit, third != null, third != null and third.averages_on()])
+	await GuiClickJBTests._close(host, hud)
+	_reset()
+
+
 #The same viewer moved onto the Merc tab with the first roster merc picked, where the picker would
 #otherwise stand on All Mercs.
 static func _open_merc(host: Node) -> MetricsViewer:
 	var viewer: MetricsViewer = await _open(host)
-	viewer.tabs.select_source("Merc")
+	viewer.select_source("Merc")
 	viewer.merc_selector.select_uid(GameState.roster[0].uid)
 	await host.get_tree().process_frame
 	return viewer
@@ -117,13 +219,25 @@ static func _sum(points: Array[Dictionary]) -> float:
 
 static func _case_layout(res: Dictionary, host: Node) -> void:
 	var viewer: MetricsViewer = await _open(host)
+	var seen: Dictionary = {}
+	_layout_tabs(res, viewer)
+	_layout_panel(res, viewer, seen)
+	_layout_header(res, viewer)
+	_layout_list(res, viewer)
+	await _layout_picker(res, host, viewer, seen)
+	await _layout_merc_list(res, host, viewer, seen)
+	viewer.queue_free()
+
+
+#The three tab buttons: sizes, labels, atlas icons, tones and the tab row height.
+static func _layout_tabs(res: Dictionary, viewer: MetricsViewer) -> void:
 	TestFixtures.check(res, "the graph tabs offer the three sources with Guild first and active",
-		viewer.tabs.tab_count() == 3 and viewer.tabs.current() == "Guild"
+		viewer.tabs.buttons().size() == 3 and viewer.tabs.active_key() == &"Guild"
 			and String(viewer.tabs.get_child(0).name) == "Guild"
 			and viewer.tabs.get_child(0) is TabButton,
-		"got %d tabs on '%s'" % [viewer.tabs.tab_count(), viewer.tabs.current()])
-	var guild_tab: TabButton = viewer.tabs.button_for("Guild") as TabButton
-	var merc_tab: TabButton = viewer.tabs.button_for("Merc") as TabButton
+		"got %d tabs on '%s'" % [viewer.tabs.buttons().size(), viewer.tabs.active_key()])
+	var guild_tab: TabButton = viewer.tabs.button(&"Guild")
+	var merc_tab: TabButton = viewer.tabs.button(&"Merc")
 	TestFixtures.check(res, "the active tab stands 44 px and an idle one 38 px",
 		guild_tab.active and guild_tab.custom_minimum_size.y == TabButton.ACTIVE_HEIGHT
 			and not merc_tab.active and merc_tab.custom_minimum_size.y == TabButton.IDLE_SIZE.y,
@@ -135,22 +249,24 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 			str(merc_tab.custom_minimum_size), merc_tab.tooltip_text])
 	TestFixtures.check(res, "the active tab shows its icon and its label and is 44 tall",
 		guild_tab.text_label.visible and guild_tab.text_label.text == "GUILD"
-			and guild_tab.custom_minimum_size.y == float(GraphTabs.ROW_HEIGHT)
+			and guild_tab.custom_minimum_size.y == float(TabButton.ACTIVE_HEIGHT)
 			and is_equal_approx(guild_tab.custom_minimum_size.x,
-				maxf(TabButton.IDLE_SIZE.x, viewer.tabs.active_width(guild_tab))),
+				maxf(TabButton.IDLE_SIZE.x, viewer.active_width(guild_tab))),
 		"size %s against %.1f" % [str(guild_tab.custom_minimum_size),
-			viewer.tabs.active_width(guild_tab)])
+			viewer.active_width(guild_tab)])
 	TestFixtures.check(res, "every tab carries its atlas icon at x2 in a 32 px box",
 		guild_tab.icon_rect.icon_id == "guild_banner" and merc_tab.icon_rect.icon_id == "mercs"
-			and guild_tab.icon_scale == GraphTabs.ICON_SCALE
+			and guild_tab.icon_scale == 2
 			and guild_tab.icon_rect.custom_minimum_size == Vector2(32, 32)
 			and guild_tab.icon_rect.texture != null,
 		"guild '%s' merc '%s' box %s" % [guild_tab.icon_rect.icon_id,
 			merc_tab.icon_rect.icon_id, str(guild_tab.icon_rect.custom_minimum_size)])
 	TestFixtures.check(res, "the tab ids come from the atlas",
-		GraphTabs.TAB_IDS == {"Guild": "guild_banner", "Contract": "contracts", "Merc": "mercs"}
+		viewer.tabs.button(&"Guild").icon_id == "guild_banner"
+			and viewer.tabs.button(&"Contract").icon_id == "contracts"
+			and viewer.tabs.button(&"Merc").icon_id == "mercs"
 			and Icons.has("guild_banner") and Icons.has("contracts") and Icons.has("mercs"),
-		"got %s" % str(GraphTabs.TAB_IDS))
+		"got %s" % str(viewer.tabs.icon_ids))
 	TestFixtures.check(res, "the active tab two-tones its icon and an idle tab draws it plain",
 		guild_tab.icon_rect.mode == Icons.MODE_TWO_TONE
 			and merc_tab.icon_rect.mode == Icons.MODE_PLAIN
@@ -158,8 +274,13 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 			and _tab_tone_ok("mercs"),
 		"active '%s' idle '%s'" % [guild_tab.icon_rect.mode, merc_tab.icon_rect.mode])
 	TestFixtures.check(res, "the tab row stands 44 px tall",
-		viewer.tabs.custom_minimum_size.y == float(GraphTabs.ROW_HEIGHT),
+		viewer.tabs.custom_minimum_size.y == float(TabButton.ACTIVE_HEIGHT),
 		"got %s" % str(viewer.tabs.custom_minimum_size))
+
+
+#The viewer height, the left panel against the chart panel and the header row against the chart edge.
+static func _layout_panel(res: Dictionary, viewer: MetricsViewer, seen: Dictionary) -> void:
+	var guild_tab: TabButton = viewer.tabs.button(&"Guild")
 	TestFixtures.check(res, "the viewer fits the 644 px window",
 		viewer.get_combined_minimum_size().y <= 644.0,
 		"minimum %.1f" % viewer.get_combined_minimum_size().y)
@@ -187,7 +308,13 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 		absf(header_bottom - chart_edge_top) <= 0.5
 			and absf(guild_tab_bottom - chart_edge_top) <= 0.5,
 		"header %.1f tab %.1f edge %.1f" % [header_bottom, guild_tab_bottom, chart_edge_top])
-	var guild_height: float = viewer.left_panel.size.y
+	seen["guild"] = viewer.left_panel.size.y
+	seen["header"] = header_bottom
+	seen["edge"] = chart_edge_top
+
+
+#The header row order and gaps, the two dropdowns, the tab row seat and the chart panel dressing.
+static func _layout_header(res: Dictionary, viewer: MetricsViewer) -> void:
 	TestFixtures.check(res, "the tabs, the switch and the two dropdowns share the header row",
 		viewer.tabs.get_parent() == viewer.header_row
 			and viewer.show_averages.get_parent() == viewer.header_row
@@ -227,12 +354,16 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the chart keeps its 888 px width while the viewer stands alone",
 		viewer.chart.custom_minimum_size.x == 888.0 and not viewer.chart.compact,
 		"got %s" % str(viewer.chart.custom_minimum_size))
+
+
+#The list title, the hidden chart title, the averages switch, the metric column and the Guild toggles.
+static func _layout_list(res: Dictionary, viewer: MetricsViewer) -> void:
 	TestFixtures.check(res, "the list title holds one clipped line",
-		viewer.list_title.clip_text and viewer.list_title.autowrap_mode
+		viewer.list_head.caption_label.clip_text and viewer.list_head.caption_label.autowrap_mode
 			== TextServer.AUTOWRAP_OFF
-			and viewer.list_title.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS,
-		"clip %s wrap %d overrun %d" % [viewer.list_title.clip_text,
-			viewer.list_title.autowrap_mode, viewer.list_title.text_overrun_behavior])
+			and viewer.list_head.caption_label.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS,
+		"clip %s wrap %d overrun %d" % [viewer.list_head.caption_label.clip_text,
+			viewer.list_head.caption_label.autowrap_mode, viewer.list_head.caption_label.text_overrun_behavior])
 	TestFixtures.check(res, "the old chart title stays hidden behind the tabs",
 		not viewer.title_label.visible, "visible %s" % viewer.title_label.visible)
 	TestFixtures.check(res, "the averages switch keeps out of the Guild tab",
@@ -243,9 +374,17 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 	var guild_defs: int = MetricList.defs_for("Guild").size()
 	TestFixtures.check(res, "the Guild tab opens with one toggle per Guild metric",
 		viewer.metric_list.toggle_count() == guild_defs
-			and viewer.list_title.text == "Guild Data",
-		"got %d toggles under '%s'" % [viewer.metric_list.toggle_count(), viewer.list_title.text])
-	viewer.tabs.select_source("Merc")
+			and viewer.list_head.caption_label.text == "Guild Data",
+		"got %d toggles under '%s'" % [viewer.metric_list.toggle_count(), viewer.list_head.caption_label.text])
+
+
+#The Merc tab with no merc picked, then with one picked: the tenure caption, the toggles and the picker rows.
+static func _layout_picker(res: Dictionary, host: Node, viewer: MetricsViewer, seen: Dictionary) -> void:
+	var guild_tab: TabButton = viewer.tabs.button(&"Guild")
+	var merc_tab: TabButton = viewer.tabs.button(&"Merc")
+	var header_bottom: float = seen["header"]
+	var chart_edge_top: float = seen["edge"]
+	viewer.select_source("Merc")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "picking a source flips the active flags",
 		merc_tab.active and not guild_tab.active
@@ -259,7 +398,7 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 		absf(header_bottom - chart_edge_top) <= 0.5
 			and absf(merc_tab_bottom - chart_edge_top) <= 0.5,
 		"header %.1f tab %.1f edge %.1f" % [header_bottom, merc_tab_bottom, chart_edge_top])
-	var merc_all_height: float = viewer.left_panel.size.y
+	seen["merc_all"] = viewer.left_panel.size.y
 	viewer.merc_selector.select_uid(GameState.roster[0].uid)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a picked merc puts its tenure back on the caption",
@@ -298,15 +437,22 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the row sub line for that merc ends with the level, no trailing dash",
 		no_tenure_sub.text == "LVL %02d" % GameState.roster[1].level,
 		"got '%s'" % no_tenure_sub.text)
+
+
+#The Merc list header, Show All and Hide All, the Contract groups and the one panel height across tabs.
+static func _layout_merc_list(res: Dictionary, host: Node, viewer: MetricsViewer, seen: Dictionary) -> void:
+	var guild_height: float = seen["guild"]
+	var merc_all_height: float = seen["merc_all"]
+	var defs: int = MetricList.defs_for("Merc").size()
 	TestFixtures.check(res, "the list header names the source and counts the plotted metrics",
-		viewer.list_title.text == "Merc Data" and viewer.on_count.text == "2/%d" % defs,
-		"got '%s' and '%s'" % [viewer.list_title.text, viewer.on_count.text])
+		viewer.list_head.caption_label.text == "Merc Data" and viewer.list_head.count_label.text == "2/%d" % defs,
+		"got '%s' and '%s'" % [viewer.list_head.caption_label.text, viewer.list_head.count_label.text])
 	viewer.show_all.pressed.emit()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "Show All plots every metric of the source",
-		viewer.metric_list.active_keys("Merc").size() == defs and viewer.on_count.text
+		viewer.metric_list.active_keys("Merc").size() == defs and viewer.list_head.count_label.text
 			== "%d/%d" % [defs, defs],
-		"got %d on '%s'" % [viewer.metric_list.active_keys("Merc").size(), viewer.on_count.text])
+		"got %d on '%s'" % [viewer.metric_list.active_keys("Merc").size(), viewer.list_head.count_label.text])
 	viewer.hide_all.pressed.emit()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "Hide All empties the chart and keeps the focused metric",
@@ -316,13 +462,13 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the Merc list stands ungrouped",
 		viewer.metric_list.group_count() == 0,
 		"got %d headers" % viewer.metric_list.group_count())
-	viewer.tabs.select_source("Contract")
+	viewer.select_source("Contract")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the Contract list carries the three group headers",
 		viewer.metric_list.group_count() == 3,
 		"got %d headers" % viewer.metric_list.group_count())
 	var contract_height: float = viewer.left_panel.size.y
-	viewer.tabs.select_source("Merc")
+	viewer.select_source("Merc")
 	await host.get_tree().process_frame
 	viewer.merc_selector.select_uid(GameState.roster[0].uid)
 	await host.get_tree().process_frame
@@ -336,7 +482,6 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 			and absf(guild_height - compare_height) <= 0.5,
 		"guild %.1f merc %.1f contract %.1f compare %.1f" % [guild_height, merc_all_height,
 			contract_height, compare_height])
-	viewer.queue_free()
 
 
 #The widened chart column against the plan size: the standalone chart holds 888 x 474, its whole
@@ -374,7 +519,7 @@ static func _case_series(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the merc title carries the picked merc name",
 		viewer.title_label.text == "%s Metrics" % GameState.roster[0].name,
 		"got '%s'" % viewer.title_label.text)
-	viewer.tabs.select_source("Guild")
+	viewer.select_source("Guild")
 	await host.get_tree().process_frame
 	var guild: int = MetricList.defs_for("Guild").size()
 	TestFixtures.check(res, "the Guild tab rebuilds the list and retitles the chart",
@@ -385,7 +530,7 @@ static func _case_series(res: Dictionary, host: Node) -> void:
 			and _sum(MetricsHistory.series("Guild", "bank", 0, 1)) > 0.0,
 		"got '%s'" % viewer.stored_key("bank"))
 	var types: Array[String] = ContractLibrary.contract_type_names()
-	viewer.tabs.select_source("Contract")
+	viewer.select_source("Contract")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the Contract tab shows the type picker opened on All",
 		viewer.type_selector.visible and viewer.type_selector.current_type() == TypeSelector.ALL,
@@ -454,17 +599,17 @@ static func _case_chart(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a flat series draws at mid height",
 		flat.size() == 4 and is_equal_approx(flat[0], 50.0) and is_equal_approx(flat[3], 50.0),
 		"got %s" % str(flat))
+	var near_right: int = LineChart.nearest_index(rising, 400.0, 400.0)
+	var near_left: int = LineChart.nearest_index(rising, 0.0, 400.0)
 	TestFixtures.check(res, "nearest_index picks the last point at the right edge",
-		LineChart.nearest_index(rising, 400.0, 400.0) == 2
-			and LineChart.nearest_index(rising, 0.0, 400.0) == 0,
-		"got %d and %d" % [LineChart.nearest_index(rising, 400.0, 400.0),
-			LineChart.nearest_index(rising, 0.0, 400.0)])
+		near_right == 2 and near_left == 0, "got %d and %d" % [near_right, near_left])
+	var x_first: float = LineChart.x_for(0, 3, 400.0)
+	var x_last: float = LineChart.x_for(2, 3, 400.0)
+	var x_lone: float = LineChart.x_for(0, 1, 400.0)
 	TestFixtures.check(res, "x_for spreads the points across the plot width",
-		is_equal_approx(LineChart.x_for(0, 3, 400.0), 0.0)
-			and is_equal_approx(LineChart.x_for(2, 3, 400.0), 400.0)
-			and is_equal_approx(LineChart.x_for(0, 1, 400.0), 200.0),
-		"got %.1f, %.1f and %.1f" % [LineChart.x_for(0, 3, 400.0), LineChart.x_for(2, 3, 400.0),
-			LineChart.x_for(0, 1, 400.0)])
+		is_equal_approx(x_first, 0.0) and is_equal_approx(x_last, 400.0)
+			and is_equal_approx(x_lone, 200.0),
+		"got %.1f, %.1f and %.1f" % [x_first, x_last, x_lone])
 	var band: Vector2 = LineChart.padded_range(_points(4, [7.0]))
 	TestFixtures.check(res, "a flat series still gets a band to label",
 		is_equal_approx(band.x, 6.0) and is_equal_approx(band.y, 8.0), "got %s" % str(band))
@@ -540,7 +685,7 @@ static func _case_focus(res: Dictionary, host: Node) -> void:
 
 
 static func _case_lock(res: Dictionary, host: Node) -> void:
-	var viewer: MetricsViewer = await _open(host)
+	var viewer: MetricsViewer = await _open(host, LOCK_EXTRA)
 	var uid: int = GameState.roster[2].uid
 	viewer.lock_to_merc(uid)
 	await host.get_tree().process_frame
@@ -578,7 +723,7 @@ static func _case_lock(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "two merc slots open the embed again",
 		not viewer.graph_locked() and viewer.chart.visible and viewer.chart.series_count() == 2,
 		"locked %s with %d series" % [viewer.graph_locked(), viewer.chart.series_count()])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	viewer.queue_free()
 
@@ -624,30 +769,25 @@ static func _case_seed(res: Dictionary, host: Node) -> void:
 #values; the same key with "_n" columns present is the count weighted mean instead; a type the
 #row does not carry adds no weight at all.
 static func _case_combined_weight(res: Dictionary) -> void:
-	var plain: Variant = load(HISTORY_PATH).new()
-	plain.merc_source = func(_day: int) -> Dictionary:
-		return {"1/op": 2.0, "2/op": 4.0}
-	plain.record_day(0)
+	var plain_rows := func(_day: int) -> Dictionary: return {"1/op": 2.0, "2/op": 4.0}
+	var plain: Variant = _history("merc_source", plain_rows, 1)
 	var plain_points: Array[Dictionary] = plain.combined_series("Merc", "op",
 		["1", "2"] as Array[String], 0, 1)
 	TestFixtures.check(res, "an AVG combine with no counts is the plain mean of the two values",
 		is_equal_approx(float(plain_points[0]["value"]), 3.0),
 		"got %.3f" % float(plain_points[0]["value"]))
 	plain.free()
-	var weighted: Variant = load(HISTORY_PATH).new()
-	weighted.merc_source = func(_day: int) -> Dictionary:
+	var weighted_rows := func(_day: int) -> Dictionary:
 		return {"1/op": 2.0, "1/op_n": 3.0, "2/op": 4.0, "2/op_n": 1.0}
-	weighted.record_day(0)
+	var weighted: Variant = _history("merc_source", weighted_rows, 1)
 	var weighted_points: Array[Dictionary] = weighted.combined_series("Merc", "op",
 		["1", "2"] as Array[String], 0, 1)
 	TestFixtures.check(res, "an AVG combine with counts present is the count weighted mean",
 		is_equal_approx(float(weighted_points[0]["value"]), 2.5),
 		"got %.3f" % float(weighted_points[0]["value"]))
 	weighted.free()
-	var partial: Variant = load(HISTORY_PATH).new()
-	partial.merc_source = func(_day: int) -> Dictionary:
-		return {"1/op": 2.0}
-	partial.record_day(0)
+	var partial_rows := func(_day: int) -> Dictionary: return {"1/op": 2.0}
+	var partial: Variant = _history("merc_source", partial_rows, 1)
 	var partial_points: Array[Dictionary] = partial.combined_series("Merc", "op",
 		["1", "2"] as Array[String], 0, 1)
 	TestFixtures.check(res, "an AVG combine skips a type the row does not carry",
@@ -663,10 +803,8 @@ static func _case_event_avg_carry(res: Dictionary) -> void:
 		{"1/diff": 4.0, "1/diff_n": 1.0},
 		{"1/diff": 5.0},
 	]
-	var history: Variant = load(HISTORY_PATH).new()
-	history.contract_source = func(day: int) -> Dictionary: return rows[day]
-	history.record_day(0)
-	history.record_day(1)
+	var by_day := func(day: int) -> Dictionary: return rows[day]
+	var history: Variant = _history("contract_source", by_day, 2)
 	var points: Array[Dictionary] = history.combined_series("Contract", "diff",
 		["1"] as Array[String], 0, 1)
 	TestFixtures.check(res,
@@ -675,6 +813,15 @@ static func _case_event_avg_carry(res: Dictionary) -> void:
 			and is_equal_approx(float(points[1]["value"]), 4.0),
 		"got %s" % str(points))
 	history.free()
+
+
+#A stand-alone MetricsHistory fed by one source and recorded over the given days; the caller frees it.
+static func _history(source: String, rows: Callable, days: int) -> Variant:
+	var history: Variant = load(HISTORY_PATH).new()
+	history.set(source, rows)
+	for day: int in days:
+		history.record_day(day)
+	return history
 
 
 #One key laid over the derived table, built without a literal so the key can be a variable.
@@ -698,7 +845,7 @@ static func _lock_shut(camel: String) -> bool:
 #Either spelling of a metrics entitlement shuts the lock it names: set_entitlements lays the other
 #spelling of the pair down as well and MetricsLocks reads the camel key first.
 static func _case_override_spellings(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	var rows: Array[Array] = [
 		[MetricsLocks.CONTRACT_KEY, MetricsLocks.CONTRACT_SNAKE, "the contract graph"],
@@ -712,18 +859,18 @@ static func _case_override_spellings(res: Dictionary, host: Node) -> void:
 			SubscriptionManager.set_entitlements(_one(key, 0))
 			TestFixtures.check(res, "an override on %s shuts %s" % [key, String(row[2])],
 				_lock_shut(String(row[0])), "the lock stayed open")
-			SubscriptionManager.reset()
+			SubscriptionManager.max_out()
 	SubscriptionManager.set_entitlements(_one(MetricsLocks.MERC_KEY, 0))
 	TestFixtures.check(res, "a camel override reaches the snake reader of the slot count",
 		SubscriptionManager.merc_slots() == 0 and MetricsLocks.merc_slots() == 0,
 		"%d slots" % SubscriptionManager.merc_slots())
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 #The subscription stub: phase one opens every metrics screen and three merc slots, and the slot
 #count decides whether the comparison picker is offered at all.
 static func _case_entitlements(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var viewer: MetricsViewer = await _open_merc(host)
 	var held: Dictionary = SubscriptionManager.entitlements()
 	TestFixtures.check(res, "phase one pays for the guild, contract and merc metrics",
@@ -739,18 +886,18 @@ static func _case_entitlements(res: Dictionary, host: Node) -> void:
 			and viewer.current_uid() == -1,
 		"got %d slots, visible %s on %d" % [SubscriptionManager.merc_slots(),
 			viewer.compare_button.visible, viewer.current_uid()])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	viewer.merc_selector.select_uid(GameState.roster[0].uid)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "a reset hands the three slots and the button back",
+	TestFixtures.check(res, "max_out hands the three slots and the button back",
 		SubscriptionManager.merc_slots() == 3 and viewer.compare_button.visible,
 		"got %d slots, visible %s" % [SubscriptionManager.merc_slots(),
 			viewer.compare_button.visible])
 	viewer.queue_free()
 
 
-#The two metrics the handoff adds: the guild investment portfolio and the merc vacation days.
+#The two metrics the design prototype adds: the guild investment portfolio and the merc vacation days.
 static func _case_new_metrics(res: Dictionary, host: Node) -> void:
 	_fresh()
 	await host.get_tree().process_frame
@@ -793,6 +940,7 @@ static func _case_new_metrics(res: Dictionary, host: Node) -> void:
 #The team average line: the mean over the mercs the record had hired in each bucket.
 static func _case_team_average(res: Dictionary, host: Node) -> void:
 	_fresh()
+	TestFixtures.add_mercs(MetricsHistory.EMPLOYMENT.size() - GameState.mercs.size())
 	await host.get_tree().process_frame
 	MetricsHistory.seed_preview(PREVIEW_DAYS, _uids())
 	var uids: Array[int] = MetricsHistory.merc_uids()
@@ -814,14 +962,12 @@ static func _case_team_average(res: Dictionary, host: Node) -> void:
 			and is_equal_approx(float(team[0]["value"]), want / float(seen)),
 		"got %.3f against %.3f over %d mercs" % [float(team[0]["value"]),
 			want / float(maxi(1, seen)), seen])
-	var late: Variant = load(HISTORY_PATH).new()
-	late.merc_source = func(day: int) -> Dictionary:
+	var late_rows := func(day: int) -> Dictionary:
 		var row: Dictionary = {"1/salary": 100.0}
 		if day >= 3:
 			row["7/salary"] = 200.0
 		return row
-	for day: int in 5:
-		late.record_day(day)
+	var late: Variant = _history("merc_source", late_rows, 5)
 	TestFixtures.check(res, "hire_day names the first day a merc drew a wage",
 		late.hire_day(1) == 0 and late.hire_day(7) == 3 and late.hire_day(9) == -1,
 		"got %d, %d and %d" % [late.hire_day(1), late.hire_day(7), late.hire_day(9)])
@@ -840,16 +986,16 @@ static func _case_team_average(res: Dictionary, host: Node) -> void:
 
 #Show Averages and Merc Comparison: the ghost line, the switch lock and the arrows.
 static func _case_averages_and_compare(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var viewer: MetricsViewer = await _open(host)
-	viewer.tabs.select_source("Merc")
+	viewer.select_source("Merc")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the Merc tab opens on All Mercs and reads the team keys",
 		viewer.current_uid() == -1 and viewer.stored_key("salary") == "team/salary"
-			and viewer.list_title.text == String(MetricsViewer.LIST_TITLES["Merc"])
+			and viewer.list_head.caption_label.text == String(MetricsViewer.LIST_TITLES["Merc"])
 			and viewer.merc_selector.name_label.text == MercSelector.ALL_NAME,
 		"got %d, '%s' and '%s'" % [viewer.current_uid(), viewer.stored_key("salary"),
-			viewer.list_title.text])
+			viewer.list_head.caption_label.text])
 	TestFixtures.check(res, "All Mercs still plots the two default series",
 		viewer.chart.series_count() == 2 and viewer.chart.point_count(0) > 0,
 		"got %d series and %d points" % [viewer.chart.series_count(),
@@ -947,39 +1093,40 @@ static func _case_averages_and_compare(res: Dictionary, host: Node) -> void:
 #The arrow a row draws: which way it points, how far off it counts as a swing and what a blank
 #bucket does to it.
 static func _case_arrow_math(res: Dictionary) -> void:
+	var rise: float = MetricToggle.compare_pct(110.0, 100.0)
+	var fall: float = MetricToggle.compare_pct(90.0, 100.0)
 	TestFixtures.check(res, "a value over its reference reads that rise as a percentage",
-		is_equal_approx(MetricToggle.compare_pct(110.0, 100.0), 10.0)
-			and is_equal_approx(MetricToggle.compare_pct(90.0, 100.0), -10.0),
-		"got %.2f and %.2f" % [MetricToggle.compare_pct(110.0, 100.0),
-			MetricToggle.compare_pct(90.0, 100.0)])
+		is_equal_approx(rise, 10.0) and is_equal_approx(fall, -10.0),
+		"got %.2f and %.2f" % [rise, fall])
+	var kind_mild: int = MetricToggle.arrow_kind(10.0)
+	var kind_up: int = MetricToggle.arrow_kind(20.0)
+	var kind_down: int = MetricToggle.arrow_kind(-20.0)
 	TestFixtures.check(res, "a swing of fifteen percent or more straightens the arrow",
-		MetricToggle.arrow_kind(10.0) == 1 and MetricToggle.arrow_kind(20.0) == 2
-			and MetricToggle.arrow_kind(-20.0) == 2,
-		"got %d, %d and %d" % [MetricToggle.arrow_kind(10.0), MetricToggle.arrow_kind(20.0),
-			MetricToggle.arrow_kind(-20.0)])
+		kind_mild == 1 and kind_up == 2 and kind_down == 2,
+		"got %d, %d and %d" % [kind_mild, kind_up, kind_down])
+	var kind_tiny: int = MetricToggle.arrow_kind(0.4)
+	var kind_blank: int = MetricToggle.arrow_kind(NAN)
 	TestFixtures.check(res, "a gap under half a percent draws no arrow at all",
-		MetricToggle.arrow_kind(0.4) == 0 and MetricToggle.arrow_kind(NAN) == 0,
-		"got %d and %d" % [MetricToggle.arrow_kind(0.4), MetricToggle.arrow_kind(NAN)])
+		kind_tiny == 0 and kind_blank == 0, "got %d and %d" % [kind_tiny, kind_blank])
+	var id_up: String = MetricToggle.arrow_id(2, true)
+	var id_down: String = MetricToggle.arrow_id(2, false)
+	var id_diag_up: String = MetricToggle.arrow_id(1, true)
+	var id_diag_down: String = MetricToggle.arrow_id(1, false)
 	TestFixtures.check(res, "each arrow kind names its atlas id and nothing flips",
-		MetricToggle.arrow_id(2, true) == "trend_up"
-			and MetricToggle.arrow_id(2, false) == "trend_down"
-			and MetricToggle.arrow_id(1, true) == "trend_diag_up"
-			and MetricToggle.arrow_id(1, false) == "trend_diag_down"
-			and MetricToggle.arrow_id(0, true) == "",
-		"'%s', '%s', '%s' and '%s'" % [MetricToggle.arrow_id(2, true),
-			MetricToggle.arrow_id(2, false), MetricToggle.arrow_id(1, true),
-			MetricToggle.arrow_id(1, false)])
+		id_up == "trend_up" and id_down == "trend_down" and id_diag_up == "trend_diag_up"
+			and id_diag_down == "trend_diag_down" and MetricToggle.arrow_id(0, true) == "",
+		"'%s', '%s', '%s' and '%s'" % [id_up, id_down, id_diag_up, id_diag_down])
+	var zero_up: float = MetricToggle.compare_pct(5.0, 0.0)
+	var zero_down: float = MetricToggle.compare_pct(-5.0, 0.0)
+	var zero_flat: float = MetricToggle.compare_pct(0.0, 0.0)
 	TestFixtures.check(res, "a zero reference reads a full hundred either way",
-		is_equal_approx(MetricToggle.compare_pct(5.0, 0.0), 100.0)
-			and is_equal_approx(MetricToggle.compare_pct(-5.0, 0.0), -100.0)
-			and is_zero_approx(MetricToggle.compare_pct(0.0, 0.0)),
-		"got %.1f, %.1f and %.1f" % [MetricToggle.compare_pct(5.0, 0.0),
-			MetricToggle.compare_pct(-5.0, 0.0), MetricToggle.compare_pct(0.0, 0.0)])
+		is_equal_approx(zero_up, 100.0) and is_equal_approx(zero_down, -100.0)
+			and is_zero_approx(zero_flat),
+		"got %.1f, %.1f and %.1f" % [zero_up, zero_down, zero_flat])
+	var blank_value: float = MetricToggle.compare_pct(NAN, 100.0)
+	var blank_ref: float = MetricToggle.compare_pct(1.0, NAN)
 	TestFixtures.check(res, "a blank bucket on either side carries no comparison",
-		is_nan(MetricToggle.compare_pct(NAN, 100.0))
-			and is_nan(MetricToggle.compare_pct(1.0, NAN)),
-		"got %.1f and %.1f" % [MetricToggle.compare_pct(NAN, 100.0),
-			MetricToggle.compare_pct(1.0, NAN)])
+		is_nan(blank_value) and is_nan(blank_ref), "got %.1f and %.1f" % [blank_value, blank_ref])
 
 
 #The X axis captions: the bucket name with a one based count, thinned to fit the plot width.
@@ -1004,7 +1151,7 @@ static func _case_window(res: Dictionary, host: Node) -> void:
 			and viewer.window_from() == 0 and viewer.window_days() == PREVIEW_DAYS,
 		"span %d, from %d for %d" % [viewer.span_days(), viewer.window_from(),
 			viewer.window_days()])
-	var open_scales: Array[int] = viewer._valid_scales(viewer.span_days())
+	var open_scales: Array[int] = MetricsPeriod.valid_scales(viewer.span_days())
 	var short_set: Array[int] = [MetricsPeriod.Scale.DAY, MetricsPeriod.Scale.WEEK]
 	TestFixtures.check(res, "a window of 120 days opens Days and Weeks only and shows Weeks",
 		_same(open_scales, short_set) and viewer.chart_scale == MetricsPeriod.Scale.WEEK
@@ -1094,7 +1241,7 @@ static func _case_window(res: Dictionary, host: Node) -> void:
 				and viewer.window_from() == late_hire,
 			"hire %d, start %d, span %d, from %d" % [late_hire, viewer.start_row(),
 				viewer.span_days(), viewer.window_from()])
-	viewer.tabs.select_source("Guild")
+	viewer.select_source("Guild")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the guild graph counts from the first recorded day again",
 		viewer.start_row() == 0 and viewer.span_days() == PREVIEW_DAYS
@@ -1109,18 +1256,18 @@ static func _case_graph_locks(res: Dictionary, host: Node) -> void:
 	var viewer: MetricsViewer = await _open(host)
 	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
 	await host.get_tree().process_frame
-	var guild_tab: TabButton = viewer.tabs.button_for("Guild") as TabButton
-	var shut_tab: TabButton = viewer.tabs.button_for("Contract") as TabButton
+	var guild_tab: TabButton = viewer.tabs.button(&"Guild")
+	var shut_tab: TabButton = viewer.tabs.button(&"Contract")
 	TestFixtures.check(res, "the free plan shuts all three graphs and locks every tab",
-		viewer.graph_locked() and viewer.tabs.is_source_locked("Guild")
-			and viewer.tabs.is_source_locked("Contract") and viewer.tabs.is_source_locked("Merc")
+		viewer.graph_locked() and viewer.tabs.button(&"Guild").locked
+			and viewer.tabs.button(&"Contract").locked and viewer.tabs.button(&"Merc").locked
 			and guild_tab != null and guild_tab.locked,
-		"guild %s contract %s merc %s" % [viewer.tabs.is_source_locked("Guild"),
-			viewer.tabs.is_source_locked("Contract"), viewer.tabs.is_source_locked("Merc")])
+		"guild %s contract %s merc %s" % [viewer.tabs.button(&"Guild").locked,
+			viewer.tabs.button(&"Contract").locked, viewer.tabs.button(&"Merc").locked])
 	TestFixtures.check(res, "a locked tab carries the lock over its icon and reads Locked",
 		guild_tab != null and guild_tab.lock_overlay.visible
 			and guild_tab.tooltip_text == MetricsViewer.LOCKED_TIP
-			and guild_tab.icon_rect.tint == GraphTabs.LOCKED_TINT
+			and guild_tab.icon_rect.tint == MetricsViewer.LOCKED_TINT
 			and guild_tab.idle_mode == Icons.MODE_GRAY
 			and shut_tab != null and shut_tab.icon_rect.mode == Icons.MODE_GRAY,
 		"overlay %s tip '%s' tint %s idle %s shut %s" % [guild_tab.lock_overlay.visible,
@@ -1161,10 +1308,10 @@ static func _case_graph_locks(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the Pro plan opens the guild graph and leaves the other two shut",
 		not viewer.graph_locked() and viewer.chart.visible and viewer.chart.series_count() == 2
 			and not viewer.locked_page.visible and not viewer.period_drop.disabled
-			and not viewer.scale_drop.disabled and not viewer.tabs.is_source_locked("Guild")
-			and viewer.tabs.is_source_locked("Contract") and viewer.tabs.is_source_locked("Merc"),
+			and not viewer.scale_drop.disabled and not viewer.tabs.button(&"Guild").locked
+			and viewer.tabs.button(&"Contract").locked and viewer.tabs.button(&"Merc").locked,
 		"locked %s with %d series" % [viewer.graph_locked(), viewer.chart.series_count()])
-	viewer.tabs.select_source("Contract")
+	viewer.select_source("Contract")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the contract graph names its own feature and the Enterprise plan",
 		viewer.graph_locked() and viewer.locked_page.visible
@@ -1177,10 +1324,10 @@ static func _case_graph_locks(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the contract upgrade opens that graph on its own",
 		not viewer.graph_locked() and viewer.chart.series_count() > 0
-			and not viewer.locked_page.visible and not viewer.tabs.is_source_locked("Contract")
-			and viewer.tabs.is_source_locked("Merc"),
+			and not viewer.locked_page.visible and not viewer.tabs.button(&"Contract").locked
+			and viewer.tabs.button(&"Merc").locked,
 		"locked %s with %d series" % [viewer.graph_locked(), viewer.chart.series_count()])
-	viewer.tabs.select_source("Merc")
+	viewer.select_source("Merc")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the merc graph asks for the first tier of its own upgrade",
 		viewer.graph_locked() and viewer.locked_page.visible
@@ -1195,12 +1342,12 @@ static func _case_graph_locks(res: Dictionary, host: Node) -> void:
 			and String(viewer.locked_page.target().get("upgrade", ""))
 				== MetricsLocks.MERC_UPGRADE_ID,
 		"got %s" % str(viewer.locked_page.target()))
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a full plan opens every graph and hands both dropdowns back",
 		not viewer.graph_locked() and viewer.chart.visible and not viewer.locked_page.visible
 			and not viewer.period_drop.disabled and not viewer.scale_drop.disabled
-			and not viewer.tabs.is_source_locked("Merc"),
+			and not viewer.tabs.button(&"Merc").locked,
 		"locked %s page %s" % [viewer.graph_locked(), viewer.locked_page.visible])
 	viewer.queue_free()
 
@@ -1247,7 +1394,7 @@ static func _case_lock_tables(res: Dictionary) -> void:
 #The four merc tiers: no graph, team averages only, one merc, then the comparison.
 static func _case_merc_tiers(res: Dictionary, host: Node) -> void:
 	var viewer: MetricsViewer = await _open(host)
-	viewer.tabs.select_source("Merc")
+	viewer.select_source("Merc")
 	await host.get_tree().process_frame
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	await host.get_tree().process_frame
@@ -1312,7 +1459,7 @@ static func _case_merc_tiers(res: Dictionary, host: Node) -> void:
 		viewer.current_uid() == -1 and viewer.merc_selector.disabled
 			and viewer.stored_key("salary") == "team/salary",
 		"got %d on '%s'" % [viewer.current_uid(), viewer.stored_key("salary")])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	viewer.queue_free()
 
@@ -1396,18 +1543,18 @@ static func _case_metric_locks(res: Dictionary, host: Node) -> void:
 		dropped and viewer.chart.series_count() == plotted,
 		"keys %s with %d series" % [str(viewer.metric_list.active_keys("Guild")),
 			viewer.chart.series_count()])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	viewer.queue_free()
 
 
 #The period table on three dates of a Trynn year: the first day, mid year and the last day.
 static func _case_period_rules(res: Dictionary) -> void:
+	var all_start: int = MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_START)
+	var all_mid: int = MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_MID)
+	var all_end: int = MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_END)
 	TestFixtures.check(res, "All Time names no day count of its own on any date",
-		MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_START) == -1
-			and MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_MID) == -1
-			and MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_END) == -1,
-		"got %d" % MetricsPeriod.period_days(MetricsPeriod.Period.ALL_TIME, YEAR_MID))
+		all_start == -1 and all_mid == -1 and all_end == -1, "got %d" % all_mid)
 	var ytd_start: int = MetricsPeriod.period_days(MetricsPeriod.Period.YTD, YEAR_START)
 	var ytd_mid: int = MetricsPeriod.period_days(MetricsPeriod.Period.YTD, YEAR_MID)
 	var ytd_end: int = MetricsPeriod.period_days(MetricsPeriod.Period.YTD, YEAR_END)
@@ -1613,24 +1760,20 @@ static func _tab_tone_ok(id: String) -> bool:
 			if px.a <= 0.0:
 				continue
 			seen += 1
-			if not (_same_rgb(px, Icons.TAB_ON_LIGHT) or _same_rgb(px, Icons.TAB_ON_MID)
-					or _same_rgb(px, Icons.TAB_ON_INK)):
+			var on_tab: bool = false
+			for tone: Color in [Icons.TAB_ON_LIGHT, Icons.TAB_ON_MID, Icons.TAB_ON_INK]:
+				on_tab = on_tab or GuiIconTests.same_rgb(px, tone)
+			if not on_tab:
 				return false
 	return seen > 0
 
 
-static func _same_rgb(a: Color, b: Color) -> bool:
-	return a.r8 == b.r8 and a.g8 == b.g8 and a.b8 == b.b8
-
-
-#Item 11: the Show All and Hide All buttons are blue BevelButton; Compare stays a plain toggle.
+#The Show All and Hide All buttons are blue BevelButton; Compare stays a plain toggle.
 static func _case_bevel_sweep(res: Dictionary, host: Node) -> void:
 	var viewer: MetricsViewer = await _open(host)
 	TestFixtures.check(res, "Show All and Hide All are blue BevelButton with their own labels",
-		viewer.show_all is BevelButton and viewer.show_all.kind == &"blue"
-		and viewer.show_all.text == MetricsViewer.SHOW_ALL_TEXT
-		and viewer.hide_all is BevelButton and viewer.hide_all.kind == &"blue"
-		and viewer.hide_all.text == MetricsViewer.HIDE_ALL_TEXT,
+		GuiKitTests.is_bevel(viewer.show_all, &"blue", MetricsViewer.SHOW_ALL_TEXT)
+		and GuiKitTests.is_bevel(viewer.hide_all, &"blue", MetricsViewer.HIDE_ALL_TEXT),
 		"show %s hide %s" % [viewer.show_all, viewer.hide_all])
 	TestFixtures.check(res, "Compare stays the plain +/- toggle, not a BevelButton",
 		not (viewer.compare_button is BevelButton), "%s" % [viewer.compare_button])
@@ -1649,3 +1792,11 @@ static func _case_bevel_sweep(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "Show All still turns every metric back on",
 		not viewer.metric_list.active_keys(viewer.source()).is_empty(), "still empty")
 	viewer.queue_free()
+
+
+#Every graph tab fits the 1280 x 644 band and clears the close X.
+static func _case_window_fit(res: Dictionary, host: Node) -> void:
+	await GuiClientTests.check_tabs_fit(res, host, VIEWER_SCENE,
+		"the %s graph fits the window and clears the close X",
+		func(screen: Control) -> Array: return (screen as MetricsViewer).tabs.keys,
+		func(screen: Control, key: StringName) -> void: (screen as MetricsViewer).select_source(String(key)))

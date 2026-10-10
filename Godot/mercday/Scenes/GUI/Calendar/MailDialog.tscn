@@ -1,0 +1,14 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ModalDialog.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/MailDialog.gd" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mail/MailReader.tscn" id="3"]
+
+[node name="MailDialog" instance=ExtResource("1")]
+script = ExtResource("2")
+reader_path = NodePath("Box/Pad/Rows/Reader")
+
+[node name="Reader" parent="Box/Pad/Rows" instance=ExtResource("3")]
+custom_minimum_size = Vector2(0, 320)
+layout_mode = 2
+compact = true

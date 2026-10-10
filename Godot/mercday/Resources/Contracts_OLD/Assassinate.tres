@@ -1,0 +1,105 @@
+[gd_resource type="Resource" script_class="ContractData" format=3]
+
+[ext_resource type="Script" uid="uid://da43dc1r0v65k" path="res://Scripts/Resources/ContractData.gd" id="1_ContractData"]
+
+[resource]
+script = ExtResource("1_ContractData")
+contract_type = "Assassinate"
+contract_name = "Assassinate"
+level_min = 0
+level_max = 0
+issuer_type = ""
+issuer = ""
+difficulty_min = 0.0
+difficulty_max = 0.0
+story = false
+style = ""
+roles = Array[String]([])
+target = ""
+completion = ""
+event_config = ""
+time_minutes = 0
+consequence = ""
+descriptions = Array[String]([])
+primary_event_pool = Array[String](["Poison the Target", "Battle"])
+mishap_pool = Array[String](["Tavern Brawl"])
+stat_boosts = {
+"Accuracy": 10.0,
+"Assassinate": 15.0,
+"Avoid": 10.0,
+"Avoid Ranged": 10.0,
+"Cognition": 10.0,
+"Dexterity": 15.0,
+"Espionage": 5.0,
+"Luck": 5.0,
+"Parkour": 5.0,
+"Reroll": 5.0
+}
+circumstance_boosts = {
+"Clever (Cognition)": 5.0,
+"Finesse (Dexterity)": 15.0,
+"Grace (Dexterity)": 10.0,
+"Intuition (Cognition)": 5.0,
+"Notice (Cognition)": 5.0,
+"Performance (Wile)": 5.0
+}
+tool_boosts = {
+"Assassin's": 15.0,
+"Climber's": 5.0,
+"Forger's": 5.0,
+"Infiltrator's": 15.0,
+"Investigator's": 10.0,
+"Locksmith's": 10.0,
+"Navigator's": 5.0,
+"Poisoner's": 15.0,
+"Scout's": 10.0
+}
+knowledge_boosts = {
+"Chivalry": 5.0,
+"Dramaturgy": 10.0,
+"Dueling": 10.0,
+"High Society": 5.0,
+"Hunting": 10.0,
+"Psychology": 15.0,
+"Reconnaissance": 15.0,
+"Tactics": 10.0,
+"Thanatology": 5.0,
+"Toxicology": 15.0
+}
+tradition_boosts = {
+"Chymist": 5.0,
+"Hellion": 15.0,
+"Performer": 10.0
+}
+penalties = Array[Dictionary]([{
+"expr": "tradition = warrior",
+"percent": 15.0
+}, {
+"expr": "3 <= team.merc_count",
+"percent": 10.0
+}, {
+"expr": "3 <= size",
+"percent": 5.0
+}])
+description_template = "Assassinate [target.name] at [location_a.name]"
+target_categories = Array[String](["Leader"])
+possible_traits = Array[String]([])
+possible_locations = Array[String]([])
+terrain_odds = Array[Dictionary]([])
+reward_notes = 0
+max_mercs = 0
+difficulty = 0.0
+contract_level = 0
+unsavory = false
+assigned_primary_event = ""
+rolled_mishaps = Array[String]([])
+location_a = ""
+location_b = ""
+description = ""
+target_name = ""
+requestor_name = ""
+team_uids = Array[int]([])
+status = "Type"
+rescue_merc_uid = 0
+rescue_kind = ""
+rescue_merc_name = ""

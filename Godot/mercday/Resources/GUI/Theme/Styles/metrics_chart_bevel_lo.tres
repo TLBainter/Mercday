@@ -2,12 +2,6 @@
 
 [resource]
 draw_center = false
-border_width_left = 0
-border_width_top = 0
 border_width_right = 4
 border_width_bottom = 4
 border_color = Color(0.066667, 0.109804, 0.200000, 1)
-corner_radius_top_left = 0
-corner_radius_top_right = 0
-corner_radius_bottom_right = 0
-corner_radius_bottom_left = 0

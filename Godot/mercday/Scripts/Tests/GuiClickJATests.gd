@@ -8,7 +8,6 @@ extends RefCounted
 
 const TREE: PackedScene = preload("res://Scenes/GUI/Subscription/SkillTree.tscn")
 const VIEWER: PackedScene = preload("res://Scenes/GUI/Promotions/PromotionsViewer.tscn")
-const HUD_SCENE: String = "res://Scenes/GUI/HUD/GameHUD.tscn"
 const BANK: int = 20000
 #README I1: a finished category box reads bg #123321 with the full progress green ring.
 const DONE_BG: Color = Color("#123321")
@@ -25,9 +24,6 @@ const FLYERS_BOOSTED: String = "2.5%"
 const NO_RADIO_TOWNS: Array[String] = ["Buern", "Rossade", "Vaernebo"]
 #README J7: Buern has no radio mast but Sponsorship can still reach it.
 const BUERN_LOC: int = 0
-#README E1 and I2: the copy of the locked My Promotions tile.
-const LOCK_LINE1: String = "Promotions is locked."
-const LOCK_LINE2: String = "It requires the Promotions upgrade."
 #README 464: the box and its line back to Base read this orange once a tier drops below full.
 const ORANGE: Color = Color("#f28c28")
 #README 506: "Top-right hint "Up to N days" / "No limit"."
@@ -74,7 +70,7 @@ static func run(host: Node) -> bool:
 	CampaignClock.minutes = clock
 	LegalManager.reset()
 	PromotionsManager.reset()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	TestFixtures.reset_campaign()
 	return TestFixtures.summarize(res, "GUI CLICK JA")
@@ -85,7 +81,7 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	LegalManager.reset()
 	PromotionsManager.reset()
@@ -95,7 +91,7 @@ static func _fresh() -> void:
 #Enterprise holding exactly the tiers the step names. reset() runs first, because set_state
 #keeps an entitlement override an earlier case may have left behind.
 static func _plan_with(tiers: Dictionary) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, tiers)
 
 
@@ -144,7 +140,7 @@ static func _top_arm_of(cat: String) -> Vector2:
 #Every town gets its Operations Permit, so the only note a location card can carry is the
 #radio note of the step. On a fresh game two towns hold a permit and seven do not.
 static func _grant_permits() -> void:
-	for i: int in range(TraitFilterDefs.LOCATION_COUNT):
+	for i: int in range(CampaignTypeDefs.LOCATION_COUNT):
 		LegalManager.permits[i] = {"ops": true, "tele": true}
 
 
@@ -339,11 +335,7 @@ static func _case_j02_shared_stem(res: Dictionary, tree: SkillTree) -> void:
 static func _case_j03_hud_lock(res: Dictionary, host: Node) -> void:
 	_fresh()
 	_plan_with({})
-	var scene: PackedScene = load(HUD_SCENE) as PackedScene
-	var hud: GameHUD = scene.instantiate() as GameHUD
-	hud.autostart = false
-	host.add_child(hud)
-	hud.wire_for_test()
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var tile: GridMenuButton = hud.button_of(&"promotions")
 	TestFixtures.check(res, "J3 Enterprise without the upgrade locks the My Promotions tile",
@@ -358,22 +350,15 @@ static func _case_j03_hud_lock(res: Dictionary, host: Node) -> void:
 	tile.press()
 	await host.get_tree().process_frame
 	var dialog: FeatureLockDialog = hud.lock_dialog()
-	var line1: String = "" if dialog == null else dialog.line1_label.text
-	var line2: String = "" if dialog == null else dialog.line2_label.text
+	var lines: Array[String] = GuiHudTests.lock_lines(hud)
 	TestFixtures.check(res, "J3 the locked tile opens the upgrade copy and never the window",
 		dialog != null and dialog.visible and not hud.popup().is_open()
-		and line1 == LOCK_LINE1 and line2 == LOCK_LINE2,
-		"%s / %s" % [line1, line2])
+		and lines[0] == GuiHudTests.PROMO_UP_LINE1 and lines[1] == GuiHudTests.PROMO_UP_LINE2,
+		"%s / %s" % [lines[0], lines[1]])
 	if dialog == null:
 		hud.queue_free()
 		return
-	var seen: Array[Dictionary] = []
-	var catcher: Callable = func(target: Dictionary) -> void:
-		seen.append(target)
-	GameState.go_to_plans_requested.connect(catcher)
-	dialog.press_take_me_there()
-	GameState.go_to_plans_requested.disconnect(catcher)
-	var got: Dictionary = {} if seen.is_empty() else seen[0]
+	var got: Dictionary = GuiHudTests.press_take_me_there(dialog)
 	TestFixtures.check(res, "J3 Take Me There lands on the Promotions upgrade of Customize",
 		String(got.get("tab", "")) == "customize"
 		and String(got.get("upgrade", "")) == "promotions"
@@ -565,7 +550,7 @@ static func _case_j05_unit_locks(res: Dictionary, viewer: PromotionsViewer) -> v
 
 
 #README J5: "Infinite disables qty and shows the monthly notice; launching Infinite charges
-#one month and adds an Ads expense in Finance."
+#one month and adds an Ads expense in Finance." Billing is by the day: launch pays to the first bill date.
 static func _case_j05_infinite(res: Dictionary, viewer: PromotionsViewer) -> void:
 	_fresh()
 	_plan_with({"promotions": 1, "longpromos": 5})
@@ -582,23 +567,27 @@ static func _case_j05_infinite(res: Dictionary, viewer: PromotionsViewer) -> voi
 		"infinite %s alpha %.2f" % [dur.is_infinite(), dur.quantity_stepper().modulate.a])
 	TestFixtures.check(res, "J5 an Infinite campaign shows the monthly notice",
 		builder.chip_shown()
-		and CampaignBuilder.CHIP_TEXT == "Billed monthly, starting immediately",
-		CampaignBuilder.CHIP_TEXT)
+		and builder.chip_label.text == "Billed monthly on the %s" % builder.bill_ordinal(),
+		builder.chip_label.text)
 	var month: int = CampaignTypeDefs.monthly_cost(&"flyers")
-	TestFixtures.check(res, "J5 an Infinite campaign is priced at one month up front",
-		month == 150 and builder.cost() == month and builder.cost_text().ends_with("/ month"),
-		"%d notes, %s" % [builder.cost(), builder.cost_text()])
+	var first: int = PromotionsManager.first_charge(&"flyers", GameState.day())
+	var days: int = PromotionsManager.first_bill_days(GameState.day())
+	TestFixtures.check(res, "J5 an Infinite campaign shows its month and charges the days to its first bill",
+		month == 150 and first == 5 * days and builder.cost() == first
+		and builder.cost_text() == "150 / month",
+		"%d notes of %d over %d days, %s" % [builder.cost(), first, days, builder.cost_text()])
 	var bank: int = GameState.bank_notes
 	var ads_before: int = FinanceLedger.ads()
 	var row_before: int = _ads_row()
 	TestFixtures.check(res, "J5 the Infinite campaign is ready to launch",
 		builder.launch_enabled(), builder.reason_text())
 	builder.press_launch()
-	TestFixtures.check(res, "J5 launching an Infinite campaign charges one month at once",
-		not builder.is_open() and GameState.bank_notes == bank - month,
+	TestFixtures.check(res, "J5 launching an Infinite campaign charges the pro-rated first bill at once",
+		not builder.is_open() and GameState.bank_notes == bank - first,
 		"bank %d of %d" % [GameState.bank_notes, bank])
-	TestFixtures.check(res, "J5 the launch adds its month to the Ads expense of Finance",
-		FinanceLedger.ads() == ads_before + month and _ads_row() == row_before + month
+	var next_bill: int = PromotionsManager.next_bill_amount(PromotionsManager.campaigns.back())
+	TestFixtures.check(res, "J5 the launch adds its next bill to the Ads expense of Finance",
+		next_bill > 0 and FinanceLedger.ads() == ads_before + next_bill and _ads_row() == row_before + next_bill
 		and PromotionsManager.monthly_ad_bill() == FinanceLedger.ads(),
 		"ads %d of %d, row %d of %d" % [FinanceLedger.ads(), ads_before, _ads_row(), row_before])
 
@@ -677,7 +666,7 @@ static func _case_j07_targets(res: Dictionary, viewer: PromotionsViewer) -> void
 	builder.pick_type(&"radio")
 	var blocked: Array[String] = []
 	var open_towns: Array[String] = []
-	for i: int in range(TraitFilterDefs.LOCATION_COUNT):
+	for i: int in range(CampaignTypeDefs.LOCATION_COUNT):
 		var tile: ModuleTile = guild.tile_for(GuildTargeting.LOC_KEY, i)
 		if tile == null:
 			continue
@@ -688,7 +677,7 @@ static func _case_j07_targets(res: Dictionary, viewer: PromotionsViewer) -> void
 	TestFixtures.check(res, "J7 Radio cannot reach Buern, Rossade or Vaernebo",
 		blocked == NO_RADIO_TOWNS, "%s" % [blocked])
 	TestFixtures.check(res, "J7 Radio reaches every other town",
-		open_towns.size() == TraitFilterDefs.LOCATION_COUNT - NO_RADIO_TOWNS.size(),
+		open_towns.size() == CampaignTypeDefs.LOCATION_COUNT - NO_RADIO_TOWNS.size(),
 		"%d towns" % [open_towns.size()])
 	var first: ModuleTile = guild.tile_for(GuildTargeting.LOC_KEY, 0)
 	TestFixtures.check(res, "J7 a town with no mast is greyed and says why",
@@ -730,22 +719,23 @@ static func _case_j07_targets(res: Dictionary, viewer: PromotionsViewer) -> void
 		guild.locations().is_empty(), "%s" % [guild.locations()])
 	builder.pick_type(&"sponsor")
 	var loc_missing: Array[String] = _check_boxes(guild, GuildTargeting.LOC_KEY,
-		TraitFilterDefs.LOCATION_COUNT)
+		CampaignTypeDefs.LOCATION_COUNT)
 	TestFixtures.check(res, "J7 every Location card carries its checkbox",
 		loc_missing.is_empty() and is_equal_approx(ModuleTile.CHECK_PX, 16.0),
-		TestFixtures.detail(loc_missing, TraitFilterDefs.LOCATION_COUNT, "cards"))
+		TestFixtures.detail(loc_missing, CampaignTypeDefs.LOCATION_COUNT, "cards"))
 	builder.press_close()
 	_plan_with({"promotions": 1, "promomethods": 3, "marketing": 2, "guildpromo": 4})
 	viewer.press_new()
 	builder.pick_type(&"flyers")
 	var type_missing: Array[String] = _check_boxes(guild, GuildTargeting.TYPE_KEY,
-		TraitFilterDefs.CONTRACT_TYPE_COUNT)
+		TraitFilterDefs.contract_type_count())
 	TestFixtures.check(res, "J7 every Contract Type card carries its checkbox",
 		type_missing.is_empty(),
-		TestFixtures.detail(type_missing, TraitFilterDefs.CONTRACT_TYPE_COUNT, "cards"))
+		TestFixtures.detail(type_missing, TraitFilterDefs.contract_type_count(), "cards"))
 	guild.toggle_type(0)
 	TestFixtures.check(res, "J7 a picked Contract Type card ticks its checkbox",
-		guild.contract_types().size() == 1 and guild.contract_types()[0] == 0
+		guild.contract_types().size() == 1 and guild.contract_types()[0] ==
+		ContractLibrary.contract_type_names()[0]
 		and guild.tile_for(GuildTargeting.TYPE_KEY, 0).selected,
 		"%s" % [guild.contract_types()])
 	builder.press_close()
@@ -825,7 +815,7 @@ static func _case_j08_guild_tiers(res: Dictionary, viewer: PromotionsViewer) -> 
 				min_open and max_open and type_open,
 				"%s %s %s" % [min_open, max_open, type_open])
 			TestFixtures.check(res, "J8 the open Contract Type section holds every type",
-				types.tiles().size() == TraitFilterDefs.CONTRACT_TYPE_COUNT,
+				types.tiles().size() == TraitFilterDefs.contract_type_count(),
 				"%d tiles" % [types.tiles().size()])
 		builder.press_close()
 	TestFixtures.check(res, "J8 the four Guild Promo tiers open Min, Max and Contract Type in turn",

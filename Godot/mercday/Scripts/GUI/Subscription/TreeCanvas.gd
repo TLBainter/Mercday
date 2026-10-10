@@ -68,8 +68,9 @@ func block_position(id: String) -> Vector2:
 func refresh() -> void:
 	var tiers: Dictionary = SubscriptionManager.tiers()
 	var enterprise: bool = SubscriptionManager.plan() == SubscriptionManager.Plan.ENTERPRISE
-	_lines = TreeLayout.build_connectors(tiers, enterprise)
-	for row: Dictionary in TreeLayout.gates_for(tiers, enterprise):
+	var built: Dictionary = TreeLayout.build(tiers, enterprise)
+	_lines = built["lines"]
+	for row: Dictionary in built["gates"]:
 		var node: RequirementGate = gate(String(row["id"]))
 		if node != null:
 			node.setup(String(row["id"]), int(row["have"]), int(row["need"]))
@@ -90,7 +91,7 @@ func _build() -> void:
 		box.mouse_entered.connect(_on_enter.bind("cat", cat, box))
 		box.mouse_exited.connect(_on_exit)
 		_boxes[cat] = box
-	for row: Dictionary in TreeLayout.gates({}):
+	for row: Dictionary in TreeLayout.gates_for({}):
 		var id: String = String(row["id"])
 		var node: RequirementGate = GATE_SCENE.instantiate() as RequirementGate
 		node.name = "Gate_" + id
@@ -107,14 +108,10 @@ func _build() -> void:
 		add_child(mod)
 		mod.setup(id)
 		mod.position = block_position(id)
-		mod.pressed_block.connect(_on_block_pressed)
+		mod.pressed_block.connect(block_pressed.emit)
 		mod.mouse_entered.connect(_on_enter.bind("block", id, mod))
 		mod.mouse_exited.connect(_on_exit)
 		_blocks[id] = mod
-
-
-func _on_block_pressed(id: String) -> void:
-	block_pressed.emit(id)
 
 
 func _on_enter(kind: String, key: String, node: Control) -> void:
@@ -135,8 +132,8 @@ func _draw() -> void:
 		var b: Vector2 = points[points.size() - 1] + lift
 		var first: Color = row["color_a"]
 		var last: Color = row["color_b"]
-		var ca: Color = _fade(first, float(row["alpha"]))
-		var cb: Color = _fade(last, float(row["alpha"]))
+		var ca: Color = GuiColors.fade(first, float(row["alpha"]))
+		var cb: Color = GuiColors.fade(last, float(row["alpha"]))
 		if ca == cb:
 			draw_rect(bar_rect(a, b), ca)
 			continue
@@ -163,7 +160,3 @@ static func quad_points(a: Vector2, b: Vector2) -> PackedVector2Array:
 
 func _blend(ca: Color, cb: Color) -> PackedColorArray:
 	return PackedColorArray([ca, ca, cb, cb])
-
-
-func _fade(c: Color, a: float) -> Color:
-	return Color(c.r, c.g, c.b, c.a * a)

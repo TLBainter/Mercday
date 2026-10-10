@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://bg8knes2rqwn0"
+path="res://.godot/imported/ESM_Empire_Game_Settlement_UI_Open_Paper_Quest_Log_2_UI_Crinkle_Map_Menu.wav-79b110aeb8046cb59e2d584deb549973.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/UX/Summon Window/ESM_Empire_Game_Settlement_UI_Open_Paper_Quest_Log_2_UI_Crinkle_Map_Menu.wav"
+dest_files=["res://.godot/imported/ESM_Empire_Game_Settlement_UI_Open_Paper_Quest_Log_2_UI_Crinkle_Map_Menu.wav-79b110aeb8046cb59e2d584deb549973.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

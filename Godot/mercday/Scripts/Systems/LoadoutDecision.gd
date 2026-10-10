@@ -26,13 +26,7 @@ static func _carries_ammo_for(merc: MercenaryData, w: WeaponData) -> bool:
 		var loaded: AmmoData = DataManager.ammo.get(merc.ammo_loaded_type, null) as AmmoData
 		if loaded != null and loaded.compatible.has(w.weapon_type):
 			return true
-	for ammo_name: String in merc.ammo_inventory:
-		if int(merc.ammo_inventory[ammo_name]) <= 0:
-			continue
-		var data: AmmoData = DataManager.ammo.get(ammo_name, null) as AmmoData
-		if data != null and data.compatible.has(w.weapon_type):
-			return true
-	return false
+	return WeaponEvaluator.has_compatible_ammo(merc, w)
 
 
 static func weapon_value(merc: MercenaryData, w: WeaponData) -> float:
@@ -63,13 +57,9 @@ static func candidates(merc: MercenaryData) -> Array[Dictionary]:
 		out.append(_weapon_candidate(merc, merc.equipped_weapon, "equipped"))
 	if merc.offhand_weapon != null and not merc.offhand_weapon.is_virtual:
 		out.append(_weapon_candidate(merc, merc.offhand_weapon, "offhand"))
-	for entry: Dictionary in merc.inventory:
-		if entry.get("type") != "weapon":
-			continue
-		var w: WeaponData = entry.get("data") as WeaponData
-		if w == null or w.is_virtual:
-			continue
-		out.append(_weapon_candidate(merc, w, "inventory"))
+	for w: WeaponData in merc.inventory_weapons():
+		if not w.is_virtual:
+			out.append(_weapon_candidate(merc, w, "inventory"))
 	for ammo_name: String in merc.ammo_inventory:
 		var reserve: int = int(merc.ammo_inventory[ammo_name])
 		if reserve < 1:
@@ -97,11 +87,8 @@ static func _weapon_count(merc: MercenaryData) -> int:
 		count += 1
 	if merc.offhand_weapon != null and not merc.offhand_weapon.is_virtual:
 		count += 1
-	for entry: Dictionary in merc.inventory:
-		if entry.get("type") != "weapon":
-			continue
-		var w: WeaponData = entry.get("data") as WeaponData
-		if w != null and not w.is_virtual:
+	for w: WeaponData in merc.inventory_weapons():
+		if not w.is_virtual:
 			count += 1
 	return count
 
@@ -187,7 +174,7 @@ static func settle(merc: MercenaryData) -> Array[String]:
 		_drop_candidate(merc, pick)
 		StatCalculator.refresh(merc)
 		dropped = true
-		lines.append(Encumbrance.drop_line(merc, pick))
+		lines.append(drop_line(merc, pick))
 	if dropped or Encumbrance.over_by(merc) >= 0:
 		lines.append(Encumbrance.line(merc))
 	return lines
@@ -214,3 +201,18 @@ static func shed_for(merc: MercenaryData, w: WeaponData) -> Dictionary:
 	if _weapon_count(merc) <= 1:
 		pool = _ammo_only(pool)
 	return _best_candidate(pool, over_after)
+
+
+#The burden constants the loadout decision weighs a carried item against.
+static func loadout_rules_line() -> String:
+	return ("LOADOUT RULES: at limit %.1f, per point %.1f, ammo bundle %.1f,"
+		+ " no-ammo ranged x%.2f, makeshift x%.2f, equipped +%.1f") % [
+		AT_LIMIT_BURDEN, PER_POINT_BURDEN, AMMO_BUNDLE_VALUE,
+		NO_AMMO_RANGED_FACTOR, MAKESHIFT_FACTOR, EQUIPPED_BONUS]
+
+
+#One put-down reported as a line: the item, what it weighed and the load left after it.
+static func drop_line(merc: MercenaryData, pick: Dictionary) -> String:
+	return "LOADOUT DROP: %s drops %s (wt %d, value %.1f, relief %.1f) -> %d/%d" % [
+		merc.merc_name, str(pick["name"]), int(pick["weight"]), float(pick["value"]),
+		float(pick.get("relief", 0.0)), Encumbrance.carried_weight(merc), Encumbrance.weight_limit(merc)]

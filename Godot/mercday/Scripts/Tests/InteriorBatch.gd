@@ -35,9 +35,7 @@ static func run(host: Node, count: int) -> void:
 			field.width, field.length, field.interior_rooms.size(),
 			field.footprint_union.size(), ms])
 		if i < DUMP_FIRST:
-			var stem: String = "%s/%s/interior_gen_%03d" % [EncounterLogger.LOG_DIR, SUB_DIR, i]
-			HtmlWireframeGenerator.save(field, stem)
-			LevelDumpWriter.save(field, stem)
+			TestFixtures.dump_gen(field, SUB_DIR, i)
 		if (i + 1) % YIELD_EVERY == 0:
 			await host.get_tree().process_frame
 	var hist: Array[String] = []

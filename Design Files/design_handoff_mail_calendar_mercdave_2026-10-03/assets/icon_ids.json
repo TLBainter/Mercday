@@ -1,0 +1,206 @@
+{
+ "mail": {
+  "col": 0,
+  "row": 0,
+  "source": "new (add-on)",
+  "tint": "full color"
+ },
+ "mail_open": {
+  "col": 1,
+  "row": 0,
+  "source": "new (add-on)",
+  "tint": "full color"
+ },
+ "calendar": {
+  "col": 2,
+  "row": 0,
+  "source": "new (add-on)",
+  "tint": "full color"
+ },
+ "request": {
+  "col": 3,
+  "row": 0,
+  "source": "new (add-on)",
+  "tint": "full color"
+ },
+ "bill": {
+  "col": 4,
+  "row": 0,
+  "source": "new (add-on)",
+  "tint": "full color"
+ },
+ "news": {
+  "col": 5,
+  "row": 0,
+  "source": "new (add-on)",
+  "tint": "full color"
+ },
+ "mercdave_screen": {
+  "col": 6,
+  "row": 0,
+  "source": "new (add-on)",
+  "tint": "full color"
+ },
+ "bell": {
+  "col": 0,
+  "row": 1,
+  "source": "main atlas 9,0",
+  "tint": "full color"
+ },
+ "sun_rising": {
+  "col": 1,
+  "row": 1,
+  "source": "main atlas 5,5",
+  "tint": "full color"
+ },
+ "coin": {
+  "col": 2,
+  "row": 1,
+  "source": "main atlas 12,5",
+  "tint": "full color"
+ },
+ "chart_arrow": {
+  "col": 3,
+  "row": 1,
+  "source": "main atlas 5,11",
+  "tint": "mono: tint with modulate"
+ },
+ "money_bag": {
+  "col": 4,
+  "row": 1,
+  "source": "main atlas 0,5",
+  "tint": "full color"
+ },
+ "contracts": {
+  "col": 5,
+  "row": 1,
+  "source": "main atlas 1,0",
+  "tint": "full color"
+ },
+ "parcel": {
+  "col": 6,
+  "row": 1,
+  "source": "main atlas 10,5",
+  "tint": "full color"
+ },
+ "alert": {
+  "col": 7,
+  "row": 1,
+  "source": "main atlas 4,2",
+  "tint": "full color"
+ },
+ "check_sm": {
+  "col": 8,
+  "row": 1,
+  "source": "main atlas 3,2",
+  "tint": "full color"
+ },
+ "lock": {
+  "col": 9,
+  "row": 1,
+  "source": "main atlas 15,2",
+  "tint": "mono: tint with modulate"
+ },
+ "person": {
+  "col": 10,
+  "row": 1,
+  "source": "main atlas 1,4",
+  "tint": "mono: tint with modulate"
+ },
+ "person_outline": {
+  "col": 11,
+  "row": 1,
+  "source": "main atlas 0,4",
+  "tint": "mono: tint with modulate"
+ },
+ "house": {
+  "col": 12,
+  "row": 1,
+  "source": "main atlas 2,4",
+  "tint": "mono: tint with modulate"
+ },
+ "building": {
+  "col": 13,
+  "row": 1,
+  "source": "main atlas 3,4",
+  "tint": "mono: tint with modulate"
+ },
+ "mercs": {
+  "col": 14,
+  "row": 1,
+  "source": "main atlas 0,0",
+  "tint": "full color"
+ },
+ "prohibited": {
+  "col": 15,
+  "row": 1,
+  "source": "main atlas 7,2",
+  "tint": "full color"
+ },
+ "face_m5": {
+  "col": 0,
+  "row": 2,
+  "source": "main atlas 1,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_m4": {
+  "col": 1,
+  "row": 2,
+  "source": "main atlas 2,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_m3": {
+  "col": 2,
+  "row": 2,
+  "source": "main atlas 3,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_m2": {
+  "col": 3,
+  "row": 2,
+  "source": "main atlas 4,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_m1": {
+  "col": 4,
+  "row": 2,
+  "source": "main atlas 5,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_0": {
+  "col": 5,
+  "row": 2,
+  "source": "main atlas 6,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_p1": {
+  "col": 6,
+  "row": 2,
+  "source": "main atlas 7,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_p2": {
+  "col": 7,
+  "row": 2,
+  "source": "main atlas 8,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_p3": {
+  "col": 8,
+  "row": 2,
+  "source": "main atlas 9,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_p4": {
+  "col": 9,
+  "row": 2,
+  "source": "main atlas 10,7",
+  "tint": "modulate with Guild Opinion color"
+ },
+ "face_p5": {
+  "col": 10,
+  "row": 2,
+  "source": "main atlas 11,7",
+  "tint": "modulate with Guild Opinion color"
+ }
+}

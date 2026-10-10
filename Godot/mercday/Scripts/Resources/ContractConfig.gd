@@ -8,6 +8,8 @@ class_name ContractConfig extends Resource
 @export var default_max_mercs: int = 3
 @export var default_contract_type: String = "Military"
 @export var mishap_relevance_bonus_percent: float = 15.0
+#Checks.tsv check points per die by contract difficulty, stars 0.5 to 5 in half steps (index i is 0.5 + 0.5 * i).
+@export var difficulty_check_points: Array[float] = [25.0, 18.0, 9.0, 5.0, 3.0, 0.0, -3.0, -5.0, -8.0, -12.0]
 @export var bad_luck_step: int = 10
 #A wilderness Respite ambush: its base percent, the weight Luck buys it down by, its floor and the per-miss climb.
 @export var ambush_base_chance: float = 25.0
@@ -51,4 +53,3 @@ class_name ContractConfig extends Resource
 @export var board_distance_max_km: int = 120
 @export var board_gap_hours: int = 6
 @export var board_merc_min: int = 1
-@export var board_issuer_types: int = 4

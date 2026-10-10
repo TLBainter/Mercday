@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://i3qlpho765j8"
+path="res://.godot/imported/BRS_Button_Metal_Sml_Loose_Push_4.wav-743aa3c7b0526a997bae9955e7112c04.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/UX/Clicks/Big Button Click/BRS_Button_Metal_Sml_Loose_Push_4.wav"
+dest_files=["res://.godot/imported/BRS_Button_Metal_Sml_Loose_Push_4.wav-743aa3c7b0526a997bae9955e7112c04.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

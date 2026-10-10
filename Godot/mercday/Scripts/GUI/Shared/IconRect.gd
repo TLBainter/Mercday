@@ -50,18 +50,20 @@ func set_icon(tex: Texture2D) -> void:
 
 
 #Points the rect at an atlas cell; -1 keeps the scale and an empty name keeps the mode.
-func set_id(id: String, scale: int = -1, new_mode: StringName = &"") -> void:
-	if scale > 0:
-		pixel_scale = scale
+func set_id(id: String, new_scale: int = -1, new_mode: StringName = &"") -> void:
+	if new_scale > 0:
+		pixel_scale = new_scale
 	if new_mode != &"":
 		mode = new_mode
 	icon_id = id
 
 
+#Test probe: sets mode.
 func set_mode(m: StringName) -> void:
 	mode = m
 
 
+#Test probe: sets pixel_scale.
 func set_pixel_scale(s: int) -> void:
 	pixel_scale = s
 

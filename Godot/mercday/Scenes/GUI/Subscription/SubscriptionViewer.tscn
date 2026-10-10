@@ -1,9 +1,8 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Subscription/SubscriptionViewer.gd" id="1"]
 [ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
-[ext_resource type="StyleBox" path="res://Resources/GUI/Theme/Styles/subs_content.tres" id="3"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/TabButton.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/TabStrip.gd" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Subscription/PlansPage.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Subscription/CustomizePage.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Subscription/PlanSwitchDialog.tscn" id="7"]
@@ -14,6 +13,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource("2")
 script = ExtResource("1")
+tab_strip_path = NodePath("Margin/Rows/TabRowPad/TabRow")
+default_tab = &"plans"
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -35,36 +36,24 @@ theme_override_constants/separation = 0
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/margin_left = 4
-theme_override_constants/margin_right = 4
+theme_override_constants/margin_right = 42
 
 [node name="TabRow" type="HBoxContainer" parent="Margin/Rows/TabRowPad"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
-
-[node name="PlansTab" parent="Margin/Rows/TabRowPad/TabRow" instance=ExtResource("4")]
-layout_mode = 2
-label = "Plans"
-description = "Mercday Plans"
-index = 0
-active = true
-icon_id = "mercday"
-icon_scale = 2
-
-[node name="CustomizeTab" parent="Margin/Rows/TabRowPad/TabRow" instance=ExtResource("4")]
-layout_mode = 2
-label = "Customize"
-description = "Customize"
-index = 1
-icon_id = "customize"
-icon_scale = 2
+script = ExtResource("4")
+keys = Array[StringName]([&"plans", &"customize"])
+labels = Array[String](["Plans", "Customize"])
+tips = Array[String](["Mercday Plans", "Customize"])
+icon_ids = Array[String](["mercday", "customize"])
 
 [node name="PagePanel" type="PanelContainer" parent="Margin/Rows"]
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
-theme_override_styles/panel = ExtResource("3")
+theme_type_variation = &"PageContent"
 
 [node name="PagePad" type="MarginContainer" parent="Margin/Rows/PagePanel"]
 layout_mode = 2

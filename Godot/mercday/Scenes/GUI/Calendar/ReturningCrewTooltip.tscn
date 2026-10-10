@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TooltipPanel.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/ReturningCrewTooltip.gd" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ActiveCrew.tscn" id="3"]
+
+[node name="ReturningCrewTooltip" instance=ExtResource("1")]
+script = ExtResource("2")
+side = &"left"
+body_width = 180.0
+
+[node name="Crew" parent="Rows" instance=ExtResource("3")]
+layout_mode = 2

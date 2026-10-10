@@ -62,13 +62,27 @@ const OUTCOME_WORSE: String = "worse"
 const OFFER_HOURS: int = 72
 const DEADLINE_CALM_HOURS: float = 48.0
 const DEADLINE_WARN_HOURS: float = 24.0
-const DEADLINE_CALM: Color = Color("#9cc6ef")
-const DEADLINE_WARN: Color = Color("#f2b33d")
-const DEADLINE_LATE: Color = Color("#e8583f")
-const ODDS_BANDS: Array[Dictionary] = [{"min": 85, "color": Color("#3fae5a")},
-	{"min": 70, "color": Color("#6cc36a")}, {"min": 55, "color": Color("#5aa6e8")},
-	{"min": 45, "color": Color("#f2b33d")}, {"min": 25, "color": Color("#f28c28")}]
-const ODDS_WORST: Color = Color("#e8583f")
+const DEADLINE_CALM: Color = GuiColors.SKY
+const DEADLINE_WARN: Color = GuiColors.AMBER
+const DEADLINE_LATE: Color = GuiColors.RED
+#Heat ramp of the request sliders: 0 is the best reading for the guild, 1 the worst.
+const HEAT_BEST: Color = GuiColors.RAMP_GREEN
+const HEAT_MID: Color = GuiColors.RAMP_YELLOW
+const HEAT_WORST: Color = Color("#ff3b2f")
+const HEAT_MID_STOP: float = 0.5
+const RATE_HIGH: float = 0.2
+const RATE_MID: float = 0.1
+const RATE_HIGH_COLOR: Color = GuiColors.RED
+const RATE_MID_COLOR: Color = GuiColors.AMBER
+const RATE_LOW_COLOR: Color = GuiColors.GREEN
+const CHANGE_SAME: float = 0.5
+const CHANGE_BIG: float = 15.0
+const CHANGE_NONE: String = "--"
+const CHANGE_FLAT_COLOR: Color = GuiColors.MUTED
+const CHANGE_NEUTRAL_COLOR: Color = GuiColors.LIGHT_BLUE
+const CHANGE_GOOD_COLOR: Color = GuiColors.GREEN
+const CHANGE_BAD_COLOR: Color = GuiColors.RED
+const MONTHS_PER_TERM_YEAR: int = 12
 
 
 #How well one merc talks a lender round: a Performer or a Warrior 40%, Wile 30%, Vigor 30%.
@@ -238,15 +252,12 @@ static func resolve(request_row: Dictionary, roll_a: float, roll_b: float,
 
 
 static func deadline_text(hours: float) -> String:
-	var whole: int = maxi(0, int(floor(hours)))
-	return "Offer Expires in %d Days, %d Hours" % [floori(float(whole) / 24.0), whole % 24]
+	return "Offer Expires in " + GuiDates.duration_text(hours)
 
 
+#The success odds bands GuiTypes holds; odds under zero read as the lowest band.
 static func odds_color(odds: int) -> Color:
-	for band: Dictionary in ODDS_BANDS:
-		if odds >= int(band["min"]):
-			return band["color"] as Color
-	return ODDS_WORST
+	return GuiTypes.odds_color(maxi(0, odds))
 
 
 static func deadline_color(hours: float) -> Color:
@@ -255,26 +266,6 @@ static func deadline_color(hours: float) -> Color:
 	if hours > DEADLINE_WARN_HOURS:
 		return DEADLINE_WARN
 	return DEADLINE_LATE
-
-
-#Heat ramp of the request sliders: 0 is the best reading for the guild, 1 the worst.
-const HEAT_BEST: Color = Color("#4ee06a")
-const HEAT_MID: Color = Color("#f2d33d")
-const HEAT_WORST: Color = Color("#ff3b2f")
-const HEAT_MID_STOP: float = 0.5
-const RATE_HIGH: float = 0.2
-const RATE_MID: float = 0.1
-const RATE_HIGH_COLOR: Color = Color("#e8583f")
-const RATE_MID_COLOR: Color = Color("#f2b33d")
-const RATE_LOW_COLOR: Color = Color("#6cc36a")
-const CHANGE_SAME: float = 0.5
-const CHANGE_BIG: float = 15.0
-const CHANGE_NONE: String = "--"
-const CHANGE_FLAT_COLOR: Color = Color("#5e7699")
-const CHANGE_NEUTRAL_COLOR: Color = Color("#5aa6e8")
-const CHANGE_GOOD_COLOR: Color = Color("#6cc36a")
-const CHANGE_BAD_COLOR: Color = Color("#e8583f")
-const MONTHS_PER_TERM_YEAR: int = 12
 
 
 #The slider colour ramp, bright green through yellow to bright red.
@@ -300,7 +291,7 @@ static func percent_text(rate: float) -> String:
 
 
 static func months_label(n: int) -> String:
-	return "1 Month" if n == 1 else "%d Months" % n
+	return GuiDates.plural(n, "Month")
 
 
 #A term change written as time: months, or years when the change is whole years.

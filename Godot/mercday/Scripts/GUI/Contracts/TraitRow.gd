@@ -7,12 +7,12 @@ class_name TraitRow extends PanelContainer
 const NAME_FONT_PX: int = 10
 const NAME_MIN_FONT_PX: int = 8
 const ELLIPSIS: String = "..."
-const SHARED_COLOR: Color = Color("#f28c28")
+const SHARED_COLOR: Color = GuiColors.ORANGE
 const SHARED_TIP: String = "Shared from the leader"
 
 
 @onready var name_label: Label = $Rows/Name
-@onready var stars: DifficultyStars = $Rows/Stars
+@onready var stars: Stars = $Rows/Stars
 
 var _full_name: String = ""
 var _shared: bool = false
@@ -31,7 +31,7 @@ func set_trait(full_name: String, star_value: float, shared: bool) -> void:
 	else:
 		name_label.remove_theme_color_override("font_color")
 	tooltip_text = "%s\n%s" % [_full_name, SHARED_TIP] if shared else _full_name
-	stars.rating = star_value
+	stars.value = star_value
 	_fit_name()
 
 
@@ -56,7 +56,7 @@ func is_shared() -> bool:
 func stars_value() -> float:
 	if not is_node_ready():
 		return 0.0
-	return stars.rating
+	return stars.value
 
 
 #The row only has a width once the slot has laid it out, and the trait scroll bar can narrow it.

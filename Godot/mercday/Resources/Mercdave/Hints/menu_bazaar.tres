@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MercdaveHint" format=3 uid="uid://cafdg5o30xmh"]
+
+[ext_resource type="Script" uid="uid://dw22ul58vbfaj" path="res://Scripts/Resources/Hints/MercdaveHint.gd" id="1_hint"]
+[ext_resource type="Script" uid="uid://dj3bkp2t6jqjp" path="res://Scripts/Resources/Hints/UnlockTrigger.gd" id="2_unlock"]
+
+[sub_resource type="Resource" id="Resource_unlock"]
+script = ExtResource("2_unlock")
+entitlement = "bazaar"
+
+[resource]
+script = ExtResource("1_hint")
+trigger = SubResource("Resource_unlock")
+face = 2

@@ -8,9 +8,9 @@ signal quantity_changed(qty: int)
 signal unit_changed(unit_key: StringName)
 signal take_me_there(target: Dictionary)
 
-const FONT_SILK: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const CAPTION_COLOR: Color = Color("#9cc6ef")
-const NOTE_COLOR: Color = Color("#5e7699")
+const FONT_SILK: FontVariation = GuiStyle.SILK
+const CAPTION_COLOR: Color = GuiColors.SKY
+const NOTE_COLOR: Color = GuiColors.MUTED
 const CAPTION_SIZE: int = 9
 const NOTE_SIZE: int = 8
 const STEPPER_WIDTH: float = 170.0
@@ -40,8 +40,8 @@ func _ready() -> void:
 	add_theme_constant_override(&"separation", COLUMN_GAP)
 	head.add_theme_constant_override(&"separation", ROW_GAP)
 	row.add_theme_constant_override(&"separation", ROW_GAP)
-	_paint(caption, CAPTION_SIZE, CAPTION_COLOR)
-	_paint(cap_note, NOTE_SIZE, NOTE_COLOR)
+	GuiStyle.paint(caption, FONT_SILK, CAPTION_SIZE, CAPTION_COLOR)
+	GuiStyle.paint(cap_note, FONT_SILK, NOTE_SIZE, NOTE_COLOR)
 	caption.text = CAPTION_TEXT
 	caption.size_flags_horizontal = SIZE_EXPAND_FILL
 	cap_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -51,7 +51,7 @@ func _ready() -> void:
 	stepper.value_changed.connect(_on_qty_changed)
 	unit_field.custom_minimum_size = Vector2(UNIT_WIDTH, 0.0)
 	unit_field.unit_picked.connect(_on_unit_picked)
-	unit_field.take_me_there.connect(_on_take_me_there)
+	unit_field.take_me_there.connect(take_me_there.emit)
 	_apply()
 
 
@@ -160,13 +160,3 @@ func _on_unit_picked(picked: StringName) -> void:
 	_apply()
 	unit_changed.emit(picked)
 	quantity_changed.emit(_qty)
-
-
-func _paint(node: Label, font_size: int, tint: Color) -> void:
-	node.add_theme_font_override(&"font", FONT_SILK)
-	node.add_theme_font_size_override(&"font_size", font_size)
-	node.add_theme_color_override(&"font_color", tint)
-
-
-func _on_take_me_there(target: Dictionary) -> void:
-	take_me_there.emit(target)

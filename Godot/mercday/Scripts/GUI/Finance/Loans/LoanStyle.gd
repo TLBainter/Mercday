@@ -1,49 +1,13 @@
 class_name LoanStyle
 
-#The palette, fonts and small node builders the Loans page screens share, so every card, cell
-#and dialog reads the same colours without a theme resource of its own.
+#The looks only the Loans page screens share: padded boxes, the shaded page button and the stat value
+#cell. The palette, the fonts and the common builders come from GuiColors and GuiStyle.
 
-const BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const PIXEL: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const NOTES_SCENE: String = "res://Scenes/GUI/Shared/NotesLabel.tscn"
-
-const INK: Color = Color("#0a0f1c")
-const NAVY: Color = Color("#0e1628")
-const NAVY2: Color = Color("#15223d")
-const PANEL: Color = Color("#1a2b4d")
-const BLUE: Color = Color("#1f3560")
-const BLUE2: Color = Color("#2b4f8a")
-const BLUE3: Color = Color("#3b6fb6")
-const BEVEL_HI: Color = Color("#28447a")
-const BEVEL_LO: Color = Color("#111c33")
-const ORANGE: Color = Color("#f28c28")
-const ORANGE_HI: Color = Color("#ffb266")
-const ORANGE_LO: Color = Color("#b85a12")
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
-const MUTED: Color = Color("#5e7699")
-const GREEN: Color = Color("#6cc36a")
-const GREEN_HI: Color = Color("#9be29a")
-const RED: Color = Color("#e8583f")
-const RED_X: Color = Color("#ff3b2f")
-const YELLOW: Color = Color("#f2b33d")
-const DIM_TEXT: Color = Color("#8a97ad")
-const BACKDROP: Color = Color(0.0235, 0.0392, 0.0784, 0.72)
-const CLEAR: Color = Color(0.0, 0.0, 0.0, 0.0)
-
-
-static func flat(bg: Color, border_px: int = 0, border: Color = CLEAR) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = bg
-	if border_px > 0:
-		style.border_color = border
-		style.set_border_width_all(border_px)
-	return style
+const ODDS_CAPTION: String = "Approval Odds"
 
 
 static func padded(bg: Color, left: int, top: int, right: int, bottom: int) -> StyleBoxFlat:
-	var style: StyleBoxFlat = flat(bg)
+	var style: StyleBoxFlat = GuiStyle.flat(bg)
 	style.content_margin_left = float(left)
 	style.content_margin_top = float(top)
 	style.content_margin_right = float(right)
@@ -57,78 +21,93 @@ static func panel(bg: Color, pad_h: int, pad_v: int) -> PanelContainer:
 	return box
 
 
-static func text(value: String, size: int, color: Color, bold: bool = false) -> Label:
-	var node := Label.new()
-	node.text = value
-	node.add_theme_font_override("font", BOLD if bold else REGULAR)
-	node.add_theme_font_size_override("font_size", size)
-	node.add_theme_color_override("font_color", color)
-	return node
-
-
-#A body line in the Pixelify face, for the sentences that are not pixel captions.
-static func body(value: String, size: int, color: Color) -> Label:
-	var node := Label.new()
-	node.text = value
-	node.add_theme_font_override("font", PIXEL)
-	node.add_theme_font_size_override("font_size", size)
-	node.add_theme_color_override("font_color", color)
-	return node
-
-
 #Every page button is the core BevelButton scene, shaded from the colour the caller asks for.
 static func button(value: String, bg: Color, fg: Color, height: float) -> Button:
 	var node: BevelButton = BevelButton.make(value, &"blue", Vector2(0.0, height))
-	node.set_colors(bg, bg.lightened(0.25), bg.darkened(0.35), fg)
-	node.add_theme_font_override("font", BOLD)
+	dress_button(node, bg, fg)
+	return node
+
+
+#The page button look on a BevelButton: the shade the caller asks for and the bold 13 px label.
+static func dress_button(node: BevelButton, bg: Color, fg: Color) -> void:
+	shade(node, bg, fg)
+	node.add_theme_font_override("font", GuiStyle.SILK_BOLD)
 	node.add_theme_font_size_override("font_size", 13)
-	return node
 
 
-static func vbox(separation: int) -> VBoxContainer:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", separation)
-	return box
+#Dresses a Loans dialog: the title in the ring colour, the 11 px kicker, the close tip and the
+#page look on the cancel and confirm pair.
+static func dress(dialog: ModalDialog, tip: String) -> void:
+	dialog.title_label.add_theme_color_override(&"font_color", dialog.ring_color)
+	dialog.kicker_label.add_theme_font_size_override(&"font_size", 11)
+	dialog.close_button.tooltip_text = tip
+	dress_button(dialog.cancel_button, GuiColors.BLUE, GuiColors.CREAM)
+	dress_button(dialog.confirm_button, GuiColors.GREEN, GuiColors.INK)
 
 
-static func hbox(separation: int) -> HBoxContainer:
-	var box := HBoxContainer.new()
-	box.add_theme_constant_override("separation", separation)
-	return box
+#The fill, bevel edges and label colour of a page button; its hover and press shades follow the fill.
+static func shade(node: BevelButton, bg: Color, fg: Color) -> void:
+	node.set_colors(bg, bg.lightened(0.25), bg.darkened(0.35), fg)
 
 
-#An amount with the notes glyph; the caller adds it to the tree.
-static func notes(amount: int, color: Color, size: int, glyph: bool = true) -> NotesLabel:
-	var scene: PackedScene = load(NOTES_SCENE) as PackedScene
-	var node: NotesLabel = scene.instantiate() as NotesLabel
-	node.amount = amount
-	node.value_color = color
-	node.font_size = size
-	node.show_glyph = glyph
-	return node
+#A stat value: an amount with the notes glyph when notes is true, else a bold line of text.
+static func value_cell(notes: bool, size: int, color: Color) -> Control:
+	if notes:
+		return GuiStyle.notes(0, size, color)
+	return GuiStyle.label("", GuiStyle.SILK_BOLD, size, color)
 
 
-#One stat cell of a card or a dialog: a small caption over a value node.
-static func stat_cell(caption: String, value: Control, bg: Color = NAVY2) -> PanelContainer:
-	var box: PanelContainer = panel(bg, 10, 8)
-	var col: VBoxContainer = vbox(2)
-	col.add_child(text(caption, 8, SKY))
-	col.add_child(value)
-	box.add_child(col)
-	return box
+#Writes a value_cell node: the amount into a notes label, the text into a plain one.
+static func set_value(node: Control, text: String, amount: int) -> void:
+	if node is NotesLabel:
+		(node as NotesLabel).amount = amount
+	else:
+		(node as Label).text = text
 
 
-#The 4 px ring and inner padding of a modal window.
-static func window_style(ring: Color) -> StyleBoxFlat:
-	var style: StyleBoxFlat = padded(PANEL, 22, 18, 22, 20)
-	style.border_color = ring
-	style.set_border_width_all(4)
-	return style
+#One envoy module: the portrait, the name, the tradition when large, and the fit stars.
+static func envoy_card(row: Dictionary, side: float, art: Array[MercPortrait], large: bool) -> PanelContainer:
+	var card: PanelContainer = panel(GuiColors.ROW_HOVER, 6 if large else 8, 6)
+	var line: HBoxContainer = GuiStyle.hbox(8)
+	line.add_child(LoanGlyphs.envoy_face(row, side, art))
+	var col: VBoxContainer = GuiStyle.vbox(4)
+	col.add_child(GuiStyle.label(String(row.get("name", "")), GuiStyle.SILK_BOLD, 10 if large else 9,
+		GuiColors.CREAM))
+	if large:
+		var tradition: String = String(row.get("tradition", ""))
+		col.add_child(GuiStyle.label(tradition, GuiStyle.BODY, 12, GuiTypes.tradition_color(tradition)))
+	var stars: Stars = Stars.fit_stars(1)
+	stars.value = float(row.get("fit", 0.5))
+	col.add_child(stars)
+	line.add_child(col)
+	card.add_child(line)
+	return card
 
 
-static func dim_backdrop() -> ColorRect:
-	var rect := ColorRect.new()
-	rect.color = BACKDROP
-	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	rect.mouse_filter = Control.MOUSE_FILTER_STOP
-	return rect
+#The approval odds block: the caption, the percent at Head/Value and the meter at Shell/Meter.
+static func odds_block() -> VBoxContainer:
+	var col: VBoxContainer = GuiStyle.vbox(6)
+	var top: HBoxContainer = GuiStyle.hbox(8)
+	top.name = "Head"
+	top.add_child(GuiStyle.label(ODDS_CAPTION, GuiStyle.SILK, 11, GuiColors.ORANGE))
+	top.add_child(GuiStyle.spacer())
+	var value: Label = GuiStyle.label("", GuiStyle.SILK_BOLD, 20, GuiColors.CREAM)
+	value.name = "Value"
+	top.add_child(value)
+	col.add_child(top)
+	var shell: PanelContainer = panel(GuiColors.INK, 2, 2)
+	shell.name = "Shell"
+	var meter := SuccessMeter.new()
+	meter.name = "Meter"
+	meter.stretch = true
+	meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.add_child(meter)
+	col.add_child(shell)
+	return col
+
+
+#Writes an odds block: the percent in its odds colour and the meter fill.
+static func set_odds(label: Label, meter: SuccessMeter, value: int) -> void:
+	label.text = "%d%%" % value
+	label.add_theme_color_override("font_color", LoanLogic.odds_color(value))
+	meter.odds = value

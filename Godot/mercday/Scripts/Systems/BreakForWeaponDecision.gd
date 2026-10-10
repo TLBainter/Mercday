@@ -34,9 +34,7 @@ static func decide_break_for_weapon(
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("BFW_CALL: %s" % merc.merc_name)
 
-	var best_on_hand := WeaponEvaluator._best_available_weapon(merc, enemies, state)
-	var on_hand_score := WeaponEvaluator.score_weapon(best_on_hand, merc, enemies, state) \
-			if best_on_hand != null else -9999.0
+	var on_hand_score := WeaponEvaluator.best_on_hand_score(merc, enemies, state)
 
 	var merc_pos := state.get_position(merc)
 	var merc_floor := state.get_floor(merc)
@@ -44,9 +42,9 @@ static func decide_break_for_weapon(
 
 	if not viable_obs.is_empty():
 		if EncounterLogger.is_active():
-			var _wn: String = merc.equipped_weapon.item_name if merc.equipped_weapon != null else "none"
+			var wn: String = merc.equipped_weapon.item_name if merc.equipped_weapon != null else "none"
 			EncounterLogger.log_verbose("BREAK_FOR_WEAPON EVAL: %s  -  on_hand=%.2f, %d obstacle(s), weapon=%s[%s]" % [
-				merc.merc_name, on_hand_score, viable_obs.size(), _wn,
+				merc.merc_name, on_hand_score, viable_obs.size(), wn,
 				_weapon_damage_label(merc.equipped_weapon, merc)])
 
 	if _bfw_adjacent_choice(merc, enemies, state, viable_obs, on_hand_score):
@@ -61,11 +59,12 @@ static func decide_break_for_weapon(
 
 	var pace := maxi(1, int(merc.stats.get("pace", 1)))
 	var search_radius := mini(12, pace * 4)
-	var merc_acc: float = clampf(float(merc.stats.get("melee_accuracy", 50)) / 100.0, 0.05, 1.0)
 	var merc_wp: WeaponData = merc.equipped_weapon
 	if merc_wp != null and merc_wp.damage_formula_1.is_empty():
 		return no_action
-	var merc_dmg_avg := maxf(1.0, WeaponEvaluator.parse_formula_for_avg(merc_wp.damage_formula_1) if merc_wp != null else 1.0)
+	var hit_rate := _melee_hit_rate(merc)
+	var merc_acc: float = hit_rate["acc"]
+	var merc_dmg_avg: float = hit_rate["dmg_avg"]
 
 	var template_info: Dictionary = _bfw_nearby_templates(state, merc_pos, merc_floor, search_radius)
 
@@ -76,32 +75,29 @@ static func decide_break_for_weapon(
 		EncounterLogger.log_verbose("BREAK_FOR_WEAPON SEARCH: %s  -  %d type(s) within radius=%d, on_hand=%.2f" % [
 			merc.merc_name, template_info.size(), search_radius, on_hand_score])
 
-	var nearest_enemy_dist := 999999
+	var near: Dictionary = MovementDecider.nearest_enemy(merc, enemies, state, -1, true)
+	var nearest_enemy_dist: int = near["dist"]
 	var nearest_enemy_pos := Vector2i(-1, -1)
-	for _ne: MercenaryData in enemies:
-		var _ep := state.get_position(_ne)
-		var _d := maxi(abs(_ep.x - merc_pos.x), abs(_ep.y - merc_pos.y))
-		if _d < nearest_enemy_dist:
-			nearest_enemy_dist = _d
-			nearest_enemy_pos = _ep
+	if near["merc"] != null:
+		nearest_enemy_pos = state.get_position(near["merc"])
 
 	if nearest_enemy_dist <= pace - 1:
 		return no_action
 
-	var _appr: Dictionary = _bfw_best_approach(merc, enemies, state, template_info, on_hand_score,
+	var appr: Dictionary = _bfw_best_approach(merc, enemies, state, template_info, on_hand_score,
 		pace, merc_acc, merc_dmg_avg, nearest_enemy_dist, nearest_enemy_pos)
-	var best_move_pos: Vector2i = _appr["pos"] as Vector2i
-	var best_move_score: float = _appr["score"] as float
-	var best_move_obs_name: String = _appr["obs_name"] as String
-	var best_move_drop_name: String = _appr["drop_name"] as String
-	var best_move_turns: int = _appr["turns"] as int
+	var best_move_pos: Vector2i = appr["pos"] as Vector2i
+	var best_move_score: float = appr["score"] as float
+	var best_move_obs_name: String = appr["obs_name"] as String
+	var best_move_drop_name: String = appr["drop_name"] as String
+	var best_move_turns: int = appr["turns"] as int
 
 	if best_move_pos != Vector2i(-1, -1):
-		var _bmp_floor := state.get_floor(merc)
-		var _adj3 := PathHelper.nearest_passable_to(
-			Vector3i(best_move_pos.x, best_move_pos.y, _bmp_floor), state.battlefield,
+		var bmp_floor := state.get_floor(merc)
+		var adj3 := PathHelper.nearest_passable_to(
+			Vector3i(best_move_pos.x, best_move_pos.y, bmp_floor), state.battlefield,
 			{"merc_size": int(merc.stats.get("size", 1)), "state": state, "merc": merc})
-		var adj_passable := Vector2i(_adj3.x, _adj3.y)
+		var adj_passable := Vector2i(adj3.x, adj3.y)
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("BREAK_FOR_WEAPON (approach): %s -> %s at %s adj=%s ('%s' score=%.2f, +%d extra turns, on_hand=%.2f)" % [
 				merc.merc_name, best_move_obs_name, str(best_move_pos), str(adj_passable),
@@ -116,17 +112,17 @@ static func decide_break_for_weapon(
 static func _bfw_adjacent_obstacles(merc: MercenaryData, state: BattleState, merc_pos: Vector2i,
 		merc_floor: int, attack_base_cost: int) -> Array[Dictionary]:
 	var viable_obs: Array[Dictionary] = []
-	for _dx: int in [-1, 0, 1]:
-		for _dy: int in [-1, 0, 1]:
-			if _dx == 0 and _dy == 0:
+	for dx: int in [-1, 0, 1]:
+		for dy: int in [-1, 0, 1]:
+			if dx == 0 and dy == 0:
 				continue
-			var _np := merc_pos + Vector2i(_dx, _dy)
-			if not state.battlefield.droppable_obs_map.has(Vector3i(_np.x, _np.y, merc_floor)):
+			var np := merc_pos + Vector2i(dx, dy)
+			if not state.battlefield.droppable_obs_map.has(Vector3i(np.x, np.y, merc_floor)):
 				continue
-			var _ao: Dictionary = state.battlefield.get_obs(_np, merc_floor)
-			if _ao.is_empty() or _ao.get("current_hp", 1) <= 0 or not (_ao.get("data") is ObstacleData):
+			var ao: Dictionary = state.battlefield.get_obs(np, merc_floor)
+			if ao.is_empty() or ao.get("current_hp", 1) <= 0 or not (ao.get("data") is ObstacleData):
 				continue
-			viable_obs.append(_ao)
+			viable_obs.append(ao)
 
 	if not viable_obs.is_empty():
 		var atk_cost := state.get_cost(merc, "attack_obstacle", attack_base_cost)
@@ -135,30 +131,51 @@ static func _bfw_adjacent_obstacles(merc: MercenaryData, state: BattleState, mer
 	return viable_obs
 
 
+#Best makeshift drop of an obstacle as {"score", "name"}; melee_only scores it as a swung weapon at range 1.
+static func _best_drop(d: ObstacleData, merc: MercenaryData, enemies: Array[MercenaryData],
+		state: BattleState, melee_only: bool, do_log: bool) -> Dictionary:
+	var best_score := -9999.0
+	var best_name := ""
+	for drop_name: String in d.drops:
+		var tmpl: WeaponData = DataManager.makeshift_weapons.get(drop_name) as WeaponData
+		if tmpl == null:
+			if do_log and EncounterLogger.is_active():
+				EncounterLogger.log_verbose("  %s: drop '%s' not found in makeshift_weapons dict" % [d.obstacle_name, drop_name])
+			continue
+		if tmpl.has_heavy and not tmpl.has_light and int(merc.stats.get("vigor", 0)) < 2:
+			if do_log and EncounterLogger.is_active():
+				EncounterLogger.log_verbose("  %s: drop '%s' skipped (vigor too low)" % [d.obstacle_name, drop_name])
+			continue
+		var s: float
+		if melee_only:
+			s = WeaponEvaluator.score_weapon(tmpl, merc, enemies, state, false, 1)
+		else:
+			s = WeaponEvaluator.score_weapon(tmpl, merc, enemies, state)
+		if do_log and EncounterLogger.is_active():
+			EncounterLogger.log_verbose("  %s: drop '%s' score=%.2f" % [d.obstacle_name, drop_name, s])
+		if s > best_score:
+			best_score = s
+			best_name = drop_name
+	return {"score": best_score, "name": best_name}
+
+
+#Melee accuracy (0.05 to 1.0) and average damage of the held weapon as {"acc", "dmg_avg"}.
+static func _melee_hit_rate(merc: MercenaryData) -> Dictionary:
+	var wp: WeaponData = merc.equipped_weapon
+	return {
+		"acc": clampf(float(merc.stats.get("melee_accuracy", 50)) / 100.0, 0.05, 1.0),
+		"dmg_avg": maxf(1.0, WeaponEvaluator.parse_formula_for_avg(wp.damage_formula_1) if wp != null else 1.0),
+	}
+
+
 #True when one obstacle beside the mover drops a weapon worth the rounds it takes to break.
 static func _bfw_adjacent_choice(merc: MercenaryData, enemies: Array[MercenaryData],
 		state: BattleState, viable_obs: Array[Dictionary], on_hand_score: float) -> bool:
 	for obs: Dictionary in viable_obs:
 		var d: ObstacleData = obs.get("data") as ObstacleData
-		var best_drop_score := -9999.0
-		var best_drop_name := ""
-		for drop_name: String in d.drops:
-			var tmpl: WeaponData = DataManager.makeshift_weapons.get(drop_name) as WeaponData
-			if tmpl == null:
-				if EncounterLogger.is_active():
-					EncounterLogger.log_verbose("  %s: drop '%s' not found in makeshift_weapons dict" % [d.obstacle_name, drop_name])
-				continue
-			if tmpl.has_heavy and not tmpl.has_light:
-				if int(merc.stats.get("vigor", 0)) < 2:
-					if EncounterLogger.is_active():
-						EncounterLogger.log_verbose("  %s: drop '%s' skipped (vigor too low)" % [d.obstacle_name, drop_name])
-					continue
-			var s := WeaponEvaluator.score_weapon(tmpl, merc, enemies, state, false, 1)
-			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("  %s: drop '%s' score=%.2f" % [d.obstacle_name, drop_name, s])
-			if s > best_drop_score:
-				best_drop_score = s
-				best_drop_name = drop_name
+		var best: Dictionary = _best_drop(d, merc, enemies, state, true, true)
+		var best_drop_score: float = best["score"]
+		var best_drop_name: String = best["name"]
 
 		var threshold := on_hand_score + 0.75
 		if best_drop_score < threshold:
@@ -168,11 +185,12 @@ static func _bfw_adjacent_choice(merc: MercenaryData, enemies: Array[MercenaryDa
 			continue
 
 		var hp_current: int = obs.get("current_hp", ObstacleUtils.get_hp(d))
-		var acc: float = clampf(float(merc.stats.get("melee_accuracy", 50)) / 100.0, 0.05, 1.0)
 		var wp: WeaponData = merc.equipped_weapon
 		if wp != null and wp.damage_formula_1.is_empty():
 			continue
-		var dmg_avg := maxf(1.0, WeaponEvaluator.parse_formula_for_avg(wp.damage_formula_1) if wp != null else 1.0)
+		var hit_rate := _melee_hit_rate(merc)
+		var acc: float = hit_rate["acc"]
+		var dmg_avg: float = hit_rate["dmg_avg"]
 		var rounds_needed := ceili(float(hp_current) / maxf(1.0, acc * dmg_avg))
 		if rounds_needed > 3:
 			if EncounterLogger.is_active():
@@ -198,7 +216,7 @@ static func _bfw_nearby_templates(state: BattleState, merc_pos: Vector2i, merc_f
 		var obs_s: Dictionary = state.battlefield.get_obs(p_s, merc_floor)
 		if obs_s.is_empty() or obs_s.get("current_hp", 1) <= 0:
 			continue
-		var dist_s := maxi(abs(p_s.x - merc_pos.x), abs(p_s.y - merc_pos.y))
+		var dist_s := Pathfinder.chebyshev2(p_s, merc_pos)
 		if dist_s <= 1 or dist_s > search_radius:
 			continue
 		var d_s: ObstacleData = obs_s.get("data") as ObstacleData
@@ -225,19 +243,9 @@ static func _bfw_best_approach(merc: MercenaryData, enemies: Array[MercenaryData
 		var dist_t: int = info["dist"]
 		var obs_t: Dictionary = info["obs"]
 
-		var best_drop_score_t := -9999.0
-		var best_drop_name_t := ""
-		for drop_name_t: String in d_t.drops:
-			var tmpl_t: WeaponData = DataManager.makeshift_weapons.get(drop_name_t) as WeaponData
-			if tmpl_t == null:
-				continue
-			if tmpl_t.has_heavy and not tmpl_t.has_light:
-				if int(merc.stats.get("vigor", 0)) < 2:
-					continue
-			var s_t := WeaponEvaluator.score_weapon(tmpl_t, merc, enemies, state)
-			if s_t > best_drop_score_t:
-				best_drop_score_t = s_t
-				best_drop_name_t = drop_name_t
+		var best_t: Dictionary = _best_drop(d_t, merc, enemies, state, false, false)
+		var best_drop_score_t: float = best_t["score"]
+		var best_drop_name_t: String = best_t["name"]
 
 		if best_drop_score_t < on_hand_score + 2.5:
 			continue
@@ -250,7 +258,7 @@ static func _bfw_best_approach(merc: MercenaryData, enemies: Array[MercenaryData
 		#Opportunity cost: how many extra turns does this detour add vs heading straight to the enemy?
 		var dist_obs_to_enemy_t := nearest_enemy_dist
 		if nearest_enemy_pos.x >= 0:
-			dist_obs_to_enemy_t = maxi(abs(p_t.x - nearest_enemy_pos.x), abs(p_t.y - nearest_enemy_pos.y))
+			dist_obs_to_enemy_t = Pathfinder.chebyshev2(p_t, nearest_enemy_pos)
 		var direct_turns_t := ceili(float(maxi(0, nearest_enemy_dist - 1)) / float(pace))
 		var turns_via_obs_t := turns_to_reach_t + turns_to_destroy_t \
 				+ ceili(float(maxi(0, dist_obs_to_enemy_t - 1)) / float(pace))

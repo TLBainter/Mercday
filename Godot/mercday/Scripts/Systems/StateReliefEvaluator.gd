@@ -270,16 +270,16 @@ static func alternative(merc: MercenaryData, ctx: Dictionary, relief_cost: int) 
 		return 0.05
 	var valid: Array = ctx.get("valid_targets", [])
 	var attack_cost := state.get_cost(merc, "Attack", int(ctx.get("attack_base_ap", 3)))
-	if not valid.is_empty() and not ConstStates.is_blocked(merc, "action:attack") \
+	if not valid.is_empty() and not StateEffects.is_blocked(merc, "action:attack") \
 			and state.can_afford(merc, attack_cost):
 		var best := 0.0
 		for t: MercenaryData in valid:
-			best = maxf(best, CombatDecision.estimate_kill_likelihood(merc, t))
+			best = maxf(best, WeaponEvaluator.estimate_kill_likelihood(merc, t))
 		var base := 0.35 + 0.35 * best
 		if merc.current_ap + merc.excess_ap - relief_cost >= attack_cost:
 			base *= 0.25
 		return base
-	if not (ctx.get("enemies", []) as Array).is_empty() and not ConstStates.is_blocked(merc, "action:move"):
+	if not (ctx.get("enemies", []) as Array).is_empty() and not StateEffects.is_blocked(merc, "action:move"):
 		var move_cost := state.move_cost(merc, "Move Close", int(ctx.get("move_base_ap", 2)))
 		if merc.current_ap + merc.excess_ap - relief_cost >= move_cost:
 			return 0.25 * 0.25
@@ -311,7 +311,7 @@ static func setup(merc: MercenaryData, state_name: String, ctx: Dictionary) -> f
 			value += 0.1
 	elif state_name == ConstStates.BURNING:
 		var dot_amount := 0
-		for d: Dictionary in ConstStates.dot_effects(merc):
+		for d: Dictionary in StateEffects.dot_effects(merc):
 			if str(d["state"]) == state_name:
 				dot_amount += int(d["amount"])
 		if dot_amount > 0 and merc.current_hp <= 3 * dot_amount:
@@ -345,11 +345,8 @@ static func self_relief(merc: MercenaryData, action_key: String, ctx: Dictionary
 	var token := str(RELIEF_ACTIONS[action_key]["token"])
 	var best_name := ""
 	var best_hind := -1.0
-	for key: Variant in merc.active_states.keys():
-		if not (key is String) or not ConstStates.DATA.has(key):
-			continue
-		var sname: String = key
-		if not ConstStates.has_state(merc, sname) or not ConstStates.has_removal(sname, token):
+	for sname: String in ConstStates.held_state_names(merc):
+		if not ConstStates.has_removal(sname, token):
 			continue
 		if CavernRules.is_cavern_sourced(merc, sname):
 			continue
@@ -393,14 +390,14 @@ static func _scan_aid_verdict(merc: MercenaryData, ctx: Dictionary) -> Dictionar
 	var state: BattleState = ctx.get("state")
 	if state == null:
 		return {}
-	if ConstStates.is_blocked(merc, "action:all") or ConstStates.is_blocked(merc, "spend:ap"):
+	if StateEffects.is_blocked(merc, "action:all") or StateEffects.is_blocked(merc, "spend:ap"):
 		return {}
 	var cost := state.get_cost(merc, "Interact", INTERACT_AP)
 	if not state.can_afford(merc, cost):
 		return {}
 	var allies: Array = ctx["allies"] if ctx.has("allies") else state.get_allies(merc)
-	var move_locked := ConstStates.is_blocked(merc, "action:move")
-	var reach_limit := 2 * MovementExecutor.pace_per_move(merc)
+	var move_locked := StateEffects.is_blocked(merc, "action:move")
+	var reach_limit := 2 * PaceBudget.pace_per_move(merc)
 	var my_floor := state.get_floor(merc)
 	var best: Dictionary = {}
 	for ally: MercenaryData in allies:
@@ -421,12 +418,9 @@ static func _scan_aid_verdict(merc: MercenaryData, ctx: Dictionary) -> Dictionar
 			if state.distance_to(ally, e) <= 1:
 				setup_ally = 0.15
 				break
-		for key: Variant in ally.active_states.keys():
-			if not (key is String) or not ConstStates.DATA.has(key):
-				continue
-			var sname: String = key
+		for sname: String in ConstStates.held_state_names(ally):
 			var flee_hold := sname == ConstStates.TERRIFIED and FleeSystem.is_flee_terrified(ally)
-			if not ConstStates.has_state(ally, sname) or (not flee_hold and not ConstStates.has_removal(sname, "interact:")):
+			if not flee_hold and not ConstStates.has_removal(sname, "interact:"):
 				continue
 			if CavernRules.is_cavern_sourced(ally, sname):
 				continue
@@ -455,9 +449,8 @@ static func aid_decision(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
 	if bool(verdict["adjacent"]):
 		return {"type": "special", "action_name": "aid_ally", "target": ally,
 			"state_name": str(verdict["state"])}
-	var no_targets: Array[MercenaryData] = []
 	var cell := MovementExecutor.compute_move_position(
-		merc, ally, "Move Close", state, null, 1, no_targets, _enemy_list(merc, ctx))
+		merc, ally, "Move Close", state, null, 1, _enemy_list(merc, ctx))
 	if cell == PathTargeter.NO_CELL:
 		return {"type": "none"}
 	if not state.can_afford(merc, state.move_cost(merc, "Move Close", int(ctx.get("move_base_ap", 2)))):

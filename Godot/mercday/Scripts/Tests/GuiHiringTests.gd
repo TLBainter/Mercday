@@ -9,7 +9,7 @@ extends RefCounted
 
 const PAGE: PackedScene = preload("res://Scenes/GUI/Finance/Hiring/HiringTab.tscn")
 const PAGE_SIZE: Vector2 = Vector2(1280.0, 720.0)
-#The bank a hire or an Odd Job crew needs, well over the seeded asking rates.
+#The bank a hire or an Odd Job crew needs, well over the asking rates of the board.
 const RICH: int = 5000
 const FILTER_W: float = 290.0
 const FILTER_PAD: float = 24.0
@@ -20,13 +20,6 @@ const DOT_SIDE: Vector2 = Vector2(28, 28)
 const FIT_STAR_MIN: Vector2 = Vector2(88, 16)
 const CARD_MIN_FULL: Vector2 = Vector2(208, 334)
 const ADD_WRAP: Vector2 = Vector2(150.0, 34.0)
-
-const GREEN: Color = Color("#6cc36a")
-const PENDING: Color = Color("#f2b33d")
-const SKY: Color = Color("#9cc6ef")
-const CREAM: Color = Color("#f3ead7")
-const BLUE2: Color = Color("#2b4f8a")
-const ORANGE: Color = Color("#f28c28")
 
 const VALUE_GROUP: String = "Value"
 const SHUT_GROUPS: Array[String] = ["Identity", "Physical", "Mental"]
@@ -40,18 +33,38 @@ const BASE_ROWS: Array[String] = ["salary", "uniq", "fit", "via"]
 const FULL_ROWS: Array[String] = ["salary", "uniq", "fit", "via", "ancestry", "bloodline", "age",
 	"heritage"]
 
-#The seeded eight in every sort, both directions; ties break on the lower id.
+#The board's eight in the fit and uniqueness sorts, both directions; ties break on the lower id.
+#Salary and level come off the rolled mercs, so those orders are worked out from the live list.
 const FIT_DESC: Array[int] = [25, 23, 21, 24, 27, 26, 20, 22]
 const FIT_ASC: Array[int] = [22, 20, 26, 24, 27, 21, 23, 25]
-const SALARY_DESC: Array[int] = [25, 23, 27, 21, 24, 20, 26, 22]
-const SALARY_ASC: Array[int] = [22, 26, 20, 24, 21, 27, 23, 25]
-const LEVEL_DESC: Array[int] = [25, 23, 21, 27, 24, 20, 26, 22]
-const LEVEL_ASC: Array[int] = [22, 26, 20, 24, 27, 21, 23, 25]
 const UNIQ_DESC: Array[int] = [25, 23, 21, 27, 24, 22, 20, 26]
 const UNIQ_ASC: Array[int] = [20, 26, 22, 24, 21, 27, 23, 25]
 
-const NO_MATCH: Array = [1500.0, 2000.0]
-const CHEAP: Array = [0.0, 400.0]
+#A salary band above every ask the test applicants carry, so the filter matches nobody.
+const NO_MATCH: Array = [900.0, 999.0]
+#The salary filter case keeps the applicants asking no more than the third lowest rate.
+const CHEAP_RANK: int = 2
+#The offer dialog cases price their applicant at this rate, so the margin and odds rows read set numbers.
+const DIALOG_ASK: int = 320
+#The hire case offers this much over the asking rate, so the salary signed is the offer, not the ask.
+const HIRE_BONUS: int = 5
+#The two digit level a card badge prints as it is, and the one digit level it pads.
+const BADGE_HIGH: int = 12
+const BADGE_LOW: int = 4
+#The posting a fixed page is held to: campaign 1 sent the first applicant of the board.
+const FIXED_CAMPAIGN: int = 1
+#The board applicant the fixed case moves onto that posting, so the page lists two.
+const MOVED: int = 3
+#The board _lay_board lands: BOARD_ADS Flyers job ads of BOARD_DAYS days launched together and BOARD_STEPS
+#arrival steps, so applicants 20 to 27 arrive; each then takes its row of the sort fields and senders below.
+const BOARD_ADS: int = 4
+const BOARD_DAYS: int = 7
+const BOARD_STEPS: int = 2
+const BOARD_FIT: Array[float] = [2.0, 3.5, 1.5, 4.0, 3.0, 4.5, 2.5, 3.0]
+const BOARD_UNIQ: Array[int] = [0, 2, 1, 3, 1, 4, 0, 2]
+const BOARD_RARITY: Array[int] = [0, 1, 0, 2, 1, 3, 0, 1]
+const BOARD_UNSEEN: Array[int] = [3, 5]
+const BOARD_FROM: Array[int] = [1, 3, ApplicantData.WALK_IN, 2, 4, 2, ApplicantData.WALK_IN, 4]
 
 
 static func run(host: Node) -> bool:
@@ -65,6 +78,7 @@ static func run(host: Node) -> bool:
 	await _case_header(res, host)
 	await _case_counts(res, host)
 	await _case_sorts(res, host)
+	_case_generated(res)
 	await _case_empty(res, host)
 	await _case_rows(res, host)
 	await _case_identity(res, host)
@@ -89,56 +103,101 @@ static func run(host: Node) -> bool:
 	await _case_modal_host(res, host)
 	await _case_offer_frame(res, host)
 	await _case_hidden(res, host)
+	await _case_fixed(res, host)
 	GuiFrameStack.clear()
 	GameState.mercs = roster
 	GameState.bank_notes = bank
 	CampaignClock.minutes = clock
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	PromotionsManager.reset()
 	return TestFixtures.summarize(res, "GUI HIRING")
 
 
-#Every case starts bare: Enterprise with no upgrade tier, then the seeded eight applicants.
+#Every case starts on the board of _lay_board, then Enterprise with no upgrade tier.
 static func _fresh(ent: Dictionary = {}) -> void:
 	TestFixtures.reset_generator_rolls()
 	seed(7)
+	TestFixtures.fix_applicant_seed()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	LegalManager.reset()
+	PromotionsManager.reset()
+	_lay_board()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	if not ent.is_empty():
 		SubscriptionManager.set_entitlements(ent)
-	LegalManager.reset()
-	PromotionsManager.reset()
 
 
+#Lands the eight applicants the cases read through the arrival path on a maxed plan, then lays the BOARD
+#rows over their sort fields and senders and rerolls each merc under a fixed tradition, so the card widths hold.
+#The plan tiers and the bank are put back; overrides are not.
+static func _lay_board() -> void:
+	var traditions: Array[String] = TraitFilterDefs.traditions()
+	var plan: int = SubscriptionManager.plan()
+	var tiers: Dictionary = SubscriptionManager.tiers().duplicate()
+	var bank: int = GameState.bank_notes
+	SubscriptionManager.max_out()
+	GameState.bank_notes = RICH * 10
+	var ads: Array[CampaignData] = []
+	for _i: int in BOARD_ADS:
+		var ad: CampaignData = TestFixtures.launch_campaign({"type": &"flyers", "days": BOARD_DAYS})
+		if ad == null:
+			push_error("_lay_board could not launch a Flyers job ad")
+		else:
+			ads.append(ad)
+	TestFixtures.pass_days(BOARD_STEPS * 3)
+	for _round: int in BOARD_STEPS:
+		for ad: CampaignData in ads:
+			PromotionsManager.land_applicant(ad)
+	for i: int in BOARD_FROM.size():
+		var a: ApplicantData = _applicant(i)
+		if a == null:
+			push_error("_lay_board landed no applicant %d" % _id(i))
+			continue
+		a.tradition = traditions[(i * 3 + 1) % traditions.size()]
+		PromotionsManager._give_merc(a, a.level)
+		a.fit = BOARD_FIT[i]
+		a.uniq = float(BOARD_UNIQ[i])
+		a.rarity = ApplicantData.RARITIES[BOARD_RARITY[i]]
+		a.unseen = BOARD_UNSEEN.has(i)
+		a.campaign_id = BOARD_FROM[i]
+	SubscriptionManager.set_state(plan, tiers)
+	GameState.bank_notes = bank
+	PromotionsManager.applicants_changed.emit()
+
+
+#GuiCrewTests, GuiMercTests and GuiTreeTests still call this; it forwards to TestFixtures.frames.
 static func _frames(host: Node, count: int = 2) -> void:
-	for _i: int in count:
-		await host.get_tree().process_frame
+	await TestFixtures.frames(host, count)
 
 
-static func _open(host: Node, ent: Dictionary = {}) -> HiringTab:
+static func _open(host: Node, ent: Dictionary = {}, fixed: int = HiringTab.NO_FIXED) -> HiringTab:
 	_fresh(ent)
 	var page: HiringTab = PAGE.instantiate() as HiringTab
 	page.custom_minimum_size = PAGE_SIZE
+	page.fixed_campaign = fixed
 	host.add_child(page)
 	page.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	page.size = PAGE_SIZE
-	await _frames(host, 3)
+	await TestFixtures.frames(host, 3)
 	return page
 
 
-static func _escape(host: Node) -> void:
-	var esc := InputEventAction.new()
-	esc.action = &"ui_cancel"
-	esc.pressed = true
-	host.get_viewport().push_input(esc)
+#Opens the page with a full bank and the first applicant's offer dialog; returns [page, applicant, dialog].
+static func _open_offer(host: Node, ent: Dictionary = {}) -> Array:
+	var page: HiringTab = await _open(host, ent)
+	GameState.bank_notes = RICH
+	var one: ApplicantData = _priced(0)
+	page.press_offer(one.id)
+	await TestFixtures.frames(host, 1)
+	return [page, one, page.offer_dialog()]
 
 
 static func _shut(host: Node, page: HiringTab) -> void:
 	page.queue_free()
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 
 
 static func _id(index: int) -> int:
@@ -147,6 +206,29 @@ static func _id(index: int) -> int:
 
 static func _applicant(index: int) -> ApplicantData:
 	return PromotionsManager.applicant_of(_id(index))
+
+
+#An applicant re-priced at DIALOG_ASK for the cases that test the offer arithmetic.
+static func _priced(index: int) -> ApplicantData:
+	var a: ApplicantData = _applicant(index)
+	if a != null:
+		a.ask = DIALOG_ASK
+	return a
+
+
+#The applicant ids ordered on one field the way the Hiring sort orders them: ties on the lower id.
+static func _order_by(field: String, descending: bool) -> Array[int]:
+	var list: Array[ApplicantData] = PromotionsManager.applicants.duplicate()
+	list.sort_custom(func(a: ApplicantData, b: ApplicantData) -> bool:
+		var left: int = int(a.get(field))
+		var right: int = int(b.get(field))
+		if left == right:
+			return a.id < b.id
+		return left > right if descending else left < right)
+	var out: Array[int] = []
+	for row: ApplicantData in list:
+		out.append(row.id)
+	return out
 
 
 static func _def_keys(defs: Array[Dictionary]) -> Array[String]:
@@ -214,7 +296,7 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 	await _shut(host, page)
 
 
-#GX4F-13: the page mounts to its full size with no anchor warning.
+#The page mounts to its full size with no anchor warning.
 static func _case_mount_size(res: Dictionary, host: Node) -> void:
 	var page: HiringTab = await _open(host)
 	TestFixtures.check(res, "the page mounts at 1280 x 720", page.size == PAGE_SIZE,
@@ -231,13 +313,6 @@ static func _has_scroll(node: Node, skip: Node) -> bool:
 		if _has_scroll(child, skip):
 			return true
 	return false
-
-
-static func _box_of(dialog: HireOfferDialog) -> Control:
-	for child: Node in dialog.get_children():
-		if child is CenterContainer and child.get_child_count() > 0:
-			return child.get_child(0) as Control
-	return null
 
 
 static func _scroll_of(node: Node) -> ScrollContainer:
@@ -290,18 +365,28 @@ static func _case_counts(res: Dictionary, host: Node) -> void:
 	var page: HiringTab = await _open(host)
 	TestFixtures.check(res, "the count line reads all eight with no filter",
 		page.count_text() == "8 of 8 applicants shown", "%s" % [page.count_text()])
-	page.filter_panel().press_value("salary", CHEAP)
-	await _frames(host, 1)
+	var asks: Array[int] = []
+	for a: ApplicantData in PromotionsManager.applicants:
+		asks.append(a.ask)
+	asks.sort()
+	var cap: int = asks[CHEAP_RANK]
+	var cheap: int = 0
+	for ask: int in asks:
+		if ask <= cap:
+			cheap += 1
+	page.filter_panel().press_value("salary", [0.0, float(cap)])
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a salary range narrows the count",
-		page.count_text() == "3 of 8 applicants shown", "%s" % [page.count_text()])
-	TestFixtures.check(res, "the narrowed grid holds the cheap three",
-		page.card_ids().size() == 3, "%s" % [page.card_ids()])
+		cheap < asks.size() and page.count_text() == "%d of 8 applicants shown" % cheap,
+		"%s, cap %d" % [page.count_text(), cap])
+	TestFixtures.check(res, "the narrowed grid holds the cheap ones",
+		page.card_ids().size() == cheap, "%s" % [page.card_ids()])
 	page.press_clear()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Clear puts every applicant back",
 		page.count_text() == "8 of 8 applicants shown", "%s" % [page.count_text()])
 	page.filter_panel().press_value("from", [ApplicantData.WALK_IN])
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "one Applied Via chip leaves the walk-ins",
 		page.count_text() == "2 of 8 applicants shown", "%s" % [page.count_text()])
 	TestFixtures.check(res, "the walk-in ids are the ones shown",
@@ -315,20 +400,83 @@ static func _case_counts(res: Dictionary, host: Node) -> void:
 #S: the four sorts, both directions.
 static func _case_sorts(res: Dictionary, host: Node) -> void:
 	var page: HiringTab = await _open(host)
-	var rows: Array = [[&"fit", FIT_DESC, FIT_ASC], [&"salary", SALARY_DESC, SALARY_ASC],
-		[&"level", LEVEL_DESC, LEVEL_ASC], [&"uniqueness", UNIQ_DESC, UNIQ_ASC]]
+	var rows: Array = [[&"fit", FIT_DESC, FIT_ASC],
+		[&"salary", _order_by("ask", true), _order_by("ask", false)],
+		[&"level", _order_by("level", true), _order_by("level", false)],
+		[&"uniqueness", UNIQ_DESC, UNIQ_ASC]]
 	for row: Array in rows:
 		var key: StringName = row[0]
 		page.set_sort(key)
 		page.set_descending(true)
-		await _frames(host, 1)
+		await TestFixtures.frames(host, 1)
 		TestFixtures.check(res, "%s sorts the grid downward" % [key],
 			page.card_ids() == row[1], "%s" % [page.card_ids()])
 		page.set_descending(false)
-		await _frames(host, 1)
+		await TestFixtures.frames(host, 1)
 		TestFixtures.check(res, "%s sorts the grid upward" % [key], page.card_ids() == row[2],
 			"%s" % [page.card_ids()])
 	await _shut(host, page)
+
+
+#M: every applicant is a full merc rolled the moment it appeared, and the draws repeat under a fixed seed.
+static func _case_generated(res: Dictionary) -> void:
+	_fresh()
+	var total: int = PromotionsManager.applicants.size()
+	var no_merc: Array[String] = []
+	var bad_name: Array[String] = []
+	var bad_level: Array[String] = []
+	var bad_ask: Array[String] = []
+	var levels: Array[int] = []
+	for a: ApplicantData in PromotionsManager.applicants:
+		levels.append(a.level)
+		var m: MercenaryData = PromotionsManager.merc_of(a)
+		if m == null:
+			no_merc.append(str(a.id))
+			continue
+		if a.name == "" or a.name != m.merc_name or a.name.begins_with("FirstName"):
+			bad_name.append("%d %s" % [a.id, a.name])
+		if a.level != ExperienceSystem.current_level(m) or a.level < 1 \
+				or a.level > GenConstants.LEVEL_CAP:
+			bad_level.append("%d level %d" % [a.id, a.level])
+		if a.ask != SalarySystem.asking_salary(m, GameState.mercs):
+			bad_ask.append("%d ask %d" % [a.id, a.ask])
+	TestFixtures.check(res, "the arrivals of the board land eight applicants from the first id",
+		total == BOARD_FROM.size() and _applicant(0) != null
+		and _applicant(BOARD_FROM.size() - 1) != null, "%d" % [total])
+	TestFixtures.check(res, "every applicant carries a rolled merc", no_merc.is_empty(),
+		TestFixtures.detail(no_merc, total, "applicants"))
+	TestFixtures.check(res, "every applicant is named for its merc", bad_name.is_empty(),
+		TestFixtures.detail(bad_name, total, "applicants"))
+	TestFixtures.check(res, "every applicant level is its merc level inside the draw band",
+		bad_level.is_empty(), TestFixtures.detail(bad_level, total, "applicants"))
+	TestFixtures.check(res, "every applicant asks what the salary system asks for its merc",
+		bad_ask.is_empty(), TestFixtures.detail(bad_ask, total, "applicants"))
+	var first: ApplicantData = _applicant(0)
+	var view: MercView = MercView.from_applicant(first)
+	TestFixtures.check(res, "the applicant view reads the pools of the rolled merc",
+		view.hp > 0 and view.hp_max > 0 and view.uid == first.id
+		and view.monthly_salary == first.ask and view.name == first.name,
+		"hp %d/%d uid %d" % [view.hp, view.hp_max, view.uid])
+	_fresh()
+	var again: Array[int] = []
+	for a: ApplicantData in PromotionsManager.applicants:
+		again.append(a.level)
+	TestFixtures.check(res, "a second reset under the fixed seed draws the same levels",
+		again == levels, "%s then %s" % [levels, again])
+	var pick: ApplicantData = _applicant(0)
+	var rolled: MercenaryData = PromotionsManager.merc_of(pick)
+	var offer: int = pick.ask + HIRE_BONUS
+	GameState.bank_notes = RICH
+	var hired: bool = PromotionsManager.hire(pick.id, offer)
+	TestFixtures.check(res, "a hire adds the very merc the applicant carried",
+		hired and rolled != null and GameState.mercs.has(rolled)
+		and PromotionsManager.last_hired_uid == rolled.merc_uid,
+		"hired %s rolled %s" % [hired, rolled != null])
+	TestFixtures.check(res, "the hired merc earns the offer that was accepted",
+		rolled != null and rolled.monthly_salary == offer,
+		"%d" % [-1 if rolled == null else rolled.monthly_salary])
+	TestFixtures.check(res, "a signed applicant no longer holds a merc",
+		PromotionsManager.merc_of(pick) == null, "still held")
 
 
 #E: the two empty lines.
@@ -337,7 +485,7 @@ static func _case_empty(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a filled grid carries no empty line", page.empty_text() == "",
 		"%s" % [page.empty_text()])
 	page.filter_panel().press_value("salary", NO_MATCH)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a filter that matches nobody says so",
 		page.empty_text() == "No applicants match your filters.", "%s" % [page.empty_text()])
 	TestFixtures.check(res, "the empty line shows and the grid hides",
@@ -348,7 +496,7 @@ static func _case_empty(res: Dictionary, host: Node) -> void:
 	page.press_clear()
 	PromotionsManager.applicants.clear()
 	page.refresh()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "an empty list points at a Job Posting",
 		page.empty_text() == "No applicants yet. Run a Job Posting to attract mercs.",
 		"%s" % [page.empty_text()])
@@ -366,23 +514,23 @@ static func _case_rows(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a card holds the four unlocked rows", card != null
 		and card.row_keys() == BASE_ROWS, "%s" % [card_keys])
 	TestFixtures.check(res, "the salary row reads the asking rate",
-		card.row_text("salary") == "%s / mo" % NotesLabel.format_amount(first.ask),
+		card.row_text("salary") == "%s / mo" % TransactionData.grouped(first.ask),
 		"%s" % [card.row_text("salary")])
 	TestFixtures.check(res, "the salary row is budget yellow",
-		card.row_color("salary").is_equal_approx(PENDING), "%s" % [card.row_color("salary")])
+		card.row_color("salary").is_equal_approx(GuiColors.AMBER), "%s" % [card.row_color("salary")])
 	TestFixtures.check(res, "no unique trait reads None", card.row_text("uniq") == "None",
 		"%s" % [card.row_text("uniq")])
 	TestFixtures.check(res, "None is sky, not the green of a find",
-		card.row_color("uniq").is_equal_approx(SKY), "%s" % [card.row_color("uniq")])
+		card.row_color("uniq").is_equal_approx(GuiColors.SKY), "%s" % [card.row_color("uniq")])
 	var second: ApplicantCard = page.card_of(_id(1))
 	TestFixtures.check(res, "a unique count reads its rarity",
 		second.row_text("uniq") == "2 - Uncommon", "%s" % [second.row_text("uniq")])
 	TestFixtures.check(res, "a unique count is green",
-		second.row_color("uniq").is_equal_approx(GREEN), "%s" % [second.row_color("uniq")])
+		second.row_color("uniq").is_equal_approx(GuiColors.GREEN), "%s" % [second.row_color("uniq")])
 	TestFixtures.check(res, "the fit row reads one decimal",
 		card.row_text("fit") == "2.0", "%s" % [card.row_text("fit")])
 	TestFixtures.check(res, "the fit row takes the star colour",
-		card.row_color("fit").is_equal_approx(FitStars.color_of(first.fit)),
+		card.row_color("fit").is_equal_approx(Stars.color_of(first.fit, Stars.MATCH, true)),
 		"%s" % [card.row_color("fit")])
 	TestFixtures.check(res, "a campaign applicant names the campaign",
 		card.row_text("via") == PromotionsManager.campaign_name(first.campaign_id),
@@ -391,16 +539,18 @@ static func _case_rows(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a walk-in says Walk-In", walk.row_text("via") == "Walk-In",
 		"%s" % [walk.row_text("via")])
 	first.campaign_id = 999
+	first.level = BADGE_LOW
+	_applicant(3).level = BADGE_HIGH
 	page.refresh()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var ended: ApplicantCard = page.card_of(first.id)
 	TestFixtures.check(res, "a campaign that is gone reads Ended campaign",
 		ended.row_text("via") == "Ended campaign", "%s" % [ended.row_text("via")])
 	TestFixtures.check(res, "the level badge pads one digit to two",
-		ended.level_text() == "04", "%s" % [ended.level_text()])
+		ended.level_text() == "0%d" % BADGE_LOW, "%s" % [ended.level_text()])
 	var high: ApplicantCard = page.card_of(_id(3))
-	TestFixtures.check(res, "a two digit level stays as it is", high.level_text() == "12",
-		"%s" % [high.level_text()])
+	TestFixtures.check(res, "a two digit level stays as it is",
+		high.level_text() == str(BADGE_HIGH), "%s" % [high.level_text()])
 	TestFixtures.check(res, "the card names the applicant",
 		ended.name_text() == first.name, "%s" % [ended.name_text()])
 	TestFixtures.check(res, "the card names the tradition",
@@ -431,8 +581,8 @@ static func _case_identity(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the heritage row reads the applicant",
 		full.row_text("heritage") == first.heritage, "%s" % [full.row_text("heritage")])
 	TestFixtures.check(res, "the identity rows are cream",
-		full.row_color("ancestry").is_equal_approx(CREAM), "%s" % [full.row_color("ancestry")])
-	var stars: FitStars = full.fit_stars()
+		full.row_color("ancestry").is_equal_approx(GuiColors.CREAM), "%s" % [full.row_color("ancestry")])
+	var stars: Stars = full.fit_stars()
 	var stars_min: Vector2 = Vector2.ZERO if stars == null else stars.get_combined_minimum_size()
 	TestFixtures.check(res, "the fit row draws its stars at cell 1",
 		stars != null and stars_min.is_equal_approx(FIT_STAR_MIN), "%s" % [stars_min])
@@ -475,7 +625,7 @@ static func _case_dot(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a seen applicant carries none",
 		not seen.dot_on() and not seen.dot().visible, "on %s" % [seen.dot_on()])
 	page.press_view(_id(3))
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "View marks the applicant seen",
 		not PromotionsManager.applicant_of(_id(3)).unseen and not page.card_of(_id(3)).dot_on(),
 		"unseen %s" % [PromotionsManager.applicant_of(_id(3)).unseen])
@@ -483,14 +633,14 @@ static func _case_dot(res: Dictionary, host: Node) -> void:
 	var offer_page: HiringTab = await _open(host)
 	GameState.bank_notes = RICH
 	offer_page.press_offer(_id(5))
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Offer marks the applicant seen",
 		not PromotionsManager.applicant_of(_id(5)).unseen,
 		"unseen %s" % [PromotionsManager.applicant_of(_id(5)).unseen])
 	await _shut(host, offer_page)
 	var reject_page: HiringTab = await _open(host)
 	reject_page.press_reject(_id(5))
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Reject marks the applicant seen",
 		not PromotionsManager.applicant_of(_id(5)).unseen,
 		"unseen %s" % [PromotionsManager.applicant_of(_id(5)).unseen])
@@ -502,33 +652,33 @@ static func _case_status(res: Dictionary, host: Node) -> void:
 	var page: HiringTab = await _open(host)
 	var card: ApplicantCard = page.card_of(_id(0))
 	TestFixtures.check(res, "an open applicant says nothing and rings blue",
-		card.status_text() == "" and card.ring_color().is_equal_approx(BLUE2),
+		card.status_text() == "" and card.ring_color().is_equal_approx(GuiColors.BLUE),
 		"%s, %s" % [card.status_text(), card.ring_color()])
 	var one: ApplicantData = _applicant(0)
 	one.status = ApplicantData.STATUS_COUNTERED
 	page.refresh()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var pending: ApplicantCard = page.card_of(one.id)
 	TestFixtures.check(res, "a sent counter-offer shows and rings yellow",
 		pending.status_text() == "Counter-offer sent..."
-		and pending.ring_color().is_equal_approx(PENDING),
+		and pending.ring_color().is_equal_approx(GuiColors.AMBER),
 		"%s, %s" % [pending.status_text(), pending.ring_color()])
 	TestFixtures.check(res, "the pending status line is yellow",
-		pending.status_color().is_equal_approx(PENDING), "%s" % [pending.status_color()])
+		pending.status_color().is_equal_approx(GuiColors.AMBER), "%s" % [pending.status_color()])
 	TestFixtures.check(res, "Reject does nothing while the answer is out",
 		pending.offer_block() == "Waiting for their answer.", "%s" % [pending.offer_block()])
 	page.press_reject(one.id)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "no confirm opens for a pending applicant",
 		not page.confirm_dialog().visible, "visible %s" % [page.confirm_dialog().visible])
 	page.press_offer(one.id)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the dialog stays shut for a pending applicant",
 		not page.offer_dialog().is_open(), "open %s" % [page.offer_dialog().is_open()])
 	one.status = ApplicantData.STATUS_OPEN
 	one.refused_counter = true
 	page.refresh()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var refused: ApplicantCard = page.card_of(one.id)
 	TestFixtures.check(res, "a refusal shows and rings red",
 		refused.status_text() == ApplicantCard.REFUSED_TEXT,
@@ -538,15 +688,15 @@ static func _case_status(res: Dictionary, host: Node) -> void:
 	one.refused_counter = false
 	one.accepted_counter = true
 	page.refresh()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var taken: ApplicantCard = page.card_of(one.id)
 	TestFixtures.check(res, "an accepted counter-offer shows and rings green",
 		taken.status_text() == "Accepted your counter-offer"
-		and taken.ring_color().is_equal_approx(GREEN),
+		and taken.ring_color().is_equal_approx(GuiColors.GREEN),
 		"%s, %s" % [taken.status_text(), taken.ring_color()])
 	_fill_roster()
 	page.refresh()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Offer reads the slot block with no free slot",
 		page.card_of(one.id).offer_block() == "No free merc slots.",
 		"%s" % [page.card_of(one.id).offer_block()])
@@ -563,10 +713,10 @@ static func _case_view(res: Dictionary, host: Node) -> void:
 	var hover_tint: Color = Color.BLACK if view_hover == null else view_hover.bg_color
 	var normal_tint: Color = Color.BLACK if view_normal == null else view_normal.bg_color
 	TestFixtures.check(res, "the View button hover stylebox is lit blue",
-		view_hover != null and view_hover.bg_color.is_equal_approx(Color("#3b6fb6")),
+		view_hover != null and view_hover.bg_color.is_equal_approx(GuiColors.BLUE_HI),
 		"%s" % [hover_tint])
 	TestFixtures.check(res, "the View button normal stylebox stays the base blue",
-		view_normal != null and view_normal.bg_color.is_equal_approx(Color("#2b4f8a")),
+		view_normal != null and view_normal.bg_color.is_equal_approx(GuiColors.BLUE),
 		"%s" % [normal_tint])
 	TestFixtures.check(res, "the View button centres its eye icon in the square",
 		view_btn.icon_alignment == HORIZONTAL_ALIGNMENT_CENTER
@@ -585,10 +735,10 @@ static func _case_view(res: Dictionary, host: Node) -> void:
 		and reject_btn.fill.is_equal_approx(GuiColors.RAMP_RED),
 		"%s" % [&"" if reject_btn == null else reject_btn.kind])
 	TestFixtures.check(res, "Offer is a core bevel button on the go palette",
-		offer_btn != null and offer_btn.kind == &"go" and offer_btn.fill.is_equal_approx(GREEN),
+		offer_btn != null and offer_btn.kind == &"go" and offer_btn.fill.is_equal_approx(GuiColors.GREEN),
 		"%s" % [&"" if offer_btn == null else offer_btn.kind])
 	page.press_view(_id(0))
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	var popup: ViewerPopup = page.applicant_popup()
 	TestFixtures.check(res, "View opens the applicant popup", popup != null,
 		"popup %s" % [popup != null])
@@ -596,11 +746,11 @@ static func _case_view(res: Dictionary, host: Node) -> void:
 		popup != null and popup.get_parent() == page.modal_host(),
 		"%s" % [null if popup == null else popup.get_parent()])
 	popup.close()
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "closing the popup drops it", page.applicant_popup() == null,
 		"popup %s" % [page.applicant_popup()])
 	page.press_view(9999)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "View on an applicant that is gone opens nothing",
 		page.applicant_popup() == null, "popup %s" % [page.applicant_popup()])
 	await _shut(host, page)
@@ -611,7 +761,7 @@ static func _case_reject(res: Dictionary, host: Node) -> void:
 	var page: HiringTab = await _open(host)
 	var who: String = _applicant(0).name
 	page.press_reject(_id(0))
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var ask: ConfirmDialog = page.confirm_dialog()
 	TestFixtures.check(res, "the reject confirm names the applicant",
 		ask.title == "Reject %s?" % who, "%s" % [ask.title])
@@ -620,14 +770,14 @@ static func _case_reject(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the reject confirm leads with Cancel",
 		ask.button_labels() == ["Cancel", "Reject"], "%s" % [ask.button_labels()])
 	ask.press(0)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Cancel keeps the applicant",
 		PromotionsManager.applicant_of(_id(0)) != null and page.card_of(_id(0)) != null,
 		"card %s" % [page.card_of(_id(0)) != null])
 	page.press_reject(_id(0))
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	ask.press(1)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a confirmed reject drops the applicant",
 		PromotionsManager.applicant_of(_id(0)) == null and page.card_of(_id(0)) == null,
 		"left %d" % [PromotionsManager.applicants.size()])
@@ -638,20 +788,18 @@ static func _case_reject(res: Dictionary, host: Node) -> void:
 
 #F: the dialog title, width and five facts.
 static func _case_facts(res: Dictionary, host: Node) -> void:
-	var page: HiringTab = await _open(host)
-	GameState.bank_notes = RICH
-	var one: ApplicantData = _applicant(0)
-	page.press_offer(one.id)
-	await _frames(host, 1)
-	var dialog: HireOfferDialog = page.offer_dialog()
+	var opened: Array = await _open_offer(host)
+	var page: HiringTab = opened[0]
+	var one: ApplicantData = opened[1]
+	var dialog: HireOfferDialog = opened[2]
 	TestFixtures.check(res, "Offer opens the dialog on the asking rate",
 		dialog.is_open() and dialog.amount() == one.ask,
 		"open %s, %d" % [dialog.is_open(), dialog.amount()])
 	TestFixtures.check(res, "the title reads Offer with the name",
 		dialog.title_text() == "Offer - %s" % one.name, "%s" % [dialog.title_text()])
-	TestFixtures.check(res, "an offer box is 820 px wide", dialog.box_width() == 820,
-		"%d px" % [dialog.box_width()])
-	var box_shadow: StyleBoxFlat = dialog.box().get_theme_stylebox(&"panel") as StyleBoxFlat
+	TestFixtures.check(res, "an offer box is 820 px wide", dialog.box_px() == 820,
+		"%d px" % [dialog.box_px()])
+	var box_shadow: StyleBoxFlat = dialog.box.get_theme_stylebox(&"panel") as StyleBoxFlat
 	var shadow_text: String = "" if box_shadow == null else "%s" % [[box_shadow.shadow_offset,
 		box_shadow.shadow_size, box_shadow.shadow_color]]
 	TestFixtures.check(res, "the dialog box casts the kit shadow",
@@ -667,12 +815,12 @@ static func _case_facts(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the level fact reads the level",
 		dialog.fact_text("level") == str(one.level), "%s" % [dialog.fact_text("level")])
 	TestFixtures.check(res, "the asking fact reads the rate a month",
-		dialog.fact_text("asking") == "%s / mo" % NotesLabel.format_amount(one.ask),
+		dialog.fact_text("asking") == "%s / mo" % TransactionData.grouped(one.ask),
 		"%s" % [dialog.fact_text("asking")])
 	TestFixtures.check(res, "the offer fact reads no margin at the asking rate",
 		dialog.fact_text("offer") == "+0%", "%s" % [dialog.fact_text("offer")])
 	TestFixtures.check(res, "the offer fact is green at the asking rate",
-		dialog.fact_color("offer").is_equal_approx(GREEN), "%s" % [dialog.fact_color("offer")])
+		dialog.fact_color("offer").is_equal_approx(GuiColors.GREEN), "%s" % [dialog.fact_color("offer")])
 	TestFixtures.check(res, "the slots fact is headed Open Slots",
 		dialog.fact_label("slots") == "Open Slots", "%s" % [dialog.fact_label("slots")])
 	var free: int = PromotionsManager.free_slots()
@@ -680,12 +828,12 @@ static func _case_facts(res: Dictionary, host: Node) -> void:
 		free > 0 and dialog.fact_text("slots") == str(free),
 		"%s, free %d" % [dialog.fact_text("slots"), free])
 	TestFixtures.check(res, "the slots fact is cream while a slot is free",
-		dialog.fact_color("slots").is_equal_approx(CREAM), "%s" % [dialog.fact_color("slots")])
+		dialog.fact_color("slots").is_equal_approx(GuiColors.CREAM), "%s" % [dialog.fact_color("slots")])
 	dialog.set_amount(one.ask * 2)
 	TestFixtures.check(res, "an offer over the rate reads its percent",
 		dialog.fact_text("offer") == "+100%", "%s" % [dialog.fact_text("offer")])
-	TestFixtures.check(res, "the box stays 820 px over the rate", dialog.box_width() == 820,
-		"%d px" % [dialog.box_width()])
+	TestFixtures.check(res, "the box stays 820 px over the rate", dialog.box_px() == 820,
+		"%d px" % [dialog.box_px()])
 	dialog.set_amount(roundi(float(one.ask) * 0.8))
 	TestFixtures.check(res, "a counter reads its negative percent",
 		dialog.fact_text("offer") == "-20%", "%s" % [dialog.fact_text("offer")])
@@ -694,11 +842,11 @@ static func _case_facts(res: Dictionary, host: Node) -> void:
 		"%s" % [dialog.fact_color("offer")])
 	TestFixtures.check(res, "the title reads Counter-Offer below the rate",
 		dialog.title_text() == "Counter-Offer - %s" % one.name, "%s" % [dialog.title_text()])
-	TestFixtures.check(res, "a counter box is 1000 px wide", dialog.box_width() == 1000,
-		"%d px" % [dialog.box_width()])
+	TestFixtures.check(res, "a counter box is 1000 px wide", dialog.box_px() == 1000,
+		"%d px" % [dialog.box_px()])
 	_fill_roster()
 	GameState.roster_changed.emit()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the slots fact turns red with no free slot",
 		dialog.fact_color("slots").is_equal_approx(GuiColors.RAMP_RED),
 		"%s" % [dialog.fact_color("slots")])
@@ -709,20 +857,18 @@ static func _case_facts(res: Dictionary, host: Node) -> void:
 
 #Q: the stepper and the centred offer row.
 static func _case_stepper(res: Dictionary, host: Node) -> void:
-	var page: HiringTab = await _open(host)
-	GameState.bank_notes = RICH
-	var one: ApplicantData = _applicant(0)
-	page.press_offer(one.id)
-	await _frames(host, 1)
-	var dialog: HireOfferDialog = page.offer_dialog()
+	var opened: Array = await _open_offer(host)
+	var page: HiringTab = opened[0]
+	var one: ApplicantData = opened[1]
+	var dialog: HireOfferDialog = opened[2]
 	var step: QuantityStepper = dialog.stepper()
 	TestFixtures.check(res, "the stepper opens on the asking rate",
 		step != null and step.value == one.ask, "%d" % [0 if step == null else step.value])
-	TestFixtures.check(res, "the stepper floor is half the asking rate, rounded to ten",
-		step.min_value == roundi(float(one.ask) * 0.5 / 10.0) * 10, "%d" % [step.min_value])
+	TestFixtures.check(res, "the stepper floor is half the asking rate, never below one",
+		step.min_value == maxi(1, roundi(float(one.ask) * 0.5)), "%d" % [step.min_value])
 	TestFixtures.check(res, "the stepper ceiling is three times the asking rate",
 		step.max_value == one.ask * 3, "%d" % [step.max_value])
-	TestFixtures.check(res, "the stepper moves in tens", step.step == 10, "%d" % [step.step])
+	TestFixtures.check(res, "the stepper moves one note at a time", step.step == 1, "%d" % [step.step])
 	TestFixtures.check(res, "the stepper is 200 x 38",
 		step.custom_minimum_size == Vector2(200.0, 38.0), "%s" % [step.custom_minimum_size])
 	var row: HBoxContainer = dialog.offer_row()
@@ -749,14 +895,10 @@ static func _case_stepper(res: Dictionary, host: Node) -> void:
 #Every button label under the dialog box that reads like one of the dropped quick picks.
 static func _pick_labels(dialog: HireOfferDialog) -> Array[String]:
 	var out: Array[String] = []
-	var stack: Array[Node] = [dialog.box()]
-	while not stack.is_empty():
-		var node: Node = stack.pop_back()
-		var press: Button = node as Button
-		if press != null and (press.text == "Asking" or press.text.ends_with("%")):
-			out.append(press.text)
-		for kid: Node in node.get_children():
-			stack.append(kid)
+	for node: Node in GuiAcceptTests._collect(dialog.box, Button):
+		var text: String = (node as Button).text
+		if text == "Asking" or text.ends_with("%"):
+			out.append(text)
 	return out
 
 
@@ -765,7 +907,7 @@ static func _case_opinion(res: Dictionary, host: Node) -> void:
 	var page: HiringTab = await _open(host)
 	GameState.bank_notes = RICH
 	page.press_offer(_id(0))
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var dialog: HireOfferDialog = page.offer_dialog()
 	TestFixtures.check(res, "Guild Opinion is locked on the bare plan", dialog.opinion_locked(),
 		"locked %s" % [dialog.opinion_locked()])
@@ -775,9 +917,9 @@ static func _case_opinion(res: Dictionary, host: Node) -> void:
 	await _shut(host, page)
 	var open_page: HiringTab = await _open(host, OPINION_ENT)
 	GameState.bank_notes = RICH
-	var one: ApplicantData = _applicant(0)
+	var one: ApplicantData = _priced(0)
 	open_page.press_offer(one.id)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var open_dialog: HireOfferDialog = open_page.offer_dialog()
 	TestFixtures.check(res, "the entitlement opens Guild Opinion", not open_dialog.opinion_locked(),
 		"locked %s" % [open_dialog.opinion_locked()])
@@ -785,7 +927,7 @@ static func _case_opinion(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the lock stands until the upgrade itself is owned",
 		open_lock != null and open_lock.visible, "visible %s" % [open_lock != null and open_lock.visible])
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, SURVEY_TIERS)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Employee Survey is owned once its own requirement is met",
 		SubscriptionManager.tier_of("survey") == 1, "tier %d" % [SubscriptionManager.tier_of("survey")])
 	TestFixtures.check(res, "owning Employee Survey hides the lock",
@@ -806,12 +948,10 @@ static func _case_opinion(res: Dictionary, host: Node) -> void:
 
 #N: the three hints.
 static func _case_hints(res: Dictionary, host: Node) -> void:
-	var page: HiringTab = await _open(host)
-	GameState.bank_notes = RICH
-	var one: ApplicantData = _applicant(0)
-	page.press_offer(one.id)
-	await _frames(host, 1)
-	var dialog: HireOfferDialog = page.offer_dialog()
+	var opened: Array = await _open_offer(host)
+	var page: HiringTab = opened[0]
+	var one: ApplicantData = opened[1]
+	var dialog: HireOfferDialog = opened[2]
 	TestFixtures.check(res, "the asking rate says nothing and takes the hint line away",
 		dialog.hint_text() == "" and not dialog.hint_shown(), "%s" % [dialog.hint_text()])
 	dialog.set_amount(one.ask * 2)
@@ -828,12 +968,10 @@ static func _case_hints(res: Dictionary, host: Node) -> void:
 
 #B: the counter block, the crew and the Odd Jobs lock.
 static func _case_counter_block(res: Dictionary, host: Node) -> void:
-	var page: HiringTab = await _open(host)
-	GameState.bank_notes = RICH
-	var one: ApplicantData = _applicant(0)
-	page.press_offer(one.id)
-	await _frames(host, 1)
-	var dialog: HireOfferDialog = page.offer_dialog()
+	var opened: Array = await _open_offer(host)
+	var page: HiringTab = opened[0]
+	var one: ApplicantData = opened[1]
+	var dialog: HireOfferDialog = opened[2]
 	TestFixtures.check(res, "the counter block stays away at the asking rate",
 		dialog.crew() == null and not dialog.is_counter(),
 		"counter %s" % [dialog.is_counter()])
@@ -855,12 +993,12 @@ static func _case_counter_block(res: Dictionary, host: Node) -> void:
 	await _shut(host, page)
 	var one_seat: HiringTab = await _open(host, CREW_ENT)
 	GameState.bank_notes = RICH
-	var two: ApplicantData = _applicant(0)
+	var two: ApplicantData = _priced(0)
 	one_seat.press_offer(two.id)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var seat_dialog: HireOfferDialog = one_seat.offer_dialog()
 	seat_dialog.set_amount(two.ask - 60)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "one Odd Jobs tier hands over a crew of one",
 		seat_dialog.crew() != null and seat_dialog.crew().max_mercs == 1,
 		"crew %s" % [seat_dialog.crew() == null])
@@ -875,19 +1013,19 @@ static func _case_counter_block(res: Dictionary, host: Node) -> void:
 	await _shut(host, one_seat)
 	var three_seats: HiringTab = await _open(host, CREW3_ENT)
 	GameState.bank_notes = RICH
-	var third: ApplicantData = _applicant(0)
+	var third: ApplicantData = _priced(0)
 	three_seats.press_offer(third.id)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var wide_dialog: HireOfferDialog = three_seats.offer_dialog()
 	wide_dialog.set_amount(third.ask - 60)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "three Odd Jobs tiers hand over three slots",
 		wide_dialog.crew() != null and wide_dialog.crew().max_mercs == 3,
 		"%d" % [0 if wide_dialog.crew() == null else wide_dialog.crew().max_mercs])
 	TestFixtures.check(res, "the widest dialog builds no scroll of its own",
 		not _has_scroll(wide_dialog, wide_dialog.crew()),
 		"scroll %s" % [_has_scroll(wide_dialog, wide_dialog.crew())])
-	var wide_box: Control = _box_of(wide_dialog)
+	var wide_box: Control = wide_dialog.box
 	TestFixtures.check(res, "the widest box fits the page with the crew and the odds on it",
 		wide_box != null and wide_box.size.x == 1000.0 and wide_box.size.y <= PAGE_SIZE.y,
 		"%s" % [Vector2.ZERO if wide_box == null else wide_box.size])
@@ -896,14 +1034,13 @@ static func _case_counter_block(res: Dictionary, host: Node) -> void:
 
 #K: the success odds text, colour and cells.
 static func _case_odds(res: Dictionary, host: Node) -> void:
-	var page: HiringTab = await _open(host, CREW_ENT)
-	GameState.bank_notes = RICH
-	var one: ApplicantData = _applicant(0)
-	page.press_offer(one.id)
-	await _frames(host, 1)
-	var dialog: HireOfferDialog = page.offer_dialog()
-	var rows: Array = [[319, 95, GREEN, 19], [256, 60, GREEN, 12], [254, 59, PENDING, 12],
-		[224, 40, PENDING, 8], [223, 39, GuiColors.RAMP_RED, 8], [160, 5, GuiColors.RAMP_RED, 1]]
+	var opened: Array = await _open_offer(host, CREW_ENT)
+	var page: HiringTab = opened[0]
+	var one: ApplicantData = opened[1]
+	var dialog: HireOfferDialog = opened[2]
+	var rows: Array = [[319, 95, GuiColors.DEEP_GREEN, 19], [256, 60, GuiColors.LIGHT_BLUE, 12],
+		[254, 59, GuiColors.LIGHT_BLUE, 12], [224, 40, GuiColors.ORANGE, 8], [223, 39, GuiColors.ORANGE, 8],
+		[160, 5, GuiColors.RED, 1]]
 	for row: Array in rows:
 		dialog.set_amount(int(row[0]))
 		var odds: int = dialog.odds()
@@ -921,7 +1058,7 @@ static func _case_odds(res: Dictionary, host: Node) -> void:
 	var crew: OddJobCrew = dialog.crew()
 	var uid: int = GameState.mercs[0].merc_uid
 	crew.add_merc(uid)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a merc on the crew lifts the odds", dialog.odds() > bare
 		and dialog.odds() == PromotionsManager.counter_odds(one.id, 224, [uid]),
 		"%d from %d" % [dialog.odds(), bare])
@@ -932,14 +1069,12 @@ static func _case_odds(res: Dictionary, host: Node) -> void:
 
 #X: the action text, the block reasons and the two ways out.
 static func _case_blocks(res: Dictionary, host: Node) -> void:
-	var page: HiringTab = await _open(host, CREW_ENT)
-	GameState.bank_notes = RICH
-	var one: ApplicantData = _applicant(0)
-	page.press_offer(one.id)
-	await _frames(host, 1)
-	var dialog: HireOfferDialog = page.offer_dialog()
+	var opened: Array = await _open_offer(host, CREW_ENT)
+	var page: HiringTab = opened[0]
+	var one: ApplicantData = opened[1]
+	var dialog: HireOfferDialog = opened[2]
 	TestFixtures.check(res, "the action reads the hire and its salary",
-		dialog.action_text() == "Hire for %s / mo" % NotesLabel.format_amount(one.ask),
+		dialog.action_text() == "Hire for %s / mo" % TransactionData.grouped(one.ask),
 		"%s" % [dialog.action_text()])
 	TestFixtures.check(res, "nothing blocks a hire the guild can pay for",
 		dialog.block_reason() == "", "%s" % [dialog.block_reason()])
@@ -949,7 +1084,7 @@ static func _case_blocks(res: Dictionary, host: Node) -> void:
 	GameState.bank_notes = 10
 	var crew: OddJobCrew = dialog.crew()
 	crew.add_merc(GameState.mercs[0].merc_uid)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var pay_reason: String = PromotionsManager.can_counter(one.id, dialog.amount(),
 		dialog.team(), dialog.pay_per())["reason"]
 	TestFixtures.check(res, "crew pay the bank cannot cover blocks the counter",
@@ -960,7 +1095,7 @@ static func _case_blocks(res: Dictionary, host: Node) -> void:
 		"alpha %.2f, tip %s" % [dialog.action_button().modulate.a,
 		dialog.action_button().tooltip_text])
 	dialog.press_action()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a blocked press sends nothing",
 		PromotionsManager.applicant_of(one.id).status == ApplicantData.STATUS_OPEN,
 		"%s" % [PromotionsManager.applicant_of(one.id).status])
@@ -970,21 +1105,21 @@ static func _case_blocks(res: Dictionary, host: Node) -> void:
 	var keep: Array[MercenaryData] = GameState.mercs.duplicate()
 	_fill_roster()
 	GameState.roster_changed.emit()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "no free slot blocks the hire",
 		dialog.block_reason() == "No free merc slots.", "%s" % [dialog.block_reason()])
 	dialog.press_cancel()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Cancel closes the dialog", not dialog.is_open(),
 		"open %s" % [dialog.is_open()])
 	GameState.mercs = keep
 	GameState.roster_changed.emit()
 	page.press_offer(one.id)
-	await _frames(host, 1)
-	TestFixtures.check(res, "the X closes the dialog too", dialog.close_button() != null,
-		"button %s" % [dialog.close_button() != null])
-	dialog.close_button().pressed.emit()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
+	TestFixtures.check(res, "the X closes the dialog too", dialog.close_button != null,
+		"button %s" % [dialog.close_button != null])
+	dialog.close_button.pressed.emit()
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the red X is the Cancel of the dialog", not dialog.is_open(),
 		"open %s" % [dialog.is_open()])
 	await _shut(host, page)
@@ -997,33 +1132,34 @@ static func _case_hire(res: Dictionary, host: Node) -> void:
 	var one: ApplicantData = _applicant(0)
 	var who: String = one.name
 	var salary: int = one.ask
+	var rolled: MercenaryData = PromotionsManager.merc_of(one)
 	page.press_offer(one.id)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var dialog: HireOfferDialog = page.offer_dialog()
 	dialog.press_action()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var ask: ConfirmDialog = page.confirm_dialog()
 	TestFixtures.check(res, "the hire confirm names the applicant",
 		ask.title == "Hire %s?" % who, "%s" % [ask.title])
 	TestFixtures.check(res, "the hire confirm reads the salary and the slot",
 		ask.message == "Salary: %s notes / month. Uses 1 merc slot."
-		% NotesLabel.format_amount(salary), "%s" % [ask.message])
+		% TransactionData.grouped(salary), "%s" % [ask.message])
 	TestFixtures.check(res, "the hire confirm leads with Cancel",
 		ask.button_labels() == ["Cancel", "Hire"], "%s" % [ask.button_labels()])
 	TestFixtures.check(res, "the dialog steps back for the confirm", not dialog.is_open(),
 		"open %s" % [dialog.is_open()])
 	ask.press(0)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Cancel hires nobody",
 		PromotionsManager.applicant_of(one.id) != null and page.card_of(one.id) != null,
 		"card %s" % [page.card_of(one.id) != null])
 	var roster: int = GameState.mercs.size()
 	page.press_offer(one.id)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	dialog.press_action()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	ask.press(1)
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "a confirmed hire takes the applicant off the list",
 		PromotionsManager.applicant_of(one.id) == null and page.card_of(one.id) == null,
 		"left %d" % [PromotionsManager.applicants.size()])
@@ -1031,32 +1167,32 @@ static func _case_hire(res: Dictionary, host: Node) -> void:
 		page.notice().showing() and page.notice().text() == "%s joined your guild." % who,
 		"%s" % [page.notice().text()])
 	TestFixtures.check(res, "the hire notice is green",
-		page.notice().color().is_equal_approx(GREEN), "%s" % [page.notice().color()])
+		page.notice().color().is_equal_approx(GuiColors.GREEN), "%s" % [page.notice().color()])
 	TestFixtures.check(res, "a confirmed hire adds one merc",
 		GameState.mercs.size() == roster + 1, "%d from %d" % [GameState.mercs.size(), roster])
 	var hired_direct: MercenaryData = GameState.merc_by_uid(PromotionsManager.last_hired_uid)
 	TestFixtures.check(res, "the new merc earns the agreed salary",
 		hired_direct != null and hired_direct.monthly_salary == salary,
 		"%d" % [-1 if hired_direct == null else hired_direct.monthly_salary])
+	TestFixtures.check(res, "the hire signs on the merc rolled when the applicant appeared",
+		rolled != null and hired_direct == rolled, "rolled %s" % [rolled != null])
 	await _shut(host, page)
 
 
 #P: sending a counter-offer.
 static func _case_send_counter(res: Dictionary, host: Node) -> void:
-	var page: HiringTab = await _open(host, CREW_ENT)
-	GameState.bank_notes = RICH
-	var one: ApplicantData = _applicant(0)
-	page.press_offer(one.id)
-	await _frames(host, 1)
-	var dialog: HireOfferDialog = page.offer_dialog()
+	var opened: Array = await _open_offer(host, CREW_ENT)
+	var page: HiringTab = opened[0]
+	var one: ApplicantData = opened[1]
+	var dialog: HireOfferDialog = opened[2]
 	dialog.set_amount(one.ask - 60)
 	var uid: int = GameState.mercs[0].merc_uid
 	dialog.crew().add_merc(uid)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var pay: int = dialog.pay_per()
 	var bank: int = GameState.bank_notes
 	dialog.press_action()
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "the counter-offer marks the applicant pending",
 		PromotionsManager.applicant_of(one.id).status == ApplicantData.STATUS_COUNTERED,
 		"%s" % [PromotionsManager.applicant_of(one.id).status])
@@ -1078,15 +1214,15 @@ static func _case_send_counter(res: Dictionary, host: Node) -> void:
 static func _case_resolve(res: Dictionary, host: Node) -> void:
 	var page: HiringTab = await _open(host)
 	GameState.bank_notes = RICH
-	var one: ApplicantData = _applicant(0)
+	var one: ApplicantData = _priced(0)
 	var who: String = one.name
 	var offer: int = one.ask - 60
 	var before: int = GameState.mercs.size()
 	PromotionsManager.counter(one.id, offer)
 	one.counter_odds = 100
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	GameState.day_changed.emit(GameState.day() + PromotionsManager.COUNTER_DAYS)
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "a forced pass reads as accepted",
 		one.accepted_counter, "accepted %s" % [one.accepted_counter])
 	TestFixtures.check(res, "an accepted counter-offer becomes the asking rate",
@@ -1105,20 +1241,20 @@ static func _case_resolve(res: Dictionary, host: Node) -> void:
 		page.notice().text() == HiringTab.NOTICE_HIRED % who,
 		"%s" % [page.notice().text()])
 	TestFixtures.check(res, "the accepted notice is green",
-		page.notice().color().is_equal_approx(GREEN), "%s" % [page.notice().color()])
+		page.notice().color().is_equal_approx(GuiColors.GREEN), "%s" % [page.notice().color()])
 	await _shut(host, page)
 	var slot_page: HiringTab = await _open(host)
 	GameState.bank_notes = RICH
-	var three: ApplicantData = _applicant(2)
+	var three: ApplicantData = _priced(2)
 	var name_three: String = three.name
 	var offer_three: int = three.ask - 60
 	PromotionsManager.counter(three.id, offer_three)
 	three.counter_odds = 100
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	_fill_roster()
 	var full_roster: int = GameState.mercs.size()
 	GameState.day_changed.emit(GameState.day() + PromotionsManager.COUNTER_DAYS)
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "an accepted offer with no free slot stays open",
 		PromotionsManager.applicant_of(three.id) != null and three.accepted_counter
 		and three.ask == offer_three and three.status == ApplicantData.STATUS_OPEN,
@@ -1129,7 +1265,7 @@ static func _case_resolve(res: Dictionary, host: Node) -> void:
 		"%d from %d" % [GameState.mercs.size(), full_roster])
 	TestFixtures.check(res, "the no-slot accept notice names the applicant and rings green",
 		slot_page.notice().text() == HiringTab.NOTICE_ACCEPTED % name_three
-		and slot_page.notice().color().is_equal_approx(GREEN),
+		and slot_page.notice().color().is_equal_approx(GuiColors.GREEN),
 		"%s" % [slot_page.notice().text()])
 	var card_three: ApplicantCard = slot_page.card_of(three.id)
 	TestFixtures.check(res, "the card of a no-slot accept shows the accepted text",
@@ -1138,14 +1274,14 @@ static func _case_resolve(res: Dictionary, host: Node) -> void:
 	await _shut(host, slot_page)
 	var refuse_page: HiringTab = await _open(host)
 	GameState.bank_notes = RICH
-	var two: ApplicantData = _applicant(1)
+	var two: ApplicantData = _priced(1)
 	var name_two: String = two.name
 	var rate: int = two.ask
 	PromotionsManager.counter(two.id, rate - 60)
 	two.counter_odds = 0
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	GameState.day_changed.emit(GameState.day() + PromotionsManager.COUNTER_DAYS)
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "a forced refusal reads as refused",
 		PromotionsManager.applicant_of(two.id).refused_counter,
 		"refused %s" % [PromotionsManager.applicant_of(two.id).refused_counter])
@@ -1168,10 +1304,10 @@ static func _case_notice(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the banner starts out of the way",
 		banner != null and not banner.showing(), "showing %s" % [banner.showing()])
 	banner.hold_seconds = 3.2
-	banner.flash("First line", GREEN)
+	banner.flash("First line", GuiColors.GREEN)
 	TestFixtures.check(res, "a flash shows the line and its colour",
 		banner.showing() and banner.text() == "First line"
-		and banner.color().is_equal_approx(GREEN), "%s" % [banner.text()])
+		and banner.color().is_equal_approx(GuiColors.GREEN), "%s" % [banner.text()])
 	banner.flash("Second line", GuiColors.RAMP_RED)
 	TestFixtures.check(res, "a new flash replaces the old one",
 		banner.text() == "Second line" and banner.color().is_equal_approx(GuiColors.RAMP_RED),
@@ -1180,20 +1316,20 @@ static func _case_notice(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "clear takes the banner away",
 		not banner.showing() and banner.text() == "", "showing %s" % [banner.showing()])
 	banner.hold_seconds = HOLD
-	banner.flash("Held line", GREEN)
+	banner.flash("Held line", GuiColors.GREEN)
 	await _wait_clear(host, banner)
 	TestFixtures.check(res, "the hold runs out on its own", not banner.showing(),
 		"showing %s" % [banner.showing()])
 	page.hide()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var one: ApplicantData = _applicant(0)
 	GameState.bank_notes = RICH
 	PromotionsManager.hire(one.id, one.ask)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a hidden page flashes nothing", not banner.showing(),
 		"showing %s" % [banner.showing()])
 	page.show()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	await _shut(host, page)
 
 
@@ -1202,7 +1338,7 @@ static func _case_shown(res: Dictionary, host: Node) -> void:
 	var page: HiringTab = await _open(host)
 	GameState.open_hiring(3)
 	page.page_shown()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "page_shown reads the stored campaign filter",
 		page.filter_panel().value_of("from") == [3],
 		"%s" % [page.filter_panel().value_of("from")])
@@ -1230,16 +1366,17 @@ static func _case_plans(res: Dictionary, host: Node) -> void:
 		seen.append(target)
 	GameState.go_to_plans_requested.connect(grab)
 	page.filter_panel().take_me_there.emit({"page": "plans", "row": "hiringDiscrim"})
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a filter lock asks for the Plans page", seen.size() == 1
 		and String(seen[0].get("row", "")) == "hiringDiscrim", "%s" % [seen])
+	_priced(0)
 	page.press_offer(_id(0))
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var dialog: HireOfferDialog = page.offer_dialog()
 	dialog.set_amount(_applicant(0).ask - 60)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	dialog.add_lock().take_me_there.emit({"page": "plans", "row": "oddjobs"})
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the Odd Jobs lock asks for the Plans page", seen.size() == 2
 		and String(seen[1].get("row", "")) == "oddjobs", "%s" % [seen])
 	TestFixtures.check(res, "the dialog closes on the way to Plans", not dialog.is_open(),
@@ -1260,7 +1397,7 @@ static func _case_glyphs(res: Dictionary, host: Node) -> void:
 		hatch != null and hatch.get_size() == Vector2(ApplicantCard.HATCH_SIDE,
 			ApplicantCard.HATCH_SIDE),
 		"%s" % [Vector2.ZERO if hatch == null else hatch.get_size()])
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 
 
 #M: the modal host with and without a layer above the page.
@@ -1280,7 +1417,7 @@ static func _case_modal_host(res: Dictionary, host: Node) -> void:
 	host.add_child(frame)
 	var deep: HiringTab = PAGE.instantiate() as HiringTab
 	frame.add_child(deep)
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "a ModalLayer above the page takes the modals",
 		deep.modal_host() == layer, "%s" % [deep.modal_host()])
 	TestFixtures.check(res, "the dialog lands on that layer",
@@ -1288,21 +1425,21 @@ static func _case_modal_host(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the confirm lands on that layer too",
 		deep.confirm_dialog().get_parent() == layer, "%s" % [deep.confirm_dialog().get_parent()])
 	frame.queue_free()
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 
 
 #Z: a refresh while the page is away.
 static func _case_hidden(res: Dictionary, host: Node) -> void:
 	var page: HiringTab = await _open(host)
 	page.hide()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var before: int = page.shown_count()
 	PromotionsManager.reject(_id(0))
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a hidden page keeps the cards it had",
 		page.shown_count() == before, "%d from %d" % [page.shown_count(), before])
 	page.show()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "showing the page catches it up",
 		page.shown_count() == before - 1, "%d from %d" % [page.shown_count(), before])
 	TestFixtures.check(res, "the count line catches up with it",
@@ -1316,7 +1453,7 @@ static func _case_offer_frame(res: Dictionary, host: Node) -> void:
 	GameState.bank_notes = RICH
 	GuiFrameStack.clear()
 	page.press_offer(_id(0))
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	var dialog: HireOfferDialog = page.offer_dialog()
 	TestFixtures.check(res, "the offer page is fitted to the viewport, not the scaled canvas",
 		dialog.top_level and dialog.position == Vector2.ZERO,
@@ -1327,27 +1464,105 @@ static func _case_offer_frame(res: Dictionary, host: Node) -> void:
 	var above := Control.new()
 	above.name = "AboveTheOffer"
 	host.add_child(above)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	GuiFrameStack.push(above)
-	_escape(host)
-	await _frames(host, 2)
+	GuiContractTests._push_escape(host)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "Esc under a frame above it leaves the offer page open",
 		dialog.is_open() and GuiFrameStack.depth() == 2,
 		"open %s depth %d" % [dialog.is_open(), GuiFrameStack.depth()])
 	GuiFrameStack.remove(above)
 	above.queue_free()
-	await _frames(host, 1)
-	_escape(host)
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 1)
+	GuiContractTests._push_escape(host)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "Esc on the top frame closes the offer page alone",
 		not dialog.is_open() and GuiFrameStack.depth() == 0,
 		"open %s depth %d" % [dialog.is_open(), GuiFrameStack.depth()])
 	var action: BevelButton = dialog.action_button() as BevelButton
-	var cancel: BevelButton = dialog.cancel_button() as BevelButton
+	var cancel: BevelButton = dialog.cancel_button
 	TestFixtures.check(res, "the offer page commits through a core bevel button",
-		action != null and action.kind == &"go" and action.fill.is_equal_approx(GREEN),
+		action != null and action.kind == &"go" and action.fill.is_equal_approx(GuiColors.GREEN),
 		"%s" % [&"" if action == null else action.kind])
 	TestFixtures.check(res, "the offer page dismisses through a core bevel button",
-		cancel != null and cancel.kind == &"blue" and cancel.fill.is_equal_approx(BLUE2),
+		cancel != null and cancel.kind == &"blue" and cancel.fill.is_equal_approx(GuiColors.BLUE),
 		"%s" % [&"" if cancel == null else cancel.kind])
+	await _shut(host, page)
+
+
+#The page held to one posting the way the View Applicants window opens it: no filters, one campaign.
+static func _case_fixed(res: Dictionary, host: Node) -> void:
+	var page: HiringTab = await _open(host, {}, FIXED_CAMPAIGN)
+	var col: PanelContainer = page.filter_column()
+	var panel: TraitFilterPanel = page.filter_panel()
+	TestFixtures.check(res, "a fixed page hides the filter column", col != null and not col.visible,
+		"shown %s" % [col != null and col.visible])
+	TestFixtures.check(res, "the hidden panel still carries the hiring defs the cards read",
+		panel != null and _def_keys(panel.defs()) == _def_keys(PromotionsManager.hiring_defs()),
+		"%d defs" % [0 if panel == null else panel.defs().size()])
+	TestFixtures.check(res, "a fixed page lists the applicants of its posting alone",
+		page.card_ids() == [_id(0)], "%s" % [page.card_ids()])
+	var title: Label = page.title_label()
+	var named: String = "Applicants: %s" % PromotionsManager.campaign_name(FIXED_CAMPAIGN)
+	TestFixtures.check(res, "the header names the posting", title != null and title.text == named,
+		"%s" % ["" if title == null else title.text])
+	var grid: GridContainer = page.card_grid()
+	var left: float = page.get_global_rect().position.x
+	var grid_x: float = 0.0 if grid == null else grid.get_global_rect().position.x
+	TestFixtures.check(res, "the card grid takes the room of the hidden column",
+		grid != null and grid_x < left + FILTER_W, "grid at %.1f, page at %.1f" % [grid_x, left])
+	var toggle: SortDirToggle = page.sort_toggle()
+	var reserve: float = SubWindow.CLOSE_RESERVE - float(HiringTab.SHELL_INSET)
+	var edge: float = page.get_global_rect().end.x - reserve
+	var toggle_end: float = 0.0 if toggle == null else toggle.get_global_rect().end.x
+	TestFixtures.check(res, "the Sort controls stop one close reserve short of the window edge",
+		toggle != null and toggle_end <= edge + SLACK, "ends %.1f, edge %.1f" % [toggle_end, edge])
+	_applicant(MOVED).campaign_id = FIXED_CAMPAIGN
+	page.refresh()
+	await TestFixtures.frames(host, 1)
+	var pair: Array[int] = []
+	for id: int in FIT_DESC:
+		if id == _id(0) or id == _id(MOVED):
+			pair.append(id)
+	TestFixtures.check(res, "a second applicant from the posting joins in fit order",
+		page.card_ids() == pair, "%s" % [page.card_ids()])
+	TestFixtures.check(res, "the count line reads the applicants of the posting alone",
+		page.count_text() == "2 applicants", "%s" % [page.count_text()])
+	page.set_descending(false)
+	await TestFixtures.frames(host, 1)
+	var flipped: Array[int] = []
+	for id: int in pair:
+		flipped.push_front(id)
+	TestFixtures.check(res, "the sort still turns a fixed list around", page.card_ids() == flipped,
+		"%s" % [page.card_ids()])
+	page.set_descending(true)
+	panel.press_value("salary", NO_MATCH)
+	await TestFixtures.frames(host, 1)
+	TestFixtures.check(res, "a value on the hidden panel never narrows a fixed list",
+		page.card_ids() == pair, "%s" % [page.card_ids()])
+	page.press_clear()
+	page.press_reject(_id(MOVED))
+	await TestFixtures.frames(host, 1)
+	page.confirm_dialog().press(1)
+	await TestFixtures.frames(host, 1)
+	TestFixtures.check(res, "a reject shrinks the fixed list",
+		page.card_ids() == [_id(0)] and page.count_text() == "1 applicants",
+		"%s, %s" % [page.card_ids(), page.count_text()])
+	var ended: bool = PromotionsManager.end(FIXED_CAMPAIGN)
+	await TestFixtures.frames(host, 1)
+	TestFixtures.check(res, "an ended posting still lists the applicants it sent and keeps its name",
+		ended and page.card_ids() == [_id(0)] and page.title_text() == named,
+		"ended %s, %s, %s" % [ended, page.card_ids(), page.title_text()])
+	page.press_reject(_id(0))
+	await TestFixtures.frames(host, 1)
+	page.confirm_dialog().press(1)
+	await TestFixtures.frames(host, 1)
+	TestFixtures.check(res, "a fixed page with nobody left says the posting sent nobody",
+		page.empty_text() == "No applicants from this posting." and page.count_text() == "0 applicants",
+		"%s, %s" % [page.empty_text(), page.count_text()])
+	TestFixtures.check(res, "the empty line shows and the grid hides on a fixed page",
+		page.empty_label().visible and not page.card_grid().visible,
+		"empty %s, grid %s" % [page.empty_label().visible, page.card_grid().visible])
+	TestFixtures.check(res, "a fixed page with no layer above it is still its own modal host",
+		page.modal_host() == page, "%s" % [page.modal_host()])
 	await _shut(host, page)

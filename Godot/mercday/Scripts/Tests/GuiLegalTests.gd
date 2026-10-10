@@ -2,7 +2,7 @@ class_name GuiLegalTests
 extends RefCounted
 
 #Run: godot --headless --path . with the --gui-legal-tests flag.
-#The Legal window and the rules under it: the three tabs with their unread dots, the nine location
+#The Legal window and the rules under it: the three tabs with their unread dots, the thirteen location
 #cards, the permit request dialog and its confirm, the fine and bailout lists, the Review dialog
 #with its rich pay confirm, and the Odd Job window that renegotiates a fine or breaks a merc out.
 #Every case drives the public helpers, because a synthetic click never reaches a button headless.
@@ -10,9 +10,26 @@ extends RefCounted
 const VIEWER: PackedScene = preload("res://Scenes/GUI/Legal/LegalViewer.tscn")
 const RICH: int = 40000
 const SHORT_NOTES: int = 10
-const CARDS: int = 9
-#The seeded rows LegalManager holds: one fine with time left, one overdue, one far off, one paid,
-#and two mercs in custody. LegalManager.SEED_FINES and SEED_CAPTURES write them.
+const CARDS: int = 13
+#The legal books the cases read, which _lay_legal files: one fine with time left, one overdue, one far off,
+#one paid, and two mercs in custody. Days are written against LAY_TODAY and keep their age around today.
+const LAY_TODAY: int = 540
+const LAY_FINES: Array[Dictionary] = [
+	{"loc": 2, "crime": "Crime 1", "mercs": [3, 6], "contract": 11, "issued": 530, "due": 548, "amount": 180,
+		"unread": true},
+	{"loc": 0, "crime": "Crime 2", "mercs": [1], "contract": 12, "issued": 520, "due": 535, "amount": 450,
+		"unread": false},
+	{"loc": 3, "crime": "Crime 3", "mercs": [2, 7, 8], "contract": 13, "issued": 538, "due": 561,
+		"amount": 900, "unread": true},
+	{"loc": 0, "crime": "Crime 4", "mercs": [5], "contract": 11, "issued": 500, "due": 520, "amount": 60,
+		"paid": 60, "paid_day": 517, "unread": false},
+]
+const LAY_CAPTURES: Array[Dictionary] = [
+	{"merc": 4, "loc": 3, "crime": "Crime 5", "contract": 13, "since": 536, "sentence": 30, "bail": 350,
+		"unread": true},
+	{"merc": 9, "loc": 2, "crime": "Crime 6", "contract": 11, "since": 530, "sentence": 20, "bail": 220,
+		"unread": false},
+]
 const FINE_SOON: int = 1
 const FINE_LATE: int = 2
 const FINE_FAR: int = 3
@@ -21,6 +38,8 @@ const HELD_A: int = 1
 const HELD_B: int = 2
 const HELD_A_UID: int = 4
 const HELD_B_UID: int = 9
+#The books name mercs by uid up to nine, so the cases run on a roster of ten that holds every one of them.
+const LEGAL_ROSTER: int = 10
 const HOME_LOC: int = 0
 const NEAR_LOC: int = 1
 const SOON_LOC: int = 2
@@ -62,6 +81,15 @@ const LOST_AMOUNT: int = 1125
 const LOST_BAIL: int = 330
 const HALF_JOB: int = 6
 const OTHER_UNTIL: int = 10
+const ROWS_PATH: NodePath = ^"Margin/Rows"
+const TAB_PAD_PATH: NodePath = ^"Margin/Rows/TabRowPad"
+const PANEL_PATH: NodePath = ^"Margin/Rows/PagePanel"
+const TAB_ROW_HEIGHT: int = 44
+const TAB_ROW_GAP: int = 8
+const TAB_PAD_LEFT: int = 4
+const TAB_PAD_RIGHT: int = 42
+const WINDOW_MARGIN: int = 14
+const LAYOUT_SLACK: float = 0.5
 
 
 static func run(host: Node) -> bool:
@@ -71,11 +99,13 @@ static func run(host: Node) -> bool:
 	var board: Array[ContractView] = GameState.contracts.duplicate()
 	var bank: int = GameState.bank_notes
 	_fresh()
+	TestFixtures.add_mercs(LEGAL_ROSTER - GameState.mercs.size())
 	await host.get_tree().process_frame
 	var viewer: LegalViewer = VIEWER.instantiate() as LegalViewer
 	host.add_child(viewer)
 	await host.get_tree().process_frame
 	await _case_tabs(res, host, viewer)
+	await _case_permit_frame(res, host, viewer)
 	await _case_dots(res, host, viewer)
 	await _case_cards(res, host, viewer)
 	await _case_states(res, host, viewer)
@@ -92,13 +122,15 @@ static func run(host: Node) -> bool:
 	await _case_holds(res, host, viewer)
 	await _case_bevel_sweep(res, host, viewer)
 	await _case_dot_frames(res, host, viewer)
+	await _case_fit(res, host)
+	await _case_reopen_legal(res, host, viewer)
 	GuiFrameStack.clear()
 	viewer.queue_free()
 	CampaignClock.minutes = clock
 	GameState.mercs = roster
 	GameState.contracts = board
 	GameState.bank_notes = bank
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	LegalManager.reset()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	TestFixtures.reset_campaign()
@@ -110,10 +142,10 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
-#Every case starts from the seeded legal state, a full plan and a bank that can pay for anything.
+#Every case starts from the laid legal state, a full plan and a bank that can pay for anything.
 static func _reseed(viewer: LegalViewer) -> void:
 	if viewer.confirm().visible:
 		viewer.confirm().press(0)
@@ -122,30 +154,48 @@ static func _reseed(viewer: LegalViewer) -> void:
 	viewer.review_dialog().close()
 	viewer.request_dialog().close()
 	GuiFrameStack.clear()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	GameState.bank_notes = RICH
 	LegalManager.reset()
+	_lay_legal()
+
+
+#Files the LAY rows through add_fine and add_capture, then sets each to its row on the public fields, since
+#the builders file today, unread and after the whoKnows cut. Both SOON_LOC permits go straight into permits.
+static func _lay_legal() -> void:
+	var today: int = GameState.day()
+	for row: Dictionary in LAY_FINES:
+		var mercs: Array[int] = []
+		mercs.assign(row["mercs"] as Array)
+		var span: int = int(row["due"]) - int(row["issued"])
+		var made: FineData = LegalManager.add_fine(int(row["loc"]), str(row["crime"]), mercs,
+			int(row["contract"]), int(row["amount"]), span)
+		made.day_issued = today - (LAY_TODAY - int(row["issued"]))
+		made.day_due = made.day_issued + span
+		made.amount = int(row["amount"])
+		made.previous_amount = 0
+		made.note = ""
+		made.paid = int(row.get("paid", 0))
+		made.day_paid = today - (LAY_TODAY - int(row["paid_day"])) if row.has("paid_day") else -1
+		made.unread = bool(row["unread"])
+	for row: Dictionary in LAY_CAPTURES:
+		var held: CaptureData = LegalManager.add_capture(int(row["merc"]), int(row["loc"]),
+			str(row["crime"]), int(row["contract"]), int(row["sentence"]), int(row["bail"]))
+		held.day_captured = today - (LAY_TODAY - int(row["since"]))
+		held.sentence_days = int(row["sentence"])
+		held.bail = int(row["bail"])
+		held.previous_bail = 0
+		held.note = ""
+		held.unread = bool(row["unread"])
+	LegalManager.permits[SOON_LOC] = {"ops": true, "tele": true}
+	LegalManager.permits_changed.emit()
+	LegalManager.fines_changed.emit()
+	LegalManager.captures_changed.emit()
 
 
 #whoKnows at its top tier waives every fine fee, so the fee cases drop that upgrade first.
 static func _no_favours() -> bool:
 	return SubscriptionManager.set_tier("whoknows", 0)
-
-
-static func _advance_days(n: int) -> void:
-	CampaignClock.advance(n * CampaignClock.MINUTES_PER_DAY)
-	GameState.day_changed.emit(GameState.day())
-
-
-#A roster merc nobody is holding, so an Odd Job crew can take them.
-static func _free_uid() -> int:
-	var busy: Array[int] = GameState.busy_uids()
-	for view: MercView in GameState.roster:
-		if busy.has(view.uid):
-			continue
-		if view.status == GuiTypes.MercStatus.AVAILABLE:
-			return view.uid
-	return -1
 
 
 static func _status_of(uid: int) -> int:
@@ -162,18 +212,19 @@ static func _candidate_ids(config: Dictionary) -> Array[int]:
 	return out
 
 
-static func _fact_label(config: Dictionary, i: int) -> String:
+static func _fact(config: Dictionary, i: int) -> Dictionary:
 	var facts: Array = config.get("facts", []) as Array
 	if i < 0 or i >= facts.size():
-		return ""
-	return str((facts[i] as Dictionary).get("label", ""))
+		return {}
+	return facts[i] as Dictionary
+
+
+static func _fact_label(config: Dictionary, i: int) -> String:
+	return str(_fact(config, i).get("label", ""))
 
 
 static func _fact_value(config: Dictionary, i: int) -> String:
-	var facts: Array = config.get("facts", []) as Array
-	if i < 0 or i >= facts.size():
-		return ""
-	return str((facts[i] as Dictionary).get("value", ""))
+	return str(_fact(config, i).get("value", ""))
 
 
 static func _fact_count(config: Dictionary) -> int:
@@ -181,10 +232,7 @@ static func _fact_count(config: Dictionary) -> int:
 
 
 static func _fact_color(config: Dictionary, i: int) -> Color:
-	var facts: Array = config.get("facts", []) as Array
-	if i < 0 or i >= facts.size():
-		return Color.BLACK
-	var tint: Color = (facts[i] as Dictionary).get("color", Color.BLACK)
+	var tint: Color = _fact(config, i).get("color", Color.BLACK)
 	return tint
 
 
@@ -195,10 +243,10 @@ static func _newest_row() -> TransactionData:
 
 #The window frame itself must never scroll: only a page list does.
 static func _frame_scrolls(viewer: LegalViewer) -> bool:
-	var page: Node = viewer.get_node_or_null(^"Page")
-	if page == null:
+	var rows: Node = viewer.get_node_or_null(ROWS_PATH)
+	if rows == null:
 		return true
-	for child: Node in page.get_children():
+	for child: Node in rows.get_children():
 		if child is ScrollContainer:
 			return true
 		for sub: Node in child.get_children():
@@ -215,88 +263,152 @@ static func _case_tabs(res: Dictionary, host: Node, viewer: LegalViewer) -> void
 		seen.append(index)
 	viewer.tab_changed.connect(on_tab)
 	TestFixtures.check(res, "the Legal window opens the three tabs the prototype names",
-		viewer.tab_count() == 3 and LegalViewer.TAB_KEYS.size() == 3
+		viewer.tabs().size() == 3 and LegalViewer.TAB_KEYS.size() == 3
 		and LegalViewer.TAB_KEYS[0] == &"permits" and LegalViewer.TAB_KEYS[1] == &"fines"
 		and LegalViewer.TAB_KEYS[2] == &"bail",
-		"%d tabs, keys %s" % [viewer.tab_count(), LegalViewer.TAB_KEYS])
+		"%d tabs, keys %s" % [viewer.tabs().size(), LegalViewer.TAB_KEYS])
 	TestFixtures.check(res, "each tab carries its prototype label and description",
-		viewer.tab_node(0).label == "Permits" and viewer.tab_node(1).label == "Fines"
-		and viewer.tab_node(2).label == "Bailout"
-		and viewer.tab_node(1).description == LegalViewer.TAB_DESCS[1],
-		"%s, %s, %s" % [viewer.tab_node(0).label, viewer.tab_node(1).label,
-		viewer.tab_node(2).label])
-	TestFixtures.check(res, "start_tab picks the tab the window opens on",
-		viewer.start_tab == LegalViewer.Tab.PERMITS and viewer.current_tab() == 0
-		and viewer.current_key() == &"permits",
-		"tab %d key %s" % [viewer.current_tab(), viewer.current_key()])
+		viewer.tab_at(0).label == "Permits" and viewer.tab_at(1).label == "Fines"
+		and viewer.tab_at(2).label == "Bailout"
+		and viewer.tab_at(1).description == LegalViewer.TAB_DESCS[1],
+		"%s, %s, %s" % [viewer.tab_at(0).label, viewer.tab_at(1).label,
+		viewer.tab_at(2).label])
+	TestFixtures.check(res, "the window opens on its first tab",
+		viewer.default_tab == &"" and viewer.current_index() == 0
+		and viewer.current_tab() == &"permits",
+		"tab %d key %s" % [viewer.current_index(), viewer.current_tab()])
 	TestFixtures.check(res, "only the Permits page shows on the first tab",
 		viewer.permits_page().visible and not viewer.fines_page().visible
-		and not viewer.bailout_page().visible and viewer.tab_node(0).active,
+		and not viewer.bailout_page().visible and viewer.tab_at(0).active,
 		"%s %s %s" % [viewer.permits_page().visible, viewer.fines_page().visible,
 		viewer.bailout_page().visible])
 	viewer.press_tab(&"fines")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "pressing Fines swaps the page and the active mark",
-		viewer.current_tab() == 1 and viewer.current_key() == &"fines"
+		viewer.current_index() == 1 and viewer.current_tab() == &"fines"
 		and viewer.fines_page().visible and not viewer.permits_page().visible
-		and viewer.tab_node(1).active and not viewer.tab_node(0).active,
-		"tab %d fines %s" % [viewer.current_tab(), viewer.fines_page().visible])
+		and viewer.tab_at(1).active and not viewer.tab_at(0).active,
+		"tab %d fines %s" % [viewer.current_index(), viewer.fines_page().visible])
 	viewer.press_tab(&"bail")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "pressing Bailout reports each tab change once",
-		viewer.current_key() == &"bail" and viewer.bailout_page().visible
+		viewer.current_tab() == &"bail" and viewer.bailout_page().visible
 		and seen.size() == 2 and seen[0] == 1 and seen[1] == 2,
-		"key %s changes %s" % [viewer.current_key(), seen])
+		"key %s changes %s" % [viewer.current_tab(), seen])
 	viewer.open_tab(&"nothing")
 	TestFixtures.check(res, "an unknown tab key changes nothing",
-		viewer.current_key() == &"bail" and seen.size() == 2,
-		"key %s changes %s" % [viewer.current_key(), seen])
+		viewer.current_tab() == &"bail" and seen.size() == 2,
+		"key %s changes %s" % [viewer.current_tab(), seen])
 	viewer.open_tab(&"permits")
 	await host.get_tree().process_frame
 	viewer.tab_changed.disconnect(on_tab)
 	TestFixtures.check(res, "opening a tab by key returns to Permits",
-		viewer.current_key() == &"permits" and viewer.permits_page().visible
+		viewer.current_tab() == &"permits" and viewer.permits_page().visible
 		and seen.size() == 3 and seen[2] == 0,
-		"key %s changes %s" % [viewer.current_key(), seen])
+		"key %s changes %s" % [viewer.current_tab(), seen])
 	TestFixtures.check(res, "each Legal tab carries its atlas id",
-		viewer.tabs[0].icon_id == "permit" and viewer.tabs[1].icon_id == "coin"
-		and viewer.tabs[2].icon_id == "bail_bars" and viewer.tabs[0].icon_scale == 2,
-		"got %s" % [viewer.tabs[0].icon_id])
+		viewer.tab_at(0).icon_id == "permit" and viewer.tab_at(1).icon_id == "coin"
+		and viewer.tab_at(2).icon_id == "bail_bars" and viewer.tab_at(0).icon_scale == 2,
+		"got %s" % [viewer.tab_at(0).icon_id])
 	TestFixtures.check(res, "the window frame never scrolls; the page list does",
 		not _frame_scrolls(viewer) and viewer.permits_page().scroll_node() != null,
 		"frame scrolls %s" % _frame_scrolls(viewer))
+
+
+#The tab row stands above the PageContent panel so the panel's orange top line runs under the tabs,
+#and the permits strip sits in a frame with its cards held clear of the horizontal bar.
+static func _case_permit_frame(res: Dictionary, host: Node, viewer: LegalViewer) -> void:
+	_reseed(viewer)
+	viewer.open_tab(&"permits")
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var margin: MarginContainer = viewer.get_node_or_null(^"Margin") as MarginContainer
+	var pad: MarginContainer = viewer.get_node_or_null(TAB_PAD_PATH) as MarginContainer
+	var panel: PanelContainer = viewer.get_node_or_null(PANEL_PATH) as PanelContainer
+	var strip: TabStrip = viewer.tab_strip
+	var related: bool = pad != null and panel != null and pad.get_parent() == panel.get_parent() \
+		and pad.get_index() < panel.get_index()
+	TestFixtures.check(res, "the tab row is a sibling above the page panel, not inside it",
+		related and pad.is_ancestor_of(strip) and not panel.is_ancestor_of(strip)
+		and panel.is_ancestor_of(viewer.permits_page()),
+		"pad %s panel %s" % [pad, panel])
+	TestFixtures.check(res, "the page panel wears the PageContent look and takes the free height",
+		panel != null and panel.theme_type_variation == &"PageContent"
+		and panel.size_flags_vertical == Control.SIZE_EXPAND_FILL,
+		"panel %s" % panel)
+	var strip_end: float = strip.get_global_rect().end.y
+	var panel_top: float = panel.get_global_rect().position.y if panel != null else -1.0
+	TestFixtures.check(res, "the panel's top line starts where the tab strip ends",
+		absf(strip_end - panel_top) <= LAYOUT_SLACK,
+		"strip ends %.1f panel starts %.1f" % [strip_end, panel_top])
+	TestFixtures.check(res, "the strip stands 44 px tall with a gap of eight",
+		strip.custom_minimum_size.y == float(TAB_ROW_HEIGHT)
+		and strip.get_theme_constant(&"separation") == TAB_ROW_GAP,
+		"min %s gap %d" % [strip.custom_minimum_size, strip.get_theme_constant(&"separation")])
+	var left: int = pad.get_theme_constant(&"margin_left") if pad != null else -1
+	var right: int = pad.get_theme_constant(&"margin_right") if pad != null else -1
+	var edge: int = margin.get_theme_constant(&"margin_right") if margin != null else -1
+	TestFixtures.check(res, "the tab row pads 4 px left and 42 px right inside a 14 px window margin",
+		left == TAB_PAD_LEFT and right == TAB_PAD_RIGHT and edge == WINDOW_MARGIN
+		and float(right + edge) == SubWindow.CLOSE_RESERVE,
+		"left %d right %d window %d" % [left, right, edge])
+	TestFixtures.check(res, "the tab strip ends one close reserve short of the window edge",
+		strip.get_global_rect().end.x <= viewer.get_global_rect().end.x - SubWindow.CLOSE_RESERVE
+		+ LAYOUT_SLACK,
+		"strip ends %.1f window ends %.1f" % [strip.get_global_rect().end.x,
+		viewer.get_global_rect().end.x])
+	var page: PermitsPage = viewer.permits_page()
+	var scroll: ScrollContainer = page.scroll_node()
+	var frame: PanelContainer = scroll.get_parent() as PanelContainer
+	TestFixtures.check(res, "the permits scroll sits in its own inset frame under the head",
+		frame != null and frame.get_parent() == page and frame.theme_type_variation == &"InsetPanel"
+		and frame.size_flags_vertical == Control.SIZE_EXPAND_FILL
+		and frame.get_global_rect().encloses(scroll.get_global_rect()),
+		"frame %s" % frame)
+	TestFixtures.check(res, "the permits page still owns exactly one ScrollContainer",
+		page.find_children("*", "ScrollContainer", true, false).size() == 1,
+		"%d scrolls" % page.find_children("*", "ScrollContainer", true, false).size())
+	var bar: HScrollBar = scroll.get_h_scroll_bar()
+	var lowest: float = 0.0
+	for node: Node in page.rows():
+		lowest = maxf(lowest, (node as Control).get_global_rect().end.y)
+	var bar_top: float = bar.get_global_rect().position.y
+	TestFixtures.check(res, "the cards end the scroll bar gap above the horizontal bar",
+		bar.is_visible_in_tree() and bar_top - lowest >= float(PermitsPage.SCROLLBAR_GAP)
+		- LAYOUT_SLACK,
+		"cards end %.1f bar starts %.1f gap %d" % [lowest, bar_top, PermitsPage.SCROLLBAR_GAP])
 
 
 static func _case_dots(res: Dictionary, host: Node, viewer: LegalViewer) -> void:
 	_reseed(viewer)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the seeded unread fine and capture light their tab dots",
-		not viewer.tab_dot(0) and viewer.tab_dot(1) and viewer.tab_dot(2)
+		not viewer.tab_at(0).dot and viewer.tab_at(1).dot and viewer.tab_at(2).dot
 		and LegalManager.has_unread_fine() and LegalManager.has_unread_capture(),
-		"dots %s %s %s" % [viewer.tab_dot(0), viewer.tab_dot(1), viewer.tab_dot(2)])
+		"dots %s %s %s" % [viewer.tab_at(0).dot, viewer.tab_at(1).dot, viewer.tab_at(2).dot])
 	viewer.press_tab(&"fines")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "opening a tab never clears its dot",
-		viewer.tab_dot(1) and LegalManager.has_unread_fine(),
-		"dot %s unread %s" % [viewer.tab_dot(1), LegalManager.has_unread_fine()])
+		viewer.tab_at(1).dot and LegalManager.has_unread_fine(),
+		"dot %s unread %s" % [viewer.tab_at(1).dot, LegalManager.has_unread_fine()])
 	viewer.open_review(LegalManager.TARGET_FINE, FINE_SOON)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a Review clears its own row only",
 		not LegalManager.fine(FINE_SOON).unread and LegalManager.has_unread_fine()
-		and viewer.tab_dot(1) and viewer.review_dialog().visible,
-		"unread %s dot %s" % [LegalManager.has_unread_fine(), viewer.tab_dot(1)])
+		and viewer.tab_at(1).dot and viewer.review_dialog().visible,
+		"unread %s dot %s" % [LegalManager.has_unread_fine(), viewer.tab_at(1).dot])
 	viewer.open_review(LegalManager.TARGET_FINE, FINE_FAR)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the last unread fine clears the Fines dot",
 		not LegalManager.fine(FINE_FAR).unread and not LegalManager.has_unread_fine()
-		and not viewer.tab_dot(1),
-		"unread %s dot %s" % [LegalManager.has_unread_fine(), viewer.tab_dot(1)])
+		and not viewer.tab_at(1).dot,
+		"unread %s dot %s" % [LegalManager.has_unread_fine(), viewer.tab_at(1).dot])
 	viewer.open_review(LegalManager.TARGET_CAPTURE, HELD_A)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the capture Review clears the Bailout dot",
 		not LegalManager.capture(HELD_A).unread and not LegalManager.has_unread_capture()
-		and not viewer.tab_dot(2) and not viewer.review_dialog().is_fine(),
-		"unread %s dot %s" % [LegalManager.has_unread_capture(), viewer.tab_dot(2)])
+		and not viewer.tab_at(2).dot and not viewer.review_dialog().is_fine(),
+		"unread %s dot %s" % [LegalManager.has_unread_capture(), viewer.tab_at(2).dot])
 	viewer.review_dialog().press_close()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "closing the Review leaves the modal stack empty",
@@ -305,8 +417,8 @@ static func _case_dots(res: Dictionary, host: Node, viewer: LegalViewer) -> void
 	_reseed(viewer)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "reseeding brings the unread rows and both dots back",
-		viewer.tab_dot(1) and viewer.tab_dot(2),
-		"dots %s %s" % [viewer.tab_dot(1), viewer.tab_dot(2)])
+		viewer.tab_at(1).dot and viewer.tab_at(2).dot,
+		"dots %s %s" % [viewer.tab_at(1).dot, viewer.tab_at(2).dot])
 
 
 static func _case_cards(res: Dictionary, host: Node, viewer: LegalViewer) -> void:
@@ -314,7 +426,7 @@ static func _case_cards(res: Dictionary, host: Node, viewer: LegalViewer) -> voi
 	viewer.open_tab(&"permits")
 	await host.get_tree().process_frame
 	var page: PermitsPage = viewer.permits_page()
-	TestFixtures.check(res, "the Permits strip holds the nine locations",
+	TestFixtures.check(res, "the Permits strip holds the thirteen locations",
 		page.card_count() == CARDS, "%d cards" % page.card_count())
 	var ordered: bool = true
 	for i: int in range(page.card_count()):
@@ -330,10 +442,10 @@ static func _case_cards(res: Dictionary, host: Node, viewer: LegalViewer) -> voi
 		page.card(NEAR_LOC).home_tag_visible()])
 	TestFixtures.check(res, "a card prints its nation and its average difficulty stars",
 		page.card(SHORT_LOC).nation_text() == "Nation 4, Restricted"
-		and is_equal_approx(page.card(HOME_LOC).stars.rating, 1.5)
-		and is_equal_approx(page.card(8).stars.rating, 5.0)
-		and page.card(8).stars.star_size == 2,
-		"%s, %.1f" % [page.card(SHORT_LOC).nation_text(), page.card(HOME_LOC).stars.rating])
+		and is_equal_approx(page.card(HOME_LOC).stars.value, 1.5)
+		and is_equal_approx(page.card(8).stars.value, 5.0)
+		and page.card(8).stars.star_px == 2,
+		"%s, %.1f" % [page.card(SHORT_LOC).nation_text(), page.card(HOME_LOC).stars.value])
 	var mark: TextureRect = page.card(HOME_LOC).find_child("Mark", true, false) as TextureRect
 	var mark_tex: Texture2D = null if mark == null else mark.texture
 	var mark_art: Vector2 = Vector2.ZERO if mark_tex == null else mark_tex.get_size()
@@ -360,8 +472,8 @@ static func _case_cards(res: Dictionary, host: Node, viewer: LegalViewer) -> voi
 		== LegalStyle.location_name(FAR_LOC) and page.card_for(99) == null,
 		"card %s" % page.card_for(FAR_LOC))
 	TestFixtures.check(res, "a live operating permit rings its card green",
-		page.card(HOME_LOC).ring_color() == LegalStyle.GREEN_EDGE
-		and page.card(NEAR_LOC).ring_color() == LegalStyle.BLUE,
+		page.card(HOME_LOC).ring_color() == GuiColors.GO_LO
+		and page.card(NEAR_LOC).ring_color() == GuiColors.BLUE_LO,
 		"%s / %s" % [page.card(HOME_LOC).ring_color(), page.card(NEAR_LOC).ring_color()])
 	TestFixtures.check(res, "a clean location and a location with cases differ on the card",
 		page.card(HOME_LOC).permission_state(2) == LegalManager.STATE_NONE
@@ -518,6 +630,49 @@ static func _case_request(res: Dictionary, host: Node, viewer: LegalViewer) -> v
 		"visible %s top %s" % [dialog.visible, GuiFrameStack.top()])
 
 
+#Designer rule 2026-10-04: the picks reset once the My Legal window is fully closed.
+static func _case_reopen_legal(res: Dictionary, host: Node, viewer: LegalViewer) -> void:
+	_reseed(viewer)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var legal: LegalViewer = hud.open_viewer(&"legal") as LegalViewer
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the HUD opens My Legal over the laid fines", legal != null,
+		"opened %s" % str(legal != null))
+	if legal == null:
+		await GuiClickJBTests._close(host, hud)
+		return
+	var first_tab: StringName = legal.current_tab()
+	var first_filter: StringName = legal.fines_page().current_filter()
+	var first_rows: int = legal.fines_page().row_count()
+	legal.open_tab(&"fines")
+	await host.get_tree().process_frame
+	legal.fines_page().paid_button.pressed.emit()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the My Legal picks under test moved",
+		legal.current_tab() != first_tab and legal.fines_page().current_filter() != first_filter
+		and legal.fines_page().row_count() != first_rows,
+		"tab %s filter %s rows %d of %d" % [legal.current_tab(), legal.fines_page().current_filter(),
+		legal.fines_page().row_count(), first_rows])
+	hud.popup().close()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "closing My Legal frees its content", not is_instance_valid(legal),
+		"valid %s" % is_instance_valid(legal))
+	var again: LegalViewer = hud.open_viewer(&"legal") as LegalViewer
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a fully closed My Legal opens again on its first page and the Outstanding fines",
+		again != null and again.current_tab() == first_tab and first_tab == &"permits"
+		and again.fines_page().current_filter() == first_filter
+		and first_filter == FinesPage.FILTER_OUTSTANDING and again.fines_page().row_count() == first_rows,
+		"tab %s filter %s rows %d of %d" % [again.current_tab() if again != null else &"",
+		again.fines_page().current_filter() if again != null else &"",
+		again.fines_page().row_count() if again != null else -1, first_rows])
+	await GuiClickJBTests._close(host, hud)
+
+
 static func _case_fines(res: Dictionary, host: Node, viewer: LegalViewer) -> void:
 	_reseed(viewer)
 	var plain: bool = _no_favours()
@@ -551,21 +706,21 @@ static func _case_fines(res: Dictionary, host: Node, viewer: LegalViewer) -> voi
 		page.row_for(FINE_LATE).amount_value(), page.row_for(FINE_FAR).amount_value()])
 	TestFixtures.check(res, "a fine with time left counts the days down",
 		page.row_for(FINE_SOON).due_text() == "In %s" % GuiDates.days_text(SOON_DAYS)
-		and page.row_for(FINE_SOON).due_color() == LegalStyle.CREAM
+		and page.row_for(FINE_SOON).due_color() == GuiColors.CREAM
 		and page.row_for(FINE_FAR).due_text() == "In %s" % GuiDates.days_text(FAR_DAYS),
 		"soon %s far %s" % [page.row_for(FINE_SOON).due_text(),
 		page.row_for(FINE_FAR).due_text()])
 	TestFixtures.check(res, "a fine past its due day counts the days up in red",
 		page.row_for(FINE_LATE).days_late() == LATE_DAYS
 		and page.row_for(FINE_LATE).due_text() == "%s past due" % GuiDates.days_text(LATE_DAYS)
-		and page.row_for(FINE_LATE).due_color() == LegalStyle.RED,
+		and page.row_for(FINE_LATE).due_color() == GuiColors.RED,
 		"due %s" % page.row_for(FINE_LATE).due_text())
-	_advance_days(1)
+	GuiManagerTests.advance_days(1)
 	page.pick_filter(FinesPage.FILTER_OUTSTANDING)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a fine due within a week turns amber",
 		page.row_for(FINE_SOON).due_text() == "In %s" % GuiDates.days_text(AMBER_DAYS)
-		and page.row_for(FINE_SOON).due_color() == LegalStyle.AMBER,
+		and page.row_for(FINE_SOON).due_color() == GuiColors.AMBER,
 		"due %s colour %s" % [page.row_for(FINE_SOON).due_text(),
 		page.row_for(FINE_SOON).due_color()])
 	page.pick_filter(FinesPage.FILTER_PAID)
@@ -605,7 +760,7 @@ static func _case_bailout(res: Dictionary, host: Node, viewer: LegalViewer) -> v
 	var bars: IconRect = page.row_for(HELD_A).face_box.get_node_or_null(^"Bars") as IconRect
 	TestFixtures.check(res, "the custody face cell draws the bars art at x3",
 		bars != null and bars.icon_id == "bars" and bars.pixel_scale == 3
-		and page.row_for(HELD_A).face_box.custom_minimum_size == Vector2(56, 56),
+		and page.row_for(HELD_A).face_box.custom_minimum_size == Vector2(68, 68),
 		"bars %s" % [bars])
 	TestFixtures.check(res, "the summary counts the mercs the law holds",
 		page.summary_text() == BailoutPage.HELD_TEXT % "2 mercs",
@@ -799,7 +954,7 @@ static func _case_locks(res: Dictionary, host: Node, viewer: LegalViewer) -> voi
 	TestFixtures.check(res, "the manager refuses a job the plan does not carry",
 		not bool(gate["ok"]) and str(gate["reason"]) == "Odd Jobs are not part of your plan.",
 		"gate %s" % gate)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	review.open_fine(FINE_SOON)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "restoring the plan unlocks both again",
@@ -826,7 +981,7 @@ static func _case_pay(res: Dictionary, host: Node, viewer: LegalViewer) -> void:
 		review.crew_module().member_count()])
 	TestFixtures.check(res, "the pay confirm asks by name and carries the amount on its button",
 		viewer.confirm().title == "Pay this fine?"
-		and viewer.confirm().button_labels()[1] == "Pay " + NotesLabel.format_amount(LATE_TOTAL),
+		and viewer.confirm().button_labels()[1] == "Pay " + TransactionData.grouped(LATE_TOTAL),
 		"title %s buttons %s" % [viewer.confirm().title, viewer.confirm().button_labels()])
 	TestFixtures.check(res, "the confirm says the fine is paid and the place comes clear",
 		viewer.confirm().outcome_text() == "The fine is marked paid. This clears your last open "
@@ -935,7 +1090,7 @@ static func _case_outcomes(res: Dictionary, host: Node, viewer: LegalViewer) -> 
 		box.rich_kicker_text() == "Bail" + LegalManager.LABEL_JOIN + "Crime 6"
 		+ LegalManager.LABEL_JOIN + LegalStyle.location_name(SOON_LOC)
 		and box.title == "Pay bail for " + LegalStyle.merc_name(HELD_B_UID) + "?"
-		and box.button_labels()[1] == "Pay " + NotesLabel.format_amount(DUE_B),
+		and box.button_labels()[1] == "Pay " + TransactionData.grouped(DUE_B),
 		"kicker %s title %s" % [box.rich_kicker_text(), box.title])
 	TestFixtures.check(res, "the bail outcome frees the merc and counts what stays open",
 		box.outcome_text() == LegalStyle.merc_name(HELD_B_UID) + " is released from "
@@ -977,9 +1132,10 @@ static func _case_job_window(res: Dictionary, host: Node, viewer: LegalViewer) -
 		and _fact_label(fine_config, 3) == "Duration"
 		and _fact_value(fine_config, 0) == LegalStyle.location_name(SOON_LOC)
 		and _fact_value(fine_config, 1) == "Crime 1"
-		and _fact_value(fine_config, 2) == NotesLabel.format_amount(SOON_AMOUNT)
+		and _fact_value(fine_config, 2) == TransactionData.grouped(SOON_AMOUNT)
 		and _fact_value(fine_config, 3) == GuiDates.days_text(LegalManager.JOB_DAYS)
-		and _fact_color(fine_config, 2) == Color("#f28c28"),
+		and _fact_color(fine_config, 2)
+			== (GuiColors.CREAM if GameState.can_afford(SOON_AMOUNT) else GuiColors.RED),
 		"facts %s" % [fine_config["facts"]])
 	TestFixtures.check(res, "Advisory Counsel prints its boost on a renegotiation",
 		LegalManager.counsel_pct() == COUNSEL_TOP
@@ -1012,7 +1168,7 @@ static func _case_job_window(res: Dictionary, host: Node, viewer: LegalViewer) -
 		and _fact_value(bail_config, 1) == "Crime 5"
 		and _fact_value(bail_config, 2) == GuiDates.days_text(LEFT_A)
 		and _fact_value(bail_config, 3) == GuiDates.days_text(LegalManager.JOB_DAYS)
-		and _fact_color(bail_config, 2) == Color("#f2b33d"),
+		and _fact_color(bail_config, 2) == GuiColors.AMBER,
 		"facts %s" % [bail_config["facts"]])
 	TestFixtures.check(res, "counsel never boosts a break out",
 		str(bail_config["boost_text"]) == "", "boost %s" % bail_config["boost_text"])
@@ -1022,7 +1178,7 @@ static func _case_job_window(res: Dictionary, host: Node, viewer: LegalViewer) -
 	review.press_odd_job()
 	await host.get_tree().process_frame
 	var window: OddJobWindow = viewer.odd_job_window()
-	var uid: int = _free_uid()
+	var uid: int = GuiManagerTests.free_uid()
 	TestFixtures.check(res, "the window opens with no odds until a merc is on the crew",
 		window.visible and window.odds_percent() == 0 and uid > 0,
 		"visible %s odds %d uid %d" % [window.visible, window.odds_percent(), uid])
@@ -1063,7 +1219,7 @@ static func _case_job_run(res: Dictionary, host: Node, viewer: LegalViewer) -> v
 	review.press_odd_job()
 	await host.get_tree().process_frame
 	var window: OddJobWindow = viewer.odd_job_window()
-	var uid: int = _free_uid()
+	var uid: int = GuiManagerTests.free_uid()
 	window.crew().add_merc(uid)
 	window.crew().set_pay(PAY_EACH)
 	await host.get_tree().process_frame
@@ -1101,7 +1257,7 @@ static func _case_job_run(res: Dictionary, host: Node, viewer: LegalViewer) -> v
 		and review.job_bar.caption_text() == ReviewDialog.RENEGOTIATE_CAPTION
 		and review.job_bar.filled_cells() == 0,
 		"caption %s cells %d" % [review.job_bar.caption_text(), review.job_bar.filled_cells()])
-	var again: Array[int] = [_free_uid()]
+	var again: Array[int] = [GuiManagerTests.free_uid()]
 	var gate: Dictionary = LegalManager.can_start_odd_job(LegalManager.TARGET_FINE, FINE_SOON,
 		again, 0)
 	TestFixtures.check(res, "a second job on the same case is refused",
@@ -1116,7 +1272,7 @@ static func _case_job_run(res: Dictionary, host: Node, viewer: LegalViewer) -> v
 	TestFixtures.check(res, "a merc on a job is no candidate for another",
 		not _candidate_ids(busy_config).has(uid),
 		"candidates %d" % _candidate_ids(busy_config).size())
-	_advance_days(HALF_JOB)
+	GuiManagerTests.advance_days(HALF_JOB)
 	review.open_fine(FINE_SOON)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "halfway through the job the bar is half full",
@@ -1134,13 +1290,13 @@ static func _case_job_outcomes(res: Dictionary, host: Node, viewer: LegalViewer)
 	var on_done := func(_target: Dictionary, success: bool) -> void:
 		outcomes.append(success)
 	LegalManager.odd_job_resolved.connect(on_done)
-	var uid: int = _free_uid()
+	var uid: int = GuiManagerTests.free_uid()
 	var team: Array[int] = [uid]
 	var won: OddJobData = LegalManager.start_odd_job(LegalManager.TARGET_FINE, FINE_SOON,
 		LegalManager.JOB_RENEGOTIATE, team, 0)
 	if won != null:
 		won.odds = 100
-	_advance_days(LegalManager.JOB_DAYS)
+	GuiManagerTests.advance_days(LegalManager.JOB_DAYS)
 	await host.get_tree().process_frame
 	var soon: FineData = LegalManager.fine(FINE_SOON)
 	TestFixtures.check(res, "a won renegotiation halves the fine and frees the crew",
@@ -1152,7 +1308,7 @@ static func _case_job_outcomes(res: Dictionary, host: Node, viewer: LegalViewer)
 		LegalManager.JOB_RENEGOTIATE, team, 0)
 	if lost != null:
 		lost.odds = 0
-	_advance_days(LegalManager.JOB_DAYS)
+	GuiManagerTests.advance_days(LegalManager.JOB_DAYS)
 	await host.get_tree().process_frame
 	var far: FineData = LegalManager.fine(FINE_FAR)
 	TestFixtures.check(res, "a lost renegotiation raises the fine by a quarter",
@@ -1163,7 +1319,7 @@ static func _case_job_outcomes(res: Dictionary, host: Node, viewer: LegalViewer)
 		LegalManager.JOB_BREAKOUT, team, 0)
 	if out != null:
 		out.odds = 100
-	_advance_days(LegalManager.JOB_DAYS)
+	GuiManagerTests.advance_days(LegalManager.JOB_DAYS)
 	await host.get_tree().process_frame
 	viewer.open_tab(&"bail")
 	await host.get_tree().process_frame
@@ -1176,7 +1332,7 @@ static func _case_job_outcomes(res: Dictionary, host: Node, viewer: LegalViewer)
 		LegalManager.JOB_BREAKOUT, team, 0)
 	if caught != null:
 		caught.odds = 0
-	_advance_days(LegalManager.JOB_DAYS)
+	GuiManagerTests.advance_days(LegalManager.JOB_DAYS)
 	await host.get_tree().process_frame
 	LegalManager.odd_job_resolved.disconnect(on_done)
 	var held: CaptureData = LegalManager.capture(HELD_B)
@@ -1193,35 +1349,39 @@ static func _case_job_outcomes(res: Dictionary, host: Node, viewer: LegalViewer)
 		"away %s jobs %d" % [GameState.is_away(uid), LegalManager.odd_jobs.size()])
 
 
-#GameState.start_new_game clears the shared away registry; the manager writes its holds back.
+#GameState.start_new_game clears the shared away registry; no capture or running job outlives it.
 static func _case_holds(res: Dictionary, host: Node, viewer: LegalViewer) -> void:
 	_reseed(viewer)
+	var held: bool = _all_held(GuiTypes.MercStatus.CAPTURED)
 	GameState.start_new_game()
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "a new game leaves every seeded captive away in custody",
-		_all_held(GuiTypes.MercStatus.CAPTURED),
-		"uids %d and %d read %d and %d" % [HELD_A_UID, HELD_B_UID,
-		GameState.away_status(HELD_A_UID), GameState.away_status(HELD_B_UID)])
+	TestFixtures.check(res, "a new game drops every capture and frees its captives",
+		held and _none_held(),
+		"held %s captures %d uids %d and %d read %d and %d" % [held, LegalManager.captured.size(),
+		HELD_A_UID, HELD_B_UID, GameState.away_status(HELD_A_UID), GameState.away_status(HELD_B_UID)])
+	_lay_legal()
+	held = _all_held(GuiTypes.MercStatus.CAPTURED)
 	GameState.start_new_game()
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "a second new game in one session holds the captives again",
-		_all_held(GuiTypes.MercStatus.CAPTURED),
-		"uids %d and %d read %d and %d" % [HELD_A_UID, HELD_B_UID,
-		GameState.away_status(HELD_A_UID), GameState.away_status(HELD_B_UID)])
-	var uid: int = _free_uid()
+	TestFixtures.check(res, "a second new game in one session drops the captures again",
+		held and _none_held(),
+		"held %s captures %d uids %d and %d read %d and %d" % [held, LegalManager.captured.size(),
+		HELD_A_UID, HELD_B_UID, GameState.away_status(HELD_A_UID), GameState.away_status(HELD_B_UID)])
+	SubscriptionManager.max_out()
+	GameState.bank_notes = RICH
+	_lay_legal()
+	var uid: int = GuiManagerTests.free_uid()
 	var team: Array[int] = [uid]
 	var job: OddJobData = LegalManager.start_odd_job(LegalManager.TARGET_FINE, FINE_SOON,
 		LegalManager.JOB_RENEGOTIATE, team, 0)
+	var running: bool = job != null and GameState.away_status(uid) == GuiTypes.MercStatus.ODD_JOB
 	GameState.start_new_game()
 	await host.get_tree().process_frame
-	var lands: int = 0
-	if job != null:
-		lands = (job.day_started + job.days) * CampaignClock.MINUTES_PER_DAY
-	TestFixtures.check(res, "a new game leaves a running job crew away until the job lands",
-		job != null and uid > 0 and GameState.away_status(uid) == GuiTypes.MercStatus.ODD_JOB
-		and GameState.away_until(uid) == lands and GameState.busy_uids().has(uid),
-		"uid %d status %d until %d of %d" % [uid, GameState.away_status(uid),
-		GameState.away_until(uid), lands])
+	TestFixtures.check(res, "a new game drops a running job and frees its crew",
+		running and uid > 0 and not LegalManager.odd_jobs.has(job)
+		and GameState.away_status(uid) == -1 and not GameState.busy_uids().has(uid),
+		"uid %d status %d jobs %d" % [uid, GameState.away_status(uid), LegalManager.odd_jobs.size()])
+	_lay_legal()
 	var seen: Array[int] = []
 	var watch := func(away_uid: int) -> void:
 		seen.append(away_uid)
@@ -1242,7 +1402,13 @@ static func _case_holds(res: Dictionary, host: Node, viewer: LegalViewer) -> voi
 		GameState.away_until(HELD_A_UID)])
 
 
-#True while every seeded captive reads the status and stands in the busy list.
+#True when the law holds no row and neither captive of LAY_CAPTURES reads an away status.
+static func _none_held() -> bool:
+	return (LegalManager.captured.is_empty() and GameState.away_status(HELD_A_UID) == -1
+		and GameState.away_status(HELD_B_UID) == -1)
+
+
+#True while every captive reads the status and stands in the busy list.
 static func _all_held(status: int) -> bool:
 	if LegalManager.captured.is_empty():
 		return false
@@ -1255,7 +1421,7 @@ static func _all_held(status: int) -> bool:
 	return true
 
 
-#Item 11: every Legal action button is a BevelButton and shades with the state it is in.
+#Every Legal action button is a BevelButton and shades with the state it is in.
 static func _case_bevel_sweep(res: Dictionary, host: Node, viewer: LegalViewer) -> void:
 	_reseed(viewer)
 	viewer.open_tab(&"fines")
@@ -1266,27 +1432,26 @@ static func _case_bevel_sweep(res: Dictionary, host: Node, viewer: LegalViewer) 
 	var outstanding_bevel: BevelButton = fines.outstanding_button as BevelButton
 	var paid_bevel: BevelButton = fines.paid_button as BevelButton
 	TestFixtures.check(res, "the outstanding fines filter is an orange BevelButton when picked",
-		outstanding_bevel != null and outstanding_bevel.kind == &"orange"
-		and paid_bevel != null and paid_bevel.kind == &"neutral",
+		GuiKitTests.is_bevel(outstanding_bevel, &"orange")
+		and GuiKitTests.is_bevel(paid_bevel, &"neutral"),
 		"outstanding %s paid %s" % [outstanding_bevel, paid_bevel])
 	fines.pick_filter(FinesPage.FILTER_PAID)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "picking Paid swaps the shading to the paid filter",
-		outstanding_bevel.kind == &"neutral" and paid_bevel.kind == &"orange",
+		GuiKitTests.is_bevel(outstanding_bevel, &"neutral") and GuiKitTests.is_bevel(paid_bevel, &"orange"),
 		"outstanding %s paid %s" % [outstanding_bevel.kind, paid_bevel.kind])
 	fines.pick_filter(FinesPage.FILTER_OUTSTANDING)
 	await host.get_tree().process_frame
 	var review_bevel: BevelButton = fines.row_for(FINE_SOON).review_button as BevelButton
 	TestFixtures.check(res, "a fine row's Review button is a neutral BevelButton",
-		review_bevel != null and review_bevel.kind == &"neutral"
-		and review_bevel.text == FineRow.REVIEW_TEXT,
+		GuiKitTests.is_bevel(review_bevel, &"neutral", FineRow.REVIEW_TEXT),
 		"review %s" % review_bevel)
 	viewer.open_tab(&"permits")
 	await host.get_tree().process_frame
 	var permits: PermitsPage = viewer.permits_page()
 	var card_bevel: BevelButton = permits.card_for(NEAR_LOC).request_button as BevelButton
 	TestFixtures.check(res, "a location card's Request button is an orange BevelButton",
-		card_bevel != null and card_bevel.kind == &"orange" and card_bevel.text == "Request",
+		GuiKitTests.is_bevel(card_bevel, &"orange", "Request"),
 		"card %s" % card_bevel)
 	permits.press_request(NEAR_LOC)
 	await host.get_tree().process_frame
@@ -1294,7 +1459,7 @@ static func _case_bevel_sweep(res: Dictionary, host: Node, viewer: LegalViewer) 
 	var permit_bevel: BevelButton = dialog.permit_row(LegalManager.PERMIT_OPS).request_button \
 		as BevelButton
 	TestFixtures.check(res, "the permit dialog's Request button is a go BevelButton",
-		permit_bevel != null and permit_bevel.kind == &"go" and permit_bevel.text == "Request",
+		GuiKitTests.is_bevel(permit_bevel, &"go", "Request"),
 		"permit %s" % permit_bevel)
 	dialog.press_close()
 	await host.get_tree().process_frame
@@ -1304,14 +1469,14 @@ static func _case_bevel_sweep(res: Dictionary, host: Node, viewer: LegalViewer) 
 	var odd_bevel: BevelButton = review.odd_button as BevelButton
 	var pay_bevel: BevelButton = review.pay_button as BevelButton
 	TestFixtures.check(res, "the Review dialog's renegotiate and pay buttons shade orange and go",
-		odd_bevel != null and odd_bevel.kind == &"orange"
-		and pay_bevel != null and pay_bevel.kind == &"go",
+		GuiKitTests.is_bevel(odd_bevel, &"orange")
+		and GuiKitTests.is_bevel(pay_bevel, &"go"),
 		"odd %s pay %s" % [odd_bevel, pay_bevel])
 	review.press_close()
 
 
-#Item 11 dot hand-off: the row-corner NotificationDot on all three Legal row types sits 2 px in
-#from the top-left corner, through the 28 x 28 FRAME_SIZE, matching the stage 1 default.
+#The row-corner NotificationDot on all three Legal row types sits 2 px in from the top-left
+#corner, through the 28 x 28 FRAME_SIZE.
 static func _case_dot_frames(res: Dictionary, host: Node, viewer: LegalViewer) -> void:
 	_reseed(viewer)
 	viewer.open_tab(&"bail")
@@ -1334,14 +1499,31 @@ static func _case_dot_frames(res: Dictionary, host: Node, viewer: LegalViewer) -
 	await host.get_tree().process_frame
 
 
-#The shared check: offset_left/top sit at the 2 px pin, offset_right/bottom the pin plus the
-#28 x 28 frame, on the CORNER_TOP_LEFT every row hands its dot.
+#The shared check: offset_top sits at the 2 px pin, offset_right 2 px off the right edge and the
+#other two the 28 x 28 frame away, on the top-right corner every notification dot takes.
 static func _check_dot_frame(res: Dictionary, label: String, dot: NotificationDot) -> void:
-	TestFixtures.check(res, "%s pins 2 px in from the top-left corner through FRAME_SIZE" % label,
-		dot != null and is_equal_approx(dot.offset_left, 2.0)
-		and is_equal_approx(dot.offset_top, 2.0)
-		and is_equal_approx(dot.offset_right, 2.0 + NotificationDot.FRAME_SIZE.x)
-		and is_equal_approx(dot.offset_bottom, 2.0 + NotificationDot.FRAME_SIZE.y),
+	TestFixtures.check(res, "%s pins 2 px in from the top-right corner through FRAME_SIZE" % label,
+		GuiNotifyTests.dot_at(dot, CORNER_TOP_RIGHT, Vector2(2, 2)),
 		"%s: left %.1f top %.1f right %.1f bottom %.1f" % [dot,
 			dot.offset_left if dot != null else -1.0, dot.offset_top if dot != null else -1.0,
 			dot.offset_right if dot != null else -1.0, dot.offset_bottom if dot != null else -1.0])
+
+
+#Every tab on the 1280 x 644 band: fits, stays on the canvas and keeps the tab row off the X. A
+#fresh viewer opens on the band the way a SubWindow lays it out.
+static func _case_fit(res: Dictionary, host: Node) -> void:
+	var viewer: LegalViewer = VIEWER.instantiate() as LegalViewer
+	GuiAdsTests.fit_band(viewer)
+	host.add_child(viewer)
+	_reseed(viewer)
+	var row: Control = viewer.get_node(TAB_PAD_PATH) as Control
+	var pages: Array[Control] = [viewer.permits_page(), viewer.fines_page(), viewer.bailout_page()]
+	for i: int in range(LegalViewer.TAB_KEYS.size()):
+		viewer.open_tab(LegalViewer.TAB_KEYS[i])
+		await host.get_tree().process_frame
+		await host.get_tree().process_frame
+		GuiAdsTests.check_fit(res, "Legal %s" % LegalViewer.TAB_KEYS[i], viewer, pages[i], [row])
+	GuiFrameStack.clear()
+	host.remove_child(viewer)
+	viewer.queue_free()
+	await host.get_tree().process_frame

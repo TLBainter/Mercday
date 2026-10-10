@@ -9,13 +9,13 @@ const PAD_LEFT := 62.0
 const PAD_RIGHT := 16.0
 const PAD_TOP := 12.0
 const PAD_BOTTOM := 30.0
-const GRID_COLOR := Color(0.101961, 0.168627, 0.301961, 1)
-const PLOT_BG := Color(0.054902, 0.086275, 0.156863, 1)
-const PLOT_RING := Color(0.039216, 0.058824, 0.109804, 1)
-const AXIS_COLOR := Color(0.231373, 0.435294, 0.713725, 1)
-const LABEL_COLOR := Color(0.611765, 0.776471, 0.937255, 1)
-const CROSS_COLOR := Color(0.952941, 0.917647, 0.843137, 1)
-const HOVER_EDGE := Color(0.039216, 0.058824, 0.109804, 1)
+const GRID_COLOR: Color = GuiColors.BOX_BG
+const PLOT_BG: Color = GuiColors.ROW_FILL
+const PLOT_RING: Color = GuiColors.INK
+const AXIS_COLOR: Color = GuiColors.BLUE_HI
+const LABEL_COLOR: Color = GuiColors.SKY
+const CROSS_COLOR: Color = GuiColors.CREAM
+const HOVER_EDGE: Color = GuiColors.INK
 const CROSS_ALPHA := 0.35
 const DIM_ALPHA := 0.75
 const HOVER_DOT := 10.0
@@ -33,23 +33,30 @@ const GHOST_ALPHA := 0.22
 const GHOST_WIDTH := 3.0
 const LABELS_WIDE := 8.0
 const LABELS_COMPACT := 5.0
-const FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
+const FONT: FontVariation = GuiStyle.SILK
+
+#The reveal sweeps the plot in fixed steps: each step moves the cut the same share of the width,
+#so a run with few points draws as smoothly as one with many.
+const REVEAL_STEPS: int = 48
 
 @export var pixel_scale: int = 2
-@export var tween_seconds: float = 1.6
+@export var tween_seconds: float = 0.8
 @export var grid_rows: int = 5
 @export var bucket_name: String = "Day"
 @export var compact: bool = false
 
 var reveal: float = 1.0:
 	set(value):
-		reveal = value
+		reveal = snappedf(clampf(value, 0.0, 1.0), 1.0 / float(REVEAL_STEPS))
 		queue_redraw()
 
 var _series: Array[Dictionary] = []
 var _tween: Tween = null
 var _focus_key: String = ""
 var _hovered: int = -1
+#The bucket the scrub cue last crossed; set_series clears _hovered for the redraw but leaves this alone.
+var _scrub_index: int = -1
+var _reveal_pending: bool = false
 
 @onready var empty_label: Label = $Empty
 @onready var anchor: Control = $Anchor
@@ -62,21 +69,34 @@ func _ready() -> void:
 	_apply_empty()
 
 
-#Each entry is {key, label, color, fmt, points: Array[Dictionary] {day, value}}.
+#Each entry is {key, label, color, fmt, points: Array[Dictionary] {day, value}}. The reveal runs
+#only when the set of plotted metrics changes; a day tick or a roster change just redraws.
 func set_series(list: Array[Dictionary]) -> void:
+	var fresh: bool = _keys_of(list) != _keys_of(_series)
 	_series = list
 	_hovered = -1
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
 	_tween = null
-	if tween_seconds > 0.0 and is_inside_tree() and not is_empty():
-		reveal = 0.0
-		_tween = create_tween()
-		_tween.tween_property(self, "reveal", 1.0, tween_seconds)
-	else:
-		reveal = 1.0
+	if fresh:
+		_reveal_pending = tween_seconds > 0.0 and is_inside_tree() and not is_empty()
+	elif is_empty():
+		_reveal_pending = false
+	reveal = 0.0 if _reveal_pending else 1.0
+	_try_reveal()
 	_apply_empty()
 	queue_redraw()
+
+
+#A chart off screen (a hidden tab or window) holds its reveal and its draw cue until it shows.
+func _try_reveal() -> void:
+	if not _reveal_pending or not is_visible_in_tree():
+		return
+	_reveal_pending = false
+	reveal = 0.0
+	_tween = create_tween()
+	_tween.tween_property(self, "reveal", 1.0, tween_seconds)
+	GameSfx.play_graph(tween_seconds)
 
 
 #The metric the Y axis reads and the one drawn on top of the rest.
@@ -263,6 +283,9 @@ func hover_at(local: Vector2) -> void:
 	anchor.position = Vector2(plot.position.x + x_for(index, first.size(), plot.size.x),
 		_anchor_y(plot, index))
 	tip.show_at(anchor, get_global_rect())
+	if index != _scrub_index:
+		_scrub_index = index
+		GameSfx.graph_scrub(clampf((local.x - plot.position.x) / plot.size.x, 0.0, 1.0))
 	_hovered = index
 	queue_redraw()
 
@@ -282,8 +305,12 @@ func _anchor_y(plot: Rect2, index: int) -> float:
 	return plot.end.y
 
 
+#Leaving a hovered point, by the pointer exiting or crossing out of the data, ends the scrub texture.
 func hide_tip() -> void:
 	tip.hide_tip()
+	if _scrub_index != -1:
+		_scrub_index = -1
+		GameSfx.graph_scrub_end()
 	if _hovered != -1:
 		_hovered = -1
 		queue_redraw()
@@ -327,27 +354,50 @@ func _entry_band(entry: Dictionary) -> Vector2:
 	return Vector2(low, high)
 
 
-#The plotted run split on its gaps, so a NAN opens a new segment instead of a straight jump.
+#The plotted run split on its gaps, so a NAN opens a new segment instead of a straight jump. The
+#reveal cuts the runs at one x across the plot: the segment the cut crosses ends part way,
+#interpolated, so every step of the sweep moves the line the same short distance.
 func _segments(points: Array[Dictionary], band: Vector2, plot: Rect2,
-		shown: int) -> Array[PackedVector2Array]:
+		cut: float) -> Array[PackedVector2Array]:
 	var out: Array[PackedVector2Array] = []
 	var heights: PackedFloat32Array = normalize(points, plot.size.y, band.x, band.y)
+	var limit: float = cut_x(plot, cut)
 	var run := PackedVector2Array()
-	for i: int in mini(shown, points.size()):
+	for i: int in points.size():
 		if is_nan(float(points[i].get("value", 0.0))):
 			if run.size() > 0:
 				out.append(run)
 				run = PackedVector2Array()
 			continue
-		run.append(Vector2(plot.position.x + x_for(i, points.size(), plot.size.x),
-			plot.end.y - heights[i]))
+		var spot := Vector2(plot.position.x + x_for(i, points.size(), plot.size.x),
+			plot.end.y - heights[i])
+		if cut < 1.0 and spot.x > limit:
+			if run.size() > 0:
+				run.append(cut_point(run[run.size() - 1], spot, limit))
+			break
+		run.append(spot)
 	if run.size() > 0:
 		out.append(run)
 	return out
 
 
-func _shown_count(total: int) -> int:
-	return clampi(ceili(float(total) * clampf(reveal, 0.0, 1.0)), 1, maxi(1, total))
+#The plot x the reveal has swept to.
+static func cut_x(plot: Rect2, cut: float) -> float:
+	return plot.position.x + plot.size.x * clampf(cut, 0.0, 1.0)
+
+
+#Where the segment from a to b crosses the cut.
+static func cut_point(a: Vector2, b: Vector2, x: float) -> Vector2:
+	if b.x <= a.x:
+		return a
+	return Vector2(x, lerpf(a.y, b.y, (x - a.x) / (b.x - a.x)))
+
+
+static func _keys_of(list: Array[Dictionary]) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	for entry: Dictionary in list:
+		out.append(String(entry.get("key", "")))
+	return out
 
 
 #The longest run of buckets on the chart; the X axis is stepped off it.
@@ -456,16 +506,18 @@ func _draw_series(entry: Dictionary, plot: Rect2, focused: bool) -> void:
 		color.a = DIM_ALPHA
 	var chart_scale: float = float(maxi(1, pixel_scale))
 	var band: Vector2 = _entry_band(entry)
-	var runs: Array[PackedVector2Array] = _segments(points, band, plot, _shown_count(points.size()))
+	var runs: Array[PackedVector2Array] = _segments(points, band, plot, reveal)
 	for run: PackedVector2Array in runs:
 		if run.size() > 1:
 			draw_polyline(run, color, (2.0 if focused else 1.0) * chart_scale)
 	if points.size() > DOT_LIMIT:
 		return
 	var dot: float = (POINT_SIZE + (1.0 if focused else 0.0)) * chart_scale
+	var limit: float = cut_x(plot, reveal)
 	for run: PackedVector2Array in runs:
 		for spot: Vector2 in run:
-			draw_rect(Rect2(spot - Vector2(dot, dot) * 0.5, Vector2(dot, dot)), color)
+			if reveal >= 1.0 or spot.x < limit:
+				draw_rect(Rect2(spot - Vector2(dot, dot) * 0.5, Vector2(dot, dot)), color)
 
 
 #The comparison line under a series: same band, thicker, faint, no markers.
@@ -480,7 +532,7 @@ func _draw_ghost(entry: Dictionary, plot: Rect2) -> void:
 	color.a = GHOST_ALPHA
 	var chart_scale: float = float(maxi(1, pixel_scale))
 	var band: Vector2 = _entry_band(entry)
-	for run: PackedVector2Array in _segments(ghost, band, plot, _shown_count(ghost.size())):
+	for run: PackedVector2Array in _segments(ghost, band, plot, reveal):
 		if run.size() > 1:
 			draw_polyline(run, color, GHOST_WIDTH * chart_scale)
 
@@ -523,3 +575,5 @@ func _gui_input(event: InputEvent) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_MOUSE_EXIT and is_node_ready():
 		hide_tip()
+	elif what == NOTIFICATION_VISIBILITY_CHANGED:
+		_try_reveal()

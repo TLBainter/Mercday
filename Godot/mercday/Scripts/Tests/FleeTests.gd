@@ -40,11 +40,6 @@ static func _fresh() -> void:
 	CheckSystem.forced_rolls.clear()
 
 
-#A merc whose stats come from TSVs/Stats.tsv through StatCalculator.
-static func _sheet_merc(merc_name: String, overrides: Dictionary, luck: float = 5.0) -> MercenaryData:
-	return TestFixtures.sheet_merc(merc_name, luck, overrides)
-
-
 static func _merc(merc_name: String, flee: float) -> MercenaryData:
 	return TestFixtures.fixed_merc(merc_name, {"luck": 5.0, "flee": flee})
 
@@ -86,15 +81,11 @@ static func _arm(m: MercenaryData) -> void:
 	m.current_ep = 5
 
 
-static func _state(a: Array[MercenaryData], b: Array[MercenaryData], field: BattlefieldArea = null) -> BattleState:
-	return TestFixtures.battle_state(a, b, field)
-
-
 static func _path_state(m: MercenaryData, foe: MercenaryData, field: BattlefieldArea, at: Vector2i,
 		foe_at: Vector2i) -> BattleState:
 	var a: Array[MercenaryData] = [m]
 	var b: Array[MercenaryData] = [foe]
-	var st := _state(a, b, field)
+	var st := TestFixtures.battle_state(a, b, field)
 	TestFixtures.place(st, m, at)
 	TestFixtures.place(st, foe, foe_at)
 	MovementExecutor.clear_caches()
@@ -105,23 +96,43 @@ static func _path_state(m: MercenaryData, foe: MercenaryData, field: Battlefield
 static func _flee_on(m: MercenaryData) -> void:
 	m.flee_intent = true
 	var rm: Array[String] = ["interact"]
-	ConstStates.apply_state(m, ConstStates.TERRIFIED, null, "", "engine:flee", rm)
+	StateCascade.apply_state(m, ConstStates.TERRIFIED, null, "", "engine:flee", rm)
+
+
+#A fresh flee state: one merc at this flee against one foe, hp set when above zero, passive added before the state exists.
+static func _solo(merc_name: String, flee: float, foe_name: String, hp: int = 19,
+		passive: String = "") -> Dictionary:
+	_fresh()
+	var m := _merc(merc_name, flee)
+	if not passive.is_empty():
+		m.passive_effects.append(passive)
+	var foe := _merc(foe_name, 0.0)
+	var a: Array[MercenaryData] = [m]
+	var b: Array[MercenaryData] = [foe]
+	var st := TestFixtures.battle_state(a, b)
+	if hp > 0:
+		m.current_hp = hp
+	var lines: Array[String] = []
+	return {"merc": m, "foe": foe, "lines": lines, "state": st}
+
+
+#Queues the flee rolls, runs the solo merc's start of turn and stores the result under "ran".
+static func _roll_run(solo: Dictionary, rolls: Array) -> Dictionary:
+	var m: MercenaryData = solo["merc"]
+	var st: BattleState = solo["state"]
+	var lines: Array[String] = solo["lines"]
+	FleeSystem.forced_rolls.assign(rolls)
+	solo["ran"] = FleeSystem.start_of_turn(m, st, lines)
+	return solo
 
 
 #Flee 60 against a full-health foe with rolls 10 then 20: runs and abandons.
 static func _abandon_run(emboldened: bool) -> Dictionary:
-	_fresh()
-	var m := _merc("Abe Runner", 60.0)
-	var a: Array[MercenaryData] = [m]
-	var b: Array[MercenaryData] = [_merc("Foe One", 0.0)]
-	var st := _state(a, b)
-	m.current_hp = 19
+	var solo := _solo("Abe Runner", 60.0, "Foe One")
 	if emboldened:
-		ConstStates.apply_state(m, ConstStates.EMBOLDENED)
-	FleeSystem.forced_rolls.assign([10, 20])
-	var lines: Array[String] = []
-	var ran := FleeSystem.start_of_turn(m, st, lines)
-	return {"merc": m, "lines": lines, "ran": ran, "state": st}
+		var m: MercenaryData = solo["merc"]
+		StateCascade.apply_state(m, ConstStates.EMBOLDENED)
+	return _roll_run(solo, [10, 20])
 
 
 static func _index(lines: Array[String], needle: String) -> int:
@@ -147,7 +158,7 @@ static func _find_source(m: MercenaryData, kind: String, src_name: String) -> bo
 
 
 static func _case_stat_formula(res: Dictionary) -> void:
-	var low := _sheet_merc("Hal Low", {"max_vigor": 2, "max_wile": 1})
+	var low := TestFixtures.sheet_merc("Hal Low", 5.0, {"max_vigor": 2, "max_wile": 1})
 	var lv := int(low.stats.get("vigor", -1))
 	var lw := int(low.stats.get("wile", -1))
 	var lh := float(low.stats.get("healthiness", 0.0))
@@ -156,7 +167,7 @@ static func _case_stat_formula(res: Dictionary) -> void:
 	TestFixtures.check(res, "negative healthiness leaves flee at avoid",
 		lv == 1 and lw == 0 and lh < 0.0 and is_equal_approx(lf, la),
 		"vigor %d wile %d healthiness %.2f avoid %.2f flee %.2f" % [lv, lw, lh, la, lf])
-	var high := _sheet_merc("Hal High", {"max_vigor": 2, "max_wile": 1}, 50.0)
+	var high := TestFixtures.sheet_merc("Hal High", 50.0, {"max_vigor": 2, "max_wile": 1})
 	var hw := float(high.stats.get("wile", -1))
 	var hh := float(high.stats.get("healthiness", 0.0))
 	var ha := float(high.stats.get("avoid", 0.0))
@@ -177,7 +188,7 @@ static func _case_swing(res: Dictionary) -> void:
 	var f2 := _merc("Foe Whole", 0.0)
 	var a: Array[MercenaryData] = [m, d, r, e]
 	var b: Array[MercenaryData] = [f1, f2]
-	var st := _state(a, b)
+	var st := TestFixtures.battle_state(a, b)
 	var lines: Array[String] = []
 	m.current_hp = 15
 	d.current_hp = 0
@@ -200,7 +211,7 @@ static func _case_spread(res: Dictionary) -> void:
 	var t3 := _merc("Vic Stays", 0.0)
 	var a: Array[MercenaryData] = [m, t1, t2, t3]
 	var b: Array[MercenaryData] = [_merc("Foe Two", 0.0)]
-	var st := _state(a, b)
+	var st := TestFixtures.battle_state(a, b)
 	var lines: Array[String] = []
 	_flee_on(t1)
 	st.remove_from_field(t2, "fled", lines)
@@ -216,39 +227,21 @@ static func _case_spread(res: Dictionary) -> void:
 
 
 static func _case_gate(res: Dictionary) -> void:
-	_fresh()
-	var m := _merc("Gil Gate", 46.0)
-	var a: Array[MercenaryData] = [m]
-	var b: Array[MercenaryData] = [_merc("Foe Three", 0.0)]
-	var st := _state(a, b)
-	m.current_hp = 19
-	var lines: Array[String] = []
-	FleeSystem.forced_rolls.assign([100])
-	var ran := FleeSystem.start_of_turn(m, st, lines)
+	var over := _roll_run(_solo("Gil Gate", 46.0, "Foe Three"), [100])
+	var lines: Array[String] = over["lines"]
 	TestFixtures.check(res, "flee 51 rolls and stays",
-		not ran and FleeSystem.checks_rolled == 1 and TestFixtures.has_line(lines, "-> stays"),
+		not over["ran"] and FleeSystem.checks_rolled == 1 and TestFixtures.has_line(lines, "-> stays"),
 		"checks %d lines %s" % [FleeSystem.checks_rolled, str(lines)])
-	_fresh()
-	var u := _merc("Gil Under", 45.9)
-	var a2: Array[MercenaryData] = [u]
-	var b2: Array[MercenaryData] = [_merc("Foe Four", 0.0)]
-	var st2 := _state(a2, b2)
-	u.current_hp = 19
-	var lines2: Array[String] = []
-	FleeSystem.forced_rolls.assign([100])
-	var ran2 := FleeSystem.start_of_turn(u, st2, lines2)
+	var under := _roll_run(_solo("Gil Under", 45.9, "Foe Four"), [100])
 	TestFixtures.check(res, "flee 50.9 does not roll",
-		not ran2 and FleeSystem.checks_rolled == 0 and FleeSystem.forced_rolls.size() == 1,
+		not under["ran"] and FleeSystem.checks_rolled == 0 and FleeSystem.forced_rolls.size() == 1,
 		"checks %d rolls left %d" % [FleeSystem.checks_rolled, FleeSystem.forced_rolls.size()])
-	_fresh()
-	var w := _merc("Gil Even", 80.0)
-	var f := _merc("Foe Even", 0.0)
-	var a3: Array[MercenaryData] = [w]
-	var b3: Array[MercenaryData] = [f]
-	var st3 := _state(a3, b3)
-	var lines3: Array[String] = []
-	FleeSystem.forced_rolls.assign([10])
-	var ran3 := FleeSystem.start_of_turn(w, st3, lines3)
+	var even := _roll_run(_solo("Gil Even", 80.0, "Foe Even", 0), [10])
+	var w: MercenaryData = even["merc"]
+	var f: MercenaryData = even["foe"]
+	var st3: BattleState = even["state"]
+	var lines3: Array[String] = even["lines"]
+	var ran3: bool = even["ran"]
 	w.current_hp = 15
 	f.current_hp = 10
 	var ran4 := FleeSystem.start_of_turn(w, st3, lines3)
@@ -277,16 +270,11 @@ static func _case_abandon(res: Dictionary) -> void:
 
 
 static func _case_immune(res: Dictionary) -> void:
-	_fresh()
-	var m := _merc("Ivo Brave", 60.0)
-	m.passive_effects.append("immune:terrified")
-	var a: Array[MercenaryData] = [m]
-	var b: Array[MercenaryData] = [_merc("Foe Five", 0.0)]
-	var st := _state(a, b)
-	m.current_hp = 19
-	FleeSystem.forced_rolls.assign([10, 20])
-	var lines: Array[String] = []
-	var r1 := FleeSystem.start_of_turn(m, st, lines)
+	var solo := _solo("Ivo Brave", 60.0, "Foe Five", 19, "immune:terrified")
+	var m: MercenaryData = solo["merc"]
+	var st: BattleState = solo["state"]
+	var lines: Array[String] = solo["lines"]
+	var r1: bool = _roll_run(solo, [10, 20])["ran"]
 	var r2 := FleeSystem.start_of_turn(m, st, lines)
 	TestFixtures.check(res, "immune merc never rolls and logs once",
 		not r1 and not r2 and FleeSystem.checks_rolled == 0 and FleeSystem.forced_rolls.size() == 2
@@ -307,9 +295,9 @@ static func _case_apply_source(res: Dictionary) -> void:
 	var foe := _merc("Foe Six", 0.0)
 	var a: Array[MercenaryData] = [k]
 	var b: Array[MercenaryData] = [foe]
-	var st2 := _state(a, b)
+	var st2 := TestFixtures.battle_state(a, b)
 	k.current_hp = 19
-	ConstStates.apply_state(k, ConstStates.TERRIFIED, foe, "", "inflict:Test")
+	StateCascade.apply_state(k, ConstStates.TERRIFIED, foe, "", "inflict:Test")
 	st2.set_state_timer(k, ConstStates.TERRIFIED, 5, "Resist:Wile:3")
 	FleeSystem.forced_rolls.assign([10, 20])
 	var lines: Array[String] = []
@@ -329,7 +317,7 @@ static func _case_aid(res: Dictionary) -> void:
 	var foe := _merc("Foe Seven", 0.0)
 	var a: Array[MercenaryData] = [helper, m]
 	var b: Array[MercenaryData] = [foe]
-	var st := _state(a, b)
+	var st := TestFixtures.battle_state(a, b)
 	TestFixtures.place(st, helper, Vector2i(5, 5))
 	TestFixtures.place(st, m, Vector2i(6, 5))
 	TestFixtures.place(st, foe, Vector2i(20, 20))
@@ -356,7 +344,7 @@ static func _case_turn_start(res: Dictionary) -> void:
 	var m := _merc("Lev Loop", 10.0)
 	var a: Array[MercenaryData] = [m]
 	var b: Array[MercenaryData] = [_merc("Foe Eight", 0.0)]
-	var st := _state(a, b)
+	var st := TestFixtures.battle_state(a, b)
 	_flee_on(m)
 	st.set_state_timer(m, ConstStates.TERRIFIED, 3, "Resist:Wile:3")
 	var lines: Array[String] = []
@@ -364,7 +352,7 @@ static func _case_turn_start(res: Dictionary) -> void:
 	TestFixtures.check(res, "a fleeing merc keeps running and loses the timer",
 		kept and st.get_state_timer(m, ConstStates.TERRIFIED).is_empty() and FleeSystem.checks_rolled == 0,
 		"kept %s checks %d" % [kept, FleeSystem.checks_rolled])
-	ConstStates.remove_state(m, ConstStates.TERRIFIED)
+	StateCascade.remove_state(m, ConstStates.TERRIFIED)
 	var lines2: Array[String] = []
 	var again := FleeSystem.start_of_turn(m, st, lines2)
 	TestFixtures.check(res, "Terrified gone ends the flee below the gate",
@@ -377,16 +365,16 @@ static func _case_escape_goal(res: Dictionary) -> void:
 	var m := _merc("Nia Near", 0.0)
 	var field := TestFixtures.exterior_field()
 	var st := _path_state(m, _merc("Foe Far", 0.0), field, Vector2i(3, 5), Vector2i(20, 20))
-	var g := FleeSystem.escape_goal(m, st)
+	var g := FleeGoal.escape_goal(m, st)
 	var probe: Array = [g]
-	var cost := int(PathTargeter.reachable_far_for(m, st, probe).get(g, -1))
+	var cost := int(ReachCache.reachable_far_for(m, st, probe).get(g, -1))
 	TestFixtures.check(res, "open field goal is an edge cell 3 paces off", _edge(g, field) and cost == 3,
 		"goal %s cost %d" % [str(g), cost])
 	_fresh()
 	var n := _merc("Ola Corner", 0.0)
 	var st2 := _path_state(n, _merc("Foe Near", 0.0), TestFixtures.exterior_field(), Vector2i(1, 5),
 		Vector2i(0, 4))
-	var g2 := FleeSystem.escape_goal(n, st2)
+	var g2 := FleeGoal.escape_goal(n, st2)
 	TestFixtures.check(res, "goal skips the edge cell beside an enemy",
 		g2 != PathTargeter.NO_CELL and g2 != Vector3i(0, 5, 0) and _cheb(Vector2i(g2.x, g2.y), Vector2i(0, 4)) > 1,
 		"goal %s" % str(g2))
@@ -396,7 +384,7 @@ static func _case_escape_goal(res: Dictionary) -> void:
 		TestFixtures.put(walled, Vector3i(0, y, 0), {"cell_type": "wall", "height": 4.0})
 	var w := _merc("Pia Wall", 0.0)
 	var st3 := _path_state(w, _merc("Foe Wall", 0.0), walled, Vector2i(3, 5), Vector2i(20, 20))
-	var g3 := FleeSystem.escape_goal(w, st3)
+	var g3 := FleeGoal.escape_goal(w, st3)
 	TestFixtures.check(res, "walled edge column is never the goal", g3 != PathTargeter.NO_CELL and g3.x != 0,
 		"goal %s" % str(g3))
 	_fresh()
@@ -407,10 +395,10 @@ static func _case_escape_goal(res: Dictionary) -> void:
 				TestFixtures.put(boxed, Vector3i(5 + dx, 5 + dy, 0), {"cell_type": "wall", "height": 4.0})
 	var bx := _merc("Quin Boxed", 0.0)
 	var st4 := _path_state(bx, _merc("Foe Box", 0.0), boxed, Vector2i(5, 5), Vector2i(20, 20))
-	var g4 := FleeSystem.escape_goal(bx, st4)
+	var g4 := FleeGoal.escape_goal(bx, st4)
 	TestFixtures.check(res, "boxed-in merc gets no goal", g4 == PathTargeter.NO_CELL, "goal %s" % str(g4))
 	st4.battlefield = null
-	var g5 := FleeSystem.escape_goal(bx, st4)
+	var g5 := FleeGoal.escape_goal(bx, st4)
 	TestFixtures.check(res, "no battlefield gives no goal", g5 == PathTargeter.NO_CELL, "goal %s" % str(g5))
 
 
@@ -423,7 +411,7 @@ static func _case_withdraw(res: Dictionary) -> void:
 	_flee_on(m)
 	var facet := AdvantageThreatFacet.new()
 	var ctx := {"state": st}
-	var danger := FleeSystem.in_danger(m, st)
+	var danger := FleeGoal.in_danger(m, st)
 	var score := facet.evaluate(m, ctx)
 	TestFixtures.check(res, "an adjacent reactor is a danger", danger and is_equal_approx(score, 1.0),
 		"in_danger %s facet %.1f" % [danger, score])
@@ -440,14 +428,14 @@ static func _case_withdraw(res: Dictionary) -> void:
 		"moved %d pool %d" % [moved, st.get_pace_pool(m)])
 	TestFixtures.check(res, "no Advantage Attack on the Withdraw",
 		not TestFixtures.has_line(lines, "Advantage Attack") and r.current_ep == 5, "reactor ep %d" % r.current_ep)
-	var none := MovementExecutor._advantage_attacks(m, st, from, Vector2i(from.x - 1, from.y), 0)
+	var none := MovementExecutor.advantage_attacks(m, st, from, Vector2i(from.x - 1, from.y), 0)
 	TestFixtures.check(res, "an immune mover draws no reaction", none.is_empty(), "lines %s" % str(none))
 	var turn_lines: Array[String] = []
-	AutoBattle._process_start_of_turn_states(m, st, turn_lines)
+	AutoBattle.process_start_of_turn_states(m, st, turn_lines)
 	TestFixtures.check(res, "turn start clears the immunity", not m.advantage_immune,
 		"immune %s" % m.advantage_immune)
 	TestFixtures.place(st, r, Vector2i(20, 20))
-	var calm := FleeSystem.in_danger(m, st)
+	var calm := FleeGoal.in_danger(m, st)
 	var calm_score := facet.evaluate(m, ctx)
 	TestFixtures.check(res, "no reactor in range is no danger", not calm and is_equal_approx(calm_score, 0.0),
 		"in_danger %s facet %.1f" % [calm, calm_score])
@@ -462,7 +450,7 @@ static func _case_run_turn(res: Dictionary) -> void:
 	_flee_on(m)
 	st.start_of_turn(m)
 	var lines: Array[String] = []
-	FleeSystem.run_turn(m, st, lines, 0)
+	FleeMover.run_turn(m, st, lines, 0)
 	var w := _index(lines, "withdraws!")
 	var mv := _index(lines, " <- ")
 	TestFixtures.check(res, "run_turn withdraws before the first Move",
@@ -475,9 +463,9 @@ static func _case_run_turn(res: Dictionary) -> void:
 	_flee_on(e)
 	st2.start_of_turn(e)
 	var lines2: Array[String] = []
-	FleeSystem.run_turn(e, st2, lines2, 0)
+	FleeMover.run_turn(e, st2, lines2, 0)
 	TestFixtures.check(res, "run_turn banks paces once the runner reaches the edge",
-		FleeSystem.on_edge(e, st2) and e.flee_escape_paces > 0 and st2.get_pace_pool(e) == 0
+		FleeGoal.on_edge(e, st2) and e.flee_escape_paces > 0 and st2.get_pace_pool(e) == 0
 		and TestFixtures.has_line(lines2, "FLEE TRACK: %s" % e.merc_name),
 		"paces %d pool %d lines %s" % [e.flee_escape_paces, st2.get_pace_pool(e), str(lines2)])
 
@@ -490,9 +478,9 @@ static func _case_bank(res: Dictionary) -> void:
 	_flee_on(m)
 	m.flee_escape_paces = 12
 	m.current_ap = 2
-	var edge := FleeSystem.on_edge(m, st)
+	var edge := FleeGoal.on_edge(m, st)
 	var lines: Array[String] = []
-	FleeSystem.bank(m, st, lines)
+	FleeMover.bank(m, st, lines)
 	var track := "FLEE TRACK: %s +3 paces (15/15)" % m.merc_name
 	TestFixtures.check(res, "one Move banks 3 paces and the merc flees",
 		edge and m.current_ap == 0 and TestFixtures.has_line(lines, track) and m.flee_escape_paces == 15
@@ -514,7 +502,7 @@ static func _case_pick_target(res: Dictionary) -> void:
 	var stayer := _merc("Foe Stayer", 0.0)
 	var a: Array[MercenaryData] = [att]
 	var b: Array[MercenaryData] = [runner, stayer]
-	var st := _state(a, b)
+	var st := TestFixtures.battle_state(a, b)
 	TestFixtures.place(st, att, Vector2i(5, 5))
 	TestFixtures.place(st, runner, Vector2i(5, 8))
 	TestFixtures.place(st, stayer, Vector2i(8, 5))
@@ -542,7 +530,7 @@ static func _case_escaping_bonus(res: Dictionary) -> void:
 	var prio := _merc("Foe Prize", 0.0)
 	var a: Array[MercenaryData] = [att]
 	var b: Array[MercenaryData] = [leader, grunt, prio]
-	var st := _state(a, b)
+	var st := TestFixtures.battle_state(a, b)
 	_flee_on(leader)
 	_flee_on(grunt)
 	_flee_on(prio)
@@ -559,19 +547,29 @@ static func _case_escaping_bonus(res: Dictionary) -> void:
 		"grunt %s prize %s" % [from_grunt, from_prio])
 
 
+#Settles a battle in which runner fled the field, over a roster of the party.
+static func _fled_settle(party: Array[MercenaryData], foe: MercenaryData, runner: MercenaryData,
+		abandons: bool) -> Dictionary:
+	var b: Array[MercenaryData] = [foe]
+	var st := TestFixtures.battle_state(party, b)
+	var lines: Array[String] = []
+	_flee_on(runner)
+	runner.flee_abandons = abandons
+	st.remove_from_field(runner, "fled", lines)
+	var cr := ContractRun.new()
+	cr.team.assign(party)
+	var roster: Array[MercenaryData] = []
+	roster.assign(party)
+	return {"run": cr, "out": FleeSettlement.settle(cr, st, roster)}
+
+
 static func _case_settle_return(res: Dictionary) -> void:
 	_fresh()
-	var p := _sheet_merc("Vera Back", {})
+	var p := TestFixtures.sheet_merc("Vera Back")
 	var a: Array[MercenaryData] = [p]
-	var b: Array[MercenaryData] = [_merc("Foe Nine", 0.0)]
-	var st := _state(a, b)
-	var lines: Array[String] = []
-	_flee_on(p)
-	st.remove_from_field(p, "fled", lines)
-	var cr := ContractRun.new()
-	cr.team.assign(a)
-	var roster: Array[MercenaryData] = [p]
-	var out := FleeSettlement.settle(cr, st, roster)
+	var settled := _fled_settle(a, _merc("Foe Nine", 0.0), p, false)
+	var cr: ContractRun = settled["run"]
+	var out: Array[String] = settled["out"]
 	var marks: Array = cr.merc_marks.get(p, [])
 	TestFixtures.check(res, "a returner is marked and stays on the team",
 		marks.has("Fled") and TestFixtures.has_line(out, "RETURNED:") and cr.team.has(p) and cr.departed.is_empty(),
@@ -584,19 +582,12 @@ static func _case_settle_return(res: Dictionary) -> void:
 static func _case_settle_abandon(res: Dictionary) -> void:
 	_fresh()
 	MercPool.clear()
-	var q := _sheet_merc("Wes Gone", {})
-	var stay := _sheet_merc("Xia Stays", {})
+	var q := TestFixtures.sheet_merc("Wes Gone")
+	var stay := TestFixtures.sheet_merc("Xia Stays")
 	var a: Array[MercenaryData] = [q, stay]
-	var b: Array[MercenaryData] = [_merc("Foe Ten", 0.0)]
-	var st := _state(a, b)
-	var lines: Array[String] = []
-	_flee_on(q)
-	q.flee_abandons = true
-	st.remove_from_field(q, "fled", lines)
-	var cr := ContractRun.new()
-	cr.team.assign(a)
-	var roster: Array[MercenaryData] = [q, stay]
-	var out := FleeSettlement.settle(cr, st, roster)
+	var settled := _fled_settle(a, _merc("Foe Ten", 0.0), q, true)
+	var cr: ContractRun = settled["run"]
+	var out: Array[String] = settled["out"]
 	var lp_line := TestFixtures.has_line(out, "LIFEPATH FORCED") and LifepathProgression.has_event(q, "Coward's Way Out")
 	TestFixtures.check(res, "an abandoner takes the lifepath and joins the pool",
 		lp_line and MercPool.count() == 1, "pool %d out %s" % [MercPool.count(), str(out)])
@@ -609,19 +600,12 @@ static func _case_settle_abandon(res: Dictionary) -> void:
 static func _case_settle_held(res: Dictionary) -> void:
 	_fresh()
 	MercPool.clear()
-	var q := _sheet_merc("Cid Twice", {})
+	var q := TestFixtures.sheet_merc("Cid Twice")
 	var a: Array[MercenaryData] = [q]
-	var b: Array[MercenaryData] = [_merc("Foe Fourteen", 0.0)]
-	var st := _state(a, b)
-	var lines: Array[String] = []
 	LifepathProgression.force(q, "Coward's Way Out")
-	_flee_on(q)
-	q.flee_abandons = true
-	st.remove_from_field(q, "fled", lines)
-	var cr := ContractRun.new()
-	cr.team.assign(a)
-	var roster: Array[MercenaryData] = [q]
-	var out := FleeSettlement.settle(cr, st, roster)
+	var settled := _fled_settle(a, _merc("Foe Fourteen", 0.0), q, true)
+	var cr: ContractRun = settled["run"]
+	var out: Array[String] = settled["out"]
 	TestFixtures.check(res, "an abandoner already holding the event logs neither lifepath line",
 		not TestFixtures.has_line(out, "LIFEPATH FORCED") and not TestFixtures.has_line(out, "LIFEPATH REFUSED")
 		and LifepathProgression.has_event(q, "Coward's Way Out"), "out %s" % str(out))
@@ -634,19 +618,12 @@ static func _case_settle_held(res: Dictionary) -> void:
 static func _case_settle_npc(res: Dictionary) -> void:
 	_fresh()
 	MercPool.clear()
-	var p := _sheet_merc("Yan Party", {})
+	var p := TestFixtures.sheet_merc("Yan Party")
 	var npc := _merc("Foe Coward", 0.0)
 	var a: Array[MercenaryData] = [p]
-	var b: Array[MercenaryData] = [npc]
-	var st := _state(a, b)
-	var lines: Array[String] = []
-	_flee_on(npc)
-	npc.flee_abandons = true
-	st.remove_from_field(npc, "fled", lines)
-	var cr := ContractRun.new()
-	cr.team.assign(a)
-	var roster: Array[MercenaryData] = [p]
-	var out := FleeSettlement.settle(cr, st, roster)
+	var settled := _fled_settle(a, npc, npc, true)
+	var cr: ContractRun = settled["run"]
+	var out: Array[String] = settled["out"]
 	TestFixtures.check(res, "an NPC escapee is neither pooled nor marked",
 		MercPool.count() == 0 and cr.merc_marks.is_empty() and out.is_empty(),
 		"pool %d marks %d out %s" % [MercPool.count(), cr.merc_marks.size(), str(out)])
@@ -667,12 +644,12 @@ static func _case_pool(res: Dictionary) -> void:
 
 static func _case_settle_clear(res: Dictionary) -> void:
 	_fresh()
-	var p := _sheet_merc("Abi Clear", {})
+	var p := TestFixtures.sheet_merc("Abi Clear")
 	var b1 := _merc("Foe Fled", 0.0)
 	var b2 := _merc("Foe Scared", 0.0)
 	var a: Array[MercenaryData] = [p]
 	var b: Array[MercenaryData] = [b1, b2]
-	var st := _state(a, b)
+	var st := TestFixtures.battle_state(a, b)
 	var lines: Array[String] = []
 	_flee_on(p)
 	st.remove_from_field(p, "fled", lines)
@@ -680,7 +657,7 @@ static func _case_settle_clear(res: Dictionary) -> void:
 	b1.flee_abandons = true
 	b1.flee_escape_paces = 5
 	b1.advantage_immune = true
-	ConstStates.apply_state(b2, ConstStates.TERRIFIED, p, "", "inflict:Test")
+	StateCascade.apply_state(b2, ConstStates.TERRIFIED, p, "", "inflict:Test")
 	var cr := ContractRun.new()
 	cr.team.assign(a)
 	var roster: Array[MercenaryData] = [p]
@@ -699,13 +676,10 @@ static func _case_settle_clear(res: Dictionary) -> void:
 
 
 static func _case_disabled(res: Dictionary) -> void:
-	_fresh()
-	var m := _merc("Bo Off", 60.0)
-	var a: Array[MercenaryData] = [m]
-	var b: Array[MercenaryData] = [_merc("Foe Eleven", 0.0)]
-	var st := _state(a, b)
-	m.current_hp = 19
-	var lines: Array[String] = []
+	var solo := _solo("Bo Off", 60.0, "Foe Eleven")
+	var m: MercenaryData = solo["merc"]
+	var st: BattleState = solo["state"]
+	var lines: Array[String] = solo["lines"]
 	FleeSystem.enabled = false
 	FleeSystem.forced_rolls.assign([10, 20])
 	var r1 := FleeSystem.start_of_turn(m, st, lines)

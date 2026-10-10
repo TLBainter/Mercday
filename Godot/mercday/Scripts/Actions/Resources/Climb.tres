@@ -1,19 +1,17 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ClimbAction" format=3 uid="uid://2up5h051jqdw"]
 
-[ext_resource type="Script" path="res://Scripts/Actions/ClimbAction.gd" id="ClimbAction"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_l04oa"]
+[ext_resource type="Script" uid="uid://dkhlstj70hi1y" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
+[ext_resource type="Script" uid="uid://gs2u7x2x2rwu" path="res://Scripts/Actions/ClimbAction.gd" id="ClimbAction"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 
 [sub_resource type="Resource" id="facet_climbing"]
-script = ExtResource("ActiveStateFacet")
+script = ExtResource("AnyStateFacet")
 is_required = true
-state_name = "Climbing"
-present_is_high = true
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_climbing")]
-threshold = 0.5
+facets = Array[ExtResource("1_l04oa")]([SubResource("facet_climbing")])
 
 [resource]
 script = ExtResource("ClimbAction")
@@ -22,5 +20,4 @@ ap_cost = 2
 ap_cost_mode = "move_base"
 priority = 45
 execution_type = "climb"
-target_mode = "none"
 decision = SubResource("decision")

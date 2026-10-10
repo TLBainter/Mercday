@@ -71,7 +71,7 @@ static func parse_apply_token(token: String) -> Dictionary:
 		error = "unreadable duration"
 	if has_until:
 		if ConstStates.UNTIL_VERBS.has(verb):
-			removal = ConstStates.until_removal(verb)
+			removal = StateCascade.until_removal(verb)
 		else:
 			error = "unknown until"
 	return {"states": states, "duration": duration, "removal": removal, "error": error}

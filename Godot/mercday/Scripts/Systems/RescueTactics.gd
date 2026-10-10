@@ -2,8 +2,6 @@ class_name RescueTactics extends RefCounted
 
 #Rescue tactics: whether to free the captive now, who escorts the picker, and who pulls back to the exit.
 
-const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
-
 const POLICY_SMART := "smart"
 const POLICY_ALWAYS := "always"
 const POLICY_NEVER := "never"
@@ -35,7 +33,6 @@ const PRESSURE_PER_ENEMY := 0.2
 const SELF_RISK := 0.3
 const NO_ODDS := 99.0
 const NO_ROUNDS := 99.0
-const FLOOR_PENALTY := 8
 const ROUTE_RADIUS := 8
 const SHELTER_THREAT := 3
 const SHELTER_SIGHT := 12
@@ -46,6 +43,24 @@ const POSTURE_FALL_BACK := "fall_back"      #fighting withdrawal
 const POSTURE_WITHDRAW := "withdraw"
 const POSTURE_HOLD := "hold"
 const POSTURE_HIDE := "hide"
+
+#The rule number logged with each posture; the captive rules are read back by name.
+const RULE_CAGED := 0
+const RULE_WOUNDED := 1
+const RULE_ODDS_LOST := 2
+const RULE_EXIT_RACE := 3
+const RULE_NO_ENEMY_NEAR := 4
+const RULE_WINNING := 5
+const RULE_FALL_BACK := 6
+const RULE_CHEST_RUN := 7
+const RULE_WALK_OUT := 8
+const RULE_CAPTIVE_FALL_BACK := 9
+const RULE_HOLD := 10
+const RULE_CLEAR_FIRST := 11
+const RULE_PARTY_LEAVING := 12
+const RULE_HIDE_SIGHT := 13
+const RULE_REFUGE := 14
+const RULE_SHELTER := 15
 
 const PHASE_CAGED := "caged"
 const PHASE_OUT := "out"
@@ -110,14 +125,10 @@ static func hp_frac(merc: MercenaryData) -> float:
 	return float(maxi(0, merc.current_hp)) / maxf(1.0, float(merc.stats.get("maximum_hit_points", 0)))
 
 
-static func near(a: Vector3i, b: Vector3i, r: int) -> bool:
-	return a.z == b.z and maxi(absi(a.x - b.x), absi(a.y - b.y)) <= r
-
-
 static func enemy_near(cell: Vector3i, state: BattleState, r: int) -> int:
 	var n: int = 0
 	for e: MercenaryData in RescueSystem.enemy_team(state):
-		if BattleState._is_alive(e) and near(state.pos3(e), cell, r):
+		if BattleState._is_alive(e) and RescueGrid.near(state.pos3(e), cell, r):
 			n += 1
 	return n
 
@@ -129,10 +140,6 @@ static func exit_steps(state: BattleState, cell: Vector3i) -> int:
 
 static func _gate_steps(state: BattleState, cell: Vector3i) -> int:
 	return int((state.rescue.get("gate_dist", {}) as Dictionary).get(cell, -1))
-
-
-static func _spread(a: Vector3i, b: Vector3i) -> int:
-	return maxi(absi(a.x - b.x), absi(a.y - b.y)) + absi(a.z - b.z) * FLOOR_PENALTY
 
 
 static func _pct(v: float) -> int:
@@ -147,7 +154,7 @@ static func adjacent_enemies(merc: MercenaryData, state: BattleState) -> int:
 	var own: Vector3i = state.pos3(merc)
 	var n: int = 0
 	for e: MercenaryData in RescueSystem.enemy_team(state):
-		if BattleState._is_alive(e) and near(state.pos3(e), own, 1):
+		if BattleState._is_alive(e) and RescueGrid.is_adjacent(state.pos3(e), own):
 			n += 1
 	return n
 
@@ -161,7 +168,7 @@ static func route_safe(merc: MercenaryData, state: BattleState, goal: Vector3i) 
 		return false
 	if own == goal:
 		return true
-	var path: Array[Vector3i] = PathTargeter.walk_path_for(merc, state, own, goal)
+	var path: Array[Vector3i] = ReachCache.walk_path_for(merc, state, own, goal)
 	if path.is_empty():
 		return false
 	for cell: Vector3i in path:
@@ -176,14 +183,14 @@ static func threatened(state: BattleState, merc: MercenaryData, cell: Vector3i) 
 		return true
 	for key: Variant in RescueGrid.cell_seers(state, cell, merc).keys():
 		var e: MercenaryData = key as MercenaryData
-		if e != null and _spread(state.pos3(e), cell) <= SHELTER_SIGHT:
+		if e != null and RescueGrid.spread(state.pos3(e), cell) <= SHELTER_SIGHT:
 			return true
 	return false
 
 
 #Nearest walkable free cell no enemy threatens; NO_CELL when the scan finds none.
 static func hide_cell(merc: MercenaryData, state: BattleState) -> Vector3i:
-	var reach: Dictionary = PathTargeter.reachable_for(merc, state)
+	var reach: Dictionary = ReachCache.reachable_for(merc, state)
 	#Packed as (cost, floor, x, y) so the plain sort ranks by walk cost and settles ties the same every run.
 	var order: Array[Vector4i] = []
 	for key: Variant in reach.keys():
@@ -216,7 +223,7 @@ static func _cell_refuge(merc: MercenaryData, state: BattleState, safe_cell: boo
 	var best: Vector3i = PathTargeter.NO_CELL
 	var best_dist: int = 1 << 24
 	for cell: Vector3i in RescueGrid.free_cells(state.battlefield, state, rect, f, merc):
-		var dist: int = _spread(own, cell)
+		var dist: int = RescueGrid.spread(own, cell)
 		if dist < best_dist:
 			best_dist = dist
 			best = cell
@@ -259,10 +266,6 @@ static func need(o: float) -> float:
 	return clampf((zero - o) / maxf(0.01, zero - full), 0.0, 1.0)
 
 
-static func set_tune(name: String, value: float) -> bool:
-	return RescueTune.set_tune(name, value)
-
-
 #Where the rescue stands: the captive still caged, out and walking, or the matter settled.
 static func phase(state: BattleState) -> String:
 	var rescue: Dictionary = state.rescue
@@ -276,7 +279,7 @@ static func phase(state: BattleState) -> String:
 	return PHASE_OUT
 
 
-#True while the party still wants the cell opened; Agent A's door reasons read this.
+#True while the party still wants the cell opened; RescueDoors.reason reads this.
 static func gate_wanted(state: BattleState) -> bool:
 	if not RescueSystem.is_active(state):
 		return false
@@ -314,7 +317,7 @@ static func pick_first(merc: MercenaryData, state: BattleState) -> bool:
 static func _fight_value(merc: MercenaryData, state: BattleState, adjacent: int) -> float:
 	var best: float = 0.0
 	for e: MercenaryData in RescueSystem.enemy_team(state):
-		if BattleState._is_alive(e) and AutoBattle._can_attack_target(merc, e, state):
+		if BattleState._is_alive(e) and AutoBattle.can_attack_target(merc, e, state):
 			best = maxf(best, 1.0 - hp_frac(e))
 	var v: float = best + PRESSURE_PER_ENEMY * float(adjacent)
 	if adjacent > 0:
@@ -426,10 +429,7 @@ static func _weapon_in_chest(state: BattleState) -> bool:
 	var chest_obs: Dictionary = rescue["chest_obs"] as Dictionary
 	if chest_obs.is_empty():
 		return false
-	for e: Dictionary in ChestLoot.entries(chest_obs):
-		if str(e.get("type", "")) == "weapon":
-			return true
-	return false
+	return RescueSystem.chest_has_type(chest_obs, "weapon")
 
 
 #Rounds the picker spends walking and picking, weighed by the share of the party it is.
@@ -437,7 +437,7 @@ static func _gate_cost(lead: MercenaryData, state: BattleState, gate_obs: Dictio
 	var steps: int = _gate_steps(state, state.pos3(lead))
 	var walk_rounds: float = NO_ROUNDS
 	if steps >= 0:
-		var per_round: int = maxi(1, MovementExecutor.pace_per_move(lead) * RescueSystem.MOVES_PER_TURN)
+		var per_round: int = maxi(1, PaceBudget.pace_per_move(lead) * RescueSystem.MOVES_PER_TURN)
 		walk_rounds = ceilf(float(maxi(0, steps - 1)) / float(per_round))
 	var pick_rounds: float = minf(MAX_PICK_ROUNDS, 1.0 / maxf(0.01, DungeonLocks.pick_chance(lead, gate_obs)))
 	var share: float = float(maxi(0, lead.current_hp)) / maxf(1.0, float(side_hp(party(state))))
@@ -450,7 +450,7 @@ static func _gate_danger(state: BattleState) -> float:
 		return 0.0
 	var friends: int = 0
 	for m: MercenaryData in party(state):
-		if near(state.pos3(m), gate_cell, GATE_RADIUS):
+		if RescueGrid.near(state.pos3(m), gate_cell, GATE_RADIUS):
 			friends += 1
 	return RescueTune.tuned("danger_per_enemy") * float(maxi(0, enemy_near(gate_cell, state, GATE_RADIUS) - friends))
 
@@ -478,7 +478,7 @@ static func _choose_escort(state: BattleState) -> MercenaryData:
 	for m: MercenaryData in crew:
 		if m == lead:
 			continue
-		var d: int = _spread(state.pos3(m), own)
+		var d: int = RescueGrid.spread(state.pos3(m), own)
 		if d < best_d:
 			best_d = d
 			best = m
@@ -493,7 +493,7 @@ static func _escort_warranted(lead: MercenaryData, state: BattleState) -> bool:
 	var approach: Vector3i = RescueGrid.approach_cell(lead, state)
 	if approach == PathTargeter.NO_CELL:
 		return false
-	for cell: Vector3i in PathTargeter.walk_path_for(lead, state, state.pos3(lead), approach):
+	for cell: Vector3i in ReachCache.walk_path_for(lead, state, state.pos3(lead), approach):
 		if enemy_near(cell, state, ESCORT_RADIUS) > 0:
 			return true
 	return false
@@ -526,8 +526,8 @@ static func _decide(merc: MercenaryData, state: BattleState) -> Dictionary:
 	var o: float = odds(state)
 	if ph == PHASE_CAGED:
 		if caged_wounded_leave and hp_frac(merc) <= WITHDRAW_HP and o < WINNING_ODDS:
-			return {"posture": POSTURE_WITHDRAW, "rule": 1}
-		return {"posture": POSTURE_WITHDRAW if bool(rescue["abandoned"]) else POSTURE_FIGHT, "rule": 0}
+			return {"posture": POSTURE_WITHDRAW, "rule": RULE_WOUNDED}
+		return {"posture": POSTURE_WITHDRAW if bool(rescue["abandoned"]) else POSTURE_FIGHT, "rule": RULE_CAGED}
 	return _party_posture(merc, state, ph, o)
 
 
@@ -549,35 +549,35 @@ static func _party_posture(merc: MercenaryData, state: BattleState, ph: String, 
 	var captive: MercenaryData = state.rescue["captive"] as MercenaryData
 	var own: Vector3i = state.pos3(merc)
 	if hp_frac(merc) <= WITHDRAW_HP:
-		return {"posture": POSTURE_WITHDRAW, "rule": 1}
+		return {"posture": POSTURE_WITHDRAW, "rule": RULE_WOUNDED}
 	if o < LOST_ODDS:
-		return {"posture": POSTURE_WITHDRAW, "rule": 2}
+		return {"posture": POSTURE_WITHDRAW, "rule": RULE_ODDS_LOST}
 	#While the freed captive shelters, the party fights on to clear; nobody holds the exit or walks out.
 	if careful and ph == PHASE_OUT and _captive_sheltering(state):
-		return {"posture": POSTURE_FIGHT, "rule": 11}
+		return {"posture": POSTURE_FIGHT, "rule": RULE_CLEAR_FIRST}
 	if ph == PHASE_OUT and _nearer_exit(state, merc, captive):
 		#The exit is one cell; a merc already standing on it walks out rather than hold it shut.
 		if own == (state.rescue["exit_cell"] as Vector3i):
-			return {"posture": POSTURE_WITHDRAW, "rule": 3}
+			return {"posture": POSTURE_WITHDRAW, "rule": RULE_EXIT_RACE}
 		if enemy_near(own, state, NEAR_ENEMY) > 0 or enemy_near(state.pos3(captive), state, NEAR_ENEMY) > 0:
-			return {"posture": POSTURE_FIGHT, "rule": 3}
-		return {"posture": POSTURE_HOLD, "rule": 3}
+			return {"posture": POSTURE_FIGHT, "rule": RULE_EXIT_RACE}
+		return {"posture": POSTURE_HOLD, "rule": RULE_EXIT_RACE}
 	if enemy_near(own, state, NEAR_ENEMY) == 0:
-		return {"posture": POSTURE_WITHDRAW, "rule": 4}
+		return {"posture": POSTURE_WITHDRAW, "rule": RULE_NO_ENEMY_NEAR}
 	if o >= WINNING_ODDS:
-		return {"posture": POSTURE_FIGHT, "rule": 5}
-	return {"posture": POSTURE_FALL_BACK, "rule": 6}
+		return {"posture": POSTURE_FIGHT, "rule": RULE_WINNING}
+	return {"posture": POSTURE_FALL_BACK, "rule": RULE_FALL_BACK}
 
 
 #True while the freed captive is staying put or moving to cover rather than walking the dungeon.
 static func _captive_sheltering(state: BattleState) -> bool:
 	var rule: int = captive_rule(state)
-	if rule == 10 or rule == 14 or rule == 15:
+	if rule == RULE_HOLD or rule == RULE_REFUGE or rule == RULE_SHELTER:
 		return true
 	if not shelter_los:
 		return false
 	var captive: MercenaryData = state.rescue["captive"] as MercenaryData
-	return rule == 13 and posture_of(state, captive) == POSTURE_HIDE
+	return rule == RULE_HIDE_SIGHT and posture_of(state, captive) == POSTURE_HIDE
 
 
 static func _nearer_exit(state: BattleState, merc: MercenaryData, captive: MercenaryData) -> bool:
@@ -595,38 +595,38 @@ static func _captive_posture(merc: MercenaryData, state: BattleState) -> Diction
 	var own: Vector3i = state.pos3(merc)
 	var exit_cell: Vector3i = rescue["exit_cell"] as Vector3i
 	if route_safe(merc, state, exit_cell):
-		return {"posture": POSTURE_WITHDRAW, "rule": 8}
+		return {"posture": POSTURE_WITHDRAW, "rule": RULE_WALK_OUT}
 	if RescueSystem.needs(state) > 0:
 		if gear_worth(state):
 			var chest_cell: Vector3i = rescue["chest_cell"] as Vector3i
 			if RescueGrid.is_adjacent(own, chest_cell) \
 					or route_safe(merc, state, RescueGrid.adjacent_free_cell(state, chest_cell, merc)):
-				return {"posture": POSTURE_FIGHT, "rule": 7}
+				return {"posture": POSTURE_FIGHT, "rule": RULE_CHEST_RUN}
 		else:
 			rescue["chest_given_up"] = true
 	if party_leaving(state):
-		return {"posture": POSTURE_WITHDRAW, "rule": 12}
+		return {"posture": POSTURE_WITHDRAW, "rule": RULE_PARTY_LEAVING}
 	if RescueSystem.shelters(state, merc):
-		return {"posture": POSTURE_HOLD, "rule": 15}
+		return {"posture": POSTURE_HOLD, "rule": RULE_SHELTER}
 	if not bool(rescue.get("captive_acted", false)):
 		var safe: Vector3i = _cell_refuge(merc, state, true)
 		if safe != PathTargeter.NO_CELL:
 			rescue["hide_goal"] = safe
-			return {"posture": POSTURE_HIDE, "rule": 14}
+			return {"posture": POSTURE_HIDE, "rule": RULE_REFUGE}
 	if captive_armed(state):
 		if enemy_near(own, state, NEAR_ENEMY) > 0:
-			return {"posture": POSTURE_FALL_BACK, "rule": 9}
+			return {"posture": POSTURE_FALL_BACK, "rule": RULE_CAPTIVE_FALL_BACK}
 	elif not shelter_los:
 		if enemy_near(own, state, SHELTER_THREAT) > 0:
-			return {"posture": POSTURE_WITHDRAW, "rule": 13}
+			return {"posture": POSTURE_WITHDRAW, "rule": RULE_HIDE_SIGHT}
 	elif threatened(state, merc, own):
 		return _hide_posture(merc, state)
 	if shelter_los:
 		var refuge: Vector3i = _cell_refuge(merc, state)
 		if refuge != PathTargeter.NO_CELL:
 			rescue["hide_goal"] = refuge
-			return {"posture": POSTURE_HIDE, "rule": 14}
-	return {"posture": POSTURE_HOLD, "rule": 10}
+			return {"posture": POSTURE_HIDE, "rule": RULE_REFUGE}
+	return {"posture": POSTURE_HOLD, "rule": RULE_HOLD}
 
 
 #An unarmed captive in enemy sight breaks the sight line, else closes on an ally, else runs for the exit.
@@ -640,26 +640,26 @@ static func _hide_posture(merc: MercenaryData, state: BattleState) -> Dictionary
 			var spot: Vector3i = RescueGrid.adjacent_free_cell(state, state.pos3(ally), merc)
 			if spot == PathTargeter.NO_CELL:
 				continue
-			var dist: int = _spread(own, spot)
+			var dist: int = RescueGrid.spread(own, spot)
 			if dist < best_dist:
 				best_dist = dist
 				goal = spot
 	if goal == PathTargeter.NO_CELL:
-		return {"posture": POSTURE_WITHDRAW, "rule": 13}
+		return {"posture": POSTURE_WITHDRAW, "rule": RULE_HIDE_SIGHT}
 	rescue["hide_goal"] = goal
-	return {"posture": POSTURE_HIDE, "rule": 13}
+	return {"posture": POSTURE_HIDE, "rule": RULE_HIDE_SIGHT}
 
 
 #The freed captive fetches its gear while that is worth doing, then walks out; it never holds.
 static func _captive_posture_plain(merc: MercenaryData, state: BattleState) -> Dictionary:
 	if RescueSystem.needs(state) > 0:
 		if gear_worth(state):
-			return {"posture": POSTURE_FIGHT, "rule": 7}
+			return {"posture": POSTURE_FIGHT, "rule": RULE_CHEST_RUN}
 		state.rescue["chest_given_up"] = true
 	var weapon: WeaponData = merc.equipped_weapon
 	if weapon == null or weapon.is_virtual or hp_frac(merc) <= WITHDRAW_HP or odds(state) < LOST_ODDS:
-		return {"posture": POSTURE_WITHDRAW, "rule": 8}
-	return {"posture": POSTURE_FALL_BACK, "rule": 9}
+		return {"posture": POSTURE_WITHDRAW, "rule": RULE_WALK_OUT}
+	return {"posture": POSTURE_FALL_BACK, "rule": RULE_CAPTIVE_FALL_BACK}
 
 
 #True while the chest is reachable and the detour costs the captive less than it buys.
@@ -679,7 +679,7 @@ static func gear_worth(state: BattleState) -> bool:
 	if exit_cell == PathTargeter.NO_CELL:
 		return true
 	var own: Vector3i = state.pos3(captive)
-	return _spread(own, chest_cell) <= _spread(own, exit_cell)
+	return RescueGrid.spread(own, chest_cell) <= RescueGrid.spread(own, exit_cell)
 
 
 #True when the rescue director drives this merc's turn instead of the normal decision loop.
@@ -713,7 +713,7 @@ static func escort_due(merc: MercenaryData, state: BattleState) -> bool:
 	if lead == null or RescueGrid.is_adjacent(state.pos3(merc), state.pos3(lead)):
 		return false
 	for e: MercenaryData in state.get_enemies(merc):
-		if AutoBattle._can_attack_target(merc, e, state):
+		if AutoBattle.can_attack_target(merc, e, state):
 			return false
 	return true
 

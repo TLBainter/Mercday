@@ -17,3 +17,4 @@ possible_locations = Array[String]([])
 enemy = ""
 enemy_counter = ""
 map_rule = ""
+fail_ends_contract = false

@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://bqxr6sstfy2yv"]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ModalDialog.tscn" id="1"]
+[ext_resource type="Script" uid="uid://2o2pg08fsr08" path="res://Scripts/Tools/ContractBuilder/Shared/ToolModalDialog.gd" id="2"]
+[ext_resource type="Script" uid="uid://dvxgqmtn5bjuo" path="res://Scripts/Tools/ContractBuilder/Shared/ToolBevelButton.gd" id="3"]
+[ext_resource type="Script" uid="uid://beppsf30eiia8" path="res://Scripts/Tools/ContractBuilder/Shared/ToolBevelEdges.gd" id="4"]
+
+[node name="ToolModalDialog" instance=ExtResource("1")]
+script = ExtResource("2")
+
+[node name="Cancel" parent="Box/Pad/Rows/Buttons" index="0"]
+script = ExtResource("3")
+
+[node name="Confirm" parent="Box/Pad/Rows/Buttons" index="1"]
+script = ExtResource("3")
+
+[node name="Edges" parent="Box" index="1"]
+script = ExtResource("4")

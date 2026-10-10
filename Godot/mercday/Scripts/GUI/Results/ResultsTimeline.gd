@@ -54,23 +54,17 @@ const XP_GLOW_OUT: float = 1.9
 const XP_CARRY_SPAN: float = 0.7
 const FLIP_RATE: float = 10.0
 
-const ACCENT: Color = Color("#f28c28")
-const SUCCESS: Color = Color("#6cc36a")
-const FAILURE: Color = Color("#e8583f")
+const ACCENT: Color = GuiColors.ORANGE
+const SUCCESS: Color = GuiColors.GREEN
+const FAILURE: Color = GuiColors.RED
 const SUCCESS_DARK: Color = Color("#2f6a2e")
-const FAILURE_DARK: Color = Color("#7a2a1e")
-const CAPTURED: Color = Color("#f2b33d")
-const CREAM: Color = Color("#f3ead7")
-const MUTED: Color = Color("#5e7699")
-const SKY: Color = Color("#9cc6ef")
-const GOLD: Color = Color("#f2d33d")
-const GOLD_HI: Color = Color("#fff08a")
-const RING_IDLE: Color = Color("#1f3560")
+const FAILURE_DARK: Color = GuiColors.DANGER_LO
+const CAPTURED: Color = GuiColors.AMBER
+const RING_IDLE: Color = GuiColors.BLUE_LO
 const RING_DEAD: Color = Color("#a83a28")
 const RING_CAPTURED: Color = Color("#b8862a")
-const OVERLAY_BARS: Color = Color("#c8cdd8")
-const XP_FILL: Color = Color("#f2b33d")
-const XP_FILL_UP: Color = Color("#f2d33d")
+const XP_FILL: Color = GuiColors.AMBER
+const XP_FILL_UP: Color = GuiColors.RAMP_YELLOW
 const XP_FILL_FLASH: Color = Color("#fff08a")
 
 const SUCCESS_TEXT: String = "SUCCESS!"
@@ -82,7 +76,6 @@ const REWARD_LABEL: String = "Reward"
 const REWARD_LOST_LABEL: String = "Reward (Forfeited)"
 const NET_LABEL: String = "Notes Earned"
 const COST_LABEL: String = "Total Cost"
-const EXPENSE_LABEL: String = "Expenses"
 
 const GRAY_DEAD: float = 1.0
 const BRIGHT_DEAD: float = 0.6
@@ -116,6 +109,23 @@ static func end_time(result: ContractResultData) -> float:
 
 static func total_time(result: ContractResultData) -> float:
 	return end_time(result) + FLY_SECONDS
+
+
+#Where the clock opens for one result: at the verdict when no bar moved on the way, since the bars
+#and the fates would show nothing, else at zero.
+static func start_time(result: ContractResultData) -> float:
+	if result == null or bars_moved(result):
+		return 0.0
+	return VERDICT_IN
+
+
+#Whether any member came home with a bar off its departure value.
+static func bars_moved(result: ContractResultData) -> bool:
+	for member: ResultMemberData in result.members:
+		if member.hp.x != member.hp_before or member.ep.x != member.ep_before \
+				or member.mp.x != member.mp_before:
+			return true
+	return false
 
 
 static func continue_enabled(result: ContractResultData, t: float) -> bool:
@@ -191,10 +201,10 @@ static func status_text(member: ResultMemberData, t: float) -> String:
 
 static func status_color(member: ResultMemberData, t: float) -> Color:
 	if not fates_on(t) or member == null:
-		return SKY
+		return GuiColors.SKY
 	if member.fate == ResultMemberData.Fate.DEAD:
 		return FAILURE
-	if member.fate == ResultMemberData.Fate.CAPTURED:
+	if member.away():
 		return CAPTURED
 	return SUCCESS
 
@@ -203,12 +213,12 @@ static func ring_color(member: ResultMemberData, t: float, failed: bool) -> Colo
 	if member == null:
 		return RING_IDLE
 	if mvp_on(member, t, failed):
-		return GOLD
+		return GuiColors.RAMP_YELLOW
 	if not fates_on(t):
 		return RING_IDLE
 	if member.fate == ResultMemberData.Fate.DEAD:
 		return RING_DEAD
-	if member.fate == ResultMemberData.Fate.CAPTURED:
+	if member.away():
 		return RING_CAPTURED
 	return RING_IDLE
 
@@ -218,7 +228,7 @@ static func portrait_gray(member: ResultMemberData, t: float) -> float:
 		return 0.0
 	if member.fate == ResultMemberData.Fate.DEAD:
 		return GRAY_DEAD
-	if member.fate == ResultMemberData.Fate.CAPTURED:
+	if member.away():
 		return GRAY_CAPTURED
 	return 0.0
 
@@ -228,7 +238,7 @@ static func portrait_brightness(member: ResultMemberData, t: float) -> float:
 		return 1.0
 	if member.fate == ResultMemberData.Fate.DEAD:
 		return BRIGHT_DEAD
-	if member.fate == ResultMemberData.Fate.CAPTURED:
+	if member.away():
 		return BRIGHT_CAPTURED
 	return 1.0
 
@@ -254,12 +264,12 @@ static func pay_text(member: ResultMemberData, index: int, t: float, failed: boo
 
 static func pay_color(member: ResultMemberData, _index: int, t: float, failed: bool) -> Color:
 	if not told(t):
-		return SKY
+		return GuiColors.SKY
 	if member == null or not member.alive() or failed:
-		return MUTED
+		return GuiColors.MUTED
 	if member.pay > 0:
-		return GOLD
-	return SKY
+		return GuiColors.RAMP_YELLOW
+	return GuiColors.SKY
 
 
 #The fill, the level box and the two texts of one experience column.
@@ -284,7 +294,7 @@ static func xp_state(member: ResultMemberData, t: float) -> Dictionary:
 	if not member.alive():
 		out["fill"] = clamp01(float(member.xp_before) / float(need))
 		out["text"] = BLANK_TEXT if fates_on(t) else PENDING_TEXT
-		out["color"] = MUTED if fates_on(t) else XP_FILL
+		out["color"] = GuiColors.MUTED if fates_on(t) else XP_FILL
 		return out
 	var need_after: int = need if member.xp_need_after <= 0 else member.xp_need_after
 	var rel: float = t - XP_START
@@ -324,10 +334,9 @@ static func money_state(result: ContractResultData, t: float) -> Dictionary:
 		"net": 0,
 		"bonus": 0,
 		"reward_label": REWARD_LABEL,
-		"expense_label": EXPENSE_LABEL,
 		"net_label": NET_LABEL,
 		"bonus_label": "",
-		"reward_color": CREAM,
+		"reward_color": GuiColors.CREAM,
 		"net_color": SUCCESS,
 		"bonus_visible": false,
 	}
@@ -345,9 +354,9 @@ static func money_state(result: ContractResultData, t: float) -> Dictionary:
 		var grown: float = ease_out((t - NET_START) / (NET_END - NET_START))
 		out["net"] = int(round(float(result.net()) * grown - float(total) * paid))
 	out["reward_label"] = REWARD_LOST_LABEL if lost else REWARD_LABEL
-	out["reward_color"] = MUTED if lost else CREAM
+	out["reward_color"] = GuiColors.MUTED if lost else GuiColors.CREAM
 	out["net_label"] = COST_LABEL if lost else NET_LABEL
-	out["net_color"] = SUCCESS if result.net() >= 0 else FAILURE
+	out["net_color"] = SUCCESS if result.outcome_amount() >= 0 else FAILURE
 	out["bonus_label"] = "Merc Bonus (%d%%)" % result.bonus_pct
 	out["bonus_visible"] = total > 0 and t >= PAYOUT_START
 	return out
@@ -369,13 +378,6 @@ static func pay_notes(result: ContractResultData, t: float) -> Array[Dictionary]
 				continue
 			out.append({"index": k, "progress": progress})
 	return out
-
-
-#Where one flying note sits between the Notes Earned box and a pay cell.
-static func note_point(from: Vector2, to: Vector2, progress: float) -> Vector2:
-	var point: Vector2 = from.lerp(to, progress)
-	point.y -= NOTE_ARC_PX * sin(PI * progress)
-	return point
 
 
 static func _count(total: int, t: float, from: float, to: float) -> int:

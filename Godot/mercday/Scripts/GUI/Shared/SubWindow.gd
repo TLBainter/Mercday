@@ -1,56 +1,65 @@
-class_name SubWindow extends Control
+class_name SubWindow extends GuiModal
 
 #Modal overlay: dims the screen, frames a 1:1 canvas and swaps in one content scene. The canvas is
-#content_width wide and content_height() tall: frame_h when it is set, else the band above the
-#bottom bar capped at 720. Every SubWindow is top_level, so one nested inside another still lays
-#out at full screen scale. Open windows register with GuiFrameStack, so Esc and a backdrop click
-#hit the topmost one first. The bottom bar stays bright and clickable under the window.
+#content_width wide and content_height() tall: the content's own height after fit_to_content(), else
+#frame_h when it is set, else the band above the bottom bar capped at 720. Every SubWindow is
+#top_level, so one nested inside another still lays out at full screen scale. The bottom bar stays
+#bright and clickable under the window.
 
-signal closed
-
+#Width of the orange border drawn inside the canvas edge, over the content and under the close X.
 const BORDER := 4.0
 const CONTENT_WIDTH := 1280.0
 const FRAME_H_DEFAULT := 720.0
 const CLOSE_INSET := 10.0
+#Width kept empty at the right of a window's top row so no tab sits under the close X.
+const CLOSE_RESERVE := 56.0
+#Shortest canvas a fitted window shrinks to, so a near empty content still reads as a window.
+const FIT_MIN_H := 320.0
 
-@export var content: PackedScene
 @export var frame_h: float = 0.0
 @export var content_width: float = CONTENT_WIDTH
+#A null style keeps the theme look of that panel.
+@export var frame_style: StyleBox
+@export var backdrop_style: StyleBox
+@export var show_scanline: bool = true
 
-@onready var backdrop: Panel = $Backdrop
 @onready var frame: Panel = $Frame
 @onready var holder: Control = $Holder
+@onready var border: Panel = $Border
 @onready var close_x: Button = $CloseX
 @onready var scanline: ScanlineOverlay = $Scanline
 
 var _content: Node = null
-var _viewport_hook: Viewport = null
+var _fitted: bool = false
 
 
 func _ready() -> void:
-	top_level = true
+	super()
 	position = Vector2.ZERO
+	if frame_style != null:
+		frame.add_theme_stylebox_override(&"panel", frame_style)
+	if backdrop_style != null:
+		backdrop.add_theme_stylebox_override(&"panel", backdrop_style)
+	scanline.visible = show_scanline
 	CloseX.style(close_x, CloseX.SCALE_WINDOW)
 	close_x.pressed.connect(close)
-	backdrop.gui_input.connect(_on_backdrop_input)
-	_hook_viewport()
 	_layout()
-	hide()
 
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_EXIT_TREE:
-		_unhook_viewport()
-		GuiFrameStack.remove(self)
-	elif what == NOTIFICATION_ENTER_TREE and is_node_ready():
-		_hook_viewport()
-
-
-#The band above the bottom bar decides the height when no caller pinned one; a window off the
-#tree has no viewport to ask, so it reports the full 720 canvas.
+#A fitted window takes its content's minimum height, never under FIT_MIN_H and never over the band;
+#otherwise the band decides the height when no caller pinned one.
 func content_height() -> float:
+	var box: Control = _content as Control
+	if _fitted and box != null:
+		return minf(maxf(box.get_combined_minimum_size().y + 2.0 * BORDER, FIT_MIN_H), band_cap())
 	if frame_h > 0.0:
 		return frame_h
+	return band_cap()
+
+
+#The band above the bottom bar capped at 720; a window off the tree has no viewport to ask, so it
+#reports the full 720 canvas.
+func band_cap() -> float:
 	if not is_inside_tree():
 		return FRAME_H_DEFAULT
 	var band: float = GuiFrameStack.band_height(get_viewport().get_visible_rect().size.y)
@@ -76,8 +85,10 @@ func _layout() -> void:
 	holder.size = box
 	holder.position = Vector2(floorf(maxf(0.0, (view_size.x - box.x) / 2.0)),
 		floorf(maxf(0.0, (band - box.y) / 2.0)))
-	frame.position = holder.position - Vector2(BORDER, BORDER)
-	frame.size = holder.size + Vector2(BORDER, BORDER) * 2.0
+	frame.position = holder.position
+	frame.size = holder.size
+	border.position = holder.position
+	border.size = holder.size
 	close_x.size = CloseX.size(CloseX.SCALE_WINDOW)
 	var art: float = float(CloseX.ART * CloseX.SCALE_WINDOW)
 	var outline: float = float(CloseX.SCALE_WINDOW)
@@ -85,15 +96,13 @@ func _layout() -> void:
 		CLOSE_INSET - outline)
 
 
+#Laid out at open time, since the bottom reserve is not known yet at _ready for a persistent window like the HUD's Popup.
 func open(scene: PackedScene, setup: Callable = Callable(), width: float = 0.0) -> Node:
 	_free_content()
 	if scene == null:
 		return null
 	if width > 0.0:
 		content_width = width
-	#The reserve is not known yet at _ready (children ready before their parent's GameHUD._wire),
-	#so a persistent window like the HUD's shared Popup must relayout here, at the moment it is
-	#actually shown, rather than trust the one-shot layout it ran on entering the tree.
 	_layout()
 	var instance: Node = scene.instantiate()
 	if setup.is_valid():
@@ -102,72 +111,65 @@ func open(scene: PackedScene, setup: Callable = Callable(), width: float = 0.0) 
 	if instance is Control:
 		(instance as Control).set_anchors_preset(Control.PRESET_FULL_RECT)
 	_content = instance
-	show()
-	GuiFrameStack.push(self)
+	present()
 	return instance
-
-
-func open_content() -> Node:
-	return open(content)
 
 
 func current() -> Node:
 	return _content
 
 
-func close() -> void:
-	_free_content()
-	hide()
-	GuiFrameStack.remove(self)
-	closed.emit()
-
-
-func is_open() -> bool:
-	return visible
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not event.is_action_pressed("ui_cancel"):
+#Sizes the canvas to the open content and follows its minimum height while it stays open; the next
+#open or close lets the window go back to frame_h or the band.
+func fit_to_content() -> void:
+	var box: Control = _content as Control
+	if box == null:
 		return
-	if GuiFrameStack.top() != self:
-		return
-	close()
-	get_viewport().set_input_as_handled()
+	_fitted = true
+	if not box.minimum_size_changed.is_connected(_on_content_minimum_changed):
+		box.minimum_size_changed.connect(_on_content_minimum_changed)
+	_layout()
 
 
-func _on_backdrop_input(event: InputEvent) -> void:
-	if not (event is InputEventMouseButton):
-		return
-	var click: InputEventMouseButton = event
-	if click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
-		close()
+func is_fitted() -> bool:
+	return _fitted
 
 
-func _on_viewport_resized() -> void:
-	if is_node_ready():
+func _on_content_minimum_changed() -> void:
+	if _fitted and is_inside_tree():
 		_layout()
 
 
-func _hook_viewport() -> void:
-	if _viewport_hook != null:
-		return
-	_viewport_hook = get_viewport()
-	if _viewport_hook != null:
-		_viewport_hook.size_changed.connect(_on_viewport_resized)
-
-
-func _unhook_viewport() -> void:
-	if _viewport_hook == null:
-		return
-	if not is_instance_valid(_viewport_hook):
-		_viewport_hook = null
-		return
-	if _viewport_hook.size_changed.is_connected(_on_viewport_resized):
-		_viewport_hook.size_changed.disconnect(_on_viewport_resized)
-	_viewport_hook = null
+func close() -> void:
+	_free_content()
+	super()
 
 
 func _free_content() -> void:
+	var box: Control = _content as Control
+	if box != null and box.minimum_size_changed.is_connected(_on_content_minimum_changed):
+		box.minimum_size_changed.disconnect(_on_content_minimum_changed)
+	_fitted = false
 	if _content != null:
 		_content.queue_free()
 		_content = null
+
+
+#Builds a one-off placeholder scene in memory; no file is needed for a single DescriptionLabel.
+static func placeholder(text: String) -> PackedScene:
+	var root_node := Control.new()
+	root_node.name = "Placeholder"
+	root_node.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var label_node := Label.new()
+	label_node.name = "DescriptionLabel"
+	label_node.theme_type_variation = &"DescriptionLabel"
+	label_node.text = text
+	label_node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label_node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label_node.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root_node.add_child(label_node)
+	label_node.owner = root_node
+	var packed := PackedScene.new()
+	packed.pack(root_node)
+	root_node.queue_free()
+	return packed

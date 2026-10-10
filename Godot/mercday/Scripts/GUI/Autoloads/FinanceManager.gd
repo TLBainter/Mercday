@@ -2,7 +2,7 @@ extends Node
 
 #Finance: the lenders the guild can ask, the loan requests envoys are carrying, the offers waiting
 #for an answer and the loans the guild is paying off. The formulas live in LoanLogic.gd.
-#The screens come later; this is the data layer they read.
+#The finance screens read this data layer.
 
 signal offers_changed
 signal loans_changed
@@ -19,49 +19,28 @@ const LENDER_ROWS: Array[Dictionary] = [
 	{"name": "Lender 7", "rel": 1, "base": 0.11, "cap": 1800, "away_hours": 88},
 	{"name": "Lender 8", "rel": 5, "base": 0.06, "cap": 4000, "away_hours": 110},
 ]
-const SEED_LOANS: Array[Dictionary] = [
-	{"id": 1, "lender": "Lender 1", "principal": 2000, "rate": 0.08, "months": 12, "paid": 4},
-	{"id": 2, "lender": "Lender 2", "principal": 800, "rate": 0.12, "months": 6, "paid": 1},
-]
-const SEED_CLOSED: Array[Dictionary] = [
-	{"id": 201, "lender": "Lender 2", "principal": 600, "rate": 0.12, "months": 6, "paid": 6,
-		"closed_as": "Paid in Full", "paid_total": 672},
-	{"id": 202, "lender": "Lender 1", "principal": 1200, "rate": 0.08, "months": 12, "paid": 7,
-		"closed_as": "Paid Off Early", "paid_total": 1263},
-]
-const SEED_OFFERS: Array[Dictionary] = [
-	{"id": 101, "lender": "Lender 1", "amount": 1500, "rate": 0.08, "term": 6, "first_due": 2,
-		"team": [3], "odds": 71, "outcome": "exact", "approved": true, "offer_amount": 1500,
-		"offer_rate": 0.08, "offer_term": 6, "offer_first_due": 2, "hours": 90},
-	{"id": 102, "lender": "Lender 2", "amount": 1000, "rate": 0.12, "term": 6, "first_due": 2,
-		"team": [3, 8], "odds": 83, "outcome": "better", "approved": true, "offer_amount": 1200,
-		"offer_rate": 0.1, "offer_term": 6, "offer_first_due": 3, "hours": 30},
-	{"id": 103, "lender": "Lender 3", "amount": 4000, "rate": 0.25, "term": 12, "first_due": 3,
-		"team": [5], "odds": 34, "outcome": "worse", "approved": false, "offer_amount": 2800,
-		"offer_rate": 0.29, "offer_term": 12, "offer_first_due": 1, "hours": 8},
-	{"id": 104, "lender": "Lender 4", "amount": 2000, "rate": 0.14, "term": 12, "first_due": 2,
-		"team": [], "odds": 58, "outcome": "exact", "approved": true, "offer_amount": 2000,
-		"offer_rate": 0.14, "offer_term": 12, "offer_first_due": 2, "hours": 60},
-]
-#The day of every month a loan payment lands on, and how long an offer stands.
-const BILL_DAY: int = 15
+#The days of the month a loan may bill on; each loan keeps the one farthest from the day it is taken.
+const BILL_DAY_CHOICES: Array[int] = [2, 15]
 const OFFER_HOURS: int = 72
+#How close an offer's deadline comes before its notice goes urgent; other notice rules keep the 72 hour default.
+const OFFER_URGENT_HOURS: float = 24.0
 #Days after the last payment a payoff row is stamped with.
 const PAYOFF_TAIL_DAYS: int = 6
-const MONTHS_PER_YEAR: int = 10
 const KIND_FINANCE: String = "Finance"
 const REQUEST_SEED_MULT: int = 7919
-#Ids of the seeded rows are the prototype ones, so new rows start above them.
+#The first offer id and the first loan id handed out.
 const FIRST_OFFER_ID: int = 105
 const FIRST_LOAN_ID: int = 203
 const EVENT_GUARD: int = 256
+#The fields an offer row copies from its request and the lender's answer; the notification snap prints them.
+const OFFER_KEYS: Array[String] = ["lender", "amount", "rate", "term", "first_due", "team", "odds",
+	"outcome", "approved", "offer_amount", "offer_rate", "offer_term", "offer_first_due"]
 
 var offers: Array[Dictionary] = []
 var requests: Array[Dictionary] = []
 var loans: Array[LoanData] = []
 var closed_loans: Array[LoanData] = []
 
-var _seeded: bool = false
 var _next_id: int = FIRST_OFFER_ID
 var _next_loan_id: int = FIRST_LOAN_ID
 #The last calendar day the day rule handled; -1 until the first tick after a reset.
@@ -69,7 +48,7 @@ var _last_day: int = -1
 
 
 func _ready() -> void:
-	GameState.roster_changed.connect(_on_roster_changed)
+	GameState.game_started.connect(reset)
 	_register_rule()
 	reset()
 
@@ -82,51 +61,41 @@ func reset() -> void:
 	_next_id = FIRST_OFFER_ID
 	_next_loan_id = FIRST_LOAN_ID
 	_last_day = -1
-	var now: int = CampaignClock.now()
-	for row: Dictionary in SEED_LOANS:
-		loans.append(_loan_from(row, now))
-	for row: Dictionary in SEED_CLOSED:
-		closed_loans.append(_loan_from(row, now))
-	for row: Dictionary in SEED_OFFERS:
-		offers.append(_offer_from(row, now))
-	_seeded = GameState.started
-	for row: Dictionary in offers:
-		if hours_left(int(row["id"])) >= float(OFFER_HOURS):
-			_push_offer(int(row["id"]))
 	offers_changed.emit()
 	loans_changed.emit()
 	requests_changed.emit()
 
 
-func _loan_from(row: Dictionary, now: int) -> LoanData:
+#One loan on the books, taken at start_minute with nothing paid yet.
+func _make_loan(id: int, lender: String, principal: int, rate: float, months: int, first_due: int,
+		start_minute: int, bill_day: int = -1) -> LoanData:
 	var loan: LoanData = LoanData.new()
-	loan.id = int(row["id"])
-	loan.lender = String(row["lender"])
-	loan.principal = int(row["principal"])
-	loan.rate = float(row["rate"])
-	loan.months = int(row["months"])
-	loan.paid = int(row.get("paid", 0))
-	loan.first_due = int(row.get("first_due", 0))
-	loan.start_minute = now
-	loan.closed_as = String(row.get("closed_as", ""))
-	loan.paid_total = int(row.get("paid_total", 0))
+	loan.id = id
+	loan.lender = lender
+	loan.principal = principal
+	loan.rate = rate
+	loan.months = months
+	loan.first_due = first_due
+	loan.start_minute = start_minute
+	loan.bill_day = bill_day if bill_day > 0 else bill_day_from(TrynnCalendar.day_index(start_minute))
 	return loan
 
 
-func _offer_from(row: Dictionary, now: int) -> Dictionary:
-	var out: Dictionary = row.duplicate(true)
-	out.erase("hours")
-	out["expires_minute"] = now + int(row.get("hours", OFFER_HOURS)) * CampaignClock.MINUTES_PER_HOUR
+#The bill day a loan taken on that day index keeps for its whole term.
+func bill_day_from(day: int) -> int:
+	return TrynnCalendar.farthest_day_on(day, BILL_DAY_CHOICES)
+
+
+#One offer row: the terms and the answer read from source, unseen until it lapses at expires_minute.
+func _make_offer(id: int, source: Dictionary, expires_minute: int) -> Dictionary:
+	var out: Dictionary = {"id": id}
+	for key: String in OFFER_KEYS:
+		out[key] = source[key]
 	out["unseen"] = true
-	out["rate_pct"] = roundi(float(row["offer_rate"]) * 100.0)
-	out["months"] = int(row["offer_term"])
+	out["expires_minute"] = expires_minute
+	out["rate_pct"] = roundi(float(out["offer_rate"]) * 100.0)
+	out["months"] = int(out["offer_term"])
 	return out
-
-
-func _on_roster_changed() -> void:
-	if _seeded or not GameState.started:
-		return
-	reset()
 
 
 #An unread offer; the Finance tab dot reads this. An expired offer never counts, unseen or not.
@@ -139,6 +108,7 @@ func has_offers() -> bool:
 	return false
 
 
+#Test hook.
 func mark_offers_seen() -> void:
 	for row: Dictionary in offers:
 		row["unseen"] = false
@@ -157,16 +127,14 @@ func offer_expired(id: int) -> bool:
 	return bool(offer(id).get("expired", false))
 
 
-#The month at a glance. The subscription line reads SubscriptionManager when it can price itself.
+#The month at a glance. The subscription line reads SubscriptionManager.
 #Income is the ledger income of the last RATE_DAYS days; other_expenses is payroll, guild,
 #travel and ads, since the Loan Request window adds the subscription and the loan instalments
 #itself.
 func budget() -> Dictionary:
-	var subscription: int = 0
-	if SubscriptionManager.has_method("monthly_cost"):
-		subscription = int(SubscriptionManager.call("monthly_cost"))
+	var subscription: int = SubscriptionManager.monthly_cost()
 	var income: int = FinanceLedger.income_in(FinanceLedger.RATE_DAYS)
-	var other_expenses: int = FinanceLedger.monthly_expenses() - FinanceLedger.loans_and_services()
+	var other_expenses: int = FinanceLedger.monthly_expenses() - FinanceLedger.loans_total() - subscription
 	return {"income": income, "other_expenses": other_expenses, "subscription": subscription}
 
 
@@ -288,7 +256,7 @@ func _take_id() -> int:
 #The clock moved: first every minute event in the order it happened, then every calendar day.
 func tick(now: int) -> void:
 	_minute_events(now)
-	_run_days(now)
+	_last_day = GameState.for_each_new_day(_last_day, now, _day_passed)
 
 
 #An arriving request becomes an offer and an offer past its hour is gone. A jump of days can hold
@@ -337,16 +305,8 @@ func _land_request(id: int, arrival: int) -> void:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = id * REQUEST_SEED_MULT + int(req["sent_minute"])
 	var result: Dictionary = LoanLogic.resolve(req, rng.randf(), rng.randf(), rng.randf())
-	var row: Dictionary = {"id": id, "lender": String(req["lender"]), "amount": int(req["amount"]),
-		"rate": float(req["rate"]), "term": int(req["term"]), "first_due": int(req["first_due"]),
-		"team": req["team"], "odds": int(req["odds"]), "outcome": String(result["outcome"]),
-		"approved": bool(result["approved"]), "offer_amount": int(result["offer_amount"]),
-		"offer_rate": float(result["offer_rate"]), "offer_term": int(result["offer_term"]),
-		"offer_first_due": int(result["offer_first_due"]), "unseen": true,
-		"expires_minute": arrival + OFFER_HOURS * CampaignClock.MINUTES_PER_HOUR}
-	row["rate_pct"] = roundi(float(row["offer_rate"]) * 100.0)
-	row["months"] = int(row["offer_term"])
-	offers.append(row)
+	offers.append(_make_offer(id, req.merged(result),
+		arrival + OFFER_HOURS * CampaignClock.MINUTES_PER_HOUR))
 	for raw: Variant in req["team"] as Array:
 		GameState.clear_away(int(raw))
 	_push_offer(id)
@@ -355,9 +315,7 @@ func _land_request(id: int, arrival: int) -> void:
 
 
 func _resolve_offer_notice(id: int) -> void:
-	var center: Node = get_node_or_null("/root/NotificationCenter")
-	if center != null and center.has_method("resolve"):
-		center.call("resolve", NotificationData.TYPE_LOAN_OFFER, id)
+	NotificationCenter.resolve(NotificationData.TYPE_LOAN_OFFER, id)
 
 
 #An offer nobody answered stays, grayed out and marked expired, until Dismiss removes it.
@@ -389,31 +347,17 @@ func dismiss_offer(id: int) -> void:
 		offers_changed.emit()
 
 
-#Every calendar day passed since the last tick, in order. The first tick after a reset only
-#records the day it is on.
-func _run_days(now: int) -> void:
-	var today: int = TrynnCalendar.day_index(now)
-	if _last_day < 0:
-		_last_day = today
-		return
-	while _last_day < today:
-		_last_day += 1
-		_day_passed(_last_day)
-
-
 func _day_passed(day: int) -> void:
-	var date: Dictionary = TrynnCalendar.date_of(day * CampaignClock.MINUTES_PER_DAY)
-	if int(date["day"]) != BILL_DAY:
-		return
-	_bill_loans(int(date["year"]) * MONTHS_PER_YEAR + int(date["month"]))
+	var minute: int = day * CampaignClock.MINUTES_PER_DAY
+	_bill_loans(_month_index(minute), int(TrynnCalendar.date_of(minute)["day"]))
 
 
-#The 15th: every loan whose first payment month has come pays one month. The last payment closes
-#the loan.
-func _bill_loans(month_index: int) -> void:
+#Every loan billing on this day of the month whose first payment month has come pays one month.
+#The last payment closes the loan.
+func _bill_loans(month_index: int, dom: int) -> void:
 	var billed: bool = false
 	for loan: LoanData in loans.duplicate():
-		if loan.is_closed() or month_index < _first_month(loan):
+		if loan.is_closed() or loan.bill_day != dom or month_index < _first_month(loan):
 			continue
 		var due: int = loan_payment(loan)
 		GameState.charge(due, GameState.REASON_LOAN_PAYMENT, "%s - Payment" % loan.lender)
@@ -427,8 +371,7 @@ func _bill_loans(month_index: int) -> void:
 
 #The month index a loan's first payment lands in: the month it was taken plus its first due delay.
 func _first_month(loan: LoanData) -> int:
-	var date: Dictionary = TrynnCalendar.date_of(loan.start_minute)
-	return int(date["year"]) * MONTHS_PER_YEAR + int(date["month"]) + loan.first_due
+	return _month_index(loan.start_minute) + loan.first_due
 
 
 func _close_loan(loan: LoanData, reason: String, total: int) -> void:
@@ -444,21 +387,12 @@ func accept_offer(id: int) -> bool:
 	var row: Dictionary = offer(id)
 	if row.is_empty() or bool(row.get("expired", false)):
 		return false
-	var loan: LoanData = LoanData.new()
-	loan.id = _next_loan_id
+	var loan: LoanData = _make_loan(_next_loan_id, String(row["lender"]), int(row["offer_amount"]),
+		float(row["offer_rate"]), int(row["offer_term"]), int(row["offer_first_due"]), CampaignClock.now())
 	_next_loan_id += 1
-	loan.lender = String(row["lender"])
-	loan.principal = int(row["offer_amount"])
-	loan.rate = float(row["offer_rate"])
-	loan.months = int(row["offer_term"])
-	loan.first_due = int(row["offer_first_due"])
-	loan.start_minute = CampaignClock.now()
 	loans.append(loan)
 	GameState.refund(loan.principal, GameState.REASON_LOAN, "%s - Loan" % loan.lender)
-	var open_ids: Array[int] = []
-	for other: Dictionary in offers:
-		open_ids.append(int(other["id"]))
-	for other_id: int in open_ids:
+	for other_id: int in _open_offer_ids():
 		_drop_offer(other_id)
 	offers_changed.emit()
 	loans_changed.emit()
@@ -537,33 +471,35 @@ func _open_offer_ids() -> Array:
 	return out
 
 
+#Offers not yet expired. The escalation rule reads these, so the read row of an expired offer never re-fires.
+func _live_offer_ids() -> Array:
+	var out: Array = []
+	for row: Dictionary in offers:
+		if not bool(row.get("expired", false)):
+			out.append(int(row["id"]))
+	return out
+
+
 #What a notification row about one offer prints.
 func offer_snap(id: int) -> Dictionary:
 	var row: Dictionary = offer(id)
 	if row.is_empty():
 		return {}
-	return {"lender": String(row["lender"]), "amount": int(row["amount"]),
-		"rate": float(row["rate"]), "term": int(row["term"]), "first_due": int(row["first_due"]),
-		"offer_amount": int(row["offer_amount"]), "offer_rate": float(row["offer_rate"]),
-		"offer_term": int(row["offer_term"]), "offer_first_due": int(row["offer_first_due"]),
-		"outcome": String(row["outcome"]), "expires_in": hours_left(id),
-		"odds": int(row["odds"]), "team": row["team"], "approved": bool(row["approved"])}
+	var out: Dictionary = {"expires_in": hours_left(id)}
+	for key: String in OFFER_KEYS:
+		out[key] = row[key]
+	return out
 
 
 func _push_offer(id: int) -> void:
-	var center: Node = get_node_or_null("/root/NotificationCenter")
-	if center == null or not center.has_method("push"):
-		return
-	center.call("push", NotificationData.TYPE_LOAN_OFFER, id, offer_snap(id),
+	NotificationCenter.push(NotificationData.TYPE_LOAN_OFFER, id, offer_snap(id),
 		NotificationData.Urgency.INFORMATIONAL, KIND_FINANCE)
 
 
 func _register_rule() -> void:
-	var center: Node = get_node_or_null("/root/NotificationCenter")
-	if center == null or not center.has_method("add_rule"):
-		return
-	center.call("add_rule", NotificationData.TYPE_LOAN_OFFER, {"open": _open_offer_ids,
-		"hours_left": hours_left, "make": offer_snap, "kind": KIND_FINANCE})
+	NotificationCenter.add_rule(NotificationData.TYPE_LOAN_OFFER, {"open": _live_offer_ids,
+		"hours_left": hours_left, "make": offer_snap, "kind": KIND_FINANCE,
+		"urgent_hours": OFFER_URGENT_HOURS})
 
 
 #Every payment of one loan, active or closed, for the payment cells of the Loans page.
@@ -595,7 +531,7 @@ func _active_rows(loan: LoanData) -> Array[Dictionary]:
 		var label: String = "Scheduled Payment %d" % (k + 1)
 		if not future:
 			label = "Payment %d Sent" % (k + 1)
-		out.append(_payment_row(label, _bill_minute(first + k), pay,
+		out.append(_payment_row(label, _bill_minute(first + k, loan.bill_day), pay,
 			maxi(0, total - pay * (k + 1)), future))
 	return out
 
@@ -608,7 +544,7 @@ func _closed_rows(loan: LoanData) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var last: int = end_minute
 	for k: int in loan.paid:
-		last = _bill_minute(end_month - (loan.paid - 1 - k))
+		last = _bill_minute(end_month - (loan.paid - 1 - k), loan.bill_day)
 		out.append(_payment_row("Payment %d Sent" % (k + 1), last, pay,
 			maxi(0, total - pay * (k + 1)), false))
 	if loan.paid < loan.months:
@@ -627,17 +563,18 @@ func _payment_row(label: String, minute: int, amount: int, after: int,
 		"after": after, "future": future}
 
 
-#The minute a payment of that absolute month index lands on: the 15th, at midnight.
-func _bill_minute(month_index: int) -> int:
-	var year: int = floori(float(month_index) / float(MONTHS_PER_YEAR))
-	var month: int = month_index - year * MONTHS_PER_YEAR
+#The minute a payment of that absolute month index lands on: its bill day, at midnight.
+func _bill_minute(month_index: int, bill_day: int) -> int:
+	var per_year: int = TrynnCalendar.MONTHS.size()
+	var year: int = floori(float(month_index) / float(per_year))
+	var month: int = month_index - year * per_year
 	return TrynnCalendar.month_start_minute(year, month) \
-		+ (BILL_DAY - 1) * CampaignClock.MINUTES_PER_DAY
+		+ (bill_day - 1) * CampaignClock.MINUTES_PER_DAY
 
 
 func _month_index(minute: int) -> int:
 	var date: Dictionary = TrynnCalendar.date_of(minute)
-	return int(date["year"]) * MONTHS_PER_YEAR + int(date["month"])
+	return int(date["year"]) * TrynnCalendar.MONTHS.size() + int(date["month"])
 
 
 #When the next payment of a running loan lands; -1 when the loan has none left.
@@ -645,7 +582,7 @@ func next_due_minute(loan_id: int) -> int:
 	var loan: LoanData = loan_by_id(loan_id)
 	if loan == null or loan.is_closed() or loan.paid >= loan.months:
 		return -1
-	return _bill_minute(_first_month(loan) + loan.paid)
+	return _bill_minute(_first_month(loan) + loan.paid, loan.bill_day)
 
 
 func next_due_text(loan_id: int) -> String:
@@ -671,15 +608,12 @@ func offer_unread(id: int) -> bool:
 	var row: Dictionary = offer(id)
 	if row.is_empty():
 		return false
-	var center: Node = get_node_or_null("/root/NotificationCenter")
-	if center != null and center.has_method("rows_of"):
-		var rows: Array = center.call("rows_of", NotificationData.TYPE_LOAN_OFFER, id) as Array
-		if not rows.is_empty():
-			for item: Variant in rows:
-				var data: NotificationData = item as NotificationData
-				if data != null and not data.read:
-					return true
-			return false
+	var rows: Array[NotificationData] = NotificationCenter.rows_of(NotificationData.TYPE_LOAN_OFFER, id)
+	if not rows.is_empty():
+		for data: NotificationData in rows:
+			if not data.read:
+				return true
+		return false
 	return bool(row.get("unseen", false))
 
 

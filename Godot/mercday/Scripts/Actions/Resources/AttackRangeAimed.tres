@@ -1,28 +1,28 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://b5ofhros6j7xx"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/AmmoStatusFacet.gd" id="AmmoStatusFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_mdptf"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
 [ext_resource type="Script" path="res://Scripts/Decisions/AimActiveFacet.gd" id="AimActiveFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/FirearmReliabilityFacet.gd" id="FirearmReliabilityFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/EffectiveHitChanceFacet.gd" id="EffectiveHitChanceFacet"]
+[ext_resource type="Script" uid="uid://d1yipv5pni3t3" path="res://Scripts/Decisions/AmmoStatusFacet.gd" id="AmmoStatusFacet"]
+[ext_resource type="Script" uid="uid://daqe10omsn4iq" path="res://Scripts/Decisions/CtxFlagFacet.gd" id="CtxFlagFacet"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://c4shg33xttw5v" path="res://Scripts/Decisions/EffectiveHitChanceFacet.gd" id="EffectiveHitChanceFacet"]
+[ext_resource type="Script" uid="uid://srx5nl12favr" path="res://Scripts/Decisions/FirearmReliabilityFacet.gd" id="FirearmReliabilityFacet"]
+[ext_resource type="Script" uid="uid://b5qexeqlw8y6s" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
+[ext_resource type="Script" uid="uid://fueokp4cffvl" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
 
 [sub_resource type="Resource" id="facet_weapon"]
 script = ExtResource("WeaponTypeFacet")
-is_required = true
 require_ranged = true
-require_drawn = true
+is_required = true
 
 [sub_resource type="Resource" id="facet_ammo"]
 script = ExtResource("AmmoStatusFacet")
 is_required = true
-mode = "loaded"
 
 [sub_resource type="Resource" id="facet_targets"]
-script = ExtResource("ValidTargetsFacet")
+script = ExtResource("CtxFlagFacet")
+key = "valid_targets"
 is_required = true
 
 [sub_resource type="Resource" id="facet_misfire"]
@@ -43,8 +43,7 @@ is_required = true
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_weapon"), SubResource("facet_ammo"), SubResource("facet_targets"), SubResource("facet_misfire"), SubResource("facet_reliability"), SubResource("facet_aim_boost"), SubResource("facet_hit_chance")]
-threshold = 0.5
+facets = Array[ExtResource("1_mdptf")]([SubResource("facet_weapon"), SubResource("facet_ammo"), SubResource("facet_targets"), SubResource("facet_misfire"), SubResource("facet_reliability"), SubResource("facet_aim_boost"), SubResource("facet_hit_chance")])
 
 [resource]
 script = ExtResource("ActionData")
@@ -54,5 +53,7 @@ ap_cost_mode = "attack_base"
 priority = 35
 execution_type = "attack"
 target_mode = "current_or_best"
-snap_require = {"weapon_is_ranged": true}
+snap_require = {
+"weapon_is_ranged": true
+}
 decision = SubResource("decision")

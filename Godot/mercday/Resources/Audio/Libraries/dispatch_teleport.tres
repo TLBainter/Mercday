@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Teleport/ESM_Airy_Teleport_or_Craft_Arcade_Cartoon_Quirky_Comedy_Comedic_Kid_Childish_Fun_Bouncy.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Teleport/ESM_MU_Cinematic_FX_scifi_whoosh_teleportation_layered_digital_device_movement_08.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Teleport/ESM_VCSFX_Cinematic_FX_whoosh_one_shot_strong_wind_howl_gust_blow_short_reverb_04.wav" id="4_s3"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3")])

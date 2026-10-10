@@ -19,18 +19,16 @@ const KIND_MODS: String = "mods"
 #The plan names the "plan" entitlement carries, lowest tier first.
 const PLAN_RANKS: Array[String] = ["free", "pro", "enterprise"]
 #The Applied Via chip that stands for an applicant who walked in on their own.
-const WALK_IN: int = -1
+const WALK_IN: int = ApplicantData.WALK_IN
 const STAT_PREFIX: String = "stats/"
 const NO_PERMIT_NOTE: String = "No Operations Permit"
-#The upgrade behind the Guild Promo field locks, and how many tiers it holds.
+#The upgrade behind the Guild Promo field locks.
 const GUILD_PROMO_ID: String = "guildpromo"
-const GUILD_PROMO_TIERS: int = 4
 const MIN_STARS: float = 0.5
 const MAX_STARS: float = 5.0
 
 #PLACEHOLDER
-#Placeholder option counts, the picker history and the location relationships, per the handoff.
-const ANCESTRY_COUNT: int = 6
+#Placeholder option counts, the picker history and the location relationships, per the design prototype.
 const BLOODLINE_COUNT: int = 6
 const HERITAGE_COUNT: int = 6
 const CRIMINALITY_COUNT: int = 4
@@ -38,8 +36,6 @@ const KNOWLEDGE_COUNT: int = 6
 const TOOL_COUNT: int = 6
 const COMPANY_COUNT: int = 6
 const EVENT_COUNT: int = 3
-const CONTRACT_TYPE_COUNT: int = 6
-const LOCATION_COUNT: int = 9
 const CTYPE_HIST_SEED: int = 2
 const LOC_HIST_SEED: int = 5
 const LOCATION_RELATIONS: Array[int] = [2, 1, 3, -1, 0, -3, 1, 0, 2]
@@ -47,17 +43,22 @@ const STAT_MIN: float = 0.0
 const STAT_MAX: float = 10.0
 const AGE_MIN: float = 16.0
 const AGE_MAX: float = 90.0
-const SALARY_MAX: float = 2000.0
-const SALARY_STEP: float = 50.0
+const SALARY_MIN: float = SalaryCurve.SALARY_MIN
+const SALARY_MAX: float = SalaryCurve.SALARY_MAX
+const SALARY_STEP: float = SalaryCurve.FINE_STEP
+#The def "curve" value that puts a slider row on the SalaryCurve track.
+const CURVE_SALARY: String = "salary"
 
 
-#The merc filters, in handoff order. hiring adds the Applied Via chips the campaign builder has
-#no use for; job_campaigns are the Advertise Job campaigns those chips list.
+#The merc filters, in design prototype order. hiring adds the Applied Via chips and the rows only applicant
+#review narrows by (bloodline, heritage, criminality, age, knowledges, tools), none of which the campaign
+#builder offers; job_campaigns are the Advertise Job campaigns those chips list.
 static func merc_defs(hiring: bool = false,
 		job_campaigns: Array[CampaignData] = []) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	out.append(_def(&"salary", "Salary Request", "Value", KIND_SLIDER2, "ask",
-		{"min": 0.0, "max": SALARY_MAX, "step": SALARY_STEP, "unit": " / mo", "full_row": true}))
+		{"min": SALARY_MIN, "max": SALARY_MAX, "step": SALARY_STEP, "unit": " / mo", "full_row": true,
+		"curve": CURVE_SALARY}))
 	if hiring:
 		var labels: Array[String] = []
 		var ids: Array = []
@@ -72,24 +73,25 @@ static func merc_defs(hiring: bool = false,
 			{"options": labels, "values": ids, "full_row": true}))
 	out.append(_def(&"tradition", "Tradition", "Identity", KIND_TRAD, "tradition",
 		{"options": traditions(), "values": traditions(), "full_row": true}))
-	out.append(_chips(&"ancestry", "Ancestry", "Identity", "Ancestry", ANCESTRY_COUNT,
-		"hiringDiscrim"))
-	out.append(_chips(&"bloodline", "Bloodline", "Identity", "Bloodline", BLOODLINE_COUNT,
-		"hiringDiscrim"))
-	out.append(_chips(&"heritage", "Heritage", "Identity", "Heritage", HERITAGE_COUNT,
-		"background"))
-	out.append(_chips(&"criminality", "Criminality", "Identity", "Criminality",
-		CRIMINALITY_COUNT, "criminal"))
-	out.append(_def(&"age", "Age", "Physical", KIND_RANGE, "age",
-		{"min": AGE_MIN, "max": AGE_MAX, "step": 1.0, "lock": "hiringDiscrim"}))
+	out.append(_named_chips(&"ancestry", "Ancestry", "Identity", ancestry_names(), "hiringDiscrim"))
+	if hiring:
+		out.append(_chips(&"bloodline", "Bloodline", "Identity", "Bloodline", BLOODLINE_COUNT,
+			"hiringDiscrim"))
+		out.append(_chips(&"heritage", "Heritage", "Identity", "Heritage", HERITAGE_COUNT,
+			"background"))
+		out.append(_chips(&"criminality", "Criminality", "Identity", "Criminality",
+			CRIMINALITY_COUNT, "criminal"))
+		out.append(_def(&"age", "Age", "Physical", KIND_RANGE, "age",
+			{"min": AGE_MIN, "max": AGE_MAX, "step": 1.0, "lock": "hiringDiscrim"}))
 	out.append(_stat(&"vigor", "Min Vigor", "Physical", "brawn"))
 	out.append(_stat(&"speed", "Min Speed", "Physical", "plan"))
 	out.append(_stat(&"dexterity", "Min Dexterity", "Physical", "readiness"))
 	out.append(_stat(&"cognition", "Min Cognition", "Mental", "aptitude"))
 	out.append(_stat(&"wile", "Min Wile", "Mental", "personality"))
-	out.append(_chips(&"knowledges", "Knowledges", "Mental", "Knowledge", KNOWLEDGE_COUNT,
-		"education"))
-	out.append(_chips(&"tools", "Tools", "Mental", "Tool", TOOL_COUNT, "skilltest"))
+	if hiring:
+		out.append(_chips(&"knowledges", "Knowledges", "Mental", "Knowledge", KNOWLEDGE_COUNT,
+			"education"))
+		out.append(_chips(&"tools", "Tools", "Mental", "Tool", TOOL_COUNT, "skilltest"))
 	return out
 
 
@@ -114,11 +116,10 @@ static func contract_defs(type_key: StringName) -> Array[Dictionary]:
 		{"min": MIN_STARS, "max": MAX_STARS, "step": MIN_STARS, "full_row": true,
 		"row_locks": [_gp_lock("Min", "gpMinDifficulty", 2),
 		_gp_lock("Max", "gpMaxDifficulty", 3)]}))
-	var types: Array[String] = names("Type", CONTRACT_TYPE_COUNT)
+	var types: Array[String] = contract_type_labels()
 	out.append(_def(&"ctype", "Contract Type", "", KIND_MODS, "",
 		{"options": types, "values": indices(types.size()), "mods": _type_mods(types),
-		"lock": "gpContractType", "upgrade_id": GUILD_PROMO_ID, "upgrade_tier": 4,
-		"upgrade_tiers": GUILD_PROMO_TIERS}))
+		"lock": "gpContractType", "upgrade_id": GUILD_PROMO_ID, "upgrade_tier": 4}))
 	var places: Array[String] = location_names()
 	out.append(_def(&"loc", "Locations, sets roughly how far contracts are", "", KIND_MODS, "",
 		{"short": "Locations", "options": places, "values": indices(places.size()),
@@ -130,14 +131,27 @@ static func contract_defs(type_key: StringName) -> Array[Dictionary]:
 #keys a def does, so locked() reads it unchanged.
 static func _gp_lock(label: String, key: String, tier: int) -> Dictionary:
 	return {"label": label, "lock": key, "lock_tier": 1, "upgrade_id": GUILD_PROMO_ID,
-		"upgrade_tier": tier, "upgrade_tiers": GUILD_PROMO_TIERS}
+		"upgrade_tier": tier}
 
 
-static func find(defs: Array[Dictionary], key: StringName) -> Dictionary:
+static func find(defs: Array[Dictionary], key: StringName, field: String = "key") -> Dictionary:
 	for def: Dictionary in defs:
-		if StringName(def["key"]) == key:
+		if StringName(def[field]) == key:
 			return def
 	return {}
+
+
+#The field of every row, in row order.
+static func keys_of(defs: Array[Dictionary], field: String = "key") -> Array[StringName]:
+	var out: Array[StringName] = []
+	for def: Dictionary in defs:
+		out.append(StringName(def[field]))
+	return out
+
+
+#The label of the row whose key matches, or an empty string when no row does.
+static func label_of(defs: Array[Dictionary], key: StringName) -> String:
+	return String(find(defs, key).get("label", ""))
 
 
 static func in_group(defs: Array[Dictionary], group: String) -> Array[Dictionary]:
@@ -207,6 +221,27 @@ static func traditions() -> Array[String]:
 	return out
 
 
+#The real ancestry names DataManager holds, in Ancestries.tsv order.
+static func ancestry_names() -> Array[String]:
+	var out: Array[String] = []
+	for key: Variant in DataManager.ancestries:
+		out.append(String(key))
+	return out
+
+
+#The Contract Type options in ContractLibrary order, so a pick is an index into contract_type_names().
+static func contract_type_labels() -> Array[String]:
+	var out: Array[String] = []
+	for type_name: String in ContractLibrary.contract_type_names():
+		out.append(type_name.replace("_", " "))
+	return out
+
+
+#How many Contract Type options there are: one per ContractLibrary.contract_type_names() entry.
+static func contract_type_count() -> int:
+	return ContractLibrary.contract_type_names().size()
+
+
 static func names(prefix: String, count: int) -> Array[String]:
 	var out: Array[String] = []
 	for i: int in range(maxi(0, count)):
@@ -230,28 +265,22 @@ static func history(index: int, salt: int) -> Array[int]:
 	return [(index * 7 + salt) % 12 + 1, (index * 5 + salt) % 9, (index * 3 + salt) % 4]
 
 
-#The location names LegalManager holds, which it reads from CampaignTypeDefs, or those nine
-#direct when the build carries no Legal autoload.
+#The campaign places (the first nine Legal rows) LegalManager holds, or those nine from
+#CampaignTypeDefs direct when the build carries no Legal autoload.
 static func location_names() -> Array[String]:
 	var legal: Node = legal_manager()
 	if legal == null or not legal.has_method("locations"):
-		return CampaignTypeDefs.LOCATIONS.duplicate()
+		return CampaignTypeDefs.locations()
 	var out: Array[String] = []
 	var rows: Array = legal.call("locations")
-	for i: int in range(rows.size()):
+	for i: int in range(mini(rows.size(), CampaignTypeDefs.LOCATION_COUNT)):
 		out.append(_loc_name(rows[i], i))
-	return out if not out.is_empty() else CampaignTypeDefs.LOCATIONS.duplicate()
+	return out if not out.is_empty() else CampaignTypeDefs.locations()
 
 
 #The Legal autoload when the build carries one; screens and defs fall back without it.
 static func legal_manager() -> Node:
-	var loop: MainLoop = Engine.get_main_loop()
-	if not (loop is SceneTree):
-		return null
-	var tree: SceneTree = loop
-	if tree.root == null:
-		return null
-	return tree.root.get_node_or_null(^"LegalManager")
+	return ClientRegistry.autoload_node(&"LegalManager")
 
 
 static func _stat(key: StringName, label: String, group: String, lock: String) -> Dictionary:
@@ -261,7 +290,11 @@ static func _stat(key: StringName, label: String, group: String, lock: String) -
 
 static func _chips(key: StringName, label: String, group: String, prefix: String, count: int,
 		lock: String) -> Dictionary:
-	var options: Array[String] = names(prefix, count)
+	return _named_chips(key, label, group, names(prefix, count), lock)
+
+
+static func _named_chips(key: StringName, label: String, group: String, options: Array[String],
+		lock: String) -> Dictionary:
 	return _def(key, label, group, KIND_CHIPS, String(key),
 		{"options": options, "values": options, "lock": lock})
 
@@ -271,8 +304,7 @@ static func _def(key: StringName, label: String, group: String, kind: String, fi
 	var row: Dictionary = {"key": key, "label": label, "short": label, "group": group,
 		"kind": kind, "field": field, "options": [], "values": [], "mods": [], "lock": "",
 		"lock_tier": 1, "gate": "", "min": 0.0, "max": 0.0, "step": 1.0, "unit": "",
-		"full_row": false, "row_locks": [], "upgrade_id": "", "upgrade_tier": 0,
-		"upgrade_tiers": 0}
+		"full_row": false, "row_locks": [], "upgrade_id": "", "upgrade_tier": 0}
 	for entry: Variant in extra:
 		row[entry] = extra[entry]
 	return row
@@ -290,11 +322,9 @@ static func _type_mods(labels: Array[String]) -> Array[Dictionary]:
 
 #A location with no Operations Permit stays visible but greyed out and cannot be picked.
 static func _location_mods(labels: Array[String]) -> Array[Dictionary]:
-	var legal: Node = legal_manager()
-	var can_ask: bool = legal != null and legal.has_method("has_permit")
 	var out: Array[Dictionary] = []
 	for i: int in range(labels.size()):
-		var allowed: bool = bool(legal.call("has_permit", i, &"ops")) if can_ask else true
+		var allowed: bool = LegalManager.has_permit(i, &"ops")
 		var hist: Array[int] = history(i, LOC_HIST_SEED)
 		out.append({"name": labels[i], "image": "Location Image", "received": hist[0],
 			"completed": hist[1], "failed": hist[2], "has_relationship": true,

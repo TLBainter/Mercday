@@ -5,10 +5,10 @@ class_name RequirementGate extends Control
 #dim. A met requirement glows on the shared pulse.
 
 const OUTLINE: float = 5.0
-const INK: Color = Color("#0a0f1c")
-const BOX: Color = Color("#15223d")
+const INK: Color = GuiColors.INK
+const BOX: Color = GuiColors.ROW_HOVER
 const RING_WIDTH: float = 2.0
-const FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
+const FONT: FontVariation = GuiStyle.SILK_BOLD
 const FONT_SIZE: int = 11
 
 @export var have: int = 0:
@@ -60,7 +60,7 @@ func text_value() -> String:
 func glow_factor() -> float:
 	if not is_met():
 		return 1.0
-	return 1.0 + _glow * 0.8
+	return PulseClock.glow_of(_glow)
 
 
 func _on_pulse(g: float, _sweep: PackedFloat32Array) -> void:
@@ -74,7 +74,7 @@ func _draw() -> void:
 	var box: Rect2 = Rect2(Vector2.ZERO, TreeLayout.GATE_BOX)
 	draw_rect(box.grow(OUTLINE), INK)
 	draw_rect(box, BOX)
-	var ring: Color = _lit(gate_color())
+	var ring: Color = GuiColors.brighter(gate_color(), glow_factor())
 	draw_rect(box, ring, false, RING_WIDTH)
 	var text: String = text_value()
 	var width: float = FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
@@ -82,8 +82,3 @@ func _draw() -> void:
 	var at: Vector2 = Vector2((TreeLayout.GATE_BOX.x - width) / 2.0,
 		TreeLayout.GATE_BOX.y / 2.0 + float(FONT_SIZE) / 2.0 - 1.0)
 	draw_string(FONT, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, FONT_SIZE, ring)
-
-
-func _lit(c: Color) -> Color:
-	var k: float = glow_factor()
-	return Color(minf(1.0, c.r * k), minf(1.0, c.g * k), minf(1.0, c.b * k), c.a)

@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/OverviewTab.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/AttributeBox.tscn" id="2"]
@@ -8,31 +8,25 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SlotTooltip.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TraditionModule.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LevelBadge.tscn" id="8"]
-[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="10"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/ChipGroup.tscn" id="9"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/CoachingBox.tscn" id="11"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/LockBlock.tscn" id="12"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SectionHead.tscn" id="13"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/dark_box_padded.tres" id="14"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_resources"]
-bg_color = Color(0.054902, 0.086275, 0.156863, 1)
-content_margin_left = 14.0
-content_margin_top = 14.0
-content_margin_right = 14.0
-content_margin_bottom = 14.0
-
-[node name="OverviewTab" type="ScrollContainer"]
-horizontal_scroll_mode = 0
+[node name="OverviewTab" type="MarginContainer"]
 script = ExtResource("1")
 
 [node name="Pad" type="MarginContainer" parent="."]
 size_flags_horizontal = 3
 theme_override_constants/margin_left = 0
-theme_override_constants/margin_top = 14
+theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 14
+theme_override_constants/margin_bottom = 10
 
 [node name="Rows" type="VBoxContainer" parent="Pad"]
 size_flags_horizontal = 3
-theme_override_constants/separation = 18
+theme_override_constants/separation = 12
 
 [node name="TitleRow" parent="Pad/Rows" instance=ExtResource("7")]
 layout_mode = 2
@@ -61,6 +55,7 @@ size_flags_horizontal = 3
 attribute_key = "wile"
 
 [node name="Middle" type="HBoxContainer" parent="Pad/Rows"]
+size_flags_vertical = 3
 theme_override_constants/separation = 18
 
 [node name="Left" type="VBoxContainer" parent="Pad/Rows/Middle"]
@@ -81,7 +76,7 @@ size_flags_vertical = 0
 [node name="Resources" type="PanelContainer" parent="Pad/Rows/Middle"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_styles/panel = SubResource("StyleBoxFlat_resources")
+theme_override_styles/panel = ExtResource("14")
 
 [node name="Bars" type="VBoxContainer" parent="Pad/Rows/Middle/Resources"]
 theme_override_constants/separation = 14
@@ -101,22 +96,14 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="Head" type="HBoxContainer" parent="Pad/Rows/Middle/Lifepath"]
+[node name="Head" parent="Pad/Rows/Middle/Lifepath" instance=ExtResource("13")]
+layout_mode = 2
 mouse_filter = 2
+caption = "Lifepath"
+count_text = "0/8"
 
-[node name="Caption" type="Label" parent="Pad/Rows/Middle/Lifepath/Head"]
-mouse_filter = 2
-size_flags_horizontal = 3
-theme_type_variation = &"PanelTitle"
-text = "Lifepath"
-
-[node name="Count" type="Label" parent="Pad/Rows/Middle/Lifepath/Head"]
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("10")
-theme_override_font_sizes/font_size = 11
-text = "0/8"
-horizontal_alignment = 2
+[node name="Count" parent="Pad/Rows/Middle/Lifepath/Head"]
+size_flags_vertical = 1
 
 [node name="Scroll" type="ScrollContainer" parent="Pad/Rows/Middle/Lifepath"]
 size_flags_vertical = 3
@@ -195,117 +182,19 @@ caption = "Status"
 [node name="Groups" type="HBoxContainer" parent="Pad/Rows"]
 theme_override_constants/separation = 18
 
-[node name="Knowledges" type="VBoxContainer" parent="Pad/Rows/Groups"]
+[node name="Knowledges" parent="Pad/Rows/Groups" instance=ExtResource("9")]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="Head" type="HBoxContainer" parent="Pad/Rows/Groups/Knowledges"]
-mouse_filter = 2
-
-[node name="Caption" type="Label" parent="Pad/Rows/Groups/Knowledges/Head"]
-mouse_filter = 2
-size_flags_horizontal = 3
-theme_type_variation = &"PanelTitle"
-text = "Knowledges"
-
-[node name="Count" type="Label" parent="Pad/Rows/Groups/Knowledges/Head"]
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("10")
-theme_override_font_sizes/font_size = 11
-text = "0/6"
-horizontal_alignment = 2
-
-[node name="Chips" type="GridContainer" parent="Pad/Rows/Groups/Knowledges"]
-columns = 3
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 8
-
-[node name="Chip1" parent="Pad/Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip2" parent="Pad/Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip3" parent="Pad/Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip4" parent="Pad/Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip5" parent="Pad/Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip6" parent="Pad/Rows/Groups/Knowledges/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Lock" parent="Pad/Rows/Groups/Knowledges" instance=ExtResource("12")]
-layout_mode = 2
+caption = "Knowledges"
 lock_key = "knowledges"
-block_height = 72.0
 
-[node name="Tools" type="VBoxContainer" parent="Pad/Rows/Groups"]
+[node name="Tools" parent="Pad/Rows/Groups" instance=ExtResource("9")]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="Head" type="HBoxContainer" parent="Pad/Rows/Groups/Tools"]
-mouse_filter = 2
-
-[node name="Caption" type="Label" parent="Pad/Rows/Groups/Tools/Head"]
-mouse_filter = 2
-size_flags_horizontal = 3
-theme_type_variation = &"PanelTitle"
-text = "Tools"
-
-[node name="Count" type="Label" parent="Pad/Rows/Groups/Tools/Head"]
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("10")
-theme_override_font_sizes/font_size = 11
-text = "0/6"
-horizontal_alignment = 2
-
-[node name="Chips" type="GridContainer" parent="Pad/Rows/Groups/Tools"]
-columns = 3
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 8
-
-[node name="Chip1" parent="Pad/Rows/Groups/Tools/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip2" parent="Pad/Rows/Groups/Tools/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip3" parent="Pad/Rows/Groups/Tools/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip4" parent="Pad/Rows/Groups/Tools/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip5" parent="Pad/Rows/Groups/Tools/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Chip6" parent="Pad/Rows/Groups/Tools/Chips" instance=ExtResource("5")]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Lock" parent="Pad/Rows/Groups/Tools" instance=ExtResource("12")]
-layout_mode = 2
+caption = "Tools"
 lock_key = "tools"
-block_height = 72.0
 
 [node name="Tip" parent="Pad/Rows" instance=ExtResource("6")]
 layout_mode = 2
+
+[editable path="Pad/Rows/Middle/Lifepath/Head"]

@@ -13,7 +13,7 @@ static func decide_action(
 	var no_action := {"type": "none", "action_name": "", "target": null, "weapon": null}
 
 	if merc.equipped_weapon == null or not merc.weapon_drawn:
-		var draw_target := WeaponEvaluator._best_available_weapon(merc, enemies, state, movement_blocked)
+		var draw_target := WeaponEvaluator.best_available_weapon(merc, enemies, state, movement_blocked)
 		if draw_target == null:
 			WeaponActionExecutor.log_draw_refusal(merc, null, "no_weapon", 0)
 			return no_action
@@ -46,7 +46,7 @@ static func decide_action(
 			enemy_close = true
 	if current_score >= 0.0 and not enemy_close:
 		return no_action
-	var best := WeaponEvaluator._best_available_weapon(merc, enemies, state, movement_blocked)
+	var best := WeaponEvaluator.best_available_weapon(merc, enemies, state, movement_blocked)
 	if best == null or best == merc.equipped_weapon:
 		return no_action
 
@@ -91,7 +91,7 @@ static func decide_action(
 			WeaponActionExecutor.log_draw_refusal(merc, best, "ap_short", best_draw)
 			return no_action
 		var cause := "swapped for %s" % best.item_name
-		if current.is_ranged and merc.ammo_loaded <= 0 and not WeaponEvaluator._has_reserve_for(merc, current):
+		if current.is_ranged and merc.ammo_loaded <= 0 and not _has_reserve_for(merc, current):
 			cause = "ammo exhausted"
 		return {"type": "drop", "action_name": "Drop", "target": null, "weapon": null,
 				"cause": cause, "swap_weapon": best}
@@ -136,7 +136,7 @@ static func prefer_two_hands(
 		return false
 	if not WeaponArmorPerkLibrary.is_flex_grip(main, merc):
 		return false
-	var parsed := AttackSystem._parse_damage_formula(main.damage_formula_1)
+	var parsed := AttackSystem.parse_damage_formula(main.damage_formula_1)
 	if bool(parsed["is_todo"]):
 		return false
 	var acc := clampf(float(merc.stats.get("melee_accuracy", 50.0)) / 100.0, 0.01, 1.0)
@@ -152,7 +152,7 @@ static func prefer_two_hands(
 	elif main.is_ranged and not candidate.is_ranged:
 		hold = true
 	#A Thrown-property off-hand weapon earns its place when it can answer an enemy out of melee reach.
-	elif candidate.is_throwable and WeaponEvaluator._thrown_complement(merc, candidate, enemies, state):
+	elif candidate.is_throwable and _thrown_complement(merc, candidate, enemies, state):
 		hold = true
 		complement = "thrown"
 	else:
@@ -223,15 +223,15 @@ static func should_holster_vs_drop(
 		if not worth_keeping:
 			result = "drop"
 			reason = "not_worth_keeping"
-		elif ap - stow_cost - draw_after_stow >= 0 and not WeaponEvaluator._enemy_in_melee_reach(merc, enemies, state):
+		elif ap - stow_cost - draw_after_stow >= 0 and not _enemy_in_melee_reach(merc, enemies, state):
 			result = "stow"
 			reason = "worth_keeping_ap_tight"
 		else:
 			result = "drop"
 			reason = "worth_keeping_ap_short"
 	if log_decision:
-		var _shown_draw := draw_after_stow if result == "stow" else draw_cost
-		_log_swap_decision(merc, result, current, best, reason, ap, stow_cost, _shown_draw, attack_cost)
+		var shown_draw := draw_after_stow if result == "stow" else draw_cost
+		_log_swap_decision(merc, result, current, best, reason, ap, stow_cost, shown_draw, attack_cost)
 	return result
 
 
@@ -258,10 +258,45 @@ static func is_worth_keeping(
 		best: WeaponData,
 		enemies: Array,
 		state: BattleState) -> bool:
-	if current.is_ranged and WeaponEvaluator._has_reserve_for(merc, current):
+	if current.is_ranged and _has_reserve_for(merc, current):
 		return true
 	var rarity := current.item_rarity.strip_edges()
 	if rarity != "" and rarity != "Ordinary" and rarity != "Common":
 		return true
 	var best_score := WeaponEvaluator.score_weapon(best, merc, enemies, state)
 	return WeaponEvaluator.score_weapon(current, merc, enemies, state) >= 0.5 * best_score
+
+
+#A Thrown-property off-hand weapon earns its place when it can answer an enemy out of melee reach.
+static func _thrown_complement(merc: MercenaryData, candidate: WeaponData, enemies: Array,
+		state: BattleState) -> bool:
+	if candidate == null or not candidate.is_throwable or state == null or state.battlefield == null:
+		return false
+	var reach := WeaponEvaluator.melee_reach_for(merc, candidate)
+	var ext: int = int(ThrownWeaponRules.thrown_ranges(merc, candidate)["extended"])
+	for e: MercenaryData in enemies:
+		if not BattleState._is_alive(e):
+			continue
+		var d := state.distance_to(merc, e)
+		if d > reach and d <= ext and (LineOfSight.check(state, merc, e)["visible"] as bool):
+			return true
+		if bool(ThrownWeaponRules.should_throw(merc, candidate, e, enemies, state, false)["throw"]):
+			return true
+	return false
+
+
+static func _has_reserve_for(merc: MercenaryData, weapon: WeaponData) -> bool:
+	if not weapon.is_ranged:
+		return false
+	if merc.ammo_loaded_type != "" and int(merc.ammo_inventory.get(merc.ammo_loaded_type, 0)) > 0:
+		return true
+	return WeaponEvaluator.has_compatible_ammo(merc, weapon)
+
+
+static func _enemy_in_melee_reach(merc: MercenaryData, enemies: Array, state: BattleState) -> bool:
+	if state.battlefield == null:
+		return false
+	for enemy: MercenaryData in enemies:
+		if state.distance_to(merc, enemy) <= 1:
+			return true
+	return false

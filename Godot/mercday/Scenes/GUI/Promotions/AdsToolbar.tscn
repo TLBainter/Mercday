@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Promotions/AdsToolbar.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FilterCheckRow.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortButton.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortDirToggle.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/DropPanel.gd" id="dp"]
 
 [node name="AdsToolbar" type="HBoxContainer"]
 alignment = 2
@@ -26,7 +27,9 @@ layout_mode = 2
 clip_text = true
 alignment = 0
 
-[node name="Menu" type="PopupPanel" parent="FilterBox/Button"]
+[node name="Menu" type="PanelContainer" parent="FilterBox/Button"]
+visible = false
+script = ExtResource("dp")
 
 [node name="List" type="VBoxContainer" parent="FilterBox/Button/Menu"]
 theme_override_constants/separation = 4

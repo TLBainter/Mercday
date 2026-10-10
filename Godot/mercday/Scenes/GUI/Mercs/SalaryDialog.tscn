@@ -1,78 +1,46 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=10 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Mercs/SalaryDialog.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/PayrollStepper.tscn" id="2"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/FireConfirmDialog.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ModalDialog.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercs/SalaryDialog.gd" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/PayrollStepper.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/FireConfirmDialog.tscn" id="4"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodMeter.tscn" id="6"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="7"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_SalaryDialog.tres" id="8"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_MoodMeter.tres" id="9"]
 
-[node name="SalaryDialog" type="Control"]
-visible = false
-mouse_filter = 2
-script = ExtResource("1")
+[node name="SalaryDialog" instance=ExtResource("1")]
+script = ExtResource("2")
+backdrop_closes = false
+cancel_text = "Cancel"
+confirm_text = "Confirm"
 
-[node name="Backdrop" type="Panel" parent="."]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-theme_type_variation = &"BackdropPanel"
-
-[node name="Box" type="PanelContainer" parent="."]
-custom_minimum_size = Vector2(520, 0)
-offset_right = 520.0
-theme_type_variation = &"PopupBox"
-
-[node name="Pad" type="MarginContainer" parent="Box"]
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
-
-[node name="Rows" type="VBoxContainer" parent="Box/Pad"]
+[node name="Head" parent="Box/Pad/Rows"]
 theme_override_constants/separation = 14
 
-[node name="Kicker" type="Label" parent="Box/Pad/Rows"]
-text = "Adjust Salary"
+[node name="Kicker" parent="Box/Pad/Rows/Head"]
+theme_override_font_sizes/font_size = 11
 
-[node name="MercName" type="Label" parent="Box/Pad/Rows"]
+[node name="Title" parent="Box/Pad/Rows/Head/TitleRow"]
+theme_override_colors/font_color = Color(0.94902, 0.54902, 0.156863, 1)
 
 [node name="Employed" type="Label" parent="Box/Pad/Rows"]
 
 [node name="Vacation" type="Label" parent="Box/Pad/Rows"]
 
-[node name="Faces" type="HBoxContainer" parent="Box/Pad/Rows"]
+[node name="Faces" parent="Box/Pad/Rows" instance=ExtResource("6")]
+layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 6
+guild = true
 
-[node name="Step" parent="Box/Pad/Rows" instance=ExtResource("2")]
+[node name="Step" parent="Box/Pad/Rows" instance=ExtResource("3")]
 layout_mode = 2
 
 [node name="LockLine" type="Label" parent="Box/Pad/Rows"]
 autowrap_mode = 3
 text = "Salary can only be changed while this merc is Available or Resting."
-
-[node name="Buttons" type="HBoxContainer" parent="Box/Pad/Rows"]
-theme_override_constants/separation = 12
-
-[node name="Cancel" parent="Box/Pad/Rows/Buttons" instance=ExtResource("4")]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 36)
-min_size = Vector2(0, 36)
-size_flags_horizontal = 3
-theme_override_fonts/font = ExtResource("5")
-theme_override_font_sizes/font_size = 12
-kind = &"blue"
-text = "Cancel"
-
-[node name="Confirm" parent="Box/Pad/Rows/Buttons" instance=ExtResource("4")]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 36)
-min_size = Vector2(0, 36)
-size_flags_horizontal = 3
-theme_override_fonts/font = ExtResource("5")
-theme_override_font_sizes/font_size = 12
-kind = &"orange"
-text = "Confirm"
 
 [node name="FireRow" type="HBoxContainer" parent="Box/Pad/Rows"]
 alignment = 2
@@ -80,24 +48,30 @@ alignment = 2
 [node name="Fire" type="LinkButton" parent="Box/Pad/Rows/FireRow"]
 text = "Fire"
 
-[node name="Overlay" type="Control" parent="Box"]
-mouse_filter = 2
+[node name="Cancel" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 36)
+min_size = Vector2(0, 36)
+size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("5")
+theme_override_font_sizes/font_size = 12
 
-[node name="Close" type="Button" parent="Box/Overlay"]
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -43.0
-offset_top = 7.0
-offset_right = -7.0
-offset_bottom = 43.0
-grow_horizontal = 0
-text = ""
+[node name="Confirm" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 36)
+min_size = Vector2(0, 36)
+size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("5")
+theme_override_font_sizes/font_size = 12
 
-[node name="Edges" type="Control" parent="Box"]
-mouse_filter = 2
-
-[node name="Fire" parent="." instance=ExtResource("3")]
+[node name="Fire" parent="." instance=ExtResource("4")]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+
+[node name="HelpTarget" type="Node" parent="Box"]
+script = ExtResource("7")
+hint = ExtResource("8")
+
+[node name="HelpTarget" type="Node" parent="Box/Pad/Rows"]
+script = ExtResource("7")
+hint = ExtResource("9")
+target = NodePath("../Faces")

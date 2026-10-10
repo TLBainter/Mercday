@@ -1,0 +1,74 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mercs/HireButton.gd" id="1"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_glyph"]
+bg_color = Color(0.054902, 0.086275, 0.156863, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.247059, 0.603922, 0.290196, 1)
+
+[node name="HireButton" type="Button"]
+custom_minimum_size = Vector2(0, 68)
+script = ExtResource("1")
+
+[node name="Row" type="HBoxContainer" parent="."]
+mouse_filter = 2
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = -6.0
+offset_bottom = -6.0
+theme_override_constants/separation = 10
+
+[node name="GlyphHolder" type="Control" parent="Row"]
+custom_minimum_size = Vector2(56, 56)
+mouse_filter = 2
+size_flags_vertical = 4
+
+[node name="Frame" type="Panel" parent="Row/GlyphHolder"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_glyph")
+
+[node name="Glyph" type="TextureRect" parent="Row/GlyphHolder"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -24.0
+offset_top = -24.0
+offset_right = 24.0
+offset_bottom = 24.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Names" type="VBoxContainer" parent="Row"]
+mouse_filter = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="Row/Names"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 14
+text = "Hire"
+clip_text = true
+
+[node name="Sub" type="Label" parent="Row/Names"]
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 13
+clip_text = true

@@ -2,23 +2,24 @@ class_name CampaignCard extends PanelContainer
 
 #One running or concluded campaign in the My Promotions grid: the type icon and name, the three
 #money cells, the time bar, what the campaign brought in and the two actions. A concluded card
-#greys its name and icon and drops the End link, so View Applicants takes the whole row.
+#greys its name and icon and drops the End link, so the View button takes the whole row.
 
 signal view_applicants(campaign_id: int)
+signal view_contracts(campaign_id: int)
 signal end_pressed(campaign_id: int)
 
-const FONT_SILK: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const CARD_BG: Color = Color("#1a2b4d")
-const CARD_RING: Color = Color("#1f3560")
-const ICON_BG: Color = Color("#0e1628")
-const RING_LIVE: Color = Color("#3b6fb6")
-const RING_DONE: Color = Color("#1f3560")
-const CREAM: Color = Color("#f3ead7")
-const MUTED: Color = Color("#5e7699")
-const CAPTION: Color = Color("#9cc6ef")
-const BUDGET: Color = Color("#f2b33d")
+const FONT_SILK: FontVariation = GuiStyle.SILK
+const FONT_BOLD: FontVariation = GuiStyle.SILK_BOLD
+const FONT_BODY: FontVariation = GuiStyle.BODY
+const CARD_BG: Color = GuiColors.BOX_BG
+const CARD_RING: Color = GuiColors.BLUE_LO
+const ICON_BG: Color = GuiColors.ROW_FILL
+const RING_LIVE: Color = GuiColors.BLUE_HI
+const RING_DONE: Color = GuiColors.BLUE_LO
+const CREAM: Color = GuiColors.CREAM
+const MUTED: Color = GuiColors.MUTED
+const CAPTION: Color = GuiColors.SKY
+const BUDGET: Color = GuiColors.AMBER
 const END_COLOR: Color = Color("#ff3b2f")
 const END_HOVER: Color = Color("#ff6a55")
 const ICON_PX: float = 48.0
@@ -46,6 +47,7 @@ const BUDGET_LABEL: String = "Budget Remaining"
 const JOB_RESULTS: String = "Applicants"
 const PROMO_RESULTS: String = "Contracts Received"
 const VIEW_TEXT: String = "View Applicants"
+const VIEW_CONTRACTS_TEXT: String = "View Contracts"
 const END_TEXT: String = "End Campaign"
 
 var campaign: CampaignData = null:
@@ -77,15 +79,17 @@ func _ready() -> void:
 	add_theme_stylebox_override(&"panel", _card_box())
 	rows.add_theme_constant_override(&"separation", ROW_GAP)
 	icon_box.custom_minimum_size = Vector2(ICON_PX, ICON_PX)
+	for tile: StatTile in [started_tile, spent_tile, budget_tile]:
+		tile.compact = true
 	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_style(name_label, FONT_BOLD, NAME_SIZE, CREAM)
-	_style(method_label, FONT_BODY, METHOD_SIZE, CAPTION)
-	_style(left_label, FONT_SILK, CAPTION_SIZE, CAPTION)
-	_style(left_value, FONT_BODY, VALUE_SIZE, CREAM)
-	_style(results_label, FONT_SILK, CAPTION_SIZE, CAPTION)
-	_style(results_value, FONT_BOLD, VALUE_SIZE, CREAM)
+	GuiStyle.paint(name_label, FONT_BOLD, NAME_SIZE, CREAM)
+	GuiStyle.paint(method_label, FONT_BODY, METHOD_SIZE, CAPTION)
+	GuiStyle.paint(left_label, FONT_SILK, CAPTION_SIZE, CAPTION)
+	GuiStyle.paint(left_value, FONT_BODY, VALUE_SIZE, CREAM)
+	GuiStyle.paint(results_label, FONT_SILK, CAPTION_SIZE, CAPTION)
+	GuiStyle.paint(results_value, FONT_BOLD, VALUE_SIZE, CREAM)
 	left_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	results_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	left_label.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -126,7 +130,8 @@ func refresh() -> void:
 	bar.set_ratio(ratio())
 	results_label.text = results_caption()
 	results_value.text = results_text()
-	view_button.visible = campaign.mode == CampaignData.MODE_JOB
+	view_button.text = view_text()
+	view_button.visible = true
 	end_button.visible = not done
 
 
@@ -199,6 +204,13 @@ func results_text() -> String:
 	return str(PromotionsManager.results_of(campaign))
 
 
+#A job ad views the applicants it sent; a Guild Promo views the contracts it brought in.
+func view_text() -> String:
+	if campaign != null and campaign.mode == CampaignData.MODE_PROMO:
+		return VIEW_CONTRACTS_TEXT
+	return VIEW_TEXT
+
+
 func has_view() -> bool:
 	return is_node_ready() and view_button.visible
 
@@ -210,7 +222,10 @@ func has_end() -> bool:
 func press_view() -> void:
 	if campaign == null:
 		return
-	PromotionsManager.view_applicants(campaign.id)
+	if campaign.mode == CampaignData.MODE_PROMO:
+		PromotionsManager.view_contracts(campaign.id)
+		view_contracts.emit(campaign.id)
+		return
 	view_applicants.emit(campaign.id)
 
 
@@ -224,33 +239,15 @@ func _today() -> int:
 	return GameState.day()
 
 
-func _style(node: Label, font: FontVariation, font_size: int, tint: Color) -> void:
-	node.add_theme_font_override(&"font", font)
-	node.add_theme_font_size_override(&"font_size", font_size)
-	node.add_theme_color_override(&"font_color", tint)
-
-
 func _card_box() -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = CARD_BG
-	box.set_border_width_all(CARD_RING_PX)
-	box.border_color = CARD_RING
-	box.content_margin_left = PAD
-	box.content_margin_right = PAD
-	box.content_margin_top = PAD
-	box.content_margin_bottom = PAD
-	return box
+	return GuiStyle.flat(CARD_BG, CARD_RING_PX, CARD_RING, PAD)
 
 
 func _icon_box(done: bool) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = ICON_BG
-	box.set_border_width_all(ICON_RING_PX)
-	box.border_color = RING_DONE if done else RING_LIVE
-	return box
+	return GuiStyle.flat(ICON_BG, ICON_RING_PX, RING_DONE if done else RING_LIVE)
 
 
-#Item 11: the one core BevelButton scene, added where the scene used to hold a plain Button.
+#Builds the blue View button as the first action.
 func _build_view() -> void:
 	view_button = BevelButton.make(VIEW_TEXT, &"blue")
 	view_button.add_theme_font_override(&"font", FONT_SILK)
@@ -263,9 +260,7 @@ func _build_view() -> void:
 func _style_end() -> void:
 	end_button.text = END_TEXT
 	end_button.underline = LinkButton.UNDERLINE_MODE_ALWAYS
-	end_button.add_theme_font_override(&"font", FONT_SILK)
-	end_button.add_theme_font_size_override(&"font_size", END_SIZE)
-	end_button.add_theme_color_override(&"font_color", END_COLOR)
+	GuiStyle.paint(end_button, FONT_SILK, END_SIZE, END_COLOR)
 	end_button.add_theme_color_override(&"font_hover_color", END_HOVER)
 	end_button.add_theme_color_override(&"font_pressed_color", END_HOVER)
 	end_button.add_theme_constant_override(&"underline_spacing", 4)

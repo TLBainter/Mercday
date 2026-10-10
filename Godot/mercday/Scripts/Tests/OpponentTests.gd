@@ -52,9 +52,19 @@ static func _party(count: int, level: float) -> Array[MercenaryData]:
 	return out
 
 
-static func _mercs_request(count: int, avg: float, difficulty: float) -> OpponentRequest:
+#True when the formula gives a nonzero value within 20 evaluations.
+static func _draws_apart(formula: String, ctx: Dictionary) -> bool:
+	for _i: int in range(20):
+		var diff: Variant = OpponentGenerator.eval_formula(formula, ctx)
+		if diff != null and not is_zero_approx(float(diff)):
+			return true
+	return false
+
+
+#A request for count opponents from source against a party of four at avg level.
+static func _request(source: String, count: int, avg: float, difficulty: float = 0.0) -> OpponentRequest:
 	var req := OpponentRequest.new()
-	req.source = "Mercs"
+	req.source = source
 	req.count = count
 	req.party = _party(4, avg)
 	req.difficulty = difficulty
@@ -145,12 +155,7 @@ static func _case_level_band(res: Dictionary) -> void:
 	var drawn: Variant = OpponentGenerator.eval_formula("level_band", {"difficulty": 5.0})
 	TestFixtures.check(res, "the level_band token draws inside its difficulty band",
 		drawn != null and float(drawn) >= 1.0 and float(drawn) <= 2.0, "got %s against 1.0 to 2.0" % str(drawn))
-	var differed: bool = false
-	for _i: int in range(20):
-		var diff: Variant = OpponentGenerator.eval_formula("level_band - level_band", {"difficulty": 5.0})
-		if diff != null and not is_zero_approx(float(diff)):
-			differed = true
-			break
+	var differed := _draws_apart("level_band - level_band", {"difficulty": 5.0})
 	TestFixtures.check(res, "two level_band tokens in one formula draw apart", differed,
 		"a nonzero difference within 20 tries" if differed else "every try gave 0")
 	var tall := OpponentRequest.new()
@@ -161,12 +166,8 @@ static func _case_level_band(res: Dictionary) -> void:
 	var capped_max: int = OpponentGenerator.roll_level(tall)
 	TestFixtures.check(res, "the level cap of 40 holds over the formula and a wider level_max",
 		capped == 40 and capped_max == 40, "60 gives %d, 60 with a max of 45 gives %d" % [capped, capped_max])
-	var crew_req := OpponentRequest.new()
-	crew_req.source = "Bandit Leader, Bandit Melee"
-	crew_req.count = 3
-	crew_req.party = _party(4, 6.0)
+	var crew_req: OpponentRequest = _request("Bandit Leader, Bandit Melee", 3, 6.0)
 	crew_req.fixed_level = 39
-	crew_req.tag = TAG
 	var crew: Array[int] = _levels(OpponentGenerator.generate(crew_req))
 	TestFixtures.check(res, "the leader bump stops at the level cap",
 		crew.size() == 3 and crew[0] == 40 and crew[1] == 39 and crew[2] == 39,
@@ -199,12 +200,7 @@ static func _case_randf(res: Dictionary) -> void:
 	var two: Variant = OpponentGenerator.eval_formula("randf(1, 1) + randf(1, 1)", {})
 	TestFixtures.check(res, "two randf calls in one formula both resolve",
 		two != null and is_equal_approx(float(two), 2.0), "got %s" % str(two))
-	var differed: bool = false
-	for _i: int in range(20):
-		var diff: Variant = OpponentGenerator.eval_formula("randf(0, 1000) - randf(0, 1000)", {})
-		if diff != null and not is_zero_approx(float(diff)):
-			differed = true
-			break
+	var differed := _draws_apart("randf(0, 1000) - randf(0, 1000)", {})
 	TestFixtures.check(res, "identical randf calls roll apart", differed,
 		"a nonzero difference within 20 tries" if differed else "every try gave 0")
 	var six: Variant = OpponentGenerator.eval_formula("randf(2 * 3, 2 * 3)", {})
@@ -270,7 +266,7 @@ static func _case_mercs_levels(res: Dictionary) -> void:
 	var avg: float = 6.0
 	var lo: int = maxi(1, int(floorf(avg * 0.5)))
 	var hi: int = maxi(1, int(floorf(avg * 1.5)))
-	var req: OpponentRequest = _mercs_request(4, avg, 3.0)
+	var req: OpponentRequest = _request("Mercs", 4, avg, 3.0)
 	req.resolved_ctx = OpponentGenerator.context(req)
 	var low: int = 9999
 	var high: int = 0
@@ -293,7 +289,7 @@ static func _case_mercs_levels(res: Dictionary) -> void:
 static func _case_traditions(res: Dictionary) -> void:
 	_reset_statics()
 	seed(12345)
-	var req: OpponentRequest = _mercs_request(4, 6.0, 3.0)
+	var req: OpponentRequest = _request("Mercs", 4, 6.0, 3.0)
 	req.fixed_level = 3
 	req.traditions.assign(["Brave", "Warrior"])
 	var mercs: Array[MercenaryData] = OpponentGenerator.generate(req)
@@ -303,7 +299,7 @@ static func _case_traditions(res: Dictionary) -> void:
 	var joined: String = ", ".join(names)
 	TestFixtures.check(res, "traditions force each index and the last one repeats",
 		joined == "Brave, Warrior, Warrior, Warrior", joined)
-	var free: OpponentRequest = _mercs_request(3, 6.0, 3.0)
+	var free: OpponentRequest = _request("Mercs", 3, 6.0, 3.0)
 	free.fixed_level = 3
 	var rolled: Array[MercenaryData] = OpponentGenerator.generate(free)
 	var all_named: bool = rolled.size() == 3
@@ -325,7 +321,7 @@ static func _case_statics_restored(res: Dictionary) -> void:
 	MercGenerator.forced_tradition = "Mage"
 	MercGenerator.tradition_odds = {"Mage": 10.0}
 	var before: String = _statics_snapshot()
-	var req: OpponentRequest = _mercs_request(2, 6.0, 3.0)
+	var req: OpponentRequest = _request("Mercs", 2, 6.0, 3.0)
 	req.fixed_level = 3
 	req.traditions.assign(["Brave"])
 	req.tradition_odds = {"Performer": 50.0}
@@ -367,7 +363,7 @@ static func _case_weighted_multiplier(res: Dictionary) -> void:
 static func _case_tradition_odds(res: Dictionary) -> void:
 	_reset_statics()
 	seed(12345)
-	var req: OpponentRequest = _mercs_request(100, 6.0, 3.0)
+	var req: OpponentRequest = _request("Mercs", 100, 6.0, 3.0)
 	req.fixed_level = 1
 	#Flat tradition boosts can leave a sibling a working share in the hundreds, so the multiplier has to dwarf it.
 	req.tradition_odds = {"Performer": 1.0e9}
@@ -387,7 +383,7 @@ static func _case_tradition_odds(res: Dictionary) -> void:
 static func _case_skew(res: Dictionary) -> void:
 	_reset_statics()
 	seed(12345)
-	var req: OpponentRequest = _mercs_request(3, 6.0, 3.0)
+	var req: OpponentRequest = _request("Mercs", 3, 6.0, 3.0)
 	req.fixed_level = 6
 	var mercs: Array[MercenaryData] = OpponentGenerator.generate(req)
 	if mercs.size() != 3:
@@ -444,11 +440,11 @@ static func _case_skew(res: Dictionary) -> void:
 		float(scaled.stat_bonuses.get("cognition", 0.0))])
 	#Core stats settle before the name and gear rolls, so one opponent per request repeats under one seed.
 	seed(4242)
-	var plain: OpponentRequest = _mercs_request(1, 6.0, 3.0)
+	var plain: OpponentRequest = _request("Mercs", 1, 6.0, 3.0)
 	plain.fixed_level = 6
 	var base: Array[MercenaryData] = OpponentGenerator.generate(plain)
 	seed(4242)
-	var skewed: OpponentRequest = _mercs_request(1, 6.0, 3.0)
+	var skewed: OpponentRequest = _request("Mercs", 1, 6.0, 3.0)
 	skewed.fixed_level = 6
 	skewed.stat_skew = {"vigor": 2, "wile": 1}
 	var lifted: Array[MercenaryData] = OpponentGenerator.generate(skewed)
@@ -464,13 +460,8 @@ static func _case_skew(res: Dictionary) -> void:
 static func _case_hooks(res: Dictionary) -> void:
 	_reset_statics()
 	seed(12345)
-	var req := OpponentRequest.new()
-	req.source = BANDIT
-	req.count = 3
-	req.party = _party(4, 6.0)
-	req.difficulty = 3.0
+	var req: OpponentRequest = _request(BANDIT, 3, 6.0, 3.0)
 	req.fixed_level = 4
-	req.tag = TAG
 	var calls: Array = []
 	var hook := func(merc: MercenaryData, index: int, r: OpponentRequest) -> void: calls.append([merc, index, r])
 	req.hooks.append(hook)
@@ -489,13 +480,9 @@ static func _case_hooks(res: Dictionary) -> void:
 static func _case_outputs(res: Dictionary) -> void:
 	_reset_statics()
 	seed(12345)
-	var req := OpponentRequest.new()
-	req.source = BANDIT
+	var req: OpponentRequest = _request(BANDIT, -1, 6.0, 5.0)
 	req.count_formula = "party.merc_count - 1"
-	req.party = _party(4, 6.0)
-	req.difficulty = 5.0
 	req.extra_ctx = {"bad_luck_roll": 2, "marker": "x"}
-	req.tag = TAG
 	var out: Array[MercenaryData] = OpponentGenerator.generate(req)
 	var ctx: Dictionary = req.resolved_ctx
 	TestFixtures.check(res, "resolved_ctx carries difficulty_factor and the extra keys",
@@ -511,12 +498,8 @@ static func _case_outputs(res: Dictionary) -> void:
 static func _case_npc_fixed_level(res: Dictionary) -> void:
 	_reset_statics()
 	seed(12345)
-	var req := OpponentRequest.new()
-	req.source = BANDIT
-	req.count = 3
-	req.party = _party(4, 6.0)
+	var req: OpponentRequest = _request(BANDIT, 3, 6.0)
 	req.fixed_level = 7
-	req.tag = TAG
 	var levels: Array[int] = _levels(OpponentGenerator.generate(req))
 	var ok: bool = levels.size() == 3
 	for lvl: int in levels:
@@ -532,11 +515,7 @@ static func _case_crew(res: Dictionary) -> void:
 	if ambush == null:
 		TestFixtures.check(res, "crew leader", false, "Ambush event did not load")
 		return
-	var req := OpponentRequest.new()
-	req.source = ambush.enemy
-	req.count = 5
-	req.party = _party(4, 6.0)
-	req.difficulty = 3.0
+	var req: OpponentRequest = _request(ambush.enemy, 5, 6.0, 3.0)
 	req.tag = AMBUSH
 	var crew: Array[MercenaryData] = OpponentGenerator.generate(req)
 	var prefix: String = ambush.enemy.split(",")[0].strip_edges() + " "
@@ -558,10 +537,8 @@ static func _case_crew(res: Dictionary) -> void:
 static func _case_level_wrapper(res: Dictionary) -> void:
 	_reset_statics()
 	var ctx: Dictionary = {"average_level": 6.5, "merc_count": 4}
-	var wrapped: int = NPCGenerator._eval_level_formula("party.average_level * 2", ctx)
 	var direct: int = OpponentGenerator.eval_level("party.average_level * 2", ctx)
-	TestFixtures.check(res, "_eval_level_formula wraps eval_level", wrapped == direct and direct == 13,
-		"wrapper %d, direct %d" % [wrapped, direct])
+	TestFixtures.check(res, "eval_level doubles the party average level", direct == 13, "got %d" % direct)
 
 
 static func _case_enemy_team(res: Dictionary) -> void:

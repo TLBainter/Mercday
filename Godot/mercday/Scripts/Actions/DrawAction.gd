@@ -29,11 +29,7 @@ func can_execute(merc: MercenaryData, ctx: Dictionary) -> bool:
 
 func _resolve_draw_weapon(merc: MercenaryData) -> WeaponData:
 	var current := merc.equipped_weapon
-	var _too_unreliable := current != null and current.is_ranged and current.misfire > 0 \
-		and not FirearmReliabilityFacet.aimed_viable(merc)
-	var current_is_useless := (current != null and current.is_ranged and merc.ammo_loaded == 0 and _has_no_ammo(merc)) \
-		or _too_unreliable
-	if not current_is_useless:
+	if not WeaponEvaluator.drawn_ranged_useless(merc, current):
 		var result := super._resolve_draw_weapon(merc)
 		return result if result != null else DataManager.fight_weapon
 	#The ranged weapon in hand is empty with no reload, so look for a better alternative.
@@ -51,9 +47,3 @@ func _resolve_draw_weapon(merc: MercenaryData) -> WeaponData:
 		if fallback == null:
 			fallback = w
 	return fallback if fallback != null else DataManager.fight_weapon
-
-static func _has_no_ammo(merc: MercenaryData) -> bool:
-	for v in merc.ammo_inventory.values():
-		if int(v) > 0:
-			return false
-	return true

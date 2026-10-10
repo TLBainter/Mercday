@@ -1,0 +1,81 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HintCard.gd" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/MercdaveFace.gd" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="3"]
+
+[node name="HintCard" type="PanelContainer"]
+custom_minimum_size = Vector2(384, 0)
+theme_type_variation = &"PopupBox"
+script = ExtResource("1")
+
+[node name="Row" type="HBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Face" type="Control" parent="Row"]
+layout_mode = 2
+mouse_filter = 2
+size_flags_vertical = 0
+script = ExtResource("2")
+pixel_scale = 3
+
+[node name="Body" type="VBoxContainer" parent="Row"]
+layout_mode = 2
+mouse_filter = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Head" type="HBoxContainer" parent="Row/Body"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Row/Body/Head"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"PanelTitle"
+text_overrun_behavior = 3
+
+[node name="Step" type="Label" parent="Row/Body/Head"]
+layout_mode = 2
+theme_type_variation = &"KeySmall"
+vertical_alignment = 1
+
+[node name="Text" type="Label" parent="Row/Body"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+theme_type_variation = &"ValueLabel"
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Row/Body"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 5
+alignment = 2
+
+[node name="TellMore" parent="Row/Body/Buttons" instance=ExtResource("3")]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+mouse_filter = 1
+text = "Tell Me More"
+kind = &"orange"
+min_size = Vector2(0, 28)
+pad_x = 4.0
+
+[node name="NextHint" parent="Row/Body/Buttons" instance=ExtResource("3")]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+mouse_filter = 1
+text = "Next Hint"
+min_size = Vector2(0, 28)
+pad_x = 4.0
+
+[node name="Ok" parent="Row/Body/Buttons" instance=ExtResource("3")]
+custom_minimum_size = Vector2(56, 28)
+layout_mode = 2
+mouse_filter = 1
+text = "Ok"
+min_size = Vector2(56, 28)
+pad_x = 4.0

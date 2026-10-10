@@ -6,7 +6,7 @@ class_name NotificationData extends RefCounted
 enum Urgency {INFORMATIONAL, IMPORTANT, URGENT}
 
 const URGENCY_NAMES: Array[String] = ["Informational", "Important", "Urgent"]
-const URGENCY_COLORS: Array[Color] = [Color("#6cc36a"), Color("#f2b33d"), Color("#e8583f")]
+const URGENCY_COLORS: Array[Color] = [GuiColors.GREEN, GuiColors.AMBER, GuiColors.RED]
 #The filter list is "All" plus these, in this order.
 const KINDS: Array[String] = ["Contract", "Mercenary", "Finance", "Metrics"]
 
@@ -14,6 +14,9 @@ const TYPE_CONTRACT_COMPLETED := &"contractCompleted"
 const TYPE_CONTRACT_FAILED := &"contractFailed"
 const TYPE_LOAN_OFFER := &"loanOffer"
 const TYPE_STOCK_MOVE := &"stockMove"
+const TYPE_NEW_POSTINGS := &"newPostings"
+const TYPE_EXPIRY_WARNING := &"expiryWarning"
+const TYPE_EXPIRED := &"postingExpired"
 
 #Which filter kind each known type belongs to; an unknown type keeps the kind its caller passed.
 const TYPE_KINDS: Dictionary = {
@@ -21,6 +24,9 @@ const TYPE_KINDS: Dictionary = {
 	"contractFailed": "Contract",
 	"loanOffer": "Finance",
 	"stockMove": "Finance",
+	"newPostings": "Contract",
+	"expiryWarning": "Contract",
+	"postingExpired": "Contract",
 }
 
 var id: int = 0
@@ -32,6 +38,8 @@ var urgency: int = Urgency.INFORMATIONAL
 #The game minute the row was received on.
 var minute: int = 0
 var read: bool = false
+#True once the row's arrival cue fired, or for a seeded row that arrived silently.
+var alerted: bool = false
 
 
 func urgency_name() -> String:
@@ -46,14 +54,17 @@ static func kind_for(row_type: StringName, fallback: String = "") -> String:
 	return String(TYPE_KINDS.get(String(row_type), fallback))
 
 
-#Title colours: contract orange, loan budget yellow, stock green on a rise and red on a fall.
-const TITLE_CONTRACT: Color = Color("#f28c28")
-const TITLE_LOAN: Color = Color("#f2b33d")
-const TITLE_STOCK_UP: Color = Color("#6cc36a")
-const TITLE_STOCK_DOWN: Color = Color("#e8583f")
-const TITLE_UNKNOWN: Color = Color("#f3ead7")
+#Title colours: contract orange, an expired posting muted, loan budget yellow, stock green on a rise and red on a fall.
+const TITLE_CONTRACT: Color = GuiColors.ORANGE
+const TITLE_EXPIRED: Color = GuiColors.MUTED
+const TITLE_LOAN: Color = GuiColors.AMBER
+const TITLE_STOCK_UP: Color = GuiColors.GREEN
+const TITLE_STOCK_DOWN: Color = GuiColors.RED
+const TITLE_UNKNOWN: Color = GuiColors.CREAM
 #One stock band step is five percent.
 const BAND_PERCENT: int = 5
+#The name line of a new postings row.
+const BOARD_NAME: String = "Guild board"
 
 
 #The panel title of the row. A failed contract reads the same as a completed one (no spoiler).
@@ -68,13 +79,23 @@ func title_text() -> String:
 			if rising():
 				return "Stock Up %d%%" % step
 			return "Stock Down %d%%" % step
+		TYPE_NEW_POSTINGS:
+			if count() == 1:
+				return "1 new contract on the board"
+			return "%d new contracts on the board" % count()
+		TYPE_EXPIRY_WARNING:
+			return "Posting expires soon"
+		TYPE_EXPIRED:
+			return "Posting expired"
 	return String(type)
 
 
 func title_color() -> Color:
 	match type:
-		TYPE_CONTRACT_COMPLETED, TYPE_CONTRACT_FAILED:
+		TYPE_CONTRACT_COMPLETED, TYPE_CONTRACT_FAILED, TYPE_NEW_POSTINGS, TYPE_EXPIRY_WARNING:
 			return TITLE_CONTRACT
+		TYPE_EXPIRED:
+			return TITLE_EXPIRED
 		TYPE_LOAN_OFFER:
 			return TITLE_LOAN
 		TYPE_STOCK_MOVE:
@@ -101,25 +122,21 @@ func rising() -> bool:
 	return band() >= 0
 
 
+#The postings a new postings row counts; zero for every other type.
+func count() -> int:
+	return int(snap.get("count", 0))
+
+
 #The game date and time the row arrived on, from the campaign calendar.
 func when_text() -> String:
 	return TrynnCalendar.date_text(minute) + " - " + TrynnCalendar.time_text(minute)
 
 
-#The name line under the title: the contract, the lender or the company.
+#The name line under the title: the contract, the lender, the company or the guild board.
 func name_text() -> String:
+	if type == TYPE_NEW_POSTINGS:
+		return BOARD_NAME
 	for key: String in ["name", "lender", "company"]:
 		if snap.has(key):
 			return String(snap[key])
 	return ""
-
-
-#A whole number with thousands separators, for rewards and offer amounts.
-static func grouped(value: int) -> String:
-	var neg: String = "-" if value < 0 else ""
-	var digits: String = str(absi(value))
-	var out: String = ""
-	while digits.length() > 3:
-		out = "," + digits.substr(digits.length() - 3, 3) + out
-		digits = digits.substr(0, digits.length() - 3)
-	return neg + digits + out

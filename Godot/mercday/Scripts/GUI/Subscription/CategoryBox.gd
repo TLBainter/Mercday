@@ -4,21 +4,19 @@ class_name CategoryBox extends Control
 #the guild owns, and the monthly total of the upgrades billed to it. A finished branch turns green
 #and glows on the shared pulse.
 
-const BG: Color = Color("#15223d")
-const DONE_BG: Color = Color("#123321")
-const NAME_COLOR: Color = Color("#9cc6ef")
-const TOTAL_COLOR: Color = Color("#f3ead7")
+const BG: Color = GuiColors.ROW_HOVER
+const DONE_BG: Color = GuiColors.DONE_GREEN_BG
+const NAME_COLOR: Color = GuiColors.SKY
+const TOTAL_COLOR: Color = GuiColors.CREAM
 const RING_WIDTH: float = 2.0
 const ICON_SCALE: int = 2
 const PAD: float = 10.0
-const TOTAL_DROP: float = 48.0
-const NAME_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const TOTAL_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
+const NAME_FONT: FontVariation = GuiStyle.SILK
+const TOTAL_FONT: FontVariation = GuiStyle.SILK_BOLD
 const NAME_SIZE: int = 11
 const TOTAL_SIZE: int = 12
 const TOTAL_PREFIX: String = "Total "
 const TOTAL_SUFFIX: String = "/month"
-const GLYPH_GAP: float = 2.0
 
 @export var cat: String = ""
 @export var progress: float = 0.0:
@@ -26,7 +24,7 @@ const GLYPH_GAP: float = 2.0
 		progress = clampf(value, 0.0, 1.0)
 		queue_redraw()
 #The colour of the line coming in from Base: the ring of an unfinished box takes it.
-@export var lit: Color = Color("#f28c28")
+@export var lit: Color = GuiColors.ORANGE
 
 var _have: int = 0
 var _total: int = 0
@@ -85,7 +83,7 @@ func progress_text() -> String:
 
 
 func owned_text() -> String:
-	return progress_text() + " upgrades owned"
+	return progress_text() + TreeLayout.OWNED_SUFFIX
 
 
 func is_complete() -> bool:
@@ -107,7 +105,7 @@ func icon_color() -> Color:
 func glow_factor() -> float:
 	if not is_complete():
 		return 1.0
-	return 1.0 + _glow * 0.8
+	return PulseClock.glow_of(_glow)
 
 
 func _on_pulse(g: float, _sweep: PackedFloat32Array) -> void:
@@ -125,7 +123,7 @@ func _draw() -> void:
 	var icon_id: String = TreeIcons.id_of(cat)
 	if icon_id != "":
 		Icons.draw(self, icon_id, Vector2(PAD, (TreeLayout.CAT_BOX.y - side) / 2.0), ICON_SCALE,
-			_lit(icon_color()), false)
+			GuiColors.brighter(icon_color(), glow_factor()), false)
 	var text_x: float = PAD + side + 8.0
 	draw_string(NAME_FONT, Vector2(text_x, TreeLayout.CAT_BOX.y / 2.0 + float(NAME_SIZE) / 2.0
 		- 1.0), name_text(), HORIZONTAL_ALIGNMENT_LEFT, TreeLayout.CAT_BOX.x - text_x - PAD,
@@ -135,25 +133,13 @@ func _draw() -> void:
 
 #The monthly total reads as one centred run: the amount, the notes tile and glyph, then "/month".
 func _draw_total() -> void:
-	var amount: String = total_text()
-	var suffix: String = total_suffix()
-	var w1: float = TOTAL_FONT.get_string_size(amount, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
-		TOTAL_SIZE).x
-	var w2: float = TOTAL_FONT.get_string_size(suffix, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
-		TOTAL_SIZE).x
-	var tile: Vector2 = NoteIcon.tile_size(1)
-	var run: float = w1 + GLYPH_GAP + tile.x + GLYPH_GAP + w2
-	var x: float = TreeLayout.CAT_BOX.x / 2.0 - run / 2.0
-	var y: float = TOTAL_DROP + float(TOTAL_SIZE)
-	draw_string(TOTAL_FONT, Vector2(x, y), amount, HORIZONTAL_ALIGNMENT_LEFT, -1.0, TOTAL_SIZE,
-		TOTAL_COLOR)
-	var tile_at: Vector2 = Vector2(x + w1 + GLYPH_GAP, y - tile.y + 1.0)
-	draw_rect(Rect2(tile_at, tile), NoteIcon.TILE_COLOR)
-	Icons.draw(self, "note", tile_at + Vector2(2, 1), 1, NoteIcon.GLYPH_COLOR, true)
-	draw_string(TOTAL_FONT, Vector2(x + w1 + GLYPH_GAP * 2.0 + tile.x, y), suffix,
-		HORIZONTAL_ALIGNMENT_LEFT, -1.0, TOTAL_SIZE, TOTAL_COLOR)
+	NoteIcon.draw_run(self, TOTAL_FONT, TOTAL_SIZE, total_text(), total_suffix(),
+		TreeLayout.CAT_BOX.x / 2.0, total_baseline(), TOTAL_COLOR)
 
 
-func _lit(c: Color) -> Color:
-	var k: float = glow_factor()
-	return Color(minf(1.0, c.r * k), minf(1.0, c.g * k), minf(1.0, c.b * k), c.a)
+#The total sits centred in the gap TreeLayout leaves between the box stub and the resumed line.
+static func total_baseline() -> float:
+	var gap_top: float = TreeLayout.CAT_BOX.y + TreeLayout.CAT_STUB
+	var gap_bottom: float = TreeLayout.CAT_BOX.y / 2.0 + TreeLayout.CAT_TOTAL_DROP
+	var mid: float = (gap_top + gap_bottom) / 2.0
+	return mid + (TOTAL_FONT.get_ascent(TOTAL_SIZE) - TOTAL_FONT.get_descent(TOTAL_SIZE)) / 2.0

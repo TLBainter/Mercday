@@ -4,8 +4,8 @@ class_name CheckRow extends HBoxContainer
 #input, so it never takes the mouse; plan cards and tooltips add one row per feature.
 
 const MARK_PX: int = 12
-const DEFAULT_COLOR: Color = Color("#6cc36a")
-const TEXT_COLOR: Color = Color("#f3ead7")
+const DEFAULT_COLOR: Color = GuiColors.GREEN
+const TEXT_COLOR: Color = GuiColors.CREAM
 const FONT_SIZE: int = 14
 const ROW_SEPARATION: int = 10
 
@@ -38,14 +38,10 @@ func _ready() -> void:
 	_refresh()
 
 
-func mark_color() -> Color:
-	return color
-
-
 func _refresh() -> void:
 	if not is_node_ready():
 		return
 	text_label.text = text
-	mark.texture = Icons.tinted("check_sm", mark_color(), 1, false,
+	mark.texture = Icons.tinted("check_sm", color, 1, false,
 		Icons.centered_box(MARK_PX, MARK_PX))
 	mark.visible = checked

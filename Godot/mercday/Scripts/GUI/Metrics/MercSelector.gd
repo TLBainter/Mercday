@@ -1,4 +1,4 @@
-class_name MercSelector extends Button
+class_name MercSelector extends PopupButton
 
 #Picks the merc whose metrics the Merc graph plots. The button shows that merc's portrait, name,
 #level, tradition and tenure; pressing it opens a popup of the same rows, one per roster merc, with
@@ -13,20 +13,19 @@ const CLOSED_HEIGHT := 60
 const ROW_PORTRAIT := 30
 const ROW_HEIGHT := 40
 const SELECTED_SUB := Color(0.227451, 0.141176, 0.062745, 1)
-const ROW_SUB := Color(0.611765, 0.776471, 0.937255, 1)
-const TENURE_COLOR := Color(0.541176, 0.592157, 0.678431, 1)
-const RING_COLOR := Color(0.949020, 0.549020, 0.156863, 1)
-const RING_COMPACT := Color(0.611765, 0.776471, 0.937255, 1)
-const HATCH_FILL := Color(0.082353, 0.133333, 0.239216, 1)
-const HATCH_RING := Color(0.231373, 0.435294, 0.713725, 1)
-const HATCH_LINE := Color(0.121569, 0.207843, 0.376471, 1)
+const ROW_SUB: Color = GuiColors.SKY
+const TENURE_COLOR: Color = GuiColors.DIM_TEXT
+const RING_COLOR: Color = GuiColors.ORANGE
+const RING_COMPACT: Color = GuiColors.SKY
+const HATCH_FILL: Color = GuiColors.ROW_HOVER
+const HATCH_RING: Color = GuiColors.BLUE_HI
+const HATCH_LINE: Color = GuiColors.BLUE_LO
 const RING_WIDTH := 3.0
 const RING_COMPACT_WIDTH := 2.0
 const HATCH_STEP := 8.0
 const ALL_NAME := "All Mercs"
 const ALL_DETAIL := "Team average"
 const ALL_HINT := "Select a merc for their metrics"
-const NAME_SIZE := 12
 const ROW_NAME_SIZE := 11
 #The Margin around the popup list, top and bottom together.
 const POPUP_PAD := 16
@@ -34,7 +33,6 @@ const SUB_SIZE := 11
 
 signal merc_selected(uid: int)
 
-@export var popup_width: int = 300
 @export var compact: bool = false:
 	set(value):
 		compact = value
@@ -53,12 +51,11 @@ var _index: int = -1
 @onready var level_label: Label = $Row/Text/Detail/Level
 @onready var tradition_label: Label = $Row/Text/Detail/Tradition
 @onready var tenure_label: Label = $Row/Text/Tenure
-@onready var menu: PopupPanel = $Menu
 @onready var list: VBoxContainer = $Menu/Margin/List
 
 
 func _ready() -> void:
-	pressed.connect(_on_pressed)
+	super()
 	portrait_holder.draw.connect(_draw_holder)
 	if not GameState.roster_changed.is_connected(_on_roster_changed):
 		GameState.roster_changed.connect(_on_roster_changed)
@@ -149,9 +146,7 @@ func _apply_compact() -> void:
 
 
 func _build_rows() -> void:
-	for child: Node in list.get_children():
-		list.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(list)
 	list.add_child(_make_row(-1))
 	for i: int in _uids.size():
 		list.add_child(_make_row(i))
@@ -162,14 +157,7 @@ func _make_row(index: int) -> Button:
 	row.name = "RowAll" if index < 0 else "Row%d" % index
 	row.custom_minimum_size = Vector2(0, ROW_HEIGHT)
 	row.pressed.connect(_on_row_pressed.bind(index))
-	var line := HBoxContainer.new()
-	line.name = "Line"
-	line.set_anchors_preset(Control.PRESET_FULL_RECT)
-	line.offset_left = 6.0
-	line.offset_right = -6.0
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	line.add_theme_constant_override("separation", 8)
-	row.add_child(line)
+	var line: HBoxContainer = row_line(row)
 	var holder := Control.new()
 	holder.name = "PortraitHolder"
 	holder.custom_minimum_size = Vector2(ROW_PORTRAIT, ROW_PORTRAIT)
@@ -240,7 +228,7 @@ func _apply() -> void:
 		var merc_name: Label = row.get_node("Line/Text/Name") as Label
 		merc_name.text = each.name if each != null else ALL_NAME
 		merc_name.add_theme_color_override("font_color",
-			SELECTED_SUB if picked else Color(0.952941, 0.917647, 0.843137, 1))
+			SELECTED_SUB if picked else GuiColors.CREAM)
 		var sub: Label = row.get_node("Line/Text/Sub") as Label
 		if each == null:
 			sub.text = ALL_DETAIL
@@ -283,14 +271,12 @@ func _hatch(holder: Control, rect: Rect2) -> void:
 #merc's list never drifts to the compare selector beside it. The width covers the button, so the
 #rows read at any column width and nothing inside the popup has to scroll sideways.
 func popup_rect() -> Rect2i:
-	var rect: Rect2 = get_global_rect()
-	var pos := Vector2i(int(rect.position.x), int(rect.end.y))
-	var height: int = int(list.get_combined_minimum_size().y) + POPUP_PAD
-	return Rect2i(pos, Vector2i(maxi(popup_width, int(rect.size.x)), height))
+	return place_below(self, _popup_size())
 
 
-func _on_pressed() -> void:
-	menu.popup(popup_rect())
+func _popup_size() -> Vector2:
+	return Vector2(maxi(popup_width, int(get_global_rect().size.x)),
+		int(list.get_combined_minimum_size().y) + POPUP_PAD)
 
 
 func _on_row_pressed(index: int) -> void:

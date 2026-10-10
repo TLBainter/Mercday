@@ -1,0 +1,75 @@
+Stats	Calculation	Round	Type	Explanation
+Cognition	clamp(floor(max_cognition / 2.0) + stat_bonus_cognition, 0, max_cognition)	floor	core	Mental Stat. Used for wit and brains.
+Dexterity	clamp(floor(max_dexterity / 2.0) + stat_bonus_dexterity, 0, max_dexterity)	floor	core	Physical Stat. Used for acrobatics and agility.
+Vigor	clamp(floor(max_vigor / 2.0) + stat_bonus_vigor, 0, max_vigor)	floor	core	Physical Stat. Used for strength and health.
+Wile	clamp(floor(max_wile / 2.0) + stat_bonus_wile, 0, max_wile)	floor	core	Mental Stat. Used for personality and spirit.
+Level	0	floor	level	An entity's level. Determines progression.
+Size	0	floor	ancestry	How big a creature is.
+Weight Limit	max(1, vigor + size + 1)	floor	derived	How much weight a creature can carry.
+Speed	(dexterity - size * 10.0) + level	signed	derived	How fast a creature moves in battle.
+Maximum Hit Points	1 + size + max(vigor, wile)	floor	derived	How many hits a creature can take before dying.
+Maximum Endurance Points	1 + vigor	floor	derived	How much energy a creature can spend before being exhausted.
+Maximum Magic Points	1 + max(cognition, wile)	floor	derived	How much magical power a creature can put into effects and abilities.
+Defend Reduction	size + 1	floor	derived	How much a creature reduces damage by when successfully defending.
+Combat	(dexterity + vigor) * 5.0	none	derived	A creature's skill in combat.
+Inner Peace	(wile * 2.5) + 1	none	derived	A creature's sense of inner calm.
+Social	cognition + wile * 5.0	none	derived	A creature's social skills.
+Intellect	(cognition * 5.0) + (wile * 1.5)	none	derived	A creature's ability to reason.
+Unsavory	wile / 10.0	none	derived	How likely this creature is to be okay with doing something vile.
+Luck	(wile * 1.25) + luck_roll	none	derived	The luck a creature has; affects many things.
+Dodge Reduction	(dexterity + (luck / 10)) - size	floor	derived	How much a creature reduces damage by when successfully dodging.
+Defend	size + combat + luck	none	derived	How likely a creature is to defend against a successful incoming attack.
+Dodge	(combat + luck) - size	none	derived	How likely a creature is to dodge an incoming attack.
+Avoid	(dodge / 2.0) + luck	none	derived	The likelihood of a creature not being targeted over others.
+Avoid AoE	avoid	none	derived	The likelihood of a creature being unscathed by multi-target effects.
+Avoid Melee	avoid	none	derived	The likelihood of a creature not being targeted by melee attacks over others.
+Avoid Ranged	avoid	none	derived	The likelihood of a creature not being targeted by ranged attacks over others.
+Cheat Death	luck / 10.0	none	derived	The likelihood of this creature to get back up after reaching 0 Hit Points.
+Reroll	(luck / 10.0) + wile	none	derived	How likely this creature is to reattempt something they failed.
+Accuracy	((dexterity * 10.0) + combat) + (vigor * 2.5)	none	derived	How likely a creature is to hit its target.
+Melee Accuracy	accuracy	none	derived	How likely a creature is to hit its target with a melee attack.
+Ranged Accuracy	accuracy	none	derived	How likely a creature is to hit its target with a ranged attack.
+Thrown Accuracy	max(melee_accuracy, ranged_accuracy) + ((size * 10) - (object_size * 10))	none	derived	How likely a creature is to hit its target with a thrown attack.
+Thrown Range	((vigor * 10) - (object_weight * 10)) if object_weight > 0 else ((vigor * 10) * 2)	floor	derived	The maximum distance a creature can throw an object
+Damage Melee	melee_accuracy / 10.0	floor	derived	The base damage this creature will deal with a melee attack.
+Damage Ranged	ranged_accuracy / 10.0	floor	derived	The base damage this creature will deal with a ranged attack.
+Damage Thrown	thrown_accuracy / 10.0	floor	derived	The base damage this creature will deal with a thrown attack.
+Healthiness	(vigor * 15.0) + luck - 50.0	signed	derived	How healthy a creature is.
+Tolerance	(healthiness / 2.0) + vigor + 25	none	derived	A creature's willingness to tolerate pain.
+Rest Recovery	healthiness	signed	derived	Affects the resource recovery a creature experiences while resting.
+Base Success Chance	level	none	derived	A flat value added to this merc's success chance on every check.
+Assassinate	(dexterity * 2.0) + (grace + speech + performance_wile + attack_dexterity) * 1.25	none	derived	A creature's ability to discretely kill important targets.
+Espionage	social + (wile_circumstance_count * 5.0)	none	derived	A creature's skills in the field of stealth
+Explosives	cognition + dexterity + luck	none	derived	A creature's ability to utilize explosive devices like grenades.
+Monster Hunt	dexterity + search_cognition + notice_cognition + intuition_cognition	none	derived	This merc's ability to excel on monster hunting contracts.
+Negotiate	social + luck + speech	none	derived	A creature's ability to talk someone into or out of something.
+Parkour	((dexterity * 3.0) + (vigor * 2.0) + luck) / 2.0	none	derived	A creature's ability to navigate dense environments like cities or forests.
+Rescue	maximum_hit_points + speed + social	none	derived	The chances of this creature stepping in to protect an ally from harm.
+Support	(wile + 1.0) * 8.0	none	derived	The likelihood of this creature to successfully assist another creature.
+Investigate	(intellect + espionage) / 5.0	none	derived	A creature's ability to solve puzzles and investigate crimes.
+Treasure Hunt	(investigate + luck) / 3.0	none	derived	A creature's ability to unearth valuables.
+Urban	social + parkour	none	derived	This creature's ability to excel in urban environments.
+Zealotry	inner_peace - (wile * 2.0)	none	derived	How firm a creature is in their held beliefs.
+Entertain	(social + (wile * 2.0)) / 2.0	none	derived	One's ability to entertain others.
+Military	(combat + unsavory) / 2.0	none	derived	A creature's familiarity with military tactics and functions.
+Escort	social + combat	none	derived	This merc's ability to excel on escort tasks.
+Royal	(social + military) / 2.0	none	derived	One's familiarity with royalty and matters of court or state.
+Walk	1	none	boolean	Allows a merc to walk around.
+Burrow	0	none	boolean	Allows a merc to dig through the earth.
+Climb	0	none	boolean	Allows a merc to scale vertical surfaces.
+Fly	0	none	boolean	Allows a merc to soar through the air.
+Swim	0	none	boolean	Allows a merc to swim like a fish.
+Cost Modifier	0	none	granted	Decreases all costs a merc pays by this percentage.
+Travel Cost Modifier	0	none	granted	Decreases all travel costs a merc pays by this percentage.
+Land Travel Cost Modifier	0	none	granted	Decreases all land travel costs a merc pays by this percentage.
+Sea Travel Cost Modifier	0	none	granted	Decreases all sea travel costs a merc pays by this percentage.
+Air Travel Cost Modifier	0	none	granted	Decreases all air travel costs a merc pays by this percentage.
+Item Cost Modifier	0	none	granted	Decreases all item costs a merc pays by this percentage.
+Services Cost Modifier	0	none	granted	Decreases the costs of all services this merc purchases by this percentage.
+Action Points	5	floor	granted	The Maximum Action Points a merc has.
+Pace	size + vigor + 1	floor	derived	How many Paces a merc can move with a single Move action
+Max Reputation Points	10	floor	granted	The maximum amount of Reputation Points this merc can have at a given time.
+Jump	(vigor / 2.0) + (parkour / 10.0) + (athletics_vigor / 10.0)	floor	derived	The maximum height/distance a merc can jump.
+Pain Limit	vigor + 1	floor	derived	The maximum amount of pain a creature can tolerate.
+Raw Strength	(vigor * 10.0) + (power_vigor) + (athletics_vigor / 2.0)	none	derived	A character's raw strength; used for pushing around objects.
+Flee	avoid - (max(0, healthiness) * max(1, wile))	signed	derived	Base value; battles add the team HP swing.

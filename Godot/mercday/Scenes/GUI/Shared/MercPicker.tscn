@@ -1,0 +1,62 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ModalDialog.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/MercPicker.gd" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_MercPicker.tres" id="5"]
+
+[node name="MercPicker" instance=ExtResource("1")]
+script = ExtResource("2")
+
+[node name="Title" parent="Box/Pad/Rows/Head/TitleRow"]
+theme_override_colors/font_color = Color(0.94902, 0.54902, 0.156863, 1)
+theme_override_font_sizes/font_size = 14
+
+[node name="Subtitle" type="Label" parent="Box/Pad/Rows"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"DescriptionLabel"
+
+[node name="Scroll" type="ScrollContainer" parent="Box/Pad/Rows"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Pad" type="MarginContainer" parent="Box/Pad/Rows/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 14
+
+[node name="Items" type="VBoxContainer" parent="Box/Pad/Rows/Scroll/Pad"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Empty" type="Label" parent="Box/Pad/Rows"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+theme_override_font_sizes/font_size = 14
+text = "No available mercs."
+horizontal_alignment = 1
+
+[node name="Remove" parent="Box/Pad/Rows" instance=ExtResource("3")]
+visible = false
+layout_mode = 2
+text = "Remove From Slot"
+click_move = 5
+click_shade = 3
+hover_move = 2
+hover_shade = 6
+
+[node name="Buttons" parent="Box/Pad/Rows"]
+visible = false
+
+[node name="HelpTarget" type="Node" parent="Box"]
+script = ExtResource("4")
+hint = ExtResource("5")

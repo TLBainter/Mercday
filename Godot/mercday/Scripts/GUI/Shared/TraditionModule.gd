@@ -8,7 +8,7 @@ class_name TraditionModule extends PanelContainer
 
 enum SizeMode { TITLE, ROW, COMPACT }
 
-const TITLE_BAND_COLOR: Color = Color("#2b4f8a")
+const TITLE_BAND_COLOR: Color = GuiColors.BLUE
 const TITLE_BAND_PX: float = 4.0
 const ROW_BAND_PX: float = 2.0
 const COMPACT_BAND_PX: float = 2.0
@@ -89,10 +89,6 @@ func band_px() -> float:
 		SizeMode.COMPACT:
 			return COMPACT_BAND_PX
 	return TITLE_BAND_PX
-
-
-func is_title() -> bool:
-	return size_mode == SizeMode.TITLE
 
 
 #The three modes differ only in their measurements; the colours and the parts are the same.

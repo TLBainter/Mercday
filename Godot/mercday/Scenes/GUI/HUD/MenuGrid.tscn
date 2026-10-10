@@ -1,7 +1,17 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/HUD/MenuGrid.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/GridMenuButton.tscn" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/menu_mercs.tres" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/menu_contracts.tres" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/menu_clients.tres" id="6"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/menu_promotions.tres" id="7"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/menu_mercday.tres" id="8"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/menu_finance.tres" id="9"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/menu_legal.tres" id="10"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/menu_bazaar.tres" id="11"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/menu_metrics.tres" id="12"]
 
 [node name="MenuGrid" type="GridContainer"]
 columns = 3
@@ -35,3 +45,39 @@ layout_mode = 2
 
 [node name="Btn8" parent="." instance=ExtResource("2")]
 layout_mode = 2
+
+[node name="HelpTarget" type="Node" parent="Btn0"]
+script = ExtResource("3")
+hint = ExtResource("4")
+
+[node name="HelpTarget" type="Node" parent="Btn1"]
+script = ExtResource("3")
+hint = ExtResource("5")
+
+[node name="HelpTarget" type="Node" parent="Btn2"]
+script = ExtResource("3")
+hint = ExtResource("6")
+
+[node name="HelpTarget" type="Node" parent="Btn3"]
+script = ExtResource("3")
+hint = ExtResource("7")
+
+[node name="HelpTarget" type="Node" parent="Btn4"]
+script = ExtResource("3")
+hint = ExtResource("8")
+
+[node name="HelpTarget" type="Node" parent="Btn5"]
+script = ExtResource("3")
+hint = ExtResource("9")
+
+[node name="HelpTarget" type="Node" parent="Btn6"]
+script = ExtResource("3")
+hint = ExtResource("10")
+
+[node name="HelpTarget" type="Node" parent="Btn7"]
+script = ExtResource("3")
+hint = ExtResource("11")
+
+[node name="HelpTarget" type="Node" parent="Btn8"]
+script = ExtResource("3")
+hint = ExtResource("12")

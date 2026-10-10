@@ -112,11 +112,11 @@ static func travel(merc: MercenaryData, state: BattleState, goal: Vector3i, line
 	if ConstStates.has_state(merc, ConstStates.DEPOSED) \
 			and state.can_afford(merc, state.get_cost(merc, "get_up", 2)):
 		lines.append_array(SpecialActionSystem.execute({"action_name": "get_up"}, merc, state, ctx))
-	var locked: bool = ConstStates.is_blocked(merc, "action:move") or MovementExecutor.pace_per_move(merc) <= 0
-	if locked and FleeSystem._can_break_free(merc) \
+	var locked: bool = StateEffects.is_blocked(merc, "action:move") or PaceBudget.pace_per_move(merc) <= 0
+	if locked and FleeMover._can_break_free(merc) \
 			and state.can_afford(merc, state.get_cost(merc, "break_free", 2)):
 		lines.append_array(SpecialActionSystem.execute({"action_name": "break_free"}, merc, state, ctx))
-		locked = ConstStates.is_blocked(merc, "action:move") or MovementExecutor.pace_per_move(merc) <= 0
+		locked = StateEffects.is_blocked(merc, "action:move") or PaceBudget.pace_per_move(merc) <= 0
 	if locked:
 		return false
 	var moved: bool = false
@@ -130,7 +130,7 @@ static func travel(merc: MercenaryData, state: BattleState, goal: Vector3i, line
 			break
 		var nearest: MercenaryData = MovementDecider.closest_enemy(merc, foes, state)
 		if RescueTactics.withdraw_enabled and not withdrew and not merc.advantage_immune \
-				and FleeSystem.in_danger(merc, state) \
+				and FleeGoal.in_danger(merc, state) \
 				and state.can_afford(merc, state.get_cost(merc, "withdraw", 2)):
 			withdrew = true
 			moved = true
@@ -241,7 +241,7 @@ static func _exit_move(merc: MercenaryData, state: BattleState, turn: Dictionary
 
 #Stepping away draws an Advantage Attack unless this turn's Withdraw already covers the merc.
 static func _exposed(merc: MercenaryData, state: BattleState) -> bool:
-	return not merc.advantage_immune and FleeSystem.in_danger(merc, state)
+	return not merc.advantage_immune and FleeGoal.in_danger(merc, state)
 
 
 #A fall-back merc that may not leave yet stops beside the exit cell so the captive can still use it.

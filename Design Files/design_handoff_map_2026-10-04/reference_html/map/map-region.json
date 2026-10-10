@@ -1,0 +1,806 @@
+{
+ "description": "Region layer. Approximate painted areas for the terrain labels of the labeled map (seas, bays, ranges, plains, forests, rivers). Each region has one flat color; transparent pixels belong to no region. Seas are clipped to non-land and extend into the canvas pad; land features are clipped to land; rivers follow the river pixels of the Color layer. Lover's Branch has a water part and a river part under one color. Minor streams without a label are transparent.",
+ "layer": "Region",
+ "canvas": [
+  5696,
+  2960
+ ],
+ "regions": [
+  {
+   "id": 1,
+   "name": "Marric Sea",
+   "category": "sea",
+   "color": "#1eff96",
+   "pixels": 2166263,
+   "percent": 24.54
+  },
+  {
+   "id": 2,
+   "name": "Gledd Sea",
+   "category": "sea",
+   "color": "#78ff1e",
+   "pixels": 1298819,
+   "percent": 14.71
+  },
+  {
+   "id": 3,
+   "name": "Halen Ocean",
+   "category": "sea",
+   "color": "#ff6996",
+   "pixels": 2415439,
+   "percent": 27.36
+  },
+  {
+   "id": 4,
+   "name": "Fjord Diviir",
+   "category": "fjord",
+   "color": "#1eff1e",
+   "pixels": 90100,
+   "percent": 1.02
+  },
+  {
+   "id": 5,
+   "name": "Gulf of Buern",
+   "category": "gulf",
+   "color": "#ff87ff",
+   "pixels": 346801,
+   "percent": 3.93,
+   "label_x": 2042,
+   "label_y": 2419
+  },
+  {
+   "id": 6,
+   "name": "Bay of Intaer",
+   "category": "bay",
+   "color": "#964bff",
+   "pixels": 89171,
+   "percent": 1.01
+  },
+  {
+   "id": 7,
+   "name": "Gaeti's Bight",
+   "category": "bight",
+   "color": "#78ff96",
+   "pixels": 127439,
+   "percent": 1.44
+  },
+  {
+   "id": 8,
+   "name": "Faisal's Eye",
+   "category": "lake",
+   "color": "#c3ff4b",
+   "pixels": 102260,
+   "percent": 1.16
+  },
+  {
+   "id": 9,
+   "name": "Lover's Branch",
+   "category": "waterway",
+   "color": "#4b1eff",
+   "pixels": 86365,
+   "percent": 0.98
+  },
+  {
+   "id": 10,
+   "name": "Sidara's Lake",
+   "category": "lake",
+   "color": "#87ffff",
+   "pixels": 188075,
+   "percent": 2.13
+  },
+  {
+   "id": 11,
+   "name": "Yahn Bay",
+   "category": "bay",
+   "color": "#1e1eb4",
+   "pixels": 9304,
+   "percent": 0.11
+  },
+  {
+   "id": 12,
+   "name": "Abmaw Bank",
+   "category": "bank",
+   "color": "#f01e96",
+   "pixels": 4451,
+   "percent": 0.05
+  },
+  {
+   "id": 13,
+   "name": "Chwahwr",
+   "category": "cove",
+   "color": "#4bff5a",
+   "pixels": 30744,
+   "percent": 0.35
+  },
+  {
+   "id": 14,
+   "name": "Karina's Bay",
+   "category": "bay",
+   "color": "#1ea5c3",
+   "pixels": 29959,
+   "percent": 0.34
+  },
+  {
+   "id": 15,
+   "name": "Baraka Fjord",
+   "category": "fjord",
+   "color": "#a51e69",
+   "pixels": 48462,
+   "percent": 0.55
+  },
+  {
+   "id": 16,
+   "name": "Ushiin Cove",
+   "category": "cove",
+   "color": "#6996ff",
+   "pixels": 24554,
+   "percent": 0.28
+  },
+  {
+   "id": 17,
+   "name": "Aldur's Fangs",
+   "category": "rocks",
+   "color": "#d25a5a",
+   "pixels": 6247,
+   "percent": 0.07
+  },
+  {
+   "id": 18,
+   "name": "Rossian Channel",
+   "category": "channel",
+   "color": "#b41e1e",
+   "pixels": 36813,
+   "percent": 0.42
+  },
+  {
+   "id": 19,
+   "name": "Robi Cove",
+   "category": "cove",
+   "color": "#b487ff",
+   "pixels": 12885,
+   "percent": 0.15
+  },
+  {
+   "id": 20,
+   "name": "Glimmerglen Spout",
+   "category": "strait",
+   "color": "#ffff69",
+   "pixels": 2927,
+   "percent": 0.03
+  },
+  {
+   "id": 21,
+   "name": "Zamstrov Isles",
+   "category": "isles",
+   "color": "#b4d21e",
+   "pixels": 20400,
+   "percent": 0.23
+  },
+  {
+   "id": 22,
+   "name": "Belameir Icefield",
+   "category": "icefield",
+   "color": "#e196c3",
+   "pixels": 117701,
+   "percent": 1.33
+  },
+  {
+   "id": 23,
+   "name": "Bair Taiga",
+   "category": "taiga",
+   "color": "#1e87ff",
+   "pixels": 61095,
+   "percent": 0.69
+  },
+  {
+   "id": 24,
+   "name": "Leonov's Rest",
+   "category": "coast",
+   "color": "#2dc387",
+   "pixels": 9549,
+   "percent": 0.11
+  },
+  {
+   "id": 25,
+   "name": "Batalkan",
+   "category": "mountains",
+   "color": "#4bffc3",
+   "pixels": 38951,
+   "percent": 0.44
+  },
+  {
+   "id": 26,
+   "name": "Leonov's Landing",
+   "category": "coast",
+   "color": "#c34b96",
+   "pixels": 12716,
+   "percent": 0.14
+  },
+  {
+   "id": 27,
+   "name": "Vaern Pass",
+   "category": "pass",
+   "color": "#ff3c1e",
+   "pixels": 8143,
+   "percent": 0.09
+  },
+  {
+   "id": 28,
+   "name": "Behlwood",
+   "category": "wood",
+   "color": "#87f05a",
+   "pixels": 16800,
+   "percent": 0.19
+  },
+  {
+   "id": 29,
+   "name": "Rozhi's Shieldwall",
+   "category": "mountains",
+   "color": "#b4ff87",
+   "pixels": 23910,
+   "percent": 0.27
+  },
+  {
+   "id": 30,
+   "name": "Nortmol",
+   "category": "plains",
+   "color": "#c35ad2",
+   "pixels": 11643,
+   "percent": 0.13
+  },
+  {
+   "id": 31,
+   "name": "Forlog Pines",
+   "category": "pines",
+   "color": "#1e961e",
+   "pixels": 14839,
+   "percent": 0.17,
+   "label_x": 2890,
+   "label_y": 751
+  },
+  {
+   "id": 32,
+   "name": "Molbroto Tundra",
+   "category": "tundra",
+   "color": "#1e4bff",
+   "pixels": 31406,
+   "percent": 0.36
+  },
+  {
+   "id": 33,
+   "name": "Spine of Aldur",
+   "category": "mountains",
+   "color": "#1effff",
+   "pixels": 37937,
+   "percent": 0.43
+  },
+  {
+   "id": 34,
+   "name": "Toppuran Spires",
+   "category": "mountains",
+   "color": "#c3961e",
+   "pixels": 23770,
+   "percent": 0.27
+  },
+  {
+   "id": 35,
+   "name": "Rotbreach",
+   "category": "mountains",
+   "color": "#5a1ec3",
+   "pixels": 46144,
+   "percent": 0.52,
+   "label_x": 3925,
+   "label_y": 940
+  },
+  {
+   "id": 36,
+   "name": "Ayala's Rest",
+   "category": "mountains",
+   "color": "#b41ee1",
+   "pixels": 22760,
+   "percent": 0.26
+  },
+  {
+   "id": 37,
+   "name": "Lugnaf Boreal",
+   "category": "boreal forest",
+   "color": "#78c31e",
+   "pixels": 42242,
+   "percent": 0.48
+  },
+  {
+   "id": 38,
+   "name": "Kitazu Peninsula",
+   "category": "peninsula",
+   "color": "#f08769",
+   "pixels": 13232,
+   "percent": 0.15
+  },
+  {
+   "id": 39,
+   "name": "Lazia",
+   "category": "plains",
+   "color": "#781e3c",
+   "pixels": 6177,
+   "percent": 0.07
+  },
+  {
+   "id": 40,
+   "name": "Plains of Ushu",
+   "category": "plains",
+   "color": "#ffffc3",
+   "pixels": 114939,
+   "percent": 1.3
+  },
+  {
+   "id": 41,
+   "name": "Moru Thicket",
+   "category": "thicket",
+   "color": "#1ee14b",
+   "pixels": 28929,
+   "percent": 0.33
+  },
+  {
+   "id": 42,
+   "name": "Nonamian Hills",
+   "category": "hills",
+   "color": "#1ee1c3",
+   "pixels": 15910,
+   "percent": 0.18
+  },
+  {
+   "id": 43,
+   "name": "Ebul",
+   "category": "forest",
+   "color": "#3cd21e",
+   "pixels": 640,
+   "percent": 0.01
+  },
+  {
+   "id": 44,
+   "name": "Suorran Plains",
+   "category": "plains",
+   "color": "#96ffc3",
+   "pixels": 13807,
+   "percent": 0.16
+  },
+  {
+   "id": 45,
+   "name": "Iyaad's Pass",
+   "category": "pass",
+   "color": "#d25a1e",
+   "pixels": 9659,
+   "percent": 0.11,
+   "label_x": 2976,
+   "label_y": 1191
+  },
+  {
+   "id": 46,
+   "name": "Indra's Shield",
+   "category": "mountains",
+   "color": "#e1b4ff",
+   "pixels": 34466,
+   "percent": 0.39,
+   "label_x": 2878,
+   "label_y": 1194
+  },
+  {
+   "id": 47,
+   "name": "Indra's Blade",
+   "category": "mountains",
+   "color": "#ff69d2",
+   "pixels": 20374,
+   "percent": 0.23,
+   "label_x": 3030,
+   "label_y": 1172
+  },
+  {
+   "id": 48,
+   "name": "Abmar Desert",
+   "category": "desert",
+   "color": "#5ad2a5",
+   "pixels": 65893,
+   "percent": 0.75
+  },
+  {
+   "id": 49,
+   "name": "Tiir Savanna",
+   "category": "savanna",
+   "color": "#ff3c69",
+   "pixels": 20879,
+   "percent": 0.24
+  },
+  {
+   "id": 50,
+   "name": "Tiir Wood",
+   "category": "wood",
+   "color": "#1e5ab4",
+   "pixels": 10081,
+   "percent": 0.11,
+   "label_x": 3540,
+   "label_y": 1338
+  },
+  {
+   "id": 51,
+   "name": "Kathayan Grassland",
+   "category": "grassland",
+   "color": "#ffd24b",
+   "pixels": 27544,
+   "percent": 0.31
+  },
+  {
+   "id": 52,
+   "name": "Bardholt",
+   "category": "forest",
+   "color": "#1e9669",
+   "pixels": 52823,
+   "percent": 0.6
+  },
+  {
+   "id": 53,
+   "name": "Miru Pass",
+   "category": "pass",
+   "color": "#781e87",
+   "pixels": 6556,
+   "percent": 0.07
+  },
+  {
+   "id": 54,
+   "name": "Tengoshi Forest",
+   "category": "forest",
+   "color": "#ffc3d2",
+   "pixels": 53890,
+   "percent": 0.61
+  },
+  {
+   "id": 55,
+   "name": "The Glassar",
+   "category": "other",
+   "color": "#5ad269",
+   "pixels": 16122,
+   "percent": 0.18
+  },
+  {
+   "id": 56,
+   "name": "Lecaille's Ridge",
+   "category": "ridge",
+   "color": "#78d2f0",
+   "pixels": 9836,
+   "percent": 0.11
+  },
+  {
+   "id": 57,
+   "name": "Westwood",
+   "category": "wood",
+   "color": "#5a4bff",
+   "pixels": 28924,
+   "percent": 0.33
+  },
+  {
+   "id": 58,
+   "name": "Westreach",
+   "category": "mountains",
+   "color": "#781ef0",
+   "pixels": 42380,
+   "percent": 0.48
+  },
+  {
+   "id": 59,
+   "name": "Esther Savannah",
+   "category": "savanna",
+   "color": "#c31ea5",
+   "pixels": 49279,
+   "percent": 0.56
+  },
+  {
+   "id": 60,
+   "name": "Erakha Wood",
+   "category": "wood",
+   "color": "#c37887",
+   "pixels": 113080,
+   "percent": 1.28,
+   "label_x": 2283,
+   "label_y": 1852
+  },
+  {
+   "id": 61,
+   "name": "Divine Reach",
+   "category": "mountains",
+   "color": "#c3ffb4",
+   "pixels": 15420,
+   "percent": 0.17
+  },
+  {
+   "id": 62,
+   "name": "Divine Wall",
+   "category": "mountains",
+   "color": "#d25aff",
+   "pixels": 21276,
+   "percent": 0.24
+  },
+  {
+   "id": 63,
+   "name": "Nathair's Prairie",
+   "category": "prairie",
+   "color": "#d2ff1e",
+   "pixels": 24938,
+   "percent": 0.28
+  },
+  {
+   "id": 64,
+   "name": "Muhl Flats",
+   "category": "flats",
+   "color": "#f09696",
+   "pixels": 6190,
+   "percent": 0.07,
+   "label_x": 1846,
+   "label_y": 1166
+  },
+  {
+   "id": 65,
+   "name": "Muhlmound",
+   "category": "mounds",
+   "color": "#1e1ee1",
+   "pixels": 33272,
+   "percent": 0.38
+  },
+  {
+   "id": 66,
+   "name": "Ultimsicao",
+   "category": "wasteland",
+   "color": "#3c96e1",
+   "pixels": 16757,
+   "percent": 0.19
+  },
+  {
+   "id": 67,
+   "name": "Ridge Mpevan",
+   "category": "mountains",
+   "color": "#4bf087",
+   "pixels": 18866,
+   "percent": 0.21
+  },
+  {
+   "id": 68,
+   "name": "Pretan Sands",
+   "category": "sands",
+   "color": "#4bff1e",
+   "pixels": 39431,
+   "percent": 0.45
+  },
+  {
+   "id": 69,
+   "name": "Yrspholahs",
+   "category": "crash site",
+   "color": "#5ae13c",
+   "pixels": 12026,
+   "percent": 0.37,
+   "label_x": 1175,
+   "label_y": 1625,
+   "description": "The fallen sky city: a colossal ball of wreckage built from cities torn out of the earth."
+  },
+  {
+   "id": 70,
+   "name": "Effarswyd",
+   "category": "impact scar",
+   "color": "#5affff",
+   "pixels": 59336,
+   "percent": 0.31,
+   "label_x": 1545,
+   "label_y": 1522,
+   "description": "Impact point and drag scar of the sky city that came to rest at Yrspholahs."
+  },
+  {
+   "id": 71,
+   "name": "Mt. Zakiya",
+   "category": "mountain",
+   "color": "#785ae1",
+   "pixels": 12269,
+   "percent": 0.14,
+   "volcano": true,
+   "dormant": true
+  },
+  {
+   "id": 72,
+   "name": "Leandra's Breach",
+   "category": "canyon",
+   "color": "#963c4b",
+   "pixels": 8326,
+   "percent": 0.09
+  },
+  {
+   "id": 73,
+   "name": "Birlihk Freshet",
+   "category": "river",
+   "color": "#a5e1a5",
+   "pixels": 5260,
+   "percent": 0.06
+  },
+  {
+   "id": 74,
+   "name": "Kilioref West",
+   "category": "river",
+   "color": "#a5ff1e",
+   "pixels": 4949,
+   "percent": 0.06
+  },
+  {
+   "id": 75,
+   "name": "Birlihk South",
+   "category": "river",
+   "color": "#b4ffff",
+   "pixels": 2309,
+   "percent": 0.03
+  },
+  {
+   "id": 76,
+   "name": "Kilioref River",
+   "category": "river",
+   "color": "#c33c3c",
+   "pixels": 4057,
+   "percent": 0.05
+  },
+  {
+   "id": 77,
+   "name": "Kilioref South",
+   "category": "river",
+   "color": "#d22d78",
+   "pixels": 2541,
+   "percent": 0.03
+  },
+  {
+   "id": 78,
+   "name": "Ehdeth River",
+   "category": "river",
+   "color": "#e13cb4",
+   "pixels": 6188,
+   "percent": 0.07
+  },
+  {
+   "id": 79,
+   "name": "Crawdflow",
+   "category": "river",
+   "color": "#ffff96",
+   "pixels": 8583,
+   "percent": 0.1
+  },
+  {
+   "id": 80,
+   "name": "Corru River",
+   "category": "river",
+   "color": "#1eff69",
+   "pixels": 13987,
+   "percent": 0.16
+  },
+  {
+   "id": 81,
+   "name": "Corru West",
+   "category": "river",
+   "color": "#3c3cb4",
+   "pixels": 8309,
+   "percent": 0.09
+  },
+  {
+   "id": 82,
+   "name": "Aisling Rapids",
+   "category": "river",
+   "color": "#3cc3c3",
+   "pixels": 5838,
+   "percent": 0.07
+  },
+  {
+   "id": 83,
+   "name": "Aisling Falls",
+   "category": "river",
+   "color": "#8778ff",
+   "pixels": 7294,
+   "percent": 0.08,
+   "label_x": 2986,
+   "label_y": 2350
+  },
+  {
+   "id": 84,
+   "name": "Ogham's Run",
+   "category": "river",
+   "color": "#96a5ff",
+   "pixels": 8494,
+   "percent": 0.1
+  },
+  {
+   "id": 85,
+   "name": "Tsukika",
+   "category": "river",
+   "color": "#c3783c",
+   "pixels": 9749,
+   "percent": 0.11
+  },
+  {
+   "id": 86,
+   "name": "Hoshiza",
+   "category": "river",
+   "color": "#e169b4",
+   "pixels": 7694,
+   "percent": 0.09
+  },
+  {
+   "id": 87,
+   "name": "Gokmagam",
+   "category": "river",
+   "color": "#e1b41e",
+   "pixels": 5728,
+   "percent": 0.06
+  },
+  {
+   "id": 88,
+   "name": "Kuzeylkovan",
+   "category": "river",
+   "color": "#1ea596",
+   "pixels": 4593,
+   "percent": 0.05
+  },
+  {
+   "id": 89,
+   "name": "Fjordvein Tributary",
+   "category": "river",
+   "color": "#693cd2",
+   "pixels": 10012,
+   "percent": 0.11
+  },
+  {
+   "id": 90,
+   "name": "Fjordvein South",
+   "category": "river",
+   "color": "#69e1c3",
+   "pixels": 9819,
+   "percent": 0.11
+  },
+  {
+   "id": 91,
+   "name": "Fjordeluun",
+   "category": "river",
+   "color": "#872d1e",
+   "pixels": 4447,
+   "percent": 0.05
+  },
+  {
+   "id": 92,
+   "name": "Serpent Demarais",
+   "category": "river",
+   "color": "#87e12d",
+   "pixels": 4159,
+   "percent": 0.05
+  },
+  {
+   "id": 93,
+   "name": "Serpent's Tongue",
+   "category": "river",
+   "color": "#964bd2",
+   "pixels": 4024,
+   "percent": 0.05
+  },
+  {
+   "id": 94,
+   "name": "Abbscurite Vein",
+   "category": "river",
+   "color": "#a54b69",
+   "pixels": 9097,
+   "percent": 0.1
+  },
+  {
+   "id": 95,
+   "name": "Mawlenbyd",
+   "category": "river",
+   "color": "#a569f0",
+   "pixels": 7720,
+   "percent": 0.09
+  },
+  {
+   "id": 96,
+   "name": "Mtoflow",
+   "category": "river",
+   "color": "#a5e14b",
+   "pixels": 4069,
+   "percent": 0.05
+  }
+ ]
+}

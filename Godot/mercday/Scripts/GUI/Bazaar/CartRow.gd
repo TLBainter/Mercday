@@ -37,7 +37,8 @@ var _each: Label = null
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", BazaarUi.flat(BazaarUi.NAVY2, 0, BazaarUi.NAVY2, 8.0))
+	add_theme_stylebox_override("panel",
+		GuiStyle.flat(GuiColors.ROW_HOVER, 0, GuiColors.ROW_HOVER, 8.0))
 	_build()
 	_refresh()
 
@@ -73,40 +74,35 @@ func each_text() -> String:
 
 
 func _build() -> void:
-	var row: HBoxContainer = BazaarUi.hbox(ROW_GAP)
+	var row: HBoxContainer = GuiStyle.hbox(ROW_GAP)
 	add_child(row)
-	_slot = ContractImageBox.new()
-	_slot.custom_minimum_size = Vector2(IMAGE_PX, IMAGE_PX)
-	_slot.stripe_color = BazaarUi.BLUE
-	_slot.ring_px = 2
+	_slot = BazaarUi.image_slot(item, IMAGE_PX)
 	row.add_child(_slot)
-	var text_rows: VBoxContainer = BazaarUi.vbox(TEXT_GAP)
+	var text_rows: VBoxContainer = GuiStyle.vbox(TEXT_GAP)
 	text_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text_rows.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(text_rows)
-	_name = BazaarUi.silk_bold("", NAME_SIZE, BazaarUi.CREAM)
+	_name = GuiStyle.label("", GuiStyle.SILK_BOLD, NAME_SIZE, GuiColors.CREAM)
 	text_rows.add_child(_name)
-	_meta = BazaarUi.body("", META_SIZE, BazaarUi.MUTED)
+	_meta = GuiStyle.label("", GuiStyle.BODY, META_SIZE, GuiColors.MUTED)
 	text_rows.add_child(_meta)
-	_eta = BazaarUi.body("", ETA_SIZE, BazaarUi.GREEN)
+	_eta = GuiStyle.label("", GuiStyle.BODY, ETA_SIZE, GuiColors.GREEN)
 	text_rows.add_child(_eta)
-	_remove = BazaarUi.link("Remove", BazaarUi.RED, LINK_SIZE)
+	_remove = BazaarUi.link("Remove", GuiColors.RED, LINK_SIZE)
 	_remove.pressed.connect(_on_remove_pressed)
 	text_rows.add_child(_remove)
-	var right: VBoxContainer = BazaarUi.vbox(TEXT_GAP)
+	var right: VBoxContainer = GuiStyle.vbox(TEXT_GAP)
 	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(right)
-	var ring: PanelContainer = BazaarUi.panel_box(BazaarUi.INK, 2, BazaarUi.GREEN, 2.0)
-	right.add_child(ring)
 	_stepper = QUANTITY_SCENE.instantiate() as QuantityStepper
 	_stepper.min_value = 0
 	_stepper.value_changed.connect(_on_qty_changed)
-	ring.add_child(_stepper)
-	_total = BazaarUi.notes(0, TOTAL_SIZE, BazaarUi.CREAM)
+	right.add_child(BazaarUi.ringed_stepper(_stepper))
+	_total = GuiStyle.notes(0, TOTAL_SIZE, GuiColors.CREAM)
 	_total.bold = true
 	_total.alignment = BoxContainer.ALIGNMENT_END
 	right.add_child(_total)
-	_each = BazaarUi.body("", EACH_SIZE, BazaarUi.MUTED)
+	_each = GuiStyle.label("", GuiStyle.BODY, EACH_SIZE, GuiColors.MUTED)
 	_each.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	right.add_child(_each)
 
@@ -127,7 +123,7 @@ func _refresh() -> void:
 	_eta.text = "Arrives %s" % BazaarUi.eta_text(BazaarManager.delivery_days(), GameState.day())
 	_stepper.set_value_silent(qty)
 	_total.amount = line_total()
-	_each.text = "%s each" % NotesLabel.format_amount(item.price)
+	_each.text = "%s each" % TransactionData.grouped(item.price)
 
 
 func _on_remove_pressed() -> void:

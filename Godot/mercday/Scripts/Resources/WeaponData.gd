@@ -1,8 +1,6 @@
 class_name WeaponData extends ItemData
 
 var weapon_type: String
-var weight: int
-var cost: int
 var damage_formula_1: String
 var damage_types_1: Array[String]
 var damage_formula_2: String
@@ -28,15 +26,15 @@ var is_throwable: bool
 var has_heavy: bool
 var has_light: bool
 var has_extend: bool
-var melee_range: int           # 1 normally, 2 with Extend property
-var ranged_intended_range: int # first number of range_ranged (e.g. 45 in "45/200")
-var ranged_extended_range: int # second number; attacks here are +1 Flawed
+var melee_range: int  #1 normally, 2 with Extend property
+var ranged_intended_range: int  #first number of range_ranged (e.g. 45 in "45/200")
+var ranged_extended_range: int  #second number; attacks here are +1 Flawed
 var thrown_intended_range: int
 var thrown_extended_range: int
-var is_virtual: bool = false   # always-available pseudo-weapon; never stored in inventory
+var is_virtual: bool = false  #always-available pseudo-weapon; never stored in inventory
 
-var fragility: int = 0           # 0 = indestructible; >0 = makeshift weapon, rolls fragility dice on each use
-var current_fragility: int = 0   # runtime counter; decrements on survival roll; 0 = broken (when fragility > 0)
+var fragility: int = 0  #0 = indestructible; >0 = makeshift weapon, rolls fragility dice on each use
+var current_fragility: int = 0  #runtime counter; decrements on survival roll; 0 = broken (when fragility > 0)
 var base_weapon: WeaponData = null
 #A cut bowstring stops the weapon shooting until it is repaired.
 var string_snapped: bool = false

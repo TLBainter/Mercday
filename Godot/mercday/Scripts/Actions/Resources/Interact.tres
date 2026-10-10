@@ -1,8 +1,9 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://c5j5br3noi2ak"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/InteractTargetFacet.gd" id="InteractTargetFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_3wv8c"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://bdeb84wg8qv1v" path="res://Scripts/Decisions/InteractTargetFacet.gd" id="InteractTargetFacet"]
 
 [sub_resource type="Resource" id="facet_interact"]
 script = ExtResource("InteractTargetFacet")
@@ -10,14 +11,11 @@ is_required = true
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_interact")]
-threshold = 0.5
+facets = Array[ExtResource("1_3wv8c")]([SubResource("facet_interact")])
 
 [resource]
 script = ExtResource("ActionData")
 action_name = "Interact"
 ap_cost = 2
 priority = 38
-execution_type = "special"
-target_mode = "none"
 decision = SubResource("decision")

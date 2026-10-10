@@ -1,4 +1,4 @@
-class_name OverviewTab extends ScrollContainer
+class_name OverviewTab extends MarginContainer
 
 #The first tab: the tradition title row, the four attributes, one middle row holding the level badge
 #over the Coaching box, the resource bars and the scrolling lifepath list, then the captioned info
@@ -8,10 +8,9 @@ class_name OverviewTab extends ScrollContainer
 
 const EMPTY_TEXT: String = "None"
 const LIFEPATH_SLOTS: int = 8
-const UTILITY_SLOTS: int = 6
 const HP_COLOR: Color = Color("#d6453d")
-const EP_COLOR: Color = Color("#6cc36a")
-const MP_COLOR: Color = Color("#5aa6e8")
+const EP_COLOR: Color = GuiColors.GREEN
+const MP_COLOR: Color = GuiColors.LIGHT_BLUE
 const LIFEPATH_KIND: String = "Lifepath Event"
 const KNOWLEDGE_KIND: String = "Knowledge"
 const TOOL_KIND: String = "Tool"
@@ -36,10 +35,13 @@ signal coach_pressed
 @onready var lifepath_scroll: ScrollContainer = $Pad/Rows/Middle/Lifepath/Scroll
 @onready var lifepath_lock: LockBlock = $Pad/Rows/Middle/Lifepath/Lock
 @onready var lifepath_list: VBoxContainer = $Pad/Rows/Middle/Lifepath/Scroll/Pad/Chips
+@onready var lifepath_head: SectionHead = $Pad/Rows/Middle/Lifepath/Head
 @onready var lifepath_count: Label = $Pad/Rows/Middle/Lifepath/Head/Count
+@onready var knowledge_group: ChipGroup = $Pad/Rows/Groups/Knowledges
 @onready var knowledge_grid: GridContainer = $Pad/Rows/Groups/Knowledges/Chips
 @onready var knowledge_lock: LockBlock = $Pad/Rows/Groups/Knowledges/Lock
 @onready var knowledge_count: Label = $Pad/Rows/Groups/Knowledges/Head/Count
+@onready var tool_group: ChipGroup = $Pad/Rows/Groups/Tools
 @onready var tool_grid: GridContainer = $Pad/Rows/Groups/Tools/Chips
 @onready var tool_lock: LockBlock = $Pad/Rows/Groups/Tools/Lock
 @onready var tool_count: Label = $Pad/Rows/Groups/Tools/Head/Count
@@ -48,6 +50,13 @@ signal coach_pressed
 var view: MercView = null
 #An applicant is not on the payroll, so coaching is on the page but out of reach.
 var applicant_mode: bool = false
+
+#Keyless: each LockBlock reads its own key, so the gate only carries the plan change.
+var _gate: LockGate = LockGate.new()
+
+
+func _init() -> void:
+	add_child(_gate, false, Node.INTERNAL_MODE_FRONT)
 
 
 func _ready() -> void:
@@ -58,17 +67,11 @@ func _ready() -> void:
 	coaching.coach_pressed.connect(_on_coach_pressed)
 	coaching.hover_started.connect(_on_coach_entered)
 	coaching.hover_ended.connect(_on_chip_exited)
-	if not SubscriptionManager.changed.is_connected(_apply_locks):
-		SubscriptionManager.changed.connect(_apply_locks)
+	_gate.changed.connect(_apply_locks)
 	_wire_chips(lifepath_list)
 	_wire_chips(knowledge_grid)
 	_wire_chips(tool_grid)
 	_apply_locks()
-
-
-func _exit_tree() -> void:
-	if SubscriptionManager.changed.is_connected(_apply_locks):
-		SubscriptionManager.changed.disconnect(_apply_locks)
 
 
 func set_view(new_view: MercView) -> void:
@@ -112,16 +115,6 @@ func coaching_box() -> CoachingBox:
 	return coaching
 
 
-func locks() -> Array[LockBlock]:
-	var out: Array[LockBlock] = []
-	if not is_node_ready():
-		return out
-	out.append(lifepath_lock)
-	out.append(knowledge_lock)
-	out.append(tool_lock)
-	return out
-
-
 #An empty roster leaves the page readable: the title row and the badge fall back to their blanks.
 func _clear_view() -> void:
 	title_row.tradition = ""
@@ -143,24 +136,22 @@ func _apply_locks() -> void:
 	for row: Array in rows:
 		var block: LockBlock = row[0] as LockBlock
 		block.refresh()
-		var shut: bool = block.is_locked()
+		var shut: bool = block.gate.is_locked()
 		(row[1] as Control).visible = not shut
 		(row[2] as Control).visible = not shut
 
 
 func _update_counts() -> void:
-	lifepath_count.text = "%d/%d" % [filled_count(lifepath_chips()), LIFEPATH_SLOTS]
-	knowledge_count.text = "%d/%d" % [filled_count(knowledge_chips()), UTILITY_SLOTS]
-	tool_count.text = "%d/%d" % [filled_count(tool_chips()), UTILITY_SLOTS]
+	lifepath_head.count_text = "%d/%d" % [filled_count(lifepath_chips()), LIFEPATH_SLOTS]
+	knowledge_group.set_filled(filled_count(knowledge_chips()))
+	tool_group.set_filled(filled_count(tool_chips()))
 
 
 func attribute_boxes() -> Array[AttributeBox]:
 	var out: Array[AttributeBox] = []
 	if not is_node_ready():
 		return out
-	for child: Node in attributes.get_children():
-		if child is AttributeBox:
-			out.append(child as AttributeBox)
+	out.assign(GuiNodes.children_of(attributes, AttributeBox))
 	return out
 
 
@@ -205,9 +196,7 @@ func _chips(grid: Container) -> Array[SlotChip]:
 	var out: Array[SlotChip] = []
 	if not is_node_ready():
 		return out
-	for child: Node in grid.get_children():
-		if child is SlotChip:
-			out.append(child as SlotChip)
+	out.assign(GuiNodes.children_of(grid, SlotChip))
 	return out
 
 

@@ -7,8 +7,6 @@ const ELDER_XP_PERCENT := 115
 const YOUNG_XP_PERCENT := 50
 const AGE_PHYSICAL: Array[String] = ["vigor", "dexterity"]
 const AGE_MENTAL: Array[String] = ["cognition", "wile"]
-const AGE_PHYSICAL_MAX: Array[String] = ["max_vigor", "max_dexterity"]
-const AGE_MENTAL_MAX: Array[String] = ["max_cognition", "max_wile"]
 const AGELESS_MIN_AGE := 3
 const AGELESS_MAX_AGE := 150
 
@@ -94,23 +92,26 @@ static func apply_age_effects(merc: MercenaryData, category: String) -> void:
 		AGE_ELDER:
 			_shift_core_stat(merc, AGE_PHYSICAL, -1, 1)
 			_shift_core_stat(merc, AGE_MENTAL, 1, 0)
-			_shift_max_stats(merc, AGE_PHYSICAL_MAX, -1)
-			_shift_max_stats(merc, AGE_MENTAL_MAX, 1)
-			if MercGenerator.forced_level < 0:
-				merc.xp = floori(float(merc.xp * ELDER_XP_PERCENT) / 100.0)
-				ExperienceSystem.set_level_from_xp(merc)
+			_shift_max_stats(merc, AGE_PHYSICAL, -1)
+			_shift_max_stats(merc, AGE_MENTAL, 1)
+			_scale_xp(merc, ELDER_XP_PERCENT)
 			_grant_age_lifepath(merc)
 		AGE_YOUNG:
 			_shift_core_stat(merc, AGE_PHYSICAL, 1, 0)
 			_shift_core_stat(merc, AGE_MENTAL, -1, 0)
-			_shift_max_stats(merc, AGE_PHYSICAL_MAX, 1)
-			if MercGenerator.forced_level < 0:
-				merc.xp = floori(float(merc.xp * YOUNG_XP_PERCENT) / 100.0)
-				ExperienceSystem.set_level_from_xp(merc)
+			_shift_max_stats(merc, AGE_PHYSICAL, 1)
+			_scale_xp(merc, YOUNG_XP_PERCENT)
+
+
+#Scales xp by the percent, rounded down, and sets the level it implies; a forced level keeps its xp.
+static func _scale_xp(merc: MercenaryData, percent: int) -> void:
+	if MercGenerator.forced_level < 0:
+		merc.xp = floori(float(merc.xp * percent) / 100.0)
+		ExperienceSystem.set_level_from_xp(merc)
 
 
 #Moves one named core stat by delta; a stat that would break the floor or its maximum is skipped.
-static func _shift_core_stat(merc: MercenaryData, keys: Array[String], delta: int, floor_value: int) -> String:
+static func _shift_core_stat(merc: MercenaryData, keys: Array[String], delta: int, floor_value: int) -> void:
 	var order: Array[String] = keys.duplicate()
 	order.shuffle()
 	for key: String in order:
@@ -122,13 +123,13 @@ static func _shift_core_stat(merc: MercenaryData, keys: Array[String], delta: in
 			continue
 		merc.stat_bonuses[key] = float(merc.stat_bonuses.get(key, 0.0)) + float(delta)
 		StatCalculator.refresh(merc)
-		return key
-	return ""
+		return
 
 
 static func _shift_max_stats(merc: MercenaryData, keys: Array[String], delta: int) -> void:
 	for key: String in keys:
-		merc.max_stats[key] = maxi(1, int(merc.max_stats.get(key, 0)) + delta)
+		var max_key: String = "max_" + key
+		merc.max_stats[max_key] = maxi(1, int(merc.max_stats.get(max_key, 0)) + delta)
 	StatCalculator.refresh(merc)
 
 
@@ -146,7 +147,7 @@ static func elder_event_pool(merc: MercenaryData) -> Array[String]:
 
 
 #One extra Elder event: paying Experienced rows except Buddy and In Love, by rarity, no requirement gate; else Starting.
-static func _grant_age_lifepath(merc: MercenaryData) -> String:
+static func _grant_age_lifepath(merc: MercenaryData) -> void:
 	var names: Array[String] = elder_event_pool(merc)
 	var pick: String = LifepathProgression.draw(names) if not names.is_empty() else ""
 	if pick == "":
@@ -157,6 +158,5 @@ static func _grant_age_lifepath(merc: MercenaryData) -> String:
 		if not items.is_empty():
 			pick = WeightedTable.roll(items)
 	if pick == "":
-		return ""
-	var lines: Array[String] = LifepathProgression.grant(merc, pick)
-	return pick if not lines.is_empty() else ""
+		return
+	LifepathProgression.grant(merc, pick)

@@ -1,5 +1,5 @@
 class_name FinanceOverview
-extends Control
+extends FinancePage
 
 #The Overview page of the Finance window: the four stat tiles over the Projection on the left,
 #the Monthly Expenses box over the Recent Transactions list on the right. Every number comes from
@@ -8,7 +8,6 @@ extends Control
 const TILE_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/StatTile.tscn")
 const STAT_GAP: int = 10
 const TILE_TOLERANCE: float = 0.5
-const SUB_PATH: String = "Rows/SubText"
 
 @onready var stats: HBoxContainer = $Columns/Left/Stats
 @onready var projection_box: FinanceProjection = $Columns/Left/Projection
@@ -17,7 +16,6 @@ const SUB_PATH: String = "Rows/SubText"
 
 var _tiles: Dictionary = {}
 var _order: Array[String] = []
-var _dirty: bool = false
 
 
 func _ready() -> void:
@@ -28,12 +26,12 @@ func _ready() -> void:
 	GameState.money_changed.connect(_on_money_changed)
 	GameState.day_changed.connect(_on_day_changed)
 	SubscriptionManager.changed.connect(_on_books_changed)
-	refresh()
+	_refresh()
 
 
-#Called by the shell each time this page becomes the shown one.
+#The Overview writes itself on every show, dirty or not.
 func page_shown() -> void:
-	refresh()
+	_refresh()
 
 
 func stat_tile(key: String) -> StatTile:
@@ -60,14 +58,14 @@ func transactions() -> FinanceTransactions:
 	return transactions_box
 
 
-func is_dirty() -> bool:
-	return _dirty
-
-
 func refresh() -> void:
+	_refresh()
+
+
+func _refresh() -> void:
 	if not is_node_ready():
 		return
-	_dirty = false
+	super()
 	_fill_stats()
 	projection_box.refresh()
 	expenses_box.refresh()
@@ -91,7 +89,7 @@ func _make_tile(key: String) -> StatTile:
 	var tile: StatTile = TILE_SCENE.instantiate()
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stats.add_child(tile)
-	var sub: Label = tile.get_node_or_null(SUB_PATH) as Label
+	var sub: Label = tile.sub_text
 	if sub != null:
 		sub.clip_text = false
 		sub.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
@@ -113,25 +111,13 @@ func _fit_tiles() -> void:
 			tile.custom_minimum_size = Vector2(want, tile.custom_minimum_size.y)
 
 
-func _mark() -> void:
-	if is_visible_in_tree():
-		refresh()
-	else:
-		_dirty = true
-
-
-func _on_visibility_changed() -> void:
-	if _dirty and is_visible_in_tree():
-		refresh()
-
-
 func _on_books_changed() -> void:
-	_mark()
+	mark_dirty()
 
 
 func _on_money_changed(_bank_notes: int) -> void:
-	_mark()
+	mark_dirty()
 
 
 func _on_day_changed(_day_index: int) -> void:
-	_mark()
+	mark_dirty()

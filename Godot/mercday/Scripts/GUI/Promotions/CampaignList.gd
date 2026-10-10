@@ -6,16 +6,17 @@ class_name CampaignList extends VBoxContainer
 #filters; it draws the campaigns it is handed.
 
 signal view_applicants(campaign_id: int)
+signal view_contracts(campaign_id: int)
 signal end_pressed(campaign_id: int)
 signal new_pressed
 signal take_me_there(target: Dictionary)
 
 const CARD_SCENE: PackedScene = preload("res://Scenes/GUI/Promotions/CampaignCard.tscn")
-const FONT_SILK_BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const PANEL_BG: Color = Color("#15223d")
-const PANEL_RING: Color = Color("#1f3560")
-const EMPTY_COLOR: Color = Color("#9cc6ef")
+const FONT_SILK_BOLD: FontVariation = GuiStyle.SILK_BOLD
+const FONT_BODY: FontVariation = GuiStyle.BODY
+const PANEL_BG: Color = GuiColors.ROW_HOVER
+const PANEL_RING: Color = GuiColors.BLUE_LO
+const EMPTY_COLOR: Color = GuiColors.SKY
 const COLUMNS: int = 3
 const GRID_GAP: int = 14
 const PAD_LEFT: float = 14.0
@@ -53,14 +54,12 @@ func _ready() -> void:
 	grid.columns = COLUMNS
 	grid.add_theme_constant_override(&"h_separation", GRID_GAP)
 	grid.add_theme_constant_override(&"v_separation", GRID_GAP)
-	empty.add_theme_font_override(&"font", FONT_BODY)
-	empty.add_theme_font_size_override(&"font_size", EMPTY_SIZE)
-	empty.add_theme_color_override(&"font_color", EMPTY_COLOR)
+	GuiStyle.paint(empty, FONT_BODY, EMPTY_SIZE, EMPTY_COLOR)
 	empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	empty.visible = false
 	lock.visible = false
-	lock.take_me_there.connect(_on_take_me_there)
+	lock.take_me_there.connect(take_me_there.emit)
 	_build_new()
 	new_button.pressed.connect(press_new)
 
@@ -76,8 +75,9 @@ func set_cards(list: Array[CampaignData], empty_line: String) -> void:
 		var card: CampaignCard = CARD_SCENE.instantiate()
 		grid.add_child(card)
 		card.campaign = campaign
-		card.view_applicants.connect(_on_view)
-		card.end_pressed.connect(_on_end)
+		card.view_applicants.connect(view_applicants.emit)
+		card.view_contracts.connect(view_contracts.emit)
+		card.end_pressed.connect(end_pressed.emit)
 		cards.append(card)
 	empty.text = empty_line
 	empty.visible = cards.is_empty()
@@ -158,17 +158,12 @@ func press_new() -> void:
 
 
 func _clear() -> void:
-	for card: CampaignCard in cards:
-		grid.remove_child(card)
-		card.queue_free()
+	GuiNodes.clear(grid)
 	cards.clear()
 
 
 func _panel_box() -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = PANEL_BG
-	box.set_border_width_all(RING_PX)
-	box.border_color = PANEL_RING
+	var box: StyleBoxFlat = GuiStyle.flat(PANEL_BG, RING_PX, PANEL_RING)
 	box.content_margin_left = PAD_LEFT
 	box.content_margin_right = PAD_RIGHT
 	box.content_margin_top = PAD_TOP
@@ -176,21 +171,9 @@ func _panel_box() -> StyleBoxFlat:
 	return box
 
 
-#Item 11: the one core BevelButton scene, added where the scene used to hold a plain Button.
+#Builds the orange New button into the actions row; the viewer sets its label per mode.
 func _build_new() -> void:
 	new_button = BevelButton.make("", &"orange", Vector2(0.0, NEW_HEIGHT))
 	new_button.add_theme_font_override(&"font", FONT_SILK_BOLD)
 	new_button.add_theme_font_size_override(&"font_size", NEW_SIZE)
 	actions.add_child(new_button)
-
-
-func _on_view(campaign_id: int) -> void:
-	view_applicants.emit(campaign_id)
-
-
-func _on_end(campaign_id: int) -> void:
-	end_pressed.emit(campaign_id)
-
-
-func _on_take_me_there(target: Dictionary) -> void:
-	take_me_there.emit(target)

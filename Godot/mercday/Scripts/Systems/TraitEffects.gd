@@ -144,7 +144,7 @@ static func _apply_stat(effect: String, owner: MercenaryData, target: MercenaryD
 	var key: String = _resolve_stat_key(parts[1], ctx, td)
 	if key == "":
 		return
-	var alias: String = str(MercGenerator.MAX_STAT_ALIASES.get(key, ""))
+	var alias: String = str(TraitDSL.MAX_STAT_ALIASES.get(key, ""))
 	var kind: String = "flat"
 	if alias != "":
 		key = alias
@@ -305,7 +305,7 @@ static func _apply_state_direct(effect: String, owner: MercenaryData, target: Me
 		ctx: Dictionary, td: TraitData) -> void:
 	if target == null or not BattleState._is_alive(target):
 		return
-	var parsed: Dictionary = ConstStates.parse_apply_token(effect)
+	var parsed: Dictionary = StateTokens.parse_apply_token(effect)
 	var states: Array = parsed["states"]
 	if states.is_empty():
 		TraitRuntime._warn_once("effect:" + effect, "%s: apply: unknown state in '%s'" % [td.trait_name, effect])
@@ -319,7 +319,7 @@ static func _apply_state_direct(effect: String, owner: MercenaryData, target: Me
 	var removal: Array[String] = []
 	removal.assign(parsed["removal"])
 	for state_name: String in states:
-		if not ConstStates.apply_state(target, state_name, owner, "", "trait:" + td.trait_name, removal):
+		if not StateCascade.apply_state(target, state_name, owner, "", "trait:" + td.trait_name, removal):
 			continue
 		if duration != "":
 			_set_apply_timer(target, state_name, duration, ctx)
@@ -348,7 +348,7 @@ static func _apply_state_removal(effect: String, target: MercenaryData, ctx: Dic
 		var state_name: String = ConstStates.state_from_token(token.strip_edges())
 		if state_name == "" or not ConstStates.has_state(target, state_name):
 			continue
-		ConstStates.remove_state(target, state_name)
+		StateCascade.remove_state(target, state_name)
 		if state != null:
 			StateInfliction.note_removed(target, state_name, state, "trait")
 
@@ -368,8 +368,8 @@ static func _circumstance_pool(filter: String, ctx: Dictionary) -> Array:
 		return pool
 	for display2: String in ConstCircumstances.ALL:
 		var data: Dictionary = ConstCircumstances.DATA[display2]
-		var circ: String = ConstStates.normalize_token(str(data.get("circumstance_name", "")))
-		var stat: String = ConstStates.normalize_token(str(data.get("stat", "")))
+		var circ: String = StateTokens.normalize_token(str(data.get("circumstance_name", "")))
+		var stat: String = StateTokens.normalize_token(str(data.get("stat", "")))
 		if filter == circ or filter == stat or filter == circ + "_" + stat:
 			pool.append(display2)
 	return pool
@@ -383,11 +383,7 @@ static func _apply_circumstance_grant(effect: String, owner: MercenaryData, targ
 			"%s: unimplemented circumstance grant '%s'" % [td.trait_name, effect])
 		return
 	var pool: Array = _circumstance_pool(parts[3], ctx)
-	var available: Array = []
-	for display: String in pool:
-		if not target.blocked_circumstances.has(display) \
-				and not bool(target.circumstance_flags.get(display, false)):
-			available.append(display)
+	var available: Array = TraitDSL.available_circumstances(target, pool)
 	if available.is_empty():
 		return
 	available.shuffle()

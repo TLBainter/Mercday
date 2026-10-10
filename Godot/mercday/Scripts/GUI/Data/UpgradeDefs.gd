@@ -1,47 +1,48 @@
 class_name UpgradeDefs
 extends RefCounted
 
-#The plan and upgrade tables behind the Subscription screens, ported from the handoff prototype
+#The plan and upgrade tables behind the Subscription screens, ported from the design prototype
 #with the DATA_DELTA rows applied on top. monthly[i] is the monthly cost of tier i+1, so owning
 #tier t costs the sum of the first t entries every month. A req of {} means the upgrade is free
 #to buy; otherwise the owned tiers of req.ids are summed and compared with req.tier.
-#Prices marked PLACEHOLDER in the handoff are carried over unchanged.
+#Prices marked PLACEHOLDER in the design prototype are carried over unchanged.
 
 const PLANS: Dictionary = {
 	"free": {"name": "Mercday Free", "short": "Free", "per_merc": 0, "max_mercs": 5,
 		"accent": Color("#6cc36a"), "tagline": "Run a small crew of mercenaries at no cost!",
 		"features": ["Up to 5 mercenaries", "Up to 5 contracts", "Advanced Merc Manager",
 			"Advanced Contract Manager", "Advanced Finance Management"]},
-	"pro": {"name": "Mercday Pro", "short": "Pro", "per_merc": 5, "max_mercs": 20,
+	"pro": {"name": "Mercday Pro", "short": "Pro", "per_merc": 5, "max_mercs": 8,
 		"accent": Color("#f2d33d"), "tagline": "Grow your guild with Mercday!",
-		"features": ["Up to 20 mercenaries", "Up to 12 contracts", "Advanced Merc Manager",
+		"features": ["Up to 8 mercenaries", "Up to 8 contracts", "Advanced Merc Manager",
 			"Advanced Contract Manager", "Advanced Finance Management", "Guild Metrics",
 			"See some physical attributes of your mercenaries"]},
 	"enterprise": {"name": "Mercday Enterprise", "short": "Enterprise", "per_merc": 15,
-		"max_mercs": 50, "accent": Color("#f28c28"),
+		"max_mercs": 32, "accent": Color("#f28c28"),
 		"tagline": "Customize Mercday for your needs!",
 		"features": ["Everything in Pro", "Access to Plan Customization"]},
 }
 
 #Roster and board caps: the plan floor plus what the Seats and Contracts upgrades add.
 const FREE_MERCS := 5
-const PRO_MERCS := 20
-const ENTERPRISE_MERCS := 20
-const MERCS_PER_SEAT := 5
+const PRO_MERCS := 8
+const ENTERPRISE_MERCS := 8
+const MERCS_PER_SEAT := 3
 const FREE_CONTRACTS := 5
-const PRO_CONTRACTS := 12
-const ENTERPRISE_CONTRACTS := 12
-const CONTRACTS_PER_TIER := 2
+const PRO_CONTRACTS := 8
+const ENTERPRISE_CONTRACTS := 8
+const CONTRACTS_PER_TIER := 3
 
 const UPGRADES: Dictionary = {
 	"seats": {"name": "Seats", "cat": "limits", "also_cat": [], "req": {},
-		"monthly": [3, 6, 12, 24, 48, 96], "desc": "Increase your merc roster's maximum size.",
-		"tiers": ["+5 max mercenaries (25)", "+5 max mercenaries (30)", "+5 max mercenaries (35)",
-			"+5 max mercenaries (40)", "+5 max mercenaries (45)", "+5 max mercenaries (50)"]},
+		"monthly": [3, 6, 12, 24, 48, 96, 192, 384], "desc": "Increase your merc roster's maximum size.",
+		"tiers": ["+3 max mercenaries (11)", "+3 max mercenaries (14)", "+3 max mercenaries (17)",
+			"+3 max mercenaries (20)", "+3 max mercenaries (23)", "+3 max mercenaries (26)",
+			"+3 max mercenaries (29)", "+3 max mercenaries (32)"]},
 	"contracts": {"name": "Contracts", "cat": "limits", "also_cat": [], "req": {},
 		"monthly": [10, 20, 40, 80], "desc": "Increase your contract board's maximum size.",
-		"tiers": ["+2 contract board slots (14)", "+2 contract board slots (16)",
-			"+2 contract board slots (18)", "+2 contract board slots (20)"]},
+		"tiers": ["+3 contract board slots (11)", "+3 contract board slots (14)",
+			"+3 contract board slots (17)", "+3 contract board slots (20)"]},
 	#PLACEHOLDER prices: Promotions, Long Promos and Guild Promo.
 	"promotions": {"name": "Promotions", "cat": "promoCat", "also_cat": [], "req": {},
 		"monthly": [20],
@@ -239,6 +240,20 @@ static func tier_count(id: String) -> int:
 	return (of(id).get("monthly", []) as Array).size()
 
 
+#The name a lock shows for an upgrade, or "" when the id is empty or unknown.
+static func display_name(id: String) -> String:
+	if id == "" or not has_id(id):
+		return ""
+	return name_of(id)
+
+
+#The tier count a lock shows for an upgrade, never under 1, and 1 when the id is empty or unknown.
+static func display_tiers(id: String) -> int:
+	if id == "" or not has_id(id):
+		return 1
+	return maxi(1, tier_count(id))
+
+
 static func tier_text(id: String, tier: int) -> String:
 	var tiers: Array = of(id).get("tiers", []) as Array
 	if tier < 1 or tier > tiers.size():
@@ -322,7 +337,7 @@ static func plan_data(plan: int) -> Dictionary:
 	return PLANS.get(plan_key(plan), {}) as Dictionary
 
 
-#Free and Pro have fixed caps; Enterprise starts at 20, buys five more seats a tier and stops at
+#Free and Pro have fixed caps; Enterprise starts at 8, buys three more seats a tier and stops at
 #the roster cap the plan table lists.
 static func plan_max_mercs(plan: int, seats_tier: int) -> int:
 	match plan_key(plan):

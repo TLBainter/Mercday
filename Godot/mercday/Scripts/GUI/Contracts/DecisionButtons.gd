@@ -2,8 +2,9 @@ class_name DecisionButtons extends HBoxContainer
 
 #The posting's action row: take it, turn it down, or call back a team that has not left yet.
 #README A2 pins the three faces, their bevels and the hover and pressed shades in PALETTES.
-#Accept, Reject and CancelDispatch are the shared BevelButton scene; the Face, Glyph and Text
-#children still overlay it unchanged, painted after its own bevel body.
+#Accept, Reject and CancelDispatch are the shared BevelButton scene; each carries a DecisionFace
+#(Glyph and Text) that overlays it unchanged, painted after its own bevel body.
+#The row reads Reject, Accept, then CancelDispatch, with the positive verb on the right.
 
 signal accepted
 signal rejected
@@ -12,12 +13,12 @@ signal cancel_requested
 const ACCEPT: int = 0
 const REJECT: int = 1
 const CANCEL: int = 2
-const ACCEPT_FILL: Color = Color("#3f9a4a")
-const REJECT_FILL: Color = Color("#b8402e")
-const CANCEL_FILL: Color = Color("#5e7699")
-const GLYPH_FILL: Color = Color("#ffffff")
-const LABEL_COLOR: Color = Color("#f3ead7")
-const SHADOW_COLOR: Color = Color("#0a0f1c")
+const ACCEPT_FILL: Color = GuiColors.GO_FILL
+const REJECT_FILL: Color = GuiColors.DANGER_FILL
+const CANCEL_FILL: Color = GuiColors.MUTED
+const GLYPH_FILL: Color = Color.WHITE
+const LABEL_COLOR: Color = GuiColors.CREAM
+const SHADOW_COLOR: Color = GuiColors.INK
 const SHADOW_PX: int = 2
 const EDGE_PX: int = 3
 const GLYPH_SCALE: int = 3
@@ -29,10 +30,10 @@ const TEXT_NODE: String = "Face/Text"
 #One row per verb: the face, its bevel pair and the hover and pressed faces. The Cancel row keeps
 #the shades the muted fill carried before the design named the Accept and Reject ones.
 const PALETTES: Array[Dictionary] = [
-	{"fill": ACCEPT_FILL, "hi": Color("#6cc36a"), "lo": Color("#2a6b32"),
-		"hover": Color("#4fb05a"), "pressed": Color("#2a6b32")},
-	{"fill": REJECT_FILL, "hi": Color("#e8583f"), "lo": Color("#7a2a1e"),
-		"hover": Color("#cc4a36"), "pressed": Color("#7a2a1e")},
+	{"fill": ACCEPT_FILL, "hi": GuiColors.GREEN, "lo": GuiColors.GO_LO,
+		"hover": Color("#4fb05a"), "pressed": GuiColors.GO_LO},
+	{"fill": REJECT_FILL, "hi": GuiColors.RED, "lo": GuiColors.DANGER_LO,
+		"hover": Color("#cc4a36"), "pressed": GuiColors.DANGER_LO},
 	{"fill": CANCEL_FILL, "hi": Color("#8e9fb8"), "lo": Color("#3d4c63"),
 		"hover": Color("#768aa8"), "pressed": Color("#4b5e7a")},
 ]
@@ -65,7 +66,7 @@ func set_state(status: int, queued: bool) -> void:
 	cancel_button.visible = queued
 
 
-#The label a button draws its verb with; Button owns no shadow item, so a Label child carries it.
+#The label a button draws its verb with, flat and without a text shadow.
 func label_of(button: Button) -> Label:
 	return button.get_node_or_null(TEXT_NODE) as Label
 
@@ -84,9 +85,6 @@ func _style(button: BevelButton, palette: Dictionary) -> void:
 	var text: Label = label_of(button)
 	if text != null:
 		text.add_theme_color_override("font_color", LABEL_COLOR)
-		text.add_theme_color_override("font_shadow_color", SHADOW_COLOR)
-		text.add_theme_constant_override("shadow_offset_x", SHADOW_PX)
-		text.add_theme_constant_override("shadow_offset_y", SHADOW_PX)
 
 
 #The atlas glyph arrives already solid and ringed, so the face only hangs it on the rect.

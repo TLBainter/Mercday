@@ -5,7 +5,7 @@ class_name MovementArms extends RefCounted
 static func move_yields(merc: MercenaryData, state: BattleState, action_name: String) -> bool:
 	if state == null:
 		return false
-	if not state.jump_routes.is_empty() and MovementExecutor.jump_route_ready(merc, state):
+	if not state.jump_routes.is_empty() and JumpExecutor.route_ready(merc, state):
 		return true
 	if not state.climb_routes.is_empty() and not state.climb_route(merc).is_empty():
 		if ConstStates.has_state(merc, ConstStates.CLIMBING):
@@ -31,7 +31,7 @@ static func run_move_arm(merc: MercenaryData, decision: Dictionary, state: Battl
 	var _pool_before := state.get_pace_pool(merc)
 	var move_lines := MovementExecutor.execute_move(merc, decision["action_name"], decision["target"], state,
 		decision.get("flank_ally"), enhancements, decision.get("move_stop_dist", -1), _is_seeking,
-		[], [], decision.get("goal_cell", PathTargeter.NO_CELL) as Vector3i)
+		[], decision.get("goal_cell", PathTargeter.NO_CELL) as Vector3i)
 	state.move_plan.erase(merc)
 	if move_lines.is_empty():
 		if _pool_before > 0:
@@ -40,7 +40,7 @@ static func run_move_arm(merc: MercenaryData, decision: Dictionary, state: Battl
 				EncounterLogger.log_verbose("POOL CLEARED: %s no step possible" % merc.merc_name)
 		#The walk stopped on the foot of a planned climb or roof leap; that action takes the next slot once.
 		if not turn.has("climb_foot_seen") \
-				and (ClimbExecutor.climb_route_ready(merc, state) or MovementExecutor.jump_route_ready(merc, state)):
+				and (ClimbExecutor.climb_route_ready(merc, state) or JumpExecutor.route_ready(merc, state)):
 			turn["climb_foot_seen"] = true
 			return lines
 		turn["movement_blocked"] = true
@@ -72,7 +72,7 @@ static func run_jump_arm(merc: MercenaryData, decision: Dictionary, state: Battl
 	var jump_pos: Vector2i = decision.get("jump_target_pos", Vector2i(-1, -1))
 	var jump_floor: int = int(decision.get("jump_target_floor", state.get_floor(merc)))
 	var jump_why: String = str(decision.get("jump_why", ""))
-	var jump_lines := MovementExecutor.execute_jump(
+	var jump_lines := JumpExecutor.execute_jump(
 		merc, jump_pos, jump_floor, decision["action_name"], state, enhancements, jump_why)
 	if jump_lines.is_empty():
 		turn["movement_blocked"] = true
@@ -94,30 +94,18 @@ static func run_climb_arm(merc: MercenaryData, decision: Dictionary, state: Batt
 	return lines
 
 
-#Walk toward a dropped weapon; a refusal blacklists the cell for the rest of the turn.
-static func run_move_to_pickup_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
-		enhancements: int, turn: Dictionary) -> Array[String]:
+#Walk toward the cell decision[key] names: a dropped weapon or an obstacle the merc means to break.
+#note_pickup blacklists a refused weapon cell for the rest of the turn.
+static func run_move_to_cell_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
+		enhancements: int, turn: Dictionary, key: String, note_pickup: bool) -> Array[String]:
 	var lines: Array[String] = []
-	var mv_lines := MovementExecutor.execute_move_to_pos(merc, decision["weapon_pos"], state, enhancements)
+	var mv_lines := MovementExecutor.execute_move_to_pos(merc, decision[key], state, enhancements)
 	if mv_lines.is_empty():
 		turn["movement_blocked"] = true
-		merc.active_states["blocked_pickup_pos"] = decision["weapon_pos"]
+		if note_pickup:
+			merc.active_states["blocked_pickup_pos"] = decision[key]
 	else:
 		lines.append_array(mv_lines)
-		turn["movement_blocked"] = false
-		turn["weapon_action_taken"] = true
-	return lines
-
-
-#Walk toward an obstacle the merc means to break.
-static func run_move_to_obstacle_arm(merc: MercenaryData, decision: Dictionary, state: BattleState,
-		enhancements: int, turn: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
-	var mo_lines := MovementExecutor.execute_move_to_pos(merc, decision["obstacle_pos"], state, enhancements)
-	if mo_lines.is_empty():
-		turn["movement_blocked"] = true
-	else:
-		lines.append_array(mo_lines)
 		turn["movement_blocked"] = false
 		turn["weapon_action_taken"] = true
 	return lines

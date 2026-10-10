@@ -1,20 +1,14 @@
-class_name MercListItem extends Button
+class_name MercListItem extends BevelButton
 
-#One roster row: the portrait with its status strip, the first name over the tradition and the
-#level badge at the right. A busy merc dims and the selected row takes the list fill. The band
-#takes its colour from GuiTypes so one table rules every status, an away merc reads as away, and
-#a merc out chasing a loan carries the ledger's note under their tradition.
+#One roster row: the portrait with its status strip and time tag, the first name over the
+#tradition and the level badge at the right. A busy merc dims, except the strip and the tag, and
+#the selected row takes the list fill. The band takes its colour from GuiTypes so one table rules
+#every status, an away merc reads as away, and a merc out chasing a loan carries the ledger's
+#note under their tradition.
 
 const ROW_HEIGHT: int = 56
 const BUTTON_HEIGHT: int = 68
-const SELECTED_FILL: Color = Color("#15223d")
-const NORMAL_FILL: Color = Color("#0e1628")
-const SELECTED_EDGE: Color = Color("#f28c28")
-const NORMAL_EDGE: Color = Color("#0a0f1c")
-const EDGE_PX: int = 3
-const BOX_MARGIN: float = 6.0
 const BUSY_MODULATE: Color = Color(0.65, 0.65, 0.65, 1.0)
-const FINANCE_PATH: String = "/root/FinanceManager"
 
 signal selected(uid: int)
 
@@ -42,12 +36,15 @@ signal selected(uid: int)
 @export var is_selected: bool = false:
 	set(value):
 		is_selected = value
+		_paint_selection()
 		_refresh()
 
 @onready var portrait_holder: Control = $Row/PortraitHolder
 @onready var portrait_frame: Panel = $Row/PortraitHolder/Frame
 @onready var portrait: MercPortrait = $Row/PortraitHolder/Portrait
 @onready var strip: MercStatusStrip = $Row/PortraitHolder/Strip
+@onready var time_tag: Label = $Row/PortraitHolder/TimeLeft
+@onready var names: VBoxContainer = $Row/Names
 @onready var name_label: Label = $Row/Names/MercName
 @onready var tradition_label: Label = $Row/Names/Tradition
 @onready var note_label: Label = $Row/Names/Note
@@ -56,7 +53,21 @@ signal selected(uid: int)
 var view: MercView = null
 
 
+func _init() -> void:
+	pressed_fill = GuiColors.ROW_HOVER
+	click_move = ButtonFx.ClickMove.NONE
+	click_shade = ButtonFx.ClickShade.FLASH
+	hover_move = ButtonFx.HoverMove.NONE
+	hover_shade = ButtonFx.HoverShade.LIGHTEN
+	stay_move = ButtonFx.StayMove.NONE
+	stay_shade = ButtonFx.StayShade.NONE
+	active_move = ButtonFx.HoverMove.NONE
+	active_shade = ButtonFx.HoverShade.RING
+	_paint_selection()
+
+
 func _ready() -> void:
+	super()
 	custom_minimum_size = Vector2(0, BUTTON_HEIGHT)
 	pressed.connect(_on_pressed)
 	_refresh()
@@ -76,14 +87,9 @@ func set_view(new_view: MercView) -> void:
 		portrait.set_merc(view)
 
 
-#The status the band reads: an away merc shows where they are once GameState knows how to say.
+#The status the band reads: an away merc shows where they are.
 func shown_status() -> int:
-	if view == null:
-		return status
-	if GameState.has_method("is_away") and GameState.has_method("away_status"):
-		if bool(GameState.call("is_away", view.uid)):
-			return int(GameState.call("away_status", view.uid))
-	return view.status
+	return status if view == null else view.shown_status()
 
 
 func status_text() -> String:
@@ -100,12 +106,7 @@ func note_text() -> String:
 
 #The loan line under the tradition, when the ledger has one to give.
 func loan_note() -> String:
-	if view == null or status != GuiTypes.MercStatus.LOAN:
-		return ""
-	var finance: Node = get_node_or_null(FINANCE_PATH)
-	if finance == null or not finance.has_method("loan_note"):
-		return ""
-	return String(finance.call("loan_note", view.uid))
+	return "" if view == null else view.loan_note(status)
 
 
 func _refresh() -> void:
@@ -114,47 +115,37 @@ func _refresh() -> void:
 	name_label.text = merc_name
 	tradition_label.text = tradition
 	badge.level = level
+	if view != null:
+		badge.current_xp = view.xp
+		badge.next_level_xp = ExperienceSystem.xp_for_level(view.level + 1)
 	strip.status = status
-	strip.time_left_minutes = time_left_minutes
 	strip.add_theme_color_override("font_color", GuiTypes.merc_status_color(status))
+	MercStatusStrip.dress_time_tag(time_tag, time_left_minutes)
 	var note: String = loan_note()
 	note_label.text = note
 	note_label.visible = note != ""
-	modulate = Color.WHITE if status == GuiTypes.MercStatus.AVAILABLE else BUSY_MODULATE
-	_apply_boxes()
+	_apply_dim()
 
 
-#The row never shows the theme's blue button look: every state carries the row box and the focus
-#ring is emptied, so only the selection ring reads.
-func _apply_boxes() -> void:
-	var box: StyleBoxFlat = selected_box() if is_selected else normal_box()
-	add_theme_stylebox_override("normal", box)
-	add_theme_stylebox_override("hover", box)
-	add_theme_stylebox_override("pressed", box)
-	add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+#A busy row dims its own box, the portrait, the names and the badge; the status strip and the
+#time tag keep their full colour so they stay readable.
+func _apply_dim() -> void:
+	var tint: Color = Color.WHITE if status == GuiTypes.MercStatus.AVAILABLE else BUSY_MODULATE
+	self_modulate = tint
+	for part: CanvasItem in [portrait_frame, portrait, names, badge]:
+		part.modulate = tint
 
 
-static func normal_box() -> StyleBoxFlat:
-	return _row_box(NORMAL_FILL, NORMAL_EDGE)
+func fx_active() -> bool:
+	return super() or is_selected
 
 
-static func selected_box() -> StyleBoxFlat:
-	return _row_box(SELECTED_FILL, SELECTED_EDGE)
-
-
-static func _row_box(fill: Color, edge: Color) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = fill
-	box.border_width_left = EDGE_PX
-	box.border_width_top = EDGE_PX
-	box.border_width_right = EDGE_PX
-	box.border_width_bottom = EDGE_PX
-	box.border_color = edge
-	box.content_margin_left = BOX_MARGIN
-	box.content_margin_right = BOX_MARGIN
-	box.content_margin_top = BOX_MARGIN
-	box.content_margin_bottom = BOX_MARGIN
-	return box
+#A selected row is the pressed fill ringed in orange; an idle row keeps its ink edge on the low band.
+func _paint_selection() -> void:
+	if is_selected:
+		set_colors(GuiColors.ROW_HOVER, GuiColors.ORANGE, GuiColors.ORANGE, text_color)
+	else:
+		set_colors(GuiColors.ROW_FILL, GuiColors.ROW_FILL.lightened(0.18), GuiColors.ROW_EDGE_LO, text_color)
 
 
 func _on_pressed() -> void:

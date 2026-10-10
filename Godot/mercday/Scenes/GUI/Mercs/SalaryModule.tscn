@@ -1,9 +1,11 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/SalaryModule.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NoteIcon.tscn" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_SalaryModule.tres" id="6"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_iconbox"]
 bg_color = Color(0.949020, 0.549020, 0.156863, 1)
@@ -63,9 +65,10 @@ mouse_filter = 2
 size_flags_vertical = 3
 
 [node name="Value" type="Label" parent="Row/Text"]
-theme_override_colors/font_shadow_color = Color(0.039216, 0.058824, 0.109804, 1)
-theme_override_constants/shadow_offset_x = 2
-theme_override_constants/shadow_offset_y = 2
 theme_override_fonts/font = ExtResource("4")
 theme_override_font_sizes/font_size = 14
 text = "0"
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("5")
+hint = ExtResource("6")

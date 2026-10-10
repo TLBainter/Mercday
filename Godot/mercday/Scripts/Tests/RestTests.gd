@@ -32,8 +32,6 @@ static func run() -> bool:
 	return TestFixtures.summarize(res, "REST")
 
 
-#Helpers
-
 #A merc carrying only the stats a rest reads, so every cap is exact instead of formula derived.
 static func _merc(name: String, hp: int, ep: int, mp: int, recovery: float) -> MercenaryData:
 	var m := MercenaryData.new()
@@ -44,15 +42,6 @@ static func _merc(name: String, hp: int, ep: int, mp: int, recovery: float) -> M
 	m.current_ep = ep
 	m.current_mp = mp
 	return m
-
-
-static func _trait(name: String, dsl: String) -> TraitData:
-	var td := TraitData.new()
-	td.trait_name = name
-	td.trait_type = "Perk"
-	td.trait_source = "Merc"
-	td.effect_dsl = dsl
-	return td
 
 
 #One recorded source of the state; an empty dictionary when that tier is missing.
@@ -78,11 +67,12 @@ static func _src_text(src: Dictionary) -> String:
 	return "%s=%s removal=[%s]" % [str(src.get("kind", "")), str(src.get("name", "")), _verbs(src)]
 
 
-#A whole furlough for one merc: start it, wait out its time, complete it.
+#A whole furlough for one merc: open an idle window, wait out its time, let the clock complete it.
 static func _furlough(merc: MercenaryData) -> Array[String]:
-	RestSystem.furlough_start(merc)
-	CampaignClock.advance_to(merc.rest_lockout_until)
-	return RestSystem.furlough_complete(merc)
+	merc.idle_since_minute = CampaignClock.now()
+	CampaignClock.advance_to(merc.idle_since_minute + RestSystem.rest_minutes(merc, RestSystem.FURLOUGH_MINUTES))
+	var solo: Array[MercenaryData] = [merc]
+	return RestSystem.complete_due_rests(solo, CampaignClock.now())
 
 
 static func _respite(merc: MercenaryData) -> Array[String]:
@@ -127,62 +117,32 @@ static func _case_breather(res: Dictionary) -> void:
 #Rest Recovery is a signed percent of rest time saved; the slowest living merc sets a party's time.
 static func _case_rate(res: Dictionary) -> void:
 	CampaignClock.reset()
+	#Label, rest_recovery (null drops the stat), base minutes, expected minutes.
+	var cases: Array = [
+		["+50 shortens a Respite to 3 h", 50.0, RestSystem.RESPITE_MINUTES, 180],
+		["+50 shortens a Furlough to 5 d", 50.0, RestSystem.FURLOUGH_MINUTES, 7200],
+		["-100 doubles a Breather", -100.0, RestSystem.BREATHER_MINUTES, 20],
+		["-100 doubles a Respite", -100.0, RestSystem.RESPITE_MINUTES, 720],
+		["-100 doubles a Furlough to 20 d", -100.0, RestSystem.FURLOUGH_MINUTES, 28800],
+		["-150 keeps growing", -150.0, RestSystem.FURLOUGH_MINUTES, 36000],
+		["rest_minutes rounds to the nearest minute", -33.0, RestSystem.BREATHER_MINUTES, 13],
+		["a Breather never drops below one minute", 100.0, RestSystem.BREATHER_MINUTES,
+			RestSystem.MIN_REST_MINUTES],
+		["a Furlough never drops below one day", 100.0, RestSystem.FURLOUGH_MINUTES,
+			RestSystem.FURLOUGH_MIN_MINUTES],
+		["a Respite never drops below one hour", 99.0, RestSystem.RESPITE_MINUTES, RestSystem.RESPITE_MIN_MINUTES],
+		["a value above 100 rests at the minimum", 150.0, RestSystem.BREATHER_MINUTES, RestSystem.MIN_REST_MINUTES],
+		["a missing rest_recovery rests at the base", null, RestSystem.RESPITE_MINUTES, RestSystem.RESPITE_MINUTES],
+		["0 rests at the base", 0.0, RestSystem.RESPITE_MINUTES, RestSystem.RESPITE_MINUTES],
+	]
+	for row: Array in cases:
+		var m := _merc("Rate", 10, 8, 0, 0.0 if row[1] == null else float(row[1]))
+		if row[1] == null:
+			m.stats.erase("rest_recovery")
+		var got: int = RestSystem.rest_minutes(m, int(row[2]))
+		TestFixtures.check(res, str(row[0]), got == int(row[3]), "expected %d, got %d" % [int(row[3]), got])
 	var fast := _merc("Fasta", 10, 8, 0, 50.0)
-	TestFixtures.check(res, "+50 shortens a Respite to 3 h",
-		RestSystem.rest_minutes(fast, RestSystem.RESPITE_MINUTES) == 180,
-		"expected 180, got %d" % RestSystem.rest_minutes(fast, RestSystem.RESPITE_MINUTES))
-	TestFixtures.check(res, "+50 shortens a Furlough to 5 d",
-		RestSystem.rest_minutes(fast, RestSystem.FURLOUGH_MINUTES) == 7200,
-		"expected 7200, got %d" % RestSystem.rest_minutes(fast, RestSystem.FURLOUGH_MINUTES))
 	var slow := _merc("Slo", 10, 8, 0, -100.0)
-	TestFixtures.check(res, "-100 doubles a Breather",
-		RestSystem.rest_minutes(slow, RestSystem.BREATHER_MINUTES) == 20,
-		"expected 20, got %d" % RestSystem.rest_minutes(slow, RestSystem.BREATHER_MINUTES))
-	TestFixtures.check(res, "-100 doubles a Respite",
-		RestSystem.rest_minutes(slow, RestSystem.RESPITE_MINUTES) == 720,
-		"expected 720, got %d" % RestSystem.rest_minutes(slow, RestSystem.RESPITE_MINUTES))
-	TestFixtures.check(res, "-100 doubles a Furlough to 20 d",
-		RestSystem.rest_minutes(slow, RestSystem.FURLOUGH_MINUTES) == 28800,
-		"expected 28800, got %d" % RestSystem.rest_minutes(slow, RestSystem.FURLOUGH_MINUTES))
-	var dire := _merc("Dira", 10, 8, 0, -150.0)
-	TestFixtures.check(res, "-150 keeps growing",
-		RestSystem.rest_minutes(dire, RestSystem.FURLOUGH_MINUTES) == 36000,
-		"expected 36000, got %d" % RestSystem.rest_minutes(dire, RestSystem.FURLOUGH_MINUTES))
-	var odd := _merc("Odda", 10, 8, 0, -33.0)
-	TestFixtures.check(res, "rest_minutes rounds to the nearest minute",
-		RestSystem.rest_minutes(odd, RestSystem.BREATHER_MINUTES) == 13,
-		"expected 13, got %d" % RestSystem.rest_minutes(odd, RestSystem.BREATHER_MINUTES))
-	var blur := _merc("Blur", 10, 8, 0, 100.0)
-	TestFixtures.check(res, "a Breather never drops below one minute",
-		RestSystem.rest_minutes(blur, RestSystem.BREATHER_MINUTES) == RestSystem.MIN_REST_MINUTES,
-		"expected %d, got %d" % [RestSystem.MIN_REST_MINUTES,
-		RestSystem.rest_minutes(blur, RestSystem.BREATHER_MINUTES)])
-	TestFixtures.check(res, "a Furlough never drops below one day",
-		RestSystem.rest_minutes(blur, RestSystem.FURLOUGH_MINUTES) == RestSystem.FURLOUGH_MIN_MINUTES,
-		"expected %d, got %d" % [RestSystem.FURLOUGH_MIN_MINUTES,
-		RestSystem.rest_minutes(blur, RestSystem.FURLOUGH_MINUTES)])
-	var keen := _merc("Kena", 10, 8, 0, 99.0)
-	TestFixtures.check(res, "a Respite never drops below one hour",
-		RestSystem.rest_minutes(keen, RestSystem.RESPITE_MINUTES) == RestSystem.RESPITE_MIN_MINUTES,
-		"expected %d, got %d" % [RestSystem.RESPITE_MIN_MINUTES,
-		RestSystem.rest_minutes(keen, RestSystem.RESPITE_MINUTES)])
-	var over := _merc("Ovra", 10, 8, 0, 150.0)
-	TestFixtures.check(res, "a value above 100 rests at the minimum",
-		RestSystem.rest_minutes(over, RestSystem.BREATHER_MINUTES) == RestSystem.MIN_REST_MINUTES,
-		"expected %d, got %d" % [RestSystem.MIN_REST_MINUTES,
-		RestSystem.rest_minutes(over, RestSystem.BREATHER_MINUTES)])
-	var bare := _merc("Bara", 10, 8, 0, 0.0)
-	bare.stats.erase("rest_recovery")
-	bare.current_ep = 0
-	TestFixtures.check(res, "a missing rest_recovery rests at the base",
-		RestSystem.rest_minutes(bare, RestSystem.RESPITE_MINUTES) == RestSystem.RESPITE_MINUTES,
-		"expected %d, got %d" % [RestSystem.RESPITE_MINUTES,
-		RestSystem.rest_minutes(bare, RestSystem.RESPITE_MINUTES)])
-	var zero := _merc("Zeno", 10, 8, 0, 0.0)
-	TestFixtures.check(res, "0 rests at the base",
-		RestSystem.rest_minutes(zero, RestSystem.RESPITE_MINUTES) == RestSystem.RESPITE_MINUTES,
-		"expected %d, got %d" % [RestSystem.RESPITE_MINUTES,
-		RestSystem.rest_minutes(zero, RestSystem.RESPITE_MINUTES)])
 	var gone := _merc("Gonn", 10, 8, 0, -300.0)
 	gone.is_dead = true
 	var party: Array[MercenaryData] = [fast, slow, gone]
@@ -210,6 +170,9 @@ static func _case_rate(res: Dictionary) -> void:
 	TestFixtures.check(res, "the breather cap ignores rest_recovery",
 		brisk.current_ep == 5 and lax.current_ep == 5,
 		"fast %d slow %d" % [brisk.current_ep, lax.current_ep])
+	var bare := _merc("Bara", 10, 8, 0, 0.0)
+	bare.stats.erase("rest_recovery")
+	bare.current_ep = 0
 	RestSystem.breather(bare, null)
 	TestFixtures.check(res, "the plain cap tops 8 EP to 4 before Stretch", bare.current_ep == 5,
 		"expected 5, got %d" % bare.current_ep)
@@ -222,8 +185,8 @@ static func _case_respite(res: Dictionary) -> void:
 	m.current_hp = 1
 	m.current_ep = 0
 	m.current_mp = 0
-	ConstStates.apply_state(m, ConstStates.FATIGUED)
-	ConstStates.apply_state(m, ConstStates.FATIGUED)
+	StateCascade.apply_state(m, ConstStates.FATIGUED)
+	StateCascade.apply_state(m, ConstStates.FATIGUED)
 	var hale := _merc("Hale", 10, 8, 0, 50.0)
 	hale.current_hp = 1
 	var party: Array[MercenaryData] = [m, hale]
@@ -289,7 +252,7 @@ static func _case_respite_excess(res: Dictionary) -> void:
 static func _case_respite_expiry(res: Dictionary) -> void:
 	CampaignClock.reset()
 	var m := _merc("Dree", 10, 8, 0, 0.0)
-	ConstStates.apply_state(m, ConstStates.DRENCHED)
+	StateCascade.apply_state(m, ConstStates.DRENCHED)
 	m.campaign_states[ConstStates.DRENCHED] = CampaignClock.now() + CampaignClock.MINUTES_PER_HOUR
 	var party: Array[MercenaryData] = [m]
 	RestSystem.respite_start(party, null)
@@ -308,7 +271,7 @@ static func _case_respite_expiry(res: Dictionary) -> void:
 	TestFixtures.check(res, "the expired timer is erased",
 		not m.campaign_states.has(ConstStates.DRENCHED), "timers %s" % str(m.campaign_states))
 	var f := _merc("Fera", 10, 8, 0, 0.0)
-	ConstStates.apply_state(f, ConstStates.FATIGUED)
+	StateCascade.apply_state(f, ConstStates.FATIGUED)
 	var held: Array[MercenaryData] = [f]
 	var started: Array[String] = RestSystem.respite_start(held, null)
 	TestFixtures.check(res, "the start of a respite holds a rest verb state",
@@ -331,21 +294,21 @@ static func _case_after_encounter_cap(res: Dictionary) -> void:
 	var team_b: Array[MercenaryData] = [cold]
 	var st := BattleState.create(team_a, team_b, null)
 	st.round_number = 3
-	ConstStates.apply_state(wet, ConstStates.DRENCHED)
-	st.export_campaign_timers()
+	StateCascade.apply_state(wet, ConstStates.DRENCHED)
+	CampaignTimers.export_campaign_timers(st)
 	var capped: int = int(wet.campaign_states.get(ConstStates.DRENCHED, 0))
 	TestFixtures.check(res, "a held Drenched ends one Breather after the encounter",
 		capped == CampaignClock.now() + 10,
 		"expected %d, got %d" % [CampaignClock.now() + 10, capped])
-	ConstStates.apply_state(wet, ConstStates.DRENCHED)
+	StateCascade.apply_state(wet, ConstStates.DRENCHED)
 	st.set_state_timer(wet, ConstStates.DRENCHED, st.round_number + 1, "")
-	st.export_campaign_timers()
+	CampaignTimers.export_campaign_timers(st)
 	var early: int = int(wet.campaign_states.get(ConstStates.DRENCHED, 0))
 	TestFixtures.check(res, "an earlier in-battle expiry stays below the cap",
 		early == CampaignClock.now() + 1,
 		"expected %d, got %d" % [CampaignClock.now() + 1, early])
-	ConstStates.apply_state(cold, "Frostbite")
-	st.export_campaign_timers()
+	StateCascade.apply_state(cold, "Frostbite")
+	CampaignTimers.export_campaign_timers(st)
 	var full: int = int(cold.campaign_states.get("Frostbite", 0))
 	TestFixtures.check(res, "a state without a cap keeps its full hour",
 		full == CampaignClock.now() + 60,
@@ -355,14 +318,14 @@ static func _case_after_encounter_cap(res: Dictionary) -> void:
 static func _case_clear_by_verb(res: Dictionary) -> void:
 	CampaignClock.reset()
 	var m := _merc("Hex", 10, 8, 0, 0.0)
-	ConstStates.apply_state(m, "Heat Exhaustion")
+	StateCascade.apply_state(m, "Heat Exhaustion")
 	var lines: Array[String] = RestSystem.clear_by_verb(m, "respite")
 	TestFixtures.check(res, "the respite verb clears Heat Exhaustion",
 		not ConstStates.has_state(m, "Heat Exhaustion") and TestFixtures.has_line(lines, "Hex has cooled down."),
 		"held %s lines %s" % [str(ConstStates.has_state(m, "Heat Exhaustion")), str(lines)])
 	var keeper := _merc("Kip", 10, 8, 0, 0.0)
-	ConstStates.apply_state(keeper, ConstStates.FATIGUED)
-	ConstStates.apply_state(keeper, "Heat Exhaustion")
+	StateCascade.apply_state(keeper, ConstStates.FATIGUED)
+	StateCascade.apply_state(keeper, "Heat Exhaustion")
 	var skip: Array[String] = [ConstStates.FATIGUED]
 	RestSystem.clear_by_verb(keeper, "respite", skip)
 	TestFixtures.check(res, "the skip list keeps the tiered state",
@@ -376,62 +339,63 @@ static func _case_furlough(res: Dictionary) -> void:
 	var m := _merc("Fira", 12, 8, 0, 0.0)
 	m.current_hp = 1
 	m.current_ep = 0
-	ConstStates.apply_state(m, ConstStates.FATIGUED)
-	ConstStates.apply_state(m, ConstStates.FATIGUED)
-	ConstStates.apply_state(m, ConstStates.MADNESS)
-	ConstStates.apply_state(m, ConstStates.MADNESS)
-	var started: Array[String] = RestSystem.furlough_start(m)
-	TestFixtures.check(res, "furlough_start stamps ten days",
-		m.rest_lockout_until == RestSystem.FURLOUGH_MINUTES and m.rest_lockout_kind == "furlough"
-		and TestFixtures.has_line(started, "FURLOUGH START: Fira until D11 00:00 (10 d)"),
-		"until %d lines %s" % [m.rest_lockout_until, str(started)])
-	TestFixtures.check(res, "furlough_start refuses a resting merc",
-		TestFixtures.has_line(RestSystem.furlough_start(m), "FURLOUGH REFUSED: Fira (resting)"), "second start allowed")
-	TestFixtures.check(res, "furlough_complete refuses before the time",
-		TestFixtures.has_line(RestSystem.furlough_complete(m), "FURLOUGH REFUSED: Fira (not until D11 00:00)"),
-		"early completion allowed")
+	StateCascade.apply_state(m, ConstStates.FATIGUED)
+	StateCascade.apply_state(m, ConstStates.FATIGUED)
+	StateCascade.apply_state(m, ConstStates.MADNESS)
+	StateCascade.apply_state(m, ConstStates.MADNESS)
 	var busy := _merc("Onn", 10, 8, 0, 0.0)
 	busy.on_contract = true
-	TestFixtures.check(res, "furlough_start refuses a deployed merc",
-		TestFixtures.has_line(RestSystem.furlough_start(busy), "FURLOUGH REFUSED: Onn (on contract)"),
-		"start allowed while on contract")
 	var rooted := _merc("Mads", 10, 8, 0, 0.0)
-	ConstStates.apply_state(rooted, ConstStates.TERRIFIED)
-	ConstStates.apply_state(rooted, ConstStates.MADNESS, null, ConstStates.TERRIFIED)
-	ConstStates.apply_state(rooted, ConstStates.MADNESS, null, ConstStates.TERRIFIED)
-	RestSystem.furlough_start(rooted)
+	StateCascade.apply_state(rooted, ConstStates.TERRIFIED)
+	StateCascade.apply_state(rooted, ConstStates.MADNESS, null, ConstStates.TERRIFIED)
+	StateCascade.apply_state(rooted, ConstStates.MADNESS, null, ConstStates.TERRIFIED)
 	var quin := _merc("Quin", 10, 8, 0, 50.0)
-	var quin_started: Array[String] = RestSystem.furlough_start(quin)
-	TestFixtures.check(res, "a faster merc takes a shorter furlough",
-		quin.rest_lockout_until == 7200
-		and TestFixtures.has_line(quin_started, "FURLOUGH START: Quin until D6 00:00 (5 d)"),
-		"until %d lines %s" % [quin.rest_lockout_until, str(quin_started)])
-	CampaignClock.advance_to(quin.rest_lockout_until)
-	var quin_done: Array[String] = RestSystem.furlough_complete(quin)
-	var early: Array[String] = RestSystem.furlough_complete(m)
-	TestFixtures.check(res, "the shorter furlough completes on its own clock",
-		TestFixtures.has_line(quin_done, "FURLOUGH COMPLETE: Quin")
-		and TestFixtures.has_line(early, "FURLOUGH REFUSED: Fira (not until D11 00:00)"),
-		"quin %s fira %s" % [str(quin_done), str(early)])
-	CampaignClock.advance_to(m.rest_lockout_until)
-	var done: Array[String] = RestSystem.furlough_complete(m)
-	TestFixtures.check(res, "furlough_complete fills every pool",
-		m.current_hp == 12 and m.current_ep == 8, "hp %d ep %d" % [m.current_hp, m.current_ep])
-	TestFixtures.check(res, "furlough_complete clears Fatigued",
-		ConstStates.get_count(m, ConstStates.FATIGUED) == 0 and TestFixtures.has_line(done, "Fatigued cleared"),
-		"tier %d lines %s" % [ConstStates.get_count(m, ConstStates.FATIGUED), str(done)])
-	TestFixtures.check(res, "furlough_complete drops one Madness tier",
-		ConstStates.get_count(m, ConstStates.MADNESS) == 1 and TestFixtures.has_line(done, "Madness 2 -> 1"),
-		"tier %d" % ConstStates.get_count(m, ConstStates.MADNESS))
-	TestFixtures.check(res, "furlough_complete releases the lockout",
+	var idlers: Array[MercenaryData] = [m, busy, quin]
+	for merc: MercenaryData in idlers:
+		merc.idle_since_minute = 0
+	var started: Array[String] = RestSystem.complete_due_rests(idlers, RestSystem.FURLOUGH_MINUTES - 1)
+	TestFixtures.check(res, "an idle merc needs ten days for a furlough",
+		not TestFixtures.has_line(started, "FURLOUGH COMPLETE: Fira") and m.idle_since_minute == 0
+		and RestSystem.furlough_note(m, RestSystem.FURLOUGH_MINUTES - 1) == "Furlough 9/10 d",
+		"idle %d lines %s" % [m.idle_since_minute, str(started)])
+	TestFixtures.check(res, "an idle furlough writes no lockout",
 		m.rest_lockout_until == 0 and m.rest_lockout_kind == "" and RestSystem.is_deployable(m),
 		"until %d kind %s" % [m.rest_lockout_until, m.rest_lockout_kind])
-	var kept: Array[String] = RestSystem.furlough_complete(rooted)
+	TestFixtures.check(res, "the faster merc is done before Fira",
+		TestFixtures.has_line(started, "FURLOUGH COMPLETE: Quin") and quin.idle_since_minute == -2,
+		"quin %d lines %s" % [quin.idle_since_minute, str(started)])
+	TestFixtures.check(res, "a merc on contract holds no idle window",
+		busy.idle_since_minute == -1 and not TestFixtures.has_line(started, "FURLOUGH COMPLETE: Onn"),
+		"onn %d lines %s" % [busy.idle_since_minute, str(started)])
+	var quin_need: Array[MercenaryData] = [_merc("Quim", 10, 8, 0, 50.0)]
+	quin_need[0].idle_since_minute = 0
+	var quin_early: Array[String] = RestSystem.complete_due_rests(quin_need, 7199)
+	var quin_done: Array[String] = RestSystem.complete_due_rests(quin_need, 7200)
+	TestFixtures.check(res, "a faster merc takes a shorter furlough",
+		not TestFixtures.has_line(quin_early, "FURLOUGH COMPLETE")
+		and TestFixtures.has_line(quin_done, "FURLOUGH COMPLETE: Quim"),
+		"early %s done %s" % [str(quin_early), str(quin_done)])
+	CampaignClock.advance_to(RestSystem.FURLOUGH_MINUTES)
+	var solo: Array[MercenaryData] = [m]
+	var done: Array[String] = RestSystem.complete_due_rests(solo, CampaignClock.now())
+	TestFixtures.check(res, "the furlough fills every pool",
+		m.current_hp == 12 and m.current_ep == 8, "hp %d ep %d" % [m.current_hp, m.current_ep])
+	TestFixtures.check(res, "the furlough clears Fatigued",
+		ConstStates.get_count(m, ConstStates.FATIGUED) == 0 and TestFixtures.has_line(done, "Fatigued cleared"),
+		"tier %d lines %s" % [ConstStates.get_count(m, ConstStates.FATIGUED), str(done)])
+	TestFixtures.check(res, "the furlough drops one Madness tier",
+		ConstStates.get_count(m, ConstStates.MADNESS) == 1 and TestFixtures.has_line(done, "Madness 2 -> 1"),
+		"tier %d" % ConstStates.get_count(m, ConstStates.MADNESS))
+	TestFixtures.check(res, "the furlough spends the idle window",
+		m.idle_since_minute == -2 and m.last_furlough_minute == RestSystem.FURLOUGH_MINUTES
+		and RestSystem.is_deployable(m),
+		"idle %d last %d" % [m.idle_since_minute, m.last_furlough_minute])
+	var kept: Array[String] = _furlough(rooted)
 	TestFixtures.check(res, "an ongoing source keeps the Madness tier",
 		ConstStates.get_count(rooted, ConstStates.MADNESS) == 2
 		and TestFixtures.has_line(kept, "Madness 2 kept (ongoing source)"),
 		"tier %d lines %s" % [ConstStates.get_count(rooted, ConstStates.MADNESS), str(kept)])
-	var ended: Dictionary = ConstStates.remove_state(rooted, ConstStates.TERRIFIED)
+	var ended: Dictionary = StateCascade.remove_state(rooted, ConstStates.TERRIFIED)
 	var dropped: Array = ended["cascade"]
 	TestFixtures.check(res, "ending the root cascades every Madness tier",
 		ConstStates.get_count(rooted, ConstStates.MADNESS) == 0 and dropped.has(ConstStates.MADNESS),
@@ -443,8 +407,8 @@ static func _case_triggers(res: Dictionary) -> void:
 	TraitRuntime.clear_all()
 	var m := _merc("Zena", 10, 8, 0, 0.0)
 	m.current_ep = 0
-	m.perks.append(_trait("TEST Rest Hooks",
-		"on:rest_start:always:resource:excess_hp:+1|on:rest_complete:always:resource:excess_ep:+1"))
+	m.perks.append(TestFixtures.perk("TEST Rest Hooks",
+		"on:rest_start:always:resource:excess_hp:+1|on:rest_complete:always:resource:excess_ep:+1", "Merc"))
 	RestSystem.breather(m, null)
 	TestFixtures.check(res, "rest_start fires on a breather", m.excess_hp == 1,
 		"expected 1 Excess HP, got %d" % m.excess_hp)
@@ -452,7 +416,8 @@ static func _case_triggers(res: Dictionary) -> void:
 		"expected 1 Excess EP, got %d" % m.excess_ep)
 	var zen := _merc("Zed", 10, 8, 0, 0.0)
 	zen.current_hp = 1
-	zen.perks.append(_trait("TEST Zen Cell", "on:rest_complete:always:resource:excess_ep_or_mp:+1"))
+	zen.perks.append(TestFixtures.perk("TEST Zen Cell",
+		"on:rest_complete:always:resource:excess_ep_or_mp:+1", "Merc"))
 	var party: Array[MercenaryData] = [zen]
 	RestSystem.respite(party, null)
 	TestFixtures.check(res, "the Zen cell grants Excess EP after a respite",
@@ -460,18 +425,19 @@ static func _case_triggers(res: Dictionary) -> void:
 		"ep %d mp %d" % [zen.excess_ep, zen.excess_mp])
 	var fur := _merc("Furl", 10, 8, 0, 0.0)
 	fur.current_ep = 0
-	fur.perks.append(_trait("TEST Furlough Hooks",
-		"on:rest_start:always:resource:excess_hp:+1|on:rest_complete:always:resource:excess_ep:+1"))
-	RestSystem.furlough_start(fur)
-	TestFixtures.check(res, "rest_start fires when a furlough starts",
-		fur.excess_hp == 1 and fur.excess_ep == 0,
+	fur.perks.append(TestFixtures.perk("TEST Furlough Hooks",
+		"on:rest_start:always:resource:excess_hp:+1|on:rest_complete:always:resource:excess_ep:+1", "Merc"))
+	fur.idle_since_minute = CampaignClock.now()
+	var fur_party: Array[MercenaryData] = [fur]
+	RestSystem.complete_due_rests(fur_party, CampaignClock.now())
+	TestFixtures.check(res, "an idle furlough fires nothing before it completes",
+		fur.excess_hp == 0 and fur.excess_ep == 0,
 		"hp %d ep %d" % [fur.excess_hp, fur.excess_ep])
-	CampaignClock.advance_to(fur.rest_lockout_until)
-	RestSystem.furlough_complete(fur)
+	_furlough(fur)
 	TestFixtures.check(res, "rest_complete fires when a furlough completes", fur.excess_ep == 1,
 		"expected 1 Excess EP, got %d" % fur.excess_ep)
-	TestFixtures.check(res, "a furlough fires rest_start once", fur.excess_hp == 3,
-		"expected 1 Excess HP plus 2 from Meditate, got %d" % fur.excess_hp)
+	TestFixtures.check(res, "an idle furlough fires no rest_start", fur.excess_hp == 2,
+		"expected 2 Excess HP from Meditate, got %d" % fur.excess_hp)
 
 
 #Contract end defers the Respite: the return stamps the lockout, the clock pays the recovery.
@@ -533,26 +499,26 @@ static func _case_contract_end_kidnapped(res: Dictionary) -> void:
 static func _case_sources(res: Dictionary) -> void:
 	CampaignClock.reset()
 	var m := _merc("Sorn", 10, 8, 0, 0.0)
-	ConstStates.apply_state(m, ConstStates.FATIGUED)
+	StateCascade.apply_state(m, ConstStates.FATIGUED)
 	var fat: Dictionary = _src(m, ConstStates.FATIGUED, 0)
 	TestFixtures.check(res, "a bare apply records an engine source",
 		str(fat.get("kind", "")) == "engine" and str(fat.get("name", "?")) == "",
 		"source %s" % _src_text(fat))
 	TestFixtures.check(res, "the Fatigued source carries the sheet verbs",
 		_verbs(fat) == "respite,furlough", "source %s" % _src_text(fat))
-	ConstStates.apply_state(m, ConstStates.MADNESS)
+	StateCascade.apply_state(m, ConstStates.MADNESS)
 	var mad: Dictionary = _src(m, ConstStates.MADNESS, 0)
 	TestFixtures.check(res, "a Madness tier carries the sheet verbs",
 		_verbs(mad) == "cause,furlough", "source %s" % _src_text(mad))
 	var t := _merc("Tarn", 10, 8, 0, 0.0)
-	ConstStates.apply_state(t, ConstStates.SURPRISED, null, "", "trait:Echoes of Ruin")
+	StateCascade.apply_state(t, ConstStates.SURPRISED, null, "", "trait:Echoes of Ruin")
 	var from_trait: Dictionary = _src(t, ConstStates.SURPRISED, 0)
 	TestFixtures.check(res, "a trait origin splits into kind and name",
 		str(from_trait.get("kind", "")) == "trait"
 		and str(from_trait.get("name", "")) == "Echoes of Ruin",
 		"source %s" % _src_text(from_trait))
 	var b := _merc("Bram", 10, 8, 0, 0.0)
-	ConstStates.apply_state(b, ConstStates.SURPRISED, null, "", "bogus")
+	StateCascade.apply_state(b, ConstStates.SURPRISED, null, "", "bogus")
 	var odd: Dictionary = _src(b, ConstStates.SURPRISED, 0)
 	TestFixtures.check(res, "an unknown origin kind reads as engine",
 		str(odd.get("kind", "")) == "engine" and str(odd.get("name", "")) == "bogus",
@@ -567,7 +533,7 @@ static func _case_sources(res: Dictionary) -> void:
 		"source %s" % _src_text(after))
 	var d := _merc("Dorn", 10, 8, 0, 0.0)
 	var only_respite: Array[String] = ["respite"]
-	ConstStates.apply_state(d, ConstStates.DRENCHED, null, "", "", only_respite)
+	StateCascade.apply_state(d, ConstStates.DRENCHED, null, "", "", only_respite)
 	var forced: Dictionary = _src(d, ConstStates.DRENCHED, 0)
 	TestFixtures.check(res, "the removal parameter overrides the sheet verbs",
 		_verbs(forced) == "respite", "source %s" % _src_text(forced))
@@ -580,7 +546,7 @@ static func _case_rest_sources(res: Dictionary) -> void:
 	var only_cause: Array[String] = ["cause"]
 	var only_respite: Array[String] = ["respite"]
 	var f := _merc("Fenna", 10, 8, 0, 0.0)
-	ConstStates.apply_state(f, ConstStates.FATIGUED, null, "", "", only_furlough)
+	StateCascade.apply_state(f, ConstStates.FATIGUED, null, "", "", only_furlough)
 	var rested: Array[String] = _respite(f)
 	TestFixtures.check(res, "a furlough-only tier survives a respite",
 		ConstStates.get_count(f, ConstStates.FATIGUED) == 1
@@ -591,15 +557,15 @@ static func _case_rest_sources(res: Dictionary) -> void:
 		ConstStates.get_count(f, ConstStates.FATIGUED) == 0 and TestFixtures.has_line(freed, "Fatigued cleared"),
 		"tier %d lines %s" % [ConstStates.get_count(f, ConstStates.FATIGUED), str(freed)])
 	var mc := _merc("Mira", 10, 8, 0, 0.0)
-	ConstStates.apply_state(mc, ConstStates.MADNESS, null, "", "", only_cause)
+	StateCascade.apply_state(mc, ConstStates.MADNESS, null, "", "", only_cause)
 	var kept: Array[String] = _furlough(mc)
 	TestFixtures.check(res, "a cause-only Madness tier is kept by a furlough",
 		ConstStates.get_count(mc, ConstStates.MADNESS) == 1
 		and TestFixtures.has_line(kept, "Madness 1 kept (no furlough source)"),
 		"tier %d lines %s" % [ConstStates.get_count(mc, ConstStates.MADNESS), str(kept)])
 	var two := _merc("Tova", 10, 8, 0, 0.0)
-	ConstStates.apply_state(two, ConstStates.MADNESS, null, "", "", only_cause)
-	ConstStates.apply_state(two, ConstStates.MADNESS)
+	StateCascade.apply_state(two, ConstStates.MADNESS, null, "", "", only_cause)
+	StateCascade.apply_state(two, ConstStates.MADNESS)
 	var first: Array[String] = _furlough(two)
 	TestFixtures.check(res, "the furlough drops the newest tier it may",
 		ConstStates.get_count(two, ConstStates.MADNESS) == 1 and TestFixtures.has_line(first, "Madness 2 -> 1"),
@@ -610,22 +576,22 @@ static func _case_rest_sources(res: Dictionary) -> void:
 		and TestFixtures.has_line(second, "Madness 1 kept (no furlough source)"),
 		"tier %d lines %s" % [ConstStates.get_count(two, ConstStates.MADNESS), str(second)])
 	var wet := _merc("Wend", 10, 8, 0, 0.0)
-	ConstStates.apply_state(wet, ConstStates.DRENCHED, null, "", "", only_respite)
+	StateCascade.apply_state(wet, ConstStates.DRENCHED, null, "", "", only_respite)
 	var dried: Array[String] = _respite(wet)
 	TestFixtures.check(res, "a respite source clears Drenched",
 		not ConstStates.has_state(wet, ConstStates.DRENCHED) and TestFixtures.has_line(dried, "Wend dried up."),
 		"held %s lines %s" % [str(ConstStates.has_state(wet, ConstStates.DRENCHED)), str(dried)])
 	var damp := _merc("Dane", 10, 8, 0, 0.0)
-	ConstStates.apply_state(damp, ConstStates.DRENCHED)
+	StateCascade.apply_state(damp, ConstStates.DRENCHED)
 	var still: Array[String] = _respite(damp)
 	TestFixtures.check(res, "a Drenched no rest verb reaches is left alone",
 		ConstStates.has_state(damp, ConstStates.DRENCHED) and not TestFixtures.has_line(still, "STATE HELD"),
 		"held %s lines %s" % [str(ConstStates.has_state(damp, ConstStates.DRENCHED)), str(still)])
 	var hot := _merc("Hale", 10, 8, 0, 0.0)
-	ConstStates.apply_state(hot, ConstStates.FATIGUED)
-	ConstStates.apply_state(hot, "Heat Exhaustion")
+	StateCascade.apply_state(hot, ConstStates.FATIGUED)
+	StateCascade.apply_state(hot, "Heat Exhaustion")
 	var before_tiers: int = ConstStates.get_count(hot, ConstStates.FATIGUED)
-	ConstStates.remove_state(hot, "Heat Exhaustion")
+	StateCascade.remove_state(hot, "Heat Exhaustion")
 	TestFixtures.check(res, "ending the root drops only the tier it applied",
 		before_tiers == 2 and ConstStates.get_count(hot, ConstStates.FATIGUED) == 1,
 		"tiers %d -> %d" % [before_tiers, ConstStates.get_count(hot, ConstStates.FATIGUED)])
@@ -639,7 +605,8 @@ static func _case_apply_until(res: Dictionary) -> void:
 	CampaignClock.reset()
 	TraitRuntime.clear_all()
 	var m := _merc("Nell", 10, 8, 0, 0.0)
-	m.perks.append(_trait("TEST Until None", "on:rest_start:always:apply:madness:until:none"))
+	m.perks.append(TestFixtures.perk("TEST Until None",
+		"on:rest_start:always:apply:madness:until:none", "Merc"))
 	_respite(m)
 	var mad: Dictionary = _src(m, ConstStates.MADNESS, 0)
 	TestFixtures.check(res, "a trait until:none records a cause-only tier",
@@ -647,7 +614,8 @@ static func _case_apply_until(res: Dictionary) -> void:
 		and str(mad.get("name", "")) == "TEST Until None" and _verbs(mad) == "cause",
 		"tier %d source %s" % [ConstStates.get_count(m, ConstStates.MADNESS), _src_text(mad)])
 	var f := _merc("Orla", 10, 8, 0, 0.0)
-	f.perks.append(_trait("TEST Until Furlough", "on:rest_start:always:apply:fatigued:until:furlough"))
+	f.perks.append(TestFixtures.perk("TEST Until Furlough",
+		"on:rest_start:always:apply:fatigued:until:furlough", "Merc"))
 	var rested: Array[String] = _respite(f)
 	var fat: Dictionary = _src(f, ConstStates.FATIGUED, 0)
 	TestFixtures.check(res, "until:furlough records the furlough verb",
@@ -655,7 +623,8 @@ static func _case_apply_until(res: Dictionary) -> void:
 		"tier %d source %s lines %s" % [ConstStates.get_count(f, ConstStates.FATIGUED),
 		_src_text(fat), str(rested)])
 	var b := _merc("Pike", 10, 8, 0, 0.0)
-	b.perks.append(_trait("TEST Until Bogus", "on:rest_start:always:apply:madness:until:bogus"))
+	b.perks.append(TestFixtures.perk("TEST Until Bogus",
+		"on:rest_start:always:apply:madness:until:bogus", "Merc"))
 	_respite(b)
 	var odd: Dictionary = _src(b, ConstStates.MADNESS, 0)
 	TestFixtures.check(res, "an unknown until still applies with the sheet verbs",
@@ -692,9 +661,9 @@ static func _case_apply_until(res: Dictionary) -> void:
 static func _case_snapshot(res: Dictionary) -> void:
 	CampaignClock.reset()
 	var m := _merc("Sable", 10, 8, 0, 0.0)
-	ConstStates.apply_state(m, ConstStates.TERRIFIED)
-	ConstStates.apply_state(m, ConstStates.MADNESS, null, ConstStates.TERRIFIED)
-	ConstStates.apply_state(m, ConstStates.FATIGUED)
+	StateCascade.apply_state(m, ConstStates.TERRIFIED)
+	StateCascade.apply_state(m, ConstStates.MADNESS, null, ConstStates.TERRIFIED)
+	StateCascade.apply_state(m, ConstStates.FATIGUED)
 	var snap: Dictionary = StateCampaign.snapshot_campaign_states(m)
 	var back := _merc("Sable", 10, 8, 0, 0.0)
 	StateCampaign.restore_campaign_states(back, snap)
@@ -712,8 +681,6 @@ static func _case_snapshot(res: Dictionary) -> void:
 		str(fat.get("kind", "")) == "engine" and _verbs(fat) == "respite,furlough",
 		"source %s" % _src_text(fat))
 
-
-#Rest actions
 
 static func _utility(kind: String, name: String) -> UtilityTraitData:
 	var u := UtilityTraitData.new()
@@ -778,22 +745,22 @@ static func _case_action_realign(res: Dictionary) -> void:
 static func _case_action_respite(res: Dictionary) -> void:
 	CampaignClock.reset()
 	var m := _merc("Doze", 10, 8, 0, 0.0)
-	ConstStates.apply_state(m, ConstStates.FATIGUED)
+	StateCascade.apply_state(m, ConstStates.FATIGUED)
 	TestFixtures.check(res, "Deep Sleep removes one Fatigued tier",
 		RestActions.apply("Deep Sleep", m) == "Fatigued 1 -> 0"
 		and ConstStates.get_count(m, ConstStates.FATIGUED) == 0,
 		"tier %d" % ConstStates.get_count(m, ConstStates.FATIGUED))
 	var deep := _merc("Deep", 10, 8, 0, 0.0)
 	for _i: int in range(4):
-		ConstStates.apply_state(deep, ConstStates.FATIGUED)
+		StateCascade.apply_state(deep, ConstStates.FATIGUED)
 	var deep_lines: Array[String] = _respite(deep)
 	TestFixtures.check(res, "a respite with four tiers drops one and Deep Sleep one more",
 		ConstStates.get_count(deep, ConstStates.FATIGUED) == 2
 		and TestFixtures.has_line(deep_lines, "Fatigued 4 -> 3") and TestFixtures.has_line(deep_lines, "Deep Sleep Fatigued 3 -> 2"),
 		"tier %d lines %s" % [ConstStates.get_count(deep, ConstStates.FATIGUED), str(deep_lines)])
 	var held := _merc("Hold", 10, 8, 0, 0.0)
-	ConstStates.apply_state(held, ConstStates.TERRIFIED)
-	ConstStates.apply_state(held, ConstStates.FATIGUED, null, ConstStates.TERRIFIED)
+	StateCascade.apply_state(held, ConstStates.TERRIFIED)
+	StateCascade.apply_state(held, ConstStates.FATIGUED, null, ConstStates.TERRIFIED)
 	TestFixtures.check(res, "an ongoing source scores Deep Sleep at zero",
 		is_zero_approx(RestActions.score("Deep Sleep", held)),
 		"score %.2f" % RestActions.score("Deep Sleep", held))
@@ -966,7 +933,7 @@ static func _case_action_picker(res: Dictionary) -> void:
 		RestActions.choose(RestSystem.KIND_BREATHER, idle) == ""
 		and TestFixtures.has_line(idle_lines, "REST ACTION: Idle breather none"), "lines %s" % str(idle_lines))
 	var rp := _merc("Rest", 10, 8, 0, 0.0)
-	ConstStates.apply_state(rp, ConstStates.FATIGUED)
+	StateCascade.apply_state(rp, ConstStates.FATIGUED)
 	TestFixtures.check(res, "a respite picks Deep Sleep first",
 		RestActions.choose(RestSystem.KIND_RESPITE, rp) == "Deep Sleep",
 		"picked %s" % RestActions.choose(RestSystem.KIND_RESPITE, rp))

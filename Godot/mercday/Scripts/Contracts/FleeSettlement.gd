@@ -22,11 +22,8 @@ static func settle(run: ContractRun, state: BattleState, roster: Array[Mercenary
 		if not took and not LifepathProgression.has_event(merc, "Coward's Way Out"):
 			out.append("LIFEPATH REFUSED: %s Coward's Way Out" % merc.merc_name)
 		MercPool.add(merc)
-		var gone: Array[MercenaryData] = [merc]
-		run.remove_departed(gone)
-		out.append_array(StateCampaign.expire_campaign_states(merc, CampaignClock.now()))
-		TraitRuntime.revert_scope(merc, TraitRuntime.SCOPE_CONTRACT)
-		BeauSystem.roster.erase(merc)
+		merc.missing_since = CampaignClock.now()
+		out.append_array(run.depart(merc, run.departed))
 		out.append("DEPARTED: %s abandons the party" % merc.merc_name)
 	for team: Variant in state.teams:
 		for m: Variant in team as Array:

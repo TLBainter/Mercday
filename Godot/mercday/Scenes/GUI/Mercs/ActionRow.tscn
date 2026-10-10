@@ -1,8 +1,10 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/ActionRow.gd" id="1"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_ActionRow.tres" id="5"]
 
 [node name="ActionRow" type="PanelContainer"]
 script = ExtResource("1")
@@ -41,3 +43,7 @@ autowrap_mode = 3
 [node name="Used" type="Label" parent="Rows"]
 theme_type_variation = &"SmallLabel"
 text = "Used 0"
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("4")
+hint = ExtResource("5")

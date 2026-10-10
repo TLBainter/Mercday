@@ -10,13 +10,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		return 0.0
 	var pos := state.get_position(merc)
 	var enemies: Array = ctx.get("enemies", [])
-	var nearest_enemy: MercenaryData = null
-	var nearest_dist: int = 999999
-	for e: MercenaryData in enemies:
-		var d := state.distance_to(merc, e)
-		if d < nearest_dist:
-			nearest_dist = d
-			nearest_enemy = e
+	var nearest_enemy: MercenaryData = MovementDecider.nearest_enemy(merc, enemies, state)["merc"]
 	for obs: Dictionary in state.battlefield.get_adjacent_obstacles(pos, state.get_floor(merc)):
 		var ct: String = obs.get("cell_type", "")
 		if ct == "wall":

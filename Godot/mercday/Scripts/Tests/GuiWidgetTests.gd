@@ -1,7 +1,8 @@
 class_name GuiWidgetTests
 
-#Stage 1 widget atoms: LevelBadge, XPTooltip, MercPortrait, SpeedButton, GridMenuButton,
-#MoodFace, MoodMeter, TraditionModule, TabButton on the atlas.
+#Widget atoms: LevelBadge, XPTooltip, MercPortrait, SpeedButton, GridMenuButton,
+#MoodFace, MoodMeter, TraditionModule, TabButton on the atlas, then the 14 px padding census
+#over scroll sites, outer windows and shared styles.
 #Run: godot --headless --path . with the user arg --gui-widget-tests
 
 const LEVEL_BADGE := preload("res://Scenes/GUI/Shared/LevelBadge.tscn")
@@ -12,11 +13,74 @@ const GRID_MENU_BUTTON := preload("res://Scenes/GUI/Shared/GridMenuButton.tscn")
 const MOOD_METER := preload("res://Scenes/GUI/Shared/MoodMeter.tscn")
 const TRADITION_MODULE := preload("res://Scenes/GUI/Shared/TraditionModule.tscn")
 const SLOT_CHIP := preload("res://Scenes/GUI/Mercs/SlotChip.tscn")
-const TAB_BUTTON := preload("res://Scenes/GUI/Mercs/TabButton.tscn")
+const TAB_BUTTON := preload("res://Scenes/GUI/Shared/TabButton.tscn")
 const GUILD_THEME := preload("res://Resources/GUI/Theme/guild_theme.tres")
 
 #The width a compact tradition line gets inside a 120 px team slot: 120 - 6 ring - 6 inset.
 const COMPACT_LINE: float = 108.0
+
+#Scroll sites whose rows sit flush to the well with no top or bottom pad.
+const FLUSH_SCROLL_SCENES: Array[String] = ["res://Scenes/GUI/Contracts/RecommendedList.tscn"]
+
+#Scroll sites built as plain scenes; BailoutPage and FilterSection build theirs in code.
+const SCROLL_SCENES: Array[String] = [
+	"res://Scenes/GUI/Finance/Overview/FinanceTransactions.tscn",
+	"res://Scenes/GUI/Mercs/MercList.tscn",
+	"res://Scenes/GUI/Mercs/TraitListPanel.tscn",
+	"res://Scenes/GUI/Mercs/OverviewTab.tscn",
+	"res://Scenes/GUI/Mercs/ActionsTab.tscn",
+	"res://Scenes/GUI/Mercs/RelationshipsTab.tscn",
+	"res://Scenes/GUI/Contracts/ContractList.tscn",
+	"res://Scenes/GUI/Contracts/TeamSlot.tscn",
+	"res://Scenes/GUI/Shared/MercPicker.tscn",
+	"res://Scenes/GUI/Contracts/RecommendedList.tscn",
+	"res://Scenes/GUI/Contracts/DispatchRoster.tscn",
+	"res://Scenes/GUI/Finance/Payroll/PayrollTab.tscn",
+	"res://Scenes/GUI/Clients/ClientList.tscn",
+	"res://Scenes/GUI/Shared/TraitFilterPanel.tscn",
+	"res://Scenes/GUI/Promotions/CampaignList.tscn",
+	"res://Scenes/GUI/Metrics/MetricsViewer.tscn",
+	"res://Scenes/GUI/Notifications/NotificationPanel.tscn",
+]
+
+#Outer MarginContainers padded 14 px on every side.
+const MARGIN_CENSUS: Array = [
+	["res://Scenes/GUI/Subscription/SubscriptionViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Subscription/PlanCard.tscn", "Pad"],
+	["res://Scenes/GUI/Subscription/PlanSwitchDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Shared/LockedPage.tscn", "Panel/Pad"],
+	["res://Scenes/GUI/Shared/FeatureLockDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Shared/TextEntryDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Contracts/DispatchWindow.tscn", "Margin"],
+	["res://Scenes/GUI/Contracts/ContractViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Clients/ClientViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Bazaar/BazaarViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Mercs/CoachDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Mercs/SalaryDialog.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Mercs/MercViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Shared/OddJobWindow.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Promotions/PromotionsViewer.tscn", "Body"],
+	["res://Scenes/GUI/Promotions/CampaignBuilder.tscn", "Center/Frame/Pad"],
+	["res://Scenes/GUI/Finance/Overview/FinanceTransactions.tscn", "Pad"],
+	["res://Scenes/GUI/Metrics/MetricsViewer.tscn", "Margin"],
+	["res://Scenes/GUI/Shared/MercPicker.tscn", "Box/Pad"],
+	["res://Scenes/GUI/Contracts/DispatchWindow.tscn", "Picker/Box/Pad"],
+]
+
+#Entries where the 14 px comes from a panel StyleBoxFlat on the named node, not a MarginContainer.
+const STYLE_NODE_CENSUS: Array = [
+	["res://Scenes/GUI/Mercs/OverviewTab.tscn", "Pad/Rows/Middle/Resources"],
+	["res://Scenes/GUI/Clients/ClientList.tscn", "."],
+	["res://Scenes/GUI/Clients/ClientOverview.tscn",
+		"Rows/Body/Lower/Left/RecentPanel/RecentScroll/Items/Empty"],
+]
+
+#Shared style resources with a 14 px content margin on every side.
+const STYLE_FILE_CENSUS: Array[String] = [
+	"res://Resources/GUI/Theme/Styles/PanelContent.tres",
+	"res://Resources/GUI/Theme/Styles/page_content.tres",
+	"res://Resources/GUI/Theme/Styles/framed_panel.tres",
+]
 
 
 static func run(host: Node) -> bool:
@@ -33,6 +97,9 @@ static func run(host: Node) -> bool:
 	await _case_mood_meter(res, host)
 	await _case_tradition_module(res, host)
 	await _case_tab_button_atlas(res, host)
+	_case_scroll_padding(res)
+	_case_box_padding(res)
+	_case_portfolio_top(res)
 	return TestFixtures.summarize(res, "GUI WIDGET")
 
 
@@ -76,7 +143,7 @@ static func _case_xp_tooltip(res: Dictionary, host: Node) -> void:
 	tip.queue_free()
 
 
-#Item 8: the tip may never take the pointer, or a hit inside it reads as leaving the badge.
+#The tip may never take the pointer, or a hit inside it reads as leaving the badge.
 static func _case_xp_tooltip_mouse(res: Dictionary, host: Node) -> void:
 	var tip: XPTooltip = XP_TOOLTIP.instantiate()
 	host.add_child(tip)
@@ -183,15 +250,14 @@ static func _case_level_badge_mouse_filter(res: Dictionary, host: Node) -> void:
 
 
 static func _case_merc_portrait(res: Dictionary, host: Node) -> void:
-	var expect_layers: Array[String] = ["Backpack", "HairBack", "Cape", "Body", "Weapon",
-		"OverCape", "Eyes", "HairFront", "Headwear", "Headwear Add-On"]
-	TestFixtures.check(res, "layers lists the ten sprites in scene order",
-		MercPortrait.layers() == expect_layers, "got %s" % [MercPortrait.layers()])
 	TestFixtures.check(res, "shrink_for steps at the 48 px frame size",
 		MercPortrait.shrink_for(48) == 1 and MercPortrait.shrink_for(96) == 2
 			and MercPortrait.shrink_for(144) == 3,
 		"got %d, %d, %d" % [MercPortrait.shrink_for(48), MercPortrait.shrink_for(96),
 			MercPortrait.shrink_for(144)])
+	TestFixtures.check(res, "shrink_for steps at the 64 px full frame when full_body is on",
+		MercPortrait.shrink_for(192, true) == 3 and MercPortrait.shrink_for(48, true) == 1,
+		"got %d, %d" % [MercPortrait.shrink_for(192, true), MercPortrait.shrink_for(48, true)])
 	var portrait: MercPortrait = MERC_PORTRAIT.instantiate()
 	host.add_child(portrait)
 	await host.get_tree().process_frame
@@ -199,24 +265,25 @@ static func _case_merc_portrait(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "pixel_size sizes the container and the shrink factor",
 		portrait.custom_minimum_size == Vector2(96, 96) and portrait.stretch_shrink == 2,
 		"got size %s shrink %d" % [portrait.custom_minimum_size, portrait.stretch_shrink])
-	portrait.set_frame(3)
-	var all_frame_3 := true
-	for layer_name: String in MercPortrait.layers():
-		if portrait.layer(layer_name).frame != 3:
-			all_frame_3 = false
-	TestFixtures.check(res, "set_frame writes every layer sprite",
-		all_frame_3, "one or more layers did not read frame 3")
-	portrait.clear_layer("Cape")
-	TestFixtures.check(res, "clear_layer hides the sprite",
-		not portrait.layer("Cape").visible, "Cape was visible")
-	var tex := PlaceholderTexture2D.new()
-	portrait.set_layer_texture("Cape", tex)
-	TestFixtures.check(res, "set_layer_texture shows the sprite again",
-		portrait.layer("Cape").visible and portrait.layer("Cape").texture == tex,
-		"visible %s" % portrait.layer("Cape").visible)
+	portrait.set_frame(2)
+	TestFixtures.check(res, "set_frame shows that idle frame on the sheet sprite",
+		portrait.character.sheet.frame == 2, "got %d" % portrait.character.sheet.frame)
 	TestFixtures.check(res, "a change rearms the viewport for one more render",
 		portrait.view.render_target_update_mode == SubViewport.UPDATE_ONCE,
 		"got %d" % portrait.view.render_target_update_mode)
+	portrait.pixel_size = 192
+	portrait.full_body = true
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "full_body shows the whole 64 px frame at 3x with the camera centred",
+		portrait.view.size == Vector2i(64, 64) and portrait.camera.position == Vector2.ZERO
+			and portrait.stretch_shrink == 3,
+		"got view %s camera %s shrink %d" % [portrait.view.size, portrait.camera.position,
+			portrait.stretch_shrink])
+	portrait.full_body = false
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "full_body off restores the 48 px head crop and offset",
+		portrait.view.size == Vector2i(48, 48) and portrait.camera.position == MercPortrait.HEAD_OFFSET,
+		"got view %s camera %s" % [portrait.view.size, portrait.camera.position])
 	portrait.queue_free()
 
 
@@ -233,15 +300,26 @@ static func _case_speed_button(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "every speed icon is an id the atlas holds",
 		known and SpeedButton.icon_id(9) == "", "got %s" % [ids])
 	TestFixtures.check(res, "label_for names every speed",
-		SpeedButton.label_for(0) == "Slow Down" and SpeedButton.label_for(1) == "Pause"
+		SpeedButton.label_for(0) == "Slow" and SpeedButton.label_for(1) == "Pause"
 			and SpeedButton.label_for(2) == "Play" and SpeedButton.label_for(3) == "Fast Forward"
-			and SpeedButton.label_for(4) == "Faster Fast Forward",
+			and SpeedButton.label_for(4) == "Fastest",
 		"got %s" % [[SpeedButton.label_for(0), SpeedButton.label_for(1), SpeedButton.label_for(2),
 			SpeedButton.label_for(3), SpeedButton.label_for(4)]])
+	TestFixtures.check(res, "tooltip_for appends the clock rate to every running speed",
+		SpeedButton.tooltip_for(0) == "Slow (1 minute per second)" and SpeedButton.tooltip_for(1) == "Pause"
+			and SpeedButton.tooltip_for(2) == "Play (5 minutes per second; after hours 30 minutes per second)"
+			and SpeedButton.tooltip_for(3) == "Fast Forward (15 minutes per second; after hours 1 hour per second)"
+			and SpeedButton.tooltip_for(4) == "Fastest (1 hour per second; after hours jumps to 8:00 AM)"
+			and SpeedButton.tooltip_for(9) == "",
+		"got %s" % [[SpeedButton.tooltip_for(0), SpeedButton.tooltip_for(1), SpeedButton.tooltip_for(2),
+			SpeedButton.tooltip_for(3), SpeedButton.tooltip_for(4), SpeedButton.tooltip_for(9)]])
 	var btn: SpeedButton = SPEED_BUTTON.instantiate()
 	host.add_child(btn)
 	await host.get_tree().process_frame
 	btn.speed_mode = ClockRunner.Speed.FAST
+	TestFixtures.check(res, "the button tooltip carries the rate of its speed",
+		btn.tooltip_text == "Fast Forward (15 minutes per second; after hours 1 hour per second)",
+		"got '%s'" % btn.tooltip_text)
 	var heard: Array = []
 	btn.speed_selected.connect(func(mode: int) -> void: heard.append(mode))
 	btn.pressed.emit()
@@ -262,14 +340,11 @@ static func _case_grid_menu_button(res: Dictionary, host: Node) -> void:
 		btn.tooltip_text == "Opens the metrics window", "got '%s'" % btn.tooltip_text)
 	btn.hover(true)
 	TestFixtures.check(res, "hover on reads the orange highlight",
-		btn.text_color().is_equal_approx(GridMenuButton.HOVER_COLOR), "got %s" % btn.text_color())
+		btn.caption_color().is_equal_approx(GridMenuButton.HOVER_COLOR), "got %s" % btn.caption_color())
 	btn.hover(false)
 	TestFixtures.check(res, "hover off restores cream",
-		btn.text_color().is_equal_approx(GridMenuButton.NORMAL_COLOR), "got %s" % btn.text_color())
-	var throwaway := Control.new()
-	var scene := PackedScene.new()
-	scene.pack(throwaway)
-	throwaway.free()
+		btn.caption_color().is_equal_approx(GridMenuButton.NORMAL_COLOR), "got %s" % btn.caption_color())
+	var scene: PackedScene = GuiFrameTests.empty_scene()
 	btn.window_scene = scene
 	var heard: Array = []
 	btn.opened.connect(func(s: PackedScene) -> void: heard.append(s))
@@ -494,3 +569,157 @@ static func _case_tab_button_atlas(res: Dictionary, host: Node) -> void:
 			tab.lock_overlay.texture.get_size() if tab.lock_overlay.texture != null else Vector2.ZERO,
 			tab.lock_overlay.modulate])
 	tab.queue_free()
+
+
+static func _load_scene(bad: Array[String], scene_path: String) -> Node:
+	var packed: Variant = load(scene_path)
+	if not (packed is PackedScene):
+		bad.append("%s did not load" % scene_path)
+		return null
+	return (packed as PackedScene).instantiate()
+
+
+#Every scroll site's first child is a Pad MarginContainer at 14 px top and bottom.
+static func _case_scroll_padding(res: Dictionary) -> void:
+	var bad: Array[String] = []
+	for scene_path: String in SCROLL_SCENES:
+		var inst: Node = _load_scene(bad, scene_path)
+		if inst == null:
+			continue
+		var scrolls: Array[ScrollContainer] = []
+		_find_scrolls(inst, scrolls, true)
+		if scrolls.is_empty():
+			bad.append("%s has no ScrollContainer" % scene_path)
+		for scroll: ScrollContainer in scrolls:
+			var first: Node = scroll.get_child(0) if scroll.get_child_count() > 0 else null
+			var pad: MarginContainer = first as MarginContainer
+			if pad == null:
+				bad.append("%s %s's first child is not a MarginContainer" % [scene_path, scroll.name])
+				continue
+			var top: int = pad.get_theme_constant(&"margin_top")
+			var bottom: int = pad.get_theme_constant(&"margin_bottom")
+			if scroll is PaddedScroll:
+				top = (scroll as PaddedScroll).pad_top
+				bottom = (scroll as PaddedScroll).pad_bottom
+			var want: int = 0 if scene_path in FLUSH_SCROLL_SCENES else 14
+			if top != want or bottom != want:
+				bad.append("%s %s pad is %d/%d" % [scene_path, scroll.name, top, bottom])
+			if not (pad.size_flags_horizontal & Control.SIZE_EXPAND):
+				bad.append("%s %s pad does not expand" % [scene_path, scroll.name])
+		inst.free()
+	_check_code_scrolls(bad)
+	TestFixtures.check(res, "every owned scroll container pads its content 14 px top and bottom, flush sites 0",
+		bad.is_empty(), TestFixtures.detail(bad, SCROLL_SCENES.size() + 2, "scroll sites"))
+
+
+#Inside a nested instanced sub-scene only a PaddedScroll counts, since its pads are set on the instance.
+static func _find_scrolls(node: Node, out: Array[ScrollContainer], is_root: bool,
+		padded_only: bool = false) -> void:
+	if node is PaddedScroll or (node is ScrollContainer and not padded_only):
+		out.append(node as ScrollContainer)
+	var nested: bool = padded_only or (not is_root and node.scene_file_path != "")
+	for child: Node in node.get_children():
+		_find_scrolls(child, out, false, nested)
+
+
+#The two scroll sites BailoutPage.gd and FilterSection.gd build in code rather than in a .tscn.
+static func _check_code_scrolls(bad: Array[String]) -> void:
+	var page: BailoutPage = BailoutPage.new()
+	page._build()
+	var bail_top: int = page.pad.get_theme_constant(&"margin_top") if page.pad != null else -1
+	var bail_bottom: int = page.pad.get_theme_constant(&"margin_bottom") if page.pad != null else -1
+	if bail_top != 14 or bail_bottom != 14:
+		bad.append("BailoutPage.gd pad is %d/%d" % [bail_top, bail_bottom])
+	page.free()
+	var fs_packed: PackedScene = load("res://Scenes/GUI/Shared/FilterSection.tscn") as PackedScene
+	var fs: FilterSection = fs_packed.instantiate() as FilterSection
+	fs.title_label = fs.get_node(^"Title") as Label
+	fs.lock = fs.get_node(^"Lock") as FeatureLock
+	fs.body = fs.get_node(^"Body") as VBoxContainer
+	var defs: Array[Dictionary] = TraitFilterDefs.contract_defs(&"")
+	fs._def = TraitFilterDefs.find(defs, &"loc")
+	fs._build()
+	var mods_pad: MarginContainer = fs.body.get_node_or_null(^"ModsBox/Scroll/Pad") as MarginContainer
+	var mods_top: int = mods_pad.get_theme_constant(&"margin_top") if mods_pad != null else -1
+	var mods_bottom: int = mods_pad.get_theme_constant(&"margin_bottom") if mods_pad != null else -1
+	if mods_top != 14 or mods_bottom != 14:
+		bad.append("FilterSection.gd mods pad is %d/%d" % [mods_top, mods_bottom])
+	fs.free()
+
+
+#Outer windows and shared styles padded 14 px on every side.
+static func _case_box_padding(res: Dictionary) -> void:
+	var bad: Array[String] = []
+	var total: int = MARGIN_CENSUS.size() + STYLE_NODE_CENSUS.size() + STYLE_FILE_CENSUS.size()
+	for entry: Array in MARGIN_CENSUS:
+		var scene_path: String = entry[0]
+		var node_path: String = entry[1]
+		var inst: Node = _load_scene(bad, scene_path)
+		if inst == null:
+			continue
+		var target: MarginContainer = inst.get_node_or_null(node_path) as MarginContainer
+		if target == null:
+			bad.append("%s has no MarginContainer at %s" % [scene_path, node_path])
+		else:
+			var sides: Array[int] = [
+				target.get_theme_constant(&"margin_left"), target.get_theme_constant(&"margin_top"),
+				target.get_theme_constant(&"margin_right"), target.get_theme_constant(&"margin_bottom"),
+			]
+			if sides != [14, 14, 14, 14]:
+				bad.append("%s %s is %s" % [scene_path, node_path, str(sides)])
+		inst.free()
+	for entry: Array in STYLE_NODE_CENSUS:
+		var scene_path: String = entry[0]
+		var node_path: String = entry[1]
+		var inst: Node = _load_scene(bad, scene_path)
+		if inst == null:
+			continue
+		var target: Control = inst as Control
+		if node_path != ".":
+			target = inst.get_node_or_null(node_path) as Control
+		var style: StyleBoxFlat = null
+		if target != null:
+			style = target.get_theme_stylebox(&"panel") as StyleBoxFlat
+		if style == null:
+			bad.append("%s %s has no panel style" % [scene_path, node_path])
+		else:
+			var sides: Array[float] = [style.content_margin_left, style.content_margin_top,
+				style.content_margin_right, style.content_margin_bottom]
+			if sides != [14.0, 14.0, 14.0, 14.0]:
+				bad.append("%s %s style is %s" % [scene_path, node_path, str(sides)])
+		inst.free()
+	for style_path: String in STYLE_FILE_CENSUS:
+		var style: Variant = load(style_path)
+		if not (style is StyleBoxFlat):
+			bad.append("%s did not load" % style_path)
+			continue
+		var flat: StyleBoxFlat = style
+		var sides: Array[float] = [flat.content_margin_left, flat.content_margin_top,
+			flat.content_margin_right, flat.content_margin_bottom]
+		if sides != [14.0, 14.0, 14.0, 14.0]:
+			bad.append("%s is %s" % [style_path, str(sides)])
+	TestFixtures.check(res, "every census window pads its content 14 px on every side",
+		bad.is_empty(), TestFixtures.detail(bad, total, "census entries"))
+
+
+#The Portfolio Value title sits 14 px from the widget's top and bottom.
+static func _case_portfolio_top(res: Dictionary) -> void:
+	var packed: PackedScene = load("res://Scenes/GUI/Finance/Invest/InvestPortfolio.tscn")
+	var inst: PanelContainer = packed.instantiate() as PanelContainer
+	var style: StyleBoxFlat = inst.get_theme_stylebox(&"panel") as StyleBoxFlat
+	var pad: MarginContainer = inst.get_node_or_null(^"Pad") as MarginContainer
+	var style_top: float = style.content_margin_top if style != null else -1.0
+	var style_bottom: float = style.content_margin_bottom if style != null else -1.0
+	var pad_top: int = pad.get_theme_constant(&"margin_top") if pad != null else -1
+	var pad_bottom: int = pad.get_theme_constant(&"margin_bottom") if pad != null else -1
+	TestFixtures.check(res, "the portfolio widget pads its title 14 px from the top and bottom",
+		pad != null and style != null and is_equal_approx(style_top + float(pad_top), 14.0)
+			and is_equal_approx(style_bottom + float(pad_bottom), 14.0),
+		"style %.1f pad %d top, style %.1f pad %d bottom" % [style_top, pad_top, style_bottom,
+			pad_bottom])
+	var col: VBoxContainer = inst.get_node_or_null(^"Pad/Col") as VBoxContainer
+	var first_child: Node = col.get_child(0) if col != null and col.get_child_count() > 0 else null
+	TestFixtures.check(res, "nothing sits above the portfolio title",
+		first_child != null and String(first_child.name) == "TitleLabel",
+		"got %s" % ("none" if first_child == null else String(first_child.name)))
+	inst.free()

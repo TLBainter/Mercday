@@ -14,6 +14,14 @@ const KEYS: Array[StringName] = [&"mercs", &"contracts", &"clients", &"promotion
 	&"finance", &"legal", &"bazaar", &"metrics"]
 const PLAN_TIP := "Locked. Requires Mercday Enterprise."
 const PLAN_LINE1 := "This feature of Mercday is not available on your plan!"
+const BAZAAR_PLAN_LINE2 := "Upgrade to Mercday Enterprise to use the Bazaar."
+const BAZAAR_UP_TIP := "Locked. Requires the Bazaar upgrade (Mercday Enterprise > Customize)."
+const BAZAAR_UP_LINE1 := "The Bazaar is locked."
+const BAZAAR_UP_LINE2 := "It requires the Bazaar upgrade!"
+const PROMO_PLAN_LINE2 := "Upgrade to Mercday Enterprise to use Promotions."
+const PROMO_UP_TIP := "Locked. Requires the Promotions upgrade (Mercday Enterprise > Customize)."
+const PROMO_UP_LINE1 := "Promotions is locked."
+const PROMO_UP_LINE2 := "It requires the Promotions upgrade."
 
 
 static func run(host: Node) -> bool:
@@ -22,6 +30,7 @@ static func run(host: Node) -> bool:
 	await _case_entries(res, host)
 	await _case_money(res, host)
 	await _case_time(res, host)
+	await _case_time_lock(res, host)
 	await _case_menus(res, host)
 	await _case_locks(res, host)
 	await _case_lock_tables(res, host)
@@ -32,19 +41,20 @@ static func run(host: Node) -> bool:
 	_case_tile_ids(res)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	CampaignClock.reset()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	return TestFixtures.summarize(res, "GUI HUD")
 
 
 static func _fresh() -> void:
 	TestFixtures.reset_generator_rolls()
 	seed(7)
-	SubscriptionManager.reset()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
+	SubscriptionManager.max_out()
 
 
-static func _spawn(host: Node) -> GameHUD:
+#A GameHUD that does not start its clock, wired for a test.
+static func spawn_hud(host: Node) -> GameHUD:
 	var scene: PackedScene = load(HUD_SCENE)
 	var hud: GameHUD = scene.instantiate()
 	hud.autostart = false
@@ -55,7 +65,7 @@ static func _spawn(host: Node) -> GameHUD:
 
 static func _case_layout(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	var all_present := true
 	for i in 9:
@@ -149,9 +159,18 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "hud clock row centres vertically", row_mid_ok,
 		"inset_mid %.2f" % inset_mid)
 	var tm_rect: Rect2 = tm.get_global_rect()
-	TestFixtures.check(res, "hud time menu sits at the right edge of the inset",
-		absf(tm_rect.end.x - inset_rect.end.x) <= 9.0 and inset_rect.encloses(tm_rect),
-		"time_menu %s inset %s" % [tm_rect, inset_rect])
+	var tab_rect: Rect2 = (bar.get_node(^"Pad/Inset/Row/MercdaveTab") as Control).get_global_rect()
+	TestFixtures.check(res, "hud time menu sits just left of the Mercdave tab at the right edge of the inset",
+		absf(tab_rect.end.x - inset_rect.end.x) <= 9.0 and absf(tm_rect.end.x - tab_rect.position.x) <= 0.5
+			and inset_rect.encloses(tm_rect) and inset_rect.encloses(tab_rect),
+		"time_menu %s tab %s inset %s" % [tm_rect, tab_rect, inset_rect])
+	var cal: CalendarButton = tm.calendar_button()
+	var cal_rect: Rect2 = cal.get_global_rect()
+	var art: Vector2 = Vector2(Icons.size("calendar")) * float(cal.pixel_scale)
+	TestFixtures.check(res, "hud calendar button is 40x40 and holds its face inside the bevel",
+		cal_rect.size.is_equal_approx(Vector2(40, 40)) and art.x <= cal_rect.size.x - 2.0 * cal.edge
+			and art.y <= cal_rect.size.y - 2.0 * cal.edge and inset_rect.encloses(cal_rect),
+		"button %s art %s edge %.1f inset %s" % [cal_rect, art, cal.edge, inset_rect])
 	var grid_btn: GridMenuButton = hud.button(0)
 	var grid_icon: IconRect = grid_btn.icon_rect
 	var grid_icon_rect: Rect2 = grid_icon.get_global_rect()
@@ -174,13 +193,13 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 			gear_icon.pixel_scale, gear_icon.custom_minimum_size])
 	hud.settings_button.button_pressed = true
 	await host.get_tree().process_frame
-	var lit: bool = gear_icon.tint.is_equal_approx(SettingsButton.ORANGE)
-	lit = lit and gear_icon.modulate.is_equal_approx(SettingsButton.ORANGE)
+	var lit: bool = gear_icon.tint.is_equal_approx(SettingsButton.GLYPH_ON)
+	lit = lit and gear_icon.modulate.is_equal_approx(SettingsButton.GLYPH_ON)
 	hud.settings_button.button_pressed = false
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "hud settings gear tints orange when toggled on and cream when off",
-		lit and gear_icon.tint.is_equal_approx(SettingsButton.CREAM)
-			and gear_icon.modulate.is_equal_approx(SettingsButton.CREAM),
+	TestFixtures.check(res, "hud settings gear tints ink when toggled on and cream when off",
+		lit and gear_icon.tint.is_equal_approx(SettingsButton.GLYPH_IDLE)
+			and gear_icon.modulate.is_equal_approx(SettingsButton.GLYPH_IDLE),
 		"on %s off tint %s" % [lit, gear_icon.tint])
 	var win: Window = host.get_window()
 	var scale_mode: int = win.content_scale_mode
@@ -199,7 +218,7 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 
 static func _case_money(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	var money := hud.bottom_bar.money_menu()
 	TestFixtures.check(res, "hud money start text", money.text().contains("100"), money.text())
@@ -214,7 +233,7 @@ static func _case_money(res: Dictionary, host: Node) -> void:
 
 static func _case_time(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	var time_menu := hud.bottom_bar.time_menu()
 	var expected_date := TrynnCalendar.date_text(CampaignClock.now())
@@ -259,9 +278,79 @@ static func _case_time(res: Dictionary, host: Node) -> void:
 	hud.queue_free()
 
 
+#The speed buttons that are pressed, by speed mode.
+static func _pressed_speeds(time_menu: TimeMenu) -> Array[int]:
+	var out: Array[int] = []
+	for m in range(5):
+		if time_menu.speed_button(m).button_pressed:
+			out.append(m)
+	return out
+
+
+#The speed buttons that are disabled, by speed mode.
+static func _locked_speeds(time_menu: TimeMenu) -> Array[int]:
+	var out: Array[int] = []
+	for m in range(5):
+		if time_menu.speed_button(m).disabled:
+			out.append(m)
+	return out
+
+
+static func _greyed_speeds(time_menu: TimeMenu) -> Array[int]:
+	var out: Array[int] = []
+	for m in range(5):
+		if time_menu.speed_button(m).material is ShaderMaterial:
+			out.append(m)
+	return out
+
+
+#A time hold locks all five speed buttons on Pause; the release unlocks them on the speed from before.
+static func _case_time_lock(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var hud := spawn_hud(host)
+	await host.get_tree().process_frame
+	var time_menu := hud.bottom_bar.time_menu()
+	var ticking: bool = GameState.clock.is_processing()
+	GameState.clock.set_process(false)
+	GameState.set_speed(ClockRunner.Speed.PLAY)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "hud speed buttons start unlocked",
+		not GameState.is_time_held() and _locked_speeds(time_menu).is_empty(),
+		"locked %s" % str(_locked_speeds(time_menu)))
+	var screen := RefCounted.new()
+	GameState.hold_time(screen)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "hud hold disables all five speed buttons",
+		_locked_speeds(time_menu) == [0, 1, 2, 3, 4], "locked %s" % str(_locked_speeds(time_menu)))
+	TestFixtures.check(res, "hud hold shows Pause pressed",
+		_pressed_speeds(time_menu) == [ClockRunner.Speed.PAUSE],
+		"pressed %s" % str(_pressed_speeds(time_menu)))
+	var late := spawn_hud(host)
+	await host.get_tree().process_frame
+	var late_menu := late.bottom_bar.time_menu()
+	TestFixtures.check(res, "hud opened during a hold starts locked on Pause",
+		_locked_speeds(late_menu) == [0, 1, 2, 3, 4] and _pressed_speeds(late_menu) == [ClockRunner.Speed.PAUSE],
+		"locked %s pressed %s" % [str(_locked_speeds(late_menu)), str(_pressed_speeds(late_menu))])
+	TestFixtures.check(res, "hud hold greys every speed button",
+		_greyed_speeds(time_menu) == [0, 1, 2, 3, 4], "greyed %s" % str(_greyed_speeds(time_menu)))
+	late.queue_free()
+	GameState.release_time(screen)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "hud release clears the grey",
+		_greyed_speeds(time_menu).is_empty(), "greyed %s" % str(_greyed_speeds(time_menu)))
+	TestFixtures.check(res, "hud release enables the speed buttons on the speed from before",
+		_locked_speeds(time_menu).is_empty() and _pressed_speeds(time_menu) == [ClockRunner.Speed.PLAY]
+		and GameState.clock.speed == ClockRunner.Speed.PLAY,
+		"locked %s pressed %s" % [str(_locked_speeds(time_menu)), str(_pressed_speeds(time_menu))])
+	GameState.set_speed(ClockRunner.Speed.PAUSE)
+	GameState.clock.set_process(ticking)
+	hud.queue_free()
+	await host.get_tree().process_frame
+
+
 static func _case_menus(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	hud.open_menu(0)
 	await host.get_tree().process_frame
@@ -284,7 +373,7 @@ static func _case_harness(res: Dictionary, host: Node) -> void:
 	var counter := func() -> void: roster_events[0] += 1
 	GameState.roster_changed.connect(counter)
 	var started_before := GameState.started
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "hud harness no restart", GameState.started == started_before and roster_events[0] == 0,
 		"started=%s events=%d" % [str(GameState.started), roster_events[0]])
@@ -295,7 +384,7 @@ static func _case_harness(res: Dictionary, host: Node) -> void:
 
 static func _case_entries(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	var order_ok := true
 	var tips_ok := true
@@ -319,13 +408,15 @@ static func _case_entries(res: Dictionary, host: Node) -> void:
 		hud.menu_grid.columns == 3 and hud.menu_grid.size.is_equal_approx(Vector2(516, 516)),
 		"columns %d size %s" % [hud.menu_grid.columns, hud.menu_grid.size])
 	var tile_zero: GridMenuButton = hud.button(0)
-	tile_zero.hover(true)
+	tile_zero.mouse_entered.emit()
+	await TestFixtures.frames(host, 2)
+	await host.get_tree().create_timer(0.1).timeout
 	TestFixtures.check(res, "hud grid draws over the bottom bar and a hovered tile over its row",
-		hud.menu_grid.z_index == 3 and tile_zero.z_index == GridMenuButton.HOVER_Z_INDEX
-			and hud.bottom_bar.z_index == 0 and hud.description_label.text == "",
+		hud.menu_grid.z_index == 3 and tile_zero.z_index > 0
+			and hud.bottom_bar.z_index == 0 and hud.description_label.text == tile_zero.description,
 		"grid %d hovered %d bar %d" % [hud.menu_grid.z_index, tile_zero.z_index,
 			hud.bottom_bar.z_index])
-	tile_zero.hover(false)
+	tile_zero.mouse_exited.emit()
 	var promotions: GridMenuButton = hud.button_of(&"promotions")
 	TestFixtures.check(res, "hud promotions tile reads the design description and icon",
 		promotions != null and promotions.description == "Run ad campaigns and hire mercs who apply"
@@ -352,15 +443,19 @@ static func _case_entries(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "hud top right holds a 56 x 56 bell slot left of the settings gear",
 		hud.bell_slot != null and hud.bell_slot.custom_minimum_size == Vector2(56, 56)
 			and slot_rect.end.x <= gear_rect.position.x
-			and absf(slot_rect.position.y - gear_rect.position.y) <= 1.0,
+			and absf(slot_rect.position.y - gear_rect.position.y) <= 1.0
+			and hud.bell_slot is NotificationBell and hud.bell() == hud.bell_slot
+			and hud.bell_slot.get_node_or_null("HelpTarget") != null,
 		"slot %s gear %s" % [slot_rect, gear_rect])
+	TestFixtures.check(res, "hud bell is a SettingsButton scene like mail and settings",
+		hud.bell_slot is SettingsButton and hud.mail_button is SettingsButton
+			and hud.bell_slot.icon_rect.icon_id == "bell" and hud.bell_slot.icon_rect.pixel_scale == 2,
+		"id %s scale %d" % [hud.bell_slot.icon_rect.icon_id, hud.bell_slot.icon_rect.pixel_scale])
 	hud.queue_free()
 
 
-#Presses Take Me There on the open lock dialog and reports the target it asked GameState for.
-#The HUD answers that request by opening My Mercday, so the popup is closed again here.
-static func _take_me_there(hud: GameHUD) -> Dictionary:
-	var dialog: FeatureLockDialog = hud.lock_dialog()
+#Presses Take Me There on an already-open lock dialog and returns the target it sends GameState.
+static func press_take_me_there(dialog: FeatureLockDialog) -> Dictionary:
 	if dialog == null:
 		return {}
 	var seen: Array[Dictionary] = []
@@ -368,11 +463,18 @@ static func _take_me_there(hud: GameHUD) -> Dictionary:
 	GameState.go_to_plans_requested.connect(catcher)
 	dialog.press_take_me_there()
 	GameState.go_to_plans_requested.disconnect(catcher)
-	hud.popup().close()
 	return {} if seen.is_empty() else seen[0]
 
 
-static func _lines(hud: GameHUD) -> Array[String]:
+#The HUD answers that request by opening My Mercday, so the popup is closed again here.
+static func _take_me_there(hud: GameHUD) -> Dictionary:
+	var target: Dictionary = press_take_me_there(hud.lock_dialog())
+	hud.popup().close()
+	return target
+
+
+#The two lines the feature lock dialog prints, empty while it never opened.
+static func lock_lines(hud: GameHUD) -> Array[String]:
 	var dialog: FeatureLockDialog = hud.lock_dialog()
 	if dialog == null:
 		return ["", ""]
@@ -381,7 +483,7 @@ static func _lines(hud: GameHUD) -> Array[String]:
 
 static func _case_locks(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	var bazaar: GridMenuButton = hud.button_of(&"bazaar")
 	var promotions: GridMenuButton = hud.button_of(&"promotions")
@@ -394,17 +496,17 @@ static func _case_locks(res: Dictionary, host: Node) -> void:
 			promotions.locked, promotions.tooltip_text])
 	TestFixtures.check(res, "hud locked tile greys its icon, dims its label and shows the badge",
 		bazaar.icon_rect.tint.is_equal_approx(GridMenuButton.GRAY_TINT)
-			and bazaar.text_color().is_equal_approx(GuiColors.LOCKED_TEXT)
+			and bazaar.caption_color().is_equal_approx(GuiColors.LOCKED_TEXT)
 			and bazaar.lock_badge.visible and bazaar.lock_icon.texture != null,
-		"tint %s label %s badge %s" % [bazaar.icon_rect.tint, bazaar.text_color(),
+		"tint %s label %s badge %s" % [bazaar.icon_rect.tint, bazaar.caption_color(),
 			bazaar.lock_badge.visible])
 	bazaar.press()
 	await host.get_tree().process_frame
-	var plan_lines: Array[String] = _lines(hud)
+	var plan_lines: Array[String] = lock_lines(hud)
 	TestFixtures.check(res, "hud bazaar plan lock names the plan and never opens the window",
 		hud.lock_dialog() != null and hud.lock_dialog().visible and not hud.popup().is_open()
 			and plan_lines[0] == PLAN_LINE1
-			and plan_lines[1] == "Upgrade to Mercday Enterprise to use the Bazaar.",
+			and plan_lines[1] == BAZAAR_PLAN_LINE2,
 		"lines %s open %s" % [plan_lines, hud.popup().is_open()])
 	var plan_target: Dictionary = _take_me_there(hud)
 	TestFixtures.check(res, "hud plan lock take me there asks for the plans page",
@@ -412,27 +514,24 @@ static func _case_locks(res: Dictionary, host: Node) -> void:
 		"target %s" % plan_target)
 	promotions.press()
 	await host.get_tree().process_frame
-	var promo_plan_lines: Array[String] = _lines(hud)
+	var promo_plan_lines: Array[String] = lock_lines(hud)
 	TestFixtures.check(res, "hud promotions plan lock names promotions in its second line",
 		promo_plan_lines[0] == PLAN_LINE1
-			and promo_plan_lines[1] == "Upgrade to Mercday Enterprise to use Promotions.",
+			and promo_plan_lines[1] == PROMO_PLAN_LINE2,
 		"lines %s" % [promo_plan_lines])
 	hud.lock_dialog().press_close()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "hud upgrade lock tooltips point at Enterprise Customize",
 		bazaar.locked and promotions.locked
-			and bazaar.tooltip_text
-				== "Locked. Requires the Bazaar upgrade (Mercday Enterprise > Customize)."
-			and promotions.tooltip_text
-				== "Locked. Requires the Promotions upgrade (Mercday Enterprise > Customize).",
+			and bazaar.tooltip_text == BAZAAR_UP_TIP and promotions.tooltip_text == PROMO_UP_TIP,
 		"bazaar %s promotions %s" % [bazaar.tooltip_text, promotions.tooltip_text])
 	bazaar.press()
 	await host.get_tree().process_frame
-	var up_lines: Array[String] = _lines(hud)
+	var up_lines: Array[String] = lock_lines(hud)
 	TestFixtures.check(res, "hud bazaar upgrade lock names the bazaar upgrade",
-		not hud.popup().is_open() and up_lines[0] == "The Bazaar is locked."
-			and up_lines[1] == "It requires the Bazaar upgrade!",
+		not hud.popup().is_open() and up_lines[0] == BAZAAR_UP_LINE1
+			and up_lines[1] == BAZAAR_UP_LINE2,
 		"lines %s open %s" % [up_lines, hud.popup().is_open()])
 	var up_target: Dictionary = _take_me_there(hud)
 	TestFixtures.check(res, "hud upgrade lock take me there asks for the bazaar upgrade row",
@@ -442,10 +541,10 @@ static func _case_locks(res: Dictionary, host: Node) -> void:
 		"target %s" % up_target)
 	promotions.press()
 	await host.get_tree().process_frame
-	var promo_up_lines: Array[String] = _lines(hud)
+	var promo_up_lines: Array[String] = lock_lines(hud)
 	TestFixtures.check(res, "hud promotions upgrade lock names the promotions upgrade",
-		promo_up_lines[0] == "Promotions is locked."
-			and promo_up_lines[1] == "It requires the Promotions upgrade.",
+		promo_up_lines[0] == PROMO_UP_LINE1
+			and promo_up_lines[1] == PROMO_UP_LINE2,
 		"lines %s" % [promo_up_lines])
 	var promo_up_target: Dictionary = _take_me_there(hud)
 	TestFixtures.check(res, "hud promotions upgrade take me there asks for its own row",
@@ -453,7 +552,7 @@ static func _case_locks(res: Dictionary, host: Node) -> void:
 			and String(promo_up_target.get("upgrade", "")) == "promotions"
 			and int(promo_up_target.get("tier", 0)) == 1,
 		"target %s" % promo_up_target)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "hud clears both locks once the upgrades are owned",
 		not bazaar.locked and not promotions.locked and not bazaar.lock_badge.visible
@@ -470,7 +569,7 @@ static func _case_locks(res: Dictionary, host: Node) -> void:
 #The lock table holds ids only: UpgradeDefs owns every upgrade name and tier count.
 static func _case_lock_tables(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	var repeated: Array[String] = []
 	var mismatch: Array[String] = []
@@ -517,7 +616,7 @@ static func _only_dot(hud: GameHUD, key: StringName) -> bool:
 
 static func _case_dots(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	_quiet_managers()
 	hud.refresh_dots()
@@ -552,6 +651,7 @@ static func _case_dots(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "hud legal dot clears on the manager signal once the captures are seen",
 		_dots_on(hud).is_empty(), "on %s" % [_dots_on(hud)])
 	FinanceManager.reset()
+	GuiLoanTests._seed_fixture()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "hud finance dot follows an unread loan offer",
 		_only_dot(hud, &"finance"), "on %s" % [_dots_on(hud)])
@@ -560,13 +660,14 @@ static func _case_dots(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "hud finance dot clears once the offers are seen",
 		_dots_on(hud).is_empty(), "on %s" % [_dots_on(hud)])
 	PromotionsManager.reset()
+	GuiHiringTests._lay_board()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "hud finance dot also reads unseen applicants",
 		PromotionsManager.has_unseen() and _only_dot(hud, &"finance"),
 		"unseen %s on %s" % [PromotionsManager.has_unseen(), _dots_on(hud)])
 	PromotionsManager.mark_seen()
 	await host.get_tree().process_frame
-	var seeded: Array[int] = GameState.seed_results_preview()
+	var seeded: Array[int] = ResultsPreview.seed_results()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "hud contracts dot follows an unclaimed result",
 		seeded.size() == 2 and _only_dot(hud, &"contracts"),
@@ -610,7 +711,7 @@ static func _shows(hud: GameHUD, key: StringName) -> bool:
 
 static func _case_routing(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	var made: Node = hud.open_viewer(&"nowhere")
 	await host.get_tree().process_frame
@@ -642,7 +743,7 @@ static func _case_routing(res: Dictionary, host: Node) -> void:
 			and hud.lock_dialog() != null and hud.lock_dialog().visible,
 		"blocked %s open %s" % [blocked, hud.popup().is_open()])
 	hud.lock_dialog().press_close()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	GameState.go_to_plans({"tab": "plans"})
 	await host.get_tree().process_frame
@@ -676,6 +777,24 @@ static func _case_routing(res: Dictionary, host: Node) -> void:
 		offer_view != null and _shows(hud, &"finance") and offer_row.read,
 		"content %s read %s" % [hud.popup().current(), offer_row.read])
 	hud.popup().close()
+	var warn_row: NotificationData = NotificationCenter.push(NotificationData.TYPE_EXPIRY_WARNING, entry_id)
+	var warn_view: Node = hud.open_notification(warn_row)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "hud expiry warning opens the contract viewer on its posting",
+		warn_view is ContractViewer and (warn_view as ContractViewer).selected_id == entry_id and warn_row.read,
+		"view %s selected %d entry %d read %s" % [warn_view,
+			(warn_view as ContractViewer).selected_id if warn_view is ContractViewer else -2, entry_id,
+			warn_row.read])
+	hud.popup().close()
+	var gone_row: NotificationData = NotificationCenter.push(NotificationData.TYPE_EXPIRED, entry_id)
+	var gone_view: Node = hud.open_notification(gone_row)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "hud expired notice opens the contract viewer on its posting",
+		gone_view is ContractViewer and (gone_view as ContractViewer).selected_id == entry_id and gone_row.read,
+		"view %s selected %d entry %d read %s" % [gone_view,
+			(gone_view as ContractViewer).selected_id if gone_view is ContractViewer else -2, entry_id,
+			gone_row.read])
+	hud.popup().close()
 	var odd_row: NotificationData = NotificationCenter.push(&"somethingElse", 1)
 	var odd_view: Node = hud.open_notification(odd_row)
 	await host.get_tree().process_frame
@@ -690,7 +809,7 @@ static func _case_routing(res: Dictionary, host: Node) -> void:
 
 static func _case_fly(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var hud := _spawn(host)
+	var hud := spawn_hud(host)
 	await host.get_tree().process_frame
 	var fly: MoneyFly = hud.money_fly()
 	var money: MoneyMenu = hud.bottom_bar.money_menu()
@@ -770,12 +889,10 @@ static func _case_tile_ids(res: Dictionary) -> void:
 		got.append(String(entry.get("id", "")))
 	TestFixtures.check(res, "the nine tiles name the design ids row by row", got == want,
 		"ids %s" % str(got))
-	var scales_ok: bool = true
+	var scales_ok: bool = GameHUD.GRID_ICON_SCALE == 4
 	var known_ok: bool = true
 	var keys_ok: bool = true
 	for entry: Dictionary in GameHUD.GRID_ENTRIES:
-		if int(entry.get("scale", 0)) != 4:
-			scales_ok = false
 		if not Icons.has(String(entry.get("id", ""))):
 			known_ok = false
 		if entry.has("icon") or entry.has("glyph"):

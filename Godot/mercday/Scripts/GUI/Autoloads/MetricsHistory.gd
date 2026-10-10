@@ -51,7 +51,7 @@ func clear_preview() -> void:
 	_use_preview = false
 
 
-#Picks which store days(), first_day(), series() and combined_series() read.
+#Test hook: picks which store days(), first_day(), series() and combined_series() read.
 func use_preview(on: bool) -> void:
 	_use_preview = on
 
@@ -209,57 +209,74 @@ func _bucketed(rows: Array[Dictionary], keys: Array[String], agg: String, from_d
 	var end: int = rows.size()
 	if day_count >= 0:
 		end = mini(rows.size(), start + maxi(0, day_count))
+	var folds: Dictionary = {"EVENT_AVG": _event_avg_of, "AVG": _avg_of, "LAST": _last_of}
+	var fold: Callable = folds.get(agg, _sum_of)
 	var previous: Variant = null
 	var missing: Array[int] = []
 	var bucket: int = start
 	while bucket < end:
 		var stop: int = mini(end, bucket + size)
-		var value: Variant = null
-		if agg == "EVENT_AVG":
-			var sum: float = 0.0
-			var count: float = 0.0
-			for d: int in range(bucket, stop):
-				for key: String in keys:
-					sum += _cell(rows[d], key)
-					count += _cell(rows[d], key + "_n")
-			value = sum / count if count > 0.0 else previous
-			if value != null:
-				previous = value
-		elif agg == "AVG":
-			var sum: float = 0.0
-			var count: float = 0.0
-			for d: int in range(bucket, stop):
-				for key: String in keys:
-					if not rows[d].has(key):
-						continue
-					var weight: float = _cell(rows[d], key + "_n") if rows[d].has(key + "_n") else 1.0
-					sum += _cell(rows[d], key) * weight
-					count += weight
-			value = sum / count if count > 0.0 else previous
-			if value != null:
-				previous = value
-		elif agg == "LAST":
-			var last: float = 0.0
-			for key: String in keys:
-				last += _cell(rows[stop - 1], key)
-			value = last
+		var value: Variant = fold.call(rows, keys, bucket, stop)
+		if value != null:
+			previous = value
+		elif previous != null:
+			value = previous
 		else:
-			var sum: float = 0.0
-			for d: int in range(bucket, stop):
-				for key: String in keys:
-					sum += _cell(rows[d], key)
-			value = sum
-		if value == null:
 			missing.append(out.size())
-			out.append({"day": bucket, "value": 0.0})
-		else:
-			out.append({"day": bucket, "value": float(value)})
+			value = 0.0
+		out.append({"day": bucket, "value": float(value)})
 		bucket += size
 	if not missing.is_empty() and missing.size() < out.size():
 		var first: float = float(out[missing.size()]["value"])
 		for i: int in missing:
 			out[i]["value"] = first
 	return out
+
+
+#EVENT_AVG: the summed values of a bucket over its summed event counts; null when the counts sum to zero.
+func _event_avg_of(rows: Array[Dictionary], keys: Array[String], bucket: int, stop: int) -> Variant:
+	var sum: float = 0.0
+	var count: float = 0.0
+	for d: int in range(bucket, stop):
+		for key: String in keys:
+			sum += _cell(rows[d], key)
+			count += _cell(rows[d], key + "_n")
+	if count > 0.0:
+		return sum / count
+	return null
+
+
+#AVG: the mean of the cells a bucket holds, each weighted by its _n cell or else by one; null when the weights sum to zero.
+func _avg_of(rows: Array[Dictionary], keys: Array[String], bucket: int, stop: int) -> Variant:
+	var sum: float = 0.0
+	var count: float = 0.0
+	for d: int in range(bucket, stop):
+		for key: String in keys:
+			if not rows[d].has(key):
+				continue
+			var weight: float = _cell(rows[d], key + "_n") if rows[d].has(key + "_n") else 1.0
+			sum += _cell(rows[d], key) * weight
+			count += weight
+	if count > 0.0:
+		return sum / count
+	return null
+
+
+#LAST: the keys summed on the last day of a bucket.
+func _last_of(rows: Array[Dictionary], keys: Array[String], _bucket: int, stop: int) -> Variant:
+	var last: float = 0.0
+	for key: String in keys:
+		last += _cell(rows[stop - 1], key)
+	return last
+
+
+#Any other agg: the keys summed over every day of a bucket.
+func _sum_of(rows: Array[Dictionary], keys: Array[String], bucket: int, stop: int) -> Variant:
+	var sum: float = 0.0
+	for d: int in range(bucket, stop):
+		for key: String in keys:
+			sum += _cell(rows[d], key)
+	return sum
 
 
 #Fills the preview store with the deterministic sample history; days is the whole span in in-game

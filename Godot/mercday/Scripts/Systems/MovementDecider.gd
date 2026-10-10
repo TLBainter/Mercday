@@ -7,11 +7,11 @@ const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
 #Moves a walk may buy this turn and the AP it holds back for an Attack the walk could set up.
 static func plan_moves(mover: MercenaryData, enemies: Array, state: BattleState) -> Dictionary:
 	var reach := _get_weapon_melee_range(mover)
-	var free: Dictionary = MovementExecutor.turn_paces(mover, state, 0)
+	var free: Dictionary = PaceBudget.turn_paces(mover, state, 0)
 	var reserve := 0
 	if not enemies.is_empty() and _min_enemy_distance(mover, enemies, state) <= int(free["paces"]) + reach:
 		reserve = state.get_cost(mover, "Attack", _CONFIG.attack_base_ap)
-	var plan: Dictionary = MovementExecutor.turn_paces(mover, state, reserve)
+	var plan: Dictionary = PaceBudget.turn_paces(mover, state, reserve)
 	if int(plan["paces"]) <= 0:
 		plan = free
 		reserve = 0
@@ -21,14 +21,19 @@ static func plan_moves(mover: MercenaryData, enemies: Array, state: BattleState)
 	return {"paces": int(plan["paces"]), "pool": int(plan["pool"]), "moves_allowed": moves_allowed, "reserve_ap": reserve}
 
 
+#Paces the mover can walk while keeping the AP of an Attack in reserve; at least 1.
+static func sight_pace(mover: MercenaryData, state: BattleState, attack_base_ap: int) -> int:
+	return maxi(1, int(PaceBudget.turn_paces(mover, state,
+		state.get_cost(mover, "Attack", attack_base_ap))["paces"]))
+
+
 #Cheapest reachable cell within pace from which the target can be seen.
 static func find_flanking_cell(mover: MercenaryData, target: MercenaryData, state: BattleState) -> Vector2i:
 	if state.battlefield == null:
 		return Vector2i(-1, -1)
-	var pace: int = maxi(1, int(MovementExecutor.turn_paces(mover, state,
-		state.get_cost(mover, "Attack", _CONFIG.attack_base_ap))["paces"]))
-	var mover_size: int = maxi(1, int(mover.stats.get("size", 1)))
-	var reach: Dictionary = PathTargeter.reachable_for(mover, state)
+	var pace := sight_pace(mover, state, _CONFIG.attack_base_ap)
+	var mover_size: int = mover.unit_size()
+	var reach: Dictionary = ReachCache.reachable_for(mover, state)
 	var mover_floor := state.get_floor(mover)
 	var best := Vector2i(-1, -1)
 	var best_cost := 0
@@ -76,12 +81,13 @@ static func _min_enemy_distance(mover: MercenaryData, enemies: Array, state: Bat
 
 
 #Closest enemy by grid distance and that distance: {"merc", "dist"}; max_dist below 0 means no cap.
+#use_2d measures the flat Chebyshev distance and ignores elevation.
 static func nearest_enemy(mover: MercenaryData, enemies: Array, state: BattleState,
-		max_dist: int = -1) -> Dictionary:
+		max_dist: int = -1, use_2d: bool = false) -> Dictionary:
 	var best: MercenaryData = null
 	var best_dist := 999999
 	for enemy: MercenaryData in enemies:
-		var d := state.distance_to(mover, enemy)
+		var d := state.distance_2d(mover, enemy) if use_2d else state.distance_to(mover, enemy)
 		if max_dist >= 0 and d > max_dist:
 			continue
 		if d < best_dist:

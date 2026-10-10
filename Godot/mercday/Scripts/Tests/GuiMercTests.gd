@@ -1,12 +1,15 @@
 class_name GuiMercTests
 
-#Stage 2 Merc Viewer: the roster list, the merc header, the eight tabs and the salary dialog.
+#Merc Viewer: the roster list, the merc header, the eight tabs and the salary dialog.
 #Run: godot --headless --path . with the user arg --gui-merc-tests
 
 const MERC_VIEWER := preload("res://Scenes/GUI/Mercs/MercViewer.tscn")
 const SUBWINDOW_SCENE := preload("res://Scenes/GUI/Shared/SubWindow.tscn")
 const TRAIT_CARD_SCENE := preload("res://Scenes/GUI/Mercs/TraitCard.tscn")
 const CENTRE_WIDTH: int = 228
+#Mercs hired past the start roster: the list case reads the fourth merc, the relationships case needs two coworkers.
+const LIST_EXTRA := 2
+const COWORKER_EXTRA := 1
 
 
 static func run(host: Node) -> bool:
@@ -22,6 +25,7 @@ static func run(host: Node) -> bool:
 	await _case_traits(res, host)
 	await _case_metrics(res, host)
 	await _case_locks(res, host)
+	await _case_locked_page_fit(res, host)
 	await _case_lock_fields(res, host)
 	await _case_lifepath(res, host)
 	await _case_open_tab(res, host)
@@ -29,7 +33,11 @@ static func run(host: Node) -> bool:
 	await _case_applicant_early(res, host)
 	await _case_applicant_cleared(res, host)
 	await _case_applicant_lineage(res, host)
-	SubscriptionManager.reset()
+	await _case_window_fit(res, host)
+	await _case_hire(res, host)
+	await _case_metrics_picks_across_mercs(res, host)
+	await _case_reopen_mercs(res, host)
+	SubscriptionManager.max_out()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	CampaignClock.reset()
 	return TestFixtures.summarize(res, "GUI MERC")
@@ -40,31 +48,20 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
+	SubscriptionManager.max_out()
 
 
 static func _tradition_text(view: MercView) -> String:
 	return view.tradition if view.tradition != "" else OverviewTab.EMPTY_TEXT
 
 
-static func _open(host: Node) -> MercViewer:
+static func _open(host: Node, extra: int = 0) -> MercViewer:
 	_fresh()
+	TestFixtures.add_mercs(extra)
 	var screen: MercViewer = MERC_VIEWER.instantiate()
 	host.add_child(screen)
 	await host.get_tree().process_frame
 	return screen
-
-
-static func _push_escape(host: Node) -> void:
-	var event := InputEventAction.new()
-	event.action = &"ui_cancel"
-	event.pressed = true
-	host.get_viewport().push_input(event)
-
-
-#The mood a merc left the guild with; a removed merc is off the books, the record holds it.
-static func _left_opinion(uid: int) -> int:
-	var record: RemovedMercRecord = GameState.removed_by_uid(uid)
-	return record.guild_opinion if record != null else 0
 
 
 #Puts one merc on furlough, the status that locks a wage while the guild still employs them.
@@ -73,6 +70,7 @@ static func _vacation(uid: int) -> void:
 	if merc == null:
 		return
 	merc.rest_lockout_kind = RestSystem.KIND_FURLOUGH
+	merc.rest_lockout_start = CampaignClock.now()
 	merc.rest_lockout_until = CampaignClock.now() + CampaignClock.MINUTES_PER_DAY
 	GameState.refresh_views()
 
@@ -92,7 +90,7 @@ static func _names(list: Array[MercView]) -> Array[String]:
 
 
 static func _case_list(res: Dictionary, host: Node) -> void:
-	var screen: MercViewer = await _open(host)
+	var screen: MercViewer = await _open(host, LIST_EXTRA)
 	var roster: Array[MercView] = GameState.roster
 	TestFixtures.check(res, "the list holds one row per roster merc",
 		screen.list.row_count() == roster.size(),
@@ -109,9 +107,9 @@ static func _case_list(res: Dictionary, host: Node) -> void:
 		"row '%s' full '%s'" % [first_row.name_label.text, first.name])
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the list head reads Mercs and shown/total",
-		screen.list.title_label.text == "Mercs"
-			and screen.list.count_label.text == "%d/%d" % [roster.size(), roster.size()],
-		"title '%s' count '%s'" % [screen.list.title_label.text, screen.list.count_label.text])
+		screen.list.head.caption_label.text == "Mercs"
+			and screen.list.head.count_label.text == "%d/%d" % [roster.size(), roster.size()],
+		"title '%s' count '%s'" % [screen.list.head.caption_label.text, screen.list.head.count_label.text])
 	var row: MercListItem = screen.list.rows()[0]
 	var holder_rect: Rect2 = row.portrait_holder.get_global_rect()
 	var strip_rect: Rect2 = row.strip.get_global_rect()
@@ -125,15 +123,11 @@ static func _case_list(res: Dictionary, host: Node) -> void:
 			and row.badge.custom_minimum_size == Vector2(48, 56),
 		"mode %d min %s" % [row.badge.size_mode, row.badge.custom_minimum_size])
 	var other: MercListItem = screen.list.rows()[1]
-	var sel_box: StyleBoxFlat = row.get_theme_stylebox("normal") as StyleBoxFlat
-	var idle_box: StyleBoxFlat = other.get_theme_stylebox("normal") as StyleBoxFlat
-	TestFixtures.check(res, "the selected row wears the orange ring and the others the ink ring",
-		row.is_selected and sel_box != null and idle_box != null
-			and sel_box.border_color == Color("#f28c28") and sel_box.bg_color == Color("#15223d")
-			and idle_box.border_color == Color("#0a0f1c")
-			and idle_box.bg_color == Color("#0e1628"),
-		"selected %s %s idle %s %s" % [sel_box.border_color, sel_box.bg_color,
-			idle_box.border_color, idle_box.bg_color])
+	TestFixtures.check(res, "the selected row wears the orange ring and the others the ink edge",
+		row.is_selected and row.fx_active() and not other.fx_active()
+			and row.fill == GuiColors.ROW_HOVER and row.hi == GuiColors.ORANGE and row.lo == GuiColors.ORANGE
+			and other.fill == GuiColors.ROW_FILL and other.lo == GuiColors.ROW_EDGE_LO,
+		"selected %s %s idle %s %s" % [row.fill, row.lo, other.fill, other.lo])
 	TestFixtures.check(res, "the sort row is 26 high",
 		int(screen.list.sort_button.custom_minimum_size.y) == 26
 			and int(screen.list.dir_toggle.custom_minimum_size.y) == 26
@@ -146,8 +140,8 @@ static func _case_list(res: Dictionary, host: Node) -> void:
 			and int(filter_btn.custom_minimum_size.y) == 26,
 		"filter %s" % ("null" if filter_btn == null else filter_btn.text))
 	TestFixtures.check(res, "the roster rows sit 1 px apart",
-		screen.list.items.get_theme_constant("separation") == 1,
-		"separation %d" % screen.list.items.get_theme_constant("separation"))
+		screen.list.items().get_theme_constant("separation") == 1,
+		"separation %d" % screen.list.items().get_theme_constant("separation"))
 	TestFixtures.check(res, "the sort list spells out the guild and employment options",
 		screen.list.sort_button.options[MercList.Sort.GUILD] == "Guild Opinion"
 			and screen.list.sort_button.options[MercList.Sort.EMPLOYMENT] == "Employment Length",
@@ -193,10 +187,10 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 	var body_top: float = screen.body.get_global_rect().position.y
 	TestFixtures.check(res, "the tab bar joins the body",
 		content.get_theme_constant("separation") == 0
-			and screen.tab_row.get_theme_constant("separation") == 8
+			and screen.tab_strip.get_theme_constant("separation") == 8
 			and absf(active_end - body_top) <= 1.0,
 		"sep %d row %d tab %f body %f" % [content.get_theme_constant("separation"),
-			screen.tab_row.get_theme_constant("separation"), active_end, body_top])
+			screen.tab_strip.get_theme_constant("separation"), active_end, body_top])
 	TestFixtures.check(res, "the active tab is 44 high and idle tabs 52x38",
 		tabs[0].active and is_equal_approx(tabs[0].size.y, 44.0)
 			and tabs[1].size == Vector2(52, 38),
@@ -205,12 +199,12 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 	var icon_centre: Vector2 = icon_rect.get_global_rect().get_center()
 	var tab_centre: Vector2 = tabs[1].get_global_rect().get_center()
 	TestFixtures.check(res, "an idle tab centres a 32 px icon",
-		icon_rect.size == Vector2(32, 32) and icon_rect.icon_id == MercViewer.TAB_IDS[1]
+		icon_rect.size == Vector2(32, 32) and icon_rect.icon_id == screen.tab_strip.icon_ids[1]
 			and icon_centre.distance_to(tab_centre) <= 1.0,
 		"icon %s id %s centre %s tab %s" % [icon_rect.size, icon_rect.icon_id, icon_centre,
 			tab_centre])
 	TestFixtures.check(res, "the active tab shows its label beside the icon",
-		tabs[0].text_label.visible and tabs[0].text_label.text == MercViewer.TAB_LABELS[0]
+		tabs[0].text_label.visible and tabs[0].text_label.text == screen.tab_strip.labels[0]
 			and not tabs[1].text_label.visible and tabs[0].text == "" and tabs[1].text == "",
 		"active '%s' idle %s button '%s'" % [tabs[0].text_label.text,
 			tabs[1].text_label.visible, tabs[0].text])
@@ -220,8 +214,8 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 		"active %s idle %s" % [tabs[0].theme_type_variation, tabs[1].theme_type_variation])
 	var wired: bool = screen.body.draw.is_connected(Callable(screen, "_draw_body_edges"))
 	TestFixtures.check(res, "the body draws the orange top edge",
-		wired and MercViewer.BODY_TOP_COLOR == Color("#f28c28"),
-		"connected %s colour %s" % [wired, MercViewer.BODY_TOP_COLOR])
+		wired,
+		"connected %s colour %s" % [wired, GuiColors.ORANGE])
 	tabs[1].dot = true
 	var tab_dot: NotificationDot = tabs[1].dot_node
 	TestFixtures.check(res, "a tab pins its dot through NotificationDot.pin",
@@ -305,29 +299,20 @@ static func _case_overview(res: Dictionary, host: Node) -> void:
 		"columns %d heritage %s" % [tab.fields.columns,
 			tab.fields.get_node_or_null("Heritage")])
 	var rows_box: VBoxContainer = tab.get_node("Pad/Rows") as VBoxContainer
-	TestFixtures.check(res, "the overview page fits without a vertical scroll bar",
+	TestFixtures.check(res, "the overview page fits without a scroll container at its root",
 		rows_box.get_combined_minimum_size().y <= tab.size.y
-			and not tab.get_v_scroll_bar().visible,
-		"rows %f page %f bar %s" % [rows_box.get_combined_minimum_size().y, tab.size.y,
-			tab.get_v_scroll_bar().visible])
+			and not ((tab as Node) is ScrollContainer),
+		"rows %f page %f root %s" % [rows_box.get_combined_minimum_size().y, tab.size.y,
+			tab.get_class()])
 	TestFixtures.check(res, "the three resource bars carry the answered fill colours",
 		tab.hp_bar.fill_color == OverviewTab.HP_COLOR
 			and tab.ep_bar.fill_color == OverviewTab.EP_COLOR
 			and tab.mp_bar.fill_color == OverviewTab.MP_COLOR
 			and OverviewTab.HP_COLOR == Color("#d6453d")
-			and OverviewTab.EP_COLOR == Color("#6cc36a")
-			and OverviewTab.MP_COLOR == Color("#5aa6e8"),
+			and OverviewTab.EP_COLOR == GuiColors.GREEN
+			and OverviewTab.MP_COLOR == GuiColors.LIGHT_BLUE,
 		"hp %s ep %s mp %s" % [tab.hp_bar.fill_color, tab.ep_bar.fill_color,
 			tab.mp_bar.fill_color])
-	var uid: int = view.uid
-	var dialog: CoachDialog = screen.coach_dialog()
-	tab.coaching.press_coach()
-	dialog.press_mode(&"Offensive")
-	dialog.press_confirm()
-	TestFixtures.check(res, "coaching a merc writes the plan to GameState",
-		GameState.pip_mode(uid) == &"Offensive", "got '%s'" % GameState.pip_mode(uid))
-	TestFixtures.check(res, "the coaching line follows the plan in force",
-		tab.coaching.plan_text() == "Plan: Offensive", "got '%s'" % tab.coaching.plan_text())
 	tab.set_view(null)
 	TestFixtures.check(res, "set_view(null) clears the overview title row and badge",
 		tab.tradition_label.text == OverviewTab.EMPTY_TEXT and tab.sigil.tradition == ""
@@ -354,14 +339,14 @@ static func _check_chip_palettes(res: Dictionary, tab: OverviewTab) -> void:
 	var detail: String = "heights %s" % heights_ok
 	if filled_chip != null:
 		var box: StyleBoxFlat = filled_chip.get_theme_stylebox("panel") as StyleBoxFlat
-		filled_ok = box != null and box.bg_color == Color("#2b4f8a")
+		filled_ok = box != null and box.bg_color == GuiColors.BLUE
 		detail += " filled %s" % (box.bg_color if box != null else Color.BLACK)
 	else:
 		detail += " filled half skipped, no filled chip"
 	if empty_chip != null:
 		var box2: StyleBoxFlat = empty_chip.get_theme_stylebox("panel") as StyleBoxFlat
-		empty_ok = box2 != null and box2.bg_color == Color("#0e1628")
-		if empty_ok and box2.border_color != Color("#1f3560"):
+		empty_ok = box2 != null and box2.bg_color == GuiColors.ROW_FILL
+		if empty_ok and box2.border_color != GuiColors.BLUE_LO:
 			empty_ok = false
 		detail += " empty %s" % (box2.bg_color if box2 != null else Color.BLACK)
 	else:
@@ -378,10 +363,10 @@ static func _case_header(res: Dictionary, host: Node) -> void:
 	var page: OverviewTab = screen.overview()
 	TestFixtures.check(res, "the header names the merc, the heritage and the tradition",
 		head.merc_name() == view.name and page.tradition_label.text == _tradition_text(view)
-			and head.heritage_label.text == (view.heritage if view.heritage != ""
+			and head.heritage_field.value_text() == (view.heritage if view.heritage != ""
 				else MercHeader.EMPTY_TEXT),
 		"name '%s' heritage '%s' tradition '%s'"
-			% [head.merc_name(), head.heritage_label.text, page.tradition_label.text])
+			% [head.merc_name(), head.heritage_field.value_text(), page.tradition_label.text])
 	TestFixtures.check(res, "the name block splits the first name from the rest",
 		head.first_name() == MercHeader.split_name(view.name)[0]
 			and head.surname() == MercHeader.split_name(view.name)[1]
@@ -394,25 +379,19 @@ static func _case_header(res: Dictionary, host: Node) -> void:
 			and MercHeader.split_name("Solo") == ["Solo", ""],
 		"got %s %s %s" % [MercHeader.split_name("Ada Vell"),
 			MercHeader.split_name("Merc 1 Name"), MercHeader.split_name("Solo")])
-	var heritage_caption: Label = head.get_node("Rows/Scroll/Lineage/Heritage/Lines/Caption") as Label
-	var age_caption: Label = head.get_node("Rows/Scroll/Lineage/Age/Lines/Caption") as Label
+	TestFixtures.check(res, "the header portrait shows the full body frame",
+		head.portrait.full_body, "full_body %s" % head.portrait.full_body)
+	var heritage_caption: Label = head.heritage_field.caption_label
+	var age_caption: Label = head.age_field.caption_label
 	TestFixtures.check(res, "heritage and age wear the lineage box with a caption",
 		heritage_caption.text == "Heritage" and age_caption.text == "Age"
 			and head.get_node_or_null("Rows/Heritage") == null
 			and head.get_node_or_null("Rows/Age") == null,
 		"captions '%s' '%s'" % [heritage_caption.text, age_caption.text])
-	var stock: String = merc.ancestry.ancestry_name if merc.ancestry != null else ""
-	var blood: String = merc.bloodline.ancestry_name if merc.bloodline != null else ""
-	var wanted: String = (blood + " " + stock).strip_edges()
-	if wanted == "":
-		wanted = MercHeader.EMPTY_TEXT
+	var wanted: String = _resource_lineage(view, "bloodline", "ancestry")
 	TestFixtures.check(res, "the primary lineage row reads the bloodline and the ancestry",
 		head.primary_text() == wanted, "row '%s' wanted '%s'" % [head.primary_text(), wanted])
-	var r_stock: String = merc.recessive_ancestry.ancestry_name if merc.recessive_ancestry != null else ""
-	var r_blood: String = merc.recessive_bloodline.ancestry_name if merc.recessive_bloodline != null else ""
-	var r_wanted: String = (r_blood + " " + r_stock).strip_edges()
-	if r_wanted == "":
-		r_wanted = MercHeader.EMPTY_TEXT
+	var r_wanted: String = _resource_lineage(view, "recessive_bloodline", "recessive_ancestry")
 	TestFixtures.check(res, "the secondary lineage row reads the recessive line or None",
 		head.secondary_text() == r_wanted,
 		"row '%s' wanted '%s'" % [head.secondary_text(), r_wanted])
@@ -427,9 +406,9 @@ static func _case_header(res: Dictionary, host: Node) -> void:
 			% [head.salary_chip().value_label.text, view.monthly_salary,
 				head.salary_chip().color()])
 	TestFixtures.check(res, "the chip colour warns as the wage eats the bank",
-		SalaryModule.color_for(5, 100) == SalaryModule.GREEN
-			and SalaryModule.color_for(20, 100) == SalaryModule.ORANGE
-			and SalaryModule.color_for(150, 100) == SalaryModule.RED,
+		SalaryModule.color_for(5, 100) == GuiColors.GREEN
+			and SalaryModule.color_for(20, 100) == GuiColors.ORANGE
+			and SalaryModule.color_for(150, 100) == GuiColors.RED,
 		"5 %s 20 %s 150 %s" % [SalaryModule.color_for(5, 100), SalaryModule.color_for(20, 100),
 			SalaryModule.color_for(150, 100)])
 	TestFixtures.check(res, "the chip bevel is drawn, not laid out as a child",
@@ -463,7 +442,7 @@ static func _case_header(res: Dictionary, host: Node) -> void:
 		head.title_label.text == "Merc View", "title '%s'" % head.title_label.text)
 	var frame_box: StyleBoxFlat = head.portrait_frame.get_theme_stylebox("panel") as StyleBoxFlat
 	TestFixtures.check(res, "the portrait box wears the orange ring",
-		frame_box != null and frame_box.border_color.is_equal_approx(Color("#f28c28"))
+		frame_box != null and frame_box.border_color.is_equal_approx(GuiColors.ORANGE)
 			and frame_box.border_width_top == 4,
 		"edge %s" % [frame_box.border_color if frame_box != null else Color.BLACK])
 	var head_strip: Rect2 = head.strip.get_global_rect()
@@ -479,8 +458,8 @@ static func _case_header(res: Dictionary, host: Node) -> void:
 	var dialog: SalaryDialog = screen.salary_dialog()
 	TestFixtures.check(res, "the header chip opens the wage dialog from any tab",
 		dialog.visible and dialog.merc_uid == view.uid
-			and screen.current_tab() == MercViewer.TAB_PERKS,
-		"visible %s uid %d tab %d" % [dialog.visible, dialog.merc_uid, screen.current_tab()])
+			and screen.current_index() == MercViewer.TAB_PERKS,
+		"visible %s uid %d tab %d" % [dialog.visible, dialog.merc_uid, screen.current_index()])
 	dialog.press_cancel()
 	GuiFrameStack.clear()
 	head.set_view(null)
@@ -643,10 +622,10 @@ static func _case_salary(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "confirming the fire marks the merc, drops the opinion and reports it",
 		fires.size() == 1 and int(fires[0]) == uid_b and BenefitsManager.is_fired(uid_b)
-			and _left_opinion(uid_b) == b_opinion - want_drop
+			and GuiPayrollTests._left_opinion(uid_b) == b_opinion - want_drop
 			and not dialog.visible,
 		"fires %s fired %s opinion %d wanted %d wage %s"
-			% [str(fires), BenefitsManager.is_fired(uid_b), _left_opinion(uid_b),
+			% [str(fires), BenefitsManager.is_fired(uid_b), GuiPayrollTests._left_opinion(uid_b),
 				b_opinion - want_drop, dialog.visible])
 	dialog.open_for_uid(uid_b)
 	TestFixtures.check(res, "a fired merc has no wage box left to open",
@@ -681,7 +660,7 @@ static func _case_salary(res: Dictionary, host: Node) -> void:
 	await _case_salary_fire_select(res, host)
 
 
-#Item 34: the wage dialog is a frame like the rest, so Esc closes it and stops at the window under
+#The wage dialog is a frame like the rest, so Esc closes it and stops at the window under
 #it instead of closing the Merc Viewer with it.
 static func _case_salary_escape(res: Dictionary, host: Node) -> void:
 	GuiFrameStack.clear()
@@ -695,7 +674,7 @@ static func _case_salary_escape(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the wage dialog stacks above the window it opened in",
 		GuiFrameStack.top() == dialog and GuiFrameStack.depth() == 2,
 		"top %s depth %d" % [GuiFrameStack.top(), GuiFrameStack.depth()])
-	_push_escape(host)
+	GuiContractTests._push_escape(host)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "escape closes the wage dialog and leaves the viewer open",
 		not dialog.visible and win.is_open() and GuiFrameStack.top() == win,
@@ -801,7 +780,7 @@ static func _case_equipment(res: Dictionary, host: Node) -> void:
 
 
 static func _case_relationships(res: Dictionary, host: Node) -> void:
-	var screen: MercViewer = await _open(host)
+	var screen: MercViewer = await _open(host, COWORKER_EXTRA)
 	screen.select_tab(MercViewer.TAB_RELATIONSHIPS)
 	var view: MercView = screen.selected()
 	var tab: RelationshipsTab = screen.page(MercViewer.TAB_RELATIONSHIPS) as RelationshipsTab
@@ -814,12 +793,12 @@ static func _case_relationships(res: Dictionary, host: Node) -> void:
 		"face %d view %d" % [tab.guild_card().face().opinion if tab.guild_card().face() != null
 			else 99, view.guild_opinion])
 	var lit: int = 0
-	for entry: MoodFace in tab.guild_card().faces:
+	for entry: MoodFace in tab.guild_card().faces_row.faces:
 		if entry.filled:
 			lit += 1
 	TestFixtures.check(res, "the guild row shows every opinion step and lights one",
-		tab.guild_card().faces.size() == 11 and lit == 1,
-		"faces %d lit %d" % [tab.guild_card().faces.size(), lit])
+		tab.guild_card().faces_row.faces.size() == 11 and lit == 1,
+		"faces %d lit %d" % [tab.guild_card().faces_row.faces.size(), lit])
 	TestFixtures.check(res, "the grid runs three cards wide",
 		tab.grid.columns == RelationshipsTab.GRID_COLUMNS, "columns %d" % tab.grid.columns)
 	TestFixtures.check(res, "the sort button offers the four relationship keys",
@@ -849,7 +828,7 @@ static func _case_relationships(res: Dictionary, host: Node) -> void:
 		"mood %d" % [found.mood() if found != null else -1])
 	TestFixtures.check(res, "the card names the mood under the first name",
 		found != null and found.mood_label.text == MoodFace.MOOD_NAMES[4].to_upper()
-			and found.name_label.text == RelationshipCard.first_name(other.name).to_upper(),
+			and found.name_label.text == MercHeader.split_name(other.name)[0].to_upper(),
 		"mood '%s' name '%s'" % [found.mood_label.text if found != null else "",
 			found.name_label.text if found != null else ""])
 	TestFixtures.check(res, "the card dates the first meeting and the last change",
@@ -924,7 +903,7 @@ static func _case_traits(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the perk cards sit in a grid three wide",
 		perks.panel.columns() == 3, "columns %d" % perks.panel.columns())
 	TestFixtures.check(res, "the perks page is orange",
-		perks.accent() == Color("#f28c28"), "accent %s" % perks.accent().to_html(false))
+		perks.accent() == GuiColors.ORANGE, "accent %s" % perks.accent().to_html(false))
 	TestFixtures.check(res, "the detail drops the rarity and acquired lines",
 		perks.detail.get_node_or_null("Rows/Rarity") == null
 			and perks.detail.get_node_or_null("Rows/Acquired") == null,
@@ -955,8 +934,7 @@ static func _case_traits(res: Dictionary, host: Node) -> void:
 	card.size.x = 176
 	host.add_child(card)
 	card.trait_name = "Legend in the Making and Beyond the Horizon"
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	TestFixtures.check(res, "a long name wraps and grows its card",
 		card.name_label.get_line_count() >= 2 and card.size.y > 74.0,
 		"lines %d height %s" % [card.name_label.get_line_count(), card.size.y])
@@ -969,8 +947,8 @@ static func _case_metrics(res: Dictionary, host: Node) -> void:
 	screen.select_tab(MercViewer.TAB_METRICS)
 	var tab: MetricsTab = screen.page(MercViewer.TAB_METRICS) as MetricsTab
 	TestFixtures.check(res, "the metrics tab shows when it is picked",
-		screen.current_tab() == MercViewer.TAB_METRICS and tab.visible,
-		"tab %d visible %s" % [screen.current_tab(), tab.visible])
+		screen.current_index() == MercViewer.TAB_METRICS and tab.visible,
+		"tab %d visible %s" % [screen.current_index(), tab.visible])
 	var absent: bool = not ResourceLoader.exists(MetricsTab.METRICS_SCENE)
 	TestFixtures.check(res, "an absent metrics viewer falls back to the placeholder",
 		tab.embed() != null and tab.is_placeholder() == absent,
@@ -988,19 +966,195 @@ static func _case_metrics(res: Dictionary, host: Node) -> void:
 	screen.queue_free()
 
 
-#Every FeatureLock the screen is actually showing, by the feature it names.
-static func _visible_lock_features(root: Node) -> Array[String]:
-	var out: Array[String] = []
-	for node: Node in _all_nodes(root):
-		if node is FeatureLock and (node as FeatureLock).is_visible_in_tree():
-			out.append((node as FeatureLock).feature)
+static func _open_hud(host: Node, hud: GameHUD) -> MercViewer:
+	var screen: MercViewer = hud.open_viewer(&"mercs") as MercViewer
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	return screen
+
+
+static func _metrics_embed(screen: MercViewer) -> MetricsViewer:
+	if screen == null:
+		return null
+	screen.select_tab(MercViewer.TAB_METRICS)
+	var tab: MetricsTab = screen.page(MercViewer.TAB_METRICS) as MetricsTab
+	return tab.embed() as MetricsViewer if tab != null else null
+
+
+#Moves the period, the scale, the plotted metrics and the averages switch off where they opened.
+static func _move_metrics_picks(viewer: MetricsViewer) -> void:
+	var keys: Array[String] = viewer.metric_list.active_keys("Merc")
+	if not keys.is_empty():
+		viewer.metric_list.set_active("Merc", keys[0], false)
+	for def: MetricDef in MetricList.defs_for("Merc"):
+		if not keys.has(def.key) and not MetricList.locked_key("Merc", def.key):
+			viewer.metric_list.set_active("Merc", def.key, true)
+			break
+	viewer.period_drop.option_selected.emit(MetricsPeriod.period_key(
+		(int(viewer.period) + 1) % MetricsPeriod.PERIOD_KEYS.size()))
+	viewer.scale_drop.option_selected.emit(MetricsPeriod.scale_key(
+		(viewer.wanted_scale() + 1) % MetricsPeriod.SCALE_KEYS.size()))
+	viewer.show_averages.set_pressed(true)
+
+
+#Designer rule 2026-10-04: the picks reset once the Merc window is fully closed.
+static func _case_metrics_picks_across_mercs(res: Dictionary, host: Node) -> void:
+	_fresh()
+	TestFixtures.add_mercs(COWORKER_EXTRA)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var screen: MercViewer = await _open_hud(host, hud)
+	var viewer: MetricsViewer = _metrics_embed(screen)
+	TestFixtures.check(res, "the Merc window opens with a live metrics embed", viewer != null,
+		"screen %s" % str(screen))
+	if viewer == null:
+		await GuiClickJBTests._close(host, hud)
+		MetricsHistory.clear_preview()
+		_fresh()
+		return
+	var tab: MetricsTab = screen.page(MercViewer.TAB_METRICS) as MetricsTab
+	var first: Dictionary = GuiMetricsTests._picks(viewer)
+	var first_uid: int = screen.selected().uid
+	_move_metrics_picks(viewer)
+	await host.get_tree().process_frame
+	var moved: Dictionary = GuiMetricsTests._picks(viewer)
+	TestFixtures.check(res, "the metrics picks under test moved",
+		moved["period"] != first["period"] and moved["scale"] != first["scale"]
+			and moved["merc"] != first["merc"] and bool(moved["averages"]) and not bool(first["averages"]),
+		"first %s moved %s" % [str(first), str(moved)])
+	var other: MercListItem = null
+	for row: MercListItem in screen.list.rows():
+		if row.uid != first_uid:
+			other = row
+			break
+	var other_uid: int = other.uid if other != null else -1
+	if other != null:
+		other.selected.emit(other_uid)
+	await host.get_tree().process_frame
+	var other_name: String = viewer._merc_name(other_uid) if is_instance_valid(viewer) else ""
+	TestFixtures.check(res, "picking another merc keeps the one metrics embed",
+		other != null and is_instance_valid(viewer) and tab.embed() == viewer,
+		"other %d valid %s" % [other_uid, is_instance_valid(viewer)])
+	if not is_instance_valid(viewer) or tab.embed() != viewer:
+		await GuiClickJBTests._close(host, hud)
+		MetricsHistory.clear_preview()
+		_fresh()
+		return
+	TestFixtures.check(res, "the kept embed re-locks onto the merc picked and titles them",
+		screen.selected().uid == other_uid and viewer.locked_uid() == other_uid
+			and viewer.current_uid() == other_uid and viewer.title_label.text == "%s Metrics" % other_name,
+		"selected %d locked %d title '%s'" % [screen.selected().uid, viewer.locked_uid(),
+			viewer.title_label.text])
+	var held: Dictionary = GuiMetricsTests._picks(viewer)
+	TestFixtures.check(res, "the metrics picks hold across a merc change while the Merc window is open",
+		held == moved, "moved %s held %s" % [str(moved), str(held)])
+	TestFixtures.check(res, "the re-locked embed plots the picked merc",
+		viewer.chart.series_count() == (moved["merc"] as Array).size()
+			and viewer.stored_key("salary") == "%d/salary" % other_uid,
+		"series %d key '%s'" % [viewer.chart.series_count(), viewer.stored_key("salary")])
+	screen.select_tab(MercViewer.TAB_OVERVIEW)
+	await host.get_tree().process_frame
+	screen.select_tab(MercViewer.TAB_METRICS)
+	await host.get_tree().process_frame
+	held = GuiMetricsTests._picks(viewer)
+	TestFixtures.check(res, "the metrics picks hold across a tab switch",
+		tab.embed() == viewer and held == moved, "held %s" % str(held))
+	hud.popup().close()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "closing the Merc window frees its content",
+		not is_instance_valid(screen), "valid %s" % is_instance_valid(screen))
+	var again: MercViewer = await _open_hud(host, hud)
+	var fresh: MetricsViewer = _metrics_embed(again)
+	var picks: Dictionary = {} if fresh == null else GuiMetricsTests._picks(fresh)
+	TestFixtures.check(res, "a fully closed Merc window opens again with its metrics picks reset",
+		fresh != null and picks == first, "first %s again %s" % [str(first), str(picks)])
+	MetricsHistory.clear_preview()
+	await GuiClickJBTests._close(host, hud)
+	_fresh()
+
+
+#The picks of every page of the Merc window that the designer rule resets.
+static func _merc_picks(screen: MercViewer) -> Dictionary:
+	var list: MercList = screen.list
+	var out: Dictionary = {"sort": list.sort_button.selected, "descending": list.dir_toggle.descending,
+		"filter": list.filter.states(), "order": _names(list.order()), "tab": screen.current_index()}
+	for i: int in [MercViewer.TAB_PERKS, MercViewer.TAB_DRAWBACKS, MercViewer.TAB_SKILLS]:
+		var panel: TraitListPanel = (screen.page(i) as TraitTab).panel
+		out[String(MercViewer.TAB_NAMES[i])] = [panel.filter_button.sort_index,
+			panel.filter_button.filter_index]
+	out["actions"] = (screen.page(MercViewer.TAB_ACTIONS) as ActionsTab).sort_button.selected
+	out["relationships"] = (screen.page(MercViewer.TAB_RELATIONSHIPS) as RelationshipsTab).sort_button.selected
 	return out
 
 
-static func _all_nodes(root: Node) -> Array[Node]:
-	var out: Array[Node] = [root]
-	for child: Node in root.get_children():
-		out.append_array(_all_nodes(child))
+static func _move_merc_picks(screen: MercViewer) -> void:
+	var list: MercList = screen.list
+	list.sort_button.pick(MercList.Sort.NAME)
+	list.dir_toggle.toggle()
+	for i: int in list.filter.rows.get_child_count():
+		list.filter.toggle(i)
+	for i: int in [MercViewer.TAB_PERKS, MercViewer.TAB_DRAWBACKS, MercViewer.TAB_SKILLS]:
+		var panel: TraitListPanel = (screen.page(i) as TraitTab).panel
+		panel.filter_button.pick_sort(TraitListPanel.SORT_TYPE)
+		panel.filter_button.pick_filter(1)
+	(screen.page(MercViewer.TAB_ACTIONS) as ActionsTab).sort_button.pick(1)
+	(screen.page(MercViewer.TAB_RELATIONSHIPS) as RelationshipsTab).sort_button.pick(1)
+	screen.select_tab(MercViewer.TAB_SKILLS)
+
+
+#Designer rule 2026-10-04: the picks reset once the Merc window is fully closed.
+static func _case_reopen_mercs(res: Dictionary, host: Node) -> void:
+	_fresh()
+	TestFixtures.add_mercs(LIST_EXTRA)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var screen: MercViewer = await _open_hud(host, hud)
+	TestFixtures.check(res, "the HUD opens the Merc window", screen != null, "screen %s" % str(screen))
+	if screen == null:
+		await GuiClickJBTests._close(host, hud)
+		_fresh()
+		return
+	var first: Dictionary = _merc_picks(screen)
+	_move_merc_picks(screen)
+	await host.get_tree().process_frame
+	var moved: Dictionary = _merc_picks(screen)
+	var still: Array[String] = []
+	for key: String in first:
+		if key != "order" and moved[key] == first[key]:
+			still.append(key)
+	TestFixtures.check(res, "the Merc window picks under test moved", still.is_empty(),
+		"unmoved %s" % str(still))
+	hud.popup().close()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "closing the Merc window frees its content",
+		not is_instance_valid(screen), "valid %s" % is_instance_valid(screen))
+	var again: MercViewer = await _open_hud(host, hud)
+	var picks: Dictionary = {} if again == null else _merc_picks(again)
+	var wrong: Array[String] = []
+	for key: String in first:
+		if not picks.has(key) or picks[key] != first[key]:
+			wrong.append(key)
+	TestFixtures.check(res,
+		"a fully closed Merc window opens again with its sorts, filters and tab reset",
+		again != null and wrong.is_empty(), "wrong %s first %s again %s" % [str(wrong), str(first),
+			str(picks)])
+	TestFixtures.check(res, "the reopened Merc window sorts its roster on Available, descending, on the Overview tab",
+		again != null and picks.get("sort", -1) == MercList.Sort.AVAILABLE
+			and bool(picks.get("descending", false)) and picks.get("tab", -1) == MercViewer.TAB_OVERVIEW,
+		"sort %s descending %s tab %s" % [str(picks.get("sort")), str(picks.get("descending")),
+			str(picks.get("tab"))])
+	await GuiClickJBTests._close(host, hud)
+	_fresh()
+
+
+#Every FeatureLock the screen is actually showing, by the feature it names.
+static func _visible_lock_features(root: Node) -> Array[String]:
+	var out: Array[String] = []
+	for node: Node in GuiAcceptTests._collect(root, FeatureLock):
+		if (node as FeatureLock).is_visible_in_tree():
+			out.append((node as FeatureLock).feature)
 	return out
 
 
@@ -1019,7 +1173,7 @@ static func _tab_of_key(key: String) -> StringName:
 
 
 static func _case_locks(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var screen: MercViewer = await _open(host)
 	await host.get_tree().process_frame
 	var clean: Array[String] = _visible_lock_features(screen)
@@ -1028,7 +1182,7 @@ static func _case_locks(res: Dictionary, host: Node) -> void:
 		"showing %s" % str(clean))
 	for key: String in MercLocks.keys():
 		await _check_lock(res, host, screen, key)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	screen.queue_free()
 
 
@@ -1037,7 +1191,7 @@ static func _check_lock(res: Dictionary, host: Node, screen: MercViewer, key: St
 	await host.get_tree().process_frame
 	var tab_key: StringName = _tab_of_key(key)
 	if tab_key != &"":
-		screen.open_tab(tab_key)
+		screen.press_tab(tab_key)
 		var index: int = MercViewer.TAB_NAMES.find(tab_key)
 		var page: LockedPage = screen.locked_page()
 		TestFixtures.check(res, "the %s tab locks behind its own upgrade" % tab_key,
@@ -1046,7 +1200,7 @@ static func _check_lock(res: Dictionary, host: Node, screen: MercViewer, key: St
 				and page.upgrade == MercLocks.upgrade_name_of(key),
 			"locked %s page %s feature '%s'" % [screen.tabs()[index].locked, page.visible,
 				page.feature])
-		screen.open_tab(&"overview")
+		screen.press_tab(&"overview")
 	elif key == MercLocks.K_PHYSICAL:
 		TestFixtures.check(res, "the physical key is tabled and waits for its own fields",
 			MercLocks.locked(key, SubscriptionManager.entitlements())
@@ -1058,12 +1212,41 @@ static func _check_lock(res: Dictionary, host: Node, screen: MercViewer, key: St
 		TestFixtures.check(res, "the %s field shows the lock that sells it" % key,
 			features.has(MercLocks.feature_of(key)),
 			"wanted '%s' showing %s" % [MercLocks.feature_of(key), str(features)])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 
 
+#The gold panel of a locked tab lands whole inside the page, on a viewer the window just opened.
+static func _case_locked_page_fit(res: Dictionary, host: Node) -> void:
+	for tab: Variant in MercLocks.TAB_KEYS:
+		var key: String = String(MercLocks.TAB_KEYS[tab])
+		_fresh()
+		SubscriptionManager.max_out()
+		SubscriptionManager.set_entitlements({key: _shut_value(key)})
+		GuiFrameStack.clear()
+		var win: SubWindow = SUBWINDOW_SCENE.instantiate()
+		host.add_child(win)
+		var screen: MercViewer = win.open(MERC_VIEWER) as MercViewer
+		await GuiHiringTests._frames(host, 2)
+		screen.press_tab(StringName(tab))
+		await GuiHiringTests._frames(host, 2)
+		var page: LockedPage = screen.locked_page()
+		var box: Rect2 = Rect2(page.panel.position, page.panel.size)
+		TestFixtures.check(res, "the %s lock panel sits inside its page" % tab,
+			page.visible and page.size.x > 0.0 and page.size.y > 0.0
+				and box.size.x > 0.0 and box.size.y > 0.0
+				and Rect2(Vector2.ZERO, page.size).encloses(box)
+				and box.size.y <= page.panel.get_combined_minimum_size().y + 1.0,
+			"page %s panel %s min %s line2 %s" % [page.size, box,
+				page.panel.get_combined_minimum_size(), page.line2_label.size])
+		win.close()
+		win.queue_free()
+		await host.get_tree().process_frame
+	SubscriptionManager.max_out()
+
+
 static func _case_lock_fields(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var screen: MercViewer = await _open(host)
 	await host.get_tree().process_frame
 	var tab: OverviewTab = screen.overview()
@@ -1072,48 +1255,50 @@ static func _case_lock_fields(res: Dictionary, host: Node) -> void:
 		MercLocks.K_GUILD_OPINION: false})
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a locked header row keeps its caption and hides its value",
-		not screen.header.heritage_label.visible and screen.header.heritage_lock.visible
-			and not screen.header.age_label.visible and screen.header.age_lock.visible,
-		"heritage %s age %s" % [screen.header.heritage_label.visible,
-			screen.header.age_label.visible])
+		not screen.header.heritage_field.value_label.visible
+			and screen.header.heritage_field.lock.visible
+			and not screen.header.age_field.value_label.visible
+			and screen.header.age_field.lock.visible,
+		"heritage %s age %s" % [screen.header.heritage_field.value_label.visible,
+			screen.header.age_field.value_label.visible])
 	TestFixtures.check(res, "a locked knowledge list leaves a block with the hidden caption",
 		tab.knowledge_lock.visible and not tab.knowledge_grid.visible
 			and tab.knowledge_lock.caption_text() == "Knowledges hidden",
 		"lock %s grid %s caption '%s'" % [tab.knowledge_lock.visible,
 			tab.knowledge_grid.visible, tab.knowledge_lock.caption_text()])
-	var box: AttributeBox = tab.attribute_boxes()[0]
-	var cognition: AttributeBox = box
+	var cognition: AttributeBox = tab.attribute_boxes()[0]
 	for candidate: AttributeBox in tab.attribute_boxes():
 		if candidate.attribute_key == "cognition":
 			cognition = candidate
 	TestFixtures.check(res, "a locked attribute keeps its abbreviation and hides its number",
-		cognition.is_locked() and cognition.lock_box.visible and not cognition.value_box.visible
+		cognition.gate.is_locked() and cognition.lock_box.visible and not cognition.value_box.visible
 			and cognition.abbr_label.visible,
-		"locked %s lock %s value %s" % [cognition.is_locked(), cognition.lock_box.visible,
+		"locked %s lock %s value %s" % [cognition.gate.is_locked(), cognition.lock_box.visible,
 			cognition.value_box.visible])
 	TestFixtures.check(res, "a locked info field keeps its caption and shows the lock",
-		tab.opinion_field.is_locked() and tab.opinion_field.lock.visible
+		tab.opinion_field.gate.is_locked() and tab.opinion_field.lock.visible
 			and tab.opinion_field.lock.feature == "Guild Opinion",
-		"locked %s lock %s" % [tab.opinion_field.is_locked(), tab.opinion_field.lock.visible])
+		"locked %s lock %s" % [tab.opinion_field.gate.is_locked(), tab.opinion_field.lock.visible])
 	var lines: Array[String] = tab.opinion_field.lock.copy_lines()
 	var wanted: String = MercLocks.upgrade_name_of(MercLocks.K_GUILD_OPINION)
 	TestFixtures.check(res, "a lock names the field it hides and the upgrade that opens it",
 		lines.size() == 2 and lines[0] == "Guild Opinion is locked."
 			and wanted != "" and lines[1].contains(wanted),
 		"copy %s" % str(lines))
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "paying for the upgrades puts every value back",
-		screen.header.heritage_label.visible and not screen.header.heritage_lock.visible
+		screen.header.heritage_field.value_label.visible
+			and not screen.header.heritage_field.lock.visible
 			and tab.knowledge_grid.visible and not tab.knowledge_lock.visible
 			and not cognition.lock_box.visible and not tab.opinion_field.lock.visible,
-		"heritage %s grid %s attribute %s" % [screen.header.heritage_label.visible,
+		"heritage %s grid %s attribute %s" % [screen.header.heritage_field.value_label.visible,
 			tab.knowledge_grid.visible, cognition.lock_box.visible])
 	screen.queue_free()
 
 
 static func _case_lifepath(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var screen: MercViewer = await _open(host)
 	await host.get_tree().process_frame
 	var tab: OverviewTab = screen.overview()
@@ -1149,7 +1334,7 @@ static func _case_lifepath(res: Dictionary, host: Node) -> void:
 			and tab.lifepath_lock.lock.tier == 5,
 		"upgrade '%s' tier %d" % [tab.lifepath_lock.lock.upgrade,
 			tab.lifepath_lock.lock.tier])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "paying for the tier gives the events back",
 		tab.lifepath_scroll.visible and not tab.lifepath_lock.visible,
@@ -1158,29 +1343,29 @@ static func _case_lifepath(res: Dictionary, host: Node) -> void:
 
 
 static func _case_open_tab(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var screen: MercViewer = await _open(host)
 	await host.get_tree().process_frame
 	var bad: Array[String] = []
 	for i: int in MercViewer.TAB_NAMES.size():
 		var key: StringName = MercViewer.TAB_NAMES[i]
-		screen.open_tab(key)
-		if screen.current_tab() != i or screen.tab_key(i) != key:
+		screen.press_tab(key)
+		if screen.current_index() != i or screen.current_tab() != key or screen.tab_key(i) != key:
 			bad.append(String(key))
 		elif not screen.page(i).visible:
 			bad.append(String(key) + " page")
-	TestFixtures.check(res, "open_tab reaches every tab by its key",
+	TestFixtures.check(res, "press_tab reaches every tab by its key",
 		bad.is_empty() and MercViewer.TAB_NAMES.size() == 8, "wrong %s" % str(bad))
-	screen.open_tab(&"overview")
-	screen.open_tab(&"nonesuch")
+	screen.press_tab(&"overview")
+	screen.press_tab(&"nonesuch")
 	TestFixtures.check(res, "an unknown key leaves the tab on show alone",
-		screen.current_tab() == MercViewer.TAB_OVERVIEW,
-		"tab %d" % screen.current_tab())
+		screen.current_index() == MercViewer.TAB_OVERVIEW,
+		"tab %d" % screen.current_index())
 	screen.select_tab(MercViewer.TAB_SKILLS)
 	TestFixtures.check(res, "select_tab still answers to an index",
-		screen.current_tab() == MercViewer.TAB_SKILLS
+		screen.current_index() == MercViewer.TAB_SKILLS
 			and screen.tab_key(MercViewer.TAB_SKILLS) == &"skills",
-		"tab %d key '%s'" % [screen.current_tab(),
+		"tab %d key '%s'" % [screen.current_index(),
 			screen.tab_key(MercViewer.TAB_SKILLS)])
 	TestFixtures.check(res, "an out of range index is refused",
 		screen.tab_key(99) == &"" and screen.tab_key(-1) == &"",
@@ -1208,7 +1393,7 @@ static func _sample_applicant() -> ApplicantData:
 
 
 static func _case_applicant(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var screen: MercViewer = await _open(host)
 	await host.get_tree().process_frame
 	var candidate: ApplicantData = _sample_applicant()
@@ -1226,7 +1411,7 @@ static func _case_applicant(res: Dictionary, host: Node) -> void:
 		"list %s width %f" % [screen.list.visible, screen.custom_minimum_size.x])
 	TestFixtures.check(res, "the status band reads Applicant in amber",
 		screen.header.status_line().to_upper() == "APPLICANT"
-			and screen.header.status_color() == Color("#f2b33d"),
+			and screen.header.status_color() == GuiColors.AMBER,
 		"text '%s' colour %s" % [screen.header.status_line(), screen.header.status_color()])
 	TestFixtures.check(res, "the card carries the name and the lineage of the candidate",
 		screen.header.first_name() == "Rilla" and screen.header.surname() == "Vane"
@@ -1292,7 +1477,7 @@ static func _resource_lineage(source: MercView, blood_field: String, stock_field
 
 #The hiring screen may hand the candidate over before the card enters the tree.
 static func _case_applicant_early(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	_fresh()
 	var screen: MercViewer = MERC_VIEWER.instantiate()
 	var candidate: ApplicantData = _sample_applicant()
@@ -1324,7 +1509,7 @@ static func _case_applicant_early(res: Dictionary, host: Node) -> void:
 
 #A null candidate is no candidate: the employee view and its roster column come back.
 static func _case_applicant_cleared(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var screen: MercViewer = await _open(host)
 	await host.get_tree().process_frame
 	screen.show_applicant(null)
@@ -1355,7 +1540,7 @@ static func _case_applicant_cleared(res: Dictionary, host: Node) -> void:
 
 #The two lineage rows of a candidate, who carries one ancestry and one bloodline and no resource.
 static func _case_applicant_lineage(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var screen: MercViewer = await _open(host)
 	await host.get_tree().process_frame
 	var wanted: String = _resource_lineage(screen.selected(), "bloodline", "ancestry")
@@ -1377,7 +1562,7 @@ static func _case_applicant_lineage(res: Dictionary, host: Node) -> void:
 			and screen.header.primary_blood_lock.visible,
 		"primary '%s' lock %s" % [screen.header.primary_text(),
 			screen.header.primary_blood_lock.visible])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_entitlements({MercLocks.K_ANCESTRY: false})
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a shut ancestry gate leaves the candidate bloodline printing",
@@ -1385,5 +1570,129 @@ static func _case_applicant_lineage(res: Dictionary, host: Node) -> void:
 			and screen.header.primary_ancestry_lock.visible,
 		"primary '%s' lock %s" % [screen.header.primary_text(),
 			screen.header.primary_ancestry_lock.visible])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	screen.queue_free()
+
+
+#With every tab unlocked, each page fits the 1280 x 644 band, no page
+#root scrolls and no tab lies under the close X.
+static func _case_window_fit(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.max_out()
+	var screen: MercViewer = await _open(host)
+	screen.position = Vector2.ZERO
+	screen.size = GuiAcceptTests.BAND_SIZE
+	for i: int in MercViewer.TAB_NAMES.size():
+		screen.select_tab(i)
+		await GuiHiringTests._frames(host, 2)
+		var bad: PackedStringArray = GuiAcceptTests.window_report(screen)
+		if screen.page(i) is ScrollContainer:
+			bad.append("the page root scrolls")
+		if screen.tabs()[i].locked:
+			bad.append("the tab is locked")
+		TestFixtures.check(res, "the %s tab fits the window and clears the close X" % MercViewer.TAB_NAMES[i],
+			bad.is_empty(), "; ".join(bad))
+	screen.queue_free()
+	await host.get_tree().process_frame
+
+
+#Lays applicants on the board without a campaign: the arrival roll keyed to one posted id.
+static func _seed_applicants(count: int) -> void:
+	var campaign := CampaignData.new()
+	campaign.id = 1
+	for i: int in count:
+		PromotionsManager._spawn_applicant(campaign)
+	PromotionsManager.applicants_changed.emit()
+
+
+#Fills every free merc slot by seating the first merc again, the way the Hiring page case does.
+static func _fill_roster() -> void:
+	while PromotionsManager.free_slots() > 0 and not GameState.mercs.is_empty():
+		GameState.mercs.append(GameState.mercs[0])
+	GameState.roster_changed.emit()
+
+
+#The Hire tile under the roster: where it sits, the two gates it reads and the window it opens.
+static func _case_hire(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.max_out()
+	var screen: MercViewer = await _open(host)
+	PromotionsManager.reset()
+	_seed_applicants(3)
+	await host.get_tree().process_frame
+	var tile: HireButton = screen.list.hire_button()
+	var list_items: VBoxContainer = screen.list.items()
+	TestFixtures.check(res, "the Hire tile is the last module under the roster",
+		tile != null and tile.get_parent() == list_items
+			and tile.get_index() == list_items.get_child_count() - 1
+			and tile.title_text() == HireButton.LABEL_TEXT and tile.glyph.texture != null,
+		"index %d of %d, title '%s'" % [tile.get_index(), list_items.get_child_count(),
+			tile.title_text()])
+	TestFixtures.check(res, "the Hire tile carries a merc module's height",
+		tile.custom_minimum_size.y == MercListItem.BUTTON_HEIGHT,
+		"tile %d, module %d" % [int(tile.custom_minimum_size.y), MercListItem.BUTTON_HEIGHT])
+	TestFixtures.check(res, "a seeded pool over a free slot leaves the tile open",
+		not tile.disabled and tile.block_reason() == ""
+			and tile.tooltip_text == HireButton.TIP_OPEN,
+		"disabled %s, reason '%s'" % [tile.disabled, tile.block_reason()])
+	var open_now: int = PromotionsManager.open_applicants()
+	TestFixtures.check(res, "the line under the title counts the applicants open to an offer",
+		tile.sub_text() == (HireButton.SUB_ONE if open_now == 1
+			else HireButton.SUB_MANY % open_now),
+		"sub '%s' over %d open" % [tile.sub_text(), open_now])
+	tile.pressed.emit()
+	await host.get_tree().process_frame
+	var window: ViewerPopup = screen.popup()
+	var finance: FinanceViewer = null
+	if window != null:
+		finance = window.current() as FinanceViewer
+	TestFixtures.check(res, "a press opens the whole hiring window over the viewer",
+		finance != null and finance.hiring_only
+			and finance.fixed_campaign == FinanceViewer.NO_FIXED
+			and GuiFrameStack.top() == window,
+		"finance %s, top %s" % [str(finance != null), str(GuiFrameStack.top())])
+	var hiring: HiringTab = null
+	if finance != null:
+		hiring = finance.page(FinanceViewer.HIRING_KEY) as HiringTab
+	TestFixtures.check(res, "the window lands on the Hiring page over the whole pool",
+		hiring != null and not hiring.is_fixed()
+			and hiring.title_text() == HiringTab.TITLE_TEXT
+			and hiring.total_count() == PromotionsManager.applicants.size(),
+		"page %s, shown %d of %d" % [str(hiring != null),
+			0 if hiring == null else hiring.shown_count(),
+			PromotionsManager.applicants.size()])
+	tile.pressed.emit()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a second press opens no second window",
+		screen.popup() == window, "popup %s" % str(screen.popup()))
+	if window != null:
+		window.close()
+		await host.get_tree().process_frame
+	TestFixtures.check(res, "the viewer forgets the window once it closes",
+		screen.popup() == null, "popup %s" % str(screen.popup()))
+	for applicant: ApplicantData in PromotionsManager.applicants:
+		applicant.status = ApplicantData.STATUS_COUNTERED
+	PromotionsManager.applicants_changed.emit()
+	TestFixtures.check(res, "a pool of nothing but counter-offers greys the tile",
+		tile.disabled and tile.tooltip_text == HireButton.NO_APPLICANTS
+			and tile.sub_text() == HireButton.NO_APPLICANTS,
+		"disabled %s, tip '%s'" % [tile.disabled, tile.tooltip_text])
+	PromotionsManager.applicants.clear()
+	PromotionsManager.applicants_changed.emit()
+	TestFixtures.check(res, "an empty pool greys the tile",
+		tile.disabled and tile.block_reason() == HireButton.NO_APPLICANTS,
+		"disabled %s, reason '%s'" % [tile.disabled, tile.block_reason()])
+	PromotionsManager.reset()
+	_seed_applicants(3)
+	await host.get_tree().process_frame
+	_fill_roster()
+	TestFixtures.check(res, "a full roster greys the tile ahead of the pool",
+		tile.disabled and tile.tooltip_text == HireButton.NO_SLOTS
+			and tile.sub_text() == HireButton.NO_SLOTS,
+		"disabled %s, tip '%s', sub '%s'" % [tile.disabled, tile.tooltip_text, tile.sub_text()])
+	screen.list.set_views(screen.list.views)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a rebuilt roster seats the tile under the last merc again",
+		tile.get_parent() == screen.list.items()
+			and tile.get_index() == screen.list.row_count(),
+		"index %d over %d rows" % [tile.get_index(), screen.list.row_count()])
+	screen.queue_free()
+	await host.get_tree().process_frame

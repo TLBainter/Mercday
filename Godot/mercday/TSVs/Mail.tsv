@@ -1,0 +1,8 @@
+Id	Folder	Sender	Subject	Body	Start Day	Start Time	Read	Delay Min	Delay Max	Bill Id	Amount	Due	Option 1	Next 1	Fx 1	Option 2	Next 2	Fx 2	Option 3	Next 3	Fx 3
+R1	Requests	merc0	Vacation Request, {vac_start_md} - {vac_end_md}	{merc} has requested a {vac_days} day vacation starting in {vac_in} days, beginning on {vac_start_dm} and ending on {vac_end_dm}.									Approve	R1A	vac:approve	Deny	R1B	vac:deny;opinion:0:-1	Ask for Later Dates	R1S	vac:shift:10
+R1M	Requests	merc0	Vacation request: still waiting	I asked for {vac_days} days off, from {vac_start} to {vac_end}, and have not heard back. Could you let me know?									Approve	R1A	vac:approve	Deny	R1B	vac:deny;opinion:0:-1	Ask for Later Dates	R1S	vac:shift:10
+R1X	Requests	merc0	Vacation request lapsed	My vacation from {vac_start} to {vac_end} was never approved, so I am staying on duty.																	
+R1C	Requests	merc0	Vacation cancelled	I could not start my vacation from {vac_start} to {vac_end}, so I have cancelled it. Those days are back on my allowance.																	
+R1A	Requests	merc0	Re: Vacation request	Thank you! I will be back on {vac_end}.				0|2|0					Ok								
+R1B	Requests	merc0	Re: Vacation request	Understood. I will stay.				0|2|0					Ok								
+R1S	Requests	merc0	Re: Vacation request	{vac_start} to {vac_end} works for me. Thank you.				0|2|0					Ok								

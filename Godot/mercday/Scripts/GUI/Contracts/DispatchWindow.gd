@@ -10,11 +10,10 @@ signal failed(entry_id: int)
 const SLOT_COUNT: int = 5
 const WARN_ODDS: int = 25
 const CAUTION_ODDS: int = 50
-const LEADER_ROLE: String = "Leader"
 const SUPPORT_ROLE: String = "Support"
-const REWARD_UP: Color = Color("#6cc36a")
-const REWARD_DOWN: Color = Color("#e8583f")
-const TIME_COLOR: Color = Color("#f3ead7")
+const REWARD_UP: Color = GuiColors.GREEN
+const REWARD_DOWN: Color = GuiColors.RED
+const TIME_COLOR: Color = GuiColors.CREAM
 
 @onready var roster: DispatchRoster = $Margin/Columns/Left
 @onready var summary: ContractSummary = $Margin/Columns/Centre/Summary
@@ -22,12 +21,6 @@ const TIME_COLOR: Color = Color("#f3ead7")
 @onready var return_selector: TravelSelector = $Margin/Columns/Centre/TravelPanel/Pad/Rows/Return
 @onready var slot_row: HBoxContainer = $Margin/Columns/Centre/TeamPanel/Pad/Rows/Slots
 @onready var action_bar: ActionBar = $Margin/Columns/Centre/Actions
-@onready var meter: SuccessMeter = $Margin/Columns/Centre/Actions/Pad/Row/Odds/Meter
-@onready var hint_label: Label = $Margin/Columns/Centre/Actions/Pad/Row/Odds/Hint
-@onready var optimize_button: Button = $Margin/Columns/Centre/Actions/Pad/Row/Buttons/Optimize
-@onready var clear_button: Button = $Margin/Columns/Centre/Actions/Pad/Row/Buttons/Clear
-@onready var cancel_button: Button = $Margin/Columns/Centre/Actions/Pad/Row/Buttons/Cancel
-@onready var dispatch_button: Button = $Margin/Columns/Centre/Actions/Pad/Row/Dispatch
 @onready var preview_panel: ContractPreview = $Margin/Columns/Right
 @onready var confirm_dialog: ConfirmDialog = $Confirm
 @onready var team_title: Label = $Margin/Columns/Centre/TeamPanel/Pad/Rows/Head/Title
@@ -40,14 +33,22 @@ var candidates: Array[MercView] = []
 var slots: int = 1
 var team: Array[int] = []
 var roles: Array[String] = []
+var offered_roles: Array[String] = []
 var venture_mode: Dictionary = {}
 var return_mode: Dictionary = {}
+#The last optimize_plan result: {team, leader_uid, mode, p, cost}.
+var last_plan: Dictionary = {}
+#Optimize's vacation screen {pool, pending} while Optimize runs; empty for manual placement.
+var _screen: Dictionary = {}
 
 var _pending: String = ""
 var _last_run: ActiveRun = null
+#The uid each slot held at the last refresh; _build_state seeds it with the empty team, so the opening refresh is silent.
+var _slot_uids: Array[int] = []
 
 
 func _ready() -> void:
+	add_child(TimeHold.new())
 	confirm_dialog.cancelled.connect(_on_cancelled)
 	confirm_dialog.chosen.connect(_on_chosen)
 	action_bar.optimize_pressed.connect(_on_optimize_pressed)
@@ -60,11 +61,11 @@ func _ready() -> void:
 		return_selector.caption_width())
 	venture_selector.set_caption_width(caption_width)
 	return_selector.set_caption_width(caption_width)
-	venture_selector.mode_selected.connect(_on_mode_selected)
-	return_selector.mode_selected.connect(_on_mode_selected)
+	venture_selector.mode_selected.connect(pick_travel)
+	return_selector.mode_selected.connect(pick_travel)
 	roster.picked.connect(_on_roster_picked)
 	roster.remove_requested.connect(_on_roster_remove)
-	picker.picked.connect(_on_picker_picked)
+	picker.picked.connect(place)
 	picker.removed.connect(remove_slot)
 	_build_state()
 	_wire_slots()
@@ -82,14 +83,6 @@ func roster_panel() -> DispatchRoster:
 
 func preview_of() -> ContractPreview:
 	return preview_panel
-
-
-func odds_meter() -> SuccessMeter:
-	return meter
-
-
-func hint_text() -> String:
-	return hint_label.text
 
 
 func slot_at(index: int) -> TeamSlot:
@@ -159,9 +152,17 @@ func swap_slots(from_slot: int, to_slot: int) -> void:
 func open_picker(slot: int) -> void:
 	if picker == null or contract == null or slot < 0 or slot >= slots:
 		return
-	var node: TeamSlot = slot_at(slot)
-	var anchor: Rect2i = Rect2i(node.get_global_rect()) if node != null else Rect2i()
-	picker.open_for(slot, roles[slot], candidates, scores_for(slot), placed_slots(), anchor)
+	var scores: Dictionary = scores_for(slot)
+	var placed: Dictionary = placed_slots()
+	var rows: Array[Dictionary] = []
+	for view: MercView in candidates:
+		rows.append({"id": view.uid, "name": view.name, "fit": float(scores.get(view.uid, 0.0)),
+			"view": view, "where": MercPicker.where_text(view, placed, slot)})
+	rows.sort_custom(CrewCandidates.by_fit_then_name)
+	for row: Dictionary in rows:
+		row["fit"] = MatchScore.stars(float(row["fit"]))
+	picker.title = "Select Leader" if slot == 0 else "Select %s" % roles[slot]
+	picker.open_for(slot, rows, MercPicker.holds_slot(placed, slot))
 
 
 #Every placed merc against the slot holding it, for the picker in slot N note.
@@ -173,14 +174,13 @@ func placed_slots() -> Dictionary:
 	return out
 
 
-#Every candidate fit for one slot role, uid to score.
+#Every candidate's solo net percent, uid to net; a role is a label only, so every slot reads the same.
 func scores_for(slot: int) -> Dictionary:
 	var out: Dictionary = {}
 	if contract == null or slot < 0 or slot >= roles.size():
 		return out
-	var share: Dictionary = _share() if slot > 0 else {}
 	for view: MercView in candidates:
-		out[view.uid] = DispatchLogic.score(view, contract, roles[slot], share)
+		out[view.uid] = _score_of(view)
 	return out
 
 
@@ -193,6 +193,8 @@ func team_count_text() -> String:
 
 func set_role(slot: int, role_name: String) -> void:
 	if slot <= 0 or slot >= roles.size():
+		return
+	if not offered_roles.has(role_name):
 		return
 	roles[slot] = role_name
 	var node: TeamSlot = slot_at(slot)
@@ -218,35 +220,95 @@ func pick_travel(leg: int, key: String) -> void:
 	_refresh()
 
 
-#Optimize picks the team on the odds, lays the roles out around the leader and books the travel.
+#Optimize takes one optimize_plan result: the team with its leader in slot 0, the venture and the odds.
 func optimize() -> void:
 	if contract == null:
 		return
-	var picks: Array[int] = DispatchLogic.optimize(candidates, slots,
-		func(uids: Array[int]) -> int: return OddsEstimator.odds(model, uids),
-		mini(contract.merc_min, slots))
-	var plan: Dictionary = DispatchLogic.arrange(picks, candidates, contract,
-		TeamSlot.slot_roles())
-	var picked: Array[int] = plan.get("team", [] as Array[int])
-	var picked_roles: Array[String] = plan.get("roles", [] as Array[String])
+	var hours: float = float(ContractPreview.preview(contract, venture_mode, return_mode, team_size()).get("total_hours", 0.0))
+	var trip_span: Vector2i = DispatchLogic.trip_days(CampaignClock.now(), hours)
+	_screen = DispatchLogic.vacation_screen(candidates, BenefitsManager.book, trip_span.x, trip_span.y)
+	var request: Dictionary = optimize_request()
+	var pool_uids: Array[int] = []
+	for view: MercView in (_screen["pool"] as Array[MercView]):
+		pool_uids.append(view.uid)
+	var pending: Array[int] = _screen["pending"]
+	var plain: Callable = request["chance_fn"]
+	request["uids"] = pool_uids
+	request["chance_fn"] = DispatchLogic.vacation_odds(plain, pending)
+	last_plan = DispatchLogic.optimize_plan(request)
+	var picked: Array[int] = last_plan.get("team", [] as Array[int])
+	if not pending.is_empty() and not picked.is_empty():
+		last_plan["p"] = float(plain.call(picked.duplicate(), int(last_plan["leader_uid"])))
 	for i: int in team.size():
 		team[i] = 0
 		roles[i] = SUPPORT_ROLE
 	if not roles.is_empty():
-		roles[0] = LEADER_ROLE
+		roles[0] = ContractResultData.ROLE_LEADER
 	for i: int in mini(picked.size(), slots):
 		team[i] = picked[i]
-		roles[i] = picked_roles[i]
 	_fill_to_minimum()
+	_screen = {}
 	var trip: Dictionary = DispatchLogic.plan_travel(GuiTypes.TRAVEL_MODES, GameState.bank_notes,
-		contract.reward, team_size(), contract.merc_min, contract.distance_km)
+		team_size(), contract.merc_min, contract.distance_km, venture_keys(), return_keys())
 	var venture: Dictionary = trip.get("venture", {})
+	var chosen: Dictionary = GuiTypes.travel_mode(String(last_plan.get("mode", "")))
+	if not chosen.is_empty() and not picked.is_empty():
+		venture = chosen
 	if venture.is_empty():
 		_default_travel()
 	else:
 		venture_mode = venture
-		return_mode = trip.get("ret", venture)
+		var ret: Dictionary = trip.get("ret", {})
+		return_mode = GuiTypes.travel_mode(Reachability.FOOT) if ret.is_empty() else ret
 	_refresh()
+
+
+#The optimize_plan request for this posting: available candidates, the size bounds and the window's callables.
+func optimize_request() -> Dictionary:
+	var uids: Array[int] = []
+	for view: MercView in candidates:
+		uids.append(view.uid)
+	var open: Array[ContractData] = _open_postings()
+	var keys: Array[String] = venture_keys()
+	return {
+		"uids": uids,
+		"lo": mini(contract.merc_min, slots),
+		"cap": slots,
+		"seed": contract.entry_id,
+		"chance_fn": func(members: Array[int], leader_uid: int) -> float:
+			return OddsEstimator.chance(model, members, leader_uid),
+		"mode_fn": func(members: Array[int]) -> Dictionary:
+			return _outbound_for(members.size(), keys),
+		"features_fn": func(uid: int) -> int:
+			return MatchScore.feature_count(_merc_of(uid), open),
+		"solo_fn": func(uid: int) -> float:
+			return _score_of(_view_of(uid)),
+		"name_fn": func(uid: int) -> String:
+			var view: MercView = _view_of(uid)
+			return view.name if view != null else "",
+	}
+
+
+#The cheapest in-time outbound mode the bank pays for a team this size, as {mode, cost}, or {} when none.
+func _outbound_for(size: int, keys: Array[String]) -> Dictionary:
+	var crew_size: int = maxi(1, size)
+	var trip: Dictionary = DispatchLogic.plan_travel(GuiTypes.TRAVEL_MODES, GameState.bank_notes,
+		crew_size, contract.merc_min, contract.distance_km, keys, [])
+	var venture: Dictionary = trip.get("venture", {})
+	if venture.is_empty():
+		return {}
+	return {"mode": str(venture.get("key", "")),
+		"cost": DispatchLogic.travel_cost(venture, crew_size, contract.merc_min, contract.distance_km)}
+
+
+func _open_postings() -> Array[ContractData]:
+	var out: Array[ContractData] = []
+	if GameState.board == null:
+		return out
+	for entry: BoardEntry in GameState.board.available():
+		if entry != null and entry.contract != null:
+			out.append(entry.contract)
+	return out
 
 
 #The posting refuses a team under its required count, so Optimize tops the picks up to that floor.
@@ -271,20 +333,28 @@ func _first_empty_slot() -> int:
 	return -1
 
 
-#The best fit for one slot among the mercs no slot holds yet; 0 when every candidate is placed.
+#The free merc with the highest solo net, however low (card 659); a tie keeps pool order. During Optimize the pool is
+#the vacation pool and a pending merc goes only when no other is left. 0 only when the pool has no free merc.
 func _best_unplaced(slot: int) -> int:
 	var scores: Dictionary = scores_for(slot)
 	var placed: Dictionary = placed_slots()
+	var pending: Array[int] = _screen.get("pending", [] as Array[int])
 	var best_uid: int = 0
-	var best_score: float = -1.0
-	for view: MercView in candidates:
+	var best_score: float = -INF
+	var late_uid: int = 0
+	var late_score: float = -INF
+	for view: MercView in (_screen.get("pool", candidates) as Array[MercView]):
 		if placed.has(view.uid):
 			continue
 		var value: float = float(scores.get(view.uid, 0.0))
-		if value > best_score:
+		if pending.has(view.uid):
+			if value > late_score:
+				late_score = value
+				late_uid = view.uid
+		elif value > best_score:
 			best_score = value
 			best_uid = view.uid
-	return best_uid
+	return best_uid if best_uid != 0 else late_uid
 
 
 func clear_team() -> void:
@@ -300,16 +370,22 @@ func travel_total() -> int:
 	if contract == null:
 		return 0
 	var crew_size: int = team_size()
-	return DispatchLogic.travel_cost(venture_mode, crew_size, contract.merc_min,
-		contract.distance_km) + DispatchLogic.travel_cost(return_mode, crew_size, contract.merc_min,
-		contract.distance_km)
+	return ContractPreview.leg_cost(contract, venture_mode, crew_size) \
+		+ ContractPreview.leg_cost(contract, return_mode, crew_size)
 
 
 func current_odds() -> int:
 	var uids: Array[int] = team_uids()
 	if uids.is_empty() or model == null:
 		return 0
-	return OddsEstimator.odds(model, uids)
+	return OddsEstimator.odds(model, uids, team[0] if team[0] != 0 else -1)
+
+
+#The team match percent: the mean member net with slot 0 as the leader.
+func team_match_percent() -> float:
+	if contract == null:
+		return 0.0
+	return MatchScore.team_net(contract.contract, _team_mercs(), _leader_merc())
 
 
 #Dirty means anything sits off the opening state: a filled slot, a leg off foot or a changed role.
@@ -327,15 +403,43 @@ func is_dirty() -> bool:
 	return false
 
 
-func is_ready() -> bool:
-	return ready_to_dispatch()
-
-
 func ready_to_dispatch() -> bool:
 	if contract == null or team.is_empty():
 		return false
 	return team[0] != 0 and filled_count() >= contract.merc_min \
-		and travel_total() <= GameState.bank_notes
+		and venture_keys().has(str(venture_mode.get("key", ""))) and fares_ok()
+
+
+#The board entry behind the posting, or null when the view is not on the board.
+func board_entry() -> BoardEntry:
+	if contract == null or GameState.board == null:
+		return null
+	return GameState.board.entry(contract.entry_id)
+
+
+#The venture modes offered now that still reach the posting before its deadline.
+func venture_keys() -> Array[String]:
+	var entry: BoardEntry = _gate_entry()
+	return Reachability.modes_in_time(entry, CampaignClock.now(), GameState.bank_notes,
+		GameState.tele_permit_for(entry))
+
+
+#The return modes offered; the way home is never held to the deadline.
+func return_keys() -> Array[String]:
+	var entry: BoardEntry = _gate_entry()
+	return Reachability.offered_modes(entry, GameState.bank_notes, GameState.tele_permit_for(entry))
+
+
+#Both legs paid from the bank in turn: foot passes at any bank; a paid leg needs its fare in hand.
+func fares_ok() -> bool:
+	if contract == null:
+		return false
+	var crew_size: int = team_size()
+	var bank: int = GameState.bank_notes
+	var out_cost: int = ContractPreview.leg_cost(contract, venture_mode, crew_size)
+	var back_cost: int = ContractPreview.leg_cost(contract, return_mode, crew_size)
+	return Reachability.fare_ok(str(venture_mode.get("key", "")), out_cost, bank) \
+		and Reachability.fare_ok(str(return_mode.get("key", "")), back_cost, bank - out_cost)
 
 
 #Builds the run and hands it to GameState; the answer dialog says which way it went.
@@ -348,6 +452,7 @@ func commit() -> bool:
 	run.travel_cost = travel_total()
 	run.odds = current_odds()
 	run.travel_mode = str(venture_mode.get("key", "foot"))
+	run.return_mode = str(return_mode.get("key", "foot"))
 	var data: Dictionary = ContractPreview.preview(contract, venture_mode, return_mode,
 		team_size())
 	run.hours = roundf(float(data.get("total_hours", 0.0)))
@@ -369,6 +474,7 @@ func commit() -> bool:
 			ConfirmDialog.Severity.GREEN, [ConfirmDialog.Kind.GO])
 	else:
 		_pending = "failed"
+		UiSfx.reject_press()
 		confirm_dialog.ask_buttons("Dispatch failed",
 			"The posting closed or a merc is no longer available.", ["OK"],
 			ConfirmDialog.Severity.INFO, [ConfirmDialog.Kind.GO])
@@ -383,7 +489,8 @@ func _build_state() -> void:
 	roles.resize(slots)
 	for i: int in slots:
 		team[i] = 0
-		roles[i] = LEADER_ROLE if i == 0 else SUPPORT_ROLE
+		roles[i] = ContractResultData.ROLE_LEADER if i == 0 else SUPPORT_ROLE
+	_slot_uids.assign(team)
 	model = OddsEstimator.prepare(contract.contract, GameState.mercs)
 	var busy: Array[int] = GameState.busy_uids()
 	candidates = []
@@ -395,7 +502,19 @@ func _build_state() -> void:
 	roster.configure(candidates, _score_of)
 
 
+#Support always, then the contract's Roles (Guide included) in GuiTypes.ROLES order; the leader is never offered.
+static func roles_for(data: ContractData) -> Array[String]:
+	if data == null:
+		return TeamSlot.slot_roles()
+	var out: Array[String] = [SUPPORT_ROLE]
+	for role_name: String in GuiTypes.ROLES:
+		if role_name != ContractResultData.ROLE_LEADER and not out.has(role_name) and data.roles.has(role_name):
+			out.append(role_name)
+	return out
+
+
 func _wire_slots() -> void:
+	offered_roles = roles_for(contract.contract if contract != null else null)
 	for i: int in slot_row.get_child_count():
 		var node: TeamSlot = slot_at(i)
 		if node == null:
@@ -403,10 +522,11 @@ func _wire_slots() -> void:
 		node.set_slot(i, _caption_for(i))
 		node.visible = i < slots
 		node.required = contract != null and i < contract.merc_min
-		node.dropped.connect(_on_slot_dropped)
+		node.set_offered(offered_roles)
+		node.dropped.connect(place)
 		node.cleared.connect(remove_slot)
-		node.clicked.connect(_on_slot_clicked)
-		node.role_changed.connect(_on_slot_role_changed)
+		node.clicked.connect(open_picker)
+		node.role_changed.connect(set_role)
 		node.swapped.connect(swap_slots)
 
 
@@ -431,30 +551,30 @@ func _refresh() -> void:
 	roster.set_taken(team_uids())
 	_refresh_slots()
 	var crew_size: int = team_size()
-	var venture_cost: int = DispatchLogic.travel_cost(venture_mode, crew_size, contract.merc_min,
-		contract.distance_km)
-	var return_cost: int = DispatchLogic.travel_cost(return_mode, crew_size, contract.merc_min,
-		contract.distance_km)
+	var venture_cost: int = ContractPreview.leg_cost(contract, venture_mode, crew_size)
+	var return_cost: int = ContractPreview.leg_cost(contract, return_mode, crew_size)
 	venture_selector.select_key(str(venture_mode.get("key", "")))
 	return_selector.select_key(str(return_mode.get("key", "")))
+	var entry: BoardEntry = _gate_entry()
+	var shown: Array[String] = _shown_keys(entry)
+	var bars: Dictionary = _bars(entry)
+	var return_hold: int = 0 if str(return_mode.get("key", "")) == Reachability.FOOT else return_cost
 	venture_selector.configure(crew_size, contract.merc_min, contract.distance_km,
-		GameState.bank_notes, return_cost)
+		GameState.bank_notes, return_hold, shown, venture_keys(), bars)
 	return_selector.configure(crew_size, contract.merc_min, contract.distance_km,
-		GameState.bank_notes, venture_cost)
+		GameState.bank_notes, venture_cost, shown, shown, bars)
 	preview_panel.set_preview(ContractPreview.preview(contract, venture_mode, return_mode, crew_size))
 	var odds: int = current_odds()
 	action_bar.set_odds(odds)
 	action_bar.set_hint(_hint_for(odds))
-	action_bar.set_ready(is_ready())
+	action_bar.set_ready(ready_to_dispatch())
 	action_bar.set_dirty(is_dirty())
 	team_count.text = team_count_text()
 
 
 func _refresh_slots() -> void:
-	var share: Dictionary = _share()
-	var leader: MercView = null
-	if not team.is_empty():
-		leader = _view_of(team[0])
+	_play_slot_sound()
+	var leader: MercenaryData = _leader_merc()
 	for i: int in slots:
 		var node: TeamSlot = slot_at(i)
 		if node == null:
@@ -467,15 +587,31 @@ func _refresh_slots() -> void:
 		if view == null:
 			node.clear_member()
 			continue
-		var own: Dictionary = share if i > 0 else {}
-		var stars: float = DispatchLogic.to_stars(DispatchLogic.score(view, contract,
-			roles[i], own))
-		#The leader lends their own top traits, rescored for the role this slot carries.
+		var own: Array[Dictionary] = []
 		var shared: Array[Dictionary] = []
-		if i > 0 and leader != null:
-			shared = DispatchLogic.top_traits(leader, contract, roles[i])
-		node.set_member(view, stars, DispatchLogic.top_traits(view, contract, roles[i]), shared)
+		for row: Dictionary in MatchScore.merc_rows(contract.contract, view.merc, leader):
+			if bool(row["shared"]):
+				shared.append(row)
+			else:
+				own.append(row)
+		node.set_member(view, _stars_for(i), own, shared)
 		node.set_role(roles[i])
+
+
+#A slot that gained a merc plays equip, a swap or a move included; slots that only emptied play unequip.
+func _play_slot_sound() -> void:
+	var gained: bool = false
+	var lost: bool = false
+	for i: int in team.size():
+		if team[i] != 0 and team[i] != _slot_uids[i]:
+			gained = true
+		elif team[i] == 0 and _slot_uids[i] != 0:
+			lost = true
+	_slot_uids.assign(team)
+	if gained:
+		UiSfx.play_equip()
+	elif lost:
+		UiSfx.play_unequip()
 
 
 func _hint_for(odds: int) -> String:
@@ -484,40 +620,88 @@ func _hint_for(odds: int) -> String:
 	var missing: int = contract.merc_min - filled_count()
 	if missing > 0:
 		return "Fill %d required slots" % missing
-	if travel_total() > GameState.bank_notes:
+	var in_time: Array[String] = venture_keys()
+	if in_time.is_empty():
+		return "No venture reaches in time"
+	var key: String = str(venture_mode.get("key", ""))
+	if not in_time.has(key):
+		return String(_bars(_gate_entry()).get(key, TravelSelector.REASON_LATE))
+	if not fares_ok():
 		return "Travel costs exceed your notes"
 	return "%d%% success odds" % odds
 
 
-func _share() -> Dictionary:
-	if team.is_empty() or team[0] == 0:
-		return {}
-	var leader: MercView = _view_of(team[0])
-	if leader == null:
-		return {}
-	return DispatchLogic.leader_share(leader, contract)
+#The posting's board entry; a view off the board stands in as an unbounded posting at its own distance.
+func _gate_entry() -> BoardEntry:
+	var entry: BoardEntry = board_entry()
+	if entry != null or contract == null:
+		return entry
+	var stand_in: BoardEntry = BoardEntry.new()
+	stand_in.id = contract.entry_id
+	stand_in.contract = contract.contract
+	stand_in.distance_km = contract.distance_km
+	stand_in.completion_hours = contract.completion_hours
+	return stand_in
 
 
+#The tiles the distance allows, in table order; a mode too near for its gate has no tile.
+func _shown_keys(entry: BoardEntry) -> Array[String]:
+	var out: Array[String] = []
+	var km: int = entry.distance_km if entry != null else 0
+	for mode: Dictionary in GuiTypes.TRAVEL_MODES:
+		var key: String = String(mode["key"])
+		if Reachability.distance_ok(key, km):
+			out.append(key)
+	return out
+
+
+#The bars that come before time and cost: in the red only foot walks; teleport needs the place's permit.
+func _bars(entry: BoardEntry) -> Dictionary:
+	var bars: Dictionary = {}
+	var in_red: bool = GameState.bank_notes < 0
+	var permit: bool = GameState.tele_permit_for(entry)
+	for mode: Dictionary in GuiTypes.TRAVEL_MODES:
+		var key: String = String(mode["key"])
+		if in_red and key != Reachability.FOOT:
+			bars[key] = TravelSelector.REASON_RED
+		elif key == Reachability.TELEPORT and not permit:
+			bars[key] = TravelSelector.REASON_PERMIT
+	return bars
+
+
+#The merc's solo net on the posting; a view with no merc behind it nets 0.
 func _score_of(view: MercView) -> float:
-	if contract == null or view == null:
+	if contract == null or view == null or view.merc == null:
 		return 0.0
-	#Roster fit reads against a fixed General role; picking a role to sort by is a later feature.
-	return DispatchLogic.score(view, contract, "General", _share())
+	return MatchScore.solo_net(contract.contract, view.merc)
 
 
-func _next_open() -> int:
-	for i: int in slots:
-		if team[i] == 0:
-			return i
-	return -1
-
-
+#The stars for the merc in one slot: their net in the current team with slot 0 as the leader.
 func _stars_for(index: int) -> float:
-	var view: MercView = _view_of(team[index])
-	if view == null:
+	var merc: MercenaryData = _merc_of(team[index])
+	if contract == null or merc == null:
 		return 0.0
-	var share: Dictionary = _share() if index > 0 else {}
-	return DispatchLogic.to_stars(DispatchLogic.score(view, contract, roles[index], share))
+	return MatchScore.stars(MatchScore.merc_net(contract.contract, _team_mercs(), merc, _leader_merc()))
+
+
+func _team_mercs() -> Array[MercenaryData]:
+	var out: Array[MercenaryData] = []
+	for uid: int in team_uids():
+		var merc: MercenaryData = _merc_of(uid)
+		if merc != null:
+			out.append(merc)
+	return out
+
+
+func _leader_merc() -> MercenaryData:
+	if team.is_empty() or team[0] == 0:
+		return null
+	return _merc_of(team[0])
+
+
+func _merc_of(uid: int) -> MercenaryData:
+	var view: MercView = _view_of(uid)
+	return view.merc if view != null else null
 
 
 func _view_of(uid: int) -> MercView:
@@ -542,10 +726,6 @@ func _dispatched_text() -> String:
 	return text
 
 
-func _on_picker_picked(uid: int, slot: int) -> void:
-	place(uid, slot)
-
-
 #An assigned roster row was clicked: the merc leaves whichever slot holds it.
 func _on_roster_remove(uid: int) -> void:
 	for i: int in team.size():
@@ -555,25 +735,11 @@ func _on_roster_remove(uid: int) -> void:
 
 
 func _on_roster_picked(uid: int) -> void:
-	var slot: int = _next_open()
-	if slot >= 0:
-		place(uid, slot)
-
-
-func _on_slot_dropped(uid: int, slot: int) -> void:
+	var slot: int = _first_empty_slot()
+	if slot < 0:
+		UiSfx.reject_press()
+		return
 	place(uid, slot)
-
-
-func _on_slot_clicked(slot: int) -> void:
-	open_picker(slot)
-
-
-func _on_slot_role_changed(slot: int, role_name: String) -> void:
-	set_role(slot, role_name)
-
-
-func _on_mode_selected(leg: int, key: String) -> void:
-	pick_travel(leg, key)
 
 
 #A clean form has nothing to lose, so Optimize, Clear and Cancel only ask once something has moved.
@@ -610,6 +776,7 @@ func _on_cancel_pressed() -> void:
 
 func _on_dispatch_pressed() -> void:
 	if not ready_to_dispatch():
+		UiSfx.reject_press(action_bar.dispatch_button)
 		return
 	_ask_next_step(current_odds(), "")
 
@@ -686,9 +853,7 @@ func _on_chosen(index: int) -> void:
 			clear_team()
 		"cancel":
 			cancelled.emit()
-		"warn":
-			_ask_next_step(current_odds(), "final")
-		"caution":
+		"warn", "caution":
 			_ask_next_step(current_odds(), "final")
 		"final":
 			commit()

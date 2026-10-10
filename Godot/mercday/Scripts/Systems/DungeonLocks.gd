@@ -19,8 +19,6 @@ const REASON_WAY_OUT := "way_out"
 const REASON_ENEMY_INSIDE := "enemy_inside"
 const REASON_UNKNOWN_ROOM := "unknown_room"
 
-static var _bar_template: ObstacleData = null
-
 #[field id, path_version, door_version] and the locked door rows built for it; one field at a time.
 static var _door_key: Array = []
 static var _door_rows: Array[Dictionary] = []
@@ -68,6 +66,13 @@ static func unlock(obs: Dictionary) -> void:
 	obs[LOCKED_KEY] = false
 
 
+#Unlocks and opens a door, then refreshes the door-dependent caches.
+static func open_door(obs: Dictionary, state: BattleState) -> void:
+	unlock(obs)
+	OpenCloseState.set_open(obs, true)
+	state.on_door_changed()
+
+
 #Lock difficulty of every cell gate in a dungeon of contract Difficulty d.
 static func lock_difficulty_for(d: float) -> int:
 	return maxi(1, floori(d - 1.0))
@@ -75,24 +80,9 @@ static func lock_difficulty_for(d: float) -> int:
 
 static func bar_door_template() -> ObstacleData:
 	var row: ObstacleData = DataManager.get_obstacle_by_name("Iron Bar Door")
-	if row != null:
-		return row
-	if _bar_template == null:
-		_bar_template = ObstacleData.new()
-		_bar_template.obstacle_name = "Iron Bar Door"
-		_bar_template.size_x = 1.0
-		_bar_template.size_y = 0.25
-		_bar_template.size_z = 2.0
-		_bar_template.height = 2.0
-		_bar_template.obstacle_type = "Structure"
-		_bar_template.health = 25
-		_bar_template.susceptible_to = "Strike"
-		_bar_template.passthrough = false
-		_bar_template.climbable = false
-		_bar_template.covers = true
-		_bar_template.interactable = true
-		_bar_template.interaction_result = "Open/Close"
-	return _bar_template
+	if row == null:
+		push_error("DungeonLocks: no 'Iron Bar Door' row in Obstacles.tsv")
+	return row
 
 
 #Finesse check a merc rolls against the lock difficulty.
@@ -150,13 +140,7 @@ static func attempt_pick(merc: MercenaryData, obs: Dictionary, state: BattleStat
 	var roll := CheckSystem.make_check(merc, pick_def())
 	var success: bool = bool(roll["critical"]) or int(roll["successes"]) >= need
 	if success:
-		unlock(obs)
-		OpenCloseState.set_open(obs, true)
-		if state.battlefield != null:
-			state.battlefield.los_version += 1
-			state.battlefield.bump_door_version()
-		state.los_cache.clear()
-		MovementExecutor.clear_caches()
+		open_door(obs, state)
 		lines.append("  %s picks the lock on the %s. (AP: %d)" % [
 			BattleState.colored_name(merc, state), oname, merc.current_ap])
 	else:
@@ -175,13 +159,7 @@ static func key_open(merc: MercenaryData, obs: Dictionary, state: BattleState,
 		lines: Array[String]) -> bool:
 	if merc == null or obs.is_empty() or state == null:
 		return false
-	unlock(obs)
-	OpenCloseState.set_open(obs, true)
-	if state.battlefield != null:
-		state.battlefield.los_version += 1
-		state.battlefield.bump_door_version()
-	state.los_cache.clear()
-	MovementExecutor.clear_caches()
+	open_door(obs, state)
 	lines.append("  %s unlocks the %s with a key. (AP: %d)" % [
 		BattleState.colored_name(merc, state), InteractionSystem.obstacle_name(obs), merc.current_ap])
 	if EncounterLogger.is_active():
@@ -193,17 +171,13 @@ static func key_open(merc: MercenaryData, obs: Dictionary, state: BattleState,
 #Cuts a shut, locked bar door into the cell and returns the stored dict.
 static func place_bar_door(area: BattlefieldArea, pos: Vector3i, fh: int, orientation: String,
 		difficulty: float, room: Dictionary = {}) -> Dictionary:
-	InteriorGenerator._place_door_at(area, pos, bar_door_template(), fh, orientation)
-	var obs: Dictionary = area._obs_map.get(pos, {}) as Dictionary
-	if obs.is_empty():
-		return obs
-	obs[LOCKED_KEY] = true
-	obs[BARS_KEY] = true
-	obs[DIFFICULTY_KEY] = lock_difficulty_for(difficulty)
-	obs[FAILS_KEY] = 0
-	obs[KEYED_KEY] = true
-	if not room.is_empty():
-		obs[ROOM_KEY] = room
+	var template: ObstacleData = bar_door_template()
+	if template == null:
+		return {}
+	InteriorGenerator.place_door_at(area, pos, template, fh, orientation)
+	var obs: Dictionary = lock_door(area, pos, difficulty, room)
+	if not obs.is_empty():
+		obs[BARS_KEY] = true
 	return obs
 
 
@@ -255,7 +229,7 @@ static func room_of(field: BattlefieldArea, obs: Dictionary,
 		if not rect.grow(1).has_point(Vector2i(at.x, at.y)):
 			continue
 		var row: Dictionary = {"rect": rect, "floor": f, "name": String(entry.get("name", ""))}
-		if DungeonGenerator._locked_room(field, rect, f):
+		if DungeonGenerator.locked_room(field, rect, f):
 			return row
 		if fallback.is_empty():
 			fallback = row

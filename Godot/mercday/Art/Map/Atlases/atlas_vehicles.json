@@ -1,0 +1,895 @@
+{
+ "atlas": "atlas_vehicles",
+ "size": [
+  512,
+  35
+ ],
+ "generated": "2026-10-08",
+ "layout": "shelf-packed, 1 px gaps, max width 512",
+ "light": "atlas_vehicles_light.png (same layout; white = glows at night)",
+ "note": "tile = repeats 1 texel per model unit (bottom-left anchored); frames = animated strip (fire: 4 frames, 6 fps); grayscale textures are tinted per part (see map-elements.js / map-vehicles.js)",
+ "textures": [
+  {
+   "id": "vh_ball",
+   "x": 220,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_barrel",
+   "x": 87,
+   "y": 0,
+   "w": 8,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_boiler",
+   "x": 25,
+   "y": 0,
+   "w": 12,
+   "h": 16,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_boxside",
+   "x": 145,
+   "y": 0,
+   "w": 12,
+   "h": 5,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_brass",
+   "x": 202,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_cabin",
+   "x": 211,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_cabside",
+   "x": 105,
+   "y": 0,
+   "w": 6,
+   "h": 6,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_cbside",
+   "x": 158,
+   "y": 0,
+   "w": 10,
+   "h": 5,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_chain",
+   "x": 24,
+   "y": 33,
+   "w": 1,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_coach",
+   "x": 169,
+   "y": 0,
+   "w": 8,
+   "h": 5,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_coachend",
+   "x": 178,
+   "y": 0,
+   "w": 4,
+   "h": 5,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_coat",
+   "x": 506,
+   "y": 0,
+   "w": 2,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_cone",
+   "x": 38,
+   "y": 0,
+   "w": 8,
+   "h": 8,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_crate",
+   "x": 335,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_cupola",
+   "x": 405,
+   "y": 0,
+   "w": 4,
+   "h": 3,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_deck",
+   "x": 330,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_dirt",
+   "x": 360,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_env",
+   "x": 0,
+   "y": 0,
+   "w": 24,
+   "h": 32,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_fin",
+   "x": 96,
+   "y": 0,
+   "w": 8,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_gear",
+   "x": 112,
+   "y": 0,
+   "w": 6,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_gold",
+   "x": 500,
+   "y": 0,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hb_appaloosa",
+   "x": 283,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hb_bay",
+   "x": 229,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hb_black",
+   "x": 247,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hb_buckskin",
+   "x": 292,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hb_chestnut",
+   "x": 238,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hb_dapple",
+   "x": 256,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hb_grey",
+   "x": 301,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hb_palomino",
+   "x": 265,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hb_pinto",
+   "x": 274,
+   "y": 0,
+   "w": 8,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hh_appaloosa",
+   "x": 476,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hh_bay",
+   "x": 428,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hh_black",
+   "x": 444,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hh_buckskin",
+   "x": 484,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hh_chestnut",
+   "x": 436,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hh_dapple",
+   "x": 452,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hh_grey",
+   "x": 492,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hh_palomino",
+   "x": 460,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hh_pinto",
+   "x": 468,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hhb_appaloosa",
+   "x": 480,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hhb_bay",
+   "x": 432,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hhb_black",
+   "x": 448,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hhb_buckskin",
+   "x": 488,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hhb_chestnut",
+   "x": 440,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hhb_dapple",
+   "x": 456,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hhb_grey",
+   "x": 496,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hhb_palomino",
+   "x": 464,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hhb_pinto",
+   "x": 472,
+   "y": 0,
+   "w": 3,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hl_appaloosa",
+   "x": 393,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hl_bay",
+   "x": 369,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hl_black",
+   "x": 377,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hl_buckskin",
+   "x": 397,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hl_chestnut",
+   "x": 373,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hl_dapple",
+   "x": 381,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hl_grey",
+   "x": 401,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hl_palomino",
+   "x": 385,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hl_pinto",
+   "x": 389,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hls_appaloosa",
+   "x": 395,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hls_bay",
+   "x": 371,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hls_black",
+   "x": 379,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hls_buckskin",
+   "x": 399,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hls_chestnut",
+   "x": 375,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hls_dapple",
+   "x": 383,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hls_grey",
+   "x": 403,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hls_palomino",
+   "x": 387,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hls_pinto",
+   "x": 391,
+   "y": 0,
+   "w": 1,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_hm_appaloosa",
+   "x": 15,
+   "y": 33,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hm_bay",
+   "x": 509,
+   "y": 0,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hm_black",
+   "x": 3,
+   "y": 33,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hm_buckskin",
+   "x": 18,
+   "y": 33,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hm_chestnut",
+   "x": 0,
+   "y": 33,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hm_dapple",
+   "x": 6,
+   "y": 33,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hm_grey",
+   "x": 21,
+   "y": 33,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hm_palomino",
+   "x": 9,
+   "y": 33,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hm_pinto",
+   "x": 12,
+   "y": 33,
+   "w": 2,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_hull",
+   "x": 183,
+   "y": 0,
+   "w": 18,
+   "h": 4,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_hull2",
+   "x": 350,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_iron",
+   "x": 320,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_lamp",
+   "x": 410,
+   "y": 0,
+   "w": 3,
+   "h": 3,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_lampr",
+   "x": 414,
+   "y": 0,
+   "w": 3,
+   "h": 3,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_lantern",
+   "x": 365,
+   "y": 0,
+   "w": 3,
+   "h": 4,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_passend",
+   "x": 140,
+   "y": 0,
+   "w": 4,
+   "h": 6,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_passside",
+   "x": 63,
+   "y": 0,
+   "w": 14,
+   "h": 6,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_pennant",
+   "x": 423,
+   "y": 0,
+   "w": 4,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_prop0",
+   "x": 47,
+   "y": 0,
+   "w": 7,
+   "h": 7,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_prop1",
+   "x": 55,
+   "y": 0,
+   "w": 7,
+   "h": 7,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_rail",
+   "x": 418,
+   "y": 0,
+   "w": 4,
+   "h": 2,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_roof",
+   "x": 325,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_sail",
+   "x": 119,
+   "y": 0,
+   "w": 6,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_skin",
+   "x": 503,
+   "y": 0,
+   "w": 2,
+   "h": 2,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_smoke",
+   "x": 345,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_spot",
+   "x": 355,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": false,
+   "light": true
+  },
+  {
+   "id": "vh_stack",
+   "x": 78,
+   "y": 0,
+   "w": 8,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_tarp",
+   "x": 340,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_wheel0",
+   "x": 126,
+   "y": 0,
+   "w": 6,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_wheel1",
+   "x": 133,
+   "y": 0,
+   "w": 6,
+   "h": 6,
+   "tile": false,
+   "light": false
+  },
+  {
+   "id": "vh_wood",
+   "x": 310,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  },
+  {
+   "id": "vh_woodv",
+   "x": 315,
+   "y": 0,
+   "w": 4,
+   "h": 4,
+   "tile": true,
+   "light": false
+  }
+ ]
+}

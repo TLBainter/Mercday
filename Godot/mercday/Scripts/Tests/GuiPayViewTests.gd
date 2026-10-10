@@ -16,12 +16,17 @@ const VACATION_CELLS: int = 6
 const STATUSES: Array[int] = [GuiTypes.MercStatus.AVAILABLE, GuiTypes.MercStatus.RESTING,
 	GuiTypes.MercStatus.CONTRACT, GuiTypes.MercStatus.VACATION, GuiTypes.MercStatus.LOAN,
 	GuiTypes.MercStatus.DEAD, GuiTypes.MercStatus.FIRED, GuiTypes.MercStatus.MISSING,
-	GuiTypes.MercStatus.CAPTURED]
+	GuiTypes.MercStatus.CAPTURED, GuiTypes.MercStatus.PREPARING, GuiTypes.MercStatus.DEFECTED]
 const REJECT_WAIT: float = 0.55
 const BAR_RESERVE: float = 76.0
-const BAND_AVAILABLE: Color = Color("#6cc36a")
-const BAND_GONE: Color = Color("#e8583f")
-const BAND_OTHER: Color = Color("#f3ead7")
+const BAND_AVAILABLE: Color = GuiColors.GREEN
+const BAND_GONE: Color = GuiColors.RED
+const BAND_OTHER: Color = GuiColors.CREAM
+#Mercs hired past the start roster: the stats case needs one whose wage is free while the seeded odd jobs hold
+#the start pair, the filter case reads the fifth merc and the rows case the third.
+const STATS_EXTRA: int = 1
+const FILTER_EXTRA: int = 3
+const ROWS_EXTRA: int = 1
 
 
 static func run(host: Node) -> bool:
@@ -43,9 +48,10 @@ static func run(host: Node) -> bool:
 	await _case_band(res, host)
 	await _case_modal_escape(res, host)
 	await _case_bevel_buttons(res, host)
+	await _case_stepper_fit(res, host)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	BenefitsManager.reset()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	GuiFrameStack.clear()
 	return TestFixtures.summarize(res, "GUI PAYVIEW")
 
@@ -56,13 +62,14 @@ static func _fresh() -> void:
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
 	BenefitsManager.reset()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	GuiFrameStack.clear()
 	GameState.bank_notes = MONEY
 
 
-static func _open(host: Node) -> PayrollTab:
+static func _open(host: Node, extra: int = 0) -> PayrollTab:
 	_fresh()
+	TestFixtures.add_mercs(extra)
 	var page: PayrollTab = PAGE_SCENE.instantiate() as PayrollTab
 	host.add_child(page)
 	await host.get_tree().process_frame
@@ -78,19 +85,12 @@ static func _close(page: PayrollTab, host: Node) -> void:
 	GuiFrameStack.clear()
 
 
-static func _uid(index: int) -> int:
-	if index < 0 or index >= GameState.roster.size():
-		return 0
-	return GameState.roster[index].uid
-
-
-static func _set_pay(uid: int, salary: int, opinion: int) -> void:
-	var merc: MercenaryData = GameState.merc_by_uid(uid)
-	if merc == null:
-		return
-	merc.monthly_salary = maxi(1, salary)
-	merc.guild_opinion = clampi(opinion, SalarySystem.OPINION_MIN, SalarySystem.OPINION_MAX)
-	GameState.refresh_views()
+#The first roster merc whose wage the manager may write; a new game can hold the first one away.
+static func _paid_uid() -> int:
+	for view: MercView in GameState.roster:
+		if not BenefitsManager.salary_locked(view.uid):
+			return view.uid
+	return 0
 
 
 static func _set_level(uid: int, level: int) -> void:
@@ -98,21 +98,6 @@ static func _set_level(uid: int, level: int) -> void:
 	if merc == null:
 		return
 	merc.stats["level"] = level
-	GameState.refresh_views()
-
-
-#The mood a merc left the guild with; the payroll drops a removed merc, the record keeps it.
-static func _left_opinion(uid: int) -> int:
-	var record: RemovedMercRecord = GameState.removed_by_uid(uid)
-	return record.guild_opinion if record != null else 0
-
-
-static func _rest(uid: int, kind: String) -> void:
-	var merc: MercenaryData = GameState.merc_by_uid(uid)
-	if merc == null:
-		return
-	merc.rest_lockout_kind = kind
-	merc.rest_lockout_until = CampaignClock.now() + CampaignClock.MINUTES_PER_DAY
 	GameState.refresh_views()
 
 
@@ -145,7 +130,7 @@ static func _band(status: int) -> String:
 
 #The colour the strip node of a row wears, read off the row itself and not off the row dictionary.
 static func _strip_color(page: PayrollTab, uid: int) -> Color:
-	for node: Node in page.list.get_children():
+	for node: Node in page.scroll.items.get_children():
 		var item: PayrollItem = node as PayrollItem
 		if item != null and item.uid() == uid and not item.is_queued_for_deletion():
 			return item.strip.get_theme_color("font_color")
@@ -237,15 +222,15 @@ static func _cell_value(panel: BenefitsPanel, label: String) -> String:
 
 #The two tiles over the list: the wage bill and the payday countdown, then the licence count.
 static func _case_stats(res: Dictionary, host: Node) -> void:
-	var page: PayrollTab = await _open(host)
+	var page: PayrollTab = await _open(host, STATS_EXTRA)
 	TestFixtures.check(res, "the page titles the merc list",
-		page.title.text == PayrollTab.TITLE_TEXT, page.title.text)
+		page.head.caption_label.text == PayrollTab.TITLE_TEXT, page.head.caption_label.text)
 	TestFixtures.check(res, "the payroll tile carries the monthly wage bill",
 		page.stat_text("payroll") == str(BenefitsManager.payroll_total())
 			and page.payroll_tile.label == PayrollTab.PAYROLL_LABEL,
 		"tile '%s' total %d" % [page.stat_text("payroll"), BenefitsManager.payroll_total()])
 	TestFixtures.check(res, "the wage bill reads in the spend colour",
-		page.stat_color("payroll") == PayrollTab.RED, str(page.stat_color("payroll")))
+		page.stat_color("payroll") == GuiColors.RED, str(page.stat_color("payroll")))
 	TestFixtures.check(res, "the payday tile counts the days to the next wages",
 		page.stat_text("payday") == BenefitsManager.payday_text()
 			and page.payday_tile.label == PayrollTab.PAYDAY_LABEL,
@@ -256,23 +241,39 @@ static func _case_stats(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "only the wage bill wears the notes glyph",
 		page.payroll_tile.show_glyph and not page.payday_tile.show_glyph,
 		"bill %s payday %s" % [page.payroll_tile.show_glyph, page.payday_tile.show_glyph])
-	var employed: int = BenefitsManager.employed_views().size()
+	var employed: int = SubscriptionManager.employed()
 	var cap: int = int(SubscriptionManager.entitlements().get("maxMercs", 0))
 	TestFixtures.check(res, "the head counts the employed mercs against the licence",
-		page.count_text() == "%d/%d" % [employed, cap] and employed == GameState.roster.size(),
+		page.count_text() == "%d/%d" % [employed, cap] and employed == GameState.roster.size()
+			and employed == GameState.payroll_mercs().size() and employed > 0,
 		"count '%s' employed %d cap %d" % [page.count_text(), employed, cap])
 	SubscriptionManager.set_entitlements({"maxMercs": 12})
 	TestFixtures.check(res, "a licence change redraws the count",
 		page.count_text() == "%d/%d" % [employed, 12], page.count_text())
+	var held: MercenaryData = GameState.payroll_mercs()[0]
+	MercPool.add_captive(held, "Escort", "Aerdis", "Day 1")
+	page.refresh()
+	TestFixtures.check(res, "a captive merc stays on the head count",
+		SalarySystem.is_captive(held) and SubscriptionManager.employed() == employed
+			and page.count_text() == "%d/%d" % [employed, 12],
+		"count '%s' employed %d" % [page.count_text(), SubscriptionManager.employed()])
+	var _freed: MercenaryData = MercPool.take_captive(held.merc_uid)
+	held.is_dead = true
+	page.refresh()
+	TestFixtures.check(res, "a dead merc leaves the head count",
+		SubscriptionManager.employed() == employed - 1 and page.count_text() == "%d/%d" % [employed - 1, 12],
+		"count '%s' employed %d" % [page.count_text(), SubscriptionManager.employed()])
+	held.is_dead = false
+	page.refresh()
 	var before: String = page.stat_text("payroll")
-	var uid: int = _uid(0)
+	var uid: int = _paid_uid()
 	var _after: int = BenefitsManager.apply_salary(uid, BenefitsManager.salary_of(uid) + 500)
 	TestFixtures.check(res, "a wage written through the manager redraws the bill",
 		page.stat_text("payroll") == str(BenefitsManager.payroll_total())
 			and page.stat_text("payroll") != before,
 		"bill '%s' was '%s'" % [page.stat_text("payroll"), before])
 	TestFixtures.check(res, "an unknown tile key reads empty",
-		page.stat_text("nope") == "" and page.stat_color("nope") == PayrollTab.CREAM,
+		page.stat_text("nope") == "" and page.stat_color("nope") == GuiColors.CREAM,
 		"'%s'" % page.stat_text("nope"))
 	await _close(page, host)
 
@@ -281,8 +282,8 @@ static func _case_stats(res: Dictionary, host: Node) -> void:
 static func _case_sort(res: Dictionary, host: Node) -> void:
 	var page: PayrollTab = await _open(host)
 	for i: int in GameState.roster.size():
-		var uid: int = _uid(i)
-		_set_pay(uid, 40 + i * 30, clampi(i - 4, SalarySystem.OPINION_MIN, SalarySystem.OPINION_MAX))
+		var uid: int = GuiPayrollTests._uid(i)
+		GuiPayrollTests._set_pay(uid, 40 + i * 30, clampi(i - 4, SalarySystem.OPINION_MIN, SalarySystem.OPINION_MAX))
 		_set_level(uid, 2 + i)
 	page.refresh()
 	TestFixtures.check(res, "the list opens on the wage, highest first",
@@ -336,12 +337,12 @@ static func _case_sort(res: Dictionary, host: Node) -> void:
 #The status filter: the default rows, one status off, a status nothing answers to, the reset and the
 #empty state. An odd job answers to the loan row.
 static func _case_filter(res: Dictionary, host: Node) -> void:
-	var page: PayrollTab = await _open(host)
+	var page: PayrollTab = await _open(host, FILTER_EXTRA)
 	var total: int = GameState.roster.size()
-	_rest(_uid(1), RestSystem.KIND_BREATHER)
-	_rest(_uid(2), RestSystem.KIND_FURLOUGH)
-	_contract(_uid(3), true)
-	var odd: int = _uid(4)
+	GuiPayrollTests._rest(GuiPayrollTests._uid(1), RestSystem.KIND_BREATHER)
+	GuiPayrollTests._rest(GuiPayrollTests._uid(2), RestSystem.KIND_FURLOUGH)
+	_contract(GuiPayrollTests._uid(3), true)
+	var odd: int = GuiPayrollTests._uid(4)
 	var _sent: bool = GameState.set_away(odd, GuiTypes.MercStatus.ODD_JOB)
 	page.refresh()
 	TestFixtures.check(res, "the guild statuses start shown",
@@ -364,8 +365,7 @@ static func _case_filter(res: Dictionary, host: Node) -> void:
 			== page.status_shown(GuiTypes.MercStatus.LOAN) and _index_of(page, odd) >= 0,
 		"odd %s at %d" % [page.status_shown(GuiTypes.MercStatus.ODD_JOB), _index_of(page, odd)])
 	TestFixtures.check(res, "the default set leaves the filter button plain",
-		not page.filter_active()
-			and not page.filter_button.has_theme_stylebox_override("normal"),
+		not page.filter_active() and page.filter_button.fill == GuiColors.BLUE,
 		"active %s" % page.filter_active())
 	page.set_status_shown(GuiTypes.MercStatus.LOAN, false)
 	TestFixtures.check(res, "hiding the loan row hides the odd job merc",
@@ -373,14 +373,13 @@ static func _case_filter(res: Dictionary, host: Node) -> void:
 			and not page.status_shown(GuiTypes.MercStatus.ODD_JOB),
 		"rows %d at %d" % [page.row_count(), _index_of(page, odd)])
 	TestFixtures.check(res, "a changed set turns the filter button orange",
-		page.filter_active()
-			and page.filter_button.get_theme_stylebox("normal") == PayrollTab.STYLE_ORANGE
-			and page.filter_button.get_theme_color("font_color") == PayrollTab.DARK,
+		page.filter_active() and page.filter_button.fill == GuiColors.ORANGE
+			and page.filter_button.text_color == GuiColors.INK,
 		"active %s" % page.filter_active())
 	page.reset_filter()
 	TestFixtures.check(res, "the reset puts every default row back",
 		page.row_count() == total and not page.filter_active()
-			and not page.filter_button.has_theme_stylebox_override("normal"),
+			and page.filter_button.fill == GuiColors.BLUE,
 		"rows %d active %s" % [page.row_count(), page.filter_active()])
 	page.set_status_shown(GuiTypes.MercStatus.AVAILABLE, false)
 	var available: int = 0
@@ -415,10 +414,10 @@ static func _case_filter(res: Dictionary, host: Node) -> void:
 #What one row shows: the name, the tradition, the status band, the wage and the level plate, and the
 #three colours the row carries.
 static func _case_rows(res: Dictionary, host: Node) -> void:
-	var page: PayrollTab = await _open(host)
-	var uid_a: int = _uid(0)
+	var page: PayrollTab = await _open(host, ROWS_EXTRA)
+	var uid_a: int = GuiPayrollTests._uid(0)
 	var wage: int = maxi(_top_salary() + 100, RICH_WAGE)
-	_set_pay(uid_a, wage, 2)
+	GuiPayrollTests._set_pay(uid_a, wage, 2)
 	page.refresh()
 	var at: int = _index_of(page, uid_a)
 	var view: MercView = BenefitsManager.view_of(uid_a)
@@ -433,8 +432,8 @@ static func _case_rows(res: Dictionary, host: Node) -> void:
 		page.row_text(at, "status") == _band(GuiTypes.MercStatus.AVAILABLE),
 		"'%s' vs '%s'" % [page.row_text(at, "status"), _band(GuiTypes.MercStatus.AVAILABLE)])
 	TestFixtures.check(res, "the row reads the monthly wage",
-		page.row_text(at, "salary") == NotesLabel.format_amount(wage),
-		"'%s' vs '%s'" % [page.row_text(at, "salary"), NotesLabel.format_amount(wage)])
+		page.row_text(at, "salary") == TransactionData.grouped(wage),
+		"'%s' vs '%s'" % [page.row_text(at, "salary"), TransactionData.grouped(wage)])
 	TestFixtures.check(res, "the plate reads the level",
 		page.row_text(at, "level") == "%02d" % view.level,
 		"'%s' vs %d" % [page.row_text(at, "level"), view.level])
@@ -476,8 +475,8 @@ static func _case_rows(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a wage a full bank covers reads well",
 		page.row_color(_index_of(page, uid_a), "salary") == PayrollLogic.OK_COLOR,
 		str(page.row_color(_index_of(page, uid_a), "salary")))
-	var uid_b: int = _uid(1)
-	_rest(uid_b, RestSystem.KIND_BREATHER)
+	var uid_b: int = GuiPayrollTests._uid(1)
+	GuiPayrollTests._rest(uid_b, RestSystem.KIND_BREATHER)
 	page.refresh()
 	var rest_at: int = _index_of(page, uid_b)
 	TestFixtures.check(res, "a resting merc reads resting on the band",
@@ -488,7 +487,7 @@ static func _case_rows(res: Dictionary, host: Node) -> void:
 			and page.row_color(rest_at, "status") != BAND_AVAILABLE
 			and _strip_color(page, uid_b) == BAND_OTHER,
 		"%s strip %s" % [str(page.row_color(rest_at, "status")), str(_strip_color(page, uid_b))])
-	var uid_c: int = _uid(2)
+	var uid_c: int = GuiPayrollTests._uid(2)
 	var gone: bool = BenefitsManager.fire(uid_c)
 	page.set_status_shown(GuiTypes.MercStatus.FIRED, true)
 	var fired_at: int = _index_of(page, uid_c)
@@ -522,7 +521,7 @@ static func _case_rows(res: Dictionary, host: Node) -> void:
 	dead_row.queue_free()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "an index off the list reads empty and cream",
-		page.row_text(99, "name") == "" and page.row_color(99, "salary") == PayrollTab.CREAM
+		page.row_text(99, "name") == "" and page.row_color(99, "salary") == GuiColors.CREAM
 			and page.row_uid(-1) == 0,
 		"'%s'" % page.row_text(99, "name"))
 	await _close(page, host)
@@ -569,7 +568,7 @@ static func _case_press(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	var at: int = _index_of(page, uid)
 	TestFixtures.check(res, "a wage confirmed from the page redraws that row",
-		at >= 0 and page.row_text(at, "salary") == NotesLabel.format_amount(opening + 100)
+		at >= 0 and page.row_text(at, "salary") == TransactionData.grouped(opening + 100)
 			and BenefitsManager.salary_of(uid) == opening + 100,
 		"row '%s' wage %d" % [page.row_text(at, "salary"), BenefitsManager.salary_of(uid)])
 	TestFixtures.check(res, "the wage bill follows the change",
@@ -621,7 +620,7 @@ static func _case_tooltip(res: Dictionary, host: Node) -> void:
 			and Rect2(Vector2.ZERO, tip.sigil_box.size).encloses(sigil_rect),
 		"%s at %s in %s" % [sigil_art, sigil_rect.position, sigil_frame])
 	TestFixtures.check(res, "the card reads the wage",
-		tip.text("salary") == NotesLabel.format_amount(view.monthly_salary),
+		tip.text("salary") == TransactionData.grouped(view.monthly_salary),
 		"'%s' vs %d" % [tip.text("salary"), view.monthly_salary])
 	var kept: Array[Dictionary] = BenefitsManager.unique_traits(uid)
 	TestFixtures.check(res, "the card lists the traits the manager picked",
@@ -689,7 +688,7 @@ static func _case_benefits(res: Dictionary, host: Node) -> void:
 		named = named and panel.row_text(i, "desc") == String(def.get("desc", ""))
 		valued = valued and (panel.row_text(i, "value")
 			== BenefitsManager.benefit_text(name_key, BenefitsManager.benefit(name_key)))
-		off = off and panel.row_color(i) == BenefitsManager.OFF_COLOR
+		off = off and panel.row_color(i) == PayrollLogic.OFF_COLOR
 	TestFixtures.check(res, "every bonus row carries its label and blurb", named,
 		"%s %s %s" % [panel.row_key(0), panel.row_key(1), panel.row_key(2)])
 	TestFixtures.check(res, "every bonus row reads the value the manager holds", valued,
@@ -699,7 +698,7 @@ static func _case_benefits(res: Dictionary, host: Node) -> void:
 	BenefitsManager.set_benefit("profit", 10)
 	TestFixtures.check(res, "a bonus set from outside redraws the row in the on colour",
 		panel.row_text(0, "value") == BenefitsManager.benefit_text("profit", 10)
-			and panel.row_color(0) == BenefitsManager.ON_COLOR,
+			and panel.row_color(0) == PayrollLogic.OK_COLOR,
 		"'%s' %s" % [panel.row_text(0, "value"), panel.row_color(0)])
 	TestFixtures.check(res, "a row off the panel reads empty",
 		panel.row_text(9, "value") == "" and panel.row_key(9) == "",
@@ -815,8 +814,7 @@ static func _case_vacation_dialog(res: Dictionary, host: Node) -> void:
 		box.field_max("start") == VacationPolicy.START_MAX
 			and box.field_max("add_days") == VacationPolicy.ADD_MAX,
 		"start %d add %d" % [box.field_max("start"), box.field_max("add_days")])
-	var steppers: Array[PayrollStepper] = [box.start_step, box.add_step, box.every_step,
-		box.len_step, box.at_step, box.gap_step]
+	var steppers: Array[PayrollStepper] = _vacation_steppers(box)
 	var sized_ok: bool = true
 	for s: PayrollStepper in steppers:
 		if not s.custom_minimum_size.is_equal_approx(s.compact_row.get_combined_minimum_size()):
@@ -888,7 +886,7 @@ static func _case_vacation_dialog(res: Dictionary, host: Node) -> void:
 		"policy %s" % str(BenefitsManager.policy().to_dict()))
 	TestFixtures.check(res, "the panel cells follow the written policy",
 		_cell_value(page.benefits(), "Approval") == "Not Required"
-			and _cell_value(page.benefits(), "Starting") == VacationPolicy.plural(9, "Day"),
+			and _cell_value(page.benefits(), "Starting") == GuiDates.plural(9, "Day"),
 		"approval '%s' start '%s'" % [_cell_value(page.benefits(), "Approval"),
 			_cell_value(page.benefits(), "Starting")])
 	box.open()
@@ -965,7 +963,7 @@ static func _case_stepper(res: Dictionary, host: Node) -> void:
 		"size %s" % step.custom_minimum_size)
 	TestFixtures.check(res, "the compact look reads the value off its own label",
 		step.value_text() == step.value_small.text, step.value_text())
-	var digit_width: float = PayrollStepper.FONT_BOLD.get_string_size(
+	var digit_width: float = GuiStyle.SILK_BOLD.get_string_size(
 		"999", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13).x
 	TestFixtures.check(res, "the compact value box widens to fit three digits",
 		is_equal_approx(step.value_box.custom_minimum_size.x, digit_width + 8.0),
@@ -1082,8 +1080,8 @@ static func _case_fire(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "confirming the fire marks the merc and drops the opinion",
 		fires.size() == 1 and int(fires[0]) == uid and BenefitsManager.is_fired(uid)
-			and _left_opinion(uid) == want and not dialog.visible,
-		"fires %s opinion %d wanted %d" % [str(fires), _left_opinion(uid), want])
+			and GuiPayrollTests._left_opinion(uid) == want and not dialog.visible,
+		"fires %s opinion %d wanted %d" % [str(fires), GuiPayrollTests._left_opinion(uid), want])
 	TestFixtures.check(res, "the fired merc leaves the default list",
 		_index_of(page, uid) < 0, "at %d" % _index_of(page, uid))
 	page.set_status_shown(GuiTypes.MercStatus.FIRED, true)
@@ -1122,9 +1120,9 @@ static func _case_host(res: Dictionary, host: Node) -> void:
 		not is_instance_valid(box) and not is_instance_valid(vac),
 		"benefit %s vacation %s" % [is_instance_valid(box), is_instance_valid(vac)])
 	var shell: Control = Control.new()
-	shell.add_to_group(PayrollTab.HOST_GROUP)
+	shell.add_to_group(FinanceViewer.MODAL_GROUP)
 	var layer: Control = Control.new()
-	layer.name = PayrollTab.HOST_CHILD
+	layer.name = String(FinanceViewer.MODAL_LAYER)
 	shell.add_child(layer)
 	host.add_child(shell)
 	var inner: PayrollTab = PAGE_SCENE.instantiate() as PayrollTab
@@ -1181,7 +1179,7 @@ static func _case_band(res: Dictionary, host: Node) -> void:
 	var was: float = GuiFrameStack.bottom_reserve
 	GuiFrameStack.bottom_reserve = BAR_RESERVE
 	var band: float = GuiFrameStack.band_height(host.get_viewport().get_visible_rect().size.y)
-	var uid: int = _uid(0)
+	var uid: int = GuiPayrollTests._uid(0)
 	_contract(uid, true)
 	var salary: SalaryDialog = page.salary_dialog()
 	salary.open_for_uid(uid)
@@ -1222,6 +1220,11 @@ static func _fits(node: Control, band: float) -> bool:
 	return node.get_global_rect().end.y <= band + 0.5
 
 
+static func _vacation_steppers(box: VacationDialog) -> Array[PayrollStepper]:
+	return [box.start_step, box.add_step, box.every_step, box.len_step, box.at_step,
+		box.gap_step]
+
+
 static func _esc() -> InputEventKey:
 	var k := InputEventKey.new()
 	k.keycode = KEY_ESCAPE
@@ -1233,45 +1236,35 @@ static func _esc() -> InputEventKey:
 #are the top frame; a frame pushed above them absorbs the key instead.
 static func _case_modal_escape(res: Dictionary, host: Node) -> void:
 	var page: PayrollTab = await _open(host)
-	var box: BenefitDialog = page.benefit_dialog()
-	var vac: VacationDialog = page.vacation_dialog()
 	var blocker := Control.new()
 	blocker.top_level = true
 	host.add_child(blocker)
-	box.open_for("profit")
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "the benefit dialog goes top_level and pushes itself on open",
-		box.top_level and GuiFrameStack.top() == box,
-		"top_level %s top %s" % [box.top_level, str(GuiFrameStack.top())])
-	GuiFrameStack.push(blocker)
-	host.get_viewport().push_input(_esc())
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "a frame above the benefit dialog keeps Esc from closing it",
-		box.is_open(), "open %s" % box.is_open())
-	GuiFrameStack.remove(blocker)
-	host.get_viewport().push_input(_esc())
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "the benefit dialog closes alone on Esc once it is the top frame",
-		not box.is_open() and GuiFrameStack.top() != box,
-		"open %s top %s" % [box.is_open(), str(GuiFrameStack.top())])
-	vac.open()
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "the vacation dialog goes top_level and pushes itself on open",
-		vac.top_level and GuiFrameStack.top() == vac,
-		"top_level %s top %s" % [vac.top_level, str(GuiFrameStack.top())])
-	GuiFrameStack.push(blocker)
-	host.get_viewport().push_input(_esc())
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "a frame above the vacation dialog keeps Esc from closing it",
-		vac.is_open(), "open %s" % vac.is_open())
-	GuiFrameStack.remove(blocker)
-	host.get_viewport().push_input(_esc())
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "the vacation dialog closes alone on Esc once it is the top frame",
-		not vac.is_open() and GuiFrameStack.top() != vac,
-		"open %s top %s" % [vac.is_open(), str(GuiFrameStack.top())])
+	page.benefit_dialog().open_for("profit")
+	await _check_escape(res, host, page.benefit_dialog(), blocker, "benefit dialog")
+	page.vacation_dialog().open()
+	await _check_escape(res, host, page.vacation_dialog(), blocker, "vacation dialog")
 	blocker.queue_free()
 	await _close(page, host)
+
+
+#An open dialog is the top frame; a frame above it absorbs Esc, and alone it closes on Esc.
+static func _check_escape(res: Dictionary, host: Node, dialog: GuiModal, blocker: Control,
+		label: String) -> void:
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the %s goes top_level and pushes itself on open" % label,
+		dialog.top_level and GuiFrameStack.top() == dialog,
+		"top_level %s top %s" % [dialog.top_level, str(GuiFrameStack.top())])
+	GuiFrameStack.push(blocker)
+	host.get_viewport().push_input(_esc())
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a frame above the %s keeps Esc from closing it" % label,
+		dialog.is_open(), "open %s" % dialog.is_open())
+	GuiFrameStack.remove(blocker)
+	host.get_viewport().push_input(_esc())
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the %s closes alone on Esc once it is the top frame" % label,
+		not dialog.is_open() and GuiFrameStack.top() != dialog,
+		"open %s top %s" % [dialog.is_open(), str(GuiFrameStack.top())])
 
 
 #Every owned, text labelled action button is a BevelButton; the stepper's plus and minus, the
@@ -1296,10 +1289,10 @@ static func _case_bevel_buttons(res: Dictionary, host: Node) -> void:
 	var all_bevel: bool = true
 	var bad: String = ""
 	for btn: Button in buttons:
-		if not (btn.get_script() is GDScript) or String((btn.get_script() as GDScript).resource_path) \
-				!= "res://Scripts/GUI/Shared/BevelButton.gd":
+		if not (btn is BevelButton):
 			all_bevel = false
-			bad = btn.name if bad == "" else bad
+			if bad == "":
+				bad = String(btn.name)
 	TestFixtures.check(res, "every owned action button carries the BevelButton script",
 		all_bevel, "first offender: %s" % bad)
 	TestFixtures.check(res, "both dialog closes carry the shared close art and no letter",
@@ -1315,4 +1308,80 @@ static func _case_bevel_buttons(res: Dictionary, host: Node) -> void:
 		"%s at %d" % [FireConfirmDialog.PLATE, fire.sigil.pixel_scale])
 	fire.press_cancel()
 	salary.press_cancel()
+	await _close(page, host)
+
+
+#True when outer encloses inner on screen, with half a pixel for rounding.
+static func _encloses(outer: Control, inner: Control) -> bool:
+	return outer.get_global_rect().grow(0.5).encloses(inner.get_global_rect())
+
+
+#Every part of one stepper sits inside the box that hosts it; the reason names the first miss.
+static func _stepper_miss(box: Control, step: PayrollStepper) -> String:
+	var parts: Array[Control] = [step, step.shell]
+	if step.compact:
+		parts.append_array([step.minus_small, step.value_box, step.plus_small] as Array[Control])
+	else:
+		parts.append_array([step.minus_button, step.middle, step.plus_button] as Array[Control])
+	for part: Control in parts:
+		if part.visible and not _encloses(box, part):
+			return "%s %s outside %s" % [part.name, str(part.get_global_rect()), str(box.get_global_rect())]
+	return ""
+
+
+#The stepper keeps the design size and never runs past the box of any dialog it sits in.
+static func _case_stepper_fit(res: Dictionary, host: Node) -> void:
+	TestFixtures.check(res, "the display stepper keeps the design sizes",
+		is_equal_approx(PayrollStepper.BUTTON_SIZE, 56.0) and is_equal_approx(PayrollStepper.DISPLAY_GAP, 12.0)
+			and is_equal_approx(PayrollStepper.COMPACT_BUTTON, 28.0)
+			and is_equal_approx(PayrollStepper.COMPACT_GAP, 6.0),
+		"button %.1f gap %.1f small %.1f gap %.1f" % [PayrollStepper.BUTTON_SIZE,
+			PayrollStepper.DISPLAY_GAP, PayrollStepper.COMPACT_BUTTON, PayrollStepper.COMPACT_GAP])
+	var page: PayrollTab = await _open(host)
+	var was: float = GuiFrameStack.bottom_reserve
+	GuiFrameStack.bottom_reserve = BAR_RESERVE
+	var view: Vector2 = host.get_viewport().get_visible_rect().size
+	var band: Rect2 = Rect2(Vector2.ZERO, Vector2(view.x, GuiFrameStack.band_height(view.y)))
+	var salary: SalaryDialog = page.salary_dialog()
+	var uid: int = GuiPayrollTests._uid(0)
+	var miss: String = ""
+	GameState.bank_notes = 99999999
+	for wage: int in [1, 850, 99999999]:
+		GuiPayrollTests._set_pay(uid, wage, 0)
+		salary.open_for_uid(uid)
+		salary.step(3)
+		await host.get_tree().process_frame
+		await host.get_tree().process_frame
+		var why: String = _stepper_miss(salary.box, salary.step_box)
+		if why == "" and not band.grow(0.5).encloses(salary.box.get_global_rect()):
+			why = "box %s outside band" % [str(salary.box.get_global_rect())]
+		if why != "" and miss == "":
+			miss = "wage %d: %s" % [wage, why]
+		salary.press_cancel()
+	GameState.bank_notes = MONEY
+	TestFixtures.check(res, "the wage stepper stays inside the salary box at every wage", miss == "", miss)
+	var bonus: BenefitDialog = page.benefit_dialog()
+	miss = ""
+	for name_key: String in BENEFIT_KEYS:
+		bonus.open_for(name_key)
+		bonus.stepper().set_value_silent(bonus.stepper().max_value)
+		await host.get_tree().process_frame
+		await host.get_tree().process_frame
+		var why: String = _stepper_miss(bonus.box, bonus.stepper())
+		if why != "" and miss == "":
+			miss = "%s: %s" % [name_key, why]
+		bonus.press_cancel()
+	TestFixtures.check(res, "the bonus stepper stays inside the benefit box for every bonus", miss == "", miss)
+	var holiday: VacationDialog = page.vacation_dialog()
+	holiday.open()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	miss = ""
+	for step: PayrollStepper in _vacation_steppers(holiday):
+		var why: String = _stepper_miss(holiday.box, step)
+		if why != "" and miss == "":
+			miss = why
+	TestFixtures.check(res, "the vacation steppers stay inside the vacation box", miss == "", miss)
+	holiday.press_cancel()
+	GuiFrameStack.bottom_reserve = was
 	await _close(page, host)

@@ -24,13 +24,18 @@ func count() -> int:
 	return _pool.size()
 
 
+#Index of the entry with this uid, or -1. Captive entries are dictionaries holding the merc under "merc".
+static func _index_of_uid(entries: Array, merc_uid: int, is_record: bool) -> int:
+	for i: int in range(entries.size()):
+		var merc: MercenaryData = entries[i]["merc"] if is_record else entries[i]
+		if merc.merc_uid == merc_uid:
+			return i
+	return -1
+
+
 #Removes and returns the pooled merc with this uid; null when none is pooled.
 func take(merc_uid: int) -> MercenaryData:
-	var at := -1
-	for i: int in range(_pool.size()):
-		if _pool[i].merc_uid == merc_uid:
-			at = i
-			break
+	var at := _index_of_uid(_pool, merc_uid, false)
 	if at < 0:
 		return null
 	var merc := _pool[at]
@@ -43,6 +48,7 @@ func add_captive(merc: MercenaryData, contract_type: String, location: String, s
 		crew: Array = [], crew_source: String = "") -> void:
 	if merc == null:
 		return
+	RestSystem.idle_break(merc)
 	for entry: Dictionary in _captives:
 		if entry["merc"] == merc:
 			return
@@ -71,19 +77,13 @@ func captives() -> Array[Dictionary]:
 
 #The held record for this uid; {} when nobody with that uid is held.
 func captive_record(merc_uid: int) -> Dictionary:
-	for entry: Dictionary in _captives:
-		if (entry["merc"] as MercenaryData).merc_uid == merc_uid:
-			return entry
-	return {}
+	var at := _index_of_uid(_captives, merc_uid, true)
+	return _captives[at] if at >= 0 else {}
 
 
 #Removes and returns the captive with this uid; null when none is held.
 func take_captive(merc_uid: int) -> MercenaryData:
-	var at := -1
-	for i: int in range(_captives.size()):
-		if (_captives[i]["merc"] as MercenaryData).merc_uid == merc_uid:
-			at = i
-			break
+	var at := _index_of_uid(_captives, merc_uid, true)
 	if at < 0:
 		return null
 	var merc: MercenaryData = _captives[at]["merc"]

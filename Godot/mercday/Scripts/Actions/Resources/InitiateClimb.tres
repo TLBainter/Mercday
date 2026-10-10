@@ -1,38 +1,33 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ClimbAction" format=3 uid="uid://bmlcm300wif6e"]
 
-[ext_resource type="Script" path="res://Scripts/Actions/ClimbAction.gd" id="ClimbAction"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/CanStartClimbFacet.gd" id="CanStartClimbFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/HasClimbStatFacet.gd" id="HasClimbStatFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/EnemyDistanceFacet.gd" id="EnemyDistanceFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_o0uh4"]
+[ext_resource type="Script" uid="uid://dkhlstj70hi1y" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
+[ext_resource type="Script" uid="uid://bfmewnlw656ki" path="res://Scripts/Decisions/CanStartClimbFacet.gd" id="CanStartClimbFacet"]
+[ext_resource type="Script" uid="uid://gs2u7x2x2rwu" path="res://Scripts/Actions/ClimbAction.gd" id="ClimbAction"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://cn12eo1r34mrv" path="res://Scripts/Decisions/EnemyDistanceFacet.gd" id="EnemyDistanceFacet"]
+[ext_resource type="Script" uid="uid://vvarv2rc85u8" path="res://Scripts/Decisions/HasClimbStatFacet.gd" id="HasClimbStatFacet"]
 
 [sub_resource type="Resource" id="facet_can_start"]
 script = ExtResource("CanStartClimbFacet")
 is_required = true
 
 [sub_resource type="Resource" id="facet_not_climbing"]
-script = ExtResource("ActiveStateFacet")
+script = ExtResource("AnyStateFacet")
 is_required = true
-state_name = "Climbing"
-present_is_high = false
+invert = true
 
 [sub_resource type="Resource" id="facet_has_stat"]
 script = ExtResource("HasClimbStatFacet")
-is_required = false
-weight = 1.0
 
 [sub_resource type="Resource" id="facet_no_melee_enemy"]
 script = ExtResource("EnemyDistanceFacet")
-is_required = false
-weight = 2.0
-max_dist = 1.0
 close_is_high = false
+weight = 2.0
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_can_start"), SubResource("facet_not_climbing"), SubResource("facet_has_stat"), SubResource("facet_no_melee_enemy")]
-threshold = 0.50
+facets = Array[ExtResource("1_o0uh4")]([SubResource("facet_can_start"), SubResource("facet_not_climbing"), SubResource("facet_has_stat"), SubResource("facet_no_melee_enemy")])
 
 [resource]
 script = ExtResource("ClimbAction")
@@ -41,5 +36,4 @@ ap_cost = 2
 ap_cost_mode = "move_base"
 priority = 50
 execution_type = "climb"
-target_mode = "none"
 decision = SubResource("decision")

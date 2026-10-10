@@ -1,6 +1,6 @@
-class_name PermitsPage extends VBoxContainer
+class_name PermitsPage extends LegalListPage
 
-#The Permits tab: the head line and one LocationCard per location on a strip that scrolls
+#The Permits tab: the head line and one LocationCard per location on a framed strip that scrolls
 #sideways. The strip is the only horizontal list in the window; its bar carries the pixel arrows
 #at both ends and the wheel pushes it left and right because it has no vertical scroll to take.
 
@@ -10,39 +10,45 @@ const CARD_SCENE: PackedScene = preload("res://Scenes/GUI/Legal/LocationCard.tsc
 const HEAD_TEXT: String = "Permits"
 const SUB_TEXT: String = "Buy Operation permits to expand your guild into different locations"
 const CARD_GAP: int = 14
+const PAGE_GAP: int = 8
+const SCROLLBAR_GAP: int = 8
 const ARROW_SCALE: int = 2
 const ARROW_KEYS: Array[StringName] = [&"decrement", &"decrement_highlight",
 	&"decrement_pressed", &"increment", &"increment_highlight", &"increment_pressed"]
 
-var head_label: Label = null
 var sub_label: Label = null
-var scroll: ScrollContainer = null
-var strip: HBoxContainer = null
+
+#The card row inside the scroll.
+var strip: HBoxContainer:
+	get:
+		return list as HBoxContainer
+
+
+func _init() -> void:
+	row_scene = CARD_SCENE
+	title = HEAD_TEXT
 
 
 func _ready() -> void:
-	add_theme_constant_override(&"separation", 12)
-	_build()
-	_fill()
-	LegalManager.permits_changed.connect(_fill)
-	LegalManager.fines_changed.connect(_fill)
-	LegalManager.captures_changed.connect(_fill)
-	SubscriptionManager.changed.connect(_fill)
+	add_theme_constant_override(&"separation", PAGE_GAP)
+	super()
+	LegalManager.permits_changed.connect(refresh)
+	LegalManager.fines_changed.connect(refresh)
+	LegalManager.captures_changed.connect(refresh)
+	SubscriptionManager.changed.connect(refresh)
 
 
 func card_count() -> int:
-	return strip.get_child_count() if strip != null else 0
+	return row_count()
 
 
 func card(i: int) -> LocationCard:
-	if strip == null or i < 0 or i >= strip.get_child_count():
-		return null
-	return strip.get_child(i) as LocationCard
+	return row_at(i) as LocationCard
 
 
 func card_for(loc_id: int) -> LocationCard:
-	for i: int in range(card_count()):
-		var found: LocationCard = card(i)
+	for child: Node in rows():
+		var found: LocationCard = child as LocationCard
 		if found != null and found.location != null and found.location.id == loc_id:
 			return found
 	return null
@@ -62,31 +68,31 @@ func sub_text() -> String:
 	return sub_label.text if sub_label != null else ""
 
 
-func head_text() -> String:
-	return head_label.text if head_label != null else ""
-
-
 func _build() -> void:
 	if scroll != null:
 		return
-	var head: VBoxContainer = LegalStyle.vbox(4)
-	head.name = "Head"
-	head_label = LegalStyle.pixel(HEAD_TEXT, 16, LegalStyle.ORANGE, true)
-	sub_label = LegalStyle.text(SUB_TEXT, 14, LegalStyle.SKY)
-	head.add_child(head_label)
-	head.add_child(sub_label)
-	add_child(head)
-	scroll = ScrollContainer.new()
-	scroll.name = "Strip"
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	strip = LegalStyle.hbox(CARD_GAP)
-	strip.name = "Cards"
-	strip.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(strip)
-	add_child(scroll)
+	sub_label = GuiStyle.label(SUB_TEXT, GuiStyle.BODY, 14, GuiColors.SKY)
+	add_child(_head_block(sub_label))
+	add_child(_framed(_row_scroll(true, CARD_GAP, _bar_gap())))
 	_style_bar()
+
+
+#The strip sits in an inset panel so it reads as one container.
+func _framed(inner: Control) -> PanelContainer:
+	var frame := PanelContainer.new()
+	frame.name = "Frame"
+	frame.theme_type_variation = &"InsetPanel"
+	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	frame.add_child(inner)
+	return frame
+
+
+#The pad under the cards keeps them clear of the scroll bar.
+func _bar_gap() -> MarginContainer:
+	var pad := MarginContainer.new()
+	pad.name = "BarGap"
+	pad.add_theme_constant_override(&"margin_bottom", SCROLLBAR_GAP)
+	return pad
 
 
 #The theme already paints the track and the orange thumb; only the end arrows are ours.
@@ -96,30 +102,24 @@ func _style_bar() -> void:
 		return
 	for key: StringName in ARROW_KEYS:
 		var right: bool = String(key).begins_with("increment")
-		var tint: Color = LegalStyle.ORANGE_HI if String(key).ends_with("highlight") \
-			else LegalStyle.ORANGE
+		var tint: Color = GuiColors.ORANGE_HI if String(key).ends_with("highlight") \
+			else GuiColors.ORANGE
 		bar.add_theme_icon_override(key, Icons.tinted("caret_right" if right else "caret_left",
 			tint, ARROW_SCALE, true))
 
 
-func _fill() -> void:
-	if strip == null:
-		return
-	var places: Array[LegalLocationData] = LegalManager.locations()
-	while strip.get_child_count() > places.size():
-		var last: Node = strip.get_child(strip.get_child_count() - 1)
-		strip.remove_child(last)
-		last.queue_free()
-	while strip.get_child_count() < places.size():
-		var made: LocationCard = CARD_SCENE.instantiate() as LocationCard
-		made.name = "Card%d" % strip.get_child_count()
-		made.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		made.request_pressed.connect(_on_request)
-		strip.add_child(made)
-	for i: int in range(places.size()):
-		var row: LocationCard = strip.get_child(i) as LocationCard
-		if row != null:
-			row.location = places[i]
+func _row_data() -> Array:
+	return LegalManager.locations()
+
+
+func _new_row(made: Control) -> void:
+	super(made)
+	made.name = "Card%d" % made.get_index()
+	(made as LocationCard).request_pressed.connect(_on_request)
+
+
+func _fill_row(line: Node, data: Variant) -> void:
+	(line as LocationCard).location = data as LegalLocationData
 
 
 func _on_request(loc_id: int) -> void:

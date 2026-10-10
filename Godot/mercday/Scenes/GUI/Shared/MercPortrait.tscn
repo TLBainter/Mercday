@@ -16,8 +16,9 @@ snap_2d_transforms_to_pixel = true
 disable_3d = true
 
 [node name="Character" parent="View" instance=ExtResource("2")]
+idle_only = true
 
 [node name="Camera" type="Camera2D" parent="View"]
-position = Vector2(0, -18)
+position = Vector2(0, -5)
 zoom = Vector2(1, 1)
 enabled = true

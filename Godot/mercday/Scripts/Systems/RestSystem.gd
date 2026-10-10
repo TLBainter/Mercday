@@ -7,7 +7,9 @@ class_name RestSystem
 #the excess pools. Only a Respite or a Furlough locks out, and a locked out rest completes on the
 #clock; a rest never ends a timer early. A completed rest also takes one RestActions rest action of
 #its kind. Maximum HP, EP and MP reductions and any Furlough training last until the next Furlough
-#completes, which restores all three and ends the training.
+#completes, which restores all three and ends the training. The Furlough is never booked: it completes
+#on its own once a merc has idled its Furlough time (one per idle window). A vacation locks out for its
+#booked days, counts as idle and ends with a Respite recovery.
 
 const BREATHER_MINUTES := 10
 const RESPITE_MINUTES := 360
@@ -21,6 +23,7 @@ const FURLOUGH_MIN_MINUTES := 1440
 const KIND_BREATHER := "breather"
 const KIND_RESPITE := "respite"
 const KIND_FURLOUGH := "furlough"
+const KIND_VACATION := "vacation"
 
 const MAX_HP := "maximum_hit_points"
 const MAX_EP := "maximum_endurance_points"
@@ -73,7 +76,7 @@ static func party_rest_minutes(party: Array[MercenaryData], base_minutes: int) -
 #"REST TIME: respite 3 h (slowest Fira, rest recovery +50%)"
 static func party_line(kind: String, party: Array[MercenaryData], base_minutes: int) -> String:
 	var slowest: MercenaryData = party_slowest(party, base_minutes)
-	var minutes: int = base_minutes if slowest == null else rest_minutes(slowest, base_minutes)
+	var minutes: int = party_rest_minutes(party, base_minutes)
 	var span: String = CampaignClock.delta_text(minutes).trim_prefix("+")
 	if slowest == null:
 		return "REST TIME: %s %s" % [kind, span]
@@ -141,11 +144,7 @@ static func respite_start(party: Array[MercenaryData], run: ContractRun) -> Arra
 		if merc == null or merc.is_dead:
 			continue
 		TraitRuntime.fire_rest("rest_start", KIND_RESPITE, merc, run, lines)
-		var minutes: int = rest_minutes(merc, RESPITE_MINUTES)
-		merc.rest_lockout_until = CampaignClock.now() + minutes
-		merc.rest_lockout_kind = KIND_RESPITE
-		lines.append("RESPITE LOCKOUT: %s until %s (%s)" % [merc.merc_name,
-			CampaignClock.stamp(merc.rest_lockout_until), CampaignClock.delta_text(minutes).trim_prefix("+")])
+		_lock(merc, KIND_RESPITE, RESPITE_MINUTES, "RESPITE LOCKOUT", lines)
 	return lines
 
 
@@ -164,6 +163,22 @@ static func _lockout_refusal(merc: MercenaryData, kind: String, minute: int, lin
 	return true
 
 
+#Locks the merc out for their own time of the rest and appends "<label>: <name> until <stamp> (<span>)".
+static func _lock(merc: MercenaryData, kind: String, base_minutes: int, label: String, lines: Array[String]) -> void:
+	var minutes: int = rest_minutes(merc, base_minutes)
+	merc.rest_lockout_start = CampaignClock.now()
+	merc.rest_lockout_until = merc.rest_lockout_start + minutes
+	merc.rest_lockout_kind = kind
+	lines.append("%s: %s until %s (%s)" % [label, merc.merc_name,
+		CampaignClock.stamp(merc.rest_lockout_until), CampaignClock.delta_text(minutes).trim_prefix("+")])
+
+
+static func _unlock(merc: MercenaryData) -> void:
+	merc.rest_lockout_until = 0
+	merc.rest_lockout_start = -1
+	merc.rest_lockout_kind = ""
+
+
 static func respite_complete(merc: MercenaryData, now: int = -1) -> Array[String]:
 	var lines: Array[String] = []
 	if merc == null:
@@ -172,8 +187,35 @@ static func respite_complete(merc: MercenaryData, now: int = -1) -> Array[String
 	if _lockout_refusal(merc, KIND_RESPITE, minute, lines):
 		return lines
 	_respite_recover(merc, lines)
-	merc.rest_lockout_until = 0
-	merc.rest_lockout_kind = ""
+	_unlock(merc)
+	TraitRuntime.fire_rest("rest_complete", KIND_RESPITE, merc, null, lines)
+	return lines
+
+
+#Locks the merc out for a booked vacation from start_minute (now when -1) to until_minute; a Respite lockout gives way.
+#Rest Recovery never scales it and the idle window keeps counting.
+static func vacation_start(merc: MercenaryData, until_minute: int, start_minute: int = -1) -> Array[String]:
+	var lines: Array[String] = []
+	if merc == null:
+		return lines
+	merc.rest_lockout_start = CampaignClock.now() if start_minute < 0 else start_minute
+	merc.rest_lockout_until = until_minute
+	merc.rest_lockout_kind = KIND_VACATION
+	lines.append("VACATION START: %s until %s" % [merc.merc_name, CampaignClock.stamp(until_minute)])
+	return lines
+
+
+#A vacation over: the Respite recovery and its rest action (N8), never a Furlough; the idle tracker owns that.
+static func vacation_complete(merc: MercenaryData, now: int = -1) -> Array[String]:
+	var lines: Array[String] = []
+	if merc == null:
+		return lines
+	var minute: int = CampaignClock.now() if now < 0 else now
+	if _lockout_refusal(merc, KIND_VACATION, minute, lines):
+		return lines
+	lines.append("VACATION COMPLETE: %s" % merc.merc_name)
+	_respite_recover(merc, lines)
+	_unlock(merc)
 	TraitRuntime.fire_rest("rest_complete", KIND_RESPITE, merc, null, lines)
 	return lines
 
@@ -188,55 +230,79 @@ static func _respite_recover(merc: MercenaryData, lines: Array[String]) -> void:
 	_top_up(merc, "current_hp", MAX_HP, fraction)
 	var fatigue_kept: String = ""
 	if fatigue_before > 0:
-		var dropped: Dictionary = ConstStates.reduce_state_by(merc, ConstStates.FATIGUED, KIND_RESPITE)
-		if not bool(dropped["removed"]):
-			fatigue_kept = str(dropped["reason"])
+		fatigue_kept = reduce_fatigue(merc, KIND_RESPITE)
 	var keep: Array[String] = [ConstStates.FATIGUED]
 	var removed: Array[String] = clear_by_verb(merc, KIND_RESPITE, keep)
 	var detail: Array[String] = ["HP %d -> %d (%s)" % [hp_before, merc.current_hp, _cap_text(fraction)]]
 	detail.append(_pool_text(merc, "EP", merc.current_ep, MAX_EP))
 	detail.append(_pool_text(merc, "MP", merc.current_mp, MAX_MP))
 	if fatigue_before > 0:
-		if fatigue_kept == "":
-			detail.append("Fatigued %d -> %d" % [fatigue_before, ConstStates.get_count(merc, ConstStates.FATIGUED)])
-		else:
-			detail.append("Fatigued %d kept (%s)" % [fatigue_before, fatigue_kept])
+		detail.append(fatigue_text(merc, fatigue_before, fatigue_kept))
 	lines.append("RESPITE: %s %s" % [merc.merc_name, ", ".join(detail)])
 	lines.append_array(removed)
 	RestActions.take(KIND_RESPITE, merc, lines)
 
 
-#Player choice at the tavern: undeployable for the merc's own Furlough time, every recovery paid at completion.
-static func furlough_start(merc: MercenaryData) -> Array[String]:
+#Offers one Fatigued tier to the rest verb; "" when it dropped, else the reason a source kept it.
+static func reduce_fatigue(merc: MercenaryData, verb: String) -> String:
+	var dropped: Dictionary = StateCascade.reduce_state_by(merc, ConstStates.FATIGUED, verb)
+	return "" if bool(dropped["removed"]) else str(dropped["reason"])
+
+
+#"Fatigued <before> -> <now>" once a tier dropped, else "Fatigued <before> kept (<reason>)".
+static func fatigue_text(merc: MercenaryData, before: int, kept: String) -> String:
+	if kept == "":
+		return "Fatigued %d -> %d" % [before, ConstStates.get_count(merc, ConstStates.FATIGUED)]
+	return "Fatigued %d kept (%s)" % [before, kept]
+
+
+#Alive, at the guild and free: not on a contract, away or captive. A queued or Missing merc is idle.
+static func is_idle(merc: MercenaryData) -> bool:
+	if merc == null or merc.is_dead or merc.on_contract:
+		return false
+	return not SalarySystem.is_captive(merc) and not GameState.is_away(merc.merc_uid)
+
+
+#Work breaks the idle window at the minute it starts; a Furlough the window already earned completes first.
+static func idle_break(merc: MercenaryData) -> Array[String]:
 	var lines: Array[String] = []
 	if merc == null:
 		return lines
-	var reason: String = ""
-	if merc.is_dead:
-		reason = "dead"
-	elif is_resting(merc):
-		reason = "resting"
-	elif merc.on_contract:
-		reason = "on contract"
-	if reason != "":
-		lines.append("FURLOUGH REFUSED: %s (%s)" % [merc.merc_name, reason])
-		return lines
-	TraitRuntime.fire_rest("rest_start", KIND_FURLOUGH, merc, null, lines)
-	var minutes: int = rest_minutes(merc, FURLOUGH_MINUTES)
-	merc.rest_lockout_until = CampaignClock.now() + minutes
-	merc.rest_lockout_kind = KIND_FURLOUGH
-	lines.append("FURLOUGH START: %s until %s (%s)" % [merc.merc_name,
-		CampaignClock.stamp(merc.rest_lockout_until), CampaignClock.delta_text(minutes).trim_prefix("+")])
+	if not merc.is_dead:
+		idle_furlough(merc, CampaignClock.now(), lines)
+	merc.idle_since_minute = -1
 	return lines
 
 
-static func furlough_complete(merc: MercenaryData, now: int = -1) -> Array[String]:
-	var lines: Array[String] = []
-	if merc == null:
-		return lines
-	var minute: int = CampaignClock.now() if now < 0 else now
-	if _lockout_refusal(merc, KIND_FURLOUGH, minute, lines):
-		return lines
+#A merc back from work opens a new idle window; a spent window (-2) waits for work first.
+static func idle_restart(merc: MercenaryData, now: int) -> void:
+	if merc != null and merc.idle_since_minute == -1 and is_idle(merc):
+		merc.idle_since_minute = now
+
+
+#The one Furlough of an idle window, once the merc's own Furlough time of unbroken idling has passed.
+static func idle_furlough(merc: MercenaryData, now: int, lines: Array[String]) -> void:
+	if merc.idle_since_minute < 0:
+		return
+	var at: int = merc.idle_since_minute + rest_minutes(merc, FURLOUGH_MINUTES)
+	if at > now:
+		return
+	_furlough_finish(merc, at, lines)
+	merc.idle_since_minute = -2
+
+
+#"Furlough 4/10 d": whole idle days so far over the days the Furlough needs; "" outside a counting window.
+static func furlough_note(merc: MercenaryData, now: int) -> String:
+	if merc == null or merc.idle_since_minute < 0:
+		return ""
+	var need: int = rest_minutes(merc, FURLOUGH_MINUTES)
+	var day: float = float(CampaignClock.MINUTES_PER_DAY)
+	var done: int = int(floor(float(mini(now - merc.idle_since_minute, need)) / day))
+	return "Furlough %d/%d d" % [done, int(ceil(float(need) / day))]
+
+
+#Every recovery a Furlough pays. A lockout already running (a Respite or a vacation) stays in place.
+static func _furlough_finish(merc: MercenaryData, minute: int, lines: Array[String]) -> void:
 	var fatigue_before: int = ConstStates.get_count(merc, ConstStates.FATIGUED)
 	var restored: Array[String] = _furlough_restore(merc)
 	var keep: Array[String] = [ConstStates.MADNESS, ConstStates.FATIGUED]
@@ -244,7 +310,7 @@ static func furlough_complete(merc: MercenaryData, now: int = -1) -> Array[Strin
 	removed.append_array(StateCampaign.expire_campaign_states(merc, minute))
 	var fatigue_held: String = ""
 	while ConstStates.get_count(merc, ConstStates.FATIGUED) > 0:
-		var tier: Dictionary = ConstStates.reduce_state_by(merc, ConstStates.FATIGUED, KIND_FURLOUGH)
+		var tier: Dictionary = StateCascade.reduce_state_by(merc, ConstStates.FATIGUED, KIND_FURLOUGH)
 		if not bool(tier["removed"]):
 			fatigue_held = str(tier["reason"])
 			break
@@ -259,20 +325,18 @@ static func furlough_complete(merc: MercenaryData, now: int = -1) -> Array[Strin
 			detail.append("Fatigued %d -> %d (held: %s)" % [fatigue_before, fatigue_after, fatigue_held])
 	var madness_before: int = ConstStates.get_count(merc, ConstStates.MADNESS)
 	if madness_before > 0:
-		var madness_tier: Dictionary = ConstStates.reduce_state_by(merc, ConstStates.MADNESS, KIND_FURLOUGH)
+		var madness_tier: Dictionary = StateCascade.reduce_state_by(merc, ConstStates.MADNESS, KIND_FURLOUGH)
 		if bool(madness_tier["removed"]):
 			detail.append("Madness %d -> %d" % [madness_before, ConstStates.get_count(merc, ConstStates.MADNESS)])
 		else:
 			detail.append("Madness %d kept (%s)" % [madness_before, str(madness_tier["reason"])])
 	detail.append_array(restored)
 	_furlough_upkeep(merc, detail)
-	merc.rest_lockout_until = 0
-	merc.rest_lockout_kind = ""
 	lines.append("FURLOUGH COMPLETE: %s %s" % [merc.merc_name, ", ".join(detail)])
 	lines.append_array(removed)
 	RestActions.take(KIND_FURLOUGH, merc, lines)
 	TraitRuntime.fire_rest("rest_complete", KIND_FURLOUGH, merc, null, lines)
-	return lines
+	VacationDesire.on_furlough(merc, minute)
 
 
 #Refills every pool and lifts the maximum reductions; reports the restore entries the log prints.
@@ -335,18 +399,24 @@ static func restring_weapons(merc: MercenaryData, detail: Array[String]) -> void
 		detail.append("bowstring restrung")
 
 
-#Every locked out merc whose rest has come due; the clock ends a rest, never a caller.
+#Every idle merc's due Furlough, then every locked out merc whose rest has come due; the clock ends a
+#rest, never a caller. The idle check backs up the work hooks for any path that has none.
 static func complete_due_rests(mercs: Array[MercenaryData], now: int) -> Array[String]:
 	var lines: Array[String] = []
 	for merc: MercenaryData in mercs:
 		if merc == null or merc.is_dead:
 			continue
+		if not is_idle(merc):
+			merc.idle_since_minute = -1
+		elif merc.idle_since_minute == -1:
+			merc.idle_since_minute = now
+		idle_furlough(merc, now, lines)
 		if merc.rest_lockout_until > now:
 			continue
-		if merc.rest_lockout_kind == KIND_FURLOUGH:
-			lines.append_array(furlough_complete(merc, now))
-		elif merc.rest_lockout_kind == KIND_RESPITE:
+		if merc.rest_lockout_kind == KIND_RESPITE:
 			lines.append_array(respite_complete(merc, now))
+		elif merc.rest_lockout_kind == KIND_VACATION:
+			lines.append_array(vacation_complete(merc, now))
 	return lines
 
 
@@ -364,7 +434,7 @@ static func clear_by_verb(merc: MercenaryData, verb: String, skip: Array[String]
 			continue
 		if not _verb_applies(merc, state_name, verb):
 			continue
-		var result: Dictionary = ConstStates.reduce_state_by(merc, state_name, verb)
+		var result: Dictionary = StateCascade.reduce_state_by(merc, state_name, verb)
 		if bool(result["removed"]):
 			lines.append("  " + StateText.remove_line(merc, state_name))
 		else:

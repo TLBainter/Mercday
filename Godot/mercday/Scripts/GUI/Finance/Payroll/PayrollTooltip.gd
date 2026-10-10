@@ -4,18 +4,10 @@ class_name PayrollTooltip extends PanelContainer
 #tradition, wage and guild face, then the traits the guild has in the fewest copies. The card sits
 #10 px right of the row and flips to the left when the frame edge is too close.
 
-const FONT_NAME: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_KICKER: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
 const STYLE_CARD: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_tip.tres")
-const STYLE_BAR: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_tip_row.tres")
+const STYLE_BAR: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/dark_box_compact.tres")
 const STYLE_TRAIT: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_trait_row.tres")
 
-const ORANGE: Color = Color("#f28c28")
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
-const MUTED: Color = Color("#8a97ad")
-const RARITY: Color = Color("#f2b33d")
 const WIDTH: float = 290.0
 const GAP: float = 10.0
 const EDGE_PAD: float = 8.0
@@ -47,7 +39,7 @@ func _ready() -> void:
 	visible = false
 	add_theme_stylebox_override("panel", STYLE_CARD)
 	custom_minimum_size = Vector2(WIDTH, 0.0)
-	_ignore_mouse(self)
+	GuiNodes.ignore_mouse(self)
 	_style()
 
 
@@ -111,9 +103,7 @@ func trait_text(index: int, column: String) -> String:
 
 
 func tradition_color() -> Color:
-	var raw: Variant = _row.get("tradition_color", CREAM)
-	var out: Color = raw
-	return out
+	return _row.get("tradition_color", GuiColors.CREAM) as Color
 
 
 func _row_for(uid: int) -> Dictionary:
@@ -140,20 +130,15 @@ func _fill() -> void:
 	sigil.tint = tradition_color()
 	tradition_label.add_theme_color_override("font_color", tradition_color())
 	salary_row.amount = int(_row.get("salary", 0))
-	var salary_raw: Variant = _row.get("salary_color", CREAM)
-	var salary_tint: Color = salary_raw
-	salary_row.value_color = salary_tint
+	salary_row.value_color = _row.get("salary_color", GuiColors.CREAM) as Color
 	face.guild = true
 	face.pixel_scale = 2
 	face.opinion = int(_row.get("opinion", 0))
 	_build_traits()
-	_style()
 
 
 func _build_traits() -> void:
-	for child: Node in trait_list.get_children():
-		child.queue_free()
-		trait_list.remove_child(child)
+	GuiNodes.clear(trait_list)
 	trait_head.visible = not _traits.is_empty()
 	for row: Dictionary in _traits:
 		trait_list.add_child(_trait_row(row))
@@ -162,27 +147,20 @@ func _build_traits() -> void:
 func _trait_row(row: Dictionary) -> PanelContainer:
 	var box: PanelContainer = PanelContainer.new()
 	box.add_theme_stylebox_override("panel", STYLE_TRAIT)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var line: HBoxContainer = HBoxContainer.new()
-	line.add_theme_constant_override("separation", 8)
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var line: HBoxContainer = GuiStyle.hbox(8)
 	box.add_child(line)
-	line.add_child(_trait_label(String(row.get("kind", "")), FONT_KICKER, 8, SKY, KIND_WIDTH, false))
-	line.add_child(_trait_label(String(row.get("name", "")), FONT_BODY, 13, CREAM, 0.0, true))
-	line.add_child(_trait_label(String(row.get("rarity", "")), FONT_BODY, 11, RARITY, 0.0, false))
+	line.add_child(_trait_label(String(row.get("kind", "")), GuiStyle.SILK, 8, GuiColors.SKY, KIND_WIDTH, false))
+	line.add_child(_trait_label(String(row.get("name", "")), GuiStyle.BODY, 13, GuiColors.CREAM, 0.0, true))
+	line.add_child(_trait_label(String(row.get("rarity", "")), GuiStyle.BODY, 11, GuiColors.AMBER, 0.0, false))
+	GuiNodes.ignore_mouse(box)
 	return box
 
 
-func _trait_label(body: String, font: FontVariation, font_size: int, tint: Color, min_width: float,
+func _trait_label(body: String, font: Font, font_size: int, tint: Color, min_width: float,
 		expand: bool) -> Label:
-	var out: Label = Label.new()
-	out.text = body
-	out.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var out: Label = GuiStyle.label(body, font, font_size, tint)
 	out.custom_minimum_size = Vector2(min_width, 0.0)
 	out.size_flags_horizontal = Control.SIZE_EXPAND_FILL if expand else Control.SIZE_FILL
-	out.add_theme_font_override("font", font)
-	out.add_theme_font_size_override("font_size", font_size)
-	out.add_theme_color_override("font_color", tint)
 	return out
 
 
@@ -193,40 +171,28 @@ func _style() -> void:
 	bar.add_theme_stylebox_override("panel", STYLE_BAR)
 	sigil_box.custom_minimum_size = Vector2(20.0, 20.0)
 	sigil.pixel_scale = 1
-	name_label.add_theme_font_override("font", FONT_NAME)
-	name_label.add_theme_font_size_override("font_size", 12)
-	name_label.add_theme_color_override("font_color", ORANGE)
-	heritage_label.add_theme_font_override("font", FONT_BODY)
-	heritage_label.add_theme_font_size_override("font_size", 13)
-	heritage_label.add_theme_color_override("font_color", CREAM)
-	origin_label.add_theme_font_override("font", FONT_BODY)
-	origin_label.add_theme_font_size_override("font_size", 12)
-	origin_label.add_theme_color_override("font_color", SKY)
-	employed_label.add_theme_font_override("font", FONT_BODY)
-	employed_label.add_theme_font_size_override("font_size", 12)
-	employed_label.add_theme_color_override("font_color", MUTED)
-	tradition_label.add_theme_font_override("font", FONT_BODY)
+	GuiStyle.paint(name_label, GuiStyle.SILK_BOLD, 12, GuiColors.ORANGE)
+	GuiStyle.paint(heritage_label, GuiStyle.BODY, 13, GuiColors.CREAM)
+	GuiStyle.paint(origin_label, GuiStyle.BODY, 12, GuiColors.SKY)
+	GuiStyle.paint(employed_label, GuiStyle.BODY, 12, GuiColors.DIM_TEXT)
+	tradition_label.add_theme_font_override("font", GuiStyle.BODY)
 	tradition_label.add_theme_font_size_override("font_size", 13)
 	salary_row.bold = true
 	salary_row.font_size = 12
 	salary_row.glyph_scale = 2
 	trait_head.text = HEAD_TEXT
-	trait_head.add_theme_font_override("font", FONT_KICKER)
-	trait_head.add_theme_font_size_override("font_size", 8)
-	trait_head.add_theme_color_override("font_color", SKY)
+	GuiStyle.paint(trait_head, GuiStyle.SILK, 8, GuiColors.SKY)
 
 
+#tip_position keeps TooltipPanel.GAP off the anchor, so the anchor grows by the rest of GAP on both sides.
 func _place(anchor: Rect2) -> void:
-	var frame: Vector2 = _frame_size()
 	var box: Vector2 = get_combined_minimum_size()
 	box.x = maxf(box.x, WIDTH)
-	var x: float = anchor.position.x + anchor.size.x + GAP
-	if x + box.x > frame.x - EDGE_PAD:
-		x = anchor.position.x - box.x - GAP
-	var x_max: float = maxf(EDGE_PAD, frame.x - box.x - EDGE_PAD)
-	var y_max: float = maxf(EDGE_PAD, frame.y - box.y - EDGE_PAD)
 	size = box
-	position = Vector2(clampf(x, EDGE_PAD, x_max), clampf(anchor.position.y, EDGE_PAD, y_max))
+	var spread: float = GAP - TooltipPanel.GAP
+	var inner: Rect2 = Rect2(Vector2.ZERO, _frame_size()).grow(-EDGE_PAD)
+	position = TooltipPanel.tip_position(anchor.grow_individual(spread, 0.0, spread, 0.0), box, inner,
+		&"right")
 
 
 func _frame_size() -> Vector2:
@@ -234,11 +200,3 @@ func _frame_size() -> Vector2:
 	if parent != null and parent.size.x > 0.0:
 		return parent.size
 	return Vector2(get_viewport_rect().size)
-
-
-func _ignore_mouse(node: Node) -> void:
-	var control: Control = node as Control
-	if control != null:
-		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for child: Node in node.get_children():
-		_ignore_mouse(child)

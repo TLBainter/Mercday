@@ -52,14 +52,30 @@ static func place(map: BattlefieldArea, scratch: BattlefieldArea, offset: Vector
 	if cells.is_empty():
 		return -1
 	var ur: Rect2i = _rect_of(cells)
+	if not _fits(map, cells, offset):
+		return -1
+	var id: int = map.buildings.size()
+	_copy_tables(map, scratch, offset, id)
+	var rooms: Array[int] = _copy_rooms(map, scratch, offset, id)
+	for bk: Variant in cells.keys():
+		map.building_id_at[(bk as Vector2i) + offset] = id
+	_record(map, scratch, id, _rebase_plan(scratch, offset), Rect2i(ur.position + offset, ur.size), offset, rooms)
+	return id
+
+
+#True when every used cell lands on the map and on no cell another building owns.
+static func _fits(map: BattlefieldArea, cells: Dictionary, offset: Vector2i) -> bool:
 	for ck: Variant in cells.keys():
 		var cell: Vector2i = (ck as Vector2i) + offset
-		if cell.x < 0 or cell.x >= map.width or cell.y < 0 or cell.y >= map.length:
-			return -1
+		if not map.in_bounds_xy(cell.x, cell.y):
+			return false
 		if map.building_id_at.has(cell):
-			return -1
-	var id: int = map.buildings.size()
-	var room_base: int = map.interior_rooms.size()
+			return false
+	return true
+
+
+#Obstacles, cell tables, roofs and stairwell links of the scratch building, shifted onto the map.
+static func _copy_tables(map: BattlefieldArea, scratch: BattlefieldArea, offset: Vector2i, id: int) -> void:
 	for obs: Dictionary in scratch.obstacles:
 		obs["pos"] = _shift(obs["pos"], offset)
 		map.obstacles.append(obs)
@@ -80,6 +96,11 @@ static func place(map: BattlefieldArea, scratch: BattlefieldArea, offset: Vector
 	RoofBuilder.copy_to(scratch, map, offset, id)
 	for wk: Variant in scratch.stairwell_connections.keys():
 		map.stairwell_connections[_shift(wk, offset)] = _shift(scratch.stairwell_connections[wk], offset)
+
+
+#Appends the scratch room labels to the map and returns their indices there.
+static func _copy_rooms(map: BattlefieldArea, scratch: BattlefieldArea, offset: Vector2i, id: int) -> Array[int]:
+	var room_base: int = map.interior_rooms.size()
 	var rooms: Array[int] = []
 	for i: int in range(scratch.interior_rooms.size()):
 		var entry: Dictionary = (scratch.interior_rooms[i] as Dictionary).duplicate(true)
@@ -88,8 +109,11 @@ static func place(map: BattlefieldArea, scratch: BattlefieldArea, offset: Vector
 		entry["building"] = id
 		map.interior_rooms.append(entry)
 		rooms.append(room_base + i)
-	for bk: Variant in cells.keys():
-		map.building_id_at[(bk as Vector2i) + offset] = id
+	return rooms
+
+
+#A copy of the scratch plan with its door cells and band column shifted by offset.
+static func _rebase_plan(scratch: BattlefieldArea, offset: Vector2i) -> Dictionary:
 	var plan: Dictionary = scratch.building_plan.duplicate(true)
 	var fdoor: Vector3i = plan.get("front_door", Vector3i(-1, -1, 0))
 	if fdoor.x >= 0:
@@ -99,12 +123,17 @@ static func place(map: BattlefieldArea, scratch: BattlefieldArea, offset: Vector
 		plan["back_door"] = Vector3i(bdoor.x + offset.x, bdoor.y + offset.y, bdoor.z)
 	if plan.has("band_x0") and int(plan["band_x0"]) >= 0:
 		plan["band_x0"] = int(plan["band_x0"]) + offset.x
+	return plan
+
+
+#Writes the building record, an empty plane slot and the log line.
+static func _record(map: BattlefieldArea, scratch: BattlefieldArea, id: int, plan: Dictionary, rect: Rect2i,
+		offset: Vector2i, rooms: Array[int]) -> void:
 	var floors: Array[int] = []
 	for ek: Variant in scratch.interior_floor_elevations.keys():
 		floors.append(ek as int)
 	floors.sort()
 	var issues: Array = (plan.get("issues", []) as Array).duplicate()
-	var rect := Rect2i(ur.position + offset, ur.size)
 	map.buildings.append({
 		"id": id,
 		"name": String(plan.get("name", scratch.area_name)),
@@ -130,7 +159,6 @@ static func place(map: BattlefieldArea, scratch: BattlefieldArea, offset: Vector
 		% [id, String(plan.get("name", "")), String(plan.get("front", "")),
 		int(plan.get("fh", scratch.interior_floor_height)), int(plan.get("fp", 0)), int(plan.get("fm", 0)),
 		rect.position.x, rect.position.y, rect.size.x, rect.size.y, issues.size()])
-	return id
 
 
 #Call once after the last place(): ground frame, planes per building, roofs, links and obstacle caches.
@@ -158,8 +186,8 @@ static func finish(map: BattlefieldArea) -> void:
 	map.interior_floor_height = OUTDOOR_FH
 	RoofBuilder.rebuild_index(map)
 	map.set_footprint_from_cells()
-	map.build_stair_links()
-	map.build_drop_links()
+	NavLinkBuilder.build_stair_links(map)
+	NavLinkBuilder.build_drop_links(map)
 	map._rebuild_cover_obstacles()
 	map._rebuild_droppable_obs_map()
 

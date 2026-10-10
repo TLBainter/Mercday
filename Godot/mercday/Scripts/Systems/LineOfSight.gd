@@ -14,7 +14,7 @@ static func check(state: BattleState, attacker: MercenaryData, target: Mercenary
 	if attacker == null:
 		return clear_result()
 	return check_from(state, state.pos3(attacker), state.body_height(attacker),
-		maxi(1, int(attacker.stats.get("size", 1))), target)
+		attacker.unit_size(), target)
 
 
 static func check_from(state: BattleState, from: Vector3i, from_height: int, from_size: int,
@@ -22,7 +22,7 @@ static func check_from(state: BattleState, from: Vector3i, from_height: int, fro
 	if state == null or target == null or state.battlefield == null:
 		return clear_result()
 	return _cached(state, from, from_height, from_size, state.pos3(target),
-		state.body_height(target), maxi(1, int(target.stats.get("size", 1))))
+		state.body_height(target), target.unit_size())
 
 
 #LOS from a merc to a hypothetical unit of p_size standing on cell.
@@ -30,11 +30,16 @@ static func check_cell(state: BattleState, attacker: MercenaryData, cell: Vector
 	if state == null or attacker == null or state.battlefield == null:
 		return clear_result()
 	return _cached(state, state.pos3(attacker), state.body_height(attacker),
-		maxi(1, int(attacker.stats.get("size", 1))), cell, 0, maxi(1, p_size))
+		attacker.unit_size(), cell, 0, maxi(1, p_size))
 
 
 static func clear_result() -> Dictionary:
 	return {"visible": true, "cover": "none", "via": "", "blocker": "", "windows": [] as Array[Vector3i]}
+
+
+#Not-visible result with full cover behind blocker.
+static func _hidden(blocker: String) -> Dictionary:
+	return {"visible": false, "cover": "full", "via": "", "blocker": blocker, "windows": [] as Array[Vector3i]}
 
 
 static func _cached(state: BattleState, from: Vector3i, from_height: int, from_size: int,
@@ -64,7 +69,7 @@ static func _compute(field: BattlefieldArea, from: Vector3i, from_height: int, f
 		adjacent["via"] = "adjacent"
 		return adjacent
 	var cross_floor := from.z != tp.z
-	var steps := _steps(f2, t2)
+	var steps := line_steps(f2, t2)
 	if steps.is_empty():
 		if not cross_floor:
 			return clear_result()
@@ -91,8 +96,7 @@ static func _compute(field: BattlefieldArea, from: Vector3i, from_height: int, f
 			targets[i] = minf(targets[i], t_cap)
 
 	if not f_own.is_empty() and oz < float(f_own["top"]) - EPS * 0.5:
-		return {"visible": false, "cover": "full", "via": "", "blocker": str(f_own["label"]),
-			"windows": [] as Array[Vector3i]}
+		return _hidden(str(f_own["label"]))
 
 	var own_blocked: Array[bool] = []
 	for tz: float in targets:
@@ -114,8 +118,7 @@ static func _compute(field: BattlefieldArea, from: Vector3i, from_height: int, f
 		if str(rays[i]["state"]) == "graze":
 			return {"visible": true, "cover": "partial", "via": names[i], "blocker": "",
 				"windows": rays[i]["windows"]}
-	return {"visible": false, "cover": "full", "via": "", "blocker": str(rays[0]["blocker"]),
-		"windows": [] as Array[Vector3i]}
+	return _hidden(str(rays[0]["blocker"]))
 
 
 #A solid obstacle filling a merc's own cell; {} when nothing there can hide a body standing in it.
@@ -138,7 +141,7 @@ static func _own_cell_top(field: BattlefieldArea, cell: Vector2i, fl: int) -> Di
 
 
 #Supercover cell walk; each entry is {"c": cell, "o": the two orthogonal cells of a diagonal step}.
-static func _steps(f2: Vector2i, t2: Vector2i) -> Array[Dictionary]:
+static func line_steps(f2: Vector2i, t2: Vector2i) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var dx := t2.x - f2.x
 	var dy := t2.y - f2.y
@@ -205,15 +208,14 @@ static func _trace(field: BattlefieldArea, f2: Vector2i, t2: Vector2i, steps: Ar
 			if blocked >= 2:
 				return {"state": "blocked", "blocker": "corner %s" % corner, "windows": windows}
 
-		if cell == t2 or cell == f2:
-			if cell == t2:
-				#The exemption holds for a ray that arrives over the roof plane or out of the open air, never from under the roof.
-				var skip_here := roof_skip and (not field.roof_span.has(came_from)
-						or prev_z >= (field.roof_span[came_from] as Vector2).x)
-				var end_hit := _floor_block(field, cell, prev_z, z, lowest, stair_skip, skip_here,
-					z - half_dz, z)
-				if end_hit != "":
-					return {"state": "blocked", "blocker": end_hit, "windows": windows}
+		if cell == t2:
+			#The exemption holds for a ray that arrives over the roof plane or out of the open air, never from under the roof.
+			var skip_here := roof_skip and (not field.roof_span.has(came_from)
+					or prev_z >= (field.roof_span[came_from] as Vector2).x)
+			var end_hit := _floor_block(field, cell, prev_z, z, lowest, stair_skip, skip_here,
+				z - half_dz, z)
+			if end_hit != "":
+				return {"state": "blocked", "blocker": end_hit, "windows": windows}
 			prev_z = z
 			continue
 
@@ -334,6 +336,11 @@ static func _hanging_test(field: BattlefieldArea, obs: Dictionary, cell: Vector2
 		high = field.ground_height(cell) + float(obs["restore_clearance"])
 	if z >= low and z <= high:
 		return {"state": "blocked", "blocker": _obs_label(obs, cell, 0), "cell3": Vector3i.ZERO}
+	return _clear_obs()
+
+
+#Obstacle test result for a cell that neither blocks, grazes nor shows a window.
+static func _clear_obs() -> Dictionary:
 	return {"state": "clear", "blocker": "", "cell3": Vector3i.ZERO}
 
 
@@ -342,26 +349,26 @@ static func _obstacle_test(field: BattlefieldArea, cell: Vector2i, z: float,
 	var fl := fl_known if fl_known != NO_FLOOR else _floor_at_cell(field, cell, z)
 	var obs := field.get_obs(cell, fl)
 	if obs.is_empty():
-		return {"state": "clear", "blocker": "", "cell3": Vector3i.ZERO}
+		return _clear_obs()
 	if obs.get("hanging", false) as bool:
 		return _hanging_test(field, obs, cell, z)
 	if BattlefieldArea.is_transparent(obs):
 		if str(obs.get("cell_type", "")) == "window" and not (obs.get("broken", false) as bool):
 			return {"state": "window", "blocker": "", "cell3": Vector3i(cell.x, cell.y, fl)}
-		return {"state": "clear", "blocker": "", "cell3": Vector3i.ZERO}
+		return _clear_obs()
 	#A Sight=Cover row never blocks; it grazes only beside the target when its top reaches the ray.
 	var d: ObstacleData = obs.get("data") as ObstacleData
 	if d != null and d.sight_cover:
 		var cover_top := field.cell_base_elevation(cell, fl) + BattlefieldArea.obstacle_height(obs)
 		if near_target and cover_top >= z - TOLERANCE:
 			return {"state": "graze", "blocker": "", "cell3": Vector3i.ZERO}
-		return {"state": "clear", "blocker": "", "cell3": Vector3i.ZERO}
+		return _clear_obs()
 	var top := field.cell_base_elevation(cell, fl) + BattlefieldArea.obstacle_height(obs)
 	if top > z + TOLERANCE:
 		return {"state": "blocked", "blocker": _obs_label(obs, cell, fl), "cell3": Vector3i.ZERO}
 	if top >= z - TOLERANCE:
 		return {"state": "graze", "blocker": "", "cell3": Vector3i.ZERO}
-	return {"state": "clear", "blocker": "", "cell3": Vector3i.ZERO}
+	return _clear_obs()
 
 
 static func _obs_label(obs: Dictionary, cell: Vector2i, fl: int) -> String:
@@ -376,45 +383,32 @@ static func _obs_label(obs: Dictionary, cell: Vector2i, fl: int) -> String:
 static func _floor_at(field: BattlefieldArea, z: float) -> int:
 	if not field.is_interior_map:
 		return 0
+	return _plane_at_or_below(field.interior_floor_elevations, z)
+
+
+#Floor whose plane in planes (floor to elevation) is the highest at or below z; the lowest floor when none is.
+static func _plane_at_or_below(planes: Dictionary, z: float) -> int:
 	var best := 0
 	var best_e := 0.0
 	var found := false
-	for f: int in field.interior_floor_elevations.keys():
-		var e := field.floor_base_elevation(f)
+	for f: int in planes.keys():
+		var e := float(planes[f])
 		if e <= z and (not found or e > best_e):
 			best_e = e
 			best = f
 			found = true
-	return best if found else _lowest_floor(field)
+	return best if found else _lowest_of(planes)
 
 
 #_floor_at for one cell: a city map picks among the planes that exist at that cell.
 static func _floor_at_cell(field: BattlefieldArea, cell: Vector2i, z: float) -> int:
-	if not field.is_interior_map:
-		#Over an outdoor hut roof the ray reads level 1, so the wall below it is never tested.
-		if not field.roof_cells.is_empty() and field.roof_elevations.has(cell) \
-				and z >= float(field.roof_elevations[cell]):
-			return field.roof_level_at(cell)
-		return 0
-	#A ray over a roof plane reads the roof level on interior and city maps too, so roof objects are tested.
+	#A ray over a roof plane reads the roof level: an outdoor hut roof reads level 1 so the wall below it is
+	#never tested, and interior and city roofs read their level so roof objects are tested.
 	if not field.roof_cells.is_empty() and field.roof_elevations.has(cell) \
 			and z >= float(field.roof_elevations[cell]):
 		return field.roof_level_at(cell)
+	if not field.is_interior_map:
+		return 0
 	if field.building_id_at.is_empty():
 		return _floor_at(field, z)
-	var planes: Dictionary = field.floor_planes_at(cell)
-	var best := 0
-	var best_e := 0.0
-	var found := false
-	var low := 0
-	var first := true
-	for f: int in planes.keys():
-		var e := float(planes[f])
-		if first or f < low:
-			low = f
-			first = false
-		if e <= z and (not found or e > best_e):
-			best_e = e
-			best = f
-			found = true
-	return best if found else low
+	return _plane_at_or_below(field.floor_planes_at(cell), z)

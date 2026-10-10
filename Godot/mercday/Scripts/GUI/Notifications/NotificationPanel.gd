@@ -12,32 +12,19 @@ const PANEL_SIZE: Vector2 = Vector2(440, 520)
 const PAD: float = 14.0
 const TAB_UNREAD: String = "unread"
 const TAB_READ: String = "read"
-const ITEM_SCENE: String = "res://Scenes/GUI/Notifications/NotificationItem.tscn"
+const ITEM_SCENE: PackedScene = preload("res://Scenes/GUI/Notifications/NotificationItem.tscn")
 
-const BG_COLOR: Color = Color("#1a2b4d")
-const BEVEL_HI: Color = Color("#28447a")
-const BEVEL_LO: Color = Color("#111c33")
-const RING_COLOR: Color = Color("#f28c28")
+const BG_COLOR: Color = GuiColors.BOX_BG
+const RING_COLOR: Color = GuiColors.ORANGE
 const BEVEL_WIDTH: float = 4.0
 const RING_WIDTH: float = 4.0
 const SHADOW_OFFSET: float = 10.0
 const SHADOW_SPREAD: float = 4.0
 const SHADOW_COLOR: Color = Color(0.0, 0.0, 0.0, 0.5)
 
-const INK: Color = Color("#0a0f1c")
-const CREAM: Color = Color("#f3ead7")
-const ORANGE: Color = Color("#f28c28")
-const ORANGE_HI: Color = Color("#ffb266")
-const ORANGE_LO: Color = Color("#b85a12")
-const BLUE2: Color = Color("#2b4f8a")
-const BLUE3: Color = Color("#3b6fb6")
-const BLUE: Color = Color("#1f3560")
-const LIST_BG: Color = Color("#0a0f1c")
-const SKY: Color = Color("#9cc6ef")
+const LIST_BG: Color = GuiColors.INK
 const TAB_HOVER_GAIN: float = 1.12
 const BELL_HOVER_GAIN: float = 1.15
-const TAB_BEVEL: int = 3
-const TAB_OUTLINE: int = 3
 const POPUP_DROP: float = 36.0
 const POPUP_WIDTH: float = 200.0
 const EMPTY_UNREAD: String = "No unread notifications."
@@ -59,11 +46,11 @@ var tab: String = TAB_UNREAD
 var sort: StringName = NotificationCenter.SORT_URGENCY
 var filter: String = NotificationCenter.FILTER_ALL
 
-var _unread_tab: Button = null
-var _read_tab: Button = null
+var _unread_tab: BevelButton = null
+var _read_tab: BevelButton = null
 var _tool_row: Control = null
-var _sort_btn: Button = null
-var _filter_btn: Button = null
+var _sort_btn: BevelButton = null
+var _filter_btn: BevelButton = null
 var _list_frame: PanelContainer = null
 var _items: VBoxContainer = null
 var _empty: Label = null
@@ -75,11 +62,11 @@ var _cards: Array[NotificationItem] = []
 func _ready() -> void:
 	custom_minimum_size = PANEL_SIZE
 	size = PANEL_SIZE
-	_unread_tab = get_node_or_null(unread_tab_path) as Button
-	_read_tab = get_node_or_null(read_tab_path) as Button
+	_unread_tab = get_node_or_null(unread_tab_path) as BevelButton
+	_read_tab = get_node_or_null(read_tab_path) as BevelButton
 	_tool_row = get_node_or_null(tool_row_path) as Control
-	_sort_btn = get_node_or_null(sort_button_path) as Button
-	_filter_btn = get_node_or_null(filter_button_path) as Button
+	_sort_btn = get_node_or_null(sort_button_path) as BevelButton
+	_filter_btn = get_node_or_null(filter_button_path) as BevelButton
 	_list_frame = get_node_or_null(list_frame_path) as PanelContainer
 	_items = get_node_or_null(items_path) as VBoxContainer
 	_empty = get_node_or_null(empty_label_path) as Label
@@ -140,6 +127,12 @@ func set_filter(value: String) -> void:
 		_filter_popup.set_selected(filter)
 	filter_changed.emit(filter)
 	refresh()
+
+
+func reset_picks() -> void:
+	set_tab(TAB_UNREAD)
+	set_sort(NotificationCenter.SORT_URGENCY)
+	set_filter(NotificationCenter.FILTER_ALL)
 
 
 func unread_tab() -> Button:
@@ -291,15 +284,8 @@ func _rebuild_list() -> void:
 		_items.remove_child(card)
 		card.queue_free()
 	_cards.clear()
-	if not ResourceLoader.exists(ITEM_SCENE):
-		return
-	var scene: PackedScene = load(ITEM_SCENE) as PackedScene
-	if scene == null:
-		return
 	for row: NotificationData in rows():
-		var card: NotificationItem = scene.instantiate() as NotificationItem
-		if card == null:
-			continue
+		var card: NotificationItem = ITEM_SCENE.instantiate() as NotificationItem
 		_items.add_child(card)
 		card.apply(row)
 		card.item_pressed.connect(_on_card_pressed)
@@ -319,64 +305,45 @@ func _style_tabs() -> void:
 	_paint_tab(_read_tab, tab == TAB_READ, tab_text(false))
 
 
-func _paint_tab(btn: Button, active: bool, label: String) -> void:
+func _paint_tab(btn: BevelButton, active: bool, label: String) -> void:
 	if btn == null:
 		return
 	btn.text = label
-	var bg: Color = ORANGE if active else BLUE2
-	var fg: Color = INK if active else CREAM
-	var hi: Color = ORANGE_HI if active else BLUE3
-	var lo: Color = ORANGE_LO if active else BLUE
+	var bg: Color = GuiColors.ORANGE if active else GuiColors.BLUE
+	var fg: Color = GuiColors.INK if active else GuiColors.CREAM
+	var hi: Color = GuiColors.ORANGE_HI if active else GuiColors.BLUE_HI
+	var lo: Color = GuiColors.ORANGE_LO if active else GuiColors.BLUE_LO
 	_dress(btn, bg, fg, hi, lo, TAB_HOVER_GAIN)
 
 
 func _style_tools() -> void:
 	if _sort_btn != null:
 		_sort_btn.text = _sort_label()
-		_sort_btn.icon = GuiGlyphs.lines(CREAM)
-		_dress(_sort_btn, BLUE2, CREAM, BLUE3, BLUE, 1.0, BLUE3)
+		_sort_btn.icon = GuiGlyphs.lines(GuiColors.CREAM)
+		_dress(_sort_btn, GuiColors.BLUE, GuiColors.CREAM, GuiColors.BLUE_HI, GuiColors.BLUE_LO,
+			1.0, GuiColors.BLUE_HI)
 	if _filter_btn == null:
 		return
 	var on: bool = filter != NotificationCenter.FILTER_ALL
-	var bg: Color = ORANGE if on else BLUE2
-	var fg: Color = INK if on else CREAM
-	var hi: Color = ORANGE_HI if on else BLUE3
-	var lo: Color = ORANGE_LO if on else BLUE
-	_filter_btn.text = filter_label()
+	var bg: Color = GuiColors.ORANGE if on else GuiColors.BLUE
+	var fg: Color = GuiColors.INK if on else GuiColors.CREAM
+	var hi: Color = GuiColors.ORANGE_HI if on else GuiColors.BLUE_HI
+	var lo: Color = GuiColors.ORANGE_LO if on else GuiColors.BLUE_LO
 	_filter_btn.icon = GuiGlyphs.funnel(fg)
 	_dress(_filter_btn, bg, fg, hi, lo, BELL_HOVER_GAIN)
 
 
-#Paints one pixel button: an ink frame, the face colour and the hi and lo bevel bars.
-func _dress(btn: Button, bg: Color, fg: Color, hi: Color, lo: Color, gain: float,
-		hover_bg: Color = Color(0.0, 0.0, 0.0, 0.0)) -> void:
-	var hover: Color = hover_bg if hover_bg.a > 0.0 else _brighter(bg, gain)
-	btn.add_theme_stylebox_override("normal", _button_box(bg))
-	btn.add_theme_stylebox_override("hover", _button_box(hover))
-	btn.add_theme_stylebox_override("pressed", _button_box(hover))
-	btn.add_theme_stylebox_override("focus", _button_box(bg))
-	btn.add_theme_color_override("font_color", fg)
-	btn.add_theme_color_override("font_hover_color", fg)
-	btn.add_theme_color_override("font_pressed_color", fg)
-	var top: ColorRect = btn.get_node_or_null("BevelTop") as ColorRect
-	var bottom: ColorRect = btn.get_node_or_null("BevelBottom") as ColorRect
-	if top != null:
-		top.color = hi
-	if bottom != null:
-		bottom.color = lo
-
-
-func _button_box(fill: Color) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = fill
-	box.border_color = INK
-	box.set_border_width_all(TAB_OUTLINE)
-	box.set_corner_radius_all(0)
-	box.content_margin_left = 8.0
-	box.content_margin_right = 8.0
-	box.content_margin_top = 0.0
-	box.content_margin_bottom = 0.0
-	return box
+#Colours one bevel button: the face, the text, the hover and press fill and its hi and lo bars.
+func _dress(btn: BevelButton, bg: Color, fg: Color, hi: Color, lo: Color, gain: float,
+		hover_bg: Color = GuiColors.CLEAR) -> void:
+	var hover: Color = hover_bg if hover_bg.a > 0.0 else GuiColors.brighter(bg, gain)
+	btn.set_colors(bg, hi, lo, fg)
+	btn.hover_fill = hover
+	btn.pressed_fill = hover
+	var edges: BevelEdges = btn.get_node_or_null(^"Edges") as BevelEdges
+	if edges != null:
+		edges.hi = hi
+		edges.lo = lo
 
 
 func _list_box() -> StyleBoxFlat:
@@ -402,11 +369,6 @@ func _place_popups() -> void:
 		_filter_popup.position = Vector2(origin.x + _tool_row.size.x - POPUP_WIDTH, drop)
 
 
-static func _brighter(base: Color, gain: float) -> Color:
-	return Color(minf(base.r * gain, 1.0), minf(base.g * gain, 1.0), minf(base.b * gain, 1.0),
-		base.a)
-
-
 #The frame: a hard shadow, the orange ring outside, the panel fill and the inset bevel.
 func _draw() -> void:
 	var w: float = size.x
@@ -416,8 +378,5 @@ func _draw() -> void:
 	draw_rect(Rect2(-RING_WIDTH, -RING_WIDTH, w + RING_WIDTH * 2.0, h + RING_WIDTH * 2.0),
 		RING_COLOR)
 	draw_rect(Rect2(0.0, 0.0, w, h), BG_COLOR)
-	var e: float = BEVEL_WIDTH
-	draw_rect(Rect2(0.0, 0.0, w, e), BEVEL_HI)
-	draw_rect(Rect2(0.0, 0.0, e, h), BEVEL_HI)
-	draw_rect(Rect2(w - e, 0.0, e, h), BEVEL_LO)
-	draw_rect(Rect2(0.0, h - e, w, e), BEVEL_LO)
+	BevelButton.paint_edges(self, Rect2(0.0, 0.0, w, h), GuiColors.EDGE_HI, GuiColors.EDGE_LO,
+		BEVEL_WIDTH)

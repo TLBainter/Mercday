@@ -2,13 +2,10 @@ class_name EffectDslCompiler
 
 #Validates trait effect cells against the token DSL used by the trait system.
 
+#Prefixes applied at generation; the prefixes owned by combat and contract code are TraitDSL.RUNTIME_PREFIXES.
 const DSL_PREFIXES: PackedStringArray = [
 	"stat:", "grant:", "remove:", "on:", "block:", "block_and_replace:", "immune:", "protected:",
-	"susceptible:", "cost:", "SPECIAL:", "armor_weight_ignore:", "armor_ep_ignore:", "armor_fatigue_zero:",
-	"weapon_enhance:", "weapon_stat:", "weapon_two_handed:", "weapon_passive:", "on_hit:", "on_pain:",
-	"on_crit:", "spend:", "action:", "reactive_action:", "on_kill:", "on_grapple:", "while:", "to:", "chance:",
-	"repeat:", "per:", "lasting:", "inflict:", "apply:", "damage:", "resource:", "damage_dealt:", "damage_taken:",
-	"reward:", "success_chance:", "remove_self", "aura:"
+	"susceptible:", "cost:", "SPECIAL:", "apply:", "aura:"
 ]
 
 
@@ -48,7 +45,7 @@ static func looks_like_dsl(s: String) -> bool:
 		if p == "":
 			continue
 		var known := false
-		for prefix: String in DSL_PREFIXES:
+		for prefix: String in DSL_PREFIXES + TraitDSL.RUNTIME_PREFIXES:
 			if p.begins_with(prefix):
 				known = true
 				break

@@ -1,23 +1,16 @@
-class_name LoanAcceptConfirm extends LoanModal
+class_name LoanAcceptConfirm extends ModalDialog
 
 #The confirm over the offer dialog: only one offer can be taken, so this lists every alternate
 #offer that accepting throws away, each term measured against the offer being taken.
 
-signal confirmed(offer_id: int)
-
-const WINDOW_WIDTH: float = 760.0
-const WINDOW_HEIGHT: float = 450.0
 const TITLE: String = "Are you sure?"
 const LINE_TEXT: String = "Accepting this offer will auto-reject all alternate offers:"
 const CANCEL_TEXT: String = "Cancel"
 const ACCEPT_TEXT: String = "Accept"
 const EMPTY_TEXT: String = "No alternate offers stand."
-const BUTTON_HEIGHT: float = 38.0
-const BUTTON_GAP: int = 12
 const CARD_GAP: int = 8
 const CELL_GAP: int = 8
 const CELL_COLUMNS: int = 6
-const ARROW_BOX: Vector2 = LoanGlyphs.ARROW_BOX_PX
 const LABELS: Array[String] = ["Amount", "Interest", "Term", "Monthly", "First Due",
 	"Total Repaid"]
 const NOTES_CELLS: Array[bool] = [true, false, false, true, false, true]
@@ -34,49 +27,27 @@ var _base_id: int = -1
 var _line: Label = null
 var _list: VBoxContainer = null
 var _cards: Array[Dictionary] = []
-var _cancel: Button = null
-var _accept: Button = null
 
 
-func title_text() -> String:
-	return TITLE
-
-
-func title_color() -> Color:
-	return LoanStyle.YELLOW
-
-
-func ring_color() -> Color:
-	return LoanStyle.YELLOW
-
-
-func frame_size() -> Vector2:
-	return Vector2(WINDOW_WIDTH, WINDOW_HEIGHT)
-
-
-func close_tip() -> String:
-	return CANCEL_TEXT
-
-
-#The dialog under this one already dims itself, so this window needs no backdrop of its own.
-func backdrop_color() -> Color:
-	return LoanStyle.CLEAR
-
-
-func _fill(col: VBoxContainer) -> void:
-	_line = LoanStyle.body(LINE_TEXT, 15, LoanStyle.CREAM)
+func _ready() -> void:
+	title = TITLE
+	cancel_text = CANCEL_TEXT
+	confirm_text = ACCEPT_TEXT
+	_line = GuiStyle.label(LINE_TEXT, GuiStyle.BODY, 15, GuiColors.CREAM)
 	_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_line)
-	col.add_child(_list_box())
-	col.add_child(_buttons_row())
+	rows.add_child(_line)
+	rows.add_child(_list_box())
+	super()
+	ring_color = GuiColors.AMBER
+	LoanStyle.dress(self, CANCEL_TEXT)
 
 
 func open_for(offer_id: int) -> void:
 	_base_id = offer_id
-	open_window()
+	present()
 
 
-func _on_open() -> void:
+func _on_present() -> void:
 	_write()
 
 
@@ -132,7 +103,7 @@ func cell_change(index: int, cell: int) -> String:
 func cell_change_color(index: int, cell: int) -> Color:
 	var row: Dictionary = _cell_row(index, cell)
 	if row.is_empty():
-		return LoanStyle.CREAM
+		return GuiColors.CREAM
 	return (row["change"] as Label).get_theme_color("font_color")
 
 
@@ -154,103 +125,44 @@ func list_box() -> VBoxContainer:
 	return _list
 
 
-func cancel_button() -> Button:
-	return _cancel
-
-
-func accept_button() -> Button:
-	return _accept
-
-
-func press_cancel() -> void:
-	close_window()
-
-
-func press_accept() -> void:
-	confirmed.emit(_base_id)
-
-
 func _list_box() -> PanelContainer:
-	var shell: PanelContainer = LoanStyle.panel(LoanStyle.INK, 8, 8)
+	var shell: PanelContainer = LoanStyle.panel(GuiColors.INK, 8, 8)
 	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_list = LoanStyle.vbox(CARD_GAP)
+	_list = GuiStyle.vbox(CARD_GAP)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_list)
 	shell.add_child(scroll)
 	return shell
 
 
-func _buttons_row() -> HBoxContainer:
-	var line: HBoxContainer = LoanStyle.hbox(BUTTON_GAP)
-	_cancel = LoanStyle.button(CANCEL_TEXT, LoanStyle.BLUE2, LoanStyle.CREAM, BUTTON_HEIGHT)
-	_cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_cancel.pressed.connect(press_cancel)
-	line.add_child(_cancel)
-	_accept = LoanStyle.button(ACCEPT_TEXT, LoanStyle.GREEN, LoanStyle.INK, BUTTON_HEIGHT)
-	_accept.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_accept.pressed.connect(press_accept)
-	line.add_child(_accept)
-	return line
-
-
 func _write() -> void:
 	_cards.clear()
-	for child: Node in _list.get_children():
-		_list.remove_child(child)
-		child.queue_free()
-	var base: Dictionary = _offer_row(_base_id)
-	var others: Array[Dictionary] = _other_offers()
+	GuiNodes.clear(_list)
+	var base: Dictionary = FinanceManager.offer(_base_id)
+	var others: Array[Dictionary] = LoanRows.other_offers(_base_id)
 	if others.is_empty():
-		_list.add_child(LoanStyle.body(EMPTY_TEXT, 14, LoanStyle.SKY))
+		_list.add_child(GuiStyle.label(EMPTY_TEXT, GuiStyle.BODY, 14, GuiColors.SKY))
 		return
 	for row: Dictionary in others:
 		_list.add_child(_card(base, row))
 
 
-func _other_offers() -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	var bank: Node = get_node_or_null("/root/FinanceManager")
-	if bank == null or not bank.has_method("open_offers"):
-		return out
-	for item: Variant in bank.call("open_offers") as Array:
-		var row: Dictionary = item as Dictionary
-		if int(row.get("id", -1)) != _base_id:
-			out.append(row)
-	return out
-
-
-func _offer_row(offer_id: int) -> Dictionary:
-	var bank: Node = get_node_or_null("/root/FinanceManager")
-	if bank == null or not bank.has_method("offer"):
-		return {}
-	return bank.call("offer", offer_id) as Dictionary
-
-
-func _hours_left(offer_id: int) -> float:
-	var bank: Node = get_node_or_null("/root/FinanceManager")
-	if bank == null or not bank.has_method("hours_left"):
-		return float(LoanLogic.OFFER_HOURS)
-	return float(bank.call("hours_left", offer_id))
-
-
 func _card(base: Dictionary, row: Dictionary) -> PanelContainer:
-	var box: PanelContainer = LoanStyle.panel(LoanStyle.NAVY2, 12, 10)
-	var col: VBoxContainer = LoanStyle.vbox(CELL_GAP)
-	var head: HBoxContainer = LoanStyle.hbox(12)
-	var lender: Label = LoanStyle.text(String(row.get("lender", "")), 12, LoanStyle.CREAM, true)
-	head.add_child(lender)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(spacer)
-	var hours: float = _hours_left(int(row.get("id", -1)))
-	var deadline: Label = LoanStyle.body(LoanLogic.deadline_text(hours), 12, LoanStyle.SKY)
+	var card: PanelContainer = LoanStyle.panel(GuiColors.ROW_HOVER, 12, 10)
+	var col: VBoxContainer = GuiStyle.vbox(CELL_GAP)
+	var top: HBoxContainer = GuiStyle.hbox(12)
+	var lender: Label = GuiStyle.label(String(row.get("lender", "")), GuiStyle.SILK_BOLD, 12, GuiColors.CREAM)
+	top.add_child(lender)
+	top.add_child(GuiStyle.spacer())
+	var hours: float = FinanceManager.hours_left(int(row.get("id", -1)))
+	var deadline: Label = GuiStyle.label(LoanLogic.deadline_text(hours), GuiStyle.BODY, 12, GuiColors.SKY)
 	deadline.add_theme_color_override("font_color", LoanLogic.deadline_color(hours))
-	head.add_child(deadline)
-	col.add_child(head)
+	top.add_child(deadline)
+	col.add_child(top)
 	var grid := GridContainer.new()
 	grid.columns = CELL_COLUMNS
 	grid.add_theme_constant_override("h_separation", CELL_GAP)
@@ -259,59 +171,42 @@ func _card(base: Dictionary, row: Dictionary) -> PanelContainer:
 	for i: int in LABELS.size():
 		grid.add_child(_cell(cells, base, row, i))
 	col.add_child(grid)
-	box.add_child(col)
+	card.add_child(col)
 	_cards.append({"id": int(row.get("id", -1)), "lender": lender, "deadline": deadline,
 		"cells": cells})
-	return box
+	return card
 
 
 func _cell(cells: Array[Dictionary], base: Dictionary, row: Dictionary,
 		index: int) -> PanelContainer:
-	var box: PanelContainer = LoanStyle.panel(LoanStyle.NAVY, 8, 6)
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var col: VBoxContainer = LoanStyle.vbox(4)
-	col.add_child(LoanStyle.text(LABELS[index], 8, LoanStyle.SKY))
+	var cell: PanelContainer = LoanStyle.panel(GuiColors.ROW_FILL, 8, 6)
+	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var col: VBoxContainer = GuiStyle.vbox(4)
+	col.add_child(GuiStyle.label(LABELS[index], GuiStyle.SILK, 8, GuiColors.SKY))
 	var pair: Vector2 = _values(base, row, index)
-	var value: Control = null
-	var shown: String = ""
-	if bool(NOTES_CELLS[index]):
-		value = LoanStyle.notes(roundi(pair.y), LoanStyle.CREAM, 12)
-		shown = NotesLabel.format_amount(roundi(pair.y))
-	else:
-		shown = _value_text(index, pair.y)
-		value = LoanStyle.text(shown, 12, LoanStyle.CREAM, true)
+	var notes: bool = bool(NOTES_CELLS[index])
+	var shown: String = TransactionData.grouped(roundi(pair.y)) if notes else _value_text(index, pair.y)
+	var value: Control = LoanStyle.value_cell(notes, 12, GuiColors.CREAM)
+	LoanStyle.set_value(value, shown, roundi(pair.y))
 	col.add_child(value)
 	var change: Dictionary = LoanLogic.change_row(pair.x, pair.y, int(GOOD_DIRS[index]))
 	var color: Color = change["color"] as Color
 	var text: String = String(change["text"])
 	if index == CELL_TERM or index == CELL_FIRST:
 		text = LoanLogic.term_delta(roundi(pair.x), roundi(pair.y), true)
-	var change_label: Label = LoanStyle.text(text, 10, color, true)
-	var arrow_box := CenterContainer.new()
-	arrow_box.custom_minimum_size = ARROW_BOX
-	arrow_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	arrow_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var arrow := IconRect.new()
-	arrow.window = LoanGlyphs.ARROW_BOX
-	arrow.mode = Icons.MODE_GRAY
-	arrow.pixel_scale = LoanGlyphs.ARROW_SCALE
-	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	arrow_box.add_child(arrow)
-	var dir: StringName = change["arrow"] as StringName
-	if dir != &"":
-		arrow.set_id(LoanGlyphs.arrow_id(dir), LoanGlyphs.ARROW_SCALE, Icons.MODE_GRAY)
-		arrow.tint = color
-	var tail: HBoxContainer = LoanStyle.hbox(4)
+	var change_label: Label = GuiStyle.label(text, GuiStyle.SILK_BOLD, 10, color)
+	var holder: CenterContainer = LoanGlyphs.arrow_box()
+	var arrow: IconRect = holder.get_child(0) as IconRect
+	LoanGlyphs.set_arrow(arrow, change["arrow"] as StringName, color)
+	var tail: HBoxContainer = GuiStyle.hbox(4)
 	tail.add_child(change_label)
-	var gap := Control.new()
-	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tail.add_child(gap)
-	tail.add_child(arrow_box)
+	tail.add_child(GuiStyle.spacer())
+	tail.add_child(holder)
 	col.add_child(tail)
-	box.add_child(col)
+	cell.add_child(col)
 	cells.append({"caption": LABELS[index], "value": shown, "change": change_label,
 		"arrow": arrow})
-	return box
+	return cell
 
 
 #The pair one cell compares: x is the offer being taken, y the alternate offer.
@@ -363,10 +258,10 @@ func _cells(index: int) -> Array:
 
 
 func _cell_row(index: int, cell: int) -> Dictionary:
-	var rows: Array = _cells(index)
-	if cell < 0 or cell >= rows.size():
+	var found: Array = _cells(index)
+	if cell < 0 or cell >= found.size():
 		return {}
-	return rows[cell] as Dictionary
+	return found[cell] as Dictionary
 
 
 func _cell_field(index: int, cell: int, key: String) -> Variant:

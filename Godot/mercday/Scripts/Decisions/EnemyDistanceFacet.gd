@@ -8,11 +8,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var state = ctx.get("state")
 	if enemies.is_empty() or state == null:
 		return 0.0
-	var min_dist: float = INF
-	for enemy in enemies:
-		var d: float = state.distance_to(merc, enemy)
-		if d < min_dist:
-			min_dist = d
+	var min_dist := float(MovementDecider.nearest_enemy(merc, enemies, state)["dist"])
 	if close_is_high:
 		return 1.0 if min_dist <= max_dist else 0.0
 	else:

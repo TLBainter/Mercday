@@ -1,11 +1,14 @@
 class_name GuiManagerTests
 
 #GuiDates, BazaarManager, LegalManager and FinanceManager off a fresh campaign. Every case
-#restarts the game and resets the three managers, so the catalog, the seeded legal rows and the
-#clock all read the same way on every run. Entitlements are faked with set_entitlements.
+#restarts the game and resets the three managers, so the catalog, the legal books and the
+#clock all read the same way on every run; the legal cases file their rows with
+#GuiLegalTests._lay_legal. Entitlements are faked with set_entitlements.
 
 const CATALOG_ITEMS := 140
 const ALL_RARITY := 4
+#The odd job cap check sends three idle mercs, one past the start roster.
+const ODD_JOB_EXTRA := 1
 
 
 static func run(host: Node) -> bool:
@@ -16,16 +19,21 @@ static func run(host: Node) -> bool:
 	_case_bazaar_cart(res)
 	_case_bazaar_orders(res)
 	_case_bazaar_filters(res)
+	_case_bazaar_search(res)
+	_case_bazaar_sorts(res)
 	_case_bazaar_counts(res)
 	_case_legal_seed(res)
 	_case_legal_permits(res)
+	_case_permit_places(res)
 	_case_legal_fees(res)
 	_case_legal_payments(res)
+	_case_legal_odd_job_odds(res)
+	_case_legal_odd_job_crew(res)
 	_case_legal_odd_jobs(res)
 	_case_finance(res)
 	_case_legal_seen(res)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	CampaignClock.reset()
 	return TestFixtures.summarize(res, "GUI MANAGER")
 
@@ -37,21 +45,16 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	BazaarManager.reset()
 	LegalManager.reset()
 	FinanceManager.reset()
 
 
-#Notes for the cases that buy something; START_BANK alone covers almost nothing.
-static func _fund(amount: int) -> void:
-	GameState.refund(amount)
-
-
 #Crosses day boundaries without running the contract machinery: the clock moves and the day
 #signal fires, which is all the managers listen for.
-static func _advance_days(n: int) -> void:
+static func advance_days(n: int) -> void:
 	CampaignClock.advance(n * CampaignClock.MINUTES_PER_DAY)
 	GameState.day_changed.emit(GameState.day())
 
@@ -73,27 +76,44 @@ static func _cheapest(rarity_cap: int) -> BazaarItemData:
 	return best
 
 
-static func _idle_uids(n: int) -> Array[int]:
+#The first n roster mercs no manager is holding; available_only also needs the Available status.
+static func idle_views(n: int, available_only: bool = false) -> Array[MercView]:
 	var busy: Array[int] = GameState.busy_uids()
-	var out: Array[int] = []
+	var out: Array[MercView] = []
 	for view: MercView in GameState.roster:
 		if out.size() >= n:
 			break
-		if not busy.has(view.uid):
-			out.append(view.uid)
+		if busy.has(view.uid):
+			continue
+		if available_only and view.status != GuiTypes.MercStatus.AVAILABLE:
+			continue
+		out.append(view)
 	return out
 
 
-#Case 1: the date and duration strings.
+static func idle_uids(n: int, available_only: bool = false) -> Array[int]:
+	var out: Array[int] = []
+	for view: MercView in idle_views(n, available_only):
+		out.append(view.uid)
+	return out
+
+
+#A roster merc nobody is holding and who is Available, or -1.
+static func free_uid() -> int:
+	var found: Array[int] = idle_uids(1, true)
+	return -1 if found.is_empty() else found[0]
+
+
+#The date and duration strings.
 static func _case_dates(res: Dictionary) -> void:
 	TestFixtures.check(res, "day_text reads the first day of the calendar",
-		GuiDates.day_text(0) == "1 Daith 301", GuiDates.day_text(0))
+		GuiDates.day_text(0) == "1 Daith 212", GuiDates.day_text(0))
 	TestFixtures.check(res, "day_text reads the campaign start day",
-		GuiDates.day_text(1) == "2 Daith 301", GuiDates.day_text(1))
+		GuiDates.day_text(1) == "2 Daith 212", GuiDates.day_text(1))
 	TestFixtures.check(res, "day_text rolls into the second month",
-		GuiDates.day_text(30) == "1 Ruadd 301", GuiDates.day_text(30))
+		GuiDates.day_text(30) == "1 Ruadd 212", GuiDates.day_text(30))
 	TestFixtures.check(res, "day_text rolls into the second year",
-		GuiDates.day_text(330) == "1 Daith 302", GuiDates.day_text(330))
+		GuiDates.day_text(330) == "1 Daith 213", GuiDates.day_text(330))
 	TestFixtures.check(res, "short_text cuts the month to three letters and drops the year",
 		GuiDates.short_text(30) == "1 Rua", GuiDates.short_text(30))
 	TestFixtures.check(res, "days_text keeps one day singular",
@@ -110,7 +130,7 @@ static func _case_dates(res: Dictionary) -> void:
 		GuiDates.eta_text(1) == "Arrives in 1 day", GuiDates.eta_text(1))
 
 
-#Case 2: the generated catalog, the rarity cap and the delivery speed.
+#The generated catalog, the rarity cap and the delivery speed.
 static func _case_bazaar_catalog(res: Dictionary) -> void:
 	_fresh()
 	var subtypes: int = 0
@@ -162,7 +182,7 @@ static func _case_bazaar_catalog(res: Dictionary) -> void:
 		"tiers"))
 
 
-#Case 3: the cart arithmetic and the checkout line.
+#The cart arithmetic and the checkout line.
 static func _case_bazaar_cart(res: Dictionary) -> void:
 	_fresh()
 	SubscriptionManager.set_entitlements({"bazaar": true, "bazaarRarity": ALL_RARITY})
@@ -192,11 +212,11 @@ static func _case_bazaar_cart(res: Dictionary) -> void:
 		BazaarManager.checkout_reason())
 	BazaarManager.set_qty(sword.id, 1000)
 	var short: int = BazaarManager.cart_total() - GameState.bank_notes
-	TestFixtures.check(res, "a cart over the bank names the notes still needed",
-		BazaarManager.checkout_reason()
-		== "Not enough notes. Remove items or earn %d more." % short,
-		BazaarManager.checkout_reason())
-	_fund(BazaarManager.cart_total())
+	TestFixtures.check(res, "a cart over the bank closes checkout with no line and reports the shortfall",
+		not BazaarManager.can_checkout() and BazaarManager.checkout_reason() == ""
+		and BazaarManager.notes_short() == short,
+		"reason '%s' short %d" % [BazaarManager.checkout_reason(), BazaarManager.notes_short()])
+	GameState.refund(BazaarManager.cart_total())
 	TestFixtures.check(res, "enough notes clears the checkout line",
 		BazaarManager.can_checkout() and BazaarManager.checkout_reason() == "",
 		"reason '%s'" % BazaarManager.checkout_reason())
@@ -214,13 +234,13 @@ static func _case_bazaar_cart(res: Dictionary) -> void:
 		"%d items" % BazaarManager.cart_count())
 
 
-#Case 4: placing an order, its progress and its arrival on a day tick.
+#Placing an order, its progress and its arrival on a day tick.
 static func _case_bazaar_orders(res: Dictionary) -> void:
 	_fresh()
 	SubscriptionManager.set_entitlements({"bazaar": true, "bazaarRarity": ALL_RARITY,
 		"bazaarSpeed": 5})
 	var cheap: BazaarItemData = _cheapest(ALL_RARITY)
-	_fund(cheap.price * 3)
+	GameState.refund(cheap.price * 3)
 	BazaarManager.set_qty(cheap.id, 3)
 	var bank: int = GameState.bank_notes
 	var total: int = BazaarManager.cart_total()
@@ -246,18 +266,18 @@ static func _case_bazaar_orders(res: Dictionary) -> void:
 	var arrived: Array[int] = []
 	var on_arrived := func(o: OrderData) -> void: arrived.append(o.id)
 	BazaarManager.order_arrived.connect(on_arrived)
-	_advance_days(1)
+	advance_days(1)
 	TestFixtures.check(res, "an order halfway there is still in transit",
 		arrived.is_empty() and BazaarManager.days_left(order) == order.days - 1
 		and is_equal_approx(BazaarManager.progress(order), 0.5),
 		"%d days left, progress %.2f" % [BazaarManager.days_left(order),
 		BazaarManager.progress(order)])
-	_advance_days(1)
+	advance_days(1)
 	TestFixtures.check(res, "the day tick lands the order on its arrival day",
 		arrived.size() == 1 and BazaarManager.is_delivered(order) and order.arrived
 		and BazaarManager.days_left(order) == 0,
 		"%d arrivals, delivered %s" % [arrived.size(), BazaarManager.is_delivered(order)])
-	_advance_days(2)
+	advance_days(2)
 	BazaarManager.order_arrived.disconnect(on_arrived)
 	TestFixtures.check(res, "an order announces its arrival once only",
 		arrived.size() == 1 and BazaarManager.days_left(order) == -2
@@ -269,7 +289,7 @@ static func _case_bazaar_orders(res: Dictionary) -> void:
 	TestFixtures.check(res, "marking the orders seen clears the delivery dot",
 		not BazaarManager.has_unseen_delivery() and order.seen,
 		"unseen %s" % BazaarManager.has_unseen_delivery())
-	_fund(cheap.price)
+	GameState.refund(cheap.price)
 	BazaarManager.set_qty(cheap.id, 1)
 	var second: OrderData = BazaarManager.place_order()
 	var counts: Dictionary = BazaarManager.order_counts()
@@ -283,7 +303,7 @@ static func _case_bazaar_orders(res: Dictionary) -> void:
 		"first %d of %d" % [BazaarManager.orders_filtered(&"all")[0].id, second.id])
 
 
-#Case 5: the shop filters, the price presets, the search and every sort.
+#The shop filters and the price presets.
 static func _case_bazaar_filters(res: Dictionary) -> void:
 	_fresh()
 	SubscriptionManager.set_entitlements({"bazaar": true, "bazaarRarity": ALL_RARITY})
@@ -326,6 +346,12 @@ static func _case_bazaar_filters(res: Dictionary) -> void:
 		in_range and BazaarManager.filter_items({"price_preset": &"u50",
 		"price_custom": Vector2i(100, 200)}).size() == custom.size(),
 		"%d rows" % custom.size())
+
+
+#The shop search over names, subtypes and departments.
+static func _case_bazaar_search(res: Dictionary) -> void:
+	_fresh()
+	SubscriptionManager.set_entitlements({"bazaar": true, "bazaarRarity": ALL_RARITY})
 	var found_rows: Array[BazaarItemData] = BazaarManager.filter_items({"search": "sword"})
 	var all_swords: bool = not found_rows.is_empty()
 	for found: BazaarItemData in found_rows:
@@ -339,6 +365,12 @@ static func _case_bazaar_filters(res: Dictionary) -> void:
 	TestFixtures.check(res, "a search that matches nothing lists nothing",
 		BazaarManager.filter_items({"search": "zzzz"}).is_empty(),
 		"%d rows" % BazaarManager.filter_items({"search": "zzzz"}).size())
+
+
+#Every shop sort orders the whole catalog.
+static func _case_bazaar_sorts(res: Dictionary) -> void:
+	_fresh()
+	SubscriptionManager.set_entitlements({"bazaar": true, "bazaarRarity": ALL_RARITY})
 	var bad_sort: Array[String] = []
 	for sort: StringName in BazaarManager.SORTS:
 		var rows: Array[BazaarItemData] = BazaarManager.filter_items({"sort": sort})
@@ -367,7 +399,7 @@ static func _case_bazaar_filters(res: Dictionary) -> void:
 		TestFixtures.detail(bad_sort, BazaarManager.SORTS.size(), "sorts"))
 
 
-#Case 6: the counts beside each filter option.
+#The counts beside each filter option.
 static func _case_bazaar_counts(res: Dictionary) -> void:
 	_fresh()
 	SubscriptionManager.set_entitlements({"bazaar": true, "bazaarRarity": ALL_RARITY})
@@ -408,14 +440,14 @@ static func _case_bazaar_counts(res: Dictionary) -> void:
 		"all %d, armor %d" % [int(search_counts[""]), int(search_counts["armor"])])
 
 
-#Case 7: the nine locations and the seeded rows re-based on today.
+#The thirteen locations, a reset that files nothing, and the rows add_fine and add_capture file.
 static func _case_legal_seed(res: Dictionary) -> void:
 	_fresh()
 	var today: int = GameState.day()
-	TestFixtures.check(res, "the legal table holds the nine locations under their real names",
-		LegalManager.locations().size() == 9
-		and LegalManager.location(0).name == CampaignTypeDefs.LOCATIONS[0]
-		and LegalManager.location(8).name == CampaignTypeDefs.LOCATIONS[8]
+	TestFixtures.check(res, "the legal table holds the thirteen locations under their real names",
+		LegalManager.locations().size() == 13
+		and LegalManager.location(0).name == CampaignTypeDefs.locations()[0]
+		and LegalManager.location(8).name == CampaignTypeDefs.locations()[8]
 		and LegalManager.location(0).name == "Buern"
 		and LegalManager.location(8).name == "Cyfrolaef",
 		"%d locations, %s to %s" % [LegalManager.locations().size(),
@@ -429,25 +461,29 @@ static func _case_legal_seed(res: Dictionary) -> void:
 		LegalManager.location(7).scope])
 	TestFixtures.check(res, "an unknown location id reads null",
 		LegalManager.location(99) == null, "location 99")
-	TestFixtures.check(res, "the seeds file four fines and two captures",
-		LegalManager.fines.size() == 4 and LegalManager.captured.size() == 2,
+	TestFixtures.check(res, "a reset files no fines and no captures",
+		LegalManager.fines.is_empty() and LegalManager.captured.is_empty(),
 		"%d fines, %d captures" % [LegalManager.fines.size(), LegalManager.captured.size()])
-	var first: FineData = LegalManager.fine(1)
-	TestFixtures.check(res, "a seeded fine keeps its age around today",
-		first.day_issued == today - 10 and first.day_due == first.day_issued + 18
-		and first.amount == 180 and first.mercs.size() == 2,
-		"issued %d, due %d, today %d" % [first.day_issued, first.day_due, today])
-	TestFixtures.check(res, "a seeded capture keeps its age around today",
-		LegalManager.capture(1).day_captured == today - 4
-		and LegalManager.capture(1).merc_uid == 4
-		and LegalManager.capture(2).day_captured == today - 10,
-		"captured %d, today %d" % [LegalManager.capture(1).day_captured, today])
-	TestFixtures.check(res, "the paid seed reads as paid and the rest do not",
+	var mercs: Array[int] = [3, 6]
+	var first: FineData = LegalManager.add_fine(2, "Crime 1", mercs, 11, 180, 18)
+	TestFixtures.check(res, "a filed fine is issued today and falls due after its days",
+		first.id == 1 and first.day_issued == today and first.day_due == today + 18
+		and first.amount == 180 and first.mercs.size() == 2 and first.unread,
+		"id %d, issued %d, due %d, today %d" % [first.id, first.day_issued, first.day_due, today])
+	var held: CaptureData = LegalManager.add_capture(4, 3, "Crime 5", 13, 30, 350)
+	TestFixtures.check(res, "a filed capture starts today and holds its merc",
+		held.id == 1 and held.day_captured == today and held.merc_uid == 4 and held.unread
+		and GameState.away_status(4) == GuiTypes.MercStatus.CAPTURED,
+		"id %d, captured %d, today %d, status %d" % [held.id, held.day_captured, today,
+		GameState.away_status(4)])
+	LegalManager.reset()
+	GuiLegalTests._lay_legal()
+	TestFixtures.check(res, "the paid fine reads as paid and the rest do not",
 		LegalManager.fine(4).is_paid() and LegalManager.fine(4).paid == 60
 		and not LegalManager.fine(1).is_paid()
 		and LegalManager.unpaid_fines().size() == 3,
 		"%d unpaid" % LegalManager.unpaid_fines().size())
-	TestFixtures.check(res, "the unread seeds raise the fine and capture dots",
+	TestFixtures.check(res, "the unread rows raise the fine and capture dots",
 		LegalManager.has_unread_fine() and LegalManager.has_unread_capture(),
 		"fine %s, capture %s" % [LegalManager.has_unread_fine(),
 		LegalManager.has_unread_capture()])
@@ -463,17 +499,18 @@ static func _case_legal_seed(res: Dictionary) -> void:
 		"loc 0 %s, loc 1 %s" % [LegalManager.good_standing(0), LegalManager.good_standing(1)])
 
 
-#Case 8: the permits the plan reaches and the notes they cost.
+#The permits the plan reaches and the notes they cost.
 static func _case_legal_permits(res: Dictionary) -> void:
 	_fresh()
-	TestFixtures.check(res, "the seeded permits are the ones the guild already holds",
+	TestFixtures.check(res, "the guild starts with the operating permit at home alone",
 		LegalManager.has_permit(0, LegalManager.PERMIT_OPS)
 		and not LegalManager.has_permit(0, LegalManager.PERMIT_TELE)
-		and LegalManager.has_permit(2, LegalManager.PERMIT_TELE)
+		and not LegalManager.has_permit(2, LegalManager.PERMIT_OPS)
+		and not LegalManager.has_permit(2, LegalManager.PERMIT_TELE)
 		and not LegalManager.has_permit(1, LegalManager.PERMIT_OPS),
 		"loc 0 ops %s, loc 2 tele %s" % [LegalManager.has_permit(0, LegalManager.PERMIT_OPS),
 		LegalManager.has_permit(2, LegalManager.PERMIT_TELE)])
-	_fund(20000)
+	GameState.refund(20000)
 	var blocked: Dictionary = LegalManager.can_request(1, LegalManager.PERMIT_OPS)
 	TestFixtures.check(res, "no permit tier at all blocks every request",
 		not bool(blocked["ok"])
@@ -514,14 +551,49 @@ static func _case_legal_permits(res: Dictionary) -> void:
 		"bank %d of %d" % [GameState.bank_notes, bank - 250])
 	GameState.spend(GameState.bank_notes)
 	var poor: Dictionary = LegalManager.can_request(4, LegalManager.PERMIT_OPS)
-	TestFixtures.check(res, "an empty bank blocks a permit and names the shortfall",
-		not bool(poor["ok"]) and str(poor["reason"]) == "Not enough notes. You need 1200 more.",
-		str(poor["reason"]))
+	TestFixtures.check(res, "an empty bank blocks a permit with no line and reports the shortfall",
+		not bool(poor["ok"]) and str(poor["reason"]) == "" and int(poor.get("short", 0)) == 1200,
+		"reason '%s' short %d" % [str(poor["reason"]), int(poor.get("short", 0))])
 
 
-#Case 9: the late fee, the custody fee and what who you know takes off them.
+#The four permit only countries and the by-name permit reads.
+static func _case_permit_places(res: Dictionary) -> void:
+	_fresh()
+	var places: Array[String] = CampaignTypeDefs.permit_places()
+	var rows_ok: bool = places.size() == 13
+	for id: int in range(9, 13):
+		var place: LegalLocationData = LegalManager.location(id)
+		rows_ok = rows_ok and place != null and place.scope == 3 and place.name == places[id]
+	TestFixtures.check(res, "Kathaya, Suorr, Kahfald and Cipex hold permit rows 9 to 12 at scope 3",
+		rows_ok and places.slice(9) == CampaignTypeDefs.PERMIT_ONLY_PLACES
+		and CampaignTypeDefs.locations().size() == 9, "%s" % [places])
+	TestFixtures.check(res, "loc_id_of reads the first and the last place and -1 for an unknown name",
+		LegalManager.loc_id_of("Buern") == 0 and LegalManager.loc_id_of("Cipex") == 12
+		and LegalManager.loc_id_of("Nowhere") == -1,
+		"%d %d %d" % [LegalManager.loc_id_of("Buern"), LegalManager.loc_id_of("Cipex"),
+		LegalManager.loc_id_of("Nowhere")])
+	TestFixtures.check(res, "home holds its operating permit and no teleport permit by name",
+		LegalManager.ops_held_at("Buern") and not LegalManager.tele_held_at("Buern"), "")
+	SubscriptionManager.set_entitlements({"opsPermits": 3, "teleport": 3})
+	GameState.refund(20000)
+	LegalManager.request_permit(9, LegalManager.PERMIT_OPS)
+	LegalManager.request_permit(9, LegalManager.PERMIT_TELE)
+	TestFixtures.check(res, "a bought place reads both permits held by name",
+		LegalManager.ops_held_at("Kathaya") and LegalManager.tele_held_at("Kathaya")
+		and not LegalManager.ops_held_at("Suorr"), "")
+	SubscriptionManager.set_entitlements({"opsPermits": 1, "teleport": 1})
+	TestFixtures.check(res, "an INACTIVE permit reads not held by name, home stays held",
+		LegalManager.permit_state(9, LegalManager.PERMIT_OPS) == LegalManager.STATE_INACTIVE
+		and not LegalManager.ops_held_at("Kathaya") and not LegalManager.tele_held_at("Kathaya")
+		and LegalManager.ops_held_at("Buern"), "")
+	TestFixtures.check(res, "an unknown name holds no permit",
+		not LegalManager.ops_held_at("Nowhere") and not LegalManager.tele_held_at("Nowhere"), "")
+
+
+#The late fee, the custody fee and what who you know takes off them.
 static func _case_legal_fees(res: Dictionary) -> void:
 	_fresh()
+	GuiLegalTests._lay_legal()
 	var overdue: FineData = LegalManager.fine(2)
 	TestFixtures.check(res, "the late fee runs two percent of the fine per overdue day",
 		LegalManager.late_fee(overdue) == 45 and LegalManager.fine_due(overdue) == 495,
@@ -535,7 +607,7 @@ static func _case_legal_fees(res: Dictionary) -> void:
 		LegalManager.custody_fee(held) == 20 and LegalManager.bail_due(held) == 370,
 		"custody %d, bail due %d" % [LegalManager.custody_fee(held),
 		LegalManager.bail_due(held)])
-	_advance_days(3)
+	advance_days(3)
 	TestFixtures.check(res, "both fees grow with the days that pass",
 		LegalManager.late_fee(overdue) == 72 and LegalManager.custody_fee(held) == 35,
 		"fee %d, custody %d" % [LegalManager.late_fee(overdue),
@@ -575,10 +647,11 @@ static func _case_legal_fees(res: Dictionary) -> void:
 		"fine %d, bail %d" % [LegalManager.fine(2).amount, LegalManager.capture(1).bail])
 
 
-#Case 10: paying a fine and paying bail.
+#Paying a fine and paying bail.
 static func _case_legal_payments(res: Dictionary) -> void:
 	_fresh()
-	_fund(20000)
+	GuiLegalTests._lay_legal()
+	GameState.refund(20000)
 	var owed: int = LegalManager.fine_due(LegalManager.fine(2))
 	var bank: int = GameState.bank_notes
 	TestFixtures.check(res, "paying a fine spends what is due and closes the row",
@@ -589,7 +662,7 @@ static func _case_legal_payments(res: Dictionary) -> void:
 	TestFixtures.check(res, "a paid fine cannot be paid again and stops accruing",
 		not LegalManager.pay_fine(2) and LegalManager.unpaid_fines().size() == 2,
 		"%d unpaid" % LegalManager.unpaid_fines().size())
-	_advance_days(5)
+	advance_days(5)
 	TestFixtures.check(res, "the fee on a paid fine is frozen at the day it was paid",
 		LegalManager.fine_due(LegalManager.fine(2)) == owed,
 		"due %d of %d" % [LegalManager.fine_due(LegalManager.fine(2)), owed])
@@ -613,10 +686,9 @@ static func _case_legal_payments(res: Dictionary) -> void:
 		"bank %d" % GameState.bank_notes)
 
 
-#Case 11: the Odd Job odds, the crew it takes and what the day tick does with it.
-static func _case_legal_odd_jobs(res: Dictionary) -> void:
+#The Odd Job odds with and without counsel.
+static func _case_legal_odd_job_odds(res: Dictionary) -> void:
 	_fresh()
-	_fund(20000)
 	TestFixtures.check(res, "the odds run thirty plus twenty a merc",
 		LegalManager.odd_job_odds(1, LegalManager.JOB_RENEGOTIATE) == 50
 		and LegalManager.odd_job_odds(2, LegalManager.JOB_BREAKOUT) == 70,
@@ -629,14 +701,22 @@ static func _case_legal_odd_jobs(res: Dictionary) -> void:
 	TestFixtures.check(res, "counsel does not help a break out",
 		LegalManager.odd_job_odds(3, LegalManager.JOB_BREAKOUT) == 90,
 		"three mercs %d" % LegalManager.odd_job_odds(3, LegalManager.JOB_BREAKOUT))
-	var pair: Array[int] = _idle_uids(2)
+
+
+#Which crews can start an Odd Job.
+static func _case_legal_odd_job_crew(res: Dictionary) -> void:
+	_fresh()
+	GuiLegalTests._lay_legal()
+	GameState.refund(20000)
+	TestFixtures.add_mercs(ODD_JOB_EXTRA)
+	var pair: Array[int] = idle_uids(2)
 	var blocked: Dictionary = LegalManager.can_start_odd_job(LegalManager.TARGET_FINE, 1, pair, 50)
 	TestFixtures.check(res, "no Odd Jobs tier blocks the crew",
 		not bool(blocked["ok"])
 		and str(blocked["reason"]) == "Odd Jobs are not part of your plan.",
 		str(blocked["reason"]))
 	SubscriptionManager.set_entitlements({"oddJobs": 2})
-	var three: Array[int] = _idle_uids(3)
+	var three: Array[int] = idle_uids(3)
 	var over: Dictionary = LegalManager.can_start_odd_job(LegalManager.TARGET_FINE, 1, three, 50)
 	TestFixtures.check(res, "the plan caps how many mercs go",
 		not bool(over["ok"]) and str(over["reason"]) == "Your plan allows 2 mercs.",
@@ -655,6 +735,15 @@ static func _case_legal_odd_jobs(res: Dictionary) -> void:
 		50)["ok"]),
 		"paid fine %s" % str(LegalManager.can_start_odd_job(LegalManager.TARGET_FINE, 4, pair,
 		50)["reason"]))
+
+
+#The job runs, is paid up front and resolves on the day tick.
+static func _case_legal_odd_jobs(res: Dictionary) -> void:
+	_fresh()
+	GuiLegalTests._lay_legal()
+	GameState.refund(20000)
+	SubscriptionManager.set_entitlements({"counsel": true, "counselPct": 15, "oddJobs": 2})
+	var pair: Array[int] = idle_uids(2)
 	var bank: int = GameState.bank_notes
 	var job: OddJobData = LegalManager.start_odd_job(LegalManager.TARGET_FINE, 1,
 		LegalManager.JOB_RENEGOTIATE, pair, 50)
@@ -676,13 +765,13 @@ static func _case_legal_odd_jobs(res: Dictionary) -> void:
 	var on_resolved := func(target: Dictionary, success: bool) -> void:
 		resolved.append({"target": target, "success": success})
 	LegalManager.odd_job_resolved.connect(on_resolved)
-	_advance_days(LegalManager.JOB_DAYS - 1)
+	advance_days(LegalManager.JOB_DAYS - 1)
 	TestFixtures.check(res, "the job holds until its last day",
 		resolved.is_empty() and LegalManager.odd_jobs.size() == 1
 		and LegalManager.odd_job_days_left(job) == 1,
 		"%d days left" % LegalManager.odd_job_days_left(job))
 	var before: int = LegalManager.fine(1).amount
-	_advance_days(1)
+	advance_days(1)
 	var won: bool = bool(resolved[0]["success"])
 	var want: int = int(round(float(before) * (LegalManager.RENEGOTIATE_WIN if won
 		else LegalManager.RENEGOTIATE_LOSS)))
@@ -699,7 +788,7 @@ static func _case_legal_odd_jobs(res: Dictionary) -> void:
 	var bail: int = LegalManager.capture(1).bail
 	var out: OddJobData = LegalManager.start_odd_job(LegalManager.TARGET_CAPTURE, 1,
 		LegalManager.JOB_BREAKOUT, pair, 10)
-	_advance_days(LegalManager.JOB_DAYS)
+	advance_days(LegalManager.JOB_DAYS)
 	LegalManager.odd_job_resolved.disconnect(on_resolved)
 	var broke: bool = bool(resolved[1]["success"])
 	var freed: bool = LegalManager.captured.size() == held - 1
@@ -711,51 +800,69 @@ static func _case_legal_odd_jobs(res: Dictionary) -> void:
 		bail])
 
 
-#Case 12: the loan offers and the monthly budget.
+#The loan offers and the monthly budget.
 static func _case_finance(res: Dictionary) -> void:
 	_fresh()
-	TestFixtures.check(res, "the four seeded loan offers arrive unread",
-		FinanceManager.offers.size() == 4 and FinanceManager.has_offers(),
-		"%d offers, unread %s" % [FinanceManager.offers.size(), FinanceManager.has_offers()])
-	var offer: Dictionary = FinanceManager.offer(101)
+	TestFixtures.check(res, "a fresh guild holds no offers, loans or closed loans",
+		FinanceManager.offers.is_empty() and FinanceManager.loans.is_empty()
+		and FinanceManager.closed_loans.is_empty() and not FinanceManager.has_offers(),
+		"%d offers, %d loans, %d closed" % [FinanceManager.offers.size(), FinanceManager.loans.size(),
+		FinanceManager.closed_loans.size()])
+	var lender: String = "Lender 5"
+	var team: Array[int] = [(GameState.mercs as Array[MercenaryData])[0].merc_uid]
+	var calc: Dictionary = FinanceManager.request_calc(lender, FinanceManager.fair_draft(lender), team)
+	var sent: bool = FinanceManager.request_loan({"lender": lender, "amount": int(calc["amount"]),
+		"rate": float(calc["rate"]), "term": int(calc["months"]), "first_due": int(calc["first_due"]),
+		"team": team, "odds": int(calc["odds"]), "per": 0})
+	var away: int = int(FinanceManager.lender_row(lender)["away_hours"])
+	var arrival: int = CampaignClock.now() + away * CampaignClock.MINUTES_PER_HOUR
+	CampaignClock.advance_to(arrival)
+	FinanceManager.tick(arrival)
+	TestFixtures.check(res, "a returned loan request arrives as one unread offer",
+		sent and FinanceManager.offers.size() == 1 and FinanceManager.has_offers(),
+		"sent %s, %d offers, unread %s" % [sent, FinanceManager.offers.size(), FinanceManager.has_offers()])
+	var offer: Dictionary = FinanceManager.offers[0] if not FinanceManager.offers.is_empty() else {}
 	TestFixtures.check(res, "an offer carries its lender, amount, rate and term",
 		offer.has("lender") and offer.has("amount") and offer.has("rate_pct")
 		and offer.has("months") and offer.has("offer_amount") and offer.has("expires_minute"),
 		"keys %s" % [offer.keys()])
-	TestFixtures.check(res, "the seeded loans and closed loans are there",
-		FinanceManager.loans.size() == 2 and FinanceManager.closed_loans.size() == 2,
-		"%d loans, %d closed" % [FinanceManager.loans.size(),
-		FinanceManager.closed_loans.size()])
 	FinanceManager.mark_offers_seen()
 	TestFixtures.check(res, "marking the offers seen clears the Finance dot",
-		not FinanceManager.has_offers() and FinanceManager.offers.size() == 4,
+		not FinanceManager.has_offers() and FinanceManager.offers.size() == 1,
 		"unread %s" % FinanceManager.has_offers())
-	FinanceManager.reset()
-	TestFixtures.check(res, "a reset brings the unread offer back", FinanceManager.has_offers(),
-		"unread %s" % FinanceManager.has_offers())
+	var loan: LoanData = TestFixtures.add_loan("Lender 2", 1000, 0.1, 10)
+	TestFixtures.check(res, "a loan on the books is listed", FinanceManager.loans == [loan],
+		"%d loans" % FinanceManager.loans.size())
 	var budget: Dictionary = FinanceManager.budget()
-	var want_other: int = FinanceLedger.monthly_expenses() - FinanceLedger.loans_and_services()
+	var want_other: int = FinanceLedger.monthly_expenses() - FinanceLedger.loans_total()
+	want_other -= SubscriptionManager.monthly_cost()
 	TestFixtures.check(res, "the budget reads income, other expenses and the subscription",
 		budget.has("income") and budget.has("other_expenses") and budget.has("subscription")
 		and int(budget["income"]) == FinanceLedger.income_in(FinanceLedger.RATE_DAYS)
-		and int(budget["other_expenses"]) == want_other,
-		"income %d, other %d, subscription %d" % [int(budget["income"]),
-		int(budget["other_expenses"]), int(budget["subscription"])])
+		and int(budget["other_expenses"]) == want_other
+		and int(budget["subscription"]) == SubscriptionManager.monthly_cost(),
+		"income %d, other %d want %d, subscription %d" % [int(budget["income"]),
+		int(budget["other_expenses"]), want_other, int(budget["subscription"])])
 	TestFixtures.check(res, "the net reads the budget it was built from",
 		FinanceManager.net() == int(budget["income"]) - int(budget["other_expenses"])
 		- int(budget["subscription"]), "net %d" % FinanceManager.net())
+	FinanceManager.reset()
+	TestFixtures.check(res, "a reset clears the offers and the loans",
+		FinanceManager.offers.is_empty() and FinanceManager.loans.is_empty() and not FinanceManager.has_offers(),
+		"%d offers, %d loans" % [FinanceManager.offers.size(), FinanceManager.loans.size()])
 
 
-#Case 13: marking the legal rows seen emits its signal once and then stops.
+#Marking the legal rows seen emits its signal once and then stops.
 static func _case_legal_seen(res: Dictionary) -> void:
 	_fresh()
+	GuiLegalTests._lay_legal()
 	var fine_beats: Array[int] = []
 	var capture_beats: Array[int] = []
 	var on_fines := func() -> void: fine_beats.append(1)
 	var on_captures := func() -> void: capture_beats.append(1)
 	LegalManager.fines_changed.connect(on_fines)
 	LegalManager.captures_changed.connect(on_captures)
-	TestFixtures.check(res, "the seeded legal rows start with an unread fine and capture",
+	TestFixtures.check(res, "the legal rows start with an unread fine and capture",
 		LegalManager.has_unread_fine() and LegalManager.has_unread_capture(),
 		"fine %s capture %s" % [LegalManager.has_unread_fine(),
 			LegalManager.has_unread_capture()])

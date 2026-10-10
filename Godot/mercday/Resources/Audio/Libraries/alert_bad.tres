@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Messages/Bad Alert/ESM_Message_Bulletin_Echo_9_Game_Sci_fi_Interface_Click_Beep_Chirp_Futuristic.wav" id="2_s1"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1")])

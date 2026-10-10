@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/FilterButton.gd" id="1"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/DropPanel.gd" id="dp"]
 
 [node name="FilterButton" type="Button"]
 custom_minimum_size = Vector2(0, 26)
@@ -11,16 +12,17 @@ theme_override_fonts/font = ExtResource("2")
 theme_override_font_sizes/font_size = 10
 text = "FILTER"
 script = ExtResource("1")
+popup_width = 220
 
-[node name="Menu" type="PopupPanel" parent="."]
+[node name="Menu" type="PanelContainer" parent="."]
+visible = false
+script = ExtResource("dp")
 
 [node name="Box" type="VBoxContainer" parent="Menu"]
 theme_override_constants/separation = 8
 
 [node name="Header" type="Label" parent="Menu/Box"]
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("2")
-theme_override_font_sizes/font_size = 10
+theme_type_variation = &"CaptionLabel"
 text = "SHOW"
 
 [node name="Rows" type="VBoxContainer" parent="Menu/Box"]

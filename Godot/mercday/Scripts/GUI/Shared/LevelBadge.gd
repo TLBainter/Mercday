@@ -1,21 +1,26 @@
 class_name LevelBadge extends PanelContainer
 
 #The orange level badge. CHIP is the small "LVL n" chip contract rows and slots carry; TILE is the
-#48x56 roster tile and LARGE the 112 px Overview plate. Hovering it opens an XPTooltip child.
+#48x56 roster tile, LARGE the 112 px Overview plate and PAYROLL the ringed square of the payroll rows
+#and the fire dialog. Hovering it opens an XPTooltip child.
 
-enum SizeMode { CHIP, TILE, LARGE }
+enum SizeMode { CHIP, TILE, LARGE, PAYROLL }
 
-const INK_COLOR := Color(0.039216, 0.058824, 0.109804, 1)
-const PLATE_COLOR: Color = Color("#f28c28")
-const BEVEL_HI: Color = Color("#ffb266")
-const BEVEL_LO: Color = Color("#b85a12")
+const INK_COLOR: Color = GuiColors.INK
+const PLATE_COLOR: Color = GuiColors.ORANGE
+const BEVEL_HI: Color = GuiColors.ORANGE_HI
+const BEVEL_LO: Color = GuiColors.ORANGE_LO
 const TILE_SIZE: Vector2 = Vector2(48, 56)
 const LARGE_SIZE: Vector2 = Vector2(112, 112)
 const TILE_BEVEL_PX: float = 3.0
 const LARGE_BORDER_PX: float = 4.0
 const LARGE_BEVEL_PX: float = 6.0
-const TAG_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const NUMBER_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
+const PAYROLL_SIZE: Vector2 = Vector2(40, 40)
+const PAYROLL_KICKER_SIZE: int = 7
+const PAYROLL_VALUE_SIZE: int = 15
+const PAYROLL_STYLE: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_badge.tres")
+const TAG_FONT: FontVariation = GuiStyle.SILK
+const NUMBER_FONT: FontVariation = GuiStyle.SILK_BOLD
 
 @export var level: int = 1:
 	set(value):
@@ -33,10 +38,19 @@ const NUMBER_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/Silk
 	set(value):
 		size_mode = value
 		_refresh()
-#Overrides the TILE plate size when non-zero; the roster row carries a narrower tile than the list.
+#Overrides the TILE or PAYROLL plate size when non-zero; the roster row carries a narrower tile than the list.
 @export var plate_size: Vector2 = Vector2.ZERO:
 	set(value):
 		plate_size = value
+		_refresh()
+#Font sizes of the LVL tag and the number on a plate; zero keeps the size the mode sets.
+@export var kicker_size: int = 0:
+	set(value):
+		kicker_size = maxi(0, value)
+		_refresh()
+@export var value_size: int = 0:
+	set(value):
+		value_size = maxi(0, value)
 		_refresh()
 
 @onready var row: BoxContainer = $Row
@@ -50,6 +64,7 @@ var _chip_tag_font: Font = null
 var _chip_number_font: Font = null
 var _chip_tag_size: int = 0
 var _chip_number_size: int = 0
+var _chip_gap: int = 0
 
 
 func _ready() -> void:
@@ -68,15 +83,7 @@ func _own_hover() -> void:
 	for child: Node in get_children():
 		if child == tip_node:
 			continue
-		_ignore_mouse(child)
-
-
-func _ignore_mouse(node: Node) -> void:
-	var control: Control = node as Control
-	if control != null:
-		control.mouse_filter = MOUSE_FILTER_IGNORE
-	for child: Node in node.get_children():
-		_ignore_mouse(child)
+		GuiNodes.ignore_mouse(child)
 
 
 func _notification(what: int) -> void:
@@ -92,6 +99,7 @@ func _capture_chip() -> void:
 	_chip_number_font = number_label.get_theme_font("font")
 	_chip_tag_size = tag_label.get_theme_font_size("font_size")
 	_chip_number_size = number_label.get_theme_font_size("font_size")
+	_chip_gap = row.get_theme_constant(&"separation")
 
 
 func _refresh() -> void:
@@ -105,13 +113,20 @@ func _refresh() -> void:
 
 
 func _apply_mode() -> void:
+	row.add_theme_constant_override(&"separation", 0 if size_mode == SizeMode.PAYROLL else _chip_gap)
 	match size_mode:
 		SizeMode.TILE:
-			_apply_plate(TILE_SIZE if plate_size == Vector2.ZERO else plate_size, 8, 20, 0)
+			_apply_plate(_plate_or(TILE_SIZE), 8, 20, _flat_plate(0))
 		SizeMode.LARGE:
-			_apply_plate(LARGE_SIZE, 11, 44, int(LARGE_BORDER_PX))
+			_apply_plate(LARGE_SIZE, 11, 44, _flat_plate(int(LARGE_BORDER_PX)))
+		SizeMode.PAYROLL:
+			_apply_plate(_plate_or(PAYROLL_SIZE), PAYROLL_KICKER_SIZE, PAYROLL_VALUE_SIZE, PAYROLL_STYLE)
 		_:
 			_apply_chip()
+
+
+func _plate_or(fallback: Vector2) -> Vector2:
+	return fallback if plate_size == Vector2.ZERO else plate_size
 
 
 func _apply_chip() -> void:
@@ -123,10 +138,17 @@ func _apply_chip() -> void:
 	_set_label(number_label, _chip_number_font, _chip_number_size, HORIZONTAL_ALIGNMENT_LEFT)
 
 
-func _apply_plate(box_size: Vector2, tag_size: int, number_size: int, border: int) -> void:
+func _apply_plate(box_size: Vector2, tag_size: int, number_size: int, box: StyleBox) -> void:
 	row.vertical = true
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	custom_minimum_size = box_size
+	add_theme_stylebox_override("panel", box)
+	_set_label(tag_label, TAG_FONT, kicker_size if kicker_size > 0 else tag_size, HORIZONTAL_ALIGNMENT_CENTER)
+	_set_label(number_label, NUMBER_FONT, value_size if value_size > 0 else number_size, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+#The flat plate TILE and LARGE paint their bevel over.
+func _flat_plate(border: int) -> StyleBoxFlat:
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = PLATE_COLOR
 	box.set_border_width_all(border)
@@ -135,9 +157,7 @@ func _apply_plate(box_size: Vector2, tag_size: int, number_size: int, border: in
 	box.content_margin_top = 0.0
 	box.content_margin_right = 0.0
 	box.content_margin_bottom = 0.0
-	add_theme_stylebox_override("panel", box)
-	_set_label(tag_label, TAG_FONT, tag_size, HORIZONTAL_ALIGNMENT_CENTER)
-	_set_label(number_label, NUMBER_FONT, number_size, HORIZONTAL_ALIGNMENT_CENTER)
+	return box
 
 
 func _set_label(node: Label, font: Font, font_size: int, align: HorizontalAlignment) -> void:
@@ -149,18 +169,13 @@ func _set_label(node: Label, font: Font, font_size: int, align: HorizontalAlignm
 		node.add_theme_font_size_override("font_size", font_size)
 
 
-#A stylebox has no bevel, so the plate modes paint the prototype's raised edges over it.
+#A stylebox has no bevel, so TILE and LARGE paint the prototype's raised edges over it.
 func _draw() -> void:
-	if size_mode == SizeMode.CHIP:
+	if size_mode == SizeMode.CHIP or size_mode == SizeMode.PAYROLL:
 		return
 	var inset: float = 0.0 if size_mode == SizeMode.TILE else LARGE_BORDER_PX
 	var px: float = TILE_BEVEL_PX if size_mode == SizeMode.TILE else LARGE_BEVEL_PX
-	var w: float = size.x - inset * 2.0
-	var h: float = size.y - inset * 2.0
-	draw_rect(Rect2(inset, inset, w, px), BEVEL_HI)
-	draw_rect(Rect2(inset, inset, px, h), BEVEL_HI)
-	draw_rect(Rect2(inset, inset + h - px, w, px), BEVEL_LO)
-	draw_rect(Rect2(inset + w - px, inset, px, h), BEVEL_LO)
+	BevelButton.paint_edges(self, Rect2(Vector2.ZERO, size).grow(-inset), BEVEL_HI, BEVEL_LO, px)
 
 
 #An owner that turned the badge's mouse input off gets no tip; the Row child still forwards hover

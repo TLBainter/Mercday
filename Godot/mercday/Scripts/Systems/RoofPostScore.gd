@@ -78,8 +78,8 @@ static func _compute(merc: MercenaryData, state: BattleState) -> Dictionary:
 	for foe: MercenaryData in foes:
 		if bool(LineOfSight.check(state, merc, foe).get("visible", true)):
 			return {}
-	var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
-	var per_move: int = maxi(1, MovementExecutor.pace_per_move(merc))
+	var merc_size: int = merc.unit_size()
+	var per_move: int = maxi(1, PaceBudget.pace_per_move(merc))
 	var walk_round: int = _walk_round(merc, state, here, foes, merc_size, per_move)
 	var budget_moves: int = MAX_MOVES
 	if walk_round > 0:
@@ -193,10 +193,10 @@ static func _walk_round(merc: MercenaryData, state: BattleState, here: Vector3i,
 	var cell: Vector3i = _probe_approach(merc, near, state)
 	if cell == PathTargeter.NO_CELL or cell == here:
 		return 0
-	var path: Array[Vector3i] = PathTargeter.walk_path_for(merc, state, here, cell)
+	var path: Array[Vector3i] = ReachCache.walk_path_for(merc, state, here, cell)
 	if path.size() < 2:
 		return slow
-	var reach: Dictionary = PathTargeter.reachable_for(merc, state)
+	var reach: Dictionary = ReachCache.reachable_for(merc, state)
 	var bound: int = MAX_MOVES * per_move
 	for i: int in range(1, path.size()):
 		var step: Vector3i = path[i]
@@ -217,7 +217,7 @@ static func _walk_round(merc: MercenaryData, state: BattleState, here: Vector3i,
 static func _candidates(merc: MercenaryData, state: BattleState, field: BattlefieldArea,
 		merc_size: int, per_move: int, budget_moves: int) -> Array:
 	var budget: int = budget_moves * per_move
-	var pace_c: int = maxi(1, MovementExecutor.climb_pace_cost(merc))
+	var pace_c: int = maxi(1, ClimbExecutor.climb_pace_cost(merc))
 	var rows: Array = []
 	var reach: Dictionary = _reach_within(merc, state, budget)
 	for key: Variant in reach.keys():
@@ -236,7 +236,7 @@ static func _candidates(merc: MercenaryData, state: BattleState, field: Battlefi
 			var top: Vector3i = link["top"] as Vector3i
 			if state.is_position_occupied(Vector2i(top.x, top.y), merc, top.z):
 				continue
-			if not ClimbAction._vault_ok(link, field, merc_size):
+			if not ClimbAction.vault_ok(link, field, merc_size):
 				continue
 			rows.append([total, foot, top, link])
 	rows.sort_custom(func(a: Array, b: Array) -> bool: return _cheaper(a, b))
@@ -246,11 +246,11 @@ static func _candidates(merc: MercenaryData, state: BattleState, field: Battlefi
 #The unit's own flood while the budget fits inside its bound, else a wider one of its own: the
 #cached flood is never grown here because its other readers walk every key it holds.
 static func _reach_within(merc: MercenaryData, state: BattleState, budget: int) -> Dictionary:
-	if budget <= PathTargeter.reach_budget(merc, state):
-		return PathTargeter.reachable_for(merc, state)
+	if budget <= ReachCache.reach_budget(merc, state):
+		return ReachCache.reachable_for(merc, state)
 	PathCost.set_mover_doors(merc, state)
 	var search: ReachSearch = ReachSearch.create(state.pos3(merc), state.battlefield,
-		PathTargeter._ally_passable(merc, state), PathTargeter.fall_tolerance(merc), false, true,
+		state.ally_passable_3d(merc), PathTargeter.fall_tolerance(merc), false, true,
 		int(merc.stats.get("jump", 0)), int(merc.stats.get("size", 1)), state.get_height(merc))
 	search.ensure_cost(budget)
 	return search.result

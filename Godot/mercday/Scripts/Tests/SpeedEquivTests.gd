@@ -3,7 +3,7 @@ extends RefCounted
 
 #Equivalence guards for the city speed work: the lazy ray loop in LineOfSight._compute, the skipped
 #floor test on open outdoor city cells and the bounded cover score in CoverSearch.find_cover_cell.
-#CityGenTests.run_cases calls run_cases.
+#CityTests.run() calls run_cases.
 
 const CITY_TIER := "Small"
 const CITY_SEED := 7503
@@ -35,7 +35,7 @@ static func _passable(field: BattlefieldArea) -> Array[Vector2i]:
 	return out
 
 
-#### 1. Lazy ray loop.
+#Lazy ray loop.
 
 
 #A copy of the pre-change _compute: all three rays traced, then the clean, graze and blocked returns.
@@ -52,7 +52,7 @@ static func _reference_compute(field: BattlefieldArea, from: Vector3i, from_heig
 		adjacent["via"] = "adjacent"
 		return adjacent
 	var cross_floor := from.z != tp.z
-	var steps := LineOfSight._steps(f2, t2)
+	var steps := LineOfSight.line_steps(f2, t2)
 	if steps.is_empty():
 		if not cross_floor:
 			return LineOfSight.clear_result()
@@ -153,7 +153,7 @@ static func _case_los_rays(res: Dictionary, field: BattlefieldArea) -> void:
 		"%d pair(s) %d visible" % [pairs, seen] if bad.is_empty() else "; ".join(bad))
 
 
-#### 2. Open outdoor city cells never hit a floor plane.
+#Open outdoor city cells never hit a floor plane.
 
 
 static func _case_floor_block_outdoor(res: Dictionary, field: BattlefieldArea) -> void:
@@ -176,7 +176,7 @@ static func _case_floor_block_outdoor(res: Dictionary, field: BattlefieldArea) -
 		"%d cell(s)" % checked if bad.is_empty() else "; ".join(bad))
 
 
-#### 3. Bounded cover score picks the same cell.
+#Bounded cover score picks the same cell.
 
 
 static func _state(map: BattlefieldArea) -> BattleState:
@@ -197,8 +197,8 @@ static func _reference_cover_cell(merc: MercenaryData, enemies: Array, state: Ba
 		return PathTargeter.NO_CELL
 	var here := state.pos3(merc)
 	var pace: int = maxi(1, int(merc.stats.get("pace", 1)))
-	var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
-	var reach: Dictionary = PathTargeter.reachable_for(merc, state)
+	var merc_size: int = merc.unit_size()
+	var reach: Dictionary = ReachCache.reachable_for(merc, state)
 	var base := CoverSearch.cover_score(here, merc_size, ranged, state)
 	var best := PathTargeter.NO_CELL
 	var best_full: int = base["full"]

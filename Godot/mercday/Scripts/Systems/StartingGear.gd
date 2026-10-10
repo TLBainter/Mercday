@@ -74,6 +74,42 @@ static func _items_within(pool: Array, room: int) -> Array:
 	return fits
 
 
+static func _has_weighted(pool: Array, weights: Dictionary) -> bool:
+	for item: ItemData in pool:
+		if float(weights.get(item.item_name, 0.0)) > 0.0:
+			return true
+	return false
+
+
+#The pool entries with a positive tradition weight; the whole pool when none has one.
+static func _weighted_only(pool: Array, weights: Dictionary) -> Array:
+	var kept: Array = []
+	for item: ItemData in pool:
+		if float(weights.get(item.item_name, 0.0)) > 0.0:
+			kept.append(item)
+	return pool if kept.is_empty() else kept
+
+
+#A weighted draw over the fitting items by name; uniform as before when no fitting item has a weight.
+static func _weighted_item(fits: Array, weights: Dictionary) -> ItemData:
+	if fits.is_empty():
+		return null
+	var picks: Dictionary = {}
+	for item: ItemData in fits:
+		var w: float = float(weights.get(item.item_name, 0.0))
+		if w > 0.0:
+			picks[item.item_name] = w
+	if picks.is_empty():
+		return fits[randi() % fits.size()] as ItemData
+	var rng := RandomNumberGenerator.new()
+	rng.seed = randi()
+	var picked: String = ResolvedPool.weighted_pick(rng, picks)
+	for item: ItemData in fits:
+		if item.item_name == picked:
+			return item as ItemData
+	return fits[0] as ItemData
+
+
 #The lightest cost of every category still in the draw, summed.
 static func _lightest_total(lightest: Dictionary, categories: Array[String]) -> int:
 	var total: int = 0
@@ -82,30 +118,52 @@ static func _lightest_total(lightest: Dictionary, categories: Array[String]) -> 
 	return total
 
 
+#Drops a category's weighted reservation to its whole-pool lightest; false when it is already there or absent.
+static func _lower_to_floor(lightest: Dictionary, floor_cost: Dictionary, category: String) -> bool:
+	if int(lightest.get(category, 0)) <= int(floor_cost.get(category, 0)):
+		return false
+	lightest[category] = floor_cost[category]
+	return true
+
+
 #Draws armor, melee and ranged in a shuffled order, each fitted to the weight left.
 static func step_gear(merc: MercenaryData) -> Array[String]:
 	var limit: int = int(merc.stats.get("weight_limit", 0))
 	var budget: int = limit - 1
+	var gear: Dictionary = AppearanceRules.resolve(merc).gear
+	var weapon_weights: Dictionary = gear.get("weapon", {})
+	var armor_weights: Dictionary = gear.get("armor", {})
 	var melee_pool: Array = _starting_melee_pool()
 	var ranged_pool: Array[WeaponData] = _starting_ranged_pool()
 	var armor_pool: Array = _starting_armor_pool(merc)
+	#Weapon weights that name melee weapons alone keep a ranged weapon from taking the hand.
+	if _has_weighted(melee_pool, weapon_weights) and not _has_weighted(ranged_pool, weapon_weights):
+		ranged_pool.clear()
+	#lightest starts at each category's lightest weighted item; floor_cost holds the lightest of the whole pool.
 	var lightest: Dictionary = {}
+	var floor_cost: Dictionary = {}
 	var categories: Array[String] = []
 	if not armor_pool.is_empty():
 		categories.append("armor")
-		lightest["armor"] = _lightest_weight(armor_pool)
+		floor_cost["armor"] = _lightest_weight(armor_pool)
+		lightest["armor"] = _lightest_weight(_weighted_only(armor_pool, armor_weights))
 	if not melee_pool.is_empty():
 		categories.append("melee")
-		lightest["melee"] = _lightest_weight(melee_pool)
+		floor_cost["melee"] = _lightest_weight(melee_pool)
+		lightest["melee"] = _lightest_weight(_weighted_only(melee_pool, weapon_weights))
 	if not ranged_pool.is_empty():
 		categories.append("ranged")
-		lightest["ranged"] = _lightest_ranged_cost(ranged_pool)
+		floor_cost["ranged"] = _lightest_ranged_cost(ranged_pool)
+		lightest["ranged"] = _lightest_ranged_cost(_weighted_only(ranged_pool, weapon_weights))
+	#Armor and ranged weights give way before their category is dropped; melee weights give way only after both drop.
 	while _lightest_total(lightest, categories) > budget:
+		if _lower_to_floor(lightest, floor_cost, "ranged") or _lower_to_floor(lightest, floor_cost, "armor"):
+			continue
 		if categories.has("ranged"):
 			categories.erase("ranged")
 		elif categories.has("armor"):
 			categories.erase("armor")
-		else:
+		elif not _lower_to_floor(lightest, floor_cost, "melee"):
 			break
 	categories.shuffle()
 	var melee_w: WeaponData = null
@@ -124,7 +182,7 @@ static func step_gear(merc: MercenaryData) -> Array[String]:
 			var armor_fits: Array = _items_within(armor_pool, room)
 			if armor_fits.is_empty():
 				continue
-			armor_pick = armor_fits[randi() % armor_fits.size()] as ArmorData
+			armor_pick = _weighted_item(armor_fits, armor_weights) as ArmorData
 			carried += armor_pick.weight
 			order.append(category)
 		elif category == "melee":
@@ -133,7 +191,7 @@ static func step_gear(merc: MercenaryData) -> Array[String]:
 				melee_fits = _items_within(melee_pool, _lightest_weight(melee_pool))
 			if melee_fits.is_empty():
 				continue
-			melee_w = melee_fits[randi() % melee_fits.size()] as WeaponData
+			melee_w = _weighted_item(melee_fits, weapon_weights) as WeaponData
 			carried += melee_w.weight
 			order.append(category)
 		else:
@@ -143,7 +201,7 @@ static func step_gear(merc: MercenaryData) -> Array[String]:
 					ranged_fits.append(w)
 			if ranged_fits.is_empty():
 				continue
-			ranged_w = ranged_fits[randi() % ranged_fits.size()]
+			ranged_w = _weighted_item(ranged_fits, weapon_weights) as WeaponData
 			var ammo_fits: Array = _items_within(_compatible_ammo(ranged_w), room - ranged_w.weight)
 			if not ammo_fits.is_empty():
 				ammo_pick = ammo_fits[randi() % ammo_fits.size()] as AmmoData
@@ -169,9 +227,14 @@ static func _equip_gear(merc: MercenaryData, melee_w: WeaponData, ranged_w: Weap
 		merc.equipped_weapon = melee_w
 	if armor_pick == null:
 		return
-	merc.equipped_armor = armor_pick
-	for prot_type: String in armor_pick.protection:
-		var eff := "protected:" + prot_type.to_lower()
+	wear_armor(merc, armor_pick)
+
+
+#Puts the suit on and adds protected:<type> for each protection type the merc does not already have.
+static func wear_armor(merc: MercenaryData, armor: ArmorData) -> void:
+	merc.equipped_armor = armor
+	for prot_type: String in armor.protection:
+		var eff: String = "protected:" + prot_type.to_lower()
 		if not merc.passive_effects.has(eff):
 			merc.passive_effects.append(eff)
 

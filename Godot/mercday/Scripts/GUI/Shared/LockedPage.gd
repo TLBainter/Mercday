@@ -6,12 +6,10 @@ class_name LockedPage extends Control
 
 signal take_me_there(target: Dictionary)
 
-const BG_COLOR: Color = Color(0.023529, 0.039216, 0.078431, 0.84)
+const BG_COLOR: Color = Color(GuiColors.BACKDROP, 1.0)
 const PANEL_WIDTH: float = 520.0
 const PANEL_BORDER: int = 4
-const PANEL_BG: Color = Color("#1a2b4d")
-const PANEL_EDGE: Color = Color("#f2d33d")
-const ICON_SCALE: int = 6
+const ICON_SCALE: int = LockPanel.ICON_SCALE
 
 @export var feature: String = "":
 	set(value):
@@ -44,10 +42,11 @@ const ICON_SCALE: int = 6
 
 @onready var backing: ColorRect = $Backing
 @onready var panel: PanelContainer = $Panel
-@onready var lock_icon: TextureRect = $Panel/Pad/Rows/IconRow/LockIcon
-@onready var line1_label: Label = $Panel/Pad/Rows/Line1
-@onready var line2_label: Label = $Panel/Pad/Rows/Line2
-@onready var take_me_there_button: Button = $Panel/Pad/Rows/Buttons/TakeMeThere
+@onready var lock_panel: LockPanel = $Panel/Pad/Lock
+@onready var lock_icon: TextureRect = $Panel/Pad/Lock/IconRow/LockIcon
+@onready var line1_label: Label = $Panel/Pad/Lock/Line1
+@onready var line2_label: Label = $Panel/Pad/Lock/Line2
+@onready var take_me_there_button: Button = $Panel/Pad/Lock/Buttons/TakeMeThere
 
 
 func _ready() -> void:
@@ -56,42 +55,32 @@ func _ready() -> void:
 	backing.set_anchors_preset(Control.PRESET_FULL_RECT)
 	backing.color = BG_COLOR
 	backing.mouse_filter = Control.MOUSE_FILTER_STOP
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = PANEL_BG
-	style.border_width_left = PANEL_BORDER
-	style.border_width_top = PANEL_BORDER
-	style.border_width_right = PANEL_BORDER
-	style.border_width_bottom = PANEL_BORDER
-	style.border_color = PANEL_EDGE
-	panel.add_theme_stylebox_override(&"panel", style)
+	panel.add_theme_stylebox_override(&"panel", GuiStyle.flat(GuiColors.BOX_BG, PANEL_BORDER,
+		GuiColors.LOCK_GOLD))
 	panel.custom_minimum_size.x = PANEL_WIDTH
-	lock_icon.texture = GuiGlyphs.lock(PANEL_EDGE, ICON_SCALE)
-	lock_icon.custom_minimum_size = Vector2(GuiGlyphs.LOCK_COLS, GuiGlyphs.LOCK_ROWS) * float(ICON_SCALE)
-	take_me_there_button.pressed.connect(press_take_me_there)
+	lock_panel.take_me_there.connect(take_me_there.emit)
 	resized.connect(_center_panel)
+	#A hidden page never sorts, so its wrapping labels sit 1 px wide and report a tall panel until
+	#the first sort after it shows; re-centre when that settles the panel's height.
+	panel.minimum_size_changed.connect(_center_panel)
 	_refresh()
 	_center_panel()
 
 
 #The Plans tab, or the Customize upgrade target when the guild already holds Enterprise.
 func target() -> Dictionary:
-	if SubscriptionManager.plan() == SubscriptionManager.Plan.ENTERPRISE and upgrade_id != "":
-		return {"tab": "customize", "upgrade": upgrade_id, "tier": tier}
-	return {"tab": "plans"}
+	return FeatureLock.target(upgrade_id, tier)
 
 
 func press_take_me_there() -> void:
-	var t: Dictionary = target()
-	GameState.go_to_plans(t)
-	take_me_there.emit(t)
+	lock_panel.press_take_me_there()
 
 
 func _refresh() -> void:
 	if not is_node_ready():
 		return
-	var lines: Array[String] = FeatureLock.build_copy(feature, plan, upgrade, upgrade_id, tier, tiers, verb)
-	line1_label.text = lines[0]
-	line2_label.text = lines[1]
+	lock_panel.set_lock({"feature": feature, "plan": plan, "upgrade": upgrade,
+		"upgrade_id": upgrade_id, "tier": tier, "tiers": tiers, "verb": verb})
 
 
 func _center_panel() -> void:

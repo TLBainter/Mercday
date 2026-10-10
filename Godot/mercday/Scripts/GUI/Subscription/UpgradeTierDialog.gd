@@ -19,8 +19,16 @@ const BAR_DOWN: float = 0.45
 const PLUS_POP: float = 0.5
 const MINUS_POP: float = 0.35
 const REJECT_FX: float = 0.4
-const SHAKE_FX: float = 0.4
+const FLASH_COUNT: int = 3
+const FLASH_SCALE: float = 1.2
+const GLOW: Color = Color(1.4, 1.4, 1.4, 1.0)
+const FLASH_SECONDS: float = REJECT_MS / 1000.0
+#A held plus or minus steps once on the press, waits HOLD_DELAY seconds, then steps HOLD_RATE times a second.
+const HOLD_DELAY: float = 0.35
+const HOLD_RATE: float = 6.0
 const BUTTON_BOX: Vector2 = Vector2(56.0, 56.0)
+#The X sits this far in from the box's top right corner, past its outline ring.
+const CLOSE_INSET: float = 6.0
 const CHUNK_H: float = 18.0
 const CHUNK_GAP: float = 4.0
 const BAR_PAD: float = 4.0
@@ -31,26 +39,26 @@ const STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_dialog.tr
 const HAVE_STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_row_have.tres")
 const NEXT_STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_row_next.tres")
 const LOCKED_STYLE: StyleBox = preload("res://Resources/GUI/Theme/Styles/tree_row_locked.tres")
-const HEAD_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const BOLD_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const BODY_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const INK: Color = Color("#0a0f1c")
-const CHUNK_OFF: Color = Color("#15223d")
-const CHUNK_OFF_HI: Color = Color("#1f3560")
-const CHUNK_OFF_LO: Color = Color("#0e1628")
-const HEAD_COLOR: Color = Color("#9cc6ef")
-const NAME_COLOR: Color = Color("#f28c28")
-const CREAM: Color = Color("#f3ead7")
-const YELLOW: Color = Color("#f2d33d")
-const GREEN: Color = Color("#6cc36a")
-const RED: Color = Color("#e8583f")
-const BUDGET_YELLOW: Color = Color("#f2b33d")
-const NEXT_TEXT: Color = Color("#c8d3e6")
-const LOCKED_TEXT: Color = Color("#5e7699")
-const LOCKED_LABEL: Color = Color("#3b4d6e")
-const PLUS_BG: Color = Color("#6cc36a")
-const PLUS_BG_MAX: Color = Color("#27324a")
-const MINUS_BG: Color = Color("#e8583f")
+const HEAD_FONT: FontVariation = GuiStyle.SILK
+const BOLD_FONT: FontVariation = GuiStyle.SILK_BOLD
+const BODY_FONT: FontVariation = GuiStyle.BODY
+const INK: Color = GuiColors.INK
+const CHUNK_OFF: Color = GuiColors.ROW_HOVER
+const CHUNK_OFF_HI: Color = GuiColors.BLUE_LO
+const CHUNK_OFF_LO: Color = GuiColors.ROW_FILL
+const HEAD_COLOR: Color = GuiColors.SKY
+const NAME_COLOR: Color = GuiColors.ORANGE
+const CREAM: Color = GuiColors.CREAM
+const YELLOW: Color = GuiColors.RAMP_YELLOW
+const GREEN: Color = GuiColors.GREEN
+const RED: Color = GuiColors.RED
+const BUDGET_YELLOW: Color = GuiColors.AMBER
+const NEXT_TEXT: Color = GuiColors.PALE_SKY
+const LOCKED_TEXT: Color = GuiColors.MUTED
+const LOCKED_LABEL: Color = GuiColors.LOCK_RING
+const PLUS_BG: Color = GuiColors.GREEN
+const PLUS_BG_MAX: Color = GuiColors.LOCKED_BG
+const MINUS_BG: Color = GuiColors.RED
 const HEAD_TEXT: String = "Enterprise Customization"
 const TODAY_SUFFIX: String = " today"
 const MONTH_SUFFIX: String = "/month starting "
@@ -61,9 +69,6 @@ const GLYPH_SCALE: int = 1
 const INCOME_LABEL: String = "Monthly Income"
 const NEXT_LABEL: String = "Next Tier"
 const EXIT_TEXT: String = "Exit"
-const BILL_SUFFIX: String = " 15th"
-const NOTE_TEXT: String = "Upgrades bill pro-rated today; downgrades are never refunded, they " \
-	+ "simply stop billing from the next cycle."
 const SEATS_LINE: String = "Can't go below Tier %d: %d mercs are using those seats."
 const BOARD_LINE: String = "Can't go below Tier %d: %d contracts are on your board."
 const PLANS_TEXT: String = "Take Me There"
@@ -79,21 +84,20 @@ var _tier_label: Label = null
 var _bar: Control = null
 var _minus: Button = null
 var _plus: Button = null
-var _today: HBoxContainer = null
-var _today_amount: Label = null
-var _monthly: HBoxContainer = null
-var _monthly_amount: Label = null
-var _monthly_suffix: Label = null
-var _max_note: HBoxContainer = null
-var _max_note_amount: Label = null
+var _today: NotesLabel = null
+var _monthly: NotesLabel = null
+var _max_note: NotesLabel = null
 var _income: Label = null
 var _in_use: Label = null
-var _reason_label: Label = null
 var _rows: VBoxContainer = null
 var _plans: BevelButton = null
-var _exit: BevelButton = null
+var _close: Button = null
 var _rows_dirty: bool = false
 var _want_tier: int = 0
+var _hold_dir: int = 0
+var _hold_time: float = 0.0
+var _hold_carry: float = 0.0
+var _flash_left: float = 0.0
 
 
 func _ready() -> void:
@@ -101,8 +105,12 @@ func _ready() -> void:
 	size = BOX
 	add_theme_stylebox_override("panel", STYLE)
 	_build()
+	resized.connect(_keep_in_band)
+	minimum_size_changed.connect(_fit_box, CONNECT_DEFERRED)
+	resized.connect(_fit_box, CONNECT_DEFERRED)
 	SubscriptionManager.changed.connect(_on_changed)
 	PulseClock.pulse.connect(_on_pulse)
+	set_process(false)
 	hide()
 
 
@@ -114,22 +122,40 @@ func open_for(id: String, at: Vector2 = Vector2(440.0, 160.0)) -> void:
 	_rej_until = 0
 	_rej_kind = ""
 	_reason = ""
+	_flash_left = 0.0
+	_apply_flash()
 	position = at
 	refresh()
+	if not visible:
+		UiSfx.play_summon()
 	show()
+	size = BOX
+	_keep_in_band()
 	GuiFrameStack.push(self)
 
 
 func close() -> void:
+	_flash_left = 0.0
+	_apply_flash()
+	hold_end()
 	_rej_until = 0
 	_rej_kind = ""
 	_reason = ""
+	if visible:
+		UiSfx.play_dismiss()
 	hide()
 	GuiFrameStack.remove(self)
 
 
 func _exit_tree() -> void:
+	hold_end()
 	GuiFrameStack.remove(self)
+
+
+#Hiding a held button drops its press without a button_up, so the hold stops with the popover.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
+		hold_end()
 
 
 #Esc closes this popover only while it is the top frame of the stack.
@@ -138,8 +164,51 @@ func _unhandled_input(event: InputEvent) -> void:
 		close()
 
 
+#A left press outside the popover closes it. The press is not accepted, so a click on another
+#module still reaches that module and opens its popover.
+func _input(event: InputEvent) -> void:
+	if not is_open():
+		return
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if not get_global_rect().has_point(click.position):
+		close()
+
+
 func press_close() -> void:
 	close()
+
+
+func close_button() -> Button:
+	return _close
+
+
+#The band is the viewport above the bottom bar; the whole box stays inside it wherever it opens.
+func band_rect() -> Rect2:
+	var view: Vector2 = get_viewport_rect().size
+	return Rect2(Vector2.ZERO, Vector2(view.x, GuiFrameStack.band_height(view.y)))
+
+
+#A wrapped label measured before its width settles grows the box; the box goes back to BOX after.
+func _fit_box() -> void:
+	if not visible or not is_inside_tree():
+		return
+	if not size.is_equal_approx(BOX):
+		size = BOX
+	_keep_in_band()
+
+
+func _keep_in_band() -> void:
+	if not visible or not is_inside_tree():
+		return
+	var band: Rect2 = band_rect()
+	#A wrapped label can stretch the box for a frame before _fit_box; the clamp uses the settled BOX.
+	var rect: Rect2 = Rect2(global_position, BOX)
+	var x: float = clampf(rect.position.x, band.position.x, maxf(band.position.x, band.end.x - rect.size.x))
+	var y: float = clampf(rect.position.y, band.position.y, maxf(band.position.y, band.end.y - rect.size.y))
+	if not is_equal_approx(x, rect.position.x) or not is_equal_approx(y, rect.position.y):
+		global_position = Vector2(x, y)
 
 
 func press_plus() -> void:
@@ -149,6 +218,7 @@ func press_plus() -> void:
 		_reason = ""
 		if SubscriptionManager.buy_tier(_id):
 			_play("up")
+			UiSfx.play_upgrade(upgrade_ratio())
 			return
 	_reason = SubscriptionManager.raise_reason(_id)
 	_reject("up")
@@ -161,9 +231,101 @@ func press_minus() -> void:
 		_reason = ""
 		if SubscriptionManager.lower_tier(_id):
 			_play("down")
+			UiSfx.play_upgrade(upgrade_ratio())
 			return
 	_reason = SubscriptionManager.lower_reason(_id)
 	_reject("down")
+
+
+#A press steps once right away and arms the repeat; a refused first step leaves nothing armed.
+func hold_begin(dir: int) -> void:
+	_hold_dir = signi(dir)
+	_hold_time = 0.0
+	_hold_carry = 0.0
+	_hold_step()
+	set_process(_hold_dir != 0 or is_flashing())
+
+
+func hold_end() -> void:
+	_hold_dir = 0
+	_hold_time = 0.0
+	_hold_carry = 0.0
+	set_process(is_flashing())
+
+
+func is_holding() -> bool:
+	return _hold_dir != 0
+
+
+#One slice of a held button: nothing before HOLD_DELAY, then one step per 1 / HOLD_RATE seconds.
+func step_hold(delta: float) -> void:
+	if _hold_dir == 0:
+		return
+	var before: float = _hold_time
+	_hold_time += delta
+	if _hold_time < HOLD_DELAY:
+		return
+	_hold_carry += (_hold_time - maxf(before, HOLD_DELAY)) * HOLD_RATE
+	while _hold_carry >= 1.0 and _hold_dir != 0:
+		_hold_carry -= 1.0
+		_hold_step()
+
+
+func _hold_step() -> void:
+	if _hold_dir > 0:
+		press_plus()
+	elif _hold_dir < 0:
+		press_minus()
+
+
+func _process(delta: float) -> void:
+	step_hold(delta)
+	step_flash(delta)
+	if _hold_dir == 0 and not is_flashing():
+		set_process(false)
+
+
+#The income number pulses FLASH_COUNT times inside the refusal window, for an income refusal only.
+func is_flashing() -> bool:
+	return _flash_left > 0.0
+
+
+func flash_phase() -> float:
+	if not is_flashing():
+		return 0.0
+	return fmod((1.0 - _flash_left / FLASH_SECONDS) * float(FLASH_COUNT), 1.0)
+
+
+func flash_scale() -> float:
+	return 1.0 + (FLASH_SCALE - 1.0) * sin(PI * flash_phase())
+
+
+func flash_glow() -> Color:
+	return Color.WHITE.lerp(GLOW, sin(PI * flash_phase()))
+
+
+func step_flash(seconds: float) -> void:
+	if not is_flashing():
+		return
+	_flash_left = maxf(0.0, _flash_left - maxf(0.0, seconds))
+	_apply_flash()
+	if not is_flashing():
+		_income.add_theme_color_override("font_color", income_color())
+
+
+func income_scale() -> float:
+	return _income.scale.x
+
+
+func income_glow() -> Color:
+	return _income.modulate
+
+
+func _apply_flash() -> void:
+	if _income == null:
+		return
+	_income.scale = Vector2.ONE * flash_scale()
+	_income.modulate = flash_glow()
 
 
 func press_plans() -> void:
@@ -202,6 +364,10 @@ func is_max() -> bool:
 	return tier() >= max_tier()
 
 
+func upgrade_ratio() -> float:
+	return float(tier()) / float(maxi(1, max_tier()))
+
+
 func tier_label_text() -> String:
 	return "Tier " + str(tier()) + " / " + str(max_tier())
 
@@ -231,11 +397,11 @@ func max_note_text() -> String:
 	return str(SubscriptionManager.upgrade_fee(_id)) + FEE_SUFFIX
 
 
-#The next 15th on the game calendar, as the first three letters of its month.
+#The next bill day on the game calendar: the first three letters of its month, then the day.
 func bill_date_text() -> String:
 	var ahead: int = SubscriptionManager.days_to_bill() * TrynnCalendar.MINUTES_PER_DAY
 	var date: Dictionary = TrynnCalendar.date_of(CampaignClock.now() + ahead)
-	return String(date.get("month_name", "")).substr(0, 3) + BILL_SUFFIX
+	return String(date.get("month_name", "")).substr(0, 3) + " " + TrynnCalendar.ordinal(SubscriptionManager.BILL_DAY)
 
 
 #What is left of the monthly income once every bill the guild holds now is paid.
@@ -246,7 +412,7 @@ func income_value() -> int:
 
 func income_color() -> Color:
 	var left: int = income_value()
-	if left < 0 or (is_rejecting() and _rej_kind == "up"):
+	if left < 0 or is_flashing():
 		return RED
 	if float(left) < float(SubscriptionManager.budget_available()) * WARN_MARGIN:
 		return BUDGET_YELLOW
@@ -371,9 +537,9 @@ func row_style(i: int) -> StyleBox:
 
 #Brightness of one chunk: flat until the upgrade is maxed, then the shared left to right sweep.
 func chunk_glow(i: int) -> float:
-	if not is_max() or _sweep.is_empty():
+	if not is_max():
 		return 1.0
-	return 1.0 + _sweep[i % _sweep.size()] * 0.9
+	return PulseClock.sweep_of(_sweep, i)
 
 
 func refresh() -> void:
@@ -384,19 +550,17 @@ func refresh() -> void:
 	_name.text = UpgradeDefs.name_of(_id)
 	_desc.text = String(UpgradeDefs.of(_id).get("desc", ""))
 	_tier_label.text = tier_label_text()
-	_today_amount.text = str(charge_today())
+	_today.text_override = str(charge_today())
 	_today.visible = not maxed
-	_monthly_amount.text = "+" + str(next_fee())
-	_monthly_suffix.text = MONTH_SUFFIX + bill_date_text()
+	_monthly.text_override = "+" + str(next_fee())
+	_monthly.suffix = MONTH_SUFFIX + bill_date_text()
 	_monthly.visible = not maxed
-	_max_note_amount.text = str(SubscriptionManager.upgrade_fee(_id))
+	_max_note.text_override = str(SubscriptionManager.upgrade_fee(_id))
 	_max_note.visible = maxed
 	_income.text = income_text()
 	_income.add_theme_color_override("font_color", income_color())
 	_in_use.text = in_use_text()
 	_in_use.visible = _in_use.text != ""
-	_reason_label.text = _reason
-	_reason_label.visible = _reason != ""
 	_plus.modulate = Color.WHITE
 	_minus.modulate = Color.WHITE
 	_plus.add_theme_color_override("font_color", INK)
@@ -423,10 +587,12 @@ func _on_pulse(_g: float, sweep: PackedFloat32Array) -> void:
 func _play(kind: String) -> void:
 	_rej_until = 0
 	_rej_kind = ""
+	_flash_left = 0.0
+	_apply_flash()
 	refresh()
 	var seconds: float = BAR_UP if kind == "up" else BAR_DOWN
 	var tween: Tween = create_tween()
-	tween.tween_property(_bar, "modulate", Color(1.4, 1.4, 1.4, 1.0), seconds * 0.25)
+	tween.tween_property(_bar, "modulate", GLOW, seconds * 0.25)
 	tween.tween_property(_bar, "modulate", Color.WHITE, seconds * 0.75)
 	var node: Button = _plus if kind == "up" else _minus
 	var pop: float = PLUS_POP if kind == "up" else MINUS_POP
@@ -436,18 +602,18 @@ func _play(kind: String) -> void:
 
 
 func _reject(kind: String) -> void:
+	hold_end()
 	_rej_kind = kind
 	_rej_until = Time.get_ticks_msec() + REJECT_MS
+	_flash_left = FLASH_SECONDS if kind == "up" and _reason == SubscriptionManager.INCOME_REASON else 0.0
+	_apply_flash()
+	set_process(is_flashing())
 	refresh()
+	GameSfx.play_reject()
 	var node: Button = _plus if kind == "up" else _minus
 	var tween: Tween = create_tween()
 	tween.tween_property(node, "modulate", RED, REJECT_FX * 0.5)
 	tween.tween_property(node, "modulate", Color.WHITE, REJECT_FX * 0.5)
-	if kind != "up":
-		return
-	var shake: Tween = create_tween()
-	shake.tween_property(_income, "modulate", Color(1.0, 0.6, 0.6, 1.0), SHAKE_FX * 0.5)
-	shake.tween_property(_income, "modulate", Color.WHITE, SHAKE_FX * 0.5)
 
 
 func _fill_rows(top: int) -> void:
@@ -528,12 +694,11 @@ func _build() -> void:
 	_bar.draw.connect(_draw_bar)
 	col.add_child(_bar)
 	col.add_child(_controls())
+	UiSfx.override_click(_plus, null)
+	UiSfx.override_click(_minus, null)
 	_in_use = _label("InUse", BODY_FONT, 13, RED)
 	_in_use.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_in_use)
-	_reason_label = _label("Reason", BODY_FONT, 13, RED)
-	_reason_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_reason_label)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "Tiers"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -545,16 +710,14 @@ func _build() -> void:
 	_rows.add_theme_constant_override("separation", 6)
 	scroll.add_child(_rows)
 	_rows.sort_children.connect(_on_rows_sorted)
-	var note: Label = _label("Note", BODY_FONT, 11, HEAD_COLOR)
-	note.text = NOTE_TEXT
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(note)
 	_plans = _nav_button("Plans", PLANS_TEXT, 11)
 	_plans.pressed.connect(press_plans)
 	col.add_child(_plans)
-	_exit = _nav_button("Exit", EXIT_TEXT, 12)
-	_exit.pressed.connect(press_close)
-	col.add_child(_exit)
+	_close = CloseX.make(CloseX.SCALE_WINDOW)
+	_close.name = "CloseX"
+	_close.tooltip_text = EXIT_TEXT
+	_close.pressed.connect(press_close)
+	CloseX.pin(_close, self, CloseX.SCALE_WINDOW, CLOSE_INSET)
 
 
 func _controls() -> HBoxContainer:
@@ -563,22 +726,29 @@ func _controls() -> HBoxContainer:
 	line.add_theme_constant_override("separation", GAP)
 	_minus = _button("Minus", "minus", MINUS_BG)
 	_minus.custom_minimum_size = BUTTON_BOX
-	_minus.pressed.connect(press_minus)
+	_minus.button_down.connect(hold_begin.bind(-1))
+	_minus.button_up.connect(hold_end)
 	line.add_child(_minus)
+	#A plain Control reports no child minimum, so a long fee line clips instead of widening the box.
+	var clip: Control = Control.new()
+	clip.name = "Clip"
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clip.custom_minimum_size = Vector2(0.0, BUTTON_BOX.y)
+	line.add_child(clip)
 	var middle: VBoxContainer = VBoxContainer.new()
 	middle.name = "Middle"
-	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	middle.set_anchors_preset(Control.PRESET_FULL_RECT)
+	middle.alignment = BoxContainer.ALIGNMENT_CENTER
 	middle.add_theme_constant_override("separation", 6)
-	line.add_child(middle)
-	_today = _money_line("Today", 13, CREAM, "", TODAY_SUFFIX)
-	_today_amount = _today.get_node("Amount") as Label
+	clip.add_child(middle)
+	_today = _money_line("Today", 13, CREAM, TODAY_SUFFIX)
 	middle.add_child(_today)
-	_monthly = _money_line("Monthly", 11, YELLOW, "", MONTH_SUFFIX)
-	_monthly_amount = _monthly.get_node("Amount") as Label
-	_monthly_suffix = _monthly.get_node("Suffix") as Label
+	_monthly = _money_line("Monthly", 11, YELLOW, MONTH_SUFFIX)
 	middle.add_child(_monthly)
-	_max_note = _money_line("MaxNote", 14, GREEN, MAX_TEXT + MAX_GAP, FEE_SUFFIX)
-	_max_note_amount = _max_note.get_node("Amount") as Label
+	_max_note = _money_line("MaxNote", 14, GREEN, FEE_SUFFIX)
+	_max_note.prefix = MAX_TEXT + MAX_GAP
 	middle.add_child(_max_note)
 	var income_line: HBoxContainer = HBoxContainer.new()
 	income_line.name = "Income"
@@ -588,10 +758,12 @@ func _controls() -> HBoxContainer:
 	tag.text = INCOME_LABEL
 	income_line.add_child(tag)
 	_income = _label("Value", BOLD_FONT, 11, GREEN)
+	_income.pivot_offset_ratio = Vector2(0.5, 0.5)
 	income_line.add_child(_income)
 	_plus = _button("Plus", "plus", PLUS_BG)
 	_plus.custom_minimum_size = BUTTON_BOX
-	_plus.pressed.connect(press_plus)
+	_plus.button_down.connect(hold_begin.bind(1))
+	_plus.button_up.connect(hold_end)
 	line.add_child(_plus)
 	return line
 
@@ -612,40 +784,25 @@ func _draw_bar() -> void:
 		var hi: Color = body.lightened(0.4) if on else CHUNK_OFF_HI
 		var lo: Color = body.darkened(0.35) if on else CHUNK_OFF_LO
 		var k: float = chunk_glow(i)
-		_bar.draw_rect(cell, _lit(body, k))
-		_bar.draw_rect(Rect2(at, Vector2(width, BEVEL)), _lit(hi, k))
+		_bar.draw_rect(cell, GuiColors.brighter(body, k))
+		_bar.draw_rect(Rect2(at, Vector2(width, BEVEL)), GuiColors.brighter(hi, k))
 		_bar.draw_rect(Rect2(at + Vector2(0.0, CHUNK_H - BEVEL), Vector2(width, BEVEL)),
-			_lit(lo, k))
+			GuiColors.brighter(lo, k))
 
 
-#One money line: an amount, the notes tile and the suffix, the way PlanSwitchDialog wires its fee.
-func _money_line(label: String, size_px: int, tint: Color, prefix: String,
-		suffix: String) -> HBoxContainer:
-	var line: HBoxContainer = HBoxContainer.new()
+#One money line in bold: an amount, the notes tile and the suffix.
+func _money_line(label: String, size_px: int, tint: Color, suffix: String) -> NotesLabel:
+	var line: NotesLabel = GuiStyle.notes(0, size_px, tint)
 	line.name = label
-	line.add_theme_constant_override("separation", 2)
-	if prefix != "":
-		var head: Label = _label("Prefix", BOLD_FONT, size_px, tint)
-		head.text = prefix
-		line.add_child(head)
-	line.add_child(_label("Amount", BOLD_FONT, size_px, tint))
-	var glyph: NoteIcon = NoteIcon.new()
-	glyph.name = "Glyph"
-	glyph.pixel_scale = GLYPH_SCALE
-	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(glyph)
-	var tail: Label = _label("Suffix", BOLD_FONT, size_px, tint)
-	tail.text = suffix
-	line.add_child(tail)
+	line.separation = 2
+	line.glyph_scale = GLYPH_SCALE
+	line.suffix = suffix
 	return line
 
 
 func _label(label: String, font: FontVariation, size_px: int, tint: Color) -> Label:
-	var out: Label = Label.new()
+	var out: Label = GuiStyle.label("", font, size_px, tint)
 	out.name = label
-	out.add_theme_font_override("font", font)
-	out.add_theme_font_size_override("font_size", size_px)
-	out.add_theme_color_override("font_color", tint)
 	return out
 
 
@@ -665,24 +822,13 @@ func _button(label: String, id: String, bg: Color) -> Button:
 	out.expand_icon = false
 	out.icon = Icons.baked(id, 2, Icons.MODE_PLAIN, true)
 	out.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	out.add_theme_color_override("icon_normal_color", Color("#f3ead7"))
-	out.add_theme_color_override("icon_hover_color", Color("#ffffff"))
-	out.add_theme_color_override("icon_pressed_color", Color("#0a0f1c"))
-	out.add_theme_color_override("icon_disabled_color", Color("#5e7699"))
+	out.add_theme_color_override("icon_normal_color", GuiColors.CREAM)
+	out.add_theme_color_override("icon_hover_color", Color.WHITE)
+	out.add_theme_color_override("icon_pressed_color", GuiColors.INK)
+	out.add_theme_color_override("icon_disabled_color", GuiColors.MUTED)
 	_tint(out, bg)
 	return out
 
 
 func _tint(node: Button, tint: Color) -> void:
-	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = tint
-	box.border_color = INK
-	box.set_border_width_all(2)
-	node.add_theme_stylebox_override("normal", box)
-	node.add_theme_stylebox_override("hover", box)
-	node.add_theme_stylebox_override("pressed", box)
-	node.add_theme_stylebox_override("disabled", box)
-
-
-func _lit(c: Color, k: float) -> Color:
-	return Color(minf(1.0, c.r * k), minf(1.0, c.g * k), minf(1.0, c.b * k), c.a)
+	GuiStyle.set_all_boxes(node, GuiStyle.flat(tint, 2, INK), [&"normal", &"hover", &"pressed", &"disabled"])

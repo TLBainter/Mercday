@@ -80,27 +80,32 @@ static func rival_skew(difficulty: float) -> int:
 	return maxi(1, int(floorf(OpponentGenerator.difficulty_factor(difficulty) * 2.0)))
 
 
-static func build_rivals(run: ContractRun, party: Array[MercenaryData]) -> Array[MercenaryData]:
-	var out: Array[MercenaryData] = []
-	if forced_rivals is Array:
-		out.assign(forced_rivals as Array)
-		return out
+#The request for one rolled rival team; the odds estimator picks rivals through the same request.
+static func rival_request(party: Array[MercenaryData], difficulty: float, contract_level: int, tag: String) -> OpponentRequest:
 	var config: ContractConfig = ContractLibrary.config()
-	if config == null:
-		config = ContractConfig.new()
-	var difficulty: float = run.difficulty() if run != null else 0.0
 	var req := OpponentRequest.new()
 	req.source = "Mercs"
 	req.count = -1
 	req.count_formula = config.rival_count_formula
 	req.party.assign(party)
 	req.difficulty = difficulty
-	if run != null and run.contract != null:
-		req.contract_level = run.contract.contract_level
+	req.contract_level = contract_level
 	req.tradition_odds = config.rival_tradition_odds
 	req.independent_traditions = true
-	req.tag = "Competition"
-	out.assign(OpponentGenerator.generate(req))
+	req.tag = tag
+	return req
+
+
+static func build_rivals(run: ContractRun, party: Array[MercenaryData]) -> Array[MercenaryData]:
+	var out: Array[MercenaryData] = []
+	if forced_rivals is Array:
+		out.assign(forced_rivals as Array)
+		return out
+	var difficulty: float = run.difficulty() if run != null else 0.0
+	var level: int = -1
+	if run != null and run.contract != null:
+		level = run.contract.contract_level
+	out.assign(OpponentGenerator.generate(rival_request(party, difficulty, level, "Competition")))
 	return out
 
 
@@ -334,10 +339,10 @@ static func _check_round(run: ContractRun, row: EventData, party: Array[Mercenar
 	var saved: Array = _skew_rivals(run, rivals)
 	var champ: MercenaryData = best_for(party, check_def)
 	var rival: MercenaryData = best_for(rivals, check_def)
-	var info: Dictionary = OverallSuccess.for_merc(run.contract, party, champ, row)
+	var info: Dictionary = OverallSuccess.for_merc(run.contract, party, champ, row, run.leader())
 	var delta: float = float(info["delta"])
 	run.emit(OverallSuccess.describe(champ, info))
-	champ.stats[OverallSuccess.STAT_KEY] = float(champ.stats.get(OverallSuccess.STAT_KEY, 0.0)) + delta
+	OverallSuccess.apply_delta(champ, delta)
 	var res: Dictionary = CheckSystem.opposed_check(champ, rival, check_def)
 	OverallSuccess.revert_event_delta({champ: delta})
 	_unskew_rivals(rivals, saved)

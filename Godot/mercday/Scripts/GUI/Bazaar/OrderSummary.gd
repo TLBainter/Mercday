@@ -33,7 +33,7 @@ var _reason: Label = null
 
 func _ready() -> void:
 	custom_minimum_size.x = PANEL_WIDTH
-	add_theme_stylebox_override("panel", BazaarUi.flat(BazaarUi.NAVY, 2, BazaarUi.BLUE, 12.0))
+	add_theme_stylebox_override("panel", GuiStyle.flat(GuiColors.ROW_FILL, 2, GuiColors.BLUE_LO, 12.0))
 	_build()
 	refresh()
 
@@ -85,8 +85,9 @@ func refresh() -> void:
 		BazaarManager.delivery_days(), GameState.day())
 	_notes_value.amount = GameState.bank_notes
 	_total_value.amount = total
+	_total_value.value_color = GuiColors.CREAM if after >= 0 else GuiColors.RED
 	_after_value.amount = after
-	_after_value.value_color = BazaarUi.GREEN if after >= 0 else BazaarUi.RED
+	_after_value.value_color = GuiColors.GREEN if after >= 0 else GuiColors.RED
 	var open: bool = BazaarManager.can_checkout()
 	_checkout.disabled = not open
 	_checkout.modulate.a = 1.0 if open else BazaarUi.DIM
@@ -95,46 +96,42 @@ func refresh() -> void:
 
 
 func _build() -> void:
-	_rows = BazaarUi.vbox(ROW_GAP)
+	_rows = GuiStyle.vbox(ROW_GAP)
 	add_child(_rows)
 	_rows.add_child(BazaarUi.heading(TITLE))
-	_items_label = BazaarUi.body("Items (0)", LABEL_SIZE, BazaarUi.SKY)
-	_items_value = BazaarUi.notes(0, VALUE_SIZE, BazaarUi.CREAM)
-	_rows.add_child(_pair(_items_label, _items_value))
-	_delivery_value = BazaarUi.body(DELIVERY_FREE, VALUE_SIZE, BazaarUi.GREEN)
-	_rows.add_child(_pair(BazaarUi.body("Delivery", LABEL_SIZE, BazaarUi.SKY), _delivery_value))
-	_arrives_value = BazaarUi.body(NO_ARRIVAL, LABEL_SIZE, BazaarUi.CREAM)
+	_items_label = GuiStyle.label("Items (0)", GuiStyle.BODY, LABEL_SIZE, GuiColors.SKY)
+	_items_value = GuiStyle.notes(0, VALUE_SIZE, GuiColors.CREAM)
+	_rows.add_child(BazaarUi.pair_row(_items_label, _items_value))
+	_delivery_value = GuiStyle.label(DELIVERY_FREE, GuiStyle.BODY, VALUE_SIZE, GuiColors.GREEN)
+	_rows.add_child(BazaarUi.pair_row(
+		GuiStyle.label("Delivery", GuiStyle.BODY, LABEL_SIZE, GuiColors.SKY), _delivery_value))
+	_arrives_value = GuiStyle.label(NO_ARRIVAL, GuiStyle.BODY, LABEL_SIZE, GuiColors.CREAM)
 	_arrives_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_arrives_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_rows.add_child(_pair(BazaarUi.body("Arrives", LABEL_SIZE, BazaarUi.SKY), _arrives_value))
-	_notes_value = BazaarUi.notes(0, VALUE_SIZE, BazaarUi.CREAM)
-	_rows.add_child(_pair(BazaarUi.body("Your Notes", LABEL_SIZE, BazaarUi.SKY), _notes_value))
+	_rows.add_child(BazaarUi.pair_row(
+		GuiStyle.label("Arrives", GuiStyle.BODY, LABEL_SIZE, GuiColors.SKY), _arrives_value))
+	_notes_value = GuiStyle.notes(0, VALUE_SIZE, GuiColors.CREAM)
+	_rows.add_child(BazaarUi.pair_row(
+		GuiStyle.label("Your Notes", GuiStyle.BODY, LABEL_SIZE, GuiColors.SKY), _notes_value))
 	var line: Panel = Panel.new()
 	line.custom_minimum_size.y = 2.0
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	line.add_theme_stylebox_override("panel", BazaarUi.flat(BazaarUi.BLUE, 0, BazaarUi.BLUE))
+	line.add_theme_stylebox_override("panel",
+		GuiStyle.flat(GuiColors.BLUE_LO, 0, GuiColors.BLUE_LO, 0.0))
 	_rows.add_child(line)
-	_total_value = BazaarUi.notes(0, TOTAL_SIZE, BazaarUi.ORANGE)
+	_total_value = GuiStyle.notes(0, TOTAL_SIZE, GuiColors.ORANGE)
 	_total_value.bold = true
-	_rows.add_child(_pair(BazaarUi.silk(TOTAL_LABEL, LABEL_SIZE, BazaarUi.CREAM), _total_value))
-	_after_value = BazaarUi.notes(0, VALUE_SIZE, BazaarUi.GREEN)
-	_rows.add_child(_pair(BazaarUi.body(AFTER_LABEL, LABEL_SIZE, BazaarUi.SKY), _after_value))
-	_checkout = BazaarUi.button(CHECKOUT_TEXT, &"ButtonGo", CHECKOUT_HEIGHT, 11)
+	_rows.add_child(BazaarUi.pair_row(
+		GuiStyle.label(TOTAL_LABEL, GuiStyle.SILK, LABEL_SIZE, GuiColors.CREAM), _total_value))
+	_after_value = GuiStyle.notes(0, VALUE_SIZE, GuiColors.GREEN)
+	_rows.add_child(BazaarUi.pair_row(
+		GuiStyle.label(AFTER_LABEL, GuiStyle.BODY, LABEL_SIZE, GuiColors.SKY), _after_value))
+	_checkout = BazaarUi.button(CHECKOUT_TEXT, &"go", CHECKOUT_HEIGHT, 11)
 	_checkout.pressed.connect(_on_checkout_pressed)
 	_rows.add_child(_checkout)
-	_reason = BazaarUi.body("", REASON_SIZE, BazaarUi.RED)
+	_reason = GuiStyle.label("", GuiStyle.BODY, REASON_SIZE, GuiColors.RED)
 	_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rows.add_child(_reason)
-
-
-func _pair(left: Control, right: Control) -> HBoxContainer:
-	var row: HBoxContainer = BazaarUi.hbox(8)
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(left)
-	row.add_child(right)
-	return row
 
 
 func _on_checkout_pressed() -> void:

@@ -1,9 +1,9 @@
 class_name JumpTableTests
 extends RefCounted
 
-#Shared jump landing table: PathCost.jump_dests must match a live rebuild of the old loop on a city
+#Shared jump landing table: PathJump.jump_dests must match a live rebuild of the old loop on a city
 #map and on an interior map, the table must grow with the range, and bump_path_version must clear it.
-#CityGenTests.run_cases calls run_cases.
+#CityTests.run() calls run_cases.
 
 const CITY_TIER := "Small"
 const CITY_SEED := 7501
@@ -12,7 +12,6 @@ const CITY_STRIDE := 7
 const CITY_CAP := 400
 const INTERIOR_SEED := 7502
 const INTERIOR_CAP := 600
-const TAVERN := "Tavern"
 const CITY_REQUESTS: Array[Array] = [[4, 3], [1, 0], [2, 2], [3, 1], [4, 1]]
 const INTERIOR_REQUESTS: Array[Array] = [[1, 1], [4, 3], [2, 0]]
 const GROW_RANGE := 4
@@ -20,18 +19,11 @@ const GROW_RANGE := 4
 
 static func run_cases(res: Dictionary) -> void:
 	_case_city(res)
-	var interior: BattlefieldArea = _interior_map()
+	var interior: BattlefieldArea = TestFixtures.seeded_tavern(INTERIOR_SEED)
 	_case_interior(res, interior)
 	_case_grows(res, interior)
 	_case_door_kept(res, interior)
 	_case_cleared(res, interior)
-
-
-static func _interior_map() -> BattlefieldArea:
-	seed(INTERIOR_SEED)
-	var ctx := GenerationContext.new()
-	var area_data: Dictionary = DataManager.get_area_by_name(TAVERN)
-	return BattlefieldArea.generate_random(null, ctx, String(area_data.get("type", "Interior")), area_data)
 
 
 #Floors of the map: floor 0 plus every interior floor above it, in order.
@@ -76,19 +68,19 @@ static func _reference(field: BattlefieldArea, cell: Vector3i, jump_range: int, 
 			if cdist == 0 or cdist > jump_range:
 				continue
 			var jcell := Vector3i(cell.x + dx, cell.y + dy, cell.z)
-			var kind := PathCost.jump_dest_kind(jcell, field, merc_size)
-			if kind == PathCost.JUMP_DEST_NONE:
+			var kind := PathJump.jump_dest_kind(jcell, field, merc_size)
+			if kind == PathJump.JUMP_DEST_NONE:
 				continue
 			var h_cost := int(ceil(maxf(0.0,
 				field.cell_base_elevation(Vector2i(jcell.x, jcell.y), jcell.z) - cell_h)))
 			if cdist + h_cost > jump_range:
 				continue
-			if PathCost.leap_wall_blocked(field, cell, jcell):
+			if PathJump.leap_wall_blocked(field, cell, jcell):
 				continue
 			var door: Dictionary = {}
-			if kind == PathCost.JUMP_DEST_DOOR:
+			if kind == PathJump.JUMP_DEST_DOOR:
 				door = field.get_obs(Vector2i(jcell.x, jcell.y), jcell.z)
-			out.append([jcell, cdist + h_cost, door, PathCost.leap_doors(field, cell, jcell)])
+			out.append([jcell, cdist + h_cost, door, PathJump.leap_doors(field, cell, jcell)])
 	return out
 
 
@@ -128,7 +120,7 @@ static func _compare(field: BattlefieldArea, cells: Array[Vector3i],
 		var jump_range: int = req[0]
 		var merc_size: int = req[1]
 		for cell: Vector3i in cells:
-			var got: Array = PathCost.jump_dests(field, cell, jump_range, merc_size)
+			var got: Array = PathJump.jump_dests(field, cell, jump_range, merc_size)
 			var want: Array = _reference(field, cell, jump_range, merc_size)
 			rows += want.size()
 			if not _same(got, want):
@@ -184,8 +176,8 @@ static func _case_grows(res: Dictionary, field: BattlefieldArea) -> void:
 	if pick.z < 0:
 		return
 	field.bump_path_version()
-	var near: Array = PathCost.jump_dests(field, pick, 1, 0)
-	var far: Array = PathCost.jump_dests(field, pick, GROW_RANGE, 0)
+	var near: Array = PathJump.jump_dests(field, pick, 1, 0)
+	var far: Array = PathJump.jump_dests(field, pick, GROW_RANGE, 0)
 	var entry: Array = field.jump_geom[pick]
 	var bad: Array[String] = []
 	if (entry[0] as int) != GROW_RANGE:
@@ -205,7 +197,7 @@ static func _case_door_kept(res: Dictionary, field: BattlefieldArea) -> void:
 	var pick: Vector3i = _pick_cell(res, field, "jumptable_door_kept")
 	if pick.z < 0:
 		return
-	PathCost.jump_dests(field, pick, GROW_RANGE, 0)
+	PathJump.jump_dests(field, pick, GROW_RANGE, 0)
 	var geom_before: int = field.jump_geom.size()
 	var path_before: int = field.path_version
 	var door_before: int = field.door_version

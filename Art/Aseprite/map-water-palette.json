@@ -1,0 +1,388 @@
+{
+ "description": "Water color layer palette. Every water pixel of the Water Color layer (sea, lake and river water) is exactly one of these colors. Land pixels are transparent. Icy / Murky / Violet classes are tinted variants of Deep sea, Sea, Shallows and Lake: Icy near snow coasts, Murky near swamp, Violet off the west coast of the Corrupted Lands (rocky coast between the fjord and Buern) and in the rivers, cove shallows and coast waters of Cyfrolaef, including its reef band (Violet reef).",
+ "layer": "Water Color",
+ "classes": [
+  {
+   "id": 0,
+   "name": "Deep sea",
+   "light": "#4d617e",
+   "base": "#263e62",
+   "dark": "#1e304c"
+  },
+  {
+   "id": 1,
+   "name": "Sea",
+   "light": "#5d7998",
+   "base": "#3a5c82",
+   "dark": "#2d4865"
+  },
+  {
+   "id": 2,
+   "name": "Shallows",
+   "light": "#83aec0",
+   "base": "#689cb2",
+   "dark": "#517a8b"
+  },
+  {
+   "id": 3,
+   "name": "Lake",
+   "light": "#6297a1",
+   "base": "#40808c",
+   "dark": "#32646d"
+  },
+  {
+   "id": 4,
+   "name": "Surf",
+   "light": "#cadddd",
+   "base": "#bed6d6",
+   "dark": "#94a7a7"
+  },
+  {
+   "id": 5,
+   "name": "Reef",
+   "light": "#6e9490",
+   "base": "#4e7c78",
+   "dark": "#3d615e"
+  },
+  {
+   "id": 6,
+   "name": "Marsh",
+   "light": "#7e9779",
+   "base": "#62805c",
+   "dark": "#4c6448"
+  },
+  {
+   "id": 7,
+   "name": "Icy deep sea",
+   "light": "#8097af",
+   "base": "#64809d",
+   "dark": "#4e647b"
+  },
+  {
+   "id": 8,
+   "name": "Murky deep sea",
+   "light": "#62766e",
+   "base": "#3f584e",
+   "dark": "#31453d"
+  },
+  {
+   "id": 9,
+   "name": "Violet deep sea",
+   "light": "#7d6aa6",
+   "base": "#604992",
+   "dark": "#4b3972"
+  },
+  {
+   "id": 10,
+   "name": "Icy sea",
+   "light": "#89a4bd",
+   "base": "#6f90af",
+   "dark": "#577088"
+  },
+  {
+   "id": 11,
+   "name": "Murky sea",
+   "light": "#69817a",
+   "base": "#48665d",
+   "dark": "#384f48"
+  },
+  {
+   "id": 12,
+   "name": "Violet sea",
+   "light": "#8373b0",
+   "base": "#68559f",
+   "dark": "#51427c"
+  },
+  {
+   "id": 13,
+   "name": "Icy shallows",
+   "light": "#9ec1d3",
+   "base": "#88b3c9",
+   "dark": "#6a8c9d"
+  },
+  {
+   "id": 14,
+   "name": "Murky shallows",
+   "light": "#7a998c",
+   "base": "#5d8372",
+   "dark": "#496659"
+  },
+  {
+   "id": 15,
+   "name": "Violet shallows",
+   "light": "#9187bf",
+   "base": "#796db1",
+   "dark": "#5f558a"
+  },
+  {
+   "id": 16,
+   "name": "Icy lake",
+   "light": "#8cb4c2",
+   "base": "#72a4b4",
+   "dark": "#59808d"
+  },
+  {
+   "id": 17,
+   "name": "Murky lake",
+   "light": "#6b8f7e",
+   "base": "#4b7661",
+   "dark": "#3a5c4c"
+  },
+  {
+   "id": 18,
+   "name": "Violet lake",
+   "light": "#857eb3",
+   "base": "#6a62a2",
+   "dark": "#534d7f"
+  },
+  {
+   "id": 19,
+   "name": "Violet reef",
+   "light": "#897dad",
+   "base": "#6f619b",
+   "dark": "#574b79"
+  }
+ ],
+ "lookup": {
+  "#4d617e": {
+   "class": "Deep sea",
+   "tone": "light"
+  },
+  "#263e62": {
+   "class": "Deep sea",
+   "tone": "base"
+  },
+  "#1e304c": {
+   "class": "Deep sea",
+   "tone": "dark"
+  },
+  "#5d7998": {
+   "class": "Sea",
+   "tone": "light"
+  },
+  "#3a5c82": {
+   "class": "Sea",
+   "tone": "base"
+  },
+  "#2d4865": {
+   "class": "Sea",
+   "tone": "dark"
+  },
+  "#83aec0": {
+   "class": "Shallows",
+   "tone": "light"
+  },
+  "#689cb2": {
+   "class": "Shallows",
+   "tone": "base"
+  },
+  "#517a8b": {
+   "class": "Shallows",
+   "tone": "dark"
+  },
+  "#6297a1": {
+   "class": "Lake",
+   "tone": "light"
+  },
+  "#40808c": {
+   "class": "Lake",
+   "tone": "base"
+  },
+  "#32646d": {
+   "class": "Lake",
+   "tone": "dark"
+  },
+  "#cadddd": {
+   "class": "Surf",
+   "tone": "light"
+  },
+  "#bed6d6": {
+   "class": "Surf",
+   "tone": "base"
+  },
+  "#94a7a7": {
+   "class": "Surf",
+   "tone": "dark"
+  },
+  "#6e9490": {
+   "class": "Reef",
+   "tone": "light"
+  },
+  "#4e7c78": {
+   "class": "Reef",
+   "tone": "base"
+  },
+  "#3d615e": {
+   "class": "Reef",
+   "tone": "dark"
+  },
+  "#7e9779": {
+   "class": "Marsh",
+   "tone": "light"
+  },
+  "#62805c": {
+   "class": "Marsh",
+   "tone": "base"
+  },
+  "#4c6448": {
+   "class": "Marsh",
+   "tone": "dark"
+  },
+  "#8097af": {
+   "class": "Icy deep sea",
+   "tone": "light"
+  },
+  "#64809d": {
+   "class": "Icy deep sea",
+   "tone": "base"
+  },
+  "#4e647b": {
+   "class": "Icy deep sea",
+   "tone": "dark"
+  },
+  "#62766e": {
+   "class": "Murky deep sea",
+   "tone": "light"
+  },
+  "#3f584e": {
+   "class": "Murky deep sea",
+   "tone": "base"
+  },
+  "#31453d": {
+   "class": "Murky deep sea",
+   "tone": "dark"
+  },
+  "#7d6aa6": {
+   "class": "Violet deep sea",
+   "tone": "light"
+  },
+  "#604992": {
+   "class": "Violet deep sea",
+   "tone": "base"
+  },
+  "#4b3972": {
+   "class": "Violet deep sea",
+   "tone": "dark"
+  },
+  "#89a4bd": {
+   "class": "Icy sea",
+   "tone": "light"
+  },
+  "#6f90af": {
+   "class": "Icy sea",
+   "tone": "base"
+  },
+  "#577088": {
+   "class": "Icy sea",
+   "tone": "dark"
+  },
+  "#69817a": {
+   "class": "Murky sea",
+   "tone": "light"
+  },
+  "#48665d": {
+   "class": "Murky sea",
+   "tone": "base"
+  },
+  "#384f48": {
+   "class": "Murky sea",
+   "tone": "dark"
+  },
+  "#8373b0": {
+   "class": "Violet sea",
+   "tone": "light"
+  },
+  "#68559f": {
+   "class": "Violet sea",
+   "tone": "base"
+  },
+  "#51427c": {
+   "class": "Violet sea",
+   "tone": "dark"
+  },
+  "#9ec1d3": {
+   "class": "Icy shallows",
+   "tone": "light"
+  },
+  "#88b3c9": {
+   "class": "Icy shallows",
+   "tone": "base"
+  },
+  "#6a8c9d": {
+   "class": "Icy shallows",
+   "tone": "dark"
+  },
+  "#7a998c": {
+   "class": "Murky shallows",
+   "tone": "light"
+  },
+  "#5d8372": {
+   "class": "Murky shallows",
+   "tone": "base"
+  },
+  "#496659": {
+   "class": "Murky shallows",
+   "tone": "dark"
+  },
+  "#9187bf": {
+   "class": "Violet shallows",
+   "tone": "light"
+  },
+  "#796db1": {
+   "class": "Violet shallows",
+   "tone": "base"
+  },
+  "#5f558a": {
+   "class": "Violet shallows",
+   "tone": "dark"
+  },
+  "#8cb4c2": {
+   "class": "Icy lake",
+   "tone": "light"
+  },
+  "#72a4b4": {
+   "class": "Icy lake",
+   "tone": "base"
+  },
+  "#59808d": {
+   "class": "Icy lake",
+   "tone": "dark"
+  },
+  "#6b8f7e": {
+   "class": "Murky lake",
+   "tone": "light"
+  },
+  "#4b7661": {
+   "class": "Murky lake",
+   "tone": "base"
+  },
+  "#3a5c4c": {
+   "class": "Murky lake",
+   "tone": "dark"
+  },
+  "#857eb3": {
+   "class": "Violet lake",
+   "tone": "light"
+  },
+  "#6a62a2": {
+   "class": "Violet lake",
+   "tone": "base"
+  },
+  "#534d7f": {
+   "class": "Violet lake",
+   "tone": "dark"
+  },
+  "#897dad": {
+   "class": "Violet reef",
+   "tone": "light"
+  },
+  "#6f619b": {
+   "class": "Violet reef",
+   "tone": "base"
+  },
+  "#574b79": {
+   "class": "Violet reef",
+   "tone": "dark"
+  }
+ }
+}

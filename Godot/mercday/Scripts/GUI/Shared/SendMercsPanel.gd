@@ -1,4 +1,4 @@
-class_name SendMercsPanel extends PanelContainer
+class_name SendMercsPanel extends CrewPanel
 
 #Left column of an Odd Job crew: a titled dark panel of EnvoySlot rows, or one centred
 #FeatureLock when the Odd Jobs feature itself is locked for the guild's plan.
@@ -8,9 +8,7 @@ signal remove_pressed(index: int)
 signal take_me_there(target: Dictionary)
 
 const ENVOY_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/EnvoySlot.tscn")
-const TITLE_COLOR: Color = Color("#f28c28")
 const SLOT_GAP: int = 10
-const FONT_REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
 
 @export var locked: bool = false:
 	set(v):
@@ -26,7 +24,6 @@ const FONT_REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/Sil
 		_apply_tip()
 
 @onready var rows: VBoxContainer = $Rows
-@onready var title_label: Label = $Rows/Title
 @onready var slots_row: HBoxContainer = $Rows/SlotsRow
 @onready var lock_wrap: CenterContainer = $Rows/LockWrap
 @onready var lock: FeatureLock = $Rows/LockWrap/FeatureLock
@@ -35,11 +32,8 @@ var _slots: Array[EnvoySlot] = []
 
 
 func _ready() -> void:
-	add_theme_stylebox_override(&"panel", _panel_style())
+	super()
 	title_label.text = "Send Mercs"
-	title_label.add_theme_font_override(&"font", FONT_REGULAR)
-	title_label.add_theme_font_size_override(&"font_size", 11)
-	title_label.add_theme_color_override(&"font_color", TITLE_COLOR)
 	slots_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	slots_row.add_theme_constant_override(&"separation", SLOT_GAP)
 	lock.feature = "Odd Jobs"
@@ -60,9 +54,7 @@ func _ready() -> void:
 
 
 func set_slots(rows_in: Array[Dictionary]) -> void:
-	for child: Node in slots_row.get_children():
-		slots_row.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(slots_row)
 	_slots.clear()
 	for row: Dictionary in rows_in:
 		var envoy: EnvoySlot = ENVOY_SCENE.instantiate() as EnvoySlot
@@ -107,8 +99,3 @@ func _refresh_lock() -> void:
 		return
 	slots_row.visible = not locked
 	lock_wrap.visible = locked
-
-
-func _panel_style() -> StyleBoxFlat:
-	var path: String = "res://Resources/GUI/Theme/Styles/crew_panel_dark.tres"
-	return (load(path) as StyleBoxFlat).duplicate() as StyleBoxFlat

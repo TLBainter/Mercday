@@ -9,8 +9,7 @@ class_name ActionData extends Resource
 @export var is_reactive: bool = false
 @export var trigger: String = ""
 @export_enum("pass", "special", "attack", "move", "draw", "climb", "jump") var execution_type: String = "special"
-@export_enum("none", "current_or_best", "nearest_enemy", "nearest_ally", "mover", "strategic_advance") var target_mode: String = "none"
-@export var move_stop_dist: int = -1  ## -1 = auto (stops at weapon range); >=0 overrides stop distance
+@export_enum("none", "current_or_best", "nearest_enemy", "mover", "strategic_advance") var target_mode: String = "none"
 @export var draw_from_inventory: bool = false
 @export var snap_require: Dictionary = {}
 @export var decision: DecisionData
@@ -47,8 +46,6 @@ func to_decision_dict(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
 	}
 	if execution_type == "move":
 		result["flank_ally"] = null
-		if move_stop_dist >= 0:
-			result["move_stop_dist"] = move_stop_dist
 		_add_move_plan(result, merc, ctx)
 	if draw_from_inventory:
 		result["weapon"] = _resolve_draw_weapon(merc)
@@ -86,16 +83,6 @@ func _resolve_target(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
 					best_score = score
 					nearest = enemy
 			return nearest
-		"nearest_ally":
-			var state: BattleState = ctx["state"]
-			var nearest_ally: MercenaryData = null
-			var best_d := INF
-			for ally: MercenaryData in ctx.get("allies", []):
-				var d := float(state.distance_to(merc, ally))
-				if d < best_d:
-					best_d = d
-					nearest_ally = ally
-			return nearest_ally
 		"mover":
 			return ctx.get("mover")
 		"strategic_advance":

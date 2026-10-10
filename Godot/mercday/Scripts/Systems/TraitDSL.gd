@@ -1,10 +1,14 @@
 class_name TraitDSL
 
+#max_ spellings that name a Stats.tsv row instead of a core maximum
+const MAX_STAT_ALIASES: Dictionary = {
+	"max_hp": "maximum_hit_points",
+	"max_ep": "maximum_endurance_points",
+	"max_mp": "maximum_magic_points",
+}
+
 #Tokens already reported this run; keeps one dead token from warning once per merc
 static var _warned_tokens: Dictionary = {}
-
-#The only max_ keys StatCalculator reads; every other max_ key is unread
-const CORE_MAX_KEYS: PackedStringArray = ["max_vigor", "max_dexterity", "max_cognition", "max_wile"]
 
 #Prefixes owned by combat, contract or perk code; generation skips them without a warning
 const RUNTIME_PREFIXES: PackedStringArray = [
@@ -56,9 +60,9 @@ static func apply_dsl_to_merc(merc: MercenaryData, dsl: String, source_name: Str
 		elif t.begins_with("grant:random:tool:"):
 			_tok_grant_random_tool(merc, t)
 		elif t.begins_with("grant:random:environ_stat:"):
-			_tok_grant_random_environ_stat(merc, t)
+			_grant_random_pool_stat(merc, t, DataManager.environment_types)
 		elif t.begins_with("grant:random:creature_stat:"):
-			_tok_grant_random_creature_stat(merc, t)
+			_grant_random_pool_stat(merc, t, DataManager.creature_types)
 		elif t.begins_with("stat:circumstance_boost:"):
 			_tok_stat_circumstance_boost(merc, t)
 		elif t.begins_with("stat:random:core_stat_max:"):
@@ -96,13 +100,12 @@ static func _tok_stat_max(merc: MercenaryData, t: String) -> void:
 	var parts: PackedStringArray = t.split(":")
 	if parts.size() == 3:
 		var stat_key: String = parts[1]
-		var val_str: String = parts[2]
-		var op: int = 1 if val_str.begins_with("+") else -1
-		var amount: int = int(val_str.substr(1)) * op
-		if MercGenerator.MAX_STAT_ALIASES.has(stat_key):
-			StatCalculator.add_flat(merc, MercGenerator.MAX_STAT_ALIASES[stat_key] as String, float(amount))
+		var amount: int = _signed_int(parts[2])
+		if MAX_STAT_ALIASES.has(stat_key):
+			StatCalculator.add_flat(merc, MAX_STAT_ALIASES[stat_key] as String, float(amount))
 		else:
-			if not CORE_MAX_KEYS.has(stat_key):
+			#StatCalculator reads only the core max_ keys
+			if not TraitRuntime.CORE_STATS.has(stat_key.trim_prefix("max_")):
 				warn_token_once(t, "writes a max_stats key that nothing reads")
 			merc.max_stats[stat_key] = (merc.max_stats.get(stat_key, 0) as int) + amount
 
@@ -133,10 +136,7 @@ static func _tok_block_random_circumstance(merc: MercenaryData, t: String) -> vo
 	var parts: PackedStringArray = t.split(":")
 	if parts.size() == 5:
 		var count: int = int(parts[4])
-		var candidates: Array[String] = []
-		for d: String in ConstCircumstances.ALL:
-			if not merc.blocked_circumstances.has(d) and not merc.circumstance_flags.get(d, false):
-				candidates.append(d)
+		var candidates: Array[String] = available_circumstances(merc, ConstCircumstances.ALL)
 		candidates.shuffle()
 		for i: int in range(mini(count, candidates.size())):
 			merc.blocked_circumstances.append(candidates[i])
@@ -152,10 +152,7 @@ static func _tok_block_circumstance(merc: MercenaryData, t: String) -> void:
 		if merc.circumstance_flags.get(display, false):
 			merc.circumstance_flags[display] = false
 			if do_replace:
-				var available: Array[String] = []
-				for d: String in ConstCircumstances.ALL:
-					if not merc.blocked_circumstances.has(d) and not merc.circumstance_flags.get(d, false):
-						available.append(d)
+				var available: Array[String] = available_circumstances(merc, ConstCircumstances.ALL)
 				if not available.is_empty():
 					available.shuffle()
 					merc.circumstance_flags[available[0]] = true
@@ -181,14 +178,10 @@ static func _tok_grant_random_bloodline_traits(merc: MercenaryData, t: String) -
 			bl_names.shuffle()
 			var bl: AncestryData = DataManager.bloodlines.get(bl_names[0], null) as AncestryData
 			if bl:
-				for trait_name: String in bl.perks:
+				for trait_name: String in bl.perks + bl.drawbacks:
 					var td: TraitData = lookup_trait(trait_name)
 					if td:
-						MercGenerator.assign_trait(merc, td)
-				for trait_name: String in bl.drawbacks:
-					var td: TraitData = lookup_trait(trait_name)
-					if td:
-						MercGenerator.assign_trait(merc, td)
+						assign_trait(merc, td)
 
 
 static func _tok_grant_knowledge(merc: MercenaryData, t: String) -> void:
@@ -196,14 +189,8 @@ static func _tok_grant_knowledge(merc: MercenaryData, t: String) -> void:
 	var k_data: UtilityTraitData = _find_knowledge(k_name)
 	if k_data == null:
 		warn_token_once(t, "has no Knowledges and Tools row")
-	else:
-		var already: bool = false
-		for k: UtilityTraitData in merc.knowledges:
-			if k.utility_name == k_data.utility_name:
-				already = true
-				break
-		if not already:
-			merc.knowledges.append(k_data)
+	elif not _holds_utility(merc.knowledges, k_data):
+		merc.knowledges.append(k_data)
 
 
 static func _tok_grant_circumstance(merc: MercenaryData, t: String) -> void:
@@ -217,7 +204,7 @@ static func _tok_grant_trait(merc: MercenaryData, t: String) -> void:
 	var trait_name: String = t.substr("grant:trait:".length()).strip_edges()
 	var td: TraitData = lookup_trait(trait_name)
 	if td:
-		MercGenerator.assign_trait(merc, td)
+		assign_trait(merc, td)
 
 
 static func _tok_grant_random_circumstance(merc: MercenaryData, t: String) -> void:
@@ -237,19 +224,15 @@ static func _tok_grant_random_circumstance(merc: MercenaryData, t: String) -> vo
 		#grant:random:circumstance:<stat_or_name_filter>:<n>
 		count = int(parts[4])
 		var filter: String = parts[3].to_lower()
-		var core_stats: Array[String] = ["vigor", "dexterity", "cognition", "wile"]
 		for d: String in ConstCircumstances.ALL:
 			var circ_data: Dictionary = ConstCircumstances.DATA[d] as Dictionary
-			if core_stats.has(filter):
+			if TraitRuntime.CORE_STATS.has(filter):
 				if (circ_data.get("stat", "") as String).to_lower() == filter:
 					pool.append(d)
 			else:
 				if (circ_data.get("circumstance_name", "") as String).to_lower() == filter:
 					pool.append(d)
-	var available: Array[String] = []
-	for d: String in pool:
-		if not merc.blocked_circumstances.has(d) and not merc.circumstance_flags.get(d, false):
-			available.append(d)
+	var available: Array[String] = available_circumstances(merc, pool)
 	available.shuffle()
 	for i: int in range(mini(count, available.size())):
 		merc.circumstance_flags[available[i]] = true
@@ -288,14 +271,10 @@ static func _tok_grant_random_lifepath(merc: MercenaryData, t: String) -> void:
 	for i: int in range(mini(count, candidates.size())):
 		var granted_lp: LifepathData = candidates[i]
 		merc.lifepaths.append(granted_lp)
-		for trait_name: String in granted_lp.perks:
+		for trait_name: String in LifepathProgression.trait_names(granted_lp):
 			var td: TraitData = lookup_trait(trait_name)
 			if td:
-				MercGenerator.assign_trait(merc, td)
-		for trait_name: String in granted_lp.drawbacks:
-			var td: TraitData = lookup_trait(trait_name)
-			if td:
-				MercGenerator.assign_trait(merc, td)
+				assign_trait(merc, td)
 
 
 static func _tok_grant_random_knowledge(merc: MercenaryData, t: String) -> void:
@@ -315,12 +294,7 @@ static func _tok_grant_random_knowledge(merc: MercenaryData, t: String) -> void:
 				candidates.append(k)
 	var available_k: Array[UtilityTraitData] = []
 	for k: UtilityTraitData in candidates:
-		var already: bool = false
-		for held: UtilityTraitData in merc.knowledges:
-			if held.utility_name == k.utility_name:
-				already = true
-				break
-		if not already:
+		if not _holds_utility(merc.knowledges, k):
 			available_k.append(k)
 	available_k.shuffle()
 	for i: int in range(mini(count, available_k.size())):
@@ -345,53 +319,31 @@ static func _tok_grant_random_tool(merc: MercenaryData, t: String) -> void:
 					break
 	var available_t: Array[UtilityTraitData] = []
 	for tool_data: UtilityTraitData in candidates:
-		var already: bool = false
-		for held: UtilityTraitData in merc.tools:
-			if held.utility_name == tool_data.utility_name:
-				already = true
-				break
-		if not already:
+		if not _holds_utility(merc.tools, tool_data):
 			available_t.append(tool_data)
 	available_t.shuffle()
 	for i: int in range(mini(count, available_t.size())):
 		merc.tools.append(available_t[i])
 
 
-static func _tok_grant_random_environ_stat(merc: MercenaryData, t: String) -> void:
+#grant:random:environ_stat or creature_stat:<n>:<value>; n shuffled pool entries each gain the value as a flat stat.
+static func _grant_random_pool_stat(merc: MercenaryData, t: String, pool: Array) -> void:
 	var parts: PackedStringArray = t.split(":")
 	if parts.size() == 5:
 		var count: int = int(parts[3])
-		var val_str: String = parts[4]
-		var op: float = 1.0 if val_str.begins_with("+") else -1.0
-		var amount: float = float(val_str.substr(1)) * op
-		var env_pool: Array = DataManager.environment_types.duplicate()
-		env_pool.shuffle()
-		for i: int in range(mini(count, env_pool.size())):
-			var env_key: String = (env_pool[i] as String).to_lower().replace(" ", "_")
-			StatCalculator.add_flat(merc, env_key, amount)
-
-
-static func _tok_grant_random_creature_stat(merc: MercenaryData, t: String) -> void:
-	var parts: PackedStringArray = t.split(":")
-	if parts.size() == 5:
-		var count: int = int(parts[3])
-		var val_str: String = parts[4]
-		var op: float = 1.0 if val_str.begins_with("+") else -1.0
-		var amount: float = float(val_str.substr(1)) * op
-		var cr_pool: Array = DataManager.creature_types.duplicate()
-		cr_pool.shuffle()
-		for i: int in range(mini(count, cr_pool.size())):
-			var cr_key: String = (cr_pool[i] as String).to_lower().replace(" ", "_")
-			StatCalculator.add_flat(merc, cr_key, amount)
+		var amount: float = _signed_float(parts[4])
+		var picks: Array = pool.duplicate()
+		picks.shuffle()
+		for i: int in range(mini(count, picks.size())):
+			var stat_key: String = (picks[i] as String).to_lower().replace(" ", "_")
+			StatCalculator.add_flat(merc, stat_key, amount)
 
 
 static func _tok_stat_circumstance_boost(merc: MercenaryData, t: String) -> void:
 	var parts: PackedStringArray = t.split(":")
 	if parts.size() == 4:
 		var targets: Array[String] = _resolve_circumstance_key(parts[2])
-		var val_str: String = parts[3]
-		var op: float = 1.0 if val_str.begins_with("+") else -1.0
-		var amount: float = float(val_str.substr(1)) * op
+		var amount: float = _signed_float(parts[3])
 		for display: String in targets:
 			merc.circumstance_additional_bonus[display] = \
 					(merc.circumstance_additional_bonus.get(display, 0.0) as float) + amount
@@ -400,11 +352,8 @@ static func _tok_stat_circumstance_boost(merc: MercenaryData, t: String) -> void
 static func _tok_stat_random_core_stat_max(merc: MercenaryData, t: String) -> void:
 	var parts: PackedStringArray = t.split(":")
 	if parts.size() == 4:
-		var val_str: String = parts[3]
-		var op: int = 1 if val_str.begins_with("+") else -1
-		var amount: int = int(val_str.substr(1)) * op
-		var core_keys: Array[String] = ["max_vigor", "max_dexterity", "max_cognition", "max_wile"]
-		var chosen: String = core_keys[randi() % core_keys.size()]
+		var amount: int = _signed_int(parts[3])
+		var chosen: String = "max_" + TraitRuntime.CORE_STATS[randi() % TraitRuntime.CORE_STATS.size()]
 		merc.max_stats[chosen] = (merc.max_stats.get(chosen, 0) as int) + amount
 
 
@@ -412,9 +361,7 @@ static func _tok_stat_random(merc: MercenaryData, t: String) -> void:
 	#stat:random:<key1>:<key2>:...:<val>; pick one random key from the list
 	var parts: PackedStringArray = t.split(":")
 	if parts.size() >= 4:
-		var val_str: String = parts[parts.size() - 1]
-		var op: int = 1 if val_str.begins_with("+") else -1
-		var amount: int = int(val_str.substr(1)) * op
+		var amount: int = _signed_int(parts[parts.size() - 1])
 		var keys: Array[String] = []
 		for i: int in range(2, parts.size() - 1):
 			keys.append(parts[i])
@@ -466,36 +413,29 @@ static func _tok_grant_random_perk_group(merc: MercenaryData, t: String, source_
 	else:
 		var count: int = int(parts[4])
 		if count > 0:
-			WeaponArmorPerkLibrary.grant_random_group_perks(merc, parts[3], count, t, source_name)
+			PerkGrants.grant_random_group_perks(merc, parts[3], count, t, source_name)
 		else:
 			warn_token_once(t, "has no positive perk group count")
 
 
 static func _tok_grant_random_weapon_perk(merc: MercenaryData, t: String, source_name: String) -> void:
-	var parts: PackedStringArray = t.split(":")
+	var tier: String = t.split(":")[2]
 	var filter: String = ""
-	if parts[2] == "basic_weapon_perk":
+	if tier == "basic_weapon_perk":
 		filter = "basic"
-	elif parts[2] == "specialized_weapon_perk":
+	elif tier == "specialized_weapon_perk":
 		filter = "specialized"
-	var count: int = 0
-	if parts.size() == 4:
-		count = int(parts[3])
-	elif parts.size() == 5:
-		filter = parts[3].to_lower()
-		count = int(parts[4])
-	elif parts.size() == 6 and parts[3] == "type":
-		filter = parts[4].to_lower()
-		count = int(parts[5])
-	else:
-		warn_token_once(t, "is an unparsed weapon perk token")
-	if count > 0:
-		WeaponArmorPerkLibrary.grant_gear_perks(merc, "weapon", filter, count, t, source_name)
+	_grant_random_gear_perk(merc, t, source_name, "weapon", filter)
 
 
 static func _tok_grant_random_armor_perk(merc: MercenaryData, t: String, source_name: String) -> void:
+	_grant_random_gear_perk(merc, t, source_name, "armor", "")
+
+
+#<n>, <filter>:<n> or type:<filter>:<n> after the perk name; a filter in the cell replaces the default one.
+static func _grant_random_gear_perk(merc: MercenaryData, t: String, source_name: String,
+		kind: String, filter: String) -> void:
 	var parts: PackedStringArray = t.split(":")
-	var filter: String = ""
 	var count: int = 0
 	if parts.size() == 4:
 		count = int(parts[3])
@@ -506,9 +446,9 @@ static func _tok_grant_random_armor_perk(merc: MercenaryData, t: String, source_
 		filter = parts[4].to_lower()
 		count = int(parts[5])
 	else:
-		warn_token_once(t, "is an unparsed armor perk token")
+		warn_token_once(t, "is an unparsed %s perk token" % kind)
 	if count > 0:
-		WeaponArmorPerkLibrary.grant_gear_perks(merc, "armor", filter, count, t, source_name)
+		PerkGrants.grant_gear_perks(merc, kind, filter, count, t, source_name)
 
 
 static func _tok_grant_random_protection(merc: MercenaryData, t: String) -> void:
@@ -564,11 +504,10 @@ static func _tok_stat(merc: MercenaryData, t: String) -> void:
 	if parts.size() == 3 and (parts[2].begins_with("+") or parts[2].begins_with("-")):
 		var key: String = parts[1]
 		var val_str: String = parts[2]
-		var op: float = 1.0 if val_str.begins_with("+") else -1.0
 		if val_str.ends_with("%"):
-			StatCalculator.add_percent(merc, key, float(val_str.trim_suffix("%").substr(1)) * op / 100.0)
+			StatCalculator.add_percent(merc, key, _signed_float(val_str.trim_suffix("%")) / 100.0)
 		else:
-			StatCalculator.add_flat(merc, key, float(val_str.substr(1)) * op)
+			StatCalculator.add_flat(merc, key, _signed_float(val_str))
 	else:
 		warn_token_once(t, "is an unparsed stat token")
 
@@ -605,6 +544,24 @@ static func _apply_aura_token(merc: MercenaryData, token: String, source_name: S
 	merc.auras.append({"state": state_name, "paces": paces, "gate": gate, "source": source_name})
 
 
+#The pool entries the merc can still gain: not blocked and not already held, in pool order.
+static func available_circumstances(merc: MercenaryData, pool: Array) -> Array[String]:
+	var available: Array[String] = []
+	for d: String in pool:
+		if not merc.blocked_circumstances.has(d) and not merc.circumstance_flags.get(d, false):
+			available.append(d)
+	return available
+
+
+#A leading + adds the rest of the cell and any other first character subtracts it; int and float read 1e3 differently.
+static func _signed_int(val_str: String) -> int:
+	return int(val_str.substr(1)) * (1 if val_str.begins_with("+") else -1)
+
+
+static func _signed_float(val_str: String) -> float:
+	return float(val_str.substr(1)) * (1.0 if val_str.begins_with("+") else -1.0)
+
+
 static func _resolve_circumstance_key(key: String) -> Array[String]:
 	var parts: PackedStringArray = key.split("_")
 	if parts.size() < 2:
@@ -630,26 +587,21 @@ static func warn_token_once(key: String, reason: String) -> void:
 	if _warned_tokens.has(key):
 		return
 	_warned_tokens[key] = true
-	push_warning("MercGenerator: '%s' %s" % [key, reason])
+	push_warning("TraitDSL: '%s' %s" % [key, reason])
 
 
 #Substitutes every [COLUMN] placeholder with a random value from that Types.tsv column.
 static func _expand_trait_placeholders(name: String) -> String:
 	var result: String = name
 	while true:
-		var open_idx: int = result.find("[")
-		if open_idx < 0:
+		var span: Dictionary = _placeholder_span(result)
+		if span.is_empty():
 			break
-		var close_idx: int = result.find("]", open_idx)
-		if close_idx < 0:
-			break
-		var header: String = result.substr(open_idx + 1, close_idx - open_idx - 1)
-		var values: Array = DataManager.type_columns.get(header, []) as Array
+		var values: Array = span["values"]
 		if values.is_empty():
-			warn_token_once("[" + header + "]", "has no Types.tsv column")
 			return ""
 		var pick: String = values[randi() % values.size()] as String
-		result = result.substr(0, open_idx) + pick + result.substr(close_idx + 1)
+		result = result.substr(0, int(span["open"])) + pick + result.substr(int(span["close"]) + 1)
 	return result
 
 
@@ -660,23 +612,34 @@ static func placeholder_variants(name: String) -> Array[String]:
 		var pending: Array[String] = []
 		var expanded: bool = false
 		for entry: String in results:
-			var open_idx: int = entry.find("[")
-			var close_idx: int = entry.find("]", open_idx) if open_idx >= 0 else -1
-			if open_idx < 0 or close_idx < 0:
+			var span: Dictionary = _placeholder_span(entry)
+			if span.is_empty():
 				pending.append(entry)
 				continue
-			var header: String = entry.substr(open_idx + 1, close_idx - open_idx - 1)
-			var values: Array = DataManager.type_columns.get(header, []) as Array
+			var values: Array = span["values"]
 			if values.is_empty():
-				warn_token_once("[" + header + "]", "has no Types.tsv column")
 				return []
 			expanded = true
 			for value: String in values:
-				pending.append(entry.substr(0, open_idx) + value + entry.substr(close_idx + 1))
+				pending.append(entry.substr(0, int(span["open"])) + value + entry.substr(int(span["close"]) + 1))
 		results = pending
 		if not expanded:
 			break
 	return results
+
+
+#The first [COLUMN] in text as {"open", "close", "values"}; {} when there is none.
+#A column missing from Types.tsv warns once and comes back with no values.
+static func _placeholder_span(text: String) -> Dictionary:
+	var open_idx: int = text.find("[")
+	var close_idx: int = text.find("]", open_idx) if open_idx >= 0 else -1
+	if open_idx < 0 or close_idx < 0:
+		return {}
+	var header: String = text.substr(open_idx + 1, close_idx - open_idx - 1)
+	var values: Array = DataManager.type_columns.get(header, []) as Array
+	if values.is_empty():
+		warn_token_once("[" + header + "]", "has no Types.tsv column")
+	return {"open": open_idx, "close": close_idx, "values": values}
 
 
 #Traits.tsv lookup that resolves [COLUMN] placeholders first and warns once on a missing row.
@@ -709,6 +672,13 @@ static func _find_knowledge(k_name: String) -> UtilityTraitData:
 	return null
 
 
+static func _holds_utility(held: Array[UtilityTraitData], utility: UtilityTraitData) -> bool:
+	for h: UtilityTraitData in held:
+		if h.utility_name == utility.utility_name:
+			return true
+	return false
+
+
 #Filter is empty, all, a stat word such as wile, or a circumstance name such as resist.
 static func _circumstance_matches_filter(display: String, filter: String) -> bool:
 	if filter == "" or filter == "all" or filter == "any":
@@ -717,3 +687,15 @@ static func _circumstance_matches_filter(display: String, filter: String) -> boo
 	if (row.get("stat", "") as String).to_lower() == filter:
 		return true
 	return (row.get("circumstance_name", "") as String).to_lower().replace(" ", "_") == filter
+
+
+static func assign_trait(merc: MercenaryData, trait_data: TraitData) -> void:
+	var target: Array[TraitData] = merc.descriptors
+	if trait_data.trait_type == "Perk":
+		target = merc.perks
+	elif trait_data.trait_type == "Drawback":
+		target = merc.drawbacks
+	for t: TraitData in target:
+		if t.trait_name == trait_data.trait_name:
+			return
+	target.append(trait_data)

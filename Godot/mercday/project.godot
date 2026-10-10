@@ -32,12 +32,22 @@ PromotionsManager="*res://Scripts/GUI/Autoloads/PromotionsManager.gd"
 FinanceLedger="*res://Scripts/GUI/Autoloads/FinanceLedger.gd"
 BenefitsManager="*res://Scripts/GUI/Autoloads/BenefitsManager.gd"
 StockMarket="*res://Scripts/GUI/Autoloads/StockMarket.gd"
+MailCenter="*res://Scripts/GUI/Autoloads/MailCenter.gd"
+MouseCursor="*res://Scripts/GUI/Autoloads/MouseCursor.gd"
+AudioManager="*res://Scripts/Audio/AudioManager.gd"
+UiSfx="*res://Scripts/Audio/UiSfx.gd"
+GameSfx="*res://Scripts/Audio/GameSfx.gd"
+Mercdave="*res://Scripts/GUI/Autoloads/Mercdave.gd"
 
 [display]
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/appearance_pools/plugin.cfg", "res://addons/character_builder/plugin.cfg", "res://addons/contract_builder/plugin.cfg", "res://addons/map_baker/plugin.cfg", "res://addons/pixel_model/plugin.cfg")
 
 [file_customization]
 
@@ -57,3 +67,54 @@ theme/custom="res://Resources/GUI/Theme/guild_theme.tres"
 
 textures/canvas_textures/default_texture_filter=0
 rendering_device/driver.windows="d3d12"
+
+[shader_globals]
+
+map_daylight={
+"type": "vec3",
+"value": Vector3(1, 1, 1)
+}
+map_night={
+"type": "float",
+"value": 0.0
+}
+map_anim_frame={
+"type": "int",
+"value": 0
+}
+map_wind={
+"type": "float",
+"value": 0.0
+}
+map_group_state={
+"type": "sampler2D",
+"value": ""
+}
+map_nation_glow={
+"type": "sampler2D",
+"value": ""
+}
+map_nation_rim={
+"type": "sampler2D",
+"value": ""
+}
+map_cell_index={
+"type": "sampler2D",
+"value": ""
+}
+map_palette={
+"type": "sampler2D",
+"value": ""
+}
+map_nation_field={
+"type": "sampler2D",
+"value": ""
+}
+map_prop_atlas={
+"type": "sampler2D",
+"value": ""
+}
+map_prop_light={
+"type": "sampler2D",
+"value": ""
+}

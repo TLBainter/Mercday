@@ -3,8 +3,8 @@ class_name ResourceBar extends VBoxContainer
 #HP/EP/MP cell bar: a head row of the name and the reading over the cell track. The Cells control
 #draws through its own draw signal since it is expand-filled.
 
-const EMPTY_COLOR: Color = Color("#1f3560")
-const TRACK_COLOR: Color = Color("#0a0f1c")
+const EMPTY_COLOR: Color = GuiColors.BLUE_LO
+const TRACK_COLOR: Color = GuiColors.INK
 const CELL_HEIGHT_PX: int = 4
 const MIN_CELL_WIDTH: int = 2
 const GAP_PX: int = 1
@@ -55,20 +55,24 @@ func _refresh() -> void:
 
 
 #The track is the ink plate; the cells sit inside a 2 px inset with a 2 px gap between them. The
-#width comes from the pinned static, fed the room the gaps leave so the last cell stays inside.
+#width comes from the pinned static, fed the room the gaps leave; the pixels that width leaves
+#over go one each to the leading cells, so the last cell ends on the inset instead of short of it.
 func _draw_cells() -> void:
 	cells.draw_rect(Rect2(0.0, 0.0, cells.size.x, cells.size.y), TRACK_COLOR)
 	if max_value < 1:
 		return
 	var inner: float = cells.size.x - TRACK_INSET * 2.0
-	var room: float = inner - CELL_GAP * float(max_value - 1) + float(max_value - 1)
-	var width: int = cell_width(room, max_value)
-	var filled_count: int = filled(current, max_value)
+	var cell_room: float = inner - CELL_GAP * float(max_value - 1)
+	var width: int = cell_width(cell_room + float(max_value - 1), max_value)
+	var extra: int = maxi(0, floori(cell_room) - width * max_value)
 	var height: float = maxf(0.0, cells.size.y - TRACK_INSET * 2.0)
-	var stride: float = float(width) + CELL_GAP
+	var colors: PackedColorArray = CellBar.split(max_value, filled(current, max_value),
+		fill_color, EMPTY_COLOR)
+	var x: float = TRACK_INSET
 	for i: int in max_value:
-		var col: Color = fill_color if i < filled_count else EMPTY_COLOR
-		cells.draw_rect(Rect2(TRACK_INSET + i * stride, TRACK_INSET, width, height), col)
+		var cell_w: float = float(width + (1 if i < extra else 0))
+		cells.draw_rect(Rect2(x, TRACK_INSET, cell_w, height), colors[i])
+		x += cell_w + CELL_GAP
 
 
 static func cell_width(available: float, count: int) -> int:

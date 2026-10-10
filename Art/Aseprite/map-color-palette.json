@@ -1,0 +1,312 @@
+{
+ "description": "Land color layer palette. Every land pixel of the Color layer is exactly one of these colors. Sea pixels are transparent.",
+ "layer": "Color",
+ "classes": [
+  {
+   "id": 0,
+   "name": "Grass",
+   "light": "#8fb574",
+   "base": "#6c9e48",
+   "dark": "#476830"
+  },
+  {
+   "id": 1,
+   "name": "Dry grass",
+   "light": "#c3bd80",
+   "base": "#b0a858",
+   "dark": "#746f3a"
+  },
+  {
+   "id": 2,
+   "name": "Forest floor",
+   "light": "#658c6b",
+   "base": "#34683c",
+   "dark": "#224528"
+  },
+  {
+   "id": 3,
+   "name": "Pine floor",
+   "light": "#5f7d7a",
+   "base": "#2c5450",
+   "dark": "#1d3735"
+  },
+  {
+   "id": 4,
+   "name": "Purple forest",
+   "light": "#9e7daf",
+   "base": "#805496",
+   "dark": "#543763"
+  },
+  {
+   "id": 5,
+   "name": "Sand",
+   "light": "#e7ce98",
+   "base": "#e0be78",
+   "dark": "#947d4f"
+  },
+  {
+   "id": 6,
+   "name": "Rock",
+   "light": "#a29b95",
+   "base": "#847c74",
+   "dark": "#57524d"
+  },
+  {
+   "id": 7,
+   "name": "Dark rock",
+   "light": "#756f6f",
+   "base": "#4a4242",
+   "dark": "#312c2c"
+  },
+  {
+   "id": 8,
+   "name": "Snow",
+   "light": "#ffffff",
+   "base": "#ecf0f4",
+   "dark": "#c4ccd8"
+  },
+  {
+   "id": 9,
+   "name": "Mud",
+   "light": "#926e48",
+   "base": "#6e5438",
+   "dark": "#4a3824"
+  },
+  {
+   "id": 10,
+   "name": "Beach",
+   "light": "#e0d5af",
+   "base": "#d6c896",
+   "dark": "#8d8463"
+  },
+  {
+   "id": 11,
+   "name": "Marsh",
+   "light": "#809474",
+   "base": "#587248",
+   "dark": "#3a4b30"
+  },
+  {
+   "id": 12,
+   "name": "Prairie",
+   "light": "#acbd74",
+   "base": "#92a848",
+   "dark": "#606f30"
+  },
+  {
+   "id": 13,
+   "name": "Wheat field",
+   "light": "#dbc37a",
+   "base": "#d0b050",
+   "dark": "#897435"
+  },
+  {
+   "id": 14,
+   "name": "Stony ground",
+   "light": "#b4a88f",
+   "base": "#9c8c6c",
+   "dark": "#675c47"
+  },
+  {
+   "id": 15,
+   "name": "Magma",
+   "light": "#ffa800",
+   "base": "#dd4800",
+   "dark": "#aa2800"
+  }
+ ],
+ "lookup": {
+  "#8fb574": {
+   "class": "Grass",
+   "tone": "light"
+  },
+  "#6c9e48": {
+   "class": "Grass",
+   "tone": "base"
+  },
+  "#476830": {
+   "class": "Grass",
+   "tone": "dark"
+  },
+  "#c3bd80": {
+   "class": "Dry grass",
+   "tone": "light"
+  },
+  "#b0a858": {
+   "class": "Dry grass",
+   "tone": "base"
+  },
+  "#746f3a": {
+   "class": "Dry grass",
+   "tone": "dark"
+  },
+  "#658c6b": {
+   "class": "Forest floor",
+   "tone": "light"
+  },
+  "#34683c": {
+   "class": "Forest floor",
+   "tone": "base"
+  },
+  "#224528": {
+   "class": "Forest floor",
+   "tone": "dark"
+  },
+  "#5f7d7a": {
+   "class": "Pine floor",
+   "tone": "light"
+  },
+  "#2c5450": {
+   "class": "Pine floor",
+   "tone": "base"
+  },
+  "#1d3735": {
+   "class": "Pine floor",
+   "tone": "dark"
+  },
+  "#9e7daf": {
+   "class": "Purple forest",
+   "tone": "light"
+  },
+  "#805496": {
+   "class": "Purple forest",
+   "tone": "base"
+  },
+  "#543763": {
+   "class": "Purple forest",
+   "tone": "dark"
+  },
+  "#e7ce98": {
+   "class": "Sand",
+   "tone": "light"
+  },
+  "#e0be78": {
+   "class": "Sand",
+   "tone": "base"
+  },
+  "#947d4f": {
+   "class": "Sand",
+   "tone": "dark"
+  },
+  "#a29b95": {
+   "class": "Rock",
+   "tone": "light"
+  },
+  "#847c74": {
+   "class": "Rock",
+   "tone": "base"
+  },
+  "#57524d": {
+   "class": "Rock",
+   "tone": "dark"
+  },
+  "#756f6f": {
+   "class": "Dark rock",
+   "tone": "light"
+  },
+  "#4a4242": {
+   "class": "Dark rock",
+   "tone": "base"
+  },
+  "#312c2c": {
+   "class": "Dark rock",
+   "tone": "dark"
+  },
+  "#ffffff": {
+   "class": "Snow",
+   "tone": "light"
+  },
+  "#ecf0f4": {
+   "class": "Snow",
+   "tone": "base"
+  },
+  "#c4ccd8": {
+   "class": "Snow",
+   "tone": "dark"
+  },
+  "#926e48": {
+   "class": "Mud",
+   "tone": "light"
+  },
+  "#6e5438": {
+   "class": "Mud",
+   "tone": "base"
+  },
+  "#4a3824": {
+   "class": "Mud",
+   "tone": "dark"
+  },
+  "#e0d5af": {
+   "class": "Beach",
+   "tone": "light"
+  },
+  "#d6c896": {
+   "class": "Beach",
+   "tone": "base"
+  },
+  "#8d8463": {
+   "class": "Beach",
+   "tone": "dark"
+  },
+  "#809474": {
+   "class": "Marsh",
+   "tone": "light"
+  },
+  "#587248": {
+   "class": "Marsh",
+   "tone": "base"
+  },
+  "#3a4b30": {
+   "class": "Marsh",
+   "tone": "dark"
+  },
+  "#acbd74": {
+   "class": "Prairie",
+   "tone": "light"
+  },
+  "#92a848": {
+   "class": "Prairie",
+   "tone": "base"
+  },
+  "#606f30": {
+   "class": "Prairie",
+   "tone": "dark"
+  },
+  "#dbc37a": {
+   "class": "Wheat field",
+   "tone": "light"
+  },
+  "#d0b050": {
+   "class": "Wheat field",
+   "tone": "base"
+  },
+  "#897435": {
+   "class": "Wheat field",
+   "tone": "dark"
+  },
+  "#b4a88f": {
+   "class": "Stony ground",
+   "tone": "light"
+  },
+  "#9c8c6c": {
+   "class": "Stony ground",
+   "tone": "base"
+  },
+  "#675c47": {
+   "class": "Stony ground",
+   "tone": "dark"
+  },
+  "#ffa800": {
+   "class": "Magma",
+   "tone": "light"
+  },
+  "#dd4800": {
+   "class": "Magma",
+   "tone": "base"
+  },
+  "#aa2800": {
+   "class": "Magma",
+   "tone": "dark"
+  }
+ }
+}

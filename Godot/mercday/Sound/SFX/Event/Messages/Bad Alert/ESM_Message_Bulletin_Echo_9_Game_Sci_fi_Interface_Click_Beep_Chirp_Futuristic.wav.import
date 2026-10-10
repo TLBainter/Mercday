@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://bus2rowu4n3al"
+path="res://.godot/imported/ESM_Message_Bulletin_Echo_9_Game_Sci_fi_Interface_Click_Beep_Chirp_Futuristic.wav-e12020133aac412e0c39c877c09930c0.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/Event/Messages/Bad Alert/ESM_Message_Bulletin_Echo_9_Game_Sci_fi_Interface_Click_Beep_Chirp_Futuristic.wav"
+dest_files=["res://.godot/imported/ESM_Message_Bulletin_Echo_9_Game_Sci_fi_Interface_Click_Beep_Chirp_Futuristic.wav-e12020133aac412e0c39c877c09930c0.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

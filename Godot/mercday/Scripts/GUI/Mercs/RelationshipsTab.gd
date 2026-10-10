@@ -37,9 +37,7 @@ func cards() -> Array[RelationshipCard]:
 	var out: Array[RelationshipCard] = []
 	if not is_node_ready():
 		return out
-	for child: Node in grid.get_children():
-		if child is RelationshipCard:
-			out.append(child as RelationshipCard)
+	out.assign(GuiNodes.children_of(grid, RelationshipCard))
 	return out
 
 
@@ -54,9 +52,7 @@ func guild_card() -> GuildRelationshipCard:
 func _rebuild() -> void:
 	if not is_node_ready():
 		return
-	for child: Node in grid.get_children():
-		grid.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(grid)
 	if view == null:
 		count_label.text = "0"
 		return

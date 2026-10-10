@@ -26,10 +26,21 @@ const HOVER_ALPHA: float = 0.6
 const HOVER_SQUARE: float = 12.0
 const HOVER_FLIP: float = 0.55
 const TIP_GAP: float = 14.0
-const TIP_WIDTH: float = 220.0
+const TIP_WIDTH: float = 240.0
 const REVEAL_SECONDS: float = 0.8
 const REVEAL_STEPS: int = 48
-const EVENT_MARK: Vector2 = Vector2(6.0, 8.0)
+const EVENT_MARK_WIDTH: float = 6.0
+const EVENT_MARK: Vector2 = Vector2(EVENT_MARK_WIDTH, 8.0)
+const EVENT_ROWS_VISIBLE: int = 3
+const WHEEL_STEP: float = 16.0
+const TIP_PAD_X: float = 20.0
+const FRAME_PAD_X: float = 16.0
+const FRAME_SLACK: float = 4.0
+const SCROLL_GUTTER: float = 12.0
+const ROW_GAP: int = 6
+#The event text width: what the tip leaves after its margins, the frame, the gutter, the mark and the gap.
+const ROW_TEXT_WIDTH: float = (TIP_WIDTH - TIP_PAD_X - FRAME_PAD_X - FRAME_SLACK - SCROLL_GUTTER
+	- EVENT_MARK_WIDTH - ROW_GAP)
 const FONT_SMALL: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
 
 #The suite seam: the wipe finishes at once so no case waits on the tween.
@@ -41,7 +52,9 @@ signal hover_changed(sample: int)
 @onready var tip_date: Label = $HoverTip/Col/DateLabel
 @onready var tip_price: Label = $HoverTip/Col/PriceLabel
 @onready var tip_change: Label = $HoverTip/Col/ChangeLabel
-@onready var tip_events: VBoxContainer = $HoverTip/Col/EventRows
+@onready var event_frame: PanelContainer = $HoverTip/Col/EventFrame
+@onready var event_scroll: ScrollContainer = $HoverTip/Col/EventFrame/EventScroll
+@onready var tip_events: VBoxContainer = $HoverTip/Col/EventFrame/EventScroll/EventRows
 
 var company_id: int = -1
 var range_key: String = "1Y"
@@ -63,6 +76,10 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	hover_tip.visible = false
 	hover_tip.custom_minimum_size.x = TIP_WIDTH
+	event_scroll.get_h_scroll_bar().mouse_filter = Control.MOUSE_FILTER_IGNORE
+	event_scroll.get_v_scroll_bar().mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hover_tip.minimum_size_changed.connect(_refit_tip, CONNECT_DEFERRED)
+	tip_events.minimum_size_changed.connect(_fit_scroll, CONNECT_DEFERRED)
 	mouse_exited.connect(clear_hover)
 	resized.connect(queue_redraw)
 
@@ -351,9 +368,7 @@ static func _event_color(row: Dictionary) -> Color:
 func _sync_tip() -> void:
 	if not is_node_ready():
 		return
-	for child: Node in tip_events.get_children():
-		tip_events.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(tip_events)
 	var texts: Dictionary = hover_texts()
 	if texts.is_empty():
 		hover_tip.visible = false
@@ -364,16 +379,21 @@ func _sync_tip() -> void:
 	tip_change.add_theme_color_override("font_color", texts["change_color"])
 	var events: Array = texts["events"]
 	for row: Variant in events:
-		tip_events.add_child(_event_row(row as Dictionary))
+		_add_event_row(row as Dictionary)
+	event_frame.visible = not events.is_empty()
+	event_scroll.scroll_vertical = 0
+	_fit_scroll()
 	hover_tip.visible = true
-	hover_tip.size = Vector2(TIP_WIDTH, hover_tip.get_combined_minimum_size().y)
+	hover_tip.reset_size()
 	_place_tip(bool(texts["left_side"]))
+	_refit_tip.call_deferred()
 
 
-func _event_row(row: Dictionary) -> HBoxContainer:
+#The row joins the tree before its text is set, so the label wraps at its settled width.
+func _add_event_row(row: Dictionary) -> void:
 	var line := HBoxContainer.new()
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	line.add_theme_constant_override("separation", 6)
+	line.add_theme_constant_override("separation", ROW_GAP)
 	var mark := ColorRect.new()
 	mark.color = row["color"]
 	mark.custom_minimum_size = EVENT_MARK
@@ -381,14 +401,31 @@ func _event_row(row: Dictionary) -> HBoxContainer:
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	line.add_child(mark)
 	var text := Label.new()
-	text.text = String(row["label"])
+	text.custom_minimum_size.x = ROW_TEXT_WIDTH
 	text.add_theme_color_override("font_color", InvestText.CREAM)
 	text.add_theme_font_size_override("font_size", 12)
 	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	line.add_child(text)
-	return line
+	tip_events.add_child(line)
+	text.text = String(row["label"])
+
+
+#The list is as tall as its first EVENT_ROWS_VISIBLE rows; the rest scroll.
+func _fit_scroll() -> void:
+	var shown: int = mini(tip_events.get_child_count(), EVENT_ROWS_VISIBLE)
+	var gap: int = tip_events.get_theme_constant("separation")
+	var height: int = 0
+	for i: int in shown:
+		var line: Control = tip_events.get_child(i) as Control
+		height += int(line.get_combined_minimum_size().y) + (gap if i > 0 else 0)
+	event_scroll.custom_minimum_size.y = float(height)
+
+
+#A stored size is never lowered by a smaller minimum, so the tip is re-fitted once the layout settles.
+func _refit_tip() -> void:
+	if hover_tip.visible:
+		hover_tip.reset_size()
 
 
 func _place_tip(left_side: bool) -> void:
@@ -399,7 +436,25 @@ func _place_tip(left_side: bool) -> void:
 		plot.position.y + 8.0)
 
 
+#The wheel over the chart moves the tip list once it holds more rows than it shows.
+func _scroll_tip(wheel: InputEventMouseButton) -> bool:
+	var up: bool = wheel.button_index == MOUSE_BUTTON_WHEEL_UP
+	if not up and wheel.button_index != MOUSE_BUTTON_WHEEL_DOWN:
+		return false
+	if not hover_tip.visible or tip_events.get_child_count() <= EVENT_ROWS_VISIBLE:
+		return false
+	var step: int = maxi(1, roundi(WHEEL_STEP * wheel.factor))
+	var delta: int = -step if up else step
+	event_scroll.scroll_vertical += delta
+	return true
+
+
 func _gui_input(event: InputEvent) -> void:
+	var wheel := event as InputEventMouseButton
+	if wheel != null:
+		if wheel.pressed and _scroll_tip(wheel):
+			accept_event()
+		return
 	var motion := event as InputEventMouseMotion
 	if motion == null:
 		return
@@ -419,7 +474,7 @@ func _draw() -> void:
 	var cell := Vector2(plot.size.x / float(COLS), plot.size.y / float(ROWS))
 	var cutoff: int = clampi(int(floor(_reveal * float(COLS))), 0, COLS)
 	var tint: Color = line_color()
-	var area := Color(tint.r, tint.g, tint.b, AREA_ALPHA)
+	var area := Color(tint, AREA_ALPHA)
 	for c: int in cutoff:
 		var run: Vector2i = _column_run(c)
 		for y: int in range(run.x, run.y + 1):
@@ -485,7 +540,7 @@ func _draw_ticks(plot: Rect2) -> void:
 func _draw_hover(plot: Rect2, cell: Vector2, tint: Color) -> void:
 	var c: int = clampi(_column_of(_hover), 0, _rows.size() - 1)
 	var x: float = plot.position.x + (float(c) + 0.5) * cell.x
-	var line := Color(InvestText.SKY.r, InvestText.SKY.g, InvestText.SKY.b, HOVER_ALPHA)
+	var line := Color(InvestText.SKY, HOVER_ALPHA)
 	draw_rect(Rect2(x - HOVER_WIDTH / 2.0, plot.position.y, HOVER_WIDTH, plot.size.y), line, true)
 	var y: float = plot.position.y + (float(_rows[c]) + 0.5) * cell.y
 	draw_rect(Rect2(x - HOVER_SQUARE / 2.0, y - HOVER_SQUARE / 2.0, HOVER_SQUARE, HOVER_SQUARE),

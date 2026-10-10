@@ -1,19 +1,17 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://w3cteswkin51"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_0k6iu"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://dkhlstj70hi1y" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 
 [sub_resource type="Resource" id="facet_1"]
-script = ExtResource("ActiveStateFacet")
+script = ExtResource("AnyStateFacet")
 is_required = true
-state_name = "Grappled"
-present_is_high = true
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_1")]
-threshold = 0.5
+facets = Array[ExtResource("1_0k6iu")]([SubResource("facet_1")])
 
 [resource]
 script = ExtResource("ActionData")

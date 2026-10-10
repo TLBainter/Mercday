@@ -1,17 +1,14 @@
 class_name LegalCrewModule extends VBoxContainer
 
 #The crew strip of the Review dialog: one boxed portrait per merc named on the case, its role over
-#it, and the shared crew tooltip on hover. A click answers with merc_picked.
-
-signal merc_picked(uid: int)
+#it, and the shared crew tooltip on hover.
 
 const PORTRAIT_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MercPortrait.tscn")
-const TOOLTIP_PATH: String = "res://Scenes/GUI/Contracts/CrewTooltip.tscn"
+const TOOLTIP_SCENE: PackedScene = preload("res://Scenes/GUI/Contracts/CrewTooltip.tscn")
 const PORTRAIT_PX: int = 48
 const COLUMN_WIDTH: int = 72
 const BOX_RING_WIDTH: int = 2
 const DEFAULT_FIT: float = 2.5
-const FINANCE_PATH: NodePath = ^"/root/FinanceManager"
 const EMPTY_TEXT: String = "No mercs on record."
 
 var caption: String = "Crew":
@@ -79,7 +76,7 @@ func hover(i: int) -> void:
 	var holder: Control = _holder(i)
 	if holder == null or tooltip == null:
 		return
-	tooltip.set_member(LegalStyle.merc_view(member_uid(i)), member_role(i),
+	tooltip.set_member(BenefitsManager.view_of(member_uid(i)), member_role(i),
 		_fit_of(member_uid(i)))
 	tooltip.show_at(holder)
 
@@ -108,25 +105,21 @@ func _build() -> void:
 	caption_label = LegalStyle.head(caption)
 	caption_label.name = "Caption"
 	add_child(caption_label)
-	columns = LegalStyle.hbox(8)
+	columns = GuiStyle.hbox(8)
 	columns.name = "Columns"
 	add_child(columns)
-	empty_label = LegalStyle.text(EMPTY_TEXT, 12, LegalStyle.MUTED)
+	empty_label = GuiStyle.label(EMPTY_TEXT, GuiStyle.BODY, 12, GuiColors.MUTED)
 	empty_label.name = "Empty"
 	add_child(empty_label)
-	if ResourceLoader.exists(TOOLTIP_PATH):
-		var made: PackedScene = load(TOOLTIP_PATH) as PackedScene
-		tooltip = made.instantiate() as CrewTooltip
-		tooltip.name = "Tip"
-		add_child(tooltip)
+	tooltip = TOOLTIP_SCENE.instantiate() as CrewTooltip
+	tooltip.name = "Tip"
+	add_child(tooltip)
 
 
 func _refresh() -> void:
 	if columns == null:
 		return
-	for child: Node in columns.get_children():
-		columns.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(columns)
 	unhover()
 	for i: int in range(members.size()):
 		columns.add_child(_make_column(i))
@@ -148,23 +141,23 @@ func _size_columns() -> void:
 
 func _make_column(i: int) -> Control:
 	var uid: int = member_uid(i)
-	var view: MercView = LegalStyle.merc_view(uid)
+	var view: MercView = BenefitsManager.view_of(uid)
 	var holder := Button.new()
 	holder.name = "Member%d" % i
 	holder.flat = true
 	holder.focus_mode = Control.FOCUS_NONE
 	holder.custom_minimum_size = Vector2(COLUMN_WIDTH, 0)
-	var stack: VBoxContainer = LegalStyle.vbox(2)
+	var stack: VBoxContainer = GuiStyle.vbox(2)
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var role: Label = LegalStyle.pixel(member_role(i), 9, LegalStyle.SKY)
+	var role: Label = GuiStyle.label(member_role(i), GuiStyle.SILK, 9, GuiColors.SKY)
 	role.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	role.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(role)
 	var box := PanelContainer.new()
 	box.name = "Box"
-	box.add_theme_stylebox_override(&"panel", LegalStyle.box_style(LegalStyle.NAVY,
-		LegalStyle.BLUE3, BOX_RING_WIDTH, 2))
+	box.add_theme_stylebox_override(&"panel", GuiStyle.flat(GuiColors.ROW_FILL,
+		BOX_RING_WIDTH, GuiColors.BLUE_HI, 2.0))
 	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var portrait: MercPortrait = PORTRAIT_SCENE.instantiate() as MercPortrait
@@ -175,22 +168,13 @@ func _make_column(i: int) -> Control:
 	holder.add_child(stack)
 	if view != null:
 		portrait.set_merc(view)
-	holder.pressed.connect(_on_pressed.bind(uid))
 	holder.mouse_entered.connect(hover.bind(i))
 	holder.mouse_exited.connect(unhover)
 	return holder
 
 
 #The design names no match source for a legal case, so the finance fit stands in for the stars.
-#The read is guarded: the wave that owns that autoload may not be on this copy.
 func _fit_of(uid: int) -> float:
 	if GameState.merc_by_uid(uid) == null:
 		return DEFAULT_FIT
-	var node: Node = get_node_or_null(FINANCE_PATH)
-	if node == null or not node.has_method(&"merc_fit"):
-		return DEFAULT_FIT
-	return float(node.call(&"merc_fit", uid))
-
-
-func _on_pressed(uid: int) -> void:
-	merc_picked.emit(uid)
+	return FinanceManager.merc_fit(uid)

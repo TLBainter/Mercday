@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://d1w3jbk7hjxx7"]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/QuantityStepper.tscn" id="1"]
+[ext_resource type="Script" uid="uid://6llb3ru7mukn" path="res://Scripts/Tools/ContractBuilder/Shared/ToolQuantityStepper.gd" id="2"]
+[ext_resource type="Script" uid="uid://dvxgqmtn5bjuo" path="res://Scripts/Tools/ContractBuilder/Shared/ToolBevelButton.gd" id="3"]
+[ext_resource type="Script" uid="uid://cpo4ujewqy14g" path="res://Scripts/Tools/ContractBuilder/Shared/ToolIconRect.gd" id="4"]
+
+[node name="ToolQuantityStepper" instance=ExtResource("1")]
+script = ExtResource("2")
+
+[node name="Minus" parent="." index="0"]
+script = ExtResource("3")
+
+[node name="Glyph" parent="Minus" index="0"]
+script = ExtResource("4")
+
+[node name="Plus" parent="." index="2"]
+script = ExtResource("3")
+
+[node name="Glyph" parent="Plus" index="0"]
+script = ExtResource("4")

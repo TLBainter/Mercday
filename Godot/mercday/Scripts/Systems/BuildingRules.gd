@@ -20,6 +20,48 @@ static func is_legacy(area_data: Dictionary) -> bool:
 	return bool(b.get("legacy", false))
 
 
+#Clamps the rolled floor size to the lot bounds in site and drops the extra floors that do not fit.
+#dims holds floor_w, floor_d, w_max, y_max, fh, fp and fm; it is updated in place and rolls nothing.
+static func _fit_site(site: Dictionary, fh_forced: int, dims: Dictionary) -> void:
+	var floor_w: int = int(dims["floor_w"])
+	var floor_d: int = int(dims["floor_d"])
+	var w_max: int = int(dims["w_max"])
+	var y_max: int = int(dims["y_max"])
+	var fh: int = int(dims["fh"])
+	var fp: int = int(dims["fp"])
+	var fm: int = int(dims["fm"])
+	var max_w: int = int(site.get("max_w", 0))
+	var max_d: int = int(site.get("max_d", 0))
+	if max_w > 0:
+		floor_w = maxi(3, mini(floor_w, max_w))
+		w_max = mini(w_max, max_w)
+	if max_d > 0:
+		floor_d = maxi(3, mini(floor_d, max_d))
+		y_max = mini(y_max, max_d)
+	if fp + fm > 0:
+		var need: int = 2 * fh + 3
+		if floor_d < need:
+			if y_max >= need:
+				floor_d = need
+			elif fh == 4 and fh_forced == 0 and y_max >= 9:
+				fh = 3
+				floor_d = maxi(floor_d, 9)
+			else:
+				fp = 0
+				fm = 0
+	if fp + fm > 0 and floor_w < 5:
+		if w_max >= 5:
+			floor_w = 5
+		else:
+			fp = 0
+			fm = 0
+	dims["floor_w"] = floor_w
+	dims["floor_d"] = floor_d
+	dims["fh"] = fh
+	dims["fp"] = fp
+	dims["fm"] = fm
+
+
 #One rolled building plan. The order of the random calls is part of the contract; do not reorder.
 #site (city lots): max_w and max_d bound floor_w and floor_d; no_wings and no_ext_rooms drop those parts.
 static func roll_plan(area_data: Dictionary, front: String = "", fh_forced: int = 0, site: Dictionary = {}) -> Dictionary:
@@ -50,31 +92,14 @@ static func roll_plan(area_data: Dictionary, front: String = "", fh_forced: int 
 		floor_d = building_depth
 		y_max = d_range.y
 		w_max = w_range.y
-	var max_w: int = int(site.get("max_w", 0))
-	var max_d: int = int(site.get("max_d", 0))
-	if max_w > 0:
-		floor_w = maxi(3, mini(floor_w, max_w))
-		w_max = mini(w_max, max_w)
-	if max_d > 0:
-		floor_d = maxi(3, mini(floor_d, max_d))
-		y_max = mini(y_max, max_d)
-	if fp + fm > 0:
-		var need: int = 2 * fh + 3
-		if floor_d < need:
-			if y_max >= need:
-				floor_d = need
-			elif fh == 4 and fh_forced == 0 and y_max >= 9:
-				fh = 3
-				floor_d = maxi(floor_d, 9)
-			else:
-				fp = 0
-				fm = 0
-	if fp + fm > 0 and floor_w < 5:
-		if w_max >= 5:
-			floor_w = 5
-		else:
-			fp = 0
-			fm = 0
+	var dims: Dictionary = {"floor_w": floor_w, "floor_d": floor_d, "w_max": w_max, "y_max": y_max,
+		"fh": fh, "fp": fp, "fm": fm}
+	_fit_site(site, fh_forced, dims)
+	floor_w = int(dims["floor_w"])
+	floor_d = int(dims["floor_d"])
+	fh = int(dims["fh"])
+	fp = int(dims["fp"])
+	fm = int(dims["fm"])
 	var street: int = randi_range(3, 5)
 	var wings_range: Vector2i = b.get("wings", Vector2i.ZERO)
 	var ent_range: Vector2i = b.get("entrances", Vector2i.ZERO)
@@ -177,7 +202,7 @@ static func validate(area: BattlefieldArea) -> Array[String]:
 		if door.x < 0 or door.y < 0 or door.z != 0 or String(obs.get("cell_type", "")) != "door":
 			out.append("no front door")
 		else:
-			var inside: Vector3i = _inside_cell(door, front)
+			var inside: Vector3i = door + BuildingLayouts.inward(front)
 			var dist: Dictionary = DungeonGenerator._walk_dist(area, inside, true)
 			for entry: Dictionary in area.interior_rooms:
 				if _is_exterior(String(entry.get("name", ""))):
@@ -203,17 +228,6 @@ static func validate(area: BattlefieldArea) -> Array[String]:
 	if fp + fm > 0 and area.stairwell_connections.is_empty():
 		out.append("no stairs")
 	return out
-
-
-#The cell just inside the front door, taken from the wall the door sits in.
-static func _inside_cell(door: Vector3i, front: String) -> Vector3i:
-	if front == "W":
-		return Vector3i(door.x + 1, door.y, door.z)
-	if front == "E":
-		return Vector3i(door.x - 1, door.y, door.z)
-	if front == "N":
-		return Vector3i(door.x, door.y + 1, door.z)
-	return Vector3i(door.x, door.y - 1, door.z)
 
 
 #True when the walk reached at least one cell of the rect on its own floor.
@@ -249,3 +263,75 @@ static func _has_room_on_floor(area: BattlefieldArea, room_name: String, f: int)
 		if int(entry.get("floor", 0)) == f and String(entry.get("name", "")) == room_name:
 			return true
 	return false
+
+
+#Roof Objects cell: comma separated tokens, each "Name" or "Name xN"; unknown names are dropped.
+static func roof_objects_cell(text: String, row_name: String) -> Array:
+	var out: Array = []
+	for raw: String in text.split(",", false):
+		var token: String = raw.strip_edges()
+		if token == "":
+			continue
+		var count: int = 1
+		var name_part: String = token
+		var cut: int = token.rfind(" x")
+		if cut > 0:
+			var tail: String = token.substr(cut + 2).strip_edges()
+			if tail.is_valid_int():
+				count = maxi(1, tail.to_int())
+				name_part = token.substr(0, cut).strip_edges()
+		if not RoofObjects.OBJECTS.has(name_part):
+			push_warning("DataManager: Buildings.tsv row '%s' unknown roof object '%s'" % [row_name, name_part])
+			continue
+		out.append({"name": name_part, "count": count})
+	return out
+
+
+#The three name lists joined in order, each name kept once.
+static func dedup_names(first: Array[String], second: Array[String], third: Array[String]) -> Array[String]:
+	var out: Array[String] = []
+	var seen: Dictionary = {}
+	var joined: Array[String] = first.duplicate()
+	joined.append_array(second)
+	joined.append_array(third)
+	for entry: String in joined:
+		if entry == "" or seen.has(entry):
+			continue
+		seen[entry] = true
+		out.append(entry)
+	return out
+
+
+#"5 to 8" -> (5,8); "7" -> (7,7); blank -> (0,0); a low end above the high end swaps.
+static func range_cell(cell: String) -> Vector2i:
+	var text: String = cell.strip_edges()
+	if text == "":
+		return Vector2i.ZERO
+	if text.is_valid_int():
+		return Vector2i(int(text), int(text))
+	var parts: PackedStringArray = text.split(" to ", false)
+	if parts.size() == 2 and parts[0].strip_edges().is_valid_int() and parts[1].strip_edges().is_valid_int():
+		var lo: int = int(parts[0].strip_edges())
+		var hi: int = int(parts[1].strip_edges())
+		return Vector2i(mini(lo, hi), maxi(lo, hi))
+	push_warning("DataManager: Buildings.tsv bad range cell '%s'" % cell)
+	return Vector2i.ZERO
+
+
+#"Few, Lookout Many" -> {"level": "Few", "rooms": {"Lookout": "Many"}}; a blank cell means Normal.
+static func windows_cell(cell: String) -> Dictionary:
+	var out: Dictionary = {"level": "Normal", "rooms": {}}
+	var entries: Array[String] = TsvReader.split_field(cell)
+	if entries.is_empty():
+		return out
+	out["level"] = entries[0]
+	for i: int in range(1, entries.size()):
+		var parts: PackedStringArray = entries[i].split(" ", false)
+		if parts.size() < 2:
+			continue
+		var level: String = parts[parts.size() - 1]
+		parts.remove_at(parts.size() - 1)
+		var room_name: String = " ".join(parts).strip_edges()
+		if room_name != "":
+			(out["rooms"] as Dictionary)[room_name] = level
+	return out

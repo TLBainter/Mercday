@@ -55,15 +55,8 @@ static func _corridor(w: int) -> BattlefieldArea:
 
 
 static func _merc(merc_name: String, size: int, swim: float = 0.0, vigor: int = 3) -> MercenaryData:
-	var m := MercenaryData.new()
-	m.merc_name = merc_name
-	m.merc_uid = CampaignKnowledge.next_uid()
-	m.stats = {"level": 5.0, "luck": 5.0, "size": size, "maximum_hit_points": 20,
-		"maximum_endurance_points": 5, "speed": 3.0, "dexterity": 2, "vigor": vigor,
-		"pain_limit": 0, "pace": 3, "swim": swim, "climb": 1, "melee_accuracy": 50.0,
-		"ranged_accuracy": 50.0, "thrown_accuracy": 50.0}
-	m.current_hp = 20
-	return m
+	return TestFixtures.flat_merc(merc_name, {"size": size, "swim": swim, "vigor": vigor,
+		"melee_accuracy": 50.0, "ranged_accuracy": 50.0, "thrown_accuracy": 50.0})
 
 
 #The sheet row when it is loaded, else the row 66 values built in code.
@@ -91,20 +84,12 @@ static func _put_rubble(f: BattlefieldArea, cell: Vector2i, cubes: Array[int]) -
 	var obs: Dictionary = {"pos": cell, "floor": 0, "size": 1, "data": _rubble_data(),
 		"cell_type": "terrain", "rubble": true, "cubes": cubes, "current_hp": cubes[0],
 		"hp_max": cubes[0], "height": float(cubes.size())}
-	f.obstacles.append(obs)
-	f._obs_map[f.obs_key(cell, 0)] = obs
-	f.los_version += 1
-	f.bump_path_version()
-	return obs
+	return TestFixtures.attach(f, obs)
 
 
 static func _put_obstacle(f: BattlefieldArea, cell: Vector2i, data: ObstacleData) -> Dictionary:
 	var obs: Dictionary = {"pos": cell, "floor": 0, "size": 1, "data": data, "cell_type": "terrain"}
-	f.obstacles.append(obs)
-	f._obs_map[f.obs_key(cell, 0)] = obs
-	f.los_version += 1
-	f.bump_path_version()
-	return obs
+	return TestFixtures.attach(f, obs)
 
 
 static func _rubble_states_gone(merc: MercenaryData) -> bool:
@@ -164,13 +149,13 @@ static func _case_queue_fires(res: Dictionary) -> void:
 
 
 static func _case_seal(res: Dictionary) -> void:
-	var fields := CavernTests._seeded_fields(SEAL_FIELDS)
+	var fields := TestFixtures.seeded_caverns(SEAL_FIELDS)
 	var chosen: BattlefieldArea = null
 	var t_index: int = -1
 	var anchor := Vector2i(-1, -1)
 	var tunnel: Dictionary = {}
 	for f: BattlefieldArea in fields:
-		var chambers: Dictionary = CavernGenerator._chamber_index(f)
+		var chambers: Dictionary = CavernGenerator.chamber_index(f)
 		for i: int in range(f.cavern_tunnels.size()):
 			var cells: Dictionary = {}
 			var free: Array[Vector2i] = []
@@ -566,10 +551,7 @@ static func _case_own_cell_los(res: Dictionary) -> void:
 	var dig := CaveInSystem.dig_target(digger, st)
 	TestFixtures.check(res, "ally digs the rubble holding a teammate", dig == obs,
 		"target %s" % str(dig.get("rubble", false)))
-	f.obstacles.erase(obs)
-	f._obs_map.erase(f.obs_key(cell, 0))
-	f.los_version += 1
-	f.bump_path_version()
+	TestFixtures.detach(f, obs)
 	var turn := CaveInSystem.buried_turn(buried, st, 0)
 	TestFixtures.check(res, "a buried turn on a cleared cell frees the merc",
 		not st.cave_in_buried.has(buried) and _rubble_states_gone(buried) and not turn.is_empty(),
@@ -640,11 +622,8 @@ static func _case_scatter_replace(res: Dictionary) -> void:
 static func _case_pools(res: Dictionary) -> void:
 	var f := _room(5, 3, 4.0)
 	var cell := Vector2i(2, 1)
-	f.water_cells[cell] = 5
-	f.terrain_heights[cell] = -5.0
-	f.ground_heights[cell] = -5.0
+	TestFixtures.flood(f, [cell], 5)
 	f.cavern_ceiling[cell] = -2.5
-	f.bump_path_version()
 	TestFixtures.check(res, "deep pool takes a submerged stack",
 		CaveInSystem.cube_count(f, cell) == 2 and CaveInSystem.is_submerged(f, cell),
 		"cubes %d submerged %s" % [CaveInSystem.cube_count(f, cell),
@@ -672,10 +651,7 @@ static func _case_pools(res: Dictionary) -> void:
 		not crushed.has(sinker) and not st.cave_in_buried.has(sinker),
 		"crushed %d buried %s" % [crushed.size(), str(st.cave_in_buried.has(sinker))])
 	var f2 := _room(5, 3, 4.0)
-	f2.water_cells[cell] = 2
-	f2.terrain_heights[cell] = -2.0
-	f2.ground_heights[cell] = -2.0
-	f2.bump_path_version()
+	TestFixtures.flood(f2, [cell], 2)
 	TestFixtures.check(res, "shallow pool takes a surfaced stack",
 		CaveInSystem.cube_count(f2, cell) == 3 and not CaveInSystem.is_submerged(f2, cell),
 		"cubes %d submerged %s" % [CaveInSystem.cube_count(f2, cell),

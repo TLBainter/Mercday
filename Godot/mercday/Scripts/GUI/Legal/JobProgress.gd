@@ -58,9 +58,9 @@ func _build() -> void:
 		return
 	name = "JobProgress"
 	add_theme_stylebox_override(&"panel", LegalStyle.styled("legal_cell.tres"))
-	var row: HBoxContainer = LegalStyle.hbox(10)
+	var row: HBoxContainer = GuiStyle.hbox(10)
 	row.name = "Row"
-	caption_label = LegalStyle.pixel("", 10, LegalStyle.SKY)
+	caption_label = GuiStyle.label("", GuiStyle.SILK, 10, GuiColors.SKY)
 	caption_label.name = "Caption"
 	caption_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	caption_label.clip_text = true
@@ -79,7 +79,7 @@ func _refresh() -> void:
 	bar.cell_height = CELL_HEIGHT
 	bar.gap = CELL_GAP
 	bar.cell_width = cell_width
-	bar.fill_color = LegalStyle.SKY
-	bar.empty_color = LegalStyle.BLUE
+	bar.fill_color = GuiColors.SKY
+	bar.empty_color = GuiColors.BLUE_LO
 	bar.cells = cells
 	bar.filled = filled

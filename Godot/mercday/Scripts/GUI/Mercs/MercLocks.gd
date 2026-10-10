@@ -5,10 +5,12 @@ class_name MercLocks
 #and the upgrade that sells it; the tier count comes from UpgradeDefs so a tier edit lands once.
 #A key whose entitlement is a count carries "min", the tier the field needs.
 
-const ENTERPRISE: String = "Mercday Enterprise"
-const PRO: String = "Mercday Pro"
+const ENTERPRISE: String = SubscriptionManager.PLAN_NAMES[SubscriptionManager.Plan.ENTERPRISE]
+const PRO: String = SubscriptionManager.PLAN_NAMES[SubscriptionManager.Plan.PRO]
 const LOCK_SCENE_PATH: String = "res://Scenes/GUI/Shared/FeatureLock.tscn"
 const LOCK_HEIGHT: float = 20.0
+#A lock that fills a dark block, the LockBlock slab or an attribute's lock box, stands taller.
+const BLOCK_LOCK_HEIGHT: float = 24.0
 const HIDDEN_SUFFIX: String = " hidden"
 
 #Field and tab keys, held as constants so no caller spells one out.
@@ -117,17 +119,11 @@ static func plan_rank_of(key: String) -> int:
 
 
 static func upgrade_name_of(key: String) -> String:
-	var id: String = upgrade_id_of(key)
-	if id == "" or not UpgradeDefs.has_id(id):
-		return ""
-	return UpgradeDefs.name_of(id)
+	return UpgradeDefs.display_name(upgrade_id_of(key))
 
 
 static func tiers_of(key: String) -> int:
-	var id: String = upgrade_id_of(key)
-	if id == "" or not UpgradeDefs.has_id(id):
-		return 1
-	return maxi(1, UpgradeDefs.tier_count(id))
+	return UpgradeDefs.display_tiers(upgrade_id_of(key))
 
 
 #The caption a hidden block carries in place of its rows.
@@ -169,16 +165,6 @@ static func apply(lock: FeatureLock, key: String, height: float = LOCK_HEIGHT,
 	lock.label = label
 	lock.height = height
 	lock.always_visible = true
-
-
-static func make_lock(key: String, height: float = LOCK_HEIGHT,
-		label: String = "") -> FeatureLock:
-	var scene: PackedScene = load(LOCK_SCENE_PATH) as PackedScene
-	if scene == null:
-		return null
-	var lock: FeatureLock = scene.instantiate() as FeatureLock
-	apply(lock, key, height, label)
-	return lock
 
 
 #The LockedPage a gated tab shows in place of its page.

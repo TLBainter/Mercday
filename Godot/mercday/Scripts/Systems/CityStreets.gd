@@ -42,7 +42,7 @@ const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), 
 
 #Lays the side streets of one block, then its alleys. Appends to area.city["streets"] and paints through CityGrid.
 static func build(area: BattlefieldArea, block: Dictionary) -> void:
-	if area == null or block.is_empty() or not area.city.has("streets"):
+	if block.is_empty():
 		return
 	var rect: Rect2i = block.get("rect", Rect2i())
 	if rect.size.x <= 0 or rect.size.y <= 0:
@@ -85,9 +85,7 @@ static func _try_street(area: BattlefieldArea, block: Dictionary, cfg: Dictionar
 		return
 
 
-#### Geometry helpers. "along" runs with the heading, "lat" across it; both are map coordinates.
-
-
+#"along" runs with the heading, "lat" across it; both are map coordinates.
 static func _sign(h: Vector2i) -> int:
 	return 1 if (h.x + h.y) > 0 else -1
 
@@ -137,9 +135,6 @@ static func _seg(h: Vector2i, along: int, ln: int, lat: int, w: int, cross: bool
 		"axis": _cross_axis(h) if cross else _axis(h), "width": ln if cross else w}
 
 
-#### Cell tests.
-
-
 #What stops a walk at one along row: "border", "street", "bad" or "" when the row is free block ground.
 static func _row_state(area: BattlefieldArea, block: Rect2i, h: Vector2i, along: int, l0: int, l1: int) -> String:
 	var border: bool = false
@@ -147,7 +142,7 @@ static func _row_state(area: BattlefieldArea, block: Rect2i, h: Vector2i, along:
 	var bad: bool = false
 	for l: int in range(l0, l1 + 1):
 		var c: Vector2i = _cell(h, along, l)
-		if not CityGrid.inside(area, c.x, c.y):
+		if not area.in_bounds_xy(c.x, c.y):
 			border = true
 			continue
 		if not block.has_point(c):
@@ -194,7 +189,7 @@ static func _ahead_clear(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, 
 
 
 #Rows to extend the last segment over so it reaches a carriageway; -1 when the junction is not usable.
-static func _junction(area: BattlefieldArea, _block: Rect2i, cfg: Dictionary, h: Vector2i,
+static func _junction(area: BattlefieldArea, cfg: Dictionary, h: Vector2i,
 		ae: int, lat: int, w: int) -> int:
 	var s: int = _sign(h)
 	if String(cfg["kind"]) == "alley":
@@ -224,9 +219,6 @@ static func _junction(area: BattlefieldArea, _block: Rect2i, cfg: Dictionary, h:
 	return -1
 
 
-#### Candidate placement.
-
-
 #Walks one candidate run: {"ok", "len", "hit", "cut"} and "blocked" when the very first row was stopped.
 static func _place(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, h: Vector2i,
 		along: int, want: int, lat: int, w: int) -> Dictionary:
@@ -249,7 +241,7 @@ static func _place(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, h: Vec
 			return {"ok": false, "blocked": false, "len": 0, "hit": "band", "cut": 0}
 	var cut: int = 0
 	if hit == "street":
-		cut = _junction(area, block, cfg, h, along + (used - 1) * s, lat, w)
+		cut = _junction(area, cfg, h, along + (used - 1) * s, lat, w)
 		if cut < 0:
 			return {"ok": false, "blocked": false, "len": 0, "hit": "junction", "cut": 0}
 	return {"ok": true, "blocked": false, "len": used, "hit": hit, "cut": cut}
@@ -259,63 +251,88 @@ static func _place(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, h: Vec
 static func _try_op(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, prev: Dictionary,
 		op: int, last_turn: int) -> Dictionary:
 	var h: Vector2i = prev["h"]
-	var s: int = _sign(h)
 	var lat: int = int(prev["lat"])
 	var w: int = int(prev["w"])
 	var ln: int = int(prev["len"])
-	var ae: int = int(prev["along"]) + (ln - 1) * s
+	var ae: int = int(prev["along"]) + (ln - 1) * _sign(h)
+	for _r: int in range(PARAM_ROLLS):
+		var res: Dictionary
+		if op == OP_CONT:
+			res = _op_cont(area, block, cfg, h, ae, lat, w, last_turn)
+		elif op == OP_TURN:
+			res = _op_turn(area, block, cfg, h, ae, lat, w, ln, last_turn)
+		else:
+			res = _op_jog(area, block, cfg, h, ae, lat, w, last_turn)
+		if not res.is_empty():
+			return res
+	return {}
+
+
+static func _op_cont(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, h: Vector2i, ae: int,
+		lat: int, w: int, last_turn: int) -> Dictionary:
+	var s: int = _sign(h)
 	var wr: Vector2i = cfg["w"]
 	var sr: Vector2i = cfg["seg"]
-	for _r: int in range(PARAM_ROLLS):
-		if op == OP_CONT:
-			var cw2: int = randi_range(wr.x, wr.y)
-			var clat: int = lat if randi_range(0, 1) == 0 else lat + w - cw2
-			var clen: int = randi_range(sr.x, sr.y)
-			var cres: Dictionary = _place(area, block, cfg, h, ae + s, clen, clat, cw2)
-			if bool(cres["ok"]):
-				return {"segs": [_seg(h, ae + s, int(cres["len"]), clat, cw2, false)], "turn": last_turn,
-					"end": "through" if String(cres["hit"]) != "" else "", "cut": int(cres["cut"])}
-			if bool(cres["blocked"]):
-				var reason: String = String(cres["hit"])
-				if reason == "border":
-					return {"segs": [], "turn": last_turn, "end": "through", "cut": 0}
-				if reason == "street":
-					var jc: int = _junction(area, block, cfg, h, ae, lat, w)
-					if jc >= 0:
-						return {"segs": [], "turn": last_turn, "end": "through", "cut": jc}
-		elif op == OP_TURN:
-			var d: int = 1 if randi_range(0, 1) == 0 else -1
-			if last_turn != 0 and _rot(h, d) == last_turn:
-				d = -d
-			var rot: int = _rot(h, d)
-			var h2: Vector2i = _turn_head(h, d)
-			var tw: int = mini(randi_range(wr.x, wr.y), ln)
-			if tw < wr.x:
-				continue
-			var tlen: int = randi_range(sr.x, sr.y)
-			var tlat: int = (ae - tw + 1) if s > 0 else ae
-			var talong: int = lat + w if d > 0 else lat - 1
-			var tres: Dictionary = _place(area, block, cfg, h2, talong, tlen, tlat, tw)
-			if bool(tres["ok"]):
-				return {"segs": [_seg(h2, talong, int(tres["len"]), tlat, tw, false)], "turn": rot,
-					"end": "through" if String(tres["hit"]) != "" else "", "cut": int(tres["cut"])}
-		else:
-			var shift: int = randi_range(JOG.x, JOG.y) * (1 if randi_range(0, 1) == 0 else -1)
-			var jw: int = randi_range(wr.x, wr.y)
-			var conn: int = randi_range(wr.x, wr.y)
-			var ulo: int = mini(lat, lat + shift)
-			var uhi: int = maxi(lat + w - 1, lat + shift + jw - 1)
-			var kres: Dictionary = _place(area, block, cfg, h, ae + s, conn, ulo, uhi - ulo + 1)
-			if not bool(kres["ok"]) or int(kres["len"]) != conn or String(kres["hit"]) != "":
-				continue
-			var jalong: int = ae + (conn + 1) * s
-			var jres: Dictionary = _place(area, block, cfg, h, jalong, randi_range(sr.x, sr.y), lat + shift, jw)
-			if not bool(jres["ok"]):
-				continue
-			return {"segs": [_seg(h, ae + s, conn, ulo, uhi - ulo + 1, true),
-					_seg(h, jalong, int(jres["len"]), lat + shift, jw, false)], "turn": last_turn,
-				"end": "through" if String(jres["hit"]) != "" else "", "cut": int(jres["cut"])}
+	var cw2: int = randi_range(wr.x, wr.y)
+	var clat: int = lat if randi_range(0, 1) == 0 else lat + w - cw2
+	var clen: int = randi_range(sr.x, sr.y)
+	var cres: Dictionary = _place(area, block, cfg, h, ae + s, clen, clat, cw2)
+	if bool(cres["ok"]):
+		return {"segs": [_seg(h, ae + s, int(cres["len"]), clat, cw2, false)], "turn": last_turn,
+			"end": "through" if String(cres["hit"]) != "" else "", "cut": int(cres["cut"])}
+	if bool(cres["blocked"]):
+		var reason: String = String(cres["hit"])
+		if reason == "border":
+			return {"segs": [], "turn": last_turn, "end": "through", "cut": 0}
+		if reason == "street":
+			var jc: int = _junction(area, cfg, h, ae, lat, w)
+			if jc >= 0:
+				return {"segs": [], "turn": last_turn, "end": "through", "cut": jc}
 	return {}
+
+
+static func _op_turn(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, h: Vector2i, ae: int,
+		lat: int, w: int, ln: int, last_turn: int) -> Dictionary:
+	var wr: Vector2i = cfg["w"]
+	var sr: Vector2i = cfg["seg"]
+	var d: int = 1 if randi_range(0, 1) == 0 else -1
+	if last_turn != 0 and _rot(h, d) == last_turn:
+		d = -d
+	var rot: int = _rot(h, d)
+	var h2: Vector2i = _turn_head(h, d)
+	var tw: int = mini(randi_range(wr.x, wr.y), ln)
+	if tw < wr.x:
+		return {}
+	var tlen: int = randi_range(sr.x, sr.y)
+	var tlat: int = (ae - tw + 1) if _sign(h) > 0 else ae
+	var talong: int = lat + w if d > 0 else lat - 1
+	var tres: Dictionary = _place(area, block, cfg, h2, talong, tlen, tlat, tw)
+	if not bool(tres["ok"]):
+		return {}
+	return {"segs": [_seg(h2, talong, int(tres["len"]), tlat, tw, false)], "turn": rot,
+		"end": "through" if String(tres["hit"]) != "" else "", "cut": int(tres["cut"])}
+
+
+static func _op_jog(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, h: Vector2i, ae: int,
+		lat: int, w: int, last_turn: int) -> Dictionary:
+	var s: int = _sign(h)
+	var wr: Vector2i = cfg["w"]
+	var sr: Vector2i = cfg["seg"]
+	var shift: int = randi_range(JOG.x, JOG.y) * (1 if randi_range(0, 1) == 0 else -1)
+	var jw: int = randi_range(wr.x, wr.y)
+	var conn: int = randi_range(wr.x, wr.y)
+	var ulo: int = mini(lat, lat + shift)
+	var uhi: int = maxi(lat + w - 1, lat + shift + jw - 1)
+	var kres: Dictionary = _place(area, block, cfg, h, ae + s, conn, ulo, uhi - ulo + 1)
+	if not bool(kres["ok"]) or int(kres["len"]) != conn or String(kres["hit"]) != "":
+		return {}
+	var jalong: int = ae + (conn + 1) * s
+	var jres: Dictionary = _place(area, block, cfg, h, jalong, randi_range(sr.x, sr.y), lat + shift, jw)
+	if not bool(jres["ok"]):
+		return {}
+	return {"segs": [_seg(h, ae + s, conn, ulo, uhi - ulo + 1, true),
+			_seg(h, jalong, int(jres["len"]), lat + shift, jw, false)], "turn": last_turn,
+		"end": "through" if String(jres["hit"]) != "" else "", "cut": int(jres["cut"])}
 
 
 static func _roll_op(ops: Array) -> int:
@@ -350,24 +367,10 @@ static func _step(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, prev: D
 	return {}
 
 
-#### Mouths.
-
-
 static func _roll_mouth(area: BattlefieldArea, block: Dictionary, cfg: Dictionary, taken: Dictionary) -> Dictionary:
 	if String(cfg["kind"]) == "side":
 		return _roll_mouth_side(block, taken)
 	return _roll_mouth_alley(area, block, taken)
-
-
-static func _into(side: String) -> Vector2i:
-	match side:
-		"N":
-			return Vector2i(0, 1)
-		"S":
-			return Vector2i(0, -1)
-		"W":
-			return Vector2i(1, 0)
-	return Vector2i(-1, 0)
 
 
 static func _entry_along(rect: Rect2i, side: String) -> int:
@@ -387,7 +390,7 @@ static func _roll_mouth_side(block: Dictionary, taken: Dictionary) -> Dictionary
 		return {}
 	var rect: Rect2i = block["rect"]
 	var side: String = String(mains[randi_range(0, mains.size() - 1)])
-	var h: Vector2i = _into(side)
+	var h: Vector2i = BuildingLayouts.inward_step(side)
 	var lat_lo: int = rect.position.y if h.x != 0 else rect.position.x
 	var lat_hi: int = rect.end.y if h.x != 0 else rect.end.x
 	var w: int = randi_range(SIDE_W.x, SIDE_W.y)
@@ -451,9 +454,6 @@ static func _along_of(h: Vector2i, c: Vector2i) -> int:
 
 static func _lat_of(h: Vector2i, c: Vector2i) -> int:
 	return c.y if h.x != 0 else c.x
-
-
-#### The walk.
 
 
 #One candidate street: {"segments", "dead_end", "mouth", "side", "lat", "w"} or {} when it is discarded.
@@ -536,9 +536,6 @@ static func _close_dead(area: BattlefieldArea, block: Rect2i, cfg: Dictionary, s
 	return {"dead": false, "path": p, "cut": int(ext["cut"])}
 
 
-#### Commit.
-
-
 #The segment records of a walked street, with the mouth cut on the first segment of a side street.
 static func _records(cfg: Dictionary, st: Dictionary) -> Array[Dictionary]:
 	var kind: String = String(cfg["kind"])
@@ -597,17 +594,9 @@ static func _commit(area: BattlefieldArea, block: Dictionary, cfg: Dictionary, s
 		CityGrid.paint_rect(area, r["rect"], surf, id)
 	if kind == "side":
 		for r2: Dictionary in recs:
-			#Sidewalk on every cell within Chebyshev distance 1 of the rect that holds no street surface yet.
-			CityGrid.paint_sidewalk_ring(area, r2["rect"], id)
-	streets.append({
-		"id": id,
-		"kind": kind,
-		"axis": String(recs[0]["axis"]),
-		"dead_end": bool(st["dead_end"]),
-		"block": int(block.get("id", -1)),
-		"mouth": st["mouth"],
-		"segments": recs,
-	})
+			CityGrid.paint_rect(area, (r2["rect"] as Rect2i).grow(1), BattlefieldArea.SURF_SIDEWALK, id)
+	CityGrid.add_street(streets, kind, String(recs[0]["axis"]), recs, bool(st["dead_end"]),
+		int(block.get("id", -1)), st["mouth"])
 	if kind == "side":
 		var side: String = String(st["side"])
 		if not taken.has(side):

@@ -1,45 +1,16 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Finance/Invest/InvestPortfolio.gd" id="1"]
-[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/invest_widget.tres" id="2"]
-[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
-[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres" id="4"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Invest/InvestValueCard.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Finance/Invest/InvestPortfolio.gd" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_PortfolioWidget.tres" id="4"]
 
-[node name="InvestPortfolio" type="PanelContainer"]
-theme_override_styles/panel = ExtResource("2")
-script = ExtResource("1")
+[node name="InvestPortfolio" instance=ExtResource("1")]
+script = ExtResource("2")
 
-[node name="Pad" type="MarginContainer" parent="."]
-layout_mode = 2
-theme_override_constants/margin_left = 0
-theme_override_constants/margin_top = 2
-theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 2
-
-[node name="Col" type="VBoxContainer" parent="Pad"]
-layout_mode = 2
-theme_override_constants/separation = 5
-
-[node name="TitleLabel" type="Label" parent="Pad/Col"]
-layout_mode = 2
+[node name="TitleLabel" parent="Pad/Col" index="0"]
 text = "Portfolio Value"
-theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
-theme_override_fonts/font = ExtResource("3")
-theme_override_font_sizes/font_size = 12
 
-[node name="ValueNotes" parent="Pad/Col" instance=ExtResource("5")]
-layout_mode = 2
-font_size = 16
-glyph_scale = 2
-
-[node name="GainLabel" type="Label" parent="Pad/Col"]
-layout_mode = 2
-theme_override_fonts/font = ExtResource("4")
-theme_override_font_sizes/font_size = 12
-
-[node name="DividendsLabel" type="Label" parent="Pad/Col"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.949020, 0.827451, 0.239216, 1)
-theme_override_fonts/font = ExtResource("4")
-theme_override_font_sizes/font_size = 12
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("3")
+hint = ExtResource("4")

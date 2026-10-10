@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./fit-frame.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 0 0 0 2px #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-button{display:none}
+</style>
+<script src="./merc-icons.js"></script>
+</helmet>
+<div style="display:none" aria-hidden="true"><dc-import name="Feature Lock" hint-size="0px,0px"></dc-import><sc-if value="{{ needMarket }}" hint-placeholder-val="{{ false }}"><dc-import name="Finance Viewer" invest-only="{{ true }}" hint-size="0px,0px"></dc-import></sc-if></div>
+<div data-help-scope="window" style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Client Viewer" style="position:relative;width:1280px;height:{{ frameH }};flex:none;background:#101a30;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px);padding:20px;display:grid;grid-template-columns:380px minmax(0,1fr);gap:20px;box-shadow:0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000">
+
+    <div style="min-height:0;display:flex;flex-direction:column">
+      <div style="position:relative;display:flex;gap:8px;height:44px;flex:none;padding:0 4px">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">TabButton.tscn ×3 (over the roster)</div></sc-if>
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+          <dc-import name="Tab Button" label="{{ t.label }}" icon="{{ t.icon }}" active="{{ t.active }}" title="{{ t.label }}" on-click="{{ t.onClick }}" style="flex:{{ t.flex }};align-self:flex-end" hint-size="52px,38px"></dc-import>
+        </sc-for>
+      </div>
+      <div data-help="scene_ClientList" style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;padding:14px 10px 14px 14px;background:#1a2b4d;box-shadow:inset 4px 0 0 #28447a,inset -4px -4px 0 #111c33,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,0 -4px 0 #f28c28">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;right:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">ClientList.tscn</div></sc-if>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding-right:4px">
+          <span style="font:400 13px Silkscreen;color:#f28c28;letter-spacing:1px">{{ listTitle }}</span>
+          <span style="font:400 11px Silkscreen;color:#9cc6ef">{{ listCount }}</span>
+        </div>
+        <div data-popup="1" style="position:relative;display:flex;gap:8px;align-items:center;padding:0 4px 0 3px">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">SortButton + DirToggle + ClientFilter</div></sc-if>
+          <button onClick="{{ toggleSort }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:26px;padding:0 8px;background:#2b4f8a;font:400 10px Silkscreen;white-space:nowrap;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">
+            <span style="display:grid;gap:2px"><span style="width:10px;height:2px;background:#f3ead7"></span><span style="width:7px;height:2px;background:#f3ead7"></span><span style="width:4px;height:2px;background:#f3ead7"></span></span>
+            {{ sortLabel }}
+          </button>
+          <button onClick="{{ toggleDir }}" title="{{ dirTitle }}" style="flex:none;width:40px;height:26px;display:flex;align-items:center;justify-content:center;gap:4px;background:{{ dirBg }};box-shadow:inset 0 3px 0 {{ dirHi }},inset 0 -3px 0 {{ dirLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+            <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid {{ upColor }}"></span>
+            <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid {{ downColor }}"></span>
+          </button>
+          <button onClick="{{ toggleFilter }}" style="flex:none;height:26px;padding:0 8px;display:flex;align-items:center;gap:6px;background:{{ fBg }};color:{{ fFg }};font:400 10px Silkscreen;box-shadow:inset 0 3px 0 {{ fHi }},inset 0 -3px 0 {{ fLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+            <span style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="width:10px;height:2px;background:{{ fFg }}"></span><span style="width:6px;height:2px;background:{{ fFg }}"></span><span style="width:2px;height:4px;background:{{ fFg }}"></span></span>Filter
+          </button>
+          <sc-if value="{{ sortOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:36px;left:0;z-index:40;width:220px;padding:12px;display:flex;flex-direction:column;gap:4px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+              <span style="font:400 10px Silkscreen;color:#9cc6ef;margin-bottom:6px">Sort by</span>
+              <sc-for list="{{ sortOpts }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.onClick }}" style="text-align:left;padding:6px 8px;font-size:14px;background:{{ o.bg }};color:{{ o.fg }}" style-hover="filter:brightness(1.2)">{{ o.label }}</button></sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ filterOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:36px;right:0;z-index:40;width:250px;max-height:430px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+              <span style="font:400 10px Silkscreen;color:#9cc6ef">Type</span>
+              <sc-for list="{{ typeOpts }}" as="o" hint-placeholder-count="4"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" checked="{{ o.on }}" onChange="{{ o.onChange }}"><span style="font-size:14px">{{ o.label }}</span></label></sc-for>
+              <span style="margin-top:6px;font:400 10px Silkscreen;color:#9cc6ef">Location</span>
+              <sc-for list="{{ locOpts }}" as="o" hint-placeholder-count="6"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" checked="{{ o.on }}" onChange="{{ o.onChange }}"><span style="font-size:14px">{{ o.label }}</span></label></sc-for>
+              <button onClick="{{ resetFilter }}" style="align-self:flex-start;height:26px;padding:0 10px;margin-top:4px;background:#2b4f8a;font:400 10px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560" style-hover="background:#3b6fb6">Reset</button>
+            </div>
+          </sc-if>
+        </div>
+        <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:14px;text-align:center;font-size:14px;color:#9cc6ef;background:#0e1628">No clients match this filter.</div></sc-if>
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;padding:4px 6px 4px 4px">
+          <sc-for list="{{ roster }}" as="c" hint-placeholder-count="8">
+            <button onClick="{{ c.onClick }}" style="position:relative;flex:none;display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px;text-align:left;background:{{ c.bg }};box-shadow:0 -3px 0 {{ c.ring }},0 3px 0 {{ c.ring }},-3px 0 0 {{ c.ring }},3px 0 0 {{ c.ring }}" style-hover="background:#15223d">
+              <div style="width:48px;height:48px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6"></div>
+              <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+                <span style="font:700 12px/1.1 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+                <span style="font-size:13px;line-height:1;color:#9cc6ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.sub }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+                <span style="font:400 7px Silkscreen;letter-spacing:1px;color:#9cc6ef">CONTRACTS</span>
+                <span style="font:700 14px/1 Silkscreen;color:#f3ead7">{{ c.count }}</span>
+              </div>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div data-help="scene_ClientOverview" style="position:relative;min-height:0;display:flex;flex-direction:column;gap:14px;padding:18px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">ClientOverview.tscn</div></sc-if>
+      <div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:16px;align-items:center">
+        <div style="width:96px;height:96px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 6px,#0e1628 6px 12px);box-shadow:inset 0 0 0 3px #3b6fb6"></div>
+        <div style="min-width:0;display:flex;flex-direction:column;gap:6px">
+          <span style="font:700 20px Silkscreen;color:#f28c28;text-shadow:2px 2px 0 #0a0f1c">{{ sel.name }}</span>
+          <span style="font-size:15px;color:#f3ead7">{{ sel.kindLine }}</span>
+          <span style="font-size:14px;color:#9cc6ef">{{ sel.where }}</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:14px">
+        <div style="min-height:74px;display:flex;flex-direction:column;gap:8px;padding:10px 12px;background:#0e1628">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span style="font:400 10px Silkscreen;color:#9cc6ef;letter-spacing:1px">Relationship</span>
+            <sc-if value="{{ rel.on }}" hint-placeholder-val="{{ true }}"><span style="font:700 13px Silkscreen;color:{{ rel.color }}">{{ rel.label }}</span></sc-if>
+          </div>
+          <sc-if value="{{ rel.on }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:4px">
+              <sc-for list="{{ rel.faces }}" as="fc" hint-placeholder-count="11">
+                <sc-if value="{{ fc.cells.px12 }}" hint-placeholder-val="{{ false }}"><span title="{{ fc.label }}" style="display:block;flex:none;width:24px;height:24px;image-rendering:pixelated;background:url({{ fc.cells.px12 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ rel.locked }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;align-items:center;justify-content:center"><dc-import name="Feature Lock" verb="view" feature="client relationships" plan="Mercday Enterprise" upgrade="Customer Satisfaction" upgrade-id="customer" tier="{{ 1 }}" tiers="{{ 1 }}" px="{{ 4 }}" hint-size="36px,40px"></dc-import></div></sc-if>
+        </div>
+      </div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">
+        <div style="min-height:0;display:flex;flex-direction:column;gap:8px">
+          <span style="font:400 13px Silkscreen;color:#f28c28;letter-spacing:1px">Contract History</span>
+          <div style="flex:none;height:98px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:1fr 1fr;gap:8px">
+            <sc-for list="{{ sel.stats }}" as="s" hint-placeholder-count="6">
+              <div style="display:flex;flex-direction:column;gap:4px;padding:6px 8px;background:#0e1628;box-shadow:inset 0 -3px 0 #2b4f8a">
+                <span style="font:400 8px Silkscreen;color:#9cc6ef;white-space:nowrap">{{ s.label }}</span>
+                <sc-if value="{{ s.isStars }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:2px;padding-top:2px"><sc-for list="{{ s.stars }}" as="st" hint-placeholder-count="5"><sc-if value="{{ st.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ st.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if></sc-for></span></sc-if>
+                <span style="display:flex;align-items:center;gap:3px;font:700 14px Silkscreen;color:{{ s.color }}">{{ s.value }}<sc-if value="{{ s.n }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if></sc-if></span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;padding:6px 8px 6px 6px;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+            <sc-if value="{{ sel.noRecent }}" hint-placeholder-val="{{ false }}"><div style="padding:10px;font-size:13px;color:#9cc6ef;background:#0e1628;outline:2px dashed #3b6fb6;outline-offset:-2px">No accepted contracts yet.</div></sc-if>
+            <sc-for list="{{ sel.recent }}" as="r" hint-placeholder-count="3">
+              <button onClick="{{ r.open }}" style="flex:none;display:grid;grid-template-columns:40px minmax(0,1fr);gap:8px;align-items:center;padding:6px;text-align:left;background:#15223d;box-shadow:0 -2px 0 #3b6fb6,0 2px 0 #3b6fb6,-2px 0 0 #3b6fb6,2px 0 0 #3b6fb6" style-hover="background:#1f3560;box-shadow:0 -2px 0 #f28c28,0 2px 0 #f28c28,-2px 0 0 #f28c28,2px 0 0 #f28c28">
+                <div style="width:40px;height:40px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6"></div>
+                <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+                  <span style="font:700 11px/1 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+                  <span style="font-size:12px;line-height:1;color:{{ r.color }}">{{ r.result }}</span>
+                  <span style="font:400 8px Silkscreen;color:#f28c28">View Contract ›</span>
+                </div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="min-height:0;display:flex;flex-direction:column;gap:8px">
+          <span style="font:400 13px Silkscreen;color:#f28c28;letter-spacing:1px">{{ rightTitle }}</span>
+          <div style="flex:none;height:98px;overflow:hidden;display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#0e1628">
+            <span style="font:400 10px Silkscreen;color:#9cc6ef;letter-spacing:1px">Summary</span>
+            <span style="font-size:15px;line-height:1.35;color:#f3ead7;text-wrap:pretty">{{ sel.about }}</span>
+          </div>
+          <sc-if value="{{ chart.on }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ chart.open }}" title="Open Invest for this company" style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;padding:10px 12px;text-align:left;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="box-shadow:0 -3px 0 #f28c28,0 3px 0 #f28c28,-3px 0 0 #f28c28,3px 0 0 #f28c28">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font:400 10px Silkscreen;color:#9cc6ef;letter-spacing:1px">Stock · 1Y</span><span style="font:700 12px Silkscreen;color:{{ chart.color }}">{{ chart.price }} · {{ chart.chg }}</span></div>
+              <div style="position:relative;flex:1;min-height:0;background:#0a0f1c;box-shadow:inset 0 0 0 2px #1f3560">
+                <svg viewBox="0 0 100 40" preserveAspectRatio="none" style="position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px)"><polyline points="{{ chart.pts }}" fill="none" stroke="{{ chart.color }}" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="bevel"></polyline></svg>
+              </div>
+              <span style="font:400 8px Silkscreen;color:#f28c28">Open Invest ›</span>
+            </button>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ inv.on }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+      <div style="position:relative;flex:none;width:1280px;height:{{ frameH }};box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+        <div style="position:absolute;top:0;left:0;width:1280px;height:{{ frameH }};overflow:hidden">
+          <dc-import name="Finance Viewer" frame-h="{{ frameH }}" invest-only="{{ true }}" open-stock-id="{{ inv.id }}" stock-nonce="{{ inv.nonce }}" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+        </div>
+        <button onClick="{{ inv.close }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ cv.on }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+      <div style="position:relative;flex:none;width:940px;height:{{ frameH }};box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+        <div style="position:absolute;top:0;left:0;width:940px;height:{{ frameH }};overflow:hidden">
+          <dc-import name="Contract Viewer" frame-h="{{ frameH }}" hide-list="{{ true }}" open-contract-id="{{ cv.id }}" open-nonce="{{ cv.nonce }}" style="position:absolute;top:-32px;left:-32px;width:1004px" hint-size="1004px,784px"></dc-import>
+        </div>
+        <button onClick="{{ cv.close }}" title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+      <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span><span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span></div>
+          <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+          <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7"><sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for></div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  diffColors = { 0.5: '#29e029', 1: '#50e029', 1.5: '#77e029', 2: '#a6e33b', 2.5: '#cae33b', 3: '#e3d83b', 3.5: '#e3b43b', 4: '#e08629', 4.5: '#e05f29', 5: '#e03829' }; // difficulty gradient: bright green (0.5) → red (5)
+  mi() { const M = window.MercIcons; if (M) return M; if (!this._miWait) this._miWait = setInterval(() => { if (window.MercIcons) { clearInterval(this._miWait); this.forceUpdate(); } }, 50); return { cells: () => [], cell16: () => [], box: () => [], solid: () => [], diffStar: () => [], tabOn: () => [], mask: () => [''], w: () => 1, h: () => 1 }; }
+  state = { tab: 'orgs', sel: { people: 0, places: 0, orgs: 0 } };
+  // Clients = everyone who has sent you contracts. Orgs are the same 9 Companies that act as Lenders / Issuers / stocks.
+  get noteMap() { return this.mi().mask('note'); }
+  icons = {
+    people: { pal: { w: '#f3ead7' }, map: ['....####....', '...######...', '...######...', '...######...', '....####....', '............', '..########..', '.##########.', '############', '############', '############', '............'] },
+    places: { pal: { w: '#f3ead7', r: '#e8583f' }, map: ['.....##.....', '....####....', '...######...', '..########..', '.##########.', '############', '.##########.', '.###....###.', '.###.##.###.', '.###.##.###.', '.##########.', '............'] },
+    orgs: { pal: { w: '#f3ead7' }, map: ['...######...', '...#.##.#...', '...######...', '...#.##.#...', '############', '#.##.##.##.#', '############', '#.##.##.##.#', '############', '#.##.##.##.#', '############', '............'] },
+  };
+  kinds = { people: ['Person', ['Artisan', 'Poorfolk', 'Commoner', 'Noble', 'Executive', 'Mercenary']], places: ['Place', ['Town', 'Village', 'Fort', 'Port', 'Temple', 'Mine', 'Keep', 'Outpost']], orgs: ['Org', ['Company', 'Company', 'Company', 'Company', 'Company', 'Company', 'Company', 'Company', 'Company']] };
+  locations = ['Buern', 'Aerdis', 'Aldurstein', 'Zukei', 'Rossade', 'Copari', 'Miliim', 'Vaernebo', 'Cyfrolaef', 'Gledd Sea', 'Marric Ocean', 'Weird', 'Umbra', 'Hel'];
+  scrollMap = ['.########.', '#........#', '.#.####..#', '.#......#.', '.#.####.#.', '.#......#.', '.#.###..#.', '#........#', '.########.', '..........'];
+  // Mirrors Contract Viewer's 14 sample contracts (status + reward). Contract i is issued by: tab ['orgs','people','places'][i % 3], client index i % (tab size).
+  contractST = ['Available', 'Available', 'Active', 'Available', 'Available', 'Active', 'Available', 'Available', 'Available', 'Available', 'Expired', 'Completed', 'Completed', 'Completed'];
+  contractDiff = [3, 0.5, 4.5, 2, 1.5, 3.5, 5, 1, 2.5, 4, 3, 2, 1.5, 4];
+  get starMap() { return this.mi().mask('star7'); }
+  contractRW = [800, 80, 2400, 400, 220, 1100, 5000, 150, 520, 1600, 700, 300, 260, 1900];
+  issued(tab, idx) { const tabs = ['orgs', 'people', 'places'], n = tab === 'orgs' ? 9 : 8; return this.contractST.map((st, i) => ({ id: i, st, rw: this.contractRW[i] })).filter(c => tabs[c.id % 3] === tab && (c.id % n) === idx); }
+  rng(seed) { let a = seed * 2654435761 >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  // Sample client data (ClientRegistry in-engine): name, subtype, location, relationship (−5…5), contract history.
+  clients(tab) { if (this._c && this._c[tab]) return this._c[tab]; const [kind, subs] = this.kinds[tab], n = tab === 'orgs' ? 9 : 8, label = { people: 'Person', places: 'Place', orgs: 'Company' }[tab];
+    const list = Array.from({ length: n }, (_, i) => { const r = this.rng(i * 17 + tab.length * 101), mine = this.issued(tab, i), acc = mine.filter(c => c.st === 'Active' || c.st === 'Completed' || c.st === 'Failed'),
+        offered = mine.length, accepted = acc.length, wins = acc.filter(c => c.st === 'Completed').length;
+      return { name: label + ' ' + (i + 1) + ' Name', kind, sub: subs[i % subs.length], loc: this.locations[(i * 5 + tab.length * 3) % this.locations.length], km: 40 + Math.floor(r() * 860), get where() { return this.loc + ' · ' + this.km + ' km away'; }, rel: Math.round(r() * 10 - 4),
+        offered, accepted, wins, avgDiff: acc.length ? acc.reduce((a2, c) => a2 + this.contractDiff[c.id], 0) / acc.length : 0, fails: acc.filter(c => c.st === 'Failed').length, paid: acc.filter(c => c.st === 'Completed').reduce((a, c) => a + c.rw, 0),
+        recent: acc.map((c, j) => ({ id: c.id, name: 'Contract ' + (c.id + 1) + ' Name', st: c.st, day: 1296 - c.id * 3 })) }; });
+    (this._c || (this._c = {}))[tab] = list; return list; }
+  // Opinion faces −5…+5 (same meter as Merc Viewer › Guild Opinion).
+  guildDefs() { const B = '#f#fff#f#', N = '#fffffff#', E = '#ff#f#ff#';
+    return [[-5, '#e8583f', [B, '#f##f##f#', '#f#####f#', '#f#fff#f#']], [-4, '#ec6a36', [B, E, '#ff###ff#', '#f#fff#f#']], [-3, '#ef7c2f', [N, E, '#ff###ff#', '#f#fff#f#']], [-2, '#f28c28', [N, E, '#fff#fff#', '#ff#f#ff#']], [-1, '#f2a033', [N, E, '#fff##ff#', '#ff#ffff#']],
+      [0, '#f2b33d', [N, E, '#ff###ff#', N]], [1, '#5aa6e8', [N, E, '#ffff#ff#', '#ff##fff#']], [2, '#5fb0b8', [N, E, '#ff#f#ff#', '#fff#fff#']], [3, '#64b98c', [N, E, '#f#fff#f#', '#ff###ff#']], [4, '#6cc36a', [N, E, '#f#####f#', '#ff###ff#']], [5, '#3fae5a', ['#ff#f#ff#', '#f#fff#f#', '#f#####f#', '#ff###ff#']]]; }
+  faceCells(rows, color, on) { const k = JSON.stringify(rows), d = this.guildDefs().find(x => JSON.stringify(x[2]) === k), lv = d ? d[0] : 0; return on ? this.mi().cells(this.faceId(lv), color) : this.mi().cells(this.faceId(lv) + '_o', '#2b4f8a'); }
+  faceId(lv) { return 'face_' + (lv === 0 ? '0' : (lv < 0 ? 'm' : 'p') + Math.abs(lv)); }
+  componentDidMount() { this._mkT = setInterval(() => { if (window.__mercStore && window.__mercStore.market) { clearInterval(this._mkT); this.forceUpdate(); } }, 250); /* re-render once the shared StockMarket exists */ this.onDoc = e => { if (e.target.closest && e.target.closest('[data-popup]')) return; if (this.state.sortOpen || this.state.filterOpen) this.setState({ sortOpen: false, filterOpen: false }); }; document.addEventListener('mousedown', this.onDoc); const st = window.__mercStore; if (st) { this.onStore = () => this.forceUpdate(); st.subs.add(this.onStore); } }
+  componentWillUnmount() { clearInterval(this._mkT); document.removeEventListener('mousedown', this.onDoc); const st = window.__mercStore; if (st && this.onStore) st.subs.delete(this.onStore); }
+  sceneMap = [
+    { name: 'ClientViewer.tscn', uses: 'root (HUD › My Clients)', root: 'HBox › VBox (TabButton ×3 over ClientList) + ClientOverview', vars: ['@export var start_tab: StringName  # people | places | orgs', '# Orgs = the same Companies used as Lenders, Issuers and stocks'] },
+    { name: 'ClientList.tscn', uses: 'x1 per tab', root: 'PanelContainer › ScrollContainer › ClientListItem ×N', vars: ['@export var clients: Array[ClientData]  # only clients who have sent you contracts'] },
+    { name: 'ClientOverview.tscn', uses: 'x1', root: 'VBox › Header, What They Do, Relationship (FeatureLock: Customer Satisfaction), History stats + recent contracts', vars: ['@export var client: ClientData', '# relationship −5…5 hidden without Customer Satisfaction', '# Contract History: every accepted contract as a module; click → Contract Viewer dialog for that contract', '# location: named place + distance in km'] },
+  ];
+  renderVals() {
+    const s = this.state, tab = s.tab, all = this.clients(tab), N = v => Math.round(v).toLocaleString('en-US');
+    // Sort: offered / accepted / notes earned / recency (latest offered contract). Filter: type + location (per tab).
+    const SK = { recent: ['Most Recent', x => Math.max(...x.recent.map(r => r.day), 0)], offered: ['Contracts Offered', x => x.offered], accepted: ['Contracts Accepted', x => x.accepted], paid: ['Notes Earned', x => x.paid] };
+    const sk = s.sortK || 'recent', desc = s.desc !== false, fl = (s.filt || {})[tab] || { type: {}, loc: {} };
+    const list = all.filter(x => !fl.type[x.sub] && !fl.loc[x.loc]).sort((a, b) => (SK[sk][1](b) - SK[sk][1](a)) * (desc ? 1 : -1));
+    const selId = s.selName && s.selName[tab], found = list.findIndex(x => x.name === selId), idx = found >= 0 ? found : 0, c = list[idx] || all[0];
+    const setF = (kind, key, off) => this.setState(st => { const cur = (st.filt || {})[tab] || { type: {}, loc: {} }; return { filt: { ...(st.filt || {}), [tab]: { ...cur, [kind]: { ...cur[kind], [key]: off } } } }; });
+    const uniq = arr => [...new Set(arr)];
+    const E = (window.__mercStore && window.__mercStore.entitlements) ? window.__mercStore.entitlements() : { clientOpinion: true };
+    const lv = Math.max(-5, Math.min(5, c.rel)), gd = this.guildDefs().find(d => d[0] === lv);
+    const cells = map => map.join('').split('').map(ch => ch === '.' ? 'transparent' : ch === 'r' ? '#e8583f' : '#f3ead7');
+    return { frameH: this.props.frameH || '720px', 
+      showScenes: this.props.showScenes ?? false, sceneMap: this.sceneMap,
+      nGlyph: this.noteMap.join('').split('').map(ch => ch === '#' ? 'currentColor' : 'transparent'),
+      tabs: [['people', 'People'], ['places', 'Places'], ['orgs', 'Orgs']].map(([k, l]) => ({ label: l, active: tab === k, flex: tab === k ? '1 1 auto' : '0 0 52px', icon: this.mi().cell16({ people: 'person', places: 'house', orgs: 'building' }[k], tab === k ? '#0a0f1c' : null), onClick: () => this.setState({ tab: k }) })),
+      listTitle: { people: 'People', places: 'Places', orgs: 'Orgs' }[tab], listCount: list.length + '/' + all.length, listEmpty: list.length === 0,
+      sortLabel: SK[sk][0], sortOpen: !!s.sortOpen, filterOpen: !!s.filterOpen,
+      toggleSort: () => this.setState(st => ({ sortOpen: !st.sortOpen, filterOpen: false })), toggleFilter: () => this.setState(st => ({ filterOpen: !st.filterOpen, sortOpen: false })),
+      toggleDir: () => this.setState(st => ({ desc: st.desc === false })), dirTitle: desc ? 'Highest to lowest' : 'Lowest to highest', dirBg: desc ? '#f28c28' : '#2b4f8a', dirHi: desc ? '#ffb266' : '#3b6fb6', dirLo: desc ? '#b85a12' : '#1f3560', upColor: desc ? '#7a4a1a' : '#f3ead7', downColor: desc ? '#0a0f1c' : '#5e7699',
+      sortOpts: Object.entries(SK).map(([k, [l]]) => ({ label: l, bg: k === sk ? '#f28c28' : 'transparent', fg: k === sk ? '#0a0f1c' : '#f3ead7', onClick: () => this.setState({ sortK: k, sortOpen: false }) })),
+      typeOpts: uniq(all.map(x => x.sub)).map(k => ({ label: k, on: !fl.type[k], onChange: e => setF('type', k, !e.target.checked) })),
+      locOpts: uniq(all.map(x => x.loc)).sort().map(k => ({ label: k, on: !fl.loc[k], onChange: e => setF('loc', k, !e.target.checked) })),
+      resetFilter: () => this.setState(st => ({ filt: { ...(st.filt || {}), [tab]: { type: {}, loc: {} } } })),
+      ...(() => { const changed = Object.values(fl.type).some(Boolean) || Object.values(fl.loc).some(Boolean); return { fBg: changed ? '#f28c28' : '#2b4f8a', fFg: changed ? '#0a0f1c' : '#f3ead7', fHi: changed ? '#ffb266' : '#3b6fb6', fLo: changed ? '#b85a12' : '#1f3560' }; })(),
+      roster: list.map((x, i) => { const on = i === idx; return { name: x.name, sub: x.sub, count: String(x.accepted), bg: on ? '#15223d' : '#0e1628', ring: on ? '#f28c28' : '#0a0f1c', onClick: () => this.setState(st => ({ selName: { ...(st.selName || {}), [tab]: x.name } })) }; }),
+      sel: { name: c.name, kindLine: c.kind + ' · ' + c.sub, where: c.where, about: { orgs: 'org desc.', people: 'person desc.', places: 'place desc.' }[tab],
+        stats: [{ label: 'Offered', value: String(c.offered), color: '#f3ead7' }, { label: 'Accepted', value: String(c.accepted), color: '#f3ead7' }, { label: 'Successful', value: String(c.wins), color: '#6cc36a' }, { label: 'Failed', value: String(c.fails), color: '#e8583f' }, { label: 'Notes Earned', value: N(c.paid), color: '#f2d33d', n: true },
+          { label: 'Avg Difficulty', value: c.accepted ? '' : '—', color: '#9cc6ef', isStars: c.accepted > 0, stars: Array.from({ length: 5 }, (_, k) => { const f2 = c.avgDiff >= k + 1 ? 1 : c.avgDiff >= k + 0.5 ? 0.5 : 0; return this.mi().diffStar(f2, this.diffColors[Math.max(0.5, Math.round(c.avgDiff * 2) / 2)] || '#f2b33d', '#2b4f8a'); }) }],
+        noRecent: c.recent.length === 0,
+        recent: c.recent.map(r => ({ name: r.name, result: r.st, color: { Active: '#5aa6e8', Completed: '#6cc36a', Failed: '#e8583f' }[r.st] || '#9cc6ef',
+          open: () => this.setState(st => ({ cvId: r.id, cvNonce: (st.cvNonce || 0) + 1 })) })) },
+      scroll: this.mi().cells('scroll', '#f3ead7'),
+      needMarket: tab === 'orgs' && !(window.__mercStore && window.__mercStore.market),
+      rightTitle: tab === 'orgs' ? 'Company Details' : 'Details',
+      // Company Details: mini 1Y stock chart (StockMarket prices when available, else a stable sample walk). Click → Invest (invest-only Finance Viewer).
+      chart: tab === 'orgs' ? (() => { const k = all.indexOf(c), mk = window.__mercStore && window.__mercStore.market, src = mk && mk.companies[k] ? mk.companies[k].p.slice(-360) : null;
+        if (!src) return { on: true, pts: '', color: '#5e7699', price: 'Loading', chg: '…', open: () => {} };
+        const lo = Math.min(...src), hi = Math.max(...src), sp = hi - lo || 1, first = src[0], last = src[src.length - 1], up = last >= first;
+        return { on: true, pts: src.map((p, i) => (i / (src.length - 1) * 100).toFixed(2) + ',' + (38 - (p - lo) / sp * 36).toFixed(2)).join(' '), color: up ? '#6cc36a' : '#e8583f', price: last.toFixed(2), chg: (up ? '+' : '−') + Math.abs((last / first - 1) * 100).toFixed(1) + '%',
+          open: () => this.setState(st => ({ invId: k, invNonce: (st.invNonce || 0) + 1 })) }; })() : { on: false },
+      inv: s.invId != null ? { on: true, id: s.invId, nonce: s.invNonce || 0, close: () => this.setState({ invId: null }) } : { on: false },
+      cv: s.cvId != null ? { on: true, id: s.cvId, nonce: s.cvNonce || 0, close: () => this.setState({ cvId: null }) } : { on: false },
+      rel: E.clientOpinion ? { on: true, locked: false, label: lv === 0 ? 'Neutral' : 'Opinion ' + (lv > 0 ? '+' : '') + lv, color: gd[1],
+        faces: this.guildDefs().map(([v, col, rows]) => ({ label: v === 0 ? 'Neutral' : 'Opinion ' + (v > 0 ? '+' : '') + v, cells: this.faceCells(rows, col, v === lv) })) } : { on: false, locked: true, faces: [] },
+    };
+  }
+}
+</script>
+</body>
+</html>

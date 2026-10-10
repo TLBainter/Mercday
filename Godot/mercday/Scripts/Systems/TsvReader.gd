@@ -5,7 +5,7 @@ static func load_tsv(path: String) -> Array[PackedStringArray]:
 	var rows: Array[PackedStringArray] = []
 	var file := FileAccess.open(path, FileAccess.READ)
 	if not file:
-		push_error("DataManager: cannot open %s" % path)
+		push_error("TsvReader: cannot open %s" % path)
 		return rows
 	var source: String = path.get_file()
 	AsciiNormalizer.reset_count()
@@ -39,7 +39,7 @@ static func load_header_rows(path: String) -> Array[Dictionary]:
 			if header[c] == "":
 				continue
 			if d.has(header[c]):
-				push_warning("DataManager: %s duplicate column %s" % [path.get_file(), header[c]])
+				push_warning("TsvReader: %s duplicate column %s" % [path.get_file(), header[c]])
 				continue
 			d[header[c]] = row_get(row, c)
 		d["_row"] = i + 1
@@ -47,11 +47,11 @@ static func load_header_rows(path: String) -> Array[Dictionary]:
 	return out
 
 
-static func split_field(value: String) -> Array[String]:
+static func split_field(value: String, sep: String = ",") -> Array[String]:
 	var result: Array[String] = []
 	if value.strip_edges() == "":
 		return result
-	for part: String in value.split(","):
+	for part: String in value.split(sep):
 		var t: String = part.strip_edges()
 		if t != "":
 			result.append(t)
@@ -60,3 +60,38 @@ static func split_field(value: String) -> Array[String]:
 
 static func row_get(row: PackedStringArray, idx: int) -> String:
 	return row[idx].strip_edges() if idx < row.size() else ""
+
+
+#Typed cell reads: a blank or unparsable cell falls back to the default.
+static func cell_int(row: PackedStringArray, idx: int, default_value: int) -> int:
+	var raw: String = row_get(row, idx)
+	return int(raw) if raw.is_valid_int() else default_value
+
+
+static func cell_float(row: PackedStringArray, idx: int, default_value: float) -> float:
+	var raw: String = row_get(row, idx)
+	return float(raw) if raw.is_valid_float() else default_value
+
+
+static func cell_bool(row: PackedStringArray, idx: int) -> bool:
+	return row_get(row, idx).to_upper() == "TRUE"
+
+
+#Data rows of a sheet: the header is dropped and rows with a blank key cell are skipped.
+static func data_rows(path: String, key_col: int) -> Array[PackedStringArray]:
+	var out: Array[PackedStringArray] = []
+	var rows: Array[PackedStringArray] = load_tsv(path)
+	for i: int in range(1, rows.size()):
+		if row_get(rows[i], key_col) == "":
+			continue
+		out.append(rows[i])
+	return out
+
+
+#Splits an "intended/extended" range cell; the extended value falls back to the intended one.
+static func parse_range(text: String) -> Array[int]:
+	var parts: PackedStringArray = text.split("/")
+	var intended: int = int(parts[0]) if parts.size() > 0 else 0
+	var extended: int = int(parts[1]) if parts.size() > 1 else intended
+	var out: Array[int] = [intended, extended]
+	return out

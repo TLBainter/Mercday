@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<script src="./merc-icons.js"></script>
+<script src="./sigils.js"></script>
+<style>body{margin:0;background:#060a14}a{color:#5aa6e8}a:hover{color:#f28c28}</style>
+</helmet>
+<div style="min-height:100vh;background:#060a14;color:#f3ead7;font-family:'Pixelify Sans',sans-serif;padding:32px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="font:700 24px Silkscreen;color:#f28c28">Tradition Sigils</div>
+    <div style="font-size:15px;color:#a0a8b8;max-width:720px;text-wrap:pretty">16×16 px, transparent, full color. Replaces the tinted sword on every merc card. The frame ring keeps the tradition color.</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px">
+    <sc-for list="{{ sigils }}" as="s" hint-placeholder-count="10">
+      <div style="background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560;padding:14px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span style="font:700 14px Silkscreen;color:{{ s.color }}">{{ s.name }}</span>
+          <span style="font-size:12px;color:#5e7699">#{{ s.num }}</span>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:12px">
+          <div style="width:72px;height:72px;flex:none;background:#0a0f1c">{{ s.thumb }}</div>
+          <div style="background:#0a0f1c;padding:6px;box-shadow:inset 0 0 0 1px #1f3560">
+            <sc-if value="{{ s.cells.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:128px;height:128px;image-rendering:pixelated;background:url({{ s.cells.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:70px;height:70px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 3px {{ s.color }}">
+            <sc-if value="{{ s.cells.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:64px;height:64px;image-rendering:pixelated;background:url({{ s.cells.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+          </div>
+          <div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 2px {{ s.color }}">
+            <sc-if value="{{ s.cells.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;background:url({{ s.cells.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+          </div>
+          <div style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 1px {{ s.color }}">
+            <sc-if value="{{ s.cells.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ s.cells.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+          </div>
+          <span style="font-size:12px;color:#5e7699">4× · 2× · 1×</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  order = [['Divine', '#f2d33d'], ['Mage', '#a8385a'], ['Mystech', '#3fc9c0'], ['Performer', '#f07ab8'], ['Sorcerer', '#e8583f'], ['Brave', '#5aa6e8'], ['Chymist', '#6cc36a'], ['Hellion', '#a36ce8'], ['Honorable', '#f28c28'], ['Warrior', '#a0a8b8']];
+  componentDidMount() { if (!window.Sigils) this._t = setInterval(() => { if (window.Sigils) { clearInterval(this._t); this.forceUpdate(); } }, 50); }
+  componentWillUnmount() { clearInterval(this._t); }
+  renderVals() {
+    const S = window.Sigils;
+    return { sigils: this.order.map(([name, color], i) => ({ name, color, num: i + 1, thumb: React.createElement('img', { src: 'uploads/' + (i + 1) + '.jpg', alt: name + ' source art', style: { width: 72, height: 72, objectFit: 'cover', opacity: 0.9, display: 'block' } }), cells: S ? S.cells(name) : Array(256).fill('transparent') })) };
+  }
+}
+</script>
+</body>
+</html>

@@ -6,8 +6,8 @@ class_name ModeLock extends VBoxContainer
 
 signal take_me_there(target: Dictionary)
 
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const LINE_COLOR: Color = Color("#9cc6ef")
+const FONT_BODY: FontVariation = GuiStyle.BODY
+const LINE_COLOR: Color = GuiColors.SKY
 const LINE_SIZE: int = 15
 const LOCK_WIDTH: float = 220.0
 const LOCK_HEIGHT: float = 38.0
@@ -24,11 +24,9 @@ var _row: Dictionary = {}
 
 func _ready() -> void:
 	add_theme_constant_override(&"separation", ROW_GAP)
-	line.add_theme_font_override(&"font", FONT_BODY)
-	line.add_theme_font_size_override(&"font_size", LINE_SIZE)
-	line.add_theme_color_override(&"font_color", LINE_COLOR)
+	GuiStyle.paint(line, FONT_BODY, LINE_SIZE, LINE_COLOR)
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lock.take_me_there.connect(_on_take_me_there)
+	lock.take_me_there.connect(take_me_there.emit)
 	_apply()
 
 
@@ -60,7 +58,3 @@ func _apply() -> void:
 	lock.font_size = LOCK_FONT_SIZE
 	lock.min_width = LOCK_WIDTH
 	lock.size_flags_horizontal = SIZE_SHRINK_CENTER
-
-
-func _on_take_me_there(target: Dictionary) -> void:
-	take_me_there.emit(target)

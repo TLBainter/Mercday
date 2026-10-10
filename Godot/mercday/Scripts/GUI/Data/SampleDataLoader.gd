@@ -1,6 +1,6 @@
 class_name SampleDataLoader
 
-#Reads the handoff seed at Resources/GUI/sample_data.json into the same view models the live
+#Reads the design prototype seed at Resources/GUI/sample_data.json into the same view models the live
 #engine fills, so a screen can be built and looked at before GameState runs.
 
 const DEFAULT_PATH: String = "res://Resources/GUI/sample_data.json"

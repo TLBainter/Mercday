@@ -22,6 +22,8 @@ static func run() -> bool:
 	_case_escalation(res)
 	_case_one_per_contract(res)
 	_case_forced_pick(res)
+	_case_contract_type(res)
+	_case_blank_row(res)
 	_case_crew_size(res)
 	_case_crew(res)
 	_case_level_bounds(res)
@@ -62,13 +64,6 @@ static func _leader(name: String) -> MercenaryData:
 	return m
 
 
-static func _run_for(loc_name: String, team: Array[MercenaryData]) -> ContractRun:
-	var r := ContractRun.new()
-	r.location = DataManager.locations.get(loc_name, null) as LocationData
-	r.team = team
-	return r
-
-
 #A child location with no Environment cell of its own, so the parent chain answers for it.
 static func _child_of(parent: LocationData, type_name: String) -> LocationData:
 	var loc := LocationData.new()
@@ -91,15 +86,6 @@ static func _ammo_total(merc: MercenaryData) -> int:
 	for key: String in merc.ammo_inventory.keys():
 		total += int(merc.ammo_inventory[key])
 	return total
-
-
-static func _event_name(event: EventData) -> String:
-	return "null" if event == null else event.event_name
-
-
-#A battle state built the way ImmuneTests builds one: no field at create, positions set by hand.
-static func _state(side_a: Array[MercenaryData], side_b: Array[MercenaryData]) -> BattleState:
-	return TestFixtures.battle_state(side_a, side_b)
 
 
 static func _le_count(level: int) -> int:
@@ -191,9 +177,9 @@ static func _case_pools_exclude(res: Dictionary) -> void:
 
 
 static func _case_wilderness(res: Dictionary) -> void:
-	var town: LocationData = DataManager.locations.get("Cathistii", null) as LocationData
-	var country: LocationData = DataManager.locations.get("Aerdis", null) as LocationData
-	var sea: LocationData = DataManager.locations.get("Gledd Sea", null) as LocationData
+	var town: LocationData = ContractFixtures.location("Cathistii")
+	var country: LocationData = ContractFixtures.location("Aerdis")
+	var sea: LocationData = ContractFixtures.location("Gledd Sea")
 	if town == null or country == null or sea == null:
 		TestFixtures.check(res, "wilderness classification", false, "Locations.tsv rows did not load")
 		return
@@ -209,12 +195,12 @@ static func _case_wilderness(res: Dictionary) -> void:
 	TestFixtures.check(res, "a blank Environment takes the Urban parent",
 		not EventTrigger.is_wilderness(urban_child),
 		"parent %s resolves to '%s'" % [town.location_name,
-			LifepathRequirements._environment_of(urban_child)])
+			LifepathRequirements.environment_of(urban_child)])
 	var wild_child: LocationData = _child_of(country, "Area")
 	TestFixtures.check(res, "a blank Environment takes a wild parent",
 		EventTrigger.is_wilderness(wild_child),
 		"parent %s resolves to '%s'" % [country.location_name,
-			LifepathRequirements._environment_of(wild_child)])
+			LifepathRequirements.environment_of(wild_child)])
 
 
 static func _case_chance(res: Dictionary) -> void:
@@ -242,13 +228,13 @@ static func _case_chance(res: Dictionary) -> void:
 static func _case_escalation(res: Dictionary) -> void:
 	_reset_statics()
 	var team: Array[MercenaryData] = [_merc("Scout", 40.0)]
-	var contract_run: ContractRun = _run_for("Aerdis", team)
+	var contract_run: ContractRun = ContractFixtures.run_at(team, "Aerdis")
 	contract_run.triggered_events.append(KIDNAP)
 	EventTrigger.forced_d100 = 100
 	var miss: EventData = EventTrigger.pick(RestSystem.KIND_RESPITE, contract_run)
 	TestFixtures.check(res, "a failed roll springs nothing and counts the miss",
 		miss == null and EventTrigger.missed_respites == 1,
-		"event %s, streak %d" % [_event_name(miss), EventTrigger.missed_respites])
+		"event %s, streak %d" % [ContractFixtures.event_name(miss), EventTrigger.missed_respites])
 	EventTrigger.forced_d100 = 100
 	EventTrigger.pick(RestSystem.KIND_RESPITE, contract_run)
 	TestFixtures.check(res, "each miss adds 5 points to the chance",
@@ -258,34 +244,34 @@ static func _case_escalation(res: Dictionary) -> void:
 	var fired: EventData = EventTrigger.pick(RestSystem.KIND_RESPITE, contract_run)
 	TestFixtures.check(res, "a passed roll springs the Ambush and clears the streak",
 		fired != null and fired.event_name == AMBUSH and EventTrigger.missed_respites == 0,
-		"event %s, streak %d" % [_event_name(fired), EventTrigger.missed_respites])
+		"event %s, streak %d" % [ContractFixtures.event_name(fired), EventTrigger.missed_respites])
 	TestFixtures.check(res, "the firing roll prints its line",
 		EventTrigger.last_line.begins_with("AMBUSH ROLL: d100 1 "),
 		"line '%s'" % EventTrigger.last_line)
 	EventTrigger.forced_d100 = 1
 	var breather: EventData = EventTrigger.pick(RestSystem.KIND_BREATHER, contract_run)
 	TestFixtures.check(res, "a Breather is never ambushed", breather == null,
-		"event %s" % _event_name(breather))
+		"event %s" % ContractFixtures.event_name(breather))
 	_reset_statics()
 
 
 static func _case_one_per_contract(res: Dictionary) -> void:
 	_reset_statics()
 	var team: Array[MercenaryData] = [_merc("Scout", 40.0)]
-	var contract_run: ContractRun = _run_for("Aerdis", team)
+	var contract_run: ContractRun = ContractFixtures.run_at(team, "Aerdis")
 	contract_run.triggered_events.append(AMBUSH)
 	contract_run.triggered_events.append(KIDNAP)
 	EventTrigger.forced_d100 = 1
 	var again: EventData = EventTrigger.pick(RestSystem.KIND_RESPITE, contract_run)
 	TestFixtures.check(res, "one ambush per contract", again == null,
-		"event %s after %s" % [_event_name(again), str(contract_run.triggered_events)])
+		"event %s after %s" % [ContractFixtures.event_name(again), str(contract_run.triggered_events)])
 	_reset_statics()
-	var town_run: ContractRun = _run_for("Cathistii", team)
+	var town_run: ContractRun = ContractFixtures.run_at(team, "Cathistii")
 	EventTrigger.forced_d100 = 1
 	var in_town: EventData = EventTrigger.pick(RestSystem.KIND_RESPITE, town_run)
 	TestFixtures.check(res, "a settlement Respite is not ambushed",
 		in_town == null and EventTrigger.missed_respites == 0,
-		"event %s, streak %d" % [_event_name(in_town), EventTrigger.missed_respites])
+		"event %s, streak %d" % [ContractFixtures.event_name(in_town), EventTrigger.missed_respites])
 	_reset_statics()
 
 
@@ -295,16 +281,91 @@ static func _case_forced_pick(res: Dictionary) -> void:
 	config.force_trigger_event = AMBUSH
 	EventTrigger.missed_respites = 4
 	var team: Array[MercenaryData] = [_merc("Fortunate", 400.0)]
-	var town_run: ContractRun = _run_for("Cathistii", team)
+	var town_run: ContractRun = ContractFixtures.run_at(team, "Cathistii")
 	var forced: EventData = EventTrigger.pick(RestSystem.KIND_RESPITE, town_run)
 	TestFixtures.check(res, "the forced event skips the place test and the roll",
 		forced != null and forced.event_name == AMBUSH and EventTrigger.missed_respites == 0,
-		"event %s, streak %d" % [_event_name(forced), EventTrigger.missed_respites])
+		"event %s, streak %d" % [ContractFixtures.event_name(forced), EventTrigger.missed_respites])
 	town_run.triggered_events.append(AMBUSH)
 	var twice: EventData = EventTrigger.pick(RestSystem.KIND_RESPITE, town_run)
 	TestFixtures.check(res, "the forced event still fires only once", twice == null,
-		"event %s" % _event_name(twice))
+		"event %s" % ContractFixtures.event_name(twice))
 	_reset_statics()
+
+
+static func _typed_run(contract_type: String, local: bool) -> ContractRun:
+	var team: Array[MercenaryData] = [_merc("Scout", 40.0)]
+	var contract_run: ContractRun = ContractFixtures.run_at(team, "Aerdis")
+	contract_run.contract = ContractData.new()
+	contract_run.contract.contract_type = contract_type
+	contract_run.contract.local = local
+	return contract_run
+
+
+#Cards 467 and 736: a trigger row answers only the contract types it lists (blank lists all); a Local run never rolls.
+static func _case_contract_type(res: Dictionary) -> void:
+	_reset_statics()
+	var kind: String = RestSystem.KIND_RESPITE
+	var help_run: ContractRun = _typed_run("Help", false)
+	var help_list: Array[EventData] = EventTrigger._candidates(kind, help_run)
+	EventTrigger.forced_d100 = 1
+	var help_pick: EventData = EventTrigger.pick(kind, help_run)
+	TestFixtures.check(res, "trig:help_no_candidates", help_list.is_empty() and help_pick == null
+		and EventTrigger.last_line == "" and EventTrigger.missed_respites == 0,
+		"candidates %d event %s" % [help_list.size(), ContractFixtures.event_name(help_pick)])
+	var open_event := EventData.new()
+	open_event.event_name = "TEST Open Trigger"
+	TestFixtures.check(res, "trig:blank_types_any", EventTrigger.type_allowed(open_event, help_run)
+		and EventTrigger.type_allowed(open_event, _typed_run("Military", false)), "blank cell refused a type")
+	var military_list: Array[EventData] = EventTrigger._candidates(kind, _typed_run("Military", false))
+	var names: Array[String] = []
+	for event: EventData in military_list:
+		names.append(event.event_name)
+	TestFixtures.check(res, "trig:listed_type_candidate", names.has(AMBUSH) and names.has(KIDNAP),
+		"candidates %s" % str(names))
+	_reset_statics()
+	EventTrigger.missed_respites = 3
+	EventTrigger.forced_d100 = 1
+	var local_pick: EventData = EventTrigger.pick(kind, _typed_run("Military", true))
+	TestFixtures.check(res, "trig:local_no_roll", local_pick == null and EventTrigger.missed_respites == 3
+		and EventTrigger.last_line == "", "event %s streak %d" % [ContractFixtures.event_name(local_pick),
+			EventTrigger.missed_respites])
+	_reset_statics()
+
+
+#A stub Trigger row read through _candidates: a blank Possible Contracts cell answers a Help run, a listed type does not.
+static func _case_blank_row(res: Dictionary) -> void:
+	_reset_statics()
+	var name: String = "TEST Open Trigger Row"
+	var row: Dictionary = {"Event Name": name, "Trigger": "respite:wilderness"}
+	var path: String = ContractResourceBuilder.event_path(name)
+	DataManager.event_rows.append(row)
+	_save_trigger_stub(name, path, [])
+	var help_run: ContractRun = _typed_run("Help", false)
+	TestFixtures.check(res, "trig:blank_row_candidate", _candidate_names(help_run).has(name),
+		"candidates %s" % str(_candidate_names(help_run)))
+	_save_trigger_stub(name, path, ["Military"])
+	TestFixtures.check(res, "trig:listed_row_excluded", not _candidate_names(help_run).has(name),
+		"candidates %s" % str(_candidate_names(help_run)))
+	DataManager.event_rows.erase(row)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	_reset_statics()
+
+
+static func _save_trigger_stub(name: String, path: String, types: Array[String]) -> void:
+	var e := EventData.new()
+	e.event_name = name
+	e.event_type = "Mishap"
+	e.trigger = "respite:wilderness"
+	e.possible_contracts = types
+	ResourceTextWriter.save(e, path, "EventData", ContractResourceBuilder.EVENT_SCRIPT)
+
+
+static func _candidate_names(contract_run: ContractRun) -> Array[String]:
+	var names: Array[String] = []
+	for event: EventData in EventTrigger._candidates(RestSystem.KIND_RESPITE, contract_run):
+		names.append(event.event_name)
+	return names
 
 
 static func _case_crew_size(res: Dictionary) -> void:
@@ -374,34 +435,31 @@ static func _case_crew(res: Dictionary) -> void:
 		and String(aura.get("gate", "")) == "sight_or_hearing", "aura %s" % str(aura))
 
 
+#Lowest (x) and highest (y) level the formula rolls over the given number of rolls.
+static func _level_span(formula: String, ctx: Dictionary, rolls: int) -> Vector2i:
+	var span := Vector2i(9999, 0)
+	for _i: int in range(rolls):
+		var lvl: int = OpponentGenerator.eval_level(formula, ctx)
+		span = Vector2i(mini(span.x, lvl), maxi(span.y, lvl))
+	return span
+
+
 static func _case_level_bounds(res: Dictionary) -> void:
 	var template: NPCTemplate = DataManager.npc_templates.get("Bandit Melee", null) as NPCTemplate
 	if template == null:
 		TestFixtures.check(res, "bandit level bounds", false, "Bandit Melee template did not load")
 		return
 	var ctx: Dictionary = {"average_level": 6.0, "merc_count": 4, "difficulty": 3.0}
-	var low: int = 9999
-	var high: int = 0
-	for _i: int in range(200):
-		var lvl: int = NPCGenerator._eval_level_formula(template.level_formula, ctx)
-		low = mini(low, lvl)
-		high = maxi(high, lvl)
+	var span: Vector2i = _level_span(template.level_formula, ctx, 200)
 	TestFixtures.check(res, "bandit level stays inside the difficulty 3 band, half to 1.5x the party average",
-		low >= 3 and high <= 9, "%d to %d over 200 rolls against an average of 6" % [low, high])
+		span.x >= 3 and span.y <= 9, "%d to %d over 200 rolls against an average of 6" % [span.x, span.y])
 	var hard_ctx: Dictionary = {"average_level": 6.0, "merc_count": 4, "difficulty": 5.0}
-	var hard_low: int = 9999
-	var hard_high: int = 0
-	for _i: int in range(200):
-		var lvl: int = NPCGenerator._eval_level_formula(template.level_formula, hard_ctx)
-		hard_low = mini(hard_low, lvl)
-		hard_high = maxi(hard_high, lvl)
+	var hard: Vector2i = _level_span(template.level_formula, hard_ctx, 200)
 	TestFixtures.check(res, "difficulty 5 bandits reach the top of the 1x to 2x band",
-		hard_low >= 6 and hard_high <= 12 and hard_high >= 10,
-		"%d to %d over 200 rolls against an average of 6" % [hard_low, hard_high])
+		hard.x >= 6 and hard.y <= 12 and hard.y >= 10,
+		"%d to %d over 200 rolls against an average of 6" % [hard.x, hard.y])
 	var floor_ctx: Dictionary = {"average_level": 0.0, "merc_count": 4, "difficulty": 3.0}
-	var floor_low: int = 9999
-	for _i: int in range(50):
-		floor_low = mini(floor_low, NPCGenerator._eval_level_formula(template.level_formula, floor_ctx))
+	var floor_low: int = _level_span(template.level_formula, floor_ctx, 50).x
 	TestFixtures.check(res, "the clamp never drops a bandit below level 1", floor_low >= 1,
 		"lowest %d over 50 rolls against an average of 0" % floor_low)
 
@@ -414,7 +472,7 @@ static func _case_ammo_cap(res: Dictionary) -> void:
 	TestFixtures.check(res, "the Bandit Ranged template caps at 10 rounds", template.max_ammo == 10,
 		"max_ammo %d" % template.max_ammo)
 	var ctx: Dictionary = {"average_level": 6.0, "merc_count": 4, "difficulty_factor": 1.25}
-	var bandit: MercenaryData = NPCGenerator.generate(template, ctx, 0)
+	var bandit: MercenaryData = NPCGenerator.generate(template, ctx)
 	TestFixtures.check(res, "the cap rides on the generated bandit",
 		bandit.max_ammo == 10 and _ammo_total(bandit) <= 10,
 		"max_ammo %d, carrying %d" % [bandit.max_ammo, _ammo_total(bandit)])
@@ -435,7 +493,7 @@ static func _case_aura_range(res: Dictionary) -> void:
 	var watcher: MercenaryData = _merc("Merc Watcher", 40.0)
 	var crew: Array[MercenaryData] = [leader, grunt]
 	var foes: Array[MercenaryData] = [watcher]
-	var st: BattleState = _state(crew, foes)
+	var st: BattleState = TestFixtures.battle_state(crew, foes)
 	TestFixtures.place(st, leader, Vector2i(5, 5))
 	TestFixtures.place(st, grunt, Vector2i(5, 9))
 	TestFixtures.place(st, watcher, Vector2i(20, 20))
@@ -460,29 +518,29 @@ static func _case_aura_senses(res: Dictionary) -> void:
 	var watcher: MercenaryData = _merc("Merc Listener", 40.0)
 	var crew: Array[MercenaryData] = [leader, grunt]
 	var foes: Array[MercenaryData] = [watcher]
-	var st: BattleState = _state(crew, foes)
+	var st: BattleState = TestFixtures.battle_state(crew, foes)
 	#Orthogonally adjacent, so the sight half of the gate needs no obstacle-free ray to be argued.
 	TestFixtures.place(st, leader, Vector2i(5, 5))
 	TestFixtures.place(st, grunt, Vector2i(5, 6))
 	TestFixtures.place(st, watcher, Vector2i(20, 20))
-	ConstStates.apply_state(grunt, ConstStates.BLINDED)
+	StateCascade.apply_state(grunt, ConstStates.BLINDED)
 	BattleStateUpdater.update_auto_states(grunt, st)
 	TestFixtures.check(res, "a blinded ally still hears the leader",
 		ConstStates.has_state(grunt, ConstStates.EMBOLDENED), "Blinded alone")
-	ConstStates.remove_state(grunt, ConstStates.BLINDED)
-	ConstStates.apply_state(grunt, ConstStates.DEAFENED)
+	StateCascade.remove_state(grunt, ConstStates.BLINDED)
+	StateCascade.apply_state(grunt, ConstStates.DEAFENED)
 	BattleStateUpdater.update_auto_states(grunt, st)
 	TestFixtures.check(res, "a deafened ally still sees the leader",
 		ConstStates.has_state(grunt, ConstStates.EMBOLDENED), "Deafened alone")
-	ConstStates.apply_state(grunt, ConstStates.BLINDED)
+	StateCascade.apply_state(grunt, ConstStates.BLINDED)
 	BattleStateUpdater.update_auto_states(grunt, st)
 	TestFixtures.check(res, "losing both senses denies the aura",
 		not ConstStates.has_state(grunt, ConstStates.EMBOLDENED), "Blinded and Deafened together")
-	ConstStates.remove_state(grunt, ConstStates.BLINDED)
+	StateCascade.remove_state(grunt, ConstStates.BLINDED)
 	BattleStateUpdater.update_auto_states(grunt, st)
 	TestFixtures.check(res, "one restored sense brings the aura back",
 		ConstStates.has_state(grunt, ConstStates.EMBOLDENED), "Deafened alone again")
-	ConstStates.remove_state(grunt, ConstStates.DEAFENED)
+	StateCascade.remove_state(grunt, ConstStates.DEAFENED)
 
 
 static func _case_aura_source_lost(res: Dictionary) -> void:
@@ -491,19 +549,19 @@ static func _case_aura_source_lost(res: Dictionary) -> void:
 	var watcher: MercenaryData = _merc("Merc Killer", 40.0)
 	var crew: Array[MercenaryData] = [leader, grunt]
 	var foes: Array[MercenaryData] = [watcher]
-	var st: BattleState = _state(crew, foes)
+	var st: BattleState = TestFixtures.battle_state(crew, foes)
 	TestFixtures.place(st, leader, Vector2i(5, 5))
 	TestFixtures.place(st, grunt, Vector2i(5, 8))
 	TestFixtures.place(st, watcher, Vector2i(20, 20))
 	BattleStateUpdater.update_auto_states(grunt, st)
 	TestFixtures.check(res, "the aura holds while the leader stands",
 		ConstStates.has_state(grunt, ConstStates.EMBOLDENED), "leader at full health")
-	ConstStates.apply_state(leader, ConstStates.DYING)
+	StateCascade.apply_state(leader, ConstStates.DYING)
 	BattleStateUpdater.update_auto_states(grunt, st)
 	TestFixtures.check(res, "a dying leader projects nothing",
 		not ConstStates.has_state(grunt, ConstStates.EMBOLDENED), "leader is Dying")
-	ConstStates.remove_state(leader, ConstStates.DYING)
-	ConstStates.remove_state(leader, ConstStates.UNCONSCIOUS)
+	StateCascade.remove_state(leader, ConstStates.DYING)
+	StateCascade.remove_state(leader, ConstStates.UNCONSCIOUS)
 	BattleStateUpdater.update_auto_states(grunt, st)
 	TestFixtures.check(res, "the aura returns when the leader recovers",
 		ConstStates.has_state(grunt, ConstStates.EMBOLDENED), "leader is standing again")
@@ -519,7 +577,7 @@ static func _case_target_preference(res: Dictionary) -> void:
 	var plain: MercenaryData = _merc("Bandit Melee Mark", 40.0)
 	var side_a: Array[MercenaryData] = [hunter]
 	var side_b: Array[MercenaryData] = [leader, plain]
-	var st: BattleState = _state(side_a, side_b)
+	var st: BattleState = TestFixtures.battle_state(side_a, side_b)
 	#Equal range on opposite sides, so the only weight that separates the two is the aura.
 	TestFixtures.place(st, hunter, Vector2i(5, 5))
 	TestFixtures.place(st, leader, Vector2i(5, 2))
@@ -536,7 +594,7 @@ static func _case_target_preference(res: Dictionary) -> void:
 			picked += 1
 	TestFixtures.check(res, "TargetSelector prefers the aura source", picked > 400 - picked,
 		"leader picked %d of 400 against an equal target at equal range" % picked)
-	ConstStates.apply_state(plain, ConstStates.EMBOLDENED)
+	StateCascade.apply_state(plain, ConstStates.EMBOLDENED)
 	TestFixtures.check(res, "a held follower raises the leader bonus",
 		is_equal_approx(AuraTactics.leader_bonus(leader, st), 0.65),
 		"bonus %.2f with one follower held" % AuraTactics.leader_bonus(leader, st))
@@ -544,7 +602,7 @@ static func _case_target_preference(res: Dictionary) -> void:
 	var deny_plain: float = AuraTactics.sense_denial_value(plain, st)
 	TestFixtures.check(res, "sense denial is worth more against the source", deny_lead > deny_plain,
 		"leader %.2f, follower %.2f" % [deny_lead, deny_plain])
-	ConstStates.remove_state(plain, ConstStates.EMBOLDENED)
+	StateCascade.remove_state(plain, ConstStates.EMBOLDENED)
 
 
 static func _case_le_count_formula(res: Dictionary) -> void:
@@ -577,7 +635,7 @@ static func _case_randf_arithmetic(res: Dictionary) -> void:
 	var high: int = 0
 	var under: int = 0
 	for _i: int in range(300):
-		var lvl: int = NPCGenerator._eval_level_formula(formula, ctx)
+		var lvl: int = OpponentGenerator.eval_level(formula, ctx)
 		low = mini(low, lvl)
 		high = maxi(high, lvl)
 		if lvl < 10:
@@ -595,7 +653,7 @@ static func _case_randf_independence(res: Dictionary) -> void:
 	var apart: int = 0
 	var strayed: int = 0
 	for _i: int in range(200):
-		var packed: int = NPCGenerator._eval_level_formula(formula, {})
+		var packed: int = OpponentGenerator.eval_level(formula, {})
 		var first: int = int(packed / 1000.0)
 		var second: int = packed % 1000
 		if first != second:
@@ -614,7 +672,7 @@ static func _case_lifepath_slot_count(res: Dictionary) -> void:
 	var none_sizes: Array[String] = []
 	var none_ok: bool = true
 	for _i: int in range(10):
-		var lean: MercenaryData = NPCGenerator.generate(none_template, ctx, 0)
+		var lean: MercenaryData = NPCGenerator.generate(none_template, ctx)
 		none_sizes.append(str(lean.lifepaths.size()))
 		if lean.lifepaths.size() != 3:
 			none_ok = false
@@ -624,7 +682,7 @@ static func _case_lifepath_slot_count(res: Dictionary) -> void:
 	var sle_sizes: Array[String] = []
 	var sle_ok: bool = true
 	for _i: int in range(10):
-		var named: MercenaryData = NPCGenerator.generate(sle_template, ctx, 0)
+		var named: MercenaryData = NPCGenerator.generate(sle_template, ctx)
 		sle_sizes.append("%d/%d" % [named.lifepaths.size(), _starting_held(named)])
 		if named.lifepaths.size() != 3 or _starting_held(named) != 1:
 			sle_ok = false
@@ -695,7 +753,7 @@ static func _case_leader_lifepaths(res: Dictionary) -> void:
 	var full_ok: bool = true
 	var full_seen: Array[String] = []
 	for _i: int in range(12):
-		var leader: MercenaryData = NPCGenerator.generate(template, ctx, 0)
+		var leader: MercenaryData = NPCGenerator.generate(template, ctx)
 		full_seen.append(str(_starting_held(leader)))
 		if _starting_held(leader) != 1:
 			full_ok = false

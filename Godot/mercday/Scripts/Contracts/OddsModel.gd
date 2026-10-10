@@ -8,8 +8,14 @@ const KIND_BATTLE := "battle"
 const KIND_FORMULA := "formula"
 const KIND_COMPETITION := "competition"
 const KIND_MISSING := "missing"
+const KIND_CHECK := "check"
+const KIND_CHASE := "chase"
+const KIND_TIMELINE := "timeline"
 
 var contract: ContractData = null
+
+#The Event Config cell of the timeline step being built or priced; "" otherwise.
+var step_config: String = ""
 
 #Roster order; the levels and every per-merc cache are keyed by merc_uid.
 var uids: Array[int] = []
@@ -27,3 +33,10 @@ var events: Array[Dictionary] = []
 
 func level_of(uid: int) -> float:
 	return float(levels.get(uid, 0.0))
+
+
+#The step cell while a timeline step is priced, else the contract cell.
+func event_config() -> String:
+	if step_config != "":
+		return step_config
+	return contract.event_config if contract != null else ""

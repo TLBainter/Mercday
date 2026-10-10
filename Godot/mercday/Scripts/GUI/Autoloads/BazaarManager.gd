@@ -75,7 +75,6 @@ var next_order_id: int = FIRST_ORDER_ID
 var _by_id: Dictionary = {}
 var _sorters: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
-var _seeded: bool = false
 
 
 func _init() -> void:
@@ -89,7 +88,7 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	GameState.roster_changed.connect(_on_roster_changed)
+	GameState.game_started.connect(reset)
 	GameState.day_changed.connect(_on_day_changed)
 	reset()
 
@@ -102,31 +101,16 @@ func reset() -> void:
 	cart.clear()
 	orders.clear()
 	next_order_id = FIRST_ORDER_ID
-	_seeded = GameState.started
 	cart_changed.emit()
 
 
-func _on_roster_changed() -> void:
-	_seed_if_started()
-
-
 func _on_day_changed(_day_index: int) -> void:
-	if _seed_if_started():
-		return
 	for order: OrderData in orders:
 		if order.arrived or not is_delivered(order):
 			continue
 		#Hook: no guild storage exists, so a delivered order adds nothing to any inventory yet.
 		order.arrived = true
 		order_arrived.emit(order)
-
-
-#Reseeds once, on the first signal after a campaign starts; true when this call did it.
-func _seed_if_started() -> bool:
-	if _seeded or not GameState.started:
-		return false
-	reset()
-	return true
 
 
 func _build_catalog() -> void:
@@ -180,22 +164,18 @@ func _shuffle_featured() -> void:
 		catalog[order[rank]].featured_rank = rank
 
 
-func _ent() -> Dictionary:
-	return SubscriptionManager.entitlements()
-
-
 func unlocked() -> bool:
-	return bool(_ent().get("bazaar", false))
+	return bool(SubscriptionManager.entitlements().get("bazaar", false))
 
 
 func delivery_days() -> int:
-	var tier: int = clampi(int(_ent().get("bazaarSpeed", 0)), 0, DELIVERY_DAYS.size() - 1)
+	var tier: int = clampi(int(SubscriptionManager.entitlements().get("bazaarSpeed", 0)), 0, DELIVERY_DAYS.size() - 1)
 	return DELIVERY_DAYS[tier]
 
 
 #The highest rarity the guild may buy at all.
 func rarity_cap() -> int:
-	return clampi(int(_ent().get("bazaarRarity", 0)), 0, RARITIES.size() - 1)
+	return clampi(int(SubscriptionManager.entitlements().get("bazaarRarity", 0)), 0, RARITIES.size() - 1)
 
 
 func available(found: BazaarItemData) -> bool:
@@ -231,6 +211,7 @@ func remove_from_cart(id: int) -> bool:
 	return set_qty(id, 0)
 
 
+#Test hook.
 func clear_cart() -> void:
 	if cart.is_empty():
 		return
@@ -264,16 +245,19 @@ func cart_total() -> int:
 
 
 func can_checkout() -> bool:
-	return checkout_reason() == ""
+	return cart_count() > 0 and notes_short() <= 0
 
 
-#Why checkout is closed, in the words the Order Summary prints under the button.
+#Notes the cart costs beyond the bank; zero or less when the guild can pay.
+func notes_short() -> int:
+	return cart_total() - GameState.bank_notes
+
+
+#Why checkout is closed, in the words the Order Summary prints under the button. A cart the bank
+#cannot cover closes checkout without a line; the red total says so.
 func checkout_reason() -> String:
 	if cart_count() <= 0:
 		return "Your cart is empty."
-	var short: int = cart_total() - GameState.bank_notes
-	if short > 0:
-		return "Not enough notes. Remove items or earn %d more." % short
 	return ""
 
 
@@ -283,7 +267,7 @@ func place_order() -> OrderData:
 		return null
 	var total: int = cart_total()
 	var order_id: int = next_order_id
-	if not _pay(total, "bazaar", "Bazaar order #%d" % order_id):
+	if not GameState.spend(total, GameState.REASON_BAZAAR, "Bazaar order #%d" % order_id):
 		return null
 	var order := OrderData.new()
 	order.id = order_id
@@ -527,8 +511,3 @@ func _cmp_order_newest(a: OrderData, b: OrderData) -> bool:
 	if a.placed_day == b.placed_day:
 		return a.id > b.id
 	return a.placed_day > b.placed_day
-
-
-#The one path an order takes to the bank; the label reaches the ledger with the order id.
-func _pay(amount: int, reason: String, label: String) -> bool:
-	return GameState.spend(amount, reason, label)

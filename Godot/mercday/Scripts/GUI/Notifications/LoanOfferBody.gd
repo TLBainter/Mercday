@@ -4,19 +4,17 @@ class_name LoanOfferBody extends VBoxContainer
 #time left to accept. The hours come from the live finance layer, never from the snapshot, so a
 #stale row hides its countdown instead of lying about it.
 
-const GLYPH_COLOR: Color = Color("#f3ead7")
-const TERMS_COLOR: Color = Color("#9cc6ef")
-const URGENT_COLOR: Color = Color("#e8583f")
+const GLYPH_COLOR: Color = GuiColors.CREAM
+const TERMS_COLOR: Color = GuiColors.SKY
+const URGENT_COLOR: Color = GuiColors.RED
 const HOURS_PER_DAY: int = 24
-const MANAGER_PATH: String = "/root/FinanceManager"
-const HOURS_METHOD: String = "hours_left"
-const OFFER_METHOD: String = "offer"
 
 #A suite or a screen may hand the body its own hours source; the autoload is used when it is unset.
 static var hours_override: Callable = Callable()
 
 @export var amount_label_path: NodePath = ^"AmountRow/AmountLabel"
 @export var note_glyph_path: NodePath = ^"AmountRow/NoteGlyph"
+@export var gap_path: NodePath = ^"AmountRow/Gap"
 @export var terms_label_path: NodePath = ^"AmountRow/TermsLabel"
 @export var remaining_label_path: NodePath = ^"RemainingLabel"
 
@@ -32,8 +30,12 @@ func _ready() -> void:
 	_glyph = get_node_or_null(note_glyph_path) as TextureRect
 	_terms = get_node_or_null(terms_label_path) as Label
 	_remaining = get_node_or_null(remaining_label_path) as Label
+	#A STOP spacer inside the row would drop its hover and replay it on the way back.
+	var gap: Control = get_node_or_null(gap_path) as Control
+	if gap != null:
+		gap.mouse_filter = MOUSE_FILTER_IGNORE
 	if _glyph != null:
-		_glyph.texture = Icons.tinted("note", GLYPH_COLOR, 1, true)
+		_glyph.texture = CrewGlyphs.note(GLYPH_COLOR)
 	_refresh()
 
 
@@ -45,7 +47,7 @@ func apply(data: NotificationData) -> void:
 func amount_text() -> String:
 	if _row == null:
 		return ""
-	return NotificationData.grouped(int(_row.snap.get("offer_amount", 0)))
+	return TransactionData.grouped(int(_row.snap.get("offer_amount", 0)))
 
 
 #"R% - T months" with the rate as a whole percent; the term falls back to the accepted loan term.
@@ -59,16 +61,13 @@ func terms_text() -> String:
 	return "%d%% - %d months" % [rate, term]
 
 
-#Hours left according to the override, or the live finance layer; 0.0 when neither answers.
+#Hours left according to the override, or the live finance layer; 0.0 with no row.
 func hours_left() -> float:
 	if _row == null:
 		return 0.0
 	if hours_override.is_valid():
 		return float(hours_override.call(_row.trigger_id))
-	var mgr: Node = get_node_or_null(MANAGER_PATH)
-	if mgr == null or not mgr.has_method(HOURS_METHOD):
-		return 0.0
-	return float(mgr.call(HOURS_METHOD, _row.trigger_id))
+	return FinanceManager.hours_left(_row.trigger_id)
 
 
 #True only while the offer is still live: the override answers above 0.0, or the manager still
@@ -78,11 +77,7 @@ func remaining_visible() -> bool:
 		return false
 	if hours_override.is_valid():
 		return hours_left() > 0.0
-	var mgr: Node = get_node_or_null(MANAGER_PATH)
-	if mgr == null or not mgr.has_method(OFFER_METHOD):
-		return false
-	var row: Dictionary = mgr.call(OFFER_METHOD, _row.trigger_id)
-	if row.is_empty():
+	if FinanceManager.offer(_row.trigger_id).is_empty():
 		return false
 	return hours_left() > 0.0
 

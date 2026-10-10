@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Caravan/ESM_Ancient_Game_Wood_Wheel_Wagon_Mechanism_7_Organic_Raw_.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Caravan/ESM_Heavy_Cart_Push_2_Heavy_Rickety_Rattle_Wood_Wheel_Wagon.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Caravan/FNF_WW_foley_carriage_horse_wagon.wav" id="4_s3"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Caravan/PSE_EFV1_FX_One_Shot_Foley_Carriage_Horses_Trot.wav" id="5_s4"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Caravan/shs_oat_ambience_animals_horse_carriage.wav" id="6_s5"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3"), ExtResource("5_s4"), ExtResource("6_s5")])

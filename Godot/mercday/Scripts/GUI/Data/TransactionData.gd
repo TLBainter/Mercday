@@ -9,11 +9,14 @@ var label: String = ""
 var category: String = ""
 var amount: int = 0
 var reason: String = ""
+#The travel mode key and distance of a travel charge or refund; "" and 0 on every other row.
+var mode: String = ""
+var distance_km: int = 0
 
 
 #One row stamped to a minute; a minute below zero is clamped so a seeded history stays in range.
 static func make(delta: int, at_minute: int, row_label: String, row_category: String,
-		row_reason: String) -> TransactionData:
+		row_reason: String, row_mode: String = "", row_km: int = 0) -> TransactionData:
 	var row := TransactionData.new()
 	row.amount = delta
 	row.minute = maxi(0, at_minute)
@@ -21,6 +24,16 @@ static func make(delta: int, at_minute: int, row_label: String, row_category: St
 	row.label = row_label
 	row.category = row_category
 	row.reason = row_reason
+	row.mode = row_mode
+	row.distance_km = row_km
+	return row
+
+
+#Reads back a to_row dictionary; a row saved before mode existed loads with mode "" and 0 km.
+static func from_row(d: Dictionary) -> TransactionData:
+	var row: TransactionData = make(int(d.get("amount", 0)), int(d.get("minute", 0)),
+		String(d.get("label", "")), String(d.get("category", "")), String(d.get("reason", "")),
+		String(d.get("mode", "")), int(d.get("distance_km", 0)))
 	return row
 
 
@@ -39,7 +52,7 @@ static func grouped(value: int) -> String:
 	return out
 
 
-#"Ansday, 2nd of Daith 301".
+#"Ansday, 2nd of Daith 212".
 func date_text() -> String:
 	return TrynnCalendar.date_text(minute)
 
@@ -53,5 +66,6 @@ func amount_text() -> String:
 
 func to_row() -> Dictionary:
 	return {"day_index": day_index, "minute": minute, "label": label, "category": category,
-		"amount": amount, "reason": reason, "date_text": date_text(),
+		"amount": amount, "reason": reason, "mode": mode, "distance_km": distance_km,
+		"date_text": date_text(),
 		"amount_text": amount_text()}

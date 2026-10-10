@@ -243,9 +243,9 @@ static func end_training(merc: MercenaryData) -> String:
 		return ""
 	var names: Array[String] = []
 	for key: String in merc.trained_bonus.keys():
-		var kind: String = _key_kind(key)
-		var name: String = _key_name(key)
-		if kind == "circumstance":
+		var parts: PackedStringArray = GuildRoster.split_key(key)
+		var name: String = parts[1]
+		if parts[0] == "circumstance":
 			var held: float = float(merc.circumstance_additional_bonus.get(name, 0.0))
 			merc.circumstance_additional_bonus[name] = maxf(0.0, held - float(merc.trained_bonus[key]))
 		names.append(name)
@@ -279,10 +279,7 @@ static func _deep_sleep(merc: MercenaryData) -> String:
 	var before: int = ConstStates.get_count(merc, ConstStates.FATIGUED)
 	if before <= 0:
 		return ""
-	var dropped: Dictionary = ConstStates.reduce_state_by(merc, ConstStates.FATIGUED, RestSystem.KIND_RESPITE)
-	if not bool(dropped["removed"]):
-		return "Fatigued %d kept (%s)" % [before, str(dropped["reason"])]
-	return "Fatigued %d -> %d" % [before, ConstStates.get_count(merc, ConstStates.FATIGUED)]
+	return RestSystem.fatigue_text(merc, before, RestSystem.reduce_fatigue(merc, RestSystem.KIND_RESPITE))
 
 
 static func _push_onward(merc: MercenaryData) -> String:
@@ -306,8 +303,9 @@ static func _train(merc: MercenaryData, train_key: String = "") -> String:
 	var key: String = train_key if train_key != "" else train_target(merc)
 	if key == "":
 		return ""
-	var name: String = _key_name(key)
-	if _key_kind(key) == "circumstance":
+	var parts: PackedStringArray = GuildRoster.split_key(key)
+	var name: String = parts[1]
+	if parts[0] == "circumstance":
 		merc.trained_bonus[key] = TRAIN_PERCENT
 		merc.circumstance_additional_bonus[name] = float(
 			merc.circumstance_additional_bonus.get(name, 0.0)) + TRAIN_PERCENT
@@ -335,16 +333,6 @@ static func max_of(merc: MercenaryData, max_key: String) -> int:
 	return int(merc.stats.get(max_key, 0))
 
 
-static func _key_kind(key: String) -> String:
-	var parts: PackedStringArray = key.split(":", true, 1)
-	return parts[0] if parts.size() > 1 else ""
-
-
-static func _key_name(key: String) -> String:
-	var parts: PackedStringArray = key.split(":", true, 1)
-	return parts[1] if parts.size() > 1 else key
-
-
 #Everything this merc could still train, in Circumstance, Knowledge, Tool order.
 static func _train_candidates(merc: MercenaryData) -> Array[String]:
 	var out: Array[String] = []
@@ -370,8 +358,8 @@ static func _build_demand() -> void:
 	if _demand_built:
 		return
 	_demand_built = true
-	for type_name: String in ContractLibrary.contract_type_names():
-		var data: ContractData = ContractLibrary.contract_type(type_name)
+	for row_name: String in ContractLibrary.row_names():
+		var data: ContractData = ContractLibrary.contract(row_name)
 		if data == null:
 			continue
 		_add_boosts("knowledge", data.knowledge_boosts)

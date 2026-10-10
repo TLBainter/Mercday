@@ -18,7 +18,7 @@ static func source_record(state_name: String, root: String, origin: String,
 			name = origin
 	var verbs: Array[String] = []
 	if removal.is_empty():
-		verbs = ConstStates.removal_verbs(state_name)
+		verbs = StateCascade.removal_verbs(state_name)
 	else:
 		verbs.assign(removal)
 	return {"kind": kind, "name": name, "removal": verbs}
@@ -28,10 +28,7 @@ static func record_entry(merc: MercenaryData, state_name: String, direct: bool) 
 	var record := applied_by(merc)
 	if not record.has(state_name):
 		record[state_name] = {"direct": direct, "roots": [], "sources": []}
-	var entry: Dictionary = record[state_name]
-	if not entry.has("sources"):
-		entry["sources"] = []
-	return entry
+	return record[state_name]
 
 
 #One entry per kind and name; a repeat application only refreshes the removal verbs of the entry it matches.
@@ -54,7 +51,7 @@ static func record_source(merc: MercenaryData, state_name: String, root: String,
 		return false
 	var record := applied_by(merc)
 	if not record.has(state_name):
-		record[state_name] = {"direct": was_active, "roots": []}
+		record[state_name] = {"direct": was_active, "roots": [], "sources": []}
 	var roots: Array = record[state_name]["roots"]
 	if root in roots:
 		return false
@@ -68,16 +65,21 @@ static func applied_by(merc: MercenaryData) -> Dictionary:
 	return merc.active_states[ConstStates.APPLIED_BY_KEY]
 
 
+#The live record entry of a state; {} when nothing was recorded, and no record is created.
+static func applied_entry(merc: MercenaryData, state_name: String) -> Dictionary:
+	var record = merc.active_states.get(ConstStates.APPLIED_BY_KEY)
+	if not (record is Dictionary):
+		return {}
+	var entry = (record as Dictionary).get(state_name)
+	if not (entry is Dictionary):
+		return {}
+	return entry
+
+
 #Copies of the source records of a held state; the caller cannot reach the record through them.
 static func state_sources(merc: MercenaryData, state_name: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	var record = merc.active_states.get(ConstStates.APPLIED_BY_KEY)
-	if not (record is Dictionary):
-		return out
-	var entry = (record as Dictionary).get(state_name)
-	if not (entry is Dictionary):
-		return out
-	for src in (entry as Dictionary).get("sources", []):
+	for src in sources_ref(merc, state_name):
 		if src is Dictionary:
 			out.append((src as Dictionary).duplicate(true))
 	return out
@@ -108,19 +110,13 @@ static func source_ongoing(merc: MercenaryData, src: Dictionary) -> bool:
 static func effective_sources(merc: MercenaryData, state_name: String) -> Array[Dictionary]:
 	var out := state_sources(merc, state_name)
 	if out.is_empty():
-		out.append({"kind": "engine", "name": "", "removal": ConstStates.removal_verbs(state_name)})
+		out.append({"kind": "engine", "name": "", "removal": StateCascade.removal_verbs(state_name)})
 	return out
 
 
 #The live source array of a held state; [] when nothing was recorded, and no record is created.
 static func sources_ref(merc: MercenaryData, state_name: String) -> Array:
-	var record = merc.active_states.get(ConstStates.APPLIED_BY_KEY)
-	if not (record is Dictionary):
-		return []
-	var entry = (record as Dictionary).get(state_name)
-	if not (entry is Dictionary):
-		return []
-	var sources = (entry as Dictionary).get("sources")
+	var sources = applied_entry(merc, state_name).get("sources")
 	if not (sources is Array):
 		return []
 	return sources
@@ -142,7 +138,7 @@ static func held_reason(merc: MercenaryData, state_name: String, verb: String) -
 		return "no %s source" % verb
 	if free == 0:
 		return "ongoing source"
-	var roots := ConstStates.applied_roots(merc, state_name)
+	var roots := StateCascade.applied_roots(merc, state_name)
 	if not roots.is_empty():
 		return "kept by %s" % ",".join(PackedStringArray(roots))
 	return ""
@@ -162,12 +158,6 @@ static func drop_state_sources(entry: Dictionary, root: String) -> int:
 
 #Drops the newest recorded source of a state, the tier a plain reduce_state takes.
 static func pop_source(merc: MercenaryData, state_name: String) -> void:
-	var record = merc.active_states.get(ConstStates.APPLIED_BY_KEY)
-	if not (record is Dictionary):
-		return
-	var entry = (record as Dictionary).get(state_name)
-	if not (entry is Dictionary):
-		return
-	var sources: Array = (entry as Dictionary).get("sources", [])
+	var sources: Array = sources_ref(merc, state_name)
 	if not sources.is_empty():
 		sources.remove_at(sources.size() - 1)

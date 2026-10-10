@@ -1,23 +1,21 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://cmj3i6ya5c60i"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_ar1tk"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://dkhlstj70hi1y" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 
 [sub_resource type="Resource" id="facet_1"]
 script = ExtResource("AnyStateFacet")
 is_required = true
-states = PackedStringArray("Shocked", "Debilitated", "Dying")
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_1")]
-threshold = 0.5
+facets = Array[ExtResource("1_ar1tk")]([SubResource("facet_1")])
 
 [resource]
 script = ExtResource("ActionData")
 action_name = "pass"
-ap_cost = 0
 priority = 0
 execution_type = "pass"
 decision = SubResource("decision")

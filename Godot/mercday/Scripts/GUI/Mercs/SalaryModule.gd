@@ -4,15 +4,14 @@ class_name SalaryModule extends PanelContainer
 #bank (SCENES.md line 151) and a click hands the merc to the SalaryDialog.
 
 const AFFORDABLE_SHARE: float = 0.1
-const GREEN: Color = Color("#6cc36a")
-const ORANGE: Color = Color("#f28c28")
-const RED: Color = Color("#e8583f")
-const EDGE_HI: Color = Color("#3b6fb6")
-const EDGE_LO: Color = Color("#1f3560")
+const EDGE_HI: Color = GuiColors.BLUE_HI
+const EDGE_LO: Color = GuiColors.BLUE_LO
 const EDGE_PX: float = 3.0
 const TOOLTIP: String = "Click to manage salary"
 
 signal clicked
+#UiSfx clicks on this one; clicked stays the signal callers listen to.
+signal pressed
 
 @export var monthly_salary: int = 0:
 	set(value):
@@ -28,6 +27,7 @@ signal clicked
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
+	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	tooltip_text = TOOLTIP
 	_refresh()
 
@@ -35,8 +35,8 @@ func _ready() -> void:
 #The bevel rides the panel edge: a stylebox has no inset shadow and a child of a
 #PanelContainer would be laid inside the content margins.
 func _draw() -> void:
-	draw_rect(Rect2(0.0, 0.0, size.x, EDGE_PX), EDGE_HI)
-	draw_rect(Rect2(0.0, size.y - EDGE_PX, size.x, EDGE_PX), EDGE_LO)
+	BevelButton.paint_edges(self, Rect2(Vector2.ZERO, size), EDGE_HI, EDGE_LO, EDGE_PX,
+		BevelButton.BEVEL_TOP | BevelButton.BEVEL_BOTTOM)
 
 
 func set_salary(salary: int, bank_notes: int) -> void:
@@ -50,10 +50,10 @@ func color() -> Color:
 
 static func color_for(salary: int, bank_notes: int) -> Color:
 	if salary > bank_notes:
-		return RED
+		return GuiColors.RED
 	if float(salary) > float(bank_notes) * AFFORDABLE_SHARE:
-		return ORANGE
-	return GREEN
+		return GuiColors.ORANGE
+	return GuiColors.GREEN
 
 
 func _refresh() -> void:
@@ -66,5 +66,6 @@ func _refresh() -> void:
 func _gui_input(event: InputEvent) -> void:
 	var press := event as InputEventMouseButton
 	if press != null and press.pressed and press.button_index == MOUSE_BUTTON_LEFT:
+		pressed.emit()
 		clicked.emit()
 		accept_event()

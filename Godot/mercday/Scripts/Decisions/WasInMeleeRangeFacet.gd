@@ -6,5 +6,5 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	if old_pos == null or state == null or merc.equipped_weapon == null:
 		return 0.0
 	var merc_pos := state.get_position(merc)
-	var old_dist := maxi(abs(old_pos.x - merc_pos.x), abs(old_pos.y - merc_pos.y))
+	var old_dist := Pathfinder.chebyshev2(old_pos, merc_pos)
 	return 1.0 if old_dist <= merc.equipped_weapon.melee_range else 0.0

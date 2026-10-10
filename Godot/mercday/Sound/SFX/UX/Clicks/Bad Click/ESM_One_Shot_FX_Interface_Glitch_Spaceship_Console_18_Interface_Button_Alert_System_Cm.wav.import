@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://c00e3yfuittfb"
+path="res://.godot/imported/ESM_One_Shot_FX_Interface_Glitch_Spaceship_Console_18_Interface_Button_Alert_System_Cm.wav-278445942d2e6caca20e9454f2705b4a.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/UX/Clicks/Bad Click/ESM_One_Shot_FX_Interface_Glitch_Spaceship_Console_18_Interface_Button_Alert_System_Cm.wav"
+dest_files=["res://.godot/imported/ESM_One_Shot_FX_Interface_Glitch_Spaceship_Console_18_Interface_Button_Alert_System_Cm.wav-278445942d2e6caca20e9454f2705b4a.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

@@ -17,8 +17,6 @@ const OBJECT_KEYS: Array[String] = ["nature", "blocking", "lamp", "alley", "side
 
 #Doors, protected cells, back lanes and the object counts; call once before any outdoor object exists.
 static func build(area: BattlefieldArea) -> void:
-	if area == null:
-		return
 	var objects: Dictionary = {}
 	for k: String in OBJECT_KEYS:
 		objects[k] = 0
@@ -43,7 +41,7 @@ static func _building(area: BattlefieldArea, rec: Dictionary, doors: Array[Dicti
 	if fd.x >= 0:
 		_door(area, id, "front", fd, Vector2i(fd.x, fd.y) - _inward(front), doors, protected)
 	if bd.x >= 0:
-		_door(area, id, "back", bd, Vector2i(bd.x, bd.y) - _inward(_opposite(front)), doors, protected)
+		_door(area, id, "back", bd, Vector2i(bd.x, bd.y) - _inward(BuildingLayouts.opposite(front)), doors, protected)
 
 
 static func _door(area: BattlefieldArea, id: int, kind: String, door: Vector3i, outside: Vector2i,
@@ -79,7 +77,7 @@ static func _yard_exit(area: BattlefieldArea, id: int, start: Vector2i) -> Vecto
 		head += 1
 		for d: int in range(4):
 			var n := Vector2i(c.x + DX[d], c.y + DY[d])
-			if seen.has(n) or not CityGrid.inside(area, n.x, n.y):
+			if seen.has(n) or not area.in_bounds_xy(n.x, n.y):
 				continue
 			seen[n] = true
 			if area.is_obstacle(n, 0):
@@ -105,34 +103,12 @@ static func _protect_ring(area: BattlefieldArea, rect: Rect2i, protected: Dictio
 				protected[c] = true
 
 
-#Step from the outside of a side into the building; N is the low y side.
 static func _inward(side: String) -> Vector2i:
-	match side:
-		"W":
-			return Vector2i(1, 0)
-		"E":
-			return Vector2i(-1, 0)
-		"N":
-			return Vector2i(0, 1)
-	return Vector2i(0, -1)
-
-
-static func _opposite(side: String) -> String:
-	match side:
-		"N":
-			return "S"
-		"S":
-			return "N"
-		"W":
-			return "E"
-	return "W"
-
-
-#### Cell tests.
+	return BuildingLayouts.inward_step(side)
 
 
 static func is_ground(area: BattlefieldArea, cell: Vector2i) -> bool:
-	if not CityGrid.inside(area, cell.x, cell.y):
+	if not area.in_bounds_xy(cell.x, cell.y):
 		return false
 	return not area.building_id_at.has(cell)
 
@@ -142,14 +118,13 @@ static func is_open(area: BattlefieldArea, cell: Vector2i) -> bool:
 
 
 static func can_hold(area: BattlefieldArea, cell: Vector2i) -> bool:
-	if not CityGrid.inside(area, cell.x, cell.y):
+	if not area.in_bounds_xy(cell.x, cell.y):
 		return false
 	if area.building_id_at.has(cell):
 		return false
 	if area._obs_map.has(Vector3i(cell.x, cell.y, 0)):
 		return false
-	var s: int = CityGrid.surf(area, cell.x, cell.y)
-	if s == BattlefieldArea.SURF_MAIN or s == BattlefieldArea.SURF_SIDE:
+	if CityGrid.is_carriage(CityGrid.surf(area, cell.x, cell.y)):
 		return false
 	var access: Dictionary = area.city.get("access", {})
 	if (access.get("protected", {}) as Dictionary).has(cell):
@@ -189,7 +164,7 @@ static func _gap_walk(area: BattlefieldArea, cell: Vector2i, dx: int, dy: int) -
 	var run: int = 0
 	for k: int in range(1, GAP_WALK + 1):
 		var c := Vector2i(cell.x + dx * k, cell.y + dy * k)
-		if not CityGrid.inside(area, c.x, c.y):
+		if not area.in_bounds_xy(c.x, c.y):
 			return run << 1
 		if area.building_id_at.has(c):
 			return (run << 1) + 1
@@ -257,9 +232,6 @@ static func _alley_wide(area: BattlefieldArea, cell: Vector2i) -> bool:
 	return false
 
 
-#### Flood.
-
-
 static func main_start(area: BattlefieldArea) -> Vector2i:
 	if area == null or area.surface_grid.is_empty():
 		return Vector2i(-1, -1)
@@ -302,7 +274,7 @@ static func spread(area: BattlefieldArea, start: Vector2i, mask: PackedByteArray
 	var out := PackedByteArray()
 	out.resize(n)
 	out.fill(0)
-	if not CityGrid.inside(area, start.x, start.y) or mask.size() != n:
+	if not area.in_bounds_xy(start.x, start.y) or mask.size() != n:
 		return out
 	var si: int = start.y * w + start.x
 	out[si] = 1
@@ -382,9 +354,6 @@ static func _path_to_street(area: BattlefieldArea, start: Vector2i) -> Array[Vec
 	return out
 
 
-#### Back lanes.
-
-
 #Paints the ground part of a back door path as a 1-wide dead-end alley; the new street id, or -1.
 static func _lane(area: BattlefieldArea, path: Array[Vector2i], bid: int) -> int:
 	if path.size() < 2 or not area.city.has("streets"):
@@ -402,22 +371,10 @@ static func _lane(area: BattlefieldArea, path: Array[Vector2i], bid: int) -> int
 	var streets: Array = area.city.get("streets", [])
 	var id: int = streets.size()
 	for c2: Vector2i in cells:
-		var i2: int = c2.y * area.width + c2.x
-		if not CityGrid.paint(area, c2.x, c2.y, BattlefieldArea.SURF_ALLEY, id):
-			area.surface_grid[i2] = BattlefieldArea.SURF_ALLEY
-			area.street_grid[i2] = id
-		area.terrain_heights[c2] = CityGenerator.CURB
+		CityGrid.paint_alley(area, c2, id)
 	var segments: Array[Dictionary] = lane_segments(cells)
-	streets.append({
-		"id": id,
-		"kind": "alley",
-		"axis": String((segments[0] as Dictionary)["axis"]),
-		"dead_end": true,
-		"block": -1,
-		"mouth": mouth,
-		"segments": segments,
-		"back_door": bid,
-	})
+	CityGrid.add_street(streets, "alley", String((segments[0] as Dictionary)["axis"]), segments, true,
+		-1, mouth, {"back_door": bid})
 	return id
 
 

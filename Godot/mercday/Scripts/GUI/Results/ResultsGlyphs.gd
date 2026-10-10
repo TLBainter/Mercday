@@ -1,12 +1,9 @@
 class_name ResultsGlyphs
 
 #The textures and the portrait filter of the results panel. The fate overlays are atlas cuts baked
-#at OVERLAY_SCALE and the inline note glyph is the atlas note tinted the colour of the text beside
-#it. Only the portrait materials are cached here; Icons caches the art.
+#at OVERLAY_SCALE. Only the portrait materials are cached here; Icons caches the art.
 
 const OVERLAY_SCALE: int = 3
-const NOTE_COLS: float = 5.0
-const NOTE_ROWS: float = 9.0
 
 const FILTER_CODE: String = """shader_type canvas_item;
 uniform float gray : hint_range(0.0, 1.0) = 0.0;
@@ -31,21 +28,26 @@ static func bars(scale: int = OVERLAY_SCALE) -> Texture2D:
 	return Icons.baked("bars", scale, Icons.MODE_PLAIN, false)
 
 
+#14 x 14 art, so 42 x 42 at the x3 the portrait box carries.
+static func bandit(scale: int = OVERLAY_SCALE) -> Texture2D:
+	return Icons.baked("bandit", scale, Icons.MODE_PLAIN, true)
+
+
+#12 x 16 art, so 36 x 48 at the x3 the portrait box carries.
+static func missing(scale: int = OVERLAY_SCALE) -> Texture2D:
+	return Icons.baked("missing", scale, Icons.MODE_PLAIN, true)
+
+
 static func overlay_for(fate: int, scale: int = OVERLAY_SCALE) -> Texture2D:
 	if fate == ResultMemberData.Fate.DEAD:
 		return skull(scale)
+	if fate == ResultMemberData.Fate.DEFECTED:
+		return bandit(scale)
+	if fate == ResultMemberData.Fate.DEPARTED:
+		return missing(scale)
 	if fate == ResultMemberData.Fate.CAPTURED:
 		return bars(scale)
 	return null
-
-
-#The 5 x 9 note symbol in the colour of the value it follows.
-static func note(color: Color, scale: int = 1) -> Texture2D:
-	return Icons.tinted("note", color, scale, true)
-
-
-static func note_size(scale: int = 1) -> Vector2:
-	return Vector2(NOTE_COLS, NOTE_ROWS) * float(maxi(1, scale))
 
 
 #One material per rounded gray and brightness pair, so a whole roster shares a few of them.
@@ -63,10 +65,6 @@ static func portrait_material(gray: float, brightness: float) -> ShaderMaterial:
 	out.set_shader_parameter("gray", g)
 	out.set_shader_parameter("bright", b)
 	return out
-
-
-static func clear_cache() -> void:
-	_cache.clear()
 
 
 static func _filter_shader() -> Shader:

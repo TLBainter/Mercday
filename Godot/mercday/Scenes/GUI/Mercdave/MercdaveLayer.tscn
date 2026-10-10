@@ -1,0 +1,58 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/MercdaveLayer.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercdave/HintCard.tscn" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HintMarkers.gd" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HintMarker.gd" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HintFocus.gd" id="6"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HintShield.gd" id="7"]
+
+[node name="MercdaveLayer" type="Control"]
+z_index = 195
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="Shield" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+focus_mode = 2
+script = ExtResource("7")
+
+[node name="Focus" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("6")
+
+[node name="Outline" type="Panel" parent="Focus"]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Markers" type="Control" parent="."]
+layout_mode = 0
+mouse_filter = 2
+script = ExtResource("4")
+
+[node name="Marker0" type="Control" parent="Markers"]
+visible = false
+layout_mode = 0
+script = ExtResource("5")
+
+[node name="Card" parent="." instance=ExtResource("3")]
+visible = false
+layout_mode = 0

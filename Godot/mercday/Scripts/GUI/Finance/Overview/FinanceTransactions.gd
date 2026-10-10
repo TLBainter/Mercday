@@ -1,16 +1,13 @@
 class_name FinanceTransactions
-extends PanelContainer
+extends ListPanel
 
 #The Recent Transactions box of the Overview: the newest hundred rows of the ledger in one
 #scrolling list, newest first. The ledger stamps every row, so nothing is sorted or dated here.
 
-const FONT_SILK: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_TEXT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
 const NOTES_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/NotesLabel.tscn")
-const ROW_STYLE: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/finance_list_row.tres")
+const ROW_STYLE: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/ListItemSelected.tres")
 
 const SHOWN_ROWS: int = 100
-const TITLE: String = "Recent Transactions"
 const EMPTY_TEXT: String = "No transactions yet"
 const TITLE_SIZE: int = 12
 const LABEL_SIZE: int = 13
@@ -20,30 +17,17 @@ const WHEN_SIZE: int = 11
 const CATEGORY_SIZE: int = 8
 const LINE_GAP: int = 10
 const ROW_GAP: int = 4
-const ORANGE: Color = Color("#f28c28")
-const CREAM: Color = Color("#f3ead7")
-const MUTED: Color = Color("#5e7699")
-const SKY: Color = Color("#9cc6ef")
-const GREEN: Color = Color("#6cc36a")
-const RED: Color = Color("#e8583f")
 
-@onready var title: Label = $Pad/Rows/Title
 @onready var empty_line: Label = $Pad/Rows/Empty
-@onready var scroll: ScrollContainer = $Pad/Rows/Scroll
-@onready var list: VBoxContainer = $Pad/Rows/Scroll/Pad2/List
 
 var _rows: Array[Dictionary] = []
 
 
 func _ready() -> void:
-	title.text = TITLE
-	title.add_theme_color_override("font_color", ORANGE)
-	title.add_theme_font_override("font", FONT_SILK)
-	title.add_theme_font_size_override("font_size", TITLE_SIZE)
+	super()
+	GuiStyle.paint(head.caption_label, GuiStyle.SILK, TITLE_SIZE, GuiColors.ORANGE)
 	empty_line.text = EMPTY_TEXT
-	empty_line.add_theme_color_override("font_color", MUTED)
-	empty_line.add_theme_font_override("font", FONT_TEXT)
-	empty_line.add_theme_font_size_override("font_size", LABEL_SIZE)
+	GuiStyle.paint(empty_line, GuiStyle.BODY, LABEL_SIZE, GuiColors.MUTED)
 	refresh()
 
 
@@ -76,7 +60,7 @@ func row_amount_text(index: int) -> String:
 func row_color(index: int) -> Color:
 	var row: Dictionary = _row_at(index)
 	if row.is_empty():
-		return CREAM
+		return GuiColors.CREAM
 	return (row["notes"] as NotesLabel).value_color
 
 
@@ -94,9 +78,7 @@ func empty_shown() -> bool:
 func refresh() -> void:
 	if not is_node_ready():
 		return
-	for child: Node in list.get_children():
-		list.remove_child(child)
-		child.queue_free()
+	clear_items()
 	_rows.clear()
 	var entries: Array[TransactionData] = FinanceLedger.rows(SHOWN_ROWS)
 	for entry: TransactionData in entries:
@@ -129,9 +111,7 @@ func _make_row(entry: TransactionData) -> Dictionary:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.clip_text = true
 	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	label.add_theme_color_override("font_color", CREAM)
-	label.add_theme_font_override("font", FONT_TEXT)
-	label.add_theme_font_size_override("font_size", LABEL_SIZE)
+	GuiStyle.paint(label, GuiStyle.BODY, LABEL_SIZE, GuiColors.CREAM)
 	top.add_child(label)
 	var notes: NotesLabel = NOTES_SCENE.instantiate()
 	top.add_child(notes)
@@ -150,25 +130,21 @@ func _make_row(entry: TransactionData) -> Dictionary:
 	when_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	when_label.clip_text = true
 	when_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	when_label.add_theme_color_override("font_color", MUTED)
-	when_label.add_theme_font_override("font", FONT_TEXT)
-	when_label.add_theme_font_size_override("font_size", WHEN_SIZE)
+	GuiStyle.paint(when_label, GuiStyle.BODY, WHEN_SIZE, GuiColors.MUTED)
 	low.add_child(when_label)
 	var category := Label.new()
 	category.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	category.text = entry.category
-	category.add_theme_color_override("font_color", SKY)
-	category.add_theme_font_override("font", FONT_SILK)
-	category.add_theme_font_size_override("font_size", CATEGORY_SIZE)
+	GuiStyle.paint(category, GuiStyle.SILK, CATEGORY_SIZE, GuiColors.SKY)
 	low.add_child(category)
-	list.add_child(panel)
+	items().add_child(panel)
 	return {"panel": panel, "label": label, "notes": notes, "when": when_label,
 		"category": category}
 
 
 func _color_of(amount: int) -> Color:
 	if amount > 0:
-		return GREEN
+		return GuiColors.GREEN
 	if amount < 0:
-		return RED
-	return CREAM
+		return GuiColors.RED
+	return GuiColors.CREAM

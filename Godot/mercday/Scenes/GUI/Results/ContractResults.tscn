@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://Scripts/GUI/Results/ContractResults.gd" id="1"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/results_panel.tres" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/DifficultyStars.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/Stars.gd" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Results/NotesEarned.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Results/VerdictBox.tscn" id="6"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="7"]
@@ -24,7 +24,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.023529, 0.039216, 0.078431, 0.720000)
 
 [node name="PanelShadow" type="ColorRect" parent="."]
 layout_mode = 0
@@ -85,11 +84,12 @@ clip_text = true
 text_overrun_behavior = 3
 text = "Contract"
 
-[node name="Stars" parent="Center/Panel/Body/Header/Left" instance=ExtResource("4")]
+[node name="Stars" type="Control" parent="Center/Panel/Body/Header/Left"]
 layout_mode = 2
 size_flags_horizontal = 0
 mouse_filter = 2
-star_size = 1
+script = ExtResource("4")
+star_px = 1
 
 [node name="Notes" parent="Center/Panel/Body/Header" instance=ExtResource("5")]
 layout_mode = 2
@@ -106,13 +106,17 @@ alignment = 2
 mouse_filter = 2
 
 [node name="Continue" parent="Center/Panel/Body/Foot" instance=ExtResource("3")]
-custom_minimum_size = Vector2(0, 40)
 min_size = Vector2(0, 40)
 layout_mode = 2
 disabled = true
 theme_override_fonts/font = ExtResource("7")
 theme_override_font_sizes/font_size = 13
 text = "Continue"
+click_move = 3
+click_shade = 1
+hover_shade = 2
+stay_move = 2
+stay_shade = 3
 
 [node name="Overlay" type="Control" parent="Center/Panel"]
 layout_mode = 2

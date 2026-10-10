@@ -4,31 +4,31 @@ class_name MoodFace extends Control
 #unfilled draws its row 8 outline twin in the outline blue. guild true reads the opinion level
 #instead of the mood level, for the guild relationship faces.
 
-const INK_COLOR := Color(0.039216, 0.058824, 0.109804, 1)
-const DIM_COLOR := Color(0.168627, 0.309804, 0.541176, 1)
+const INK_COLOR := GuiColors.INK
+const DIM_COLOR := GuiColors.BLUE
 #The trimmed face window inside the 16 px cell.
 const FACE_ART: Vector2 = Vector2(12, 12)
 
 const MOOD_COLORS: Array[Color] = [
-	Color(0.909804, 0.345098, 0.247059, 1),
-	Color(0.949020, 0.549020, 0.156863, 1),
-	Color(0.949020, 0.701961, 0.239216, 1),
-	Color(0.352941, 0.650980, 0.909804, 1),
-	Color(0.423529, 0.764706, 0.415686, 1),
+	GuiColors.RED,
+	GuiColors.ORANGE,
+	GuiColors.AMBER,
+	GuiColors.LIGHT_BLUE,
+	GuiColors.GREEN,
 ]
 const MOOD_NAMES: Array[String] = ["Angry", "Frustrated", "Neutral", "Okay", "Happy"]
 const GUILD_COLORS: Array[Color] = [
-	Color(0.909804, 0.345098, 0.247059, 1),
-	Color(0.925490, 0.415686, 0.211765, 1),
-	Color(0.937255, 0.486275, 0.184314, 1),
-	Color(0.949020, 0.549020, 0.156863, 1),
-	Color(0.949020, 0.627451, 0.200000, 1),
-	Color(0.949020, 0.701961, 0.239216, 1),
-	Color(0.352941, 0.650980, 0.909804, 1),
-	Color(0.372549, 0.690196, 0.721569, 1),
-	Color(0.392157, 0.725490, 0.549020, 1),
-	Color(0.423529, 0.764706, 0.415686, 1),
-	Color(0.247059, 0.682353, 0.352941, 1),
+	GuiColors.RED,
+	GuiColors.RED_ORANGE,
+	GuiColors.DARK_ORANGE,
+	GuiColors.ORANGE,
+	GuiColors.LIGHT_ORANGE,
+	GuiColors.AMBER,
+	GuiColors.LIGHT_BLUE,
+	GuiColors.TEAL,
+	GuiColors.SEA_GREEN,
+	GuiColors.GREEN,
+	GuiColors.DEEP_GREEN,
 ]
 
 @export var mood: int = 2:
@@ -39,7 +39,7 @@ const GUILD_COLORS: Array[Color] = [
 	set(value):
 		filled = value
 		_refresh()
-@export var fill_color: Color = Color(0, 0, 0, 0):
+@export var fill_color: Color = GuiColors.CLEAR:
 	set(value):
 		fill_color = value
 		_refresh()

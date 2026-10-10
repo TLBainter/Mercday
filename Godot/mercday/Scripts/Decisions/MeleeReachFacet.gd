@@ -8,7 +8,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var weapon: WeaponData = merc.equipped_weapon
 	if weapon != null and weapon.is_ranged:
 		return 1.0
-	var target := CombatDecision.current_or_best(merc, ctx, state)
+	var target := TargetSelector.current_or_best(merc, ctx, state)
 	if target == null:
 		return 0.0
 	var reach := WeaponArmorPerkLibrary.get_effective_melee_range(merc)

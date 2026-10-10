@@ -1,16 +1,10 @@
 class_name ClientViewer
-extends Control
+extends TabbedViewer
 #The My Clients window: three kind tabs over the client list, and the picked client's overview
 #with its relationship, its contract history and, for a company, its stock chart. The frame that
 #hosts the viewer supplies the scanline, so only the flat background is painted here.
 
-const TAB_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/TabButton.tscn")
-const TAB_LABELS: Array[String] = ["People", "Places", "Orgs"]
-const TAB_TIPS: Array[String] = ["Clients who are people", "Clients who are places",
-	"Companies that issue contracts"]
-const BG_COLOR: Color = Color("#101a30")
-const TAB_ICON_IDS: Dictionary = {&"people": "person", &"places": "house", &"orgs": "building"}
-const TAB_ICON_SCALE: int = 2
+const BG_COLOR: Color = GuiColors.FRAME_BG
 const ORGS: StringName = &"orgs"
 const RANGE_KEY: String = "1Y"
 const RANGE_FALLBACK: int = 330
@@ -27,13 +21,10 @@ signal invest_requested(company_id: int)
 
 @export var auto_refresh: bool = true
 
-@onready var tab_row: HBoxContainer = $Margin/Columns/Left/TabsWrap/Tabs
 @onready var list: ClientList = $Margin/Columns/Left/List
 @onready var overview: ClientOverview = $Margin/Columns/Overview
 
-var _tabs: Array[TabButton] = []
 var _registry: ClientRegistry = ClientRegistry.new()
-var _tab: StringName = &"orgs"
 var _sort_key: StringName = &"recent"
 var _descending: bool = true
 var _hidden_subs: Dictionary = {}
@@ -45,7 +36,7 @@ var _queued: bool = false
 
 
 func _ready() -> void:
-	_build_tabs()
+	super()
 	list.client_pressed.connect(_on_row_pressed)
 	list.query_changed.connect(_on_query_changed)
 	overview.recent_pressed.connect(_on_recent_pressed)
@@ -71,14 +62,6 @@ func _draw() -> void:
 func open_tab(key: StringName) -> void:
 	_tab = _tab_of(key)
 	_render()
-
-
-func current_tab() -> StringName:
-	return _tab
-
-
-func tabs() -> Array[TabButton]:
-	return _tabs
 
 
 func selected() -> ClientData:
@@ -145,30 +128,14 @@ func popup() -> ViewerPopup:
 	return _popup
 
 
-func _build_tabs() -> void:
-	for i: int in TAB_LABELS.size():
-		var button: TabButton = TAB_SCENE.instantiate()
-		tab_row.add_child(button)
-		button.index = i
-		button.label = TAB_LABELS[i]
-		button.description = TAB_TIPS[i]
-		button.icon_id = String(TAB_ICON_IDS[ClientRegistry.KINDS[i]])
-		button.icon_scale = TAB_ICON_SCALE
-		button.idle_mode = Icons.MODE_PLAIN
-		button.tab_pressed.connect(_on_tab_pressed)
-		_tabs.append(button)
-
-
 func _render() -> void:
 	if not is_node_ready():
 		return
-	var idx: int = ClientRegistry.kind_index(_tab)
-	for i: int in _tabs.size():
-		_tabs[i].active = i == idx
+	tab_strip.set_active(_tab)
 	var pin: int = _pinned if _tab == ORGS else -1
 	var subs: Array[String] = _hidden_list(_hidden_subs, _tab)
 	var places: Array[String] = _hidden_list(_hidden_locations, _tab)
-	list.set_title(TAB_LABELS[idx])
+	list.head.caption = tab_button(_tab).label
 	list.set_query(_sort_index(), _descending)
 	list.filter_button().set_options(_registry.sub_types(_tab, pin),
 		_registry.location_names(_tab, pin), subs, places)
@@ -304,10 +271,8 @@ func _on_entry_event(_entry_id: int) -> void:
 	_queue_refresh()
 
 
-func _on_tab_pressed(index: int) -> void:
-	if index < 0 or index >= ClientRegistry.KINDS.size():
-		return
-	open_tab(ClientRegistry.KINDS[index])
+func _show_tab(_key: StringName) -> void:
+	_render()
 
 
 func _on_row_pressed(key: String) -> void:

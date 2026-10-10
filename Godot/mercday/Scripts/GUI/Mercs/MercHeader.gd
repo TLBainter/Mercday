@@ -10,12 +10,9 @@ signal salary_clicked
 
 const EMPTY_TEXT: String = "None"
 const PANEL_MARGIN: float = 8.0
-const LOCK_HEIGHT: float = 20.0
 const APPLICANT_TEXT: String = "Applicant"
-const APPLICANT_COLOR: Color = Color("#f2b33d")
-const FINANCE_PATH: String = "/root/FinanceManager"
-const GREY_TINT: Color = Color(GuiColors.GRAY_ICON_BRIGHTNESS, GuiColors.GRAY_ICON_BRIGHTNESS,
-	GuiColors.GRAY_ICON_BRIGHTNESS, 0.4)
+const APPLICANT_COLOR: Color = GuiColors.AMBER
+const GREY_TINT: Color = GuiColors.GREY_TINT_FADED
 
 @onready var title_label: Label = $Rows/Title
 @onready var portrait_frame: Panel = $Rows/PortraitHolder/Frame
@@ -23,19 +20,17 @@ const GREY_TINT: Color = Color(GuiColors.GRAY_ICON_BRIGHTNESS, GuiColors.GRAY_IC
 @onready var name_label: Label = $Rows/NameBlock/MercName
 @onready var surname_label: Label = $Rows/NameBlock/Surname
 @onready var note_label: Label = $Rows/Note
-@onready var heritage_label: Label = $Rows/Scroll/Lineage/Heritage/Lines/Value
-@onready var heritage_lock: FeatureLock = $Rows/Scroll/Lineage/Heritage/Lines/Lock
-@onready var primary_label: Label = $Rows/Scroll/Lineage/Primary/Lines/Value
-@onready var primary_blood_lock: FeatureLock = $Rows/Scroll/Lineage/Primary/Lines/BloodLock
-@onready var primary_ancestry_lock: FeatureLock = $Rows/Scroll/Lineage/Primary/Lines/AncestryLock
-@onready var secondary_label: Label = $Rows/Scroll/Lineage/Secondary/Lines/Value
-@onready var secondary_blood_lock: FeatureLock = $Rows/Scroll/Lineage/Secondary/Lines/BloodLock
-@onready var secondary_ancestry_lock: FeatureLock = $Rows/Scroll/Lineage/Secondary/Lines/AncestryLock
-@onready var age_label: Label = $Rows/Scroll/Lineage/Age/Lines/Value
-@onready var age_lock: FeatureLock = $Rows/Scroll/Lineage/Age/Lines/Lock
-@onready var criminality_label: Label = $Rows/Scroll/Lineage/Criminality/Lines/Value
-@onready var criminality_lock: FeatureLock = $Rows/Scroll/Lineage/Criminality/Lines/Lock
+@onready var heritage_field: InfoField = $Rows/Scroll/Lineage/Heritage
+@onready var primary_field: InfoField = $Rows/Scroll/Lineage/Primary
+@onready var primary_blood_lock: FeatureLock = $Rows/Scroll/Lineage/Primary/Rows/BloodLock
+@onready var primary_ancestry_lock: FeatureLock = $Rows/Scroll/Lineage/Primary/Rows/AncestryLock
+@onready var secondary_field: InfoField = $Rows/Scroll/Lineage/Secondary
+@onready var secondary_blood_lock: FeatureLock = $Rows/Scroll/Lineage/Secondary/Rows/BloodLock
+@onready var secondary_ancestry_lock: FeatureLock = $Rows/Scroll/Lineage/Secondary/Rows/AncestryLock
+@onready var age_field: InfoField = $Rows/Scroll/Lineage/Age
+@onready var criminality_field: InfoField = $Rows/Scroll/Lineage/Criminality
 @onready var strip: MercStatusStrip = $Rows/PortraitHolder/Status
+@onready var time_tag: Label = $Rows/PortraitHolder/TimeLeft
 @onready var salary: SalaryModule = $Rows/Salary
 
 var view: MercView = null
@@ -44,6 +39,12 @@ var applicant_mode: bool = false
 
 var _full_name: String = ""
 var _salary_filter: int = Control.MOUSE_FILTER_STOP
+#Keyless: each lineage half reads its own key, so the gate only carries the plan change.
+var _gate: LockGate = LockGate.new()
+
+
+func _init() -> void:
+	add_child(_gate, false, Node.INTERNAL_MODE_FRONT)
 
 
 func _ready() -> void:
@@ -56,14 +57,8 @@ func _ready() -> void:
 		add_theme_stylebox_override("panel", box)
 	_salary_filter = salary.mouse_filter
 	salary.clicked.connect(_on_salary_clicked)
-	if not SubscriptionManager.changed.is_connected(_apply_locks):
-		SubscriptionManager.changed.connect(_apply_locks)
+	_gate.changed.connect(_apply_locks)
 	_apply_locks()
-
-
-func _exit_tree() -> void:
-	if SubscriptionManager.changed.is_connected(_apply_locks):
-		SubscriptionManager.changed.disconnect(_apply_locks)
 
 
 func set_view(new_view: MercView) -> void:
@@ -75,9 +70,9 @@ func set_view(new_view: MercView) -> void:
 		name_label.text = EMPTY_TEXT
 		surname_label.text = ""
 		surname_label.hide()
-		heritage_label.text = EMPTY_TEXT
-		age_label.text = EMPTY_TEXT
-		criminality_label.text = EMPTY_TEXT
+		heritage_field.value = EMPTY_TEXT
+		age_field.value = EMPTY_TEXT
+		criminality_field.value = EMPTY_TEXT
 		portrait.set_merc(null)
 		note_label.hide()
 		strip.hide()
@@ -92,9 +87,9 @@ func set_view(new_view: MercView) -> void:
 	name_label.text = parts[0]
 	surname_label.text = parts[1]
 	surname_label.visible = parts[1] != ""
-	heritage_label.text = view.heritage if view.heritage != "" else EMPTY_TEXT
-	age_label.text = age_text(view)
-	criminality_label.text = view.criminality if view.criminality != "" else EMPTY_TEXT
+	heritage_field.value = view.heritage if view.heritage != "" else EMPTY_TEXT
+	age_field.value = age_text(view)
+	criminality_field.value = view.criminality if view.criminality != "" else EMPTY_TEXT
 	salary.set_salary(view.monthly_salary, GameState.bank_notes)
 	_apply_locks()
 	_apply_status()
@@ -123,19 +118,19 @@ func surname() -> String:
 
 
 func primary_text() -> String:
-	return primary_label.text if is_node_ready() else ""
+	return primary_field.value if is_node_ready() else ""
 
 
 func secondary_text() -> String:
-	return secondary_label.text if is_node_ready() else ""
+	return secondary_field.value if is_node_ready() else ""
 
 
 func age_line() -> String:
-	return age_label.text if is_node_ready() else ""
+	return age_field.value if is_node_ready() else ""
 
 
 func criminality_line() -> String:
-	return criminality_label.text if is_node_ready() else ""
+	return criminality_field.value if is_node_ready() else ""
 
 
 func status_line() -> String:
@@ -154,42 +149,9 @@ func salary_chip() -> SalaryModule:
 	return salary
 
 
-func status_strip() -> MercStatusStrip:
-	return strip
-
-
-func locks() -> Array[FeatureLock]:
-	var out: Array[FeatureLock] = []
-	if not is_node_ready():
-		return out
-	out.append(heritage_lock)
-	out.append(primary_blood_lock)
-	out.append(primary_ancestry_lock)
-	out.append(secondary_blood_lock)
-	out.append(secondary_ancestry_lock)
-	out.append(age_lock)
-	out.append(criminality_lock)
-	return out
-
-
-#The status the band reads: an away merc shows where they are once GameState knows how to say.
+#The status the band reads: an away merc shows where they are.
 func shown_status() -> int:
-	if view == null:
-		return GuiTypes.MercStatus.AVAILABLE
-	if GameState.has_method("is_away") and GameState.has_method("away_status"):
-		if bool(GameState.call("is_away", view.uid)):
-			return int(GameState.call("away_status", view.uid))
-	return view.status
-
-
-#The loan line under the name, when the ledger has one to give.
-func loan_note(uid: int, status: int) -> String:
-	if status != GuiTypes.MercStatus.LOAN:
-		return ""
-	var finance: Node = get_node_or_null(FINANCE_PATH)
-	if finance == null or not finance.has_method("loan_note"):
-		return ""
-	return String(finance.call("loan_note", uid))
+	return GuiTypes.MercStatus.AVAILABLE if view == null else view.shown_status()
 
 
 #The first name stays large; everything after the first space drops to the small white line.
@@ -201,18 +163,6 @@ static func split_name(full: String) -> Array[String]:
 	if parts.size() > 1:
 		out[1] = parts[1]
 	return out
-
-
-#"{bloodline} {ancestry}" off the merc resource; a row with neither half reads as EMPTY_TEXT.
-static func lineage_text(source: MercView, bloodline_key: String, ancestry_key: String) -> String:
-	var parts: Array[String] = []
-	var line: String = ancestry_name(source, bloodline_key)
-	if line != "":
-		parts.append(line)
-	var stock: String = ancestry_name(source, ancestry_key)
-	if stock != "":
-		parts.append(stock)
-	return EMPTY_TEXT if parts.is_empty() else " ".join(parts)
 
 
 static func ancestry_name(source: MercView, field: String) -> String:
@@ -248,16 +198,16 @@ func _apply_status() -> void:
 		return
 	if applicant_mode:
 		strip.status = GuiTypes.MercStatus.AVAILABLE
-		strip.time_left_minutes = 0
 		strip.text = APPLICANT_TEXT.to_upper() if strip.band else APPLICANT_TEXT
 		strip.add_theme_color_override("font_color", APPLICANT_COLOR)
+		MercStatusStrip.dress_time_tag(time_tag, 0)
 		note_label.hide()
 		return
 	var shown: int = shown_status()
 	strip.status = shown
-	strip.time_left_minutes = int(round(view.status_time_left_hours * 60.0))
 	strip.add_theme_color_override("font_color", GuiTypes.merc_status_color(shown))
-	var note: String = loan_note(view.uid, shown)
+	MercStatusStrip.dress_time_tag(time_tag, int(round(view.status_time_left_hours * 60.0)))
+	var note: String = view.loan_note(shown)
 	note_label.text = note
 	note_label.visible = note != ""
 
@@ -266,25 +216,15 @@ func _apply_locks() -> void:
 	if not is_node_ready():
 		return
 	var ent: Dictionary = SubscriptionManager.entitlements()
-	_gate(heritage_label, heritage_lock, MercLocks.K_HERITAGE, ent)
-	_gate(age_label, age_lock, MercLocks.K_AGE, ent)
-	_gate(criminality_label, criminality_lock, MercLocks.K_CRIMINALITY, ent)
-	_gate_lineage(primary_label, primary_blood_lock, primary_ancestry_lock, "bloodline",
+	_gate_lineage(primary_field, primary_blood_lock, primary_ancestry_lock, "bloodline",
 		"ancestry", ent)
-	_gate_lineage(secondary_label, secondary_blood_lock, secondary_ancestry_lock,
+	_gate_lineage(secondary_field, secondary_blood_lock, secondary_ancestry_lock,
 		"recessive_bloodline", "recessive_ancestry", ent)
 
 
-#A sold row keeps its caption and shows the lock where the value would read.
-func _gate(label: Label, lock: FeatureLock, key: String, ent: Dictionary) -> void:
-	var ok: bool = MercLocks.entitled(key, ent)
-	label.visible = ok
-	MercLocks.apply(lock, key, LOCK_HEIGHT)
-	lock.visible = not ok
-
-
 #Each lineage row is two halves under two gates, so a met half still prints beside a shut one.
-func _gate_lineage(label: Label, blood_lock: FeatureLock, ancestry_lock: FeatureLock,
+#The field hides a blank value, so a row with both halves shut shows only its two locks.
+func _gate_lineage(field: InfoField, blood_lock: FeatureLock, ancestry_lock: FeatureLock,
 		blood_field: String, ancestry_field: String, ent: Dictionary) -> void:
 	var blood_ok: bool = MercLocks.entitled(MercLocks.K_BLOODLINE, ent)
 	var ancestry_ok: bool = MercLocks.entitled(MercLocks.K_ANCESTRY, ent)
@@ -297,11 +237,13 @@ func _gate_lineage(label: Label, blood_lock: FeatureLock, ancestry_lock: Feature
 		var stock: String = ancestry_name(view, ancestry_field)
 		if stock != "":
 			parts.append(stock)
-	label.text = EMPTY_TEXT if parts.is_empty() else " ".join(parts)
-	label.visible = blood_ok or ancestry_ok
-	MercLocks.apply(blood_lock, MercLocks.K_BLOODLINE, LOCK_HEIGHT,
+	if not (blood_ok or ancestry_ok):
+		field.value = ""
+	else:
+		field.value = EMPTY_TEXT if parts.is_empty() else " ".join(parts)
+	MercLocks.apply(blood_lock, MercLocks.K_BLOODLINE, MercLocks.LOCK_HEIGHT,
 		MercLocks.feature_of(MercLocks.K_BLOODLINE))
-	MercLocks.apply(ancestry_lock, MercLocks.K_ANCESTRY, LOCK_HEIGHT,
+	MercLocks.apply(ancestry_lock, MercLocks.K_ANCESTRY, MercLocks.LOCK_HEIGHT,
 		MercLocks.feature_of(MercLocks.K_ANCESTRY))
 	blood_lock.visible = not blood_ok
 	ancestry_lock.visible = not ancestry_ok

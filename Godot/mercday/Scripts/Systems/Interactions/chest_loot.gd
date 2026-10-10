@@ -64,21 +64,17 @@ static func strip_gear(merc: MercenaryData) -> Array[Dictionary]:
 		return out
 	var held: WeaponData = merc.equipped_weapon
 	if held != null and not held.is_virtual:
-		out.append({"type": "weapon", "name": held.item_name, "owner": merc, "data": held,
-			"ammo_loaded": merc.ammo_loaded, "ammo_loaded_type": merc.ammo_loaded_type,
-			"was_equipped": true})
+		out.append(_weapon_entry(merc, held, true))
 	var off: WeaponData = merc.offhand_weapon
 	if off != null and not off.is_virtual:
-		out.append({"type": "weapon", "name": off.item_name, "owner": merc, "data": off,
-			"ammo_loaded": 0, "ammo_loaded_type": "", "was_equipped": false})
+		out.append(_weapon_entry(merc, off, false))
 	for entry: Dictionary in merc.inventory:
 		if entry.get("type", "") != "weapon":
 			continue
 		var w: WeaponData = entry.get("data") as WeaponData
 		if w == null or w.is_virtual:
 			continue
-		out.append({"type": "weapon", "name": w.item_name, "owner": merc, "data": w,
-			"ammo_loaded": 0, "ammo_loaded_type": "", "was_equipped": false})
+		out.append(_weapon_entry(merc, w, false))
 	for ammo_name: String in merc.ammo_inventory.keys():
 		var amount: int = int(merc.ammo_inventory[ammo_name])
 		if amount <= 0:
@@ -104,6 +100,14 @@ static func strip_gear(merc: MercenaryData) -> Array[Dictionary]:
 	merc.equipped_armor = null
 	StatCalculator.refresh(merc)
 	return out
+
+
+#Chest entry for one stripped weapon; only the weapon in hand keeps its loaded ammo.
+static func _weapon_entry(merc: MercenaryData, w: WeaponData, was_equipped: bool) -> Dictionary:
+	return {"type": "weapon", "name": w.item_name, "owner": merc, "data": w,
+		"ammo_loaded": merc.ammo_loaded if was_equipped else 0,
+		"ammo_loaded_type": merc.ammo_loaded_type if was_equipped else "",
+		"was_equipped": was_equipped}
 
 
 #Entry this merc would reach for first, or -1 when the chest is empty.
@@ -153,34 +157,8 @@ static func pick_index(merc: MercenaryData, obs: Dictionary) -> int:
 static func give(merc: MercenaryData, entry: Dictionary, state: BattleState, lines: Array[String]) -> void:
 	if merc == null or entry.is_empty():
 		return
-	var t: String = str(entry.get("type", ""))
-	if t == "weapon":
-		var w: WeaponData = entry.get("data") as WeaponData
-		if w == null:
-			return
-		var held: WeaponData = merc.equipped_weapon
-		if held == null or held.is_virtual:
-			merc.equipped_weapon = w
-			merc.weapon_drawn = true
-			merc.ammo_loaded = int(entry.get("ammo_loaded", 0))
-			merc.ammo_loaded_type = str(entry.get("ammo_loaded_type", ""))
-		else:
-			merc.inventory.append({"type": "weapon", "data": w})
-	elif t == "ammo":
-		var aname: String = str(entry.get("name", ""))
-		if aname == "":
-			return
-		merc.ammo_inventory[aname] = int(merc.ammo_inventory.get(aname, 0)) + int(entry.get("amount", 0))
-	elif t == "armor":
-		var a: ArmorData = entry.get("data") as ArmorData
-		if a == null:
-			return
-		merc.inventory.append({"type": "armor", "data": a})
-	else:
-		var raw: Dictionary = entry.get("data", {}) as Dictionary
-		if raw.is_empty():
-			return
-		merc.inventory.append(raw)
+	if not _apply_item(merc, entry, false):
+		return
 	StatCalculator.refresh(merc)
 	lines.append("  %s takes %s from the chest." % [BattleState.colored_name(merc, state), entry_name(entry)])
 
@@ -194,39 +172,48 @@ static func restore(entry: Dictionary, fallback_owner: MercenaryData) -> void:
 		owner = fallback_owner
 	if owner == null:
 		return
+	if _apply_item(owner, entry, true):
+		StatCalculator.refresh(owner)
+
+
+#Puts one entry on the merc; returns false when the entry holds nothing to hand over.
+#Restoring fills the offhand and wears armor again; mid-battle a free hand draws the weapon and armor is only carried.
+static func _apply_item(merc: MercenaryData, entry: Dictionary, restoring: bool) -> bool:
 	var t: String = str(entry.get("type", ""))
 	if t == "weapon":
 		var w: WeaponData = entry.get("data") as WeaponData
 		if w == null:
-			return
-		var held: WeaponData = owner.equipped_weapon
+			return false
+		var held: WeaponData = merc.equipped_weapon
 		if held == null or held.is_virtual:
-			owner.equipped_weapon = w
-			owner.ammo_loaded = int(entry.get("ammo_loaded", 0))
-			owner.ammo_loaded_type = str(entry.get("ammo_loaded_type", ""))
-		elif owner.offhand_weapon == null:
-			owner.offhand_weapon = w
+			merc.equipped_weapon = w
+			if not restoring:
+				merc.weapon_drawn = true
+			merc.ammo_loaded = int(entry.get("ammo_loaded", 0))
+			merc.ammo_loaded_type = str(entry.get("ammo_loaded_type", ""))
+		elif restoring and merc.offhand_weapon == null:
+			merc.offhand_weapon = w
 		else:
-			owner.inventory.append({"type": "weapon", "data": w})
+			merc.inventory.append({"type": "weapon", "data": w})
 	elif t == "ammo":
 		var aname: String = str(entry.get("name", ""))
 		if aname == "":
-			return
-		owner.ammo_inventory[aname] = int(owner.ammo_inventory.get(aname, 0)) + int(entry.get("amount", 0))
+			return false
+		merc.ammo_inventory[aname] = int(merc.ammo_inventory.get(aname, 0)) + int(entry.get("amount", 0))
 	elif t == "armor":
 		var a: ArmorData = entry.get("data") as ArmorData
 		if a == null:
-			return
-		if owner.equipped_armor == null:
-			_wear(owner, a)
+			return false
+		if restoring and merc.equipped_armor == null:
+			StartingGear.wear_armor(merc, a)
 		else:
-			owner.inventory.append({"type": "armor", "data": a})
+			merc.inventory.append({"type": "armor", "data": a})
 	else:
 		var raw: Dictionary = entry.get("data", {}) as Dictionary
 		if raw.is_empty():
-			return
-		owner.inventory.append(raw)
-	StatCalculator.refresh(owner)
+			return false
+		merc.inventory.append(raw)
+	return true
 
 
 #Puts on a suit carried in the inventory; a merc already wearing one keeps it.
@@ -241,7 +228,7 @@ static func wear_carried_armor(merc: MercenaryData) -> void:
 		if a == null:
 			continue
 		merc.inventory.remove_at(i)
-		_wear(merc, a)
+		StartingGear.wear_armor(merc, a)
 		StatCalculator.refresh(merc)
 		return
 
@@ -257,11 +244,3 @@ static func loot_all(field: BattlefieldArea, fallback_owner: MercenaryData) -> i
 			restore(e, fallback_owner)
 			count += 1
 	return count
-
-
-static func _wear(merc: MercenaryData, armor: ArmorData) -> void:
-	merc.equipped_armor = armor
-	for prot_type: String in armor.protection:
-		var eff: String = "protected:" + prot_type.to_lower()
-		if not merc.passive_effects.has(eff):
-			merc.passive_effects.append(eff)

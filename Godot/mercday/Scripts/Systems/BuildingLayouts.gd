@@ -8,38 +8,34 @@ const WALL_SZ := 4
 
 
 #World cell of the front axis pair (t, s); t is absolute, s counts away from the front wall.
-static func cell(geo: Dictionary, t: int, s: int) -> Vector2i:
-	var front: String = String(geo.get("front", "W"))
+static func cell(geo: FloorGeo, t: int, s: int) -> Vector2i:
+	var front: String = geo.front
 	if front == "E":
-		return Vector2i(int(geo["ux1"]) - s, t)
+		return Vector2i(geo.ux1 - s, t)
 	if front == "N":
-		return Vector2i(t, int(geo["iy0"]) + s)
+		return Vector2i(t, geo.iy0 + s)
 	if front == "S":
-		return Vector2i(t, int(geo["iy1"]) - s)
-	return Vector2i(int(geo["ux0"]) + s, t)
+		return Vector2i(t, geo.iy1 - s)
+	return Vector2i(geo.ux0 + s, t)
 
 
-static func rect_of(geo: Dictionary, t_lo: int, t_hi: int, s_lo: int, s_hi: int) -> Rect2i:
+static func rect_of(geo: FloorGeo, t_lo: int, t_hi: int, s_lo: int, s_hi: int) -> Rect2i:
 	var a: Vector2i = cell(geo, t_lo, s_lo)
 	var b: Vector2i = cell(geo, t_hi, s_hi)
 	return Rect2i(mini(a.x, b.x), mini(a.y, b.y), absi(a.x - b.x) + 1, absi(a.y - b.y) + 1)
 
 
-static func _p3(p: Vector2i, f: int) -> Vector3i:
-	return Vector3i(p.x, p.y, f)
-
-
 #Orientation of a wall that runs along t, and of one that runs along s.
-static func _orient_t(geo: Dictionary) -> String:
-	return _wall_orient(String(geo.get("front", "W")))
+static func _orient_t(geo: FloorGeo) -> String:
+	return _wall_orient(geo.front)
 
 
-static func _orient_s(geo: Dictionary) -> String:
-	return _cross_orient(String(geo.get("front", "W")))
+static func _orient_s(geo: FloorGeo) -> String:
+	return _cross_orient(geo.front)
 
 
-static func _front_we(geo: Dictionary) -> bool:
-	var front: String = String(geo.get("front", "W"))
+static func _front_we(geo: FloorGeo) -> bool:
+	var front: String = geo.front
 	return front == "W" or front == "E"
 
 
@@ -49,12 +45,12 @@ static func _wall_line(area: BattlefieldArea, f: int, from: Vector2i, to: Vector
 	for x: int in range(mini(from.x, to.x), maxi(from.x, to.x) + 1):
 		for y: int in range(mini(from.y, to.y), maxi(from.y, to.y) + 1):
 			var p3 := Vector3i(x, y, f)
-			InteriorGenerator._place_wall_if_empty(area, p3, WALL_SZ, wall_data, fh)
+			InteriorGenerator.place_wall_if_empty(area, p3, WALL_SZ, wall_data, fh)
 			area.building_interiors.erase(p3)
 
 
 static func _door(area: BattlefieldArea, pos: Vector3i, fh: int, orientation: String) -> void:
-	InteriorGenerator._place_door_at(area, pos, BuildingGenerator._get_door_template(), fh, orientation)
+	InteriorGenerator.place_door_at(area, pos, DataManager.door_data(), fh, orientation)
 
 
 #One room record in the shape the partitioner uses, mirrored into the label list.
@@ -77,10 +73,10 @@ static func _is_top_room(room_name: String) -> bool:
 
 
 #Required rooms of the plan that fit floor f and have not been handed out yet.
-static func _unused_required(plan: Dictionary, f: int, geo: Dictionary) -> Array[String]:
+static func _unused_required(plan: Dictionary, f: int, geo: FloorGeo) -> Array[String]:
 	var out: Array[String] = []
-	var used: Dictionary = geo["used"] as Dictionary
-	var top: int = int(geo.get("top_floor", 0))
+	var used: Dictionary = geo.used
+	var top: int = geo.top_floor
 	for entry: Variant in (plan.get("required_rooms", []) as Array):
 		var n: String = String(entry)
 		if n == "" or used.has(n):
@@ -91,9 +87,9 @@ static func _unused_required(plan: Dictionary, f: int, geo: Dictionary) -> Array
 
 
 #Room for one slot: an unused required room first, then a random other room, then any fit, then main.
-static func _pick_room(plan: Dictionary, f: int, geo: Dictionary) -> ObstacleData:
-	var used: Dictionary = geo["used"] as Dictionary
-	var top: int = int(geo.get("top_floor", 0))
+static func _pick_room(plan: Dictionary, f: int, geo: FloorGeo) -> ObstacleData:
+	var used: Dictionary = geo.used
+	var top: int = geo.top_floor
 	var req: Array[String] = _unused_required(plan, f, geo)
 	if not req.is_empty():
 		var pick: String = req[0]
@@ -135,7 +131,7 @@ static func _pick_room(plan: Dictionary, f: int, geo: Dictionary) -> ObstacleDat
 
 
 #The room a floor opens with and whether it is the plan main room; floor 0 takes the main room first.
-static func _floor_room(plan: Dictionary, f: int, geo: Dictionary) -> Array:
+static func _floor_room(plan: Dictionary, f: int, geo: FloorGeo) -> Array:
 	var room: ObstacleData = null
 	var is_main: bool = false
 	if f == 0:
@@ -169,36 +165,35 @@ static func _spans(lo: int, hi: int, n: int, min_len: int) -> Array:
 
 
 #The stair band lies against the front wall only when the front is W or E.
-static func _band_on_front(geo: Dictionary) -> bool:
-	return int(geo.get("band_x0", -1)) >= 0 and _front_we(geo)
+static func _band_on_front(geo: FloorGeo) -> bool:
+	return geo.band_x0 >= 0 and _front_we(geo)
 
 
-static func _is_landing(geo: Dictionary, t: int) -> bool:
-	var rows: Vector2i = geo["rows"] as Vector2i
+static func _is_landing(geo: FloorGeo, t: int) -> bool:
+	var rows: Vector2i = geo.rows
 	return t == rows.x - 1 or t == rows.y + 1
 
 
 #One room fills the usable rect; floor 0 carries the main room.
-static func open_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: Dictionary,
-		_wall_data: ObstacleData, _fh: int) -> Array[Dictionary]:
+static func open_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: FloorGeo) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var picked: Array = _floor_room(plan, f, geo)
 	var room: ObstacleData = picked[0] as ObstacleData
 	var is_main: bool = bool(picked[1])
-	_record(area, result, room, rect_of(geo, int(geo["t0"]), int(geo["t1"]), 0, int(geo["s_size"]) - 1), f, is_main)
+	_record(area, result, room, rect_of(geo, geo.t0, geo.t1, 0, geo.s_size - 1), f, is_main)
 	return result
 
 
 #Main room across the front, one dividing wall, one to three back rooms behind it.
-static func shop_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: Dictionary,
+static func shop_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: FloorGeo,
 		wall_data: ObstacleData, fh: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var t0: int = int(geo["t0"])
-	var t1: int = int(geo["t1"])
+	var t0: int = geo.t0
+	var t1: int = geo.t1
 	var tn: int = t1 - t0 + 1
-	var sn: int = int(geo["s_size"])
+	var sn: int = geo.s_size
 	if sn < 7 or tn < 3:
-		return open_floor(area, f, plan, geo, wall_data, fh)
+		return open_floor(area, f, plan, geo)
 	var ms: int = clampi(roundi(float(sn) * randf_range(0.45, 0.60)), 3, sn - 4)
 	var picked: Array = _floor_room(plan, f, geo)
 	var front_room: ObstacleData = picked[0] as ObstacleData
@@ -215,24 +210,25 @@ static func shop_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: Dic
 		if i > 0:
 			_wall_line(area, f, cell(geo, sa - 1, ms), cell(geo, sa - 1, sn - 1), wall_data, fh)
 		_record(area, result, _pick_room(plan, f, geo), rect_of(geo, sa, sb, ms + 1, sn - 1), f, false)
-		_door(area, _p3(cell(geo, (sa + sb) >> 1, ms), f), fh, _orient_t(geo))
+		var dc: Vector2i = cell(geo, (sa + sb) >> 1, ms)
+		_door(area, Vector3i(dc.x, dc.y, f), fh, _orient_t(geo))
 	return result
 
 
 #Hall from the street door to the back wall with room strips along one or two sides.
-static func hall_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: Dictionary,
+static func hall_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: FloorGeo,
 		wall_data: ObstacleData, fh: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var t0: int = int(geo["t0"])
-	var t1: int = int(geo["t1"])
+	var t0: int = geo.t0
+	var t1: int = geo.t1
 	var tn: int = t1 - t0 + 1
-	var sn: int = int(geo["s_size"])
+	var sn: int = geo.s_size
 	if tn < 5 or sn < 4:
-		return open_floor(area, f, plan, geo, wall_data, fh)
+		return open_floor(area, f, plan, geo)
 	var forced: bool = _band_on_front(geo) and String(plan.get("band_side", "")) == String(plan.get("front", ""))
-	var t_door: int = int(geo.get("t_door", -1))
+	var t_door: int = geo.t_door
 	if t_door < t0 or t_door > t1:
-		t_door = clampi(int(geo["ent_row"]), t0, t1) if forced else (t0 + t1) >> 1
+		t_door = clampi(geo.ent_row, t0, t1) if forced else (t0 + t1) >> 1
 	var low_free: int = t_door - t0 - 1
 	var high_free: int = t1 - t_door - 1
 	var low_k: int = clampi(low_free, 4, 8) if low_free >= 4 else 0
@@ -262,7 +258,7 @@ static func hall_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: Dic
 		t_door = ((t0 + low_k) + (t1 - high_k)) >> 1
 	low_k = _shift_strip(geo, t0, t1, low_k, high_k, true)
 	high_k = _shift_strip(geo, t0, t1, high_k, low_k, false)
-	geo["t_door"] = t_door
+	geo.t_door = t_door
 	var end_len: int = 0
 	if int(plan.get("entrances", 1)) < 2 and sn >= 10 and randi() % 2 == 0:
 		end_len = clampi(randi_range(3, 5), 3, sn - 6)
@@ -276,7 +272,8 @@ static func hall_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: Dic
 	if end_len > 0:
 		_wall_line(area, f, cell(geo, hall_lo, sn - end_len - 1), cell(geo, hall_hi, sn - end_len - 1),
 			wall_data, fh)
-		_door(area, _p3(cell(geo, (hall_lo + hall_hi) >> 1, sn - end_len - 1), f), fh, _orient_t(geo))
+		var dc: Vector2i = cell(geo, (hall_lo + hall_hi) >> 1, sn - end_len - 1)
+		_door(area, Vector3i(dc.x, dc.y, f), fh, _orient_t(geo))
 		_record(area, result, _pick_room(plan, f, geo), rect_of(geo, hall_lo, hall_hi, sn - end_len, sn - 1),
 			f, false)
 	var picked: Array = _floor_room(plan, f, geo)
@@ -287,7 +284,7 @@ static func hall_floor(area: BattlefieldArea, f: int, plan: Dictionary, geo: Dic
 
 
 #Keeps a strip wall off a stair landing row so the band still reaches the rest of the floor.
-static func _shift_strip(geo: Dictionary, t0: int, t1: int, k: int, other_k: int, low: bool) -> int:
+static func _shift_strip(geo: FloorGeo, t0: int, t1: int, k: int, other_k: int, low: bool) -> int:
 	if k <= 0 or not _band_on_front(geo):
 		return k
 	var wall_t: int = t0 + k - 1 if low else t1 - k + 1
@@ -301,12 +298,12 @@ static func _shift_strip(geo: Dictionary, t0: int, t1: int, k: int, other_k: int
 
 
 #One side strip: the hall side wall, the rooms split along s and one door per room.
-static func _hall_strip(area: BattlefieldArea, f: int, plan: Dictionary, geo: Dictionary,
+static func _hall_strip(area: BattlefieldArea, f: int, plan: Dictionary, geo: FloorGeo,
 		wall_data: ObstacleData, fh: int, result: Array[Dictionary], t_lo: int, t_hi: int,
 		wall_t: int) -> void:
 	if t_hi < t_lo:
 		return
-	var sn: int = int(geo["s_size"])
+	var sn: int = geo.s_size
 	_wall_line(area, f, cell(geo, wall_t, 0), cell(geo, wall_t, sn - 1), wall_data, fh)
 	var span_len: int = clampi(randi_range(4, 7), 3, sn)
 	var count: int = maxi(1, floori(float(sn + 1) / float(span_len + 1)))
@@ -319,15 +316,16 @@ static func _hall_strip(area: BattlefieldArea, f: int, plan: Dictionary, geo: Di
 		if i > 0:
 			_wall_line(area, f, cell(geo, t_lo, sa - 1), cell(geo, t_hi, sa - 1), wall_data, fh)
 		_record(area, result, _pick_room(plan, f, geo), rect_of(geo, t_lo, t_hi, sa, sb), f, false)
-		_door(area, _p3(cell(geo, wall_t, (sa + sb) >> 1), f), fh, _orient_s(geo))
+		var dc: Vector2i = cell(geo, wall_t, (sa + sb) >> 1)
+		_door(area, Vector3i(dc.x, dc.y, f), fh, _orient_s(geo))
 
 
 #Market stall shell: the ring is open floor, four awning posts, one room record, no walls.
-static func open_shell(area: BattlefieldArea, plan: Dictionary, geo: Dictionary) -> Array[Dictionary]:
+static func open_shell(area: BattlefieldArea, plan: Dictionary, geo: FloorGeo) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var bld_x: int = int(geo["bld_x"])
-	var top_y: int = int(geo["top_y"])
-	var ring := Rect2i(bld_x, top_y, int(geo["floor_w"]) + 2, int(geo["floor_d"]) + 2)
+	var bld_x: int = geo.bld_x
+	var top_y: int = geo.top_y
+	var ring := Rect2i(bld_x, top_y, geo.floor_w + 2, geo.floor_d + 2)
 	for ix: int in range(ring.position.x, ring.end.x):
 		for iy: int in range(ring.position.y, ring.end.y):
 			area.building_interiors[Vector3i(ix, iy, 0)] = true
@@ -342,15 +340,15 @@ static func open_shell(area: BattlefieldArea, plan: Dictionary, geo: Dictionary)
 		for corner: Vector2i in [ring.position, Vector2i(ring.end.x - 1, ring.position.y),
 				Vector2i(ring.position.x, ring.end.y - 1), Vector2i(ring.end.x - 1, ring.end.y - 1)]:
 			var p3 := Vector3i(corner.x, corner.y, 0)
-			InteriorGenerator._add_obstacle(area, {"pos": p3, "size": pw * ph, "data": post,
+			area.add_obstacle({"pos": p3, "size": pw * ph, "data": post,
 				"cell_type": "furniture", "pw": pw, "ph": ph, "floor": 0}, p3)
 	var room: ObstacleData = DataManager.get_obstacle_by_name(String(plan.get("main_room", "")))
-	_record(area, result, room, Rect2i(int(geo["ix0"]), int(geo["iy0"]), int(geo["floor_w"]),
-		int(geo["floor_d"])), 0, true)
+	_record(area, result, room, Rect2i(geo.ix0, geo.iy0, geo.floor_w,
+		geo.floor_d), 0, true)
 	return result
 
 
-static func _opposite(side: String) -> String:
+static func opposite(side: String) -> String:
 	if side == "W":
 		return "E"
 	if side == "E":
@@ -369,49 +367,55 @@ static func _cross_orient(side: String) -> String:
 
 
 static func inward(side: String) -> Vector3i:
+	var step: Vector2i = inward_step(side)
+	return Vector3i(step.x, step.y, 0)
+
+
+#Step from the outside of a side into the building; N is the low y side.
+static func inward_step(side: String) -> Vector2i:
 	if side == "W":
-		return Vector3i(1, 0, 0)
+		return Vector2i(1, 0)
 	if side == "E":
-		return Vector3i(-1, 0, 0)
+		return Vector2i(-1, 0)
 	if side == "N":
-		return Vector3i(0, 1, 0)
-	return Vector3i(0, -1, 0)
+		return Vector2i(0, 1)
+	return Vector2i(0, -1)
 
 
 #The outer wall cell of one side at position t along it.
-static func _wall_cell(geo: Dictionary, side: String, t: int) -> Vector2i:
-	var bld_x: int = int(geo["bld_x"])
-	var top_y: int = int(geo["top_y"])
+static func wall_cell(geo: FloorGeo, side: String, t: int) -> Vector2i:
+	var bld_x: int = geo.bld_x
+	var top_y: int = geo.top_y
 	if side == "W":
 		return Vector2i(bld_x, t)
 	if side == "E":
-		return Vector2i(bld_x + int(geo["floor_w"]) + 1, t)
+		return Vector2i(bld_x + geo.floor_w + 1, t)
 	if side == "N":
 		return Vector2i(t, top_y)
-	return Vector2i(t, top_y + int(geo["floor_d"]) + 1)
+	return Vector2i(t, top_y + geo.floor_d + 1)
 
 
 #Positions along one wall that face the interior.
-static func _wall_t_range(geo: Dictionary, side: String) -> Vector2i:
+static func wall_t_range(geo: FloorGeo, side: String) -> Vector2i:
 	if side == "W" or side == "E":
-		return Vector2i(int(geo["iy0"]), int(geo["iy1"]))
-	return Vector2i(int(geo["ix0"]), int(geo["ix1"]))
+		return Vector2i(geo.iy0, geo.iy1)
+	return Vector2i(geo.ix0, geo.ix1)
 
 
-static func _rect_t_range(geo: Dictionary, rect: Rect2i) -> Vector2i:
+static func _rect_t_range(geo: FloorGeo, rect: Rect2i) -> Vector2i:
 	if _front_we(geo):
 		return Vector2i(rect.position.y, rect.end.y - 1)
 	return Vector2i(rect.position.x, rect.end.x - 1)
 
 
-static func _touches_front(geo: Dictionary, side: String, rect: Rect2i) -> bool:
+static func _touches_front(geo: FloorGeo, side: String, rect: Rect2i) -> bool:
 	if side == "W":
-		return rect.position.x == int(geo["ix0"])
+		return rect.position.x == geo.ix0
 	if side == "E":
-		return rect.end.x - 1 == int(geo["ix1"])
+		return rect.end.x - 1 == geo.ix1
 	if side == "N":
-		return rect.position.y == int(geo["iy0"])
-	return rect.end.y - 1 == int(geo["iy1"])
+		return rect.position.y == geo.iy0
+	return rect.end.y - 1 == geo.iy1
 
 
 #A wing blocks only the wall it grows from.
@@ -431,13 +435,13 @@ static func _inside_free(area: BattlefieldArea, p: Vector3i, strict: bool) -> bo
 		return true
 	if strict:
 		return false
-	var ct: String = String((area._obs_map[p] as Dictionary).get("cell_type", ""))
+	var ct: String = area.cell_type_at(p)
 	return ct == "reserved_stairwell" or ct == "stair_run"
 
 
-static func _door_t_ok(area: BattlefieldArea, geo: Dictionary, side: String, t: int,
+static func _door_t_ok(area: BattlefieldArea, geo: FloorGeo, side: String, t: int,
 		wings: Array[Dictionary], strict: bool) -> bool:
-	var p: Vector2i = _wall_cell(geo, side, t)
+	var p: Vector2i = wall_cell(geo, side, t)
 	if (side == "N" or side == "S") and _in_wing_x(wings, side, p.x):
 		return false
 	if not strict:
@@ -445,7 +449,7 @@ static func _door_t_ok(area: BattlefieldArea, geo: Dictionary, side: String, t: 
 	var inn: Vector3i = Vector3i(p.x, p.y, 0) + inward(side)
 	if not _inside_free(area, inn, true):
 		return false
-	var band_x0: int = int(geo.get("band_x0", -1))
+	var band_x0: int = geo.band_x0
 	if band_x0 >= 0 and (inn.x == band_x0 or inn.x == band_x0 + 1):
 		return false
 	if band_x0 >= 0 and (side == "W" or side == "E") and InteriorGenerator._well_row_blocked(area, p.y):
@@ -454,7 +458,7 @@ static func _door_t_ok(area: BattlefieldArea, geo: Dictionary, side: String, t: 
 
 
 #Position on one wall nearest want that takes a door; -1 when the wall has none.
-static func _slide_t(area: BattlefieldArea, geo: Dictionary, side: String, span: Vector2i,
+static func _slide_t(area: BattlefieldArea, geo: FloorGeo, side: String, span: Vector2i,
 		want: int, wings: Array[Dictionary], strict: bool) -> int:
 	for d: int in range(0, span.y - span.x + 1):
 		for cand: int in [want - d, want + d]:
@@ -467,7 +471,7 @@ static func _slide_t(area: BattlefieldArea, geo: Dictionary, side: String, span:
 
 #Opens the cell behind a street door: a wall becomes a second door, a stair cell is left alone.
 static func _open_inside(area: BattlefieldArea, inn: Vector3i, fh: int, orientation: String) -> void:
-	var ct: String = String((area._obs_map.get(inn, {}) as Dictionary).get("cell_type", ""))
+	var ct: String = area.cell_type_at(inn)
 	if ct == "wall":
 		_door(area, inn, fh, orientation)
 		return
@@ -478,21 +482,21 @@ static func _open_inside(area: BattlefieldArea, inn: Vector3i, fh: int, orientat
 
 
 #The street door in the front wall and, for two entrances, a second door in the opposite wall.
-static func place_doors(area: BattlefieldArea, plan: Dictionary, geo: Dictionary,
+static func place_doors(area: BattlefieldArea, plan: Dictionary, geo: FloorGeo,
 		rooms: Array[Dictionary], fh: int, wings: Array[Dictionary]) -> void:
 	if String(plan.get("shell", "Walled")) == "Open":
 		return
 	var front: String = String(plan.get("front", "W"))
 	var corridor: bool = String(plan.get("layout_f0", "Open")) == "Corridor"
-	var span: Vector2i = _wall_t_range(geo, front)
+	var span: Vector2i = wall_t_range(geo, front)
 	var want: int = (span.x + span.y) >> 1
 	var chosen: Dictionary = {}
 	if corridor:
 		chosen = _corridor_main(geo, front, rooms)
-	elif String(plan.get("layout_f0", "Open")) == "Hall" and int(geo.get("t_door", -1)) >= 0:
-		want = clampi(int(geo["t_door"]), span.x, span.y)
+	elif String(plan.get("layout_f0", "Open")) == "Hall" and geo.t_door >= 0:
+		want = clampi(geo.t_door, span.x, span.y)
 	elif _band_on_front(geo) and String(plan.get("band_side", "")) == front:
-		want = clampi(int(geo["ent_row"]), span.x, span.y)
+		want = clampi(geo.ent_row, span.x, span.y)
 	else:
 		want = _main_front_t(geo, rooms, want)
 	var t_pick: int = -1
@@ -506,7 +510,7 @@ static func place_doors(area: BattlefieldArea, plan: Dictionary, geo: Dictionary
 		t_pick = _slide_t(area, geo, front, span, want, wings, false)
 	if t_pick < 0:
 		t_pick = want
-	var wall_p: Vector2i = _wall_cell(geo, front, t_pick)
+	var wall_p: Vector2i = wall_cell(geo, front, t_pick)
 	var door_p := Vector3i(wall_p.x, wall_p.y, 0)
 	_door(area, door_p, fh, _wall_orient(front))
 	_open_inside(area, door_p + inward(front), fh, _cross_orient(front))
@@ -516,12 +520,12 @@ static func place_doors(area: BattlefieldArea, plan: Dictionary, geo: Dictionary
 		_mark_main(area, chosen)
 	if int(plan.get("entrances", 1)) < 2:
 		return
-	var back: String = _opposite(front)
-	var bspan: Vector2i = _wall_t_range(geo, back)
+	var back: String = opposite(front)
+	var bspan: Vector2i = wall_t_range(geo, back)
 	var b_pick: int = _slide_t(area, geo, back, bspan, (bspan.x + bspan.y) >> 1, wings, true)
 	if b_pick < 0:
 		return
-	var bwall: Vector2i = _wall_cell(geo, back, b_pick)
+	var bwall: Vector2i = wall_cell(geo, back, b_pick)
 	var back_p := Vector3i(bwall.x, bwall.y, 0)
 	_door(area, back_p, fh, _wall_orient(back))
 	_open_inside(area, back_p + inward(back), fh, _cross_orient(back))
@@ -529,8 +533,8 @@ static func place_doors(area: BattlefieldArea, plan: Dictionary, geo: Dictionary
 
 
 #Corridor floors: the floor 0 room of the main block nearest the front wall, the largest among equals.
-static func _corridor_main(geo: Dictionary, front: String, rooms: Array[Dictionary]) -> Dictionary:
-	var block := Rect2i(int(geo["ix0"]), int(geo["iy0"]), int(geo["floor_w"]), int(geo["floor_d"]))
+static func _corridor_main(geo: FloorGeo, front: String, rooms: Array[Dictionary]) -> Dictionary:
+	var block := Rect2i(geo.ix0, geo.iy0, geo.floor_w, geo.floor_d)
 	var best: Dictionary = {}
 	var best_gap: int = 4
 	var best_area: int = -1
@@ -550,21 +554,21 @@ static func _corridor_main(geo: Dictionary, front: String, rooms: Array[Dictiona
 
 
 #Cells between the front wall and the rect's near edge; 0 when the room touches the front wall.
-static func _front_gap(geo: Dictionary, side: String, rect: Rect2i) -> int:
+static func _front_gap(geo: FloorGeo, side: String, rect: Rect2i) -> int:
 	if side == "W":
-		return rect.position.x - int(geo["ix0"])
+		return rect.position.x - geo.ix0
 	if side == "E":
-		return int(geo["ix1"]) - (rect.end.x - 1)
+		return geo.ix1 - (rect.end.x - 1)
 	if side == "N":
-		return rect.position.y - int(geo["iy0"])
-	return int(geo["iy1"]) - (rect.end.y - 1)
+		return rect.position.y - geo.iy0
+	return geo.iy1 - (rect.end.y - 1)
 
 
 #Front wall position whose door leads straight into the room; a door already in the room's near wall is preferred.
-static func _room_door_t(area: BattlefieldArea, geo: Dictionary, side: String, rect: Rect2i,
+static func _room_door_t(area: BattlefieldArea, geo: FloorGeo, side: String, rect: Rect2i,
 		wings: Array[Dictionary]) -> int:
 	var rt: Vector2i = _rect_t_range(geo, rect)
-	var span: Vector2i = _wall_t_range(geo, side)
+	var span: Vector2i = wall_t_range(geo, side)
 	var want: int = (rt.x + rt.y) >> 1
 	for pass_i: int in range(0, 2):
 		for d: int in range(0, rt.y - rt.x + 1):
@@ -573,7 +577,7 @@ static func _room_door_t(area: BattlefieldArea, geo: Dictionary, side: String, r
 					continue
 				if not _door_t_ok(area, geo, side, cand, wings, true):
 					continue
-				var wall_p: Vector2i = _wall_cell(geo, side, cand)
+				var wall_p: Vector2i = wall_cell(geo, side, cand)
 				var inn: Vector3i = Vector3i(wall_p.x, wall_p.y, 0) + inward(side)
 				var walls: int = _room_path(area, inn, side, rect, 0, false)
 				if walls < 0 or (pass_i == 0 and walls > 0):
@@ -592,7 +596,7 @@ static func _room_path(area: BattlefieldArea, inn: Vector3i, side: String, rect:
 			if rect.has_point(Vector2i(p.x, p.y)):
 				return walls
 		else:
-			var ct: String = String((area._obs_map[p] as Dictionary).get("cell_type", ""))
+			var ct: String = area.cell_type_at(p)
 			if ct == "wall":
 				walls += 1
 				if walls > 1:
@@ -606,7 +610,7 @@ static func _room_path(area: BattlefieldArea, inn: Vector3i, side: String, rect:
 
 
 #Centre of the main room's front edge; the wall centre when floor 0 has no main room yet.
-static func _main_front_t(geo: Dictionary, rooms: Array[Dictionary], fallback: int) -> int:
+static func _main_front_t(geo: FloorGeo, rooms: Array[Dictionary], fallback: int) -> int:
 	for rec: Dictionary in rooms:
 		if int(rec.get("floor", 0)) != 0 or not bool(rec.get("main", false)):
 			continue
@@ -657,7 +661,7 @@ static func _rec_name(rec: Dictionary) -> String:
 
 #Names the main room at the front door and gives every required room a slot on a floor it fits.
 static func label_rooms(area: BattlefieldArea, plan: Dictionary, rooms: Array[Dictionary],
-		geo: Dictionary) -> void:
+		geo: FloorGeo) -> void:
 	var main_data: ObstacleData = DataManager.get_obstacle_by_name(String(plan.get("main_room", "")))
 	if main_data != null:
 		for rec: Dictionary in rooms:
@@ -666,7 +670,7 @@ static func label_rooms(area: BattlefieldArea, plan: Dictionary, rooms: Array[Di
 			if _rec_name(rec) != main_data.obstacle_name:
 				_rename(area, rec, main_data, true)
 			break
-	var top: int = int(geo.get("top_floor", 0))
+	var top: int = geo.top_floor
 	var required: Dictionary = {}
 	for entry: Variant in (plan.get("required_rooms", []) as Array):
 		required[String(entry)] = true

@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/ContractPreview.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/PreviewRow.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/InfoField.tscn" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_ContractPreview.tres" id="4"]
 
 [node name="ContractPreview" type="PanelContainer"]
 custom_minimum_size = Vector2(210, 0)
@@ -14,6 +16,7 @@ theme_override_constants/separation = 6
 
 [node name="Title" type="Label" parent="Rows"]
 layout_mode = 2
+size_flags_horizontal = 0
 theme_type_variation = &"TitleLabel"
 text = "Preview"
 
@@ -40,3 +43,7 @@ layout_mode = 2
 
 [node name="GuildCut" parent="Rows" instance=ExtResource("2")]
 layout_mode = 2
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("3")
+hint = ExtResource("4")

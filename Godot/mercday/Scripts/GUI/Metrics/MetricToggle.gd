@@ -1,4 +1,4 @@
-class_name MetricToggle extends Button
+class_name MetricToggle extends BevelButton
 
 #One row of the MetricList: a ring checkbox in the metric colour, the metric name, a compare arrow
 #and a Y button that asks for this metric's axis. The colour comes from the list's palette, by def
@@ -6,20 +6,16 @@ class_name MetricToggle extends Button
 #viewer picked, either the team average or a second merc. A row whose metric needs an upgrade the
 #guild has not bought shows the gold lock in place of the arrow and refuses to switch on.
 
-const ON_TEXT := Color(0.952941, 0.917647, 0.843137, 1)
-const OFF_TEXT := Color(0.541176, 0.592157, 0.678431, 1)
-const OFF_BOX := Color(0.039216, 0.058824, 0.109804, 1)
-const ON_BG := Color(0.168627, 0.309804, 0.541176, 1)
-const ON_BORDER := Color(0.231373, 0.435294, 0.713725, 1)
+const ON_TEXT: Color = GuiColors.CREAM
+const OFF_TEXT: Color = GuiColors.DIM_TEXT
 const OFF_BG := Color(0.086275, 0.137255, 0.247059, 1)
-const OFF_BORDER := Color(0.121569, 0.207843, 0.376471, 1)
+const OFF_BORDER: Color = GuiColors.BLUE_LO
 const Y_OFF_BG := Color(0.086275, 0.137255, 0.247059, 1)
-const Y_OFF_TEXT := Color(0.368627, 0.462745, 0.600000, 1)
-const Y_ON_TEXT := Color(0.039216, 0.058824, 0.109804, 1)
-const ARROW_GOOD := Color(0.423529, 0.764706, 0.415686, 1)
-const ARROW_BAD := Color(0.909804, 0.345098, 0.247059, 1)
-const ARROW_FLAT := Color(0.352941, 0.650980, 0.909804, 1)
-const BORDER_WIDTH := 2
+const Y_OFF_TEXT: Color = GuiColors.MUTED
+const Y_ON_TEXT: Color = GuiColors.INK
+const ARROW_GOOD: Color = GuiColors.GREEN
+const ARROW_BAD: Color = GuiColors.RED
+const ARROW_FLAT: Color = GuiColors.LIGHT_BLUE
 const SWATCH_RING := 2.0
 const SWATCH_DOT := 4.0
 const PCT_FLOOR := 0.5
@@ -28,6 +24,7 @@ const ARROW_BOX: Rect2i = Rect2i(3, 4, 9, 8)
 const ARROW_SCALE: int = 1
 const PCT_STRAIGHT := 15.0
 const Y_TIP := "Use as Y-axis"
+const Y_TEXT_KEYS: Array[StringName] = [&"font_color", &"font_hover_color", &"font_pressed_color"]
 
 signal focus_requested
 
@@ -43,7 +40,7 @@ signal focus_requested
 	set(value):
 		description = value
 		refresh()
-@export var color: Color = Color(0.949020, 0.549020, 0.156863, 1):
+@export var color: Color = GuiColors.ORANGE:
 	set(value):
 		color = value
 		refresh()
@@ -53,7 +50,7 @@ signal focus_requested
 		refresh()
 
 var _focused: bool = false
-var _pct: float = NAN
+var _pct: float
 var _good: int = 0
 
 @onready var swatch: Control = $Row/Swatch
@@ -63,7 +60,23 @@ var _good: int = 0
 @onready var y_button: Button = $Row/Y
 
 
+#An off row paints OFF_BG with OFF_BORDER as the lit bevel; an on row paints the blue palette.
+func _init() -> void:
+	_pct = NAN
+	set_colors(OFF_BG, OFF_BORDER, OFF_BG.darkened(0.25), OFF_TEXT)
+	active_kind = &"blue"
+	click_move = ButtonFx.ClickMove.NONE
+	click_shade = ButtonFx.ClickShade.FLASH
+	hover_move = ButtonFx.HoverMove.NONE
+	hover_shade = ButtonFx.HoverShade.LIGHTEN
+	stay_move = ButtonFx.StayMove.NONE
+	stay_shade = ButtonFx.StayShade.NONE
+	active_move = ButtonFx.HoverMove.NONE
+	active_shade = ButtonFx.HoverShade.RING
+
+
 func _ready() -> void:
+	super()
 	toggled.connect(_on_toggled)
 	swatch.draw.connect(_draw_swatch)
 	arrow.draw.connect(_draw_arrow)
@@ -177,26 +190,13 @@ func refresh() -> void:
 	name_label.add_theme_color_override("font_color", ON_TEXT if button_pressed else OFF_TEXT)
 	disabled = locked
 	y_button.disabled = locked
-	_style_row()
 	swatch.queue_redraw()
 	arrow.visible = compare_visible() and not locked
 	arrow.queue_redraw()
 	var lit: bool = _focused and button_pressed
-	var box := StyleBoxFlat.new()
-	box.bg_color = color if lit else Y_OFF_BG
-	for style_name: String in ["normal", "hover", "pressed", "focus", "disabled"]:
-		y_button.add_theme_stylebox_override(style_name, box)
-	for color_name: String in ["font_color", "font_hover_color", "font_pressed_color"]:
-		y_button.add_theme_color_override(color_name, Y_ON_TEXT if lit else Y_OFF_TEXT)
-
-
-func _style_row() -> void:
-	var box := StyleBoxFlat.new()
-	box.bg_color = ON_BG if button_pressed else OFF_BG
-	box.border_color = ON_BORDER if button_pressed else OFF_BORDER
-	box.set_border_width_all(BORDER_WIDTH)
-	for style_name: String in ["normal", "hover", "pressed", "focus", "disabled"]:
-		add_theme_stylebox_override(style_name, box)
+	var box: StyleBoxFlat = GuiStyle.flat(color if lit else Y_OFF_BG)
+	GuiStyle.set_all_boxes(y_button, box, STATES)
+	GuiStyle.set_all_font_colors(y_button, Y_ON_TEXT if lit else Y_OFF_TEXT, Y_TEXT_KEYS)
 
 
 func _draw_swatch() -> void:
@@ -211,17 +211,17 @@ func _draw_swatch() -> void:
 
 #A 9x8 atlas arrow: upright when the gap is wide, slanted when it is small, up when the merc leads.
 func _draw_arrow() -> void:
-	var kind: int = arrow_kind(_pct)
-	if kind == 0:
+	var shape: int = arrow_kind(_pct)
+	if shape == 0:
 		return
-	Icons.draw_texture(arrow, Icons.baked(arrow_id(kind, _pct > 0.0), ARROW_SCALE,
+	Icons.draw_texture(arrow, Icons.baked(arrow_id(shape, _pct > 0.0), ARROW_SCALE,
 		Icons.MODE_GRAY, false, ARROW_BOX), Vector2.ZERO, 1, compare_color())
 
 
-#The atlas id of one arrow: kind 2 is the upright pair, kind 1 the slanted pair, kind 0 no arrow.
-static func arrow_id(kind: int, up: bool) -> String:
-	if kind == 2:
+#The atlas id of one arrow: shape 2 is the upright pair, shape 1 the slanted pair, shape 0 no arrow.
+static func arrow_id(shape: int, up: bool) -> String:
+	if shape == 2:
 		return "trend_up" if up else "trend_down"
-	if kind == 1:
+	if shape == 1:
 		return "trend_diag_up" if up else "trend_diag_down"
 	return ""

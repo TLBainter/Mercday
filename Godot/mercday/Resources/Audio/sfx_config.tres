@@ -1,0 +1,72 @@
+[gd_resource type="Resource" script_class="SfxConfig" load_steps=34 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SfxConfig.gd" id="1_script"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/click.tres" id="2_click"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/big_button_click.tres" id="3_big_button_click"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/upgrade_click.tres" id="4_upgrade_click"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/slider.tres" id="5_slider"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/summon_window.tres" id="6_summon_window"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/dismiss_window.tres" id="7_dismiss_window"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/equip.tres" id="8_equip"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/unequip.tres" id="9_unequip"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/hover.tres" id="10_hover"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/captured.tres" id="11_captured"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/contract_failure.tres" id="12_contract_failure"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/contract_success.tres" id="13_contract_success"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/dead.tres" id="14_dead"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/graph_draw.tres" id="15_graph_draw"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/alert_bad.tres" id="16_alert_bad"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/message_basic.tres" id="17_message_basic"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/alert_neutral.tres" id="18_alert_neutral"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/alert_positive.tres" id="19_alert_positive"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/money.tres" id="20_money"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/new_contract.tres" id="21_new_contract"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/permit.tres" id="22_permit"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/reject.tres" id="23_reject"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/dispatch_foot.tres" id="24_dispatch_foot"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/hover_disabled.tres" id="25_hover_disabled"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/click_disabled.tres" id="26_click_disabled"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/dispatch_caravan.tres" id="27_dispatch_caravan"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/dispatch_train.tres" id="28_dispatch_train"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/dispatch_airship.tres" id="29_dispatch_airship"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/dispatch_teleport.tres" id="30_dispatch_teleport"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/mercdave_click.tres" id="31_mercdave_click"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/mercdave_hover.tres" id="32_mercdave_hover"]
+[ext_resource type="Resource" path="res://Resources/Audio/Libraries/mercdave_text.tres" id="33_mercdave_text"]
+
+[resource]
+script = ExtResource("1_script")
+ui_bus = &"UI"
+event_bus = &"Sound Effects"
+click = ExtResource("2_click")
+big_button_click = ExtResource("3_big_button_click")
+upgrade_click = ExtResource("4_upgrade_click")
+slider = ExtResource("5_slider")
+summon_window = ExtResource("6_summon_window")
+dismiss_window = ExtResource("7_dismiss_window")
+equip = ExtResource("8_equip")
+unequip = ExtResource("9_unequip")
+hover = ExtResource("10_hover")
+hover_disabled = ExtResource("25_hover_disabled")
+click_disabled = ExtResource("26_click_disabled")
+mercdave_click = ExtResource("31_mercdave_click")
+mercdave_hover = ExtResource("32_mercdave_hover")
+captured = ExtResource("11_captured")
+contract_failure = ExtResource("12_contract_failure")
+contract_success = ExtResource("13_contract_success")
+dead = ExtResource("14_dead")
+graph_draw = ExtResource("15_graph_draw")
+alert_bad = ExtResource("16_alert_bad")
+message_basic = ExtResource("17_message_basic")
+alert_neutral = ExtResource("18_alert_neutral")
+alert_positive = ExtResource("19_alert_positive")
+money = ExtResource("20_money")
+new_contract = ExtResource("21_new_contract")
+permit = ExtResource("22_permit")
+reject = ExtResource("23_reject")
+mercdave_text = ExtResource("33_mercdave_text")
+dispatch_foot = ExtResource("24_dispatch_foot")
+dispatch_caravan = ExtResource("27_dispatch_caravan")
+dispatch_train = ExtResource("28_dispatch_train")
+dispatch_airship = ExtResource("29_dispatch_airship")
+dispatch_teleport = ExtResource("30_dispatch_teleport")

@@ -8,6 +8,14 @@ const DEEP_D := 3.0
 const SEED_TRIES := 12
 
 
+class RescueFx extends RefCounted:
+	var field: BattlefieldArea
+	var party: Array[MercenaryData]
+	var captive: MercenaryData
+	var enemies: Array[MercenaryData]
+	var state: BattleState
+
+
 static func run() -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
 	ContractResourceBuilder.build_all()
@@ -33,14 +41,14 @@ static func run() -> bool:
 	RescueTactics.caged_wounded_leave = false
 	RescueTactics.shelter_los = false
 	RescueTune.reset_tune()
-	var combat_fx: Dictionary = _fixture(11, RescueSystem.MODE_COMBAT, 3, 3, 5)
+	var combat_fx: RescueFx = _fixture(11, RescueSystem.MODE_COMBAT, 3, 3, 5)
 	_case_attach(res, combat_fx)
 	_case_combat_attach(res, combat_fx)
 	_case_pick_facet(res, combat_fx)
 	_case_pick_lock(res, combat_fx)
 	_case_pick_def(res)
 	_case_kidnap_off(res, combat_fx)
-	var stealth_fx: Dictionary = _fixture(21, RescueSystem.MODE_STEALTH, 3, 3, 5)
+	var stealth_fx: RescueFx = _fixture(21, RescueSystem.MODE_STEALTH, 3, 3, 5)
 	_case_stealth_attach(res, stealth_fx)
 	_case_exit(res, stealth_fx)
 	_case_contest(res, stealth_fx)
@@ -58,12 +66,12 @@ static func run() -> bool:
 	await _case_contract(res)
 	_case_notice_scan(res, _fixture(131, RescueSystem.MODE_STEALTH, 3, 3, 5))
 	_case_ally_crossing(res)
-	var tac_fx: Dictionary = _fixture(141, RescueSystem.MODE_COMBAT, 3, 3, 5)
+	var tac_fx: RescueFx = _fixture(141, RescueSystem.MODE_COMBAT, 3, 3, 5)
 	_case_door_reasons(res, tac_fx)
 	_case_gate_decision(res, tac_fx)
 	_case_escort(res, tac_fx)
 	_case_order(res, tac_fx)
-	var post_fx: Dictionary = _fixture(151, RescueSystem.MODE_COMBAT, 3, 2, 5)
+	var post_fx: RescueFx = _fixture(151, RescueSystem.MODE_COMBAT, 3, 2, 5)
 	_case_postures(res, post_fx)
 	_case_captive_postures(res, post_fx)
 	_case_shelter_v2(res, _fixture(181, RescueSystem.MODE_COMBAT, 3, 2, 5))
@@ -93,7 +101,7 @@ static func run() -> bool:
 	return TestFixtures.summarize(res, "RESCUE")
 
 
-static func _party(level: int, n: int, start: int) -> Array[MercenaryData]:
+static func leveled_party(level: int, n: int, start: int) -> Array[MercenaryData]:
 	var out: Array[MercenaryData] = []
 	MercGenerator.forced_level = level
 	for i: int in range(n):
@@ -120,15 +128,20 @@ static func _enemies(n: int, level: int, party: Array[MercenaryData]) -> Array[M
 #The first seeded dungeon of this Difficulty that carries a cell block; null when none does.
 static func _dungeon(seed_i: int, d: float, size_b: int) -> BattlefieldArea:
 	for step: int in range(SEED_TRIES):
-		seed(seed_i + step)
-		var ctx := GenerationContext.new()
-		ctx.difficulty = d
-		ctx.team_size_a = 5
-		ctx.team_size_b = size_b
-		var field: BattlefieldArea = BattlefieldArea.generate_random(null, ctx, "Dungeon")
+		var field: BattlefieldArea = _dungeon_field(seed_i + step, d, size_b)
 		if field != null and not _cell_rooms(field).is_empty():
 			return field
 	return null
+
+
+static func _dungeon_field(seed_i: int, d: float, size_b: int, min_blocks: int = 0) -> BattlefieldArea:
+	seed(seed_i)
+	var ctx := GenerationContext.new()
+	ctx.difficulty = d
+	ctx.team_size_a = 5
+	ctx.team_size_b = size_b
+	ctx.min_cell_blocks = min_blocks
+	return BattlefieldArea.generate_random(null, ctx, "Dungeon")
 
 
 static func _cell_rooms(field: BattlefieldArea) -> Array[Dictionary]:
@@ -141,31 +154,37 @@ static func _cell_rooms(field: BattlefieldArea) -> Array[Dictionary]:
 	return out
 
 
-static func _state(party: Array[MercenaryData], captive: MercenaryData,
-		enemies: Array[MercenaryData], field: BattlefieldArea, mode: String) -> BattleState:
+static func rescue_state(party: Array[MercenaryData], captive: MercenaryData,
+		enemies: Array[MercenaryData], field: BattlefieldArea, mode: String,
+		d: float = DEEP_D) -> BattleState:
 	var side_a: Array[MercenaryData] = []
 	side_a.assign(party)
 	side_a.append(captive)
 	var side_b: Array[MercenaryData] = []
 	side_b.assign(enemies)
 	var state: BattleState = BattleState.create(side_a, side_b, field)
-	RescueSetup.attach(state, captive, mode, DEEP_D)
+	RescueSetup.attach(state, captive, mode, d)
 	return state
 
 
-#One attached rescue battle: {field, party, captive, enemies, state}; {} when no dungeon has a cell.
-static func _fixture(seed_i: int, mode: String, party_n: int, enemy_n: int, level: int) -> Dictionary:
+#One attached rescue battle; null when no dungeon has a cell.
+static func _fixture(seed_i: int, mode: String, party_n: int, enemy_n: int, level: int) -> RescueFx:
 	TestFixtures.reset_generator_rolls()
 	var field: BattlefieldArea = _dungeon(seed_i, DEEP_D, enemy_n)
 	if field == null:
-		return {}
-	var party: Array[MercenaryData] = _party(level, party_n, 0)
-	var held: Array[MercenaryData] = _party(level, 1, party_n)
+		return null
+	var party: Array[MercenaryData] = leveled_party(level, party_n, 0)
+	var held: Array[MercenaryData] = leveled_party(level, 1, party_n)
 	var foes: Array[MercenaryData] = _enemies(enemy_n, level, party)
 	if party.size() < party_n or held.is_empty() or foes.is_empty():
-		return {}
-	var state: BattleState = _state(party, held[0], foes, field, mode)
-	return {"field": field, "party": party, "captive": held[0], "enemies": foes, "state": state}
+		return null
+	var fx := RescueFx.new()
+	fx.field = field
+	fx.party = party
+	fx.captive = held[0]
+	fx.enemies = foes
+	fx.state = rescue_state(party, held[0], foes, field, mode)
+	return fx
 
 
 static func _missing(res: Dictionary, label: String) -> void:
@@ -173,8 +192,8 @@ static func _missing(res: Dictionary, label: String) -> void:
 
 
 #False when the case fixture did not build, with the one failed check that says so already recorded.
-static func _has_fx(res: Dictionary, fx: Dictionary, label: String) -> bool:
-	if fx.is_empty():
+static func _has_fx(res: Dictionary, fx: RescueFx, label: String) -> bool:
+	if fx == null:
 		_missing(res, label)
 		return false
 	return true
@@ -210,7 +229,7 @@ static func _stat_block(merc: MercenaryData, dex: int, cog: int, luck: float) ->
 static func _geared_merc(start: int) -> MercenaryData:
 	var last: MercenaryData = null
 	for i: int in range(8):
-		var mercs: Array[MercenaryData] = _party(5, 1, start + i)
+		var mercs: Array[MercenaryData] = leveled_party(5, 1, start + i)
 		if mercs.is_empty():
 			continue
 		last = mercs[0]
@@ -218,6 +237,38 @@ static func _geared_merc(start: int) -> MercenaryData:
 		if weapon != null and not weapon.is_virtual and last.equipped_armor != null:
 			return last
 	return last
+
+
+#True when the merc holds no weapon, armor, ammunition or items.
+static func _is_bare(merc: MercenaryData) -> bool:
+	return (merc.equipped_weapon == null or merc.equipped_weapon.is_virtual) \
+		and merc.equipped_armor == null and merc.ammo_inventory.is_empty() \
+		and merc.inventory.is_empty()
+
+
+#The idle roles that are still set.
+static func _idle_roles(roles: Dictionary) -> int:
+	var total: int = 0
+	for key: Variant in roles:
+		if String(roles[key]) != "":
+			total += 1
+	return total
+
+
+static func _loaded_chests(field: BattlefieldArea) -> int:
+	var total: int = 0
+	for chest: Dictionary in ChestLoot.chests(field):
+		if not ChestLoot.is_empty(chest):
+			total += 1
+	return total
+
+
+#Runs the battle to its end with the encounter log off.
+static func _quiet_battle(state: BattleState) -> void:
+	var saved: bool = EncounterLogger.suppressed
+	EncounterLogger.suppressed = true
+	await AutoBattle.run_battle(state, Callable(), "Rescue")
+	EncounterLogger.suppressed = saved
 
 
 static func _holds_weapon(merc: MercenaryData, weapon: WeaponData) -> bool:
@@ -265,16 +316,9 @@ static func _line_holding(lines: Array[String], text: String) -> bool:
 	return false
 
 
-static func _utility(name: String) -> UtilityTraitData:
-	var u := UtilityTraitData.new()
-	u.utility_name = name
-	return u
-
-
 #Unlocks the gate, stands the picker beside it and lets the rescue turn open the cell.
-static func free_captive(fx: Dictionary) -> bool:
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
+static func free_captive(fx: RescueFx) -> bool:
+	var state: BattleState = fx.state
 	var gate_cell: Vector3i = state.rescue.get("gate_cell", PathTargeter.NO_CELL)
 	var picker: MercenaryData = state.rescue.get("picker", null)
 	if picker == null or gate_cell == PathTargeter.NO_CELL:
@@ -282,7 +326,7 @@ static func free_captive(fx: Dictionary) -> bool:
 	var gate: Dictionary = state.rescue.get("gate_obs", {})
 	DungeonLocks.unlock(gate)
 	var rect: Rect2i = state.rescue["cell_rect"]
-	var spot: Vector3i = _free_neighbour(field, state, gate_cell, rect)
+	var spot: Vector3i = _free_neighbour(fx.field, state, gate_cell, rect)
 	if spot == PathTargeter.NO_CELL:
 		return false
 	state.set_pos3(picker, spot)
@@ -293,11 +337,11 @@ static func free_captive(fx: Dictionary) -> bool:
 	return bool(state.rescue.get("freed", false))
 
 
-static func _case_attach(res: Dictionary, fx: Dictionary) -> void:
+static func _case_attach(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the attach case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var captive: MercenaryData = fx.captive
 	var rescue: Dictionary = state.rescue
 	TestFixtures.check(res, "attach fills the rescue record", not rescue.is_empty()
 		and RescueSystem.is_active(state), "rescue keys %d" % rescue.size())
@@ -321,9 +365,7 @@ static func _case_attach(res: Dictionary, fx: Dictionary) -> void:
 	TestFixtures.check(res, "the captive's gear waits in a chest",
 		ChestLoot.is_chest(chest) and not entries.is_empty(),
 		"chest %s entries %d" % [str(ChestLoot.is_chest(chest)), entries.size()])
-	var bare: bool = (captive.equipped_weapon == null or captive.equipped_weapon.is_virtual) \
-		and captive.equipped_armor == null and captive.ammo_inventory.is_empty() \
-		and captive.inventory.is_empty()
+	var bare: bool = _is_bare(captive)
 	TestFixtures.check(res, "the captive carries nothing", bare,
 		"weapon %s armor %s ammo %d items %d" % [
 			str(captive.equipped_weapon != null), str(captive.equipped_armor != null),
@@ -335,24 +377,20 @@ static func _case_attach(res: Dictionary, fx: Dictionary) -> void:
 		"%d pre battle line(s)" % lines.size())
 
 
-static func _case_combat_attach(res: Dictionary, fx: Dictionary) -> void:
+static func _case_combat_attach(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the combat attach case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
 	var hidden: int = 0
 	for merc: MercenaryData in party:
 		if ConstStates.has_state(merc, RescueSystem.STATE_HIDDEN):
 			hidden += 1
-	if ConstStates.has_state(captive, RescueSystem.STATE_HIDDEN):
+	if ConstStates.has_state(fx.captive, RescueSystem.STATE_HIDDEN):
 		hidden += 1
 	TestFixtures.check(res, "a combat rescue hides nobody", hidden == 0, "%d hidden" % hidden)
 	var roles: Dictionary = state.rescue.get("roles", {})
-	var idle: int = 0
-	for key: Variant in roles:
-		if String(roles[key]) != "":
-			idle += 1
+	var idle: int = _idle_roles(roles)
 	TestFixtures.check(res, "a combat rescue leaves the enemies to the normal AI", idle == 0,
 		"%d idle role(s)" % idle)
 	var picker: MercenaryData = state.rescue.get("picker", null)
@@ -361,13 +399,12 @@ static func _case_combat_attach(res: Dictionary, fx: Dictionary) -> void:
 		"picker %s" % ("none" if picker == null else picker.merc_name))
 
 
-static func _case_stealth_attach(res: Dictionary, fx: Dictionary) -> void:
+static func _case_stealth_attach(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the stealth attach case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
 	var seen: int = 0
 	for merc: MercenaryData in party:
 		if not ConstStates.has_state(merc, RescueSystem.STATE_HIDDEN):
@@ -375,7 +412,7 @@ static func _case_stealth_attach(res: Dictionary, fx: Dictionary) -> void:
 	TestFixtures.check(res, "a stealth rescue hides the whole party", seen == 0,
 		"%d merc(s) unhidden" % seen)
 	TestFixtures.check(res, "a stealth rescue hides the captive",
-		ConstStates.has_state(captive, RescueSystem.STATE_HIDDEN), "captive unhidden")
+		ConstStates.has_state(fx.captive, RescueSystem.STATE_HIDDEN), "captive unhidden")
 	var roles: Dictionary = state.rescue.get("roles", {})
 	var missing: int = 0
 	for enemy: MercenaryData in enemies:
@@ -403,13 +440,12 @@ static func _case_stealth_attach(res: Dictionary, fx: Dictionary) -> void:
 		"picker %s" % ("none" if picker == null else picker.merc_name))
 
 
-static func _case_pick_facet(res: Dictionary, fx: Dictionary) -> void:
+static func _case_pick_facet(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the gate facet case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
+	var state: BattleState = fx.state
+	var field: BattlefieldArea = fx.field
+	var party: Array[MercenaryData] = fx.party
 	var gate: Dictionary = state.rescue.get("gate_obs", {})
 	var gate_cell: Vector3i = state.rescue.get("gate_cell", PathTargeter.NO_CELL)
 	var rect: Rect2i = state.rescue["cell_rect"]
@@ -445,7 +481,7 @@ static func _case_pick_facet(res: Dictionary, fx: Dictionary) -> void:
 		"fails %d" % DungeonLocks.lock_fails(gate))
 	gate[DungeonLocks.FAILS_KEY] = 0
 	state.set_pos3(party[1], home_1)
-	var enemy: MercenaryData = enemies[0]
+	var enemy: MercenaryData = fx.enemies[0]
 	var enemy_home: Vector3i = state.pos3(enemy)
 	state.set_pos3(enemy, spot)
 	TestFixtures.check(res, "a captor beside the gate never targets it",
@@ -455,7 +491,8 @@ static func _case_pick_facet(res: Dictionary, fx: Dictionary) -> void:
 	state.set_pos3(enemy, enemy_home)
 	state.rescue["gate_go"] = false
 	var named: bool = false
-	for action: ActionData in DefaultActionSet.create().actions:
+	var default_set: MercActionSet = load("res://Scripts/Actions/Resources/DefaultActionSet.tres")
+	for action: ActionData in default_set.actions:
 		if action != null and action.action_name == "Pick Lock":
 			named = true
 	TestFixtures.check(res, "the action set no longer carries Pick Lock", not named,
@@ -479,18 +516,15 @@ static func _case_pick_facet(res: Dictionary, fx: Dictionary) -> void:
 	state.set_pos3(party[0], home_0)
 
 
-static func _case_pick_lock(res: Dictionary, fx: Dictionary) -> void:
+static func _case_pick_lock(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the pick lock case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
+	var state: BattleState = fx.state
 	var gate: Dictionary = state.rescue.get("gate_obs", {})
 	var gate_cell: Vector3i = state.rescue.get("gate_cell", PathTargeter.NO_CELL)
 	var rect: Rect2i = state.rescue["cell_rect"]
-	var merc: MercenaryData = party[0]
-	var spot: Vector3i = _free_neighbour(field, state, gate_cell, rect)
+	var merc: MercenaryData = fx.party[0]
+	var spot: Vector3i = _free_neighbour(fx.field, state, gate_cell, rect)
 	if gate.is_empty() or spot == PathTargeter.NO_CELL:
 		_missing(res, "the pick lock case finds a gate")
 		return
@@ -531,7 +565,7 @@ static func _case_pick_lock(res: Dictionary, fx: Dictionary) -> void:
 		"picks %d fails %d" % [int(state.rescue.get("picks", 0)),
 			int(state.rescue.get("pick_fails", 0))])
 	var picks_before: int = int(state.rescue.get("picks", 0))
-	var enemy: MercenaryData = enemies[0]
+	var enemy: MercenaryData = fx.enemies[0]
 	var enemy_home: Vector3i = state.pos3(enemy)
 	state.set_pos3(merc, merc_home)
 	state.set_pos3(enemy, spot)
@@ -554,7 +588,7 @@ static func _case_pick_lock(res: Dictionary, fx: Dictionary) -> void:
 
 #The pick check reads the Locksmith's tool and the Espionage knowledges.
 static func _case_pick_def(res: Dictionary) -> void:
-	var mercs: Array[MercenaryData] = _party(5, 1, 110)
+	var mercs: Array[MercenaryData] = leveled_party(5, 1, 110)
 	if mercs.is_empty():
 		TestFixtures.check(res, "the pick def case generates a merc", false, "no merc generated")
 		return
@@ -563,11 +597,11 @@ static func _case_pick_def(res: Dictionary) -> void:
 	merc.tools.clear()
 	merc.knowledges.clear()
 	var bare: float = CheckSystem.expected_successes(merc, DungeonLocks.pick_def())
-	merc.tools.append(_utility("Locksmith's"))
+	merc.tools.append(ContractFixtures.utility("Locksmith's"))
 	var tooled: float = CheckSystem.expected_successes(merc, DungeonLocks.pick_def())
 	TestFixtures.check(res, "the Locksmith's tools help the pick", tooled > bare,
 		"bare %.4f tooled %.4f" % [bare, tooled])
-	merc.knowledges.append(_utility("Forensics"))
+	merc.knowledges.append(ContractFixtures.utility("Forensics"))
 	var learned: float = CheckSystem.expected_successes(merc, DungeonLocks.pick_def())
 	TestFixtures.check(res, "an Espionage knowledge helps the pick", learned > tooled,
 		"tooled %.4f learned %.4f" % [tooled, learned])
@@ -580,25 +614,23 @@ static func _case_pick_def(res: Dictionary) -> void:
 		"chance %.4f" % DungeonLocks.pick_chance_at(merc, 99))
 
 
-static func _case_kidnap_off(res: Dictionary, fx: Dictionary) -> void:
+static func _case_kidnap_off(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the kidnap case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
 	var saved: bool = KidnapSystem.enabled
 	KidnapSystem.enabled = true
 	var lines: Array[String] = []
-	var took: bool = KidnapSystem.start_of_turn(enemies[0], state, lines)
+	var took: bool = KidnapSystem.start_of_turn(fx.enemies[0], fx.state, lines)
 	KidnapSystem.enabled = saved
 	TestFixtures.check(res, "a rescue battle never runs a kidnap", not took,
 		"start_of_turn %s" % str(took))
 
 
-static func _case_exit(res: Dictionary, fx: Dictionary) -> void:
+static func _case_exit(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the exit case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
 	var merc: MercenaryData = party[party.size() - 1]
 	var exit_cell: Vector3i = state.rescue.get("exit_cell", PathTargeter.NO_CELL)
 	if exit_cell == PathTargeter.NO_CELL:
@@ -620,13 +652,12 @@ static func _case_exit(res: Dictionary, fx: Dictionary) -> void:
 		"exited %s off field %s" % [str(state.exited.has(merc)), str(merc.off_field)])
 
 
-static func _case_contest(res: Dictionary, fx: Dictionary) -> void:
+static func _case_contest(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the stealth contest case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
 	var roles: Dictionary = state.rescue.get("roles", {})
 	var enemy: MercenaryData = enemies[0]
 	for foe: MercenaryData in enemies:
@@ -634,7 +665,7 @@ static func _case_contest(res: Dictionary, fx: Dictionary) -> void:
 			enemy = foe
 			break
 	var hidden: MercenaryData = party[0]
-	var spot: Vector3i = _free_neighbour(field, state, state.pos3(hidden), Rect2i())
+	var spot: Vector3i = _free_neighbour(fx.field, state, state.pos3(hidden), Rect2i())
 	if spot == PathTargeter.NO_CELL:
 		_missing(res, "the stealth contest case seats an enemy")
 		return
@@ -662,14 +693,11 @@ static func _case_contest(res: Dictionary, fx: Dictionary) -> void:
 	for merc: MercenaryData in party:
 		if ConstStates.has_state(merc, RescueSystem.STATE_HIDDEN):
 			still += 1
-	if ConstStates.has_state(fx["captive"] as MercenaryData, RescueSystem.STATE_HIDDEN):
+	if ConstStates.has_state(fx.captive, RescueSystem.STATE_HIDDEN):
 		still += 1
 	TestFixtures.check(res, "the alarm strips Hidden from everybody", still == 0,
 		"%d still hidden" % still)
-	var idle: int = 0
-	for key: Variant in roles:
-		if String(roles[key]) != "":
-			idle += 1
+	var idle: int = _idle_roles(roles)
 	TestFixtures.check(res, "the alarm clears every idle role", idle == 0,
 		"%d idle role(s)" % idle)
 	state.start_of_turn(enemy)
@@ -688,9 +716,7 @@ static func _case_loot_round_trip(res: Dictionary) -> void:
 	var loaded_before: int = merc.ammo_loaded
 	var weapons_before: int = _weapon_count(merc)
 	var entries: Array[Dictionary] = ChestLoot.strip_gear(merc)
-	var bare: bool = (merc.equipped_weapon == null or merc.equipped_weapon.is_virtual) \
-		and merc.equipped_armor == null and merc.ammo_inventory.is_empty() \
-		and merc.inventory.is_empty()
+	var bare: bool = _is_bare(merc)
 	TestFixtures.check(res, "strip_gear leaves the merc with nothing", bare,
 		"weapon %s armor %s ammo %d items %d" % [str(merc.equipped_weapon != null),
 			str(merc.equipped_armor != null), merc.ammo_inventory.size(), merc.inventory.size()])
@@ -720,7 +746,7 @@ static func _case_loot_round_trip(res: Dictionary) -> void:
 
 static func _case_loot_interaction(res: Dictionary) -> void:
 	var donor: MercenaryData = _geared_merc(70)
-	var takers: Array[MercenaryData] = _party(5, 1, 79)
+	var takers: Array[MercenaryData] = leveled_party(5, 1, 79)
 	if donor == null or takers.is_empty():
 		TestFixtures.check(res, "the chest case generates mercs", false, "no merc generated")
 		return
@@ -766,11 +792,11 @@ static func _case_loot_interaction(res: Dictionary) -> void:
 		"took %s AP %d of %d" % [str(again), taker.current_ap, ap_empty])
 
 
-static func _case_free_and_exit(res: Dictionary, fx: Dictionary) -> void:
+static func _case_free_and_exit(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the freeing case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var captive: MercenaryData = fx.captive
 	var freed: bool = free_captive(fx)
 	TestFixtures.check(res, "the picker opens the cell", freed,
 		"freed %s" % str(state.rescue.get("freed", false)))
@@ -803,12 +829,11 @@ static func _case_free_and_exit(res: Dictionary, fx: Dictionary) -> void:
 		not RescueSystem.suspends_stalemate(state), "suspends_stalemate true")
 
 
-static func _case_end_combat(res: Dictionary, fx: Dictionary) -> void:
+static func _case_end_combat(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the cleared dungeon case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var captive: MercenaryData = fx["captive"]
-	var field: BattlefieldArea = fx["field"]
+	var state: BattleState = fx.state
+	var captive: MercenaryData = fx.captive
 	var chest: Dictionary = state.rescue.get("chest_obs", {})
 	var stripped: int = ChestLoot.entries(chest).size()
 	var weapon: WeaponData = null
@@ -818,7 +843,7 @@ static func _case_end_combat(res: Dictionary, fx: Dictionary) -> void:
 			weapon = entry.get("data", null) as WeaponData
 		elif String(entry.get("type", "")) == "armor":
 			armor = entry.get("data", null) as ArmorData
-	for enemy: MercenaryData in fx["enemies"] as Array[MercenaryData]:
+	for enemy: MercenaryData in fx.enemies:
 		enemy.is_dead = true
 		enemy.current_hp = 0
 	var lines: Array[String] = []
@@ -837,22 +862,18 @@ static func _case_end_combat(res: Dictionary, fx: Dictionary) -> void:
 	TestFixtures.check(res, "the captive leaves with its own gear again", restored,
 		"weapon %s armor %s of %d entries" % [
 			str(captive.equipped_weapon != null), str(captive.equipped_armor != null), stripped])
-	var full: int = 0
-	for other: Dictionary in ChestLoot.chests(field):
-		if not ChestLoot.is_empty(other):
-			full += 1
+	var full: int = _loaded_chests(fx.field)
 	TestFixtures.check(res, "every chest is emptied at the end", full == 0,
 		"%d chest(s) still loaded, %d item(s) restored" % [full, int(ro.get("loot_restored", 0))])
 
 
-static func _case_end_dead(res: Dictionary, fx: Dictionary) -> void:
+static func _case_end_dead(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the dead captive case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var captive: MercenaryData = fx.captive
 	var exit_cell: Vector3i = state.rescue.get("exit_cell", PathTargeter.NO_CELL)
-	var walker: MercenaryData = party[0]
+	var walker: MercenaryData = fx.party[0]
 	var lines: Array[String] = []
 	if exit_cell != PathTargeter.NO_CELL:
 		state.rescue["freed"] = true
@@ -873,18 +894,15 @@ static func _case_end_dead(res: Dictionary, fx: Dictionary) -> void:
 
 
 static func _case_full_combat(res: Dictionary) -> void:
-	var fx: Dictionary = _fixture(61, RescueSystem.MODE_COMBAT, 4, 2, 20)
+	var fx: RescueFx = _fixture(61, RescueSystem.MODE_COMBAT, 4, 2, 20)
 	if not _has_fx(res, fx, "the combat battle case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var captive: MercenaryData = fx["captive"]
-	for enemy: MercenaryData in fx["enemies"] as Array[MercenaryData]:
+	var state: BattleState = fx.state
+	var captive: MercenaryData = fx.captive
+	for enemy: MercenaryData in fx.enemies:
 		enemy.stats["level"] = 1.0
 		enemy.current_hp = 1
-	var saved: bool = EncounterLogger.suppressed
-	EncounterLogger.suppressed = true
-	await AutoBattle.run_battle(state, Callable(), "Rescue")
-	EncounterLogger.suppressed = saved
+	await _quiet_battle(state)
 	var ro: Dictionary = RescueOutcome.outcome(state)
 	TestFixtures.check(res, "a strong party wins a combat rescue",
 		bool(ro.get("success", false))
@@ -901,7 +919,7 @@ static func _case_full_combat(res: Dictionary) -> void:
 			str(captive.equipped_weapon != null)])
 	var uses: int = 0
 	var bad_key: bool = false
-	for merc: MercenaryData in fx["party"] as Array[MercenaryData]:
+	for merc: MercenaryData in fx.party:
 		if merc.is_dead:
 			continue
 		for key: Variant in merc.action_uses:
@@ -914,22 +932,18 @@ static func _case_full_combat(res: Dictionary) -> void:
 
 
 static func _case_full_stealth(res: Dictionary) -> void:
-	var fx: Dictionary = _fixture(71, RescueSystem.MODE_STEALTH, 3, 1, 5)
+	var fx: RescueFx = _fixture(71, RescueSystem.MODE_STEALTH, 3, 1, 5)
 	if not _has_fx(res, fx, "the stealth battle case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
-	var captive: MercenaryData = fx["captive"]
-	for merc: MercenaryData in fx["party"] as Array[MercenaryData]:
+	var state: BattleState = fx.state
+	var captive: MercenaryData = fx.captive
+	for merc: MercenaryData in fx.party:
 		_stat_block(merc, 20, 0, 100.0)
 	_stat_block(captive, 20, 0, 100.0)
-	for enemy: MercenaryData in fx["enemies"] as Array[MercenaryData]:
+	for enemy: MercenaryData in fx.enemies:
 		_stat_block(enemy, 0, 0, 0.0)
 	_post_guards(fx)
-	var saved: bool = EncounterLogger.suppressed
-	EncounterLogger.suppressed = true
-	await AutoBattle.run_battle(state, Callable(), "Rescue")
-	EncounterLogger.suppressed = saved
+	await _quiet_battle(state)
 	var ro: Dictionary = RescueOutcome.outcome(state)
 	TestFixtures.check(res, "an unseen party wins a stealth rescue",
 		bool(ro.get("success", false)),
@@ -939,23 +953,19 @@ static func _case_full_stealth(res: Dictionary) -> void:
 		bool(ro.get("captive_exited", false)) or bool(ro.get("enemies_dead", false)),
 		"exited %s cleared %s" % [str(ro.get("captive_exited", false)),
 			str(ro.get("enemies_dead", false))])
-	var full: int = 0
-	for chest: Dictionary in ChestLoot.chests(field):
-		if not ChestLoot.is_empty(chest):
-			full += 1
+	var full: int = _loaded_chests(fx.field)
 	TestFixtures.check(res, "no chest keeps the captive's gear", full == 0,
 		"%d loaded chest(s)" % full)
 
 
 #A guard that never notices would plug a one-wide hall for good, so each stands watch beside the chest.
-static func _post_guards(fx: Dictionary) -> void:
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
+static func _post_guards(fx: RescueFx) -> void:
+	var state: BattleState = fx.state
 	var chest_cell: Vector3i = state.rescue["chest_cell"]
 	if chest_cell == PathTargeter.NO_CELL:
 		return
-	for enemy: MercenaryData in fx["enemies"] as Array[MercenaryData]:
-		var spot: Vector3i = _free_neighbour(field, state, chest_cell, Rect2i())
+	for enemy: MercenaryData in fx.enemies:
+		var spot: Vector3i = _free_neighbour(fx.field, state, chest_cell, Rect2i())
 		if spot == PathTargeter.NO_CELL:
 			return
 		state.set_pos3(enemy, spot)
@@ -964,8 +974,8 @@ static func _post_guards(fx: Dictionary) -> void:
 
 static func _case_pool(res: Dictionary) -> void:
 	MercPool.clear()
-	var held: Array[MercenaryData] = _party(5, 1, 90)
-	var gone: Array[MercenaryData] = _party(5, 1, 91)
+	var held: Array[MercenaryData] = leveled_party(5, 1, 90)
+	var gone: Array[MercenaryData] = leveled_party(5, 1, 91)
 	if held.is_empty() or gone.is_empty():
 		TestFixtures.check(res, "the pool case generates mercs", false, "no merc generated")
 		return
@@ -996,7 +1006,7 @@ static func _case_pool(res: Dictionary) -> void:
 
 
 static func _case_builder(res: Dictionary) -> void:
-	var mercs: Array[MercenaryData] = _party(5, 1, 95)
+	var mercs: Array[MercenaryData] = leveled_party(5, 1, 95)
 	if mercs.is_empty():
 		TestFixtures.check(res, "the builder case generates a merc", false, "no merc generated")
 		return
@@ -1053,8 +1063,8 @@ static func _case_contract(res: Dictionary) -> void:
 	MercPool.clear()
 	RescueContractBuilder.pending_records.clear()
 	CampaignClock.reset()
-	var team: Array[MercenaryData] = _party(20, 3, 100)
-	var held: Array[MercenaryData] = _party(20, 1, 103)
+	var team: Array[MercenaryData] = leveled_party(20, 3, 100)
+	var held: Array[MercenaryData] = leveled_party(20, 1, 103)
 	if team.size() < 3 or held.is_empty():
 		TestFixtures.check(res, "the contract case generates a team", false, "no merc generated")
 		return
@@ -1102,13 +1112,7 @@ static func _case_forced_block(res: Dictionary) -> void:
 	TestFixtures.check(res, "size_for honours the block floor", blocks_ok, "a band 1 spec had no block")
 	var missing: int = 0
 	for step: int in range(6):
-		seed(61 + step)
-		var ctx := GenerationContext.new()
-		ctx.difficulty = 1.0
-		ctx.team_size_a = 5
-		ctx.team_size_b = 2
-		ctx.min_cell_blocks = 1
-		var field: BattlefieldArea = BattlefieldArea.generate_random(null, ctx, "Dungeon")
+		var field: BattlefieldArea = _dungeon_field(61 + step, 1.0, 2, 1)
 		if field == null or _cell_rooms(field).is_empty():
 			missing += 1
 	TestFixtures.check(res, "a forced block gives every band 1 rescue dungeon a cell", missing == 0,
@@ -1131,19 +1135,16 @@ static func _heal(list: Array[MercenaryData]) -> void:
 		merc.current_hp = _max_hp(merc)
 
 
-static func _case_notice_scan(res: Dictionary, fx: Dictionary) -> void:
+static func _case_notice_scan(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the notice case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
-	for merc: MercenaryData in party:
+	var state: BattleState = fx.state
+	var captive: MercenaryData = fx.captive
+	for merc: MercenaryData in fx.party:
 		if ConstStates.has_state(merc, RescueSystem.STATE_HIDDEN):
-			ConstStates.remove_state(merc, RescueSystem.STATE_HIDDEN)
-	var enemy: MercenaryData = enemies[0]
-	var spot: Vector3i = _free_neighbour(field, state, state.pos3(captive), Rect2i())
+			StateCascade.remove_state(merc, RescueSystem.STATE_HIDDEN)
+	var enemy: MercenaryData = fx.enemies[0]
+	var spot: Vector3i = _free_neighbour(fx.field, state, state.pos3(captive), Rect2i())
 	if spot == PathTargeter.NO_CELL or not ConstStates.has_state(captive, RescueSystem.STATE_HIDDEN):
 		_missing(res, "the notice case seats an enemy beside the captive")
 		return
@@ -1161,8 +1162,8 @@ static func _case_notice_scan(res: Dictionary, fx: Dictionary) -> void:
 
 
 static func _case_ally_crossing(res: Dictionary) -> void:
-	var crew: Array[MercenaryData] = _party(5, 2, 200)
-	var foes: Array[MercenaryData] = _party(5, 1, 210)
+	var crew: Array[MercenaryData] = leveled_party(5, 2, 200)
+	var foes: Array[MercenaryData] = leveled_party(5, 1, 210)
 	if crew.size() < 2 or foes.is_empty():
 		TestFixtures.check(res, "the crossing case generates mercs", false, "no mercs generated")
 		return
@@ -1191,12 +1192,21 @@ static func _case_ally_crossing(res: Dictionary) -> void:
 		"%d step(s) with one pace" % blocked.size())
 
 
-static func _case_door_reasons(res: Dictionary, fx: Dictionary) -> void:
+#A locked door at pos; it carries the room it shuts in when one is given.
+static func _locked_door(pos: Vector3i, room: Dictionary = {}) -> Dictionary:
+	var door: Dictionary = {"cell_type": "door", "pos": pos}
+	door[DungeonLocks.LOCKED_KEY] = true
+	if not room.is_empty():
+		door[DungeonLocks.ROOM_KEY] = room
+	return door
+
+
+static func _case_door_reasons(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the door reason case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var enemies: Array[MercenaryData] = fx.enemies
+	var captive: MercenaryData = fx.captive
 	var rescue: Dictionary = state.rescue
 	var gate: Dictionary = rescue["gate_obs"]
 	var gate_cell: Vector3i = rescue["gate_cell"]
@@ -1224,9 +1234,7 @@ static func _case_door_reasons(res: Dictionary, fx: Dictionary) -> void:
 	var far := Vector3i(-5, -5, gate_cell.z)
 	var chest_room: Dictionary = {"rect": Rect2i(chest_cell.x - 1, chest_cell.y - 1, 3, 3),
 		"floor": chest_cell.z, "name": RescueSystem.STORAGE_ROOM}
-	var chest_door: Dictionary = {"cell_type": "door", "pos": far}
-	chest_door[DungeonLocks.LOCKED_KEY] = true
-	chest_door[DungeonLocks.ROOM_KEY] = chest_room
+	var chest_door: Dictionary = _locked_door(far, chest_room)
 	var held: WeaponData = captive.equipped_weapon
 	captive.equipped_weapon = null
 	rescue["chest_given_up"] = false
@@ -1245,9 +1253,7 @@ static func _case_door_reasons(res: Dictionary, fx: Dictionary) -> void:
 	var own: Vector3i = state.pos3(lead)
 	var out_room: Dictionary = {"rect": Rect2i(own.x - 1, own.y - 1, 3, 3), "floor": own.z,
 		"name": RescueSystem.FOYER_ROOM}
-	var out_door: Dictionary = {"cell_type": "door", "pos": far}
-	out_door[DungeonLocks.LOCKED_KEY] = true
-	out_door[DungeonLocks.ROOM_KEY] = out_room
+	var out_door: Dictionary = _locked_door(far, out_room)
 	TestFixtures.check(res, "a merc shut inside a room wants its way out",
 		DungeonLocks.wanted_reason(lead, out_door, far, state) == DungeonLocks.REASON_WAY_OUT,
 		"reason %s" % DungeonLocks.wanted_reason(lead, out_door, far, state))
@@ -1255,19 +1261,14 @@ static func _case_door_reasons(res: Dictionary, fx: Dictionary) -> void:
 	state.set_pos3(enemies[0], pen)
 	var pen_room: Dictionary = {"rect": Rect2i(pen.x - 1, pen.y - 1, 3, 3), "floor": pen.z,
 		"name": RescueSystem.FOYER_ROOM}
-	var pen_door: Dictionary = {"cell_type": "door", "pos": far}
-	pen_door[DungeonLocks.LOCKED_KEY] = true
-	pen_door[DungeonLocks.ROOM_KEY] = pen_room
+	var pen_door: Dictionary = _locked_door(far, pen_room)
 	TestFixtures.check(res, "a room with an enemy in it is worth opening",
 		DungeonLocks.wanted_reason(lead, pen_door, far, state) == DungeonLocks.REASON_ENEMY_INSIDE,
 		"reason %s" % DungeonLocks.wanted_reason(lead, pen_door, far, state))
 	var empty_room: Dictionary = {"rect": Rect2i(own.x + 60, own.y + 60, 3, 3), "floor": own.z,
 		"name": RescueSystem.FOYER_ROOM}
-	var empty_door: Dictionary = {"cell_type": "door", "pos": far}
-	empty_door[DungeonLocks.LOCKED_KEY] = true
-	empty_door[DungeonLocks.ROOM_KEY] = empty_room
-	var blank_door: Dictionary = {"cell_type": "door", "pos": far}
-	blank_door[DungeonLocks.LOCKED_KEY] = true
+	var empty_door: Dictionary = _locked_door(far, empty_room)
+	var blank_door: Dictionary = _locked_door(far)
 	TestFixtures.check(res, "an empty room is left shut and a nameless one is opened",
 		DungeonLocks.wanted_reason(lead, empty_door, far, state) == ""
 		and DungeonLocks.wanted_reason(lead, blank_door, far, state) == DungeonLocks.REASON_UNKNOWN_ROOM,
@@ -1276,46 +1277,61 @@ static func _case_door_reasons(res: Dictionary, fx: Dictionary) -> void:
 	rescue["gate_go"] = false
 
 
-static func _case_gate_decision(res: Dictionary, fx: Dictionary) -> void:
-	if not _has_fx(res, fx, "the gate decision case builds a dungeon"):
-		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
+static func _set_hp(list: Array[MercenaryData], hp: int) -> void:
+	for merc: MercenaryData in list:
+		merc.current_hp = hp
+
+
+#Locks the gate beyond reach, sets the captive weak, seats the party east of the gate and the enemies
+#west of it with the given hit points, and primes one evaluation. Empty when the fixture has no gate.
+static func _stage_gate(fx: RescueFx, party_hp: int, enemy_hp: int) -> Dictionary:
+	var state: BattleState = fx.state
 	var rescue: Dictionary = state.rescue
 	var gate: Dictionary = rescue["gate_obs"]
 	var gate_cell: Vector3i = rescue["gate_cell"]
+	var lead: MercenaryData = RescueSystem.picker(state)
+	if gate_cell == PathTargeter.NO_CELL or lead == null or fx.party.size() < 3 \
+			or fx.enemies.size() < 3:
+		return {}
 	var saved_d: int = DungeonLocks.lock_difficulty(gate)
 	gate[DungeonLocks.LOCKED_KEY] = true
 	gate[DungeonLocks.DIFFICULTY_KEY] = 99
 	gate[DungeonLocks.FAILS_KEY] = 0
-	var lead: MercenaryData = RescueSystem.picker(state)
-	if gate_cell == PathTargeter.NO_CELL or lead == null or party.size() < 3 or enemies.size() < 3:
+	fx.captive.current_hp = 5
+	for i: int in range(fx.party.size()):
+		_stat_block(fx.party[i], 0, 0, 0.0)
+		state.set_pos3(fx.party[i], Vector3i(gate_cell.x + 1, gate_cell.y + i, gate_cell.z))
+	for i: int in range(fx.enemies.size()):
+		state.set_pos3(fx.enemies[i], Vector3i(gate_cell.x - 1, gate_cell.y - i, gate_cell.z))
+	_set_hp(fx.party, party_hp)
+	_set_hp(fx.enemies, enemy_hp)
+	rescue["gate_dist"] = {state.pos3(lead): 1}
+	rescue["gate_eval_round"] = -1
+	return {"gate": gate, "gate_cell": gate_cell, "lead": lead, "saved_d": saved_d}
+
+
+static func _case_gate_decision(res: Dictionary, fx: RescueFx) -> void:
+	if not _has_fx(res, fx, "the gate decision case builds a dungeon"):
+		return
+	var stage: Dictionary = _stage_gate(fx, 100, 1)
+	if stage.is_empty():
 		_missing(res, "the gate decision case finds a gate")
 		return
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
+	var captive: MercenaryData = fx.captive
+	var rescue: Dictionary = state.rescue
+	var gate: Dictionary = stage["gate"]
+	var gate_cell: Vector3i = stage["gate_cell"]
+	var lead: MercenaryData = stage["lead"]
+	var saved_d: int = stage["saved_d"]
 	var lines: Array[String] = []
-	captive.current_hp = 5
-	for i: int in range(party.size()):
-		_stat_block(party[i], 0, 0, 0.0)
-		state.set_pos3(party[i], Vector3i(gate_cell.x + 1, gate_cell.y + i, gate_cell.z))
-	for i: int in range(enemies.size()):
-		state.set_pos3(enemies[i], Vector3i(gate_cell.x - 1, gate_cell.y - i, gate_cell.z))
-	var steps: Dictionary = {}
-	steps[state.pos3(lead)] = 1
-	rescue["gate_dist"] = steps
-	for m: MercenaryData in party:
-		m.current_hp = 100
-	for e: MercenaryData in enemies:
-		e.current_hp = 1
-	rescue["gate_eval_round"] = -1
 	RescueTactics.evaluate_gate(state, lines)
 	TestFixtures.check(res, "a party that is winning leaves the cell shut",
 		not bool(rescue["gate_go"]), "go %s" % str(rescue["gate_go"]))
-	for m: MercenaryData in party:
-		m.current_hp = 1
-	for e: MercenaryData in enemies:
-		e.current_hp = 100
+	_set_hp(party, 1)
+	_set_hp(enemies, 100)
 	rescue["gate_eval_round"] = -1
 	RescueTactics.evaluate_gate(state, lines)
 	TestFixtures.check(res, "a party that is losing wants the captive in the fight",
@@ -1357,12 +1373,12 @@ static func _case_gate_decision(res: Dictionary, fx: Dictionary) -> void:
 	_heal(enemies)
 
 
-static func _case_escort(res: Dictionary, fx: Dictionary) -> void:
+static func _case_escort(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the escort case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
 	var rescue: Dictionary = state.rescue
 	var gate_cell: Vector3i = rescue["gate_cell"]
 	var lead: MercenaryData = RescueSystem.picker(state)
@@ -1410,12 +1426,12 @@ static func _case_escort(res: Dictionary, fx: Dictionary) -> void:
 	rescue["escort"] = null
 
 
-static func _case_order(res: Dictionary, fx: Dictionary) -> void:
+static func _case_order(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the action order case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
+	var state: BattleState = fx.state
+	var field: BattlefieldArea = fx.field
+	var enemies: Array[MercenaryData] = fx.enemies
 	var rescue: Dictionary = state.rescue
 	var gate: Dictionary = rescue["gate_obs"]
 	var gate_cell: Vector3i = rescue["gate_cell"]
@@ -1480,13 +1496,13 @@ static func _case_order(res: Dictionary, fx: Dictionary) -> void:
 		e.current_hp = _max_hp(e)
 
 
-static func _case_postures(res: Dictionary, fx: Dictionary) -> void:
+static func _case_postures(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the posture case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
+	var captive: MercenaryData = fx.captive
 	var rescue: Dictionary = state.rescue
 	var exit_cell: Vector3i = rescue["exit_cell"]
 	if exit_cell == PathTargeter.NO_CELL or party.size() < 3 or enemies.is_empty():
@@ -1572,7 +1588,7 @@ static func _check_captive_careful(res: Dictionary, state: BattleState, merc: Me
 	var foe: MercenaryData = enemies[0]
 	var seen := Vector3i(stand.x + 5, stand.y, stand.z)
 	var close := Vector3i(stand.x + 2, stand.y, stand.z)
-	var path: Array[Vector3i] = PathTargeter.walk_path_for(captive, state, stand, exit_cell)
+	var path: Array[Vector3i] = ReachCache.walk_path_for(captive, state, stand, exit_cell)
 	if path.is_empty():
 		_missing(res, "the captive posture case finds a walk to the exit")
 	else:
@@ -1709,13 +1725,13 @@ static func _check_captive_shelter(res: Dictionary, state: BattleState,
 		"%d line(s), shelter turns %d" % [hold_lines.size(), int(rescue.get("shelter_turns", 0))])
 
 
-static func _case_captive_postures(res: Dictionary, fx: Dictionary) -> void:
+static func _case_captive_postures(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the captive posture case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
+	var captive: MercenaryData = fx.captive
 	var rescue: Dictionary = state.rescue
 	var chest_obs: Dictionary = rescue["chest_obs"]
 	var chest_cell: Vector3i = rescue["chest_cell"]
@@ -1758,9 +1774,9 @@ static func _case_captive_postures(res: Dictionary, fx: Dictionary) -> void:
 
 
 #The director door helper: nothing pending works nothing, a shut unlocked door beside the merc opens.
-static func _check_open_pending(res: Dictionary, fx: Dictionary, merc: MercenaryData) -> void:
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
+static func _check_open_pending(res: Dictionary, fx: RescueFx, merc: MercenaryData) -> void:
+	var state: BattleState = fx.state
+	var field: BattlefieldArea = fx.field
 	var rescue: Dictionary = state.rescue
 	state.pending_interact.erase(merc)
 	var idle_lines: Array[String] = []
@@ -1808,13 +1824,13 @@ static func _check_open_pending(res: Dictionary, fx: Dictionary, merc: Mercenary
 
 
 #Shelter patch v2: sight, not distance, decides the threat, and a seen captive moves to cover.
-static func _case_shelter_v2(res: Dictionary, fx: Dictionary) -> void:
+static func _case_shelter_v2(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the shelter case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
+	var captive: MercenaryData = fx.captive
 	var rescue: Dictionary = state.rescue
 	var chest_cell: Vector3i = rescue["chest_cell"]
 	var stand: Vector3i = RescueGrid.adjacent_free_cell(state, chest_cell, captive)
@@ -1948,17 +1964,15 @@ static func _check_hide_switches(res: Dictionary, state: BattleState, captive: M
 	postures.erase(captive)
 
 
-static func _case_redirect(res: Dictionary, fx: Dictionary) -> void:
+static func _case_redirect(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the fall back case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var captive: MercenaryData = fx.captive
 	var rescue: Dictionary = state.rescue
 	var exit_cell: Vector3i = rescue["exit_cell"]
-	var merc: MercenaryData = party[0]
-	if exit_cell == PathTargeter.NO_CELL or enemies.is_empty() \
+	var merc: MercenaryData = fx.party[0]
+	if exit_cell == PathTargeter.NO_CELL or fx.enemies.is_empty() \
 			or RescueGrid.adjacent_free_cell(state, exit_cell, merc) == PathTargeter.NO_CELL:
 		_missing(res, "the fall back case finds an exit")
 		return
@@ -2010,11 +2024,11 @@ static func _case_redirect(res: Dictionary, fx: Dictionary) -> void:
 	captive.advantage_immune = captive_immune
 
 
-static func _case_leaving(res: Dictionary, fx: Dictionary) -> void:
+static func _case_leaving(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the leaving case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
 	var rescue: Dictionary = state.rescue
 	var exit_cell: Vector3i = rescue["exit_cell"]
 	if exit_cell == PathTargeter.NO_CELL or party.size() < 2:
@@ -2047,12 +2061,12 @@ static func _case_leaving(res: Dictionary, fx: Dictionary) -> void:
 		"off field %s exits %d" % [str(second.off_field), int(rescue["party_exits"])])
 
 
-static func _case_battle_continues(res: Dictionary, fx: Dictionary) -> void:
+static func _case_battle_continues(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the walked out case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var captive: MercenaryData = fx.captive
 	var rescue: Dictionary = state.rescue
 	if party.size() < 2:
 		_missing(res, "the walked out case finds a party")
@@ -2076,11 +2090,11 @@ static func _case_battle_continues(res: Dictionary, fx: Dictionary) -> void:
 		"reason %s exits %d" % [str(ro["reason"]), int(ro["party_exits"])])
 
 
-static func _case_withdrew(res: Dictionary, fx: Dictionary) -> void:
+static func _case_withdrew(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the pull out case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
 	var rescue: Dictionary = state.rescue
 	if party.is_empty():
 		_missing(res, "the pull out case finds a party")
@@ -2100,34 +2114,34 @@ static func _case_withdrew(res: Dictionary, fx: Dictionary) -> void:
 
 
 static func _case_blocked_decision(res: Dictionary) -> void:
-	var detour: String = RescueSystem.blocked_decision(true, false, false, true, true, true)
+	var detour: String = RescueWalk.blocked_decision(true, false, false, true, true, true)
 	TestFixtures.check(res, "a detour beats every other answer",
 		detour == RescueSystem.CALL_DETOUR, "call %s" % detour)
-	var walk: String = RescueSystem.blocked_decision(false, true, false, true, true, true)
+	var walk: String = RescueWalk.blocked_decision(false, true, false, true, true, true)
 	TestFixtures.check(res, "a merc still short of the blocker keeps walking",
 		walk == RescueSystem.CALL_GO, "call %s" % walk)
-	var caged: String = RescueSystem.blocked_decision(false, false, true, true, true, true)
+	var caged: String = RescueWalk.blocked_decision(false, false, true, true, true, true)
 	TestFixtures.check(res, "the captive never springs an ambush",
 		caged == RescueSystem.CALL_WAIT, "call %s" % caged)
-	var strike: String = RescueSystem.blocked_decision(false, false, false, true, false, true)
+	var strike: String = RescueWalk.blocked_decision(false, false, false, true, false, true)
 	TestFixtures.check(res, "favorable odds spring the ambush",
 		strike == RescueSystem.CALL_AMBUSH, "call %s" % strike)
-	var out: String = RescueSystem.blocked_decision(false, false, false, false, true, true)
+	var out: String = RescueWalk.blocked_decision(false, false, false, false, true, true)
 	TestFixtures.check(res, "poor odds before the cell opens pull the party out",
 		out == RescueSystem.CALL_ABORT, "call %s" % out)
-	var fixed: String = RescueSystem.blocked_decision(false, false, false, false, true, false)
+	var fixed: String = RescueWalk.blocked_decision(false, false, false, false, true, false)
 	TestFixtures.check(res, "a fixed guard on the only way out is fought",
 		fixed == RescueSystem.CALL_AMBUSH, "call %s" % fixed)
-	var moving: String = RescueSystem.blocked_decision(false, false, false, false, false, false)
+	var moving: String = RescueWalk.blocked_decision(false, false, false, false, false, false)
 	TestFixtures.check(res, "a moving enemy on the only way out is waited on",
 		moving == RescueSystem.CALL_WAIT, "call %s" % moving)
 
 
-static func _case_blocked_walk(res: Dictionary, fx: Dictionary) -> void:
+static func _case_blocked_walk(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the blocked walk case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
+	var state: BattleState = fx.state
+	var enemies: Array[MercenaryData] = fx.enemies
 	var rescue: Dictionary = state.rescue
 	var lead: MercenaryData = RescueSystem.picker(state)
 	if lead == null or enemies.is_empty():
@@ -2137,7 +2151,7 @@ static func _case_blocked_walk(res: Dictionary, fx: Dictionary) -> void:
 	if goal == PathTargeter.NO_CELL:
 		_missing(res, "the blocked walk case finds a cell to approach")
 		return
-	var path: Array[Vector3i] = PathTargeter.walk_path_for(lead, state, state.pos3(lead), goal)
+	var path: Array[Vector3i] = ReachCache.walk_path_for(lead, state, state.pos3(lead), goal)
 	if path.size() < 4:
 		_missing(res, "the blocked walk case finds a walk with room for a blocker")
 		return
@@ -2157,7 +2171,7 @@ static func _case_blocked_walk(res: Dictionary, fx: Dictionary) -> void:
 	TestFixtures.check(res, "an enemy standing on the walk is found", found == foe,
 		"blocker %s" % ("none" if found == null else found.merc_name))
 	counts.clear()
-	var open_call: String = RescueSystem.blocked_call(lead, state, goal, lines)
+	var open_call: String = RescueWalk.blocked_call(lead, state, goal, lines)
 	TestFixtures.check(res, "a free cell before the blocker keeps the walk going",
 		open_call == RescueSystem.CALL_GO, "call %s" % open_call)
 	counts[lead] = RescueSystem.BLOCK_WAITS
@@ -2166,13 +2180,13 @@ static func _case_blocked_walk(res: Dictionary, fx: Dictionary) -> void:
 		_missing(res, "the blocked walk case finds a way around the blocker")
 	else:
 		var before: int = int(rescue["detours"])
-		var turn_call: String = RescueSystem.blocked_call(lead, state, goal, lines)
+		var turn_call: String = RescueWalk.blocked_call(lead, state, goal, lines)
 		TestFixtures.check(res, "a merc out of waits takes the way around",
 			turn_call == RescueSystem.CALL_DETOUR and int(rescue["detours"]) == before + 1,
 			"call %s detours %d" % [turn_call, int(rescue["detours"])])
 	for e: MercenaryData in enemies:
 		state.set_pos3(e, away)
-	var clear_call: String = RescueSystem.blocked_call(lead, state, goal, lines)
+	var clear_call: String = RescueWalk.blocked_call(lead, state, goal, lines)
 	TestFixtures.check(res, "a cleared way drops the merc's wait count",
 		clear_call == RescueSystem.CALL_GO and not counts.has(lead),
 		"call %s waiting %d" % [clear_call, counts.size()])
@@ -2185,7 +2199,7 @@ static func _case_blocked_walk(res: Dictionary, fx: Dictionary) -> void:
 	rescue["alarm"] = false
 	counts.clear()
 	var exposed: bool = not RescueGrid.cell_seers(state, state.pos3(lead), lead).is_empty()
-	var wait_call: String = RescueSystem.blocked_call(lead, state, goal, lines)
+	var wait_call: String = RescueWalk.blocked_call(lead, state, goal, lines)
 	if exposed:
 		TestFixtures.check(res, "a merc already in sight does not stand and wait",
 			(wait_call == RescueSystem.CALL_DETOUR or wait_call == RescueSystem.CALL_AMBUSH
@@ -2206,13 +2220,13 @@ static func _case_blocked_walk(res: Dictionary, fx: Dictionary) -> void:
 	rescue["block_wait_turns"] = 0
 
 
-static func _case_ambush_abort(res: Dictionary, fx: Dictionary) -> void:
+static func _case_ambush_abort(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the ambush case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
+	var captive: MercenaryData = fx.captive
 	var rescue: Dictionary = state.rescue
 	var lead: MercenaryData = RescueSystem.picker(state)
 	if lead == null or party.is_empty() or enemies.is_empty():
@@ -2235,12 +2249,12 @@ static func _case_ambush_abort(res: Dictionary, fx: Dictionary) -> void:
 		int(rescue["ambushes"]) == 1 and lines.size() == said,
 		"ambushes %d line(s) %d" % [int(rescue["ambushes"]), lines.size()])
 	rescue["alarm"] = false
-	RescueSystem.abort(state, lines)
+	RescueWalk.abort(state, lines)
 	TestFixtures.check(res, "a shut way and poor odds pull the party out",
 		bool(rescue["aborted"]) and _line_holding(lines, "the party pulls out"),
 		"aborted %s" % str(rescue["aborted"]))
 	said = lines.size()
-	RescueSystem.abort(state, lines)
+	RescueWalk.abort(state, lines)
 	TestFixtures.check(res, "the party gives the captive up only once", lines.size() == said,
 		"%d line(s) after the second call" % lines.size())
 	var leaves: bool = RescueTactics.may_leave(party[0], state)
@@ -2278,7 +2292,7 @@ static func _check_cell_shelter(res: Dictionary, state: BattleState, merc: Merce
 	TestFixtures.check(res, "the enemy target list drops the sheltering captive and keeps the party",
 		not targets.has(captive) and targets.has(merc), "%d target(s)" % targets.size())
 	TestFixtures.check(res, "no enemy may swing at the sheltering captive",
-		not AutoBattle._can_attack_target(foe, captive, state), "the attack was allowed")
+		not AutoBattle.can_attack_target(foe, captive, state), "the attack was allowed")
 	var reactions: Array = ReactiveActionSystem.get_triggered_reactions("enemy_leaves_melee_range",
 		captive, Vector2i.ZERO, Vector2i.ZERO, state)
 	TestFixtures.check(res, "the sheltering captive draws no reactions", reactions.is_empty(),
@@ -2355,19 +2369,18 @@ static func _check_cell_outcome(res: Dictionary, state: BattleState) -> void:
 		and ro.has("block_wait_turns") and ro.has("captive_acted"), "%d key(s)" % ro.size())
 
 
-static func _case_untargetable(res: Dictionary, fx: Dictionary) -> void:
+static func _case_untargetable(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the untargetable case builds a dungeon"):
 		return
-	var state: BattleState = fx["state"]
-	var field: BattlefieldArea = fx["field"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
+	var captive: MercenaryData = fx.captive
 	var rescue: Dictionary = state.rescue
 	var rect: Rect2i = rescue["cell_rect"]
 	var chest_cell: Vector3i = rescue["chest_cell"]
 	var stand: Vector3i = RescueGrid.adjacent_free_cell(state, chest_cell, captive)
-	var inside: Array[Vector3i] = RescueGrid.free_cells(field, state, rect,
+	var inside: Array[Vector3i] = RescueGrid.free_cells(fx.field, state, rect,
 		int(rescue["cell_floor"]), captive)
 	if party.is_empty() or enemies.is_empty() or inside.is_empty() \
 			or stand == PathTargeter.NO_CELL or rect.has_point(Vector2i(stand.x, stand.y)):
@@ -2402,7 +2415,7 @@ static func _case_untargetable(res: Dictionary, fx: Dictionary) -> void:
 	_heal(enemies)
 
 
-static func _case_tune(res: Dictionary, fx: Dictionary) -> void:
+static func _case_tune(res: Dictionary, fx: RescueFx) -> void:
 	if not _has_fx(res, fx, "the tune case builds a dungeon"):
 		return
 	var bad: bool = RescueTune.set_tune("no_such_name", 1.0)
@@ -2421,45 +2434,26 @@ static func _case_tune(res: Dictionary, fx: Dictionary) -> void:
 	TestFixtures.check(res, "a raised zero point keeps the party wanting the captive",
 		RescueTactics.need(1.25) > 0.0, "need %d%%" % roundi(RescueTactics.need(1.25) * 100.0))
 	RescueTune.reset_tune()
-	var state: BattleState = fx["state"]
-	var party: Array[MercenaryData] = fx["party"]
-	var enemies: Array[MercenaryData] = fx["enemies"]
-	var captive: MercenaryData = fx["captive"]
-	var rescue: Dictionary = state.rescue
-	var gate: Dictionary = rescue["gate_obs"]
-	var gate_cell: Vector3i = rescue["gate_cell"]
-	var lead: MercenaryData = RescueSystem.picker(state)
-	if gate_cell == PathTargeter.NO_CELL or lead == null or party.size() < 3 or enemies.size() < 3:
+	var stage: Dictionary = _stage_gate(fx, 1, 100)
+	if stage.is_empty():
 		_missing(res, "the tune case finds a gate")
 		return
-	var saved_d: int = DungeonLocks.lock_difficulty(gate)
-	gate[DungeonLocks.LOCKED_KEY] = true
-	gate[DungeonLocks.DIFFICULTY_KEY] = 99
-	gate[DungeonLocks.FAILS_KEY] = 0
+	var state: BattleState = fx.state
+	var party: Array[MercenaryData] = fx.party
+	var enemies: Array[MercenaryData] = fx.enemies
+	var captive: MercenaryData = fx.captive
+	var rescue: Dictionary = state.rescue
+	var gate: Dictionary = stage["gate"]
+	var saved_d: int = stage["saved_d"]
 	var lines: Array[String] = []
-	captive.current_hp = 5
-	for i: int in range(party.size()):
-		_stat_block(party[i], 0, 0, 0.0)
-		state.set_pos3(party[i], Vector3i(gate_cell.x + 1, gate_cell.y + i, gate_cell.z))
-		party[i].current_hp = 1
-	for i: int in range(enemies.size()):
-		state.set_pos3(enemies[i], Vector3i(gate_cell.x - 1, gate_cell.y - i, gate_cell.z))
-		enemies[i].current_hp = 100
-	var steps: Dictionary = {}
-	steps[state.pos3(lead)] = 1
-	rescue["gate_dist"] = steps
+	RescueTactics.evaluate_gate(state, lines)
+	TestFixtures.check(res, "the default margin lets a losing party open the cell",
+		bool(rescue["gate_go"]), "go %s" % str(rescue["gate_go"]))
+	RescueTune.set_tune("go_margin", 1000.0)
 	rescue["gate_eval_round"] = -1
 	RescueTactics.evaluate_gate(state, lines)
-	if not bool(rescue["gate_go"]):
-		_missing(res, "the tune case builds a gate the party wants open")
-	else:
-		TestFixtures.check(res, "the default margin lets a losing party open the cell",
-			bool(rescue["gate_go"]), "go %s" % str(rescue["gate_go"]))
-		RescueTune.set_tune("go_margin", 1000.0)
-		rescue["gate_eval_round"] = -1
-		RescueTactics.evaluate_gate(state, lines)
-		TestFixtures.check(res, "a raised margin leaves the same cell shut",
-			not bool(rescue["gate_go"]), "go %s" % str(rescue["gate_go"]))
+	TestFixtures.check(res, "a raised margin leaves the same cell shut",
+		not bool(rescue["gate_go"]), "go %s" % str(rescue["gate_go"]))
 	RescueTune.reset_tune()
 	gate[DungeonLocks.DIFFICULTY_KEY] = saved_d
 	gate[DungeonLocks.FAILS_KEY] = 0

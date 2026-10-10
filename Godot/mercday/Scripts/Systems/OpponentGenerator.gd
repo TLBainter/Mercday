@@ -184,7 +184,7 @@ static func generate(req: OpponentRequest) -> Array[MercenaryData]:
 			push_error("OpponentGenerator: unknown opponent source '%s'%s" % [req.source, _tag_suffix(req.tag)])
 			return out
 		for i: int in range(req.resolved_count):
-			out.append(NPCGenerator.generate(template, req.resolved_ctx, i, roll_level(req, template.level_formula)))
+			out.append(NPCGenerator.generate(template, req.resolved_ctx, roll_level(req, template.level_formula)))
 	for i: int in range(out.size()):
 		_apply_skew(out[i], req.stat_skew, req.tag)
 		for hook: Callable in req.hooks:
@@ -197,11 +197,7 @@ static func generate(req: OpponentRequest) -> Array[MercenaryData]:
 #The MercGenerator statics are saved at entry and restored at exit, so a request leaves no trace on later rolls.
 static func _generate_mercs(req: OpponentRequest) -> Array[MercenaryData]:
 	var out: Array[MercenaryData] = []
-	var saved_counts: Dictionary = RollingPenalties.tradition_batch_counts.duplicate(true)
-	var saved_penalties: Dictionary = RollingPenalties.rolling_penalties.duplicate(true)
-	var saved_penalty_age: Dictionary = RollingPenalties.rolling_penalty_age.duplicate(true)
-	var saved_stat_penalties: Dictionary = RollingPenalties.rolling_stat_penalties.duplicate(true)
-	var saved_stat_penalty_age: Dictionary = RollingPenalties.rolling_stat_penalty_age.duplicate(true)
+	var saved_rolls: Dictionary = RollingPenalties.snapshot()
 	var saved_level: int = MercGenerator.forced_level
 	var saved_tradition: String = MercGenerator.forced_tradition
 	var saved_odds: Dictionary = MercGenerator.tradition_odds
@@ -216,11 +212,7 @@ static func _generate_mercs(req: OpponentRequest) -> Array[MercenaryData]:
 			MercGenerator.forced_tradition = req.traditions[mini(i, req.traditions.size() - 1)]
 		MercGenerator.tradition_odds = req.tradition_odds
 		out.append(MercGenerator.generate(i))
-	RollingPenalties.tradition_batch_counts = saved_counts
-	RollingPenalties.rolling_penalties = saved_penalties
-	RollingPenalties.rolling_penalty_age = saved_penalty_age
-	RollingPenalties.rolling_stat_penalties = saved_stat_penalties
-	RollingPenalties.rolling_stat_penalty_age = saved_stat_penalty_age
+	RollingPenalties.restore(saved_rolls)
 	MercGenerator.forced_level = saved_level
 	MercGenerator.forced_tradition = saved_tradition
 	MercGenerator.tradition_odds = saved_odds
@@ -237,23 +229,23 @@ static func _build_crew(cell: String, count: int, req: OpponentRequest) -> Array
 			terms.append(term)
 	if terms.is_empty():
 		return crew
-	_add_crew_member(crew, terms[0], 0, req)
+	_add_crew_member(crew, terms[0], req)
 	var rest: Array[String] = terms.slice(1)
 	if rest.is_empty():
 		rest = terms
 	for i: int in range(1, count):
-		_add_crew_member(crew, rest[randi() % rest.size()], i, req)
+		_add_crew_member(crew, rest[randi() % rest.size()], req)
 	_bump_leader(crew)
 	return crew
 
 
 #An unknown term leaves its slot empty.
-static func _add_crew_member(crew: Array[MercenaryData], term: String, index: int, req: OpponentRequest) -> void:
+static func _add_crew_member(crew: Array[MercenaryData], term: String, req: OpponentRequest) -> void:
 	var template: NPCTemplate = DataManager.npc_templates.get(term, null) as NPCTemplate
 	if template == null:
 		push_error("OpponentGenerator: unknown crew term '%s'%s" % [term, _tag_suffix(req.tag)])
 		return
-	crew.append(NPCGenerator.generate(template, req.resolved_ctx, index, roll_level(req, template.level_formula)))
+	crew.append(NPCGenerator.generate(template, req.resolved_ctx, roll_level(req, template.level_formula)))
 
 
 #The crew's first member outranks it: at least 110 percent of the mean level of the rest.

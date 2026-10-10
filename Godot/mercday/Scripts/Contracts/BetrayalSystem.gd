@@ -15,19 +15,6 @@ static func reset() -> void:
 	gate_percent = 0.0
 
 
-static func _cfg() -> ContractConfig:
-	var cfg: ContractConfig = ContractLibrary.config()
-	if cfg == null:
-		cfg = ContractConfig.new()
-	return cfg
-
-
-static func _d100() -> int:
-	if not forced_rolls.is_empty():
-		return forced_rolls.pop_front()
-	return randi_range(1, 100)
-
-
 static func _standing(merc: MercenaryData) -> bool:
 	return merc != null and not merc.is_dead and merc.current_hp > 0 \
 		and not ConstStates.has_state(merc, ConstStates.DYING)
@@ -36,7 +23,7 @@ static func _standing(merc: MercenaryData) -> bool:
 static func qualifies(merc: MercenaryData, run: ContractRun) -> bool:
 	if not _standing(merc):
 		return false
-	var cfg: ContractConfig = _cfg()
+	var cfg: ContractConfig = ContractLibrary.config()
 	var u: float = float(merc.stats.get("unsavory", 0.0))
 	if u >= cfg.betrayal_unsavory_bar:
 		return true
@@ -74,10 +61,10 @@ static func run_pre_battle(run: ContractRun, state: BattleState, roster: Array[M
 	if cands.is_empty():
 		return switched
 	cands.shuffle()
-	var cfg: ContractConfig = _cfg()
+	var cfg: ContractConfig = ContractLibrary.config()
 	var gated: bool = betrayals > 0
 	if gated:
-		var g: int = _d100()
+		var g: int = Dice.d100(forced_rolls)
 		var open: bool = float(g) <= gate_percent
 		_say(run, state, "BETRAYAL GATE: d100 %d vs %.0f%% -> %s" % [g, gate_percent, "open" if open else "shut"])
 		if not open:
@@ -95,7 +82,7 @@ static func run_pre_battle(run: ContractRun, state: BattleState, roster: Array[M
 		attempted += 1
 		var u: float = float(merc.stats.get("unsavory", 0.0))
 		var threshold: float = luck - u
-		var r: int = _d100()
+		var r: int = Dice.d100(forced_rolls)
 		var fires: bool = float(r) > threshold
 		_say(run, state, "BETRAYAL ROLL: %s d100 %d vs Luck %.1f minus Unsavory %.1f = %.1f -> %s" % [
 			merc.merc_name, r, luck, u, threshold, "betrays" if fires else "holds"])
@@ -120,14 +107,6 @@ static func run_pre_battle(run: ContractRun, state: BattleState, roster: Array[M
 static func _say(run: ContractRun, state: BattleState, line: String) -> void:
 	run.emit(line)
 	state.pre_battle_lines.append(line)
-
-
-#Takes a switched merc's event delta off now, so the post-battle revert does not subtract it twice.
-static func drop_delta(record: Dictionary, merc: MercenaryData) -> void:
-	if not record.has(merc):
-		return
-	OverallSuccess.revert_event_delta({merc: record[merc]})
-	record.erase(merc)
 
 
 static func foes(enemies: Array[MercenaryData], state: BattleState) -> Array[MercenaryData]:
@@ -166,14 +145,7 @@ static func settle(run: ContractRun, state: BattleState) -> Array[String]:
 		if merc == null or merc.is_dead or state.casualties.has(merc) or not run.team.has(merc):
 			continue
 		if merc.current_hp <= 0:
-			merc.current_hp = 1
-			if ConstStates.has_state(merc, ConstStates.DYING):
-				ConstStates.remove_state(merc, ConstStates.DYING)
-		run.team.erase(merc)
-		if not run.defectors.has(merc):
-			run.defectors.append(merc)
-		lines.append_array(StateCampaign.expire_campaign_states(merc, CampaignClock.now()))
-		TraitRuntime.revert_scope(merc, TraitRuntime.SCOPE_CONTRACT)
-		BeauSystem.roster.erase(merc)
+			BattleEventResolver.stabilize_merc(merc)
+		lines.append_array(run.depart(merc, run.defectors))
 		lines.append("DEFECTED: %s" % merc.merc_name)
 	return lines

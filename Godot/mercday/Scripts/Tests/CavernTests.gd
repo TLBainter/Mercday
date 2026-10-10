@@ -12,7 +12,7 @@ static func run() -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
 	PathCost.water_cost = 2
 	PathCost.sunk_depth = 0
-	var fields := _seeded_fields(SEEDS)
+	var fields := TestFixtures.seeded_caverns(SEEDS)
 	_case_generation(res, fields)
 	_case_pool_terrain(res, fields)
 	_case_clearance(res)
@@ -37,16 +37,6 @@ static func run() -> bool:
 	return TestFixtures.summarize(res, "CAVERN")
 
 
-#Caverns rolled from fixed seeds, so every case that reads them sees the same maps.
-static func _seeded_fields(count: int) -> Array[BattlefieldArea]:
-	var out: Array[BattlefieldArea] = []
-	for i: int in range(count):
-		seed(i + 1)
-		var ctx := GenerationContext.new()
-		out.append(BattlefieldArea.generate_random(null, ctx, "Cavern"))
-	return out
-
-
 #One open row across a 9x3 map; the middle three cells are roofed one pace up.
 static func _corridor() -> BattlefieldArea:
 	var ceilings: Dictionary = {}
@@ -62,11 +52,7 @@ static func _pool_field() -> BattlefieldArea:
 		for x: int in range(1, 6):
 			ceilings[Vector2i(x, y)] = 3.0
 	var f := TestFixtures.cavern_field(7, 5, ceilings)
-	for x: int in range(2, 5):
-		f.water_cells[Vector2i(x, 2)] = POOL_DEPTH
-		f.terrain_heights[Vector2i(x, 2)] = -float(POOL_DEPTH)
-		f.ground_heights[Vector2i(x, 2)] = -float(POOL_DEPTH)
-	f.bump_path_version()
+	TestFixtures.flood(f, [Vector2i(2, 2), Vector2i(3, 2), Vector2i(4, 2)], POOL_DEPTH)
 	return f
 
 
@@ -76,23 +62,12 @@ static func _ledge_field() -> BattlefieldArea:
 	for x: int in range(1, 12):
 		ceilings[Vector2i(x, 1)] = 6.0
 	var f := TestFixtures.cavern_field(13, 3, ceilings)
-	for x: int in range(5, 8):
-		f.water_cells[Vector2i(x, 1)] = POOL_DEPTH
-		f.terrain_heights[Vector2i(x, 1)] = -float(POOL_DEPTH)
-		f.ground_heights[Vector2i(x, 1)] = -float(POOL_DEPTH)
-	f.bump_path_version()
+	TestFixtures.flood(f, [Vector2i(5, 1), Vector2i(6, 1), Vector2i(7, 1)], POOL_DEPTH)
 	return f
 
 
 static func _merc(merc_name: String, size: int, swim: float = 0.0, vigor: int = 3) -> MercenaryData:
-	var m := MercenaryData.new()
-	m.merc_name = merc_name
-	m.merc_uid = CampaignKnowledge.next_uid()
-	m.stats = {"level": 5.0, "luck": 5.0, "size": size, "maximum_hit_points": 20,
-		"maximum_endurance_points": 5, "speed": 3.0, "dexterity": 2, "vigor": vigor,
-		"pain_limit": 0, "pace": 3, "swim": swim, "climb": 1}
-	m.current_hp = 20
-	return m
+	return TestFixtures.flat_merc(merc_name, {"size": size, "swim": swim, "vigor": vigor})
 
 
 static func _step(f: BattlefieldArea, from: Vector2i, to: Vector2i, size: int) -> int:
@@ -164,9 +139,7 @@ static func _case_pool_terrain(res: Dictionary, fields: Array[BattlefieldArea]) 
 	for f: BattlefieldArea in fields:
 		var open: Dictionary = CavernGenerator.open_cells(f)
 		var surfaces: Dictionary = _pool_surfaces(f, open)
-		for ch: Dictionary in f.cavern_chambers:
-			if bool(ch.get("flooded", false)):
-				pools += 1
+		pools += CavernBatch.pools(f)
 		for cell: Vector2i in f.water_cells.keys():
 			wet += 1
 			if not surfaces.has(cell):
@@ -179,7 +152,7 @@ static func _case_pool_terrain(res: Dictionary, fields: Array[BattlefieldArea]) 
 			var clear: float = f.clearance(cell)
 			if clear < 1.0 - eps or clear > top + eps:
 				bad_clear += 1
-			for d: Vector2i in CavernGenerator.DIRS8:
+			for d: Vector2i in PathCost.DIRS8:
 				var nb: Vector2i = cell + d
 				if not open.has(nb) or f.is_water(nb):
 					continue
@@ -188,7 +161,7 @@ static func _case_pool_terrain(res: Dictionary, fields: Array[BattlefieldArea]) 
 					bad_lip += 1
 			if f.is_obstacle(cell, 0):
 				continue
-			for d4: Vector2i in CavernGenerator.DIRS4:
+			for d4: Vector2i in PathCost.DIRS4:
 				var rim: Vector2i = cell + d4
 				if not open.has(rim) or f.is_water(rim) or f.is_obstacle(rim, 0):
 					continue
@@ -337,7 +310,7 @@ static func _case_climb_out(res: Dictionary) -> void:
 	TestFixtures.place(st, diver, wet)
 	var lines: Array[String] = []
 	CavernRules.on_enter_cell(diver, Vector2i(3, 1), wet, st, lines)
-	var rim := ClimbAction._find_climb_target(diver, st)
+	var rim := ClimbAction.find_climb_target(diver, st)
 	TestFixtures.check(res, "sunk climb target dry", rim != Vector2i(-1, -1) and not f.is_water(rim)
 		and not f.rock_cells.has(rim), "target (%d,%d)" % [rim.x, rim.y])
 	st.set_pace_pool(diver, 50)
@@ -370,14 +343,14 @@ static func _case_crawl_state(res: Dictionary) -> void:
 				and ConstStates.has_state(big, ConstStates.DEPOSED),
 				"crawling %s deposed %s" % [str(big.crawling),
 				str(ConstStates.has_state(big, ConstStates.DEPOSED))])
-			TestFixtures.check(res, "crawl paces uncapped", ConstStates.max_paces(big) == -1,
-				"max paces %d" % ConstStates.max_paces(big))
+			TestFixtures.check(res, "crawl paces uncapped", StateEffects.max_paces(big) == -1,
+				"max paces %d" % StateEffects.max_paces(big))
 	TestFixtures.check(res, "tall roof ends the crawl", not big.crawling
 		and not ConstStates.has_state(big, ConstStates.DEPOSED),
 		"crawling %s deposed %s" % [str(big.crawling), str(ConstStates.has_state(big, ConstStates.DEPOSED))])
-	ConstStates.apply_state(floored, ConstStates.DEPOSED)
-	TestFixtures.check(res, "knockdown paces capped", ConstStates.max_paces(floored) == 1,
-		"max paces %d" % ConstStates.max_paces(floored))
+	StateCascade.apply_state(floored, ConstStates.DEPOSED)
+	TestFixtures.check(res, "knockdown paces capped", StateEffects.max_paces(floored) == 1,
+		"max paces %d" % StateEffects.max_paces(floored))
 
 
 static func _case_crawl_immune(res: Dictionary) -> void:
@@ -387,7 +360,7 @@ static func _case_crawl_immune(res: Dictionary) -> void:
 	var crew: Array[MercenaryData] = [stone]
 	var st := TestFixtures.field_state(f, crew)
 	TestFixtures.place(st, stone, Vector2i(1, 1))
-	var forced := ConstStates.apply_state(stone, ConstStates.DEPOSED)
+	var forced := StateCascade.apply_state(stone, ConstStates.DEPOSED)
 	TestFixtures.check(res, "forced knockdown refused", not forced
 		and not ConstStates.has_state(stone, ConstStates.DEPOSED),
 		"applied %s deposed %s" % [str(forced), str(ConstStates.has_state(stone, ConstStates.DEPOSED))])
@@ -401,7 +374,7 @@ static func _case_crawl_immune(res: Dictionary) -> void:
 			and ConstStates.has_state(stone, ConstStates.DEPOSED),
 			"crawling %s deposed %s" % [str(stone.crawling),
 			str(ConstStates.has_state(stone, ConstStates.DEPOSED))])
-		var again := ConstStates.apply_state(stone, ConstStates.DEPOSED)
+		var again := StateCascade.apply_state(stone, ConstStates.DEPOSED)
 		TestFixtures.check(res, "forced knockdown refused while crawling", not again
 			and ConstStates.has_state(stone, ConstStates.DEPOSED),
 			"applied %s deposed %s" % [str(again),
@@ -418,7 +391,7 @@ static func _case_breath(res: Dictionary) -> void:
 	var drowner := _merc("Drowner", 1, 0.0, 3)
 	var crew: Array[MercenaryData] = [choker, drowner]
 	var st := TestFixtures.field_state(f, crew)
-	ConstStates.apply_state(choker, ConstStates.SUFFOCATING)
+	StateCascade.apply_state(choker, ConstStates.SUFFOCATING)
 	for _i: int in range(3):
 		CavernRules.breath_turn_start(choker, st)
 	TestFixtures.check(res, "breath holds for vigor", choker.suffocation_hp_loss == 0
@@ -429,14 +402,14 @@ static func _case_breath(res: Dictionary) -> void:
 		and choker.current_hp == 19, "loss %d hp %d" % [choker.suffocation_hp_loss, choker.current_hp])
 	TestFixtures.check(res, "effective max hp drops", CavernRules.effective_max_hp(choker) == 19,
 		"effective %d" % CavernRules.effective_max_hp(choker))
-	ConstStates.remove_state(choker, ConstStates.SUFFOCATING)
+	StateCascade.remove_state(choker, ConstStates.SUFFOCATING)
 	CavernRules.breath_turn_start(choker, st)
 	CavernRules.breath_turn_start(choker, st)
 	var mid_loss := choker.suffocation_hp_loss
 	CavernRules.breath_turn_start(choker, st)
 	TestFixtures.check(res, "breath restores max hp", mid_loss == 1 and choker.suffocation_hp_loss == 0,
 		"loss after 2 clear %d, after 3 %d" % [mid_loss, choker.suffocation_hp_loss])
-	ConstStates.apply_state(drowner, ConstStates.DROWNING)
+	StateCascade.apply_state(drowner, ConstStates.DROWNING)
 	for _i: int in range(4):
 		CavernRules.breath_turn_start(drowner, st)
 	TestFixtures.check(res, "drowning shares the count", drowner.suffocation_hp_loss == 1
@@ -493,8 +466,7 @@ static func _case_drop_variant(res: Dictionary) -> void:
 	var cell := Vector2i(1, 1)
 	var obs: Dictionary = {"pos": cell, "size": 1, "data": data, "floor": 0,
 		"cell_type": "terrain", "drop_variant": "Rock Spike:Great"}
-	f.obstacles.append(obs)
-	f._obs_map[f.obs_key(cell, 0)] = obs
+	TestFixtures.attach(f, obs, false)
 	var result := ObstacleUtils.apply_damage(obs, 99, st, "Breaker")
 	var dropped: Array = st.dropped_weapons.get(cell, []) as Array
 	var base_name := ""

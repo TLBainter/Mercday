@@ -12,11 +12,11 @@ class_name CellBar extends Control
 	set(value):
 		filled = clampi(value, 0, cells)
 		queue_redraw()
-@export var fill_color: Color = Color("#f28c28"):
+@export var fill_color: Color = GuiColors.ORANGE:
 	set(value):
 		fill_color = value
 		queue_redraw()
-@export var empty_color: Color = Color("#1f3560"):
+@export var empty_color: Color = GuiColors.BLUE_LO:
 	set(value):
 		empty_color = value
 		queue_redraw()
@@ -57,10 +57,8 @@ func _refresh() -> void:
 
 func _draw() -> void:
 	var width: float = float(cell_width) if cell_width > 0 else _even_width()
-	var stride: float = width + float(gap)
-	for i: int in cells:
-		var cell_color: Color = fill_color if i < filled else empty_color
-		draw_rect(Rect2(float(i) * stride, 0.0, width, float(cell_height)), cell_color)
+	paint(self, Vector2.ZERO, Vector2(width, float(cell_height)), width + float(gap),
+		split(cells, filled, fill_color, empty_color))
 
 
 func _even_width() -> float:
@@ -81,3 +79,19 @@ func ratio() -> float:
 
 static func cells_for(value: float, total: int) -> int:
 	return clampi(roundi(value * float(total)), 0, total)
+
+
+#Paints one cell per colour, left to right from origin, each cell sized cell and stride apart. A
+#plate under the row or a trim over it stays with the caller.
+static func paint(canvas: CanvasItem, origin: Vector2, cell: Vector2, stride: float,
+		colors: PackedColorArray) -> void:
+	for i: int in colors.size():
+		canvas.draw_rect(Rect2(origin.x + float(i) * stride, origin.y, cell.x, cell.y), colors[i])
+
+
+#The colours of count cells: the first lit take fill and the rest take empty.
+static func split(count: int, lit: int, fill: Color, empty: Color) -> PackedColorArray:
+	var out := PackedColorArray()
+	for i: int in count:
+		out.append(fill if i < lit else empty)
+	return out

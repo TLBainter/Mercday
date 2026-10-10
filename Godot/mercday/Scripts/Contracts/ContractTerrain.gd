@@ -45,10 +45,16 @@ static func has_terrain(loc: LocationData) -> bool:
 	return not candidates(loc).is_empty()
 
 
-#Only Exterior, Cavern and Dungeon rows take part in draws and odds.
+#Only Exterior, Cavern and Dungeon rows take part in location draws; Terrain Odds may also force City and Interior rows.
 static func drawable(area: Dictionary) -> bool:
 	var area_type: String = String(area.get("type", ""))
 	return area_type == "Exterior" or area_type == CAVERN or area_type == DUNGEON
+
+
+#The rows a Terrain Odds entry may force; a TBD row never is.
+static func odds_allowed(area: Dictionary) -> bool:
+	var area_type: String = String(area.get("type", ""))
+	return drawable(area) or area_type == "City" or area_type == "Interior"
 
 
 static func describe(loc: LocationData) -> String:
@@ -82,19 +88,27 @@ static func parse_odds(cell: String) -> Array[Dictionary]:
 	return out
 
 
-#The contract odds roll first, in cell order; the location's candidates carry the rest.
+#One roll 1..100 over the Terrain Odds ranges in cell order; a roll on no drawable range goes to the location draw.
 static func draw(loc: LocationData, contract: ContractData) -> Dictionary:
 	if contract != null:
+		var ranges: Array[Dictionary] = []
+		var edge: int = 0
 		for entry: Dictionary in contract.terrain_odds:
 			var percent: int = int(entry.get("percent", -1))
-			if percent < 1:
+			if percent < 1 or edge >= 100:
 				continue
+			var lo: int = edge + 1
+			edge = mini(edge + mini(percent, 100), 100)
 			var forced: Dictionary = DataManager.get_area_by_name(String(entry.get("area", "")))
-			if forced.is_empty() or not drawable(forced):
-				continue
-			if randi_range(1, 100) <= percent:
-				return {"area": forced, "how": "%s odds (%s %d)" % [contract.contract_type,
-					String(forced.get("name", "")), percent]}
+			if not forced.is_empty() and odds_allowed(forced):
+				ranges.append({"lo": lo, "hi": edge, "area": forced, "percent": percent})
+		if not ranges.is_empty():
+			var odds_roll: int = randi_range(1, 100)
+			for span: Dictionary in ranges:
+				if odds_roll >= int(span["lo"]) and odds_roll <= int(span["hi"]):
+					var area: Dictionary = span["area"] as Dictionary
+					return {"area": area, "how": "%s odds (%s %d)" % [contract.contract_type,
+						String(area.get("name", "")), int(span["percent"])]}
 	var list: Array[Dictionary] = candidates(loc)
 	if list.is_empty():
 		return {}

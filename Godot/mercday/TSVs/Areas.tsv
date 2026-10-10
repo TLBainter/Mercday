@@ -4,3 +4,14 @@ Arctic Mountain	Exterior	0%	0%	0%	25%	25%	50%	0	0	Boulder, Cliff Edge, Crevasse,
 Cavern	Cavern	0%	0%	0%	0%	0%	0%	0	0	Stalagmite, Stalactite, Column, Rock Pile, Boulder					Average				30	45	Cavern 100, Mountain 20, Volcanic 20, Snowy 10, Desert 5, Forest 5
 Dungeon	Dungeon	0%	0%	0%	0%	0%	0%	0	3					Dungeon Hall (Narrow), Dungeon Hall (Wide), Dungeon Cell, Dungeon Foyer, Dungeon Kitchen, Dungeon Bedchamber, Dungeon Latrine, Dungeon Cafeteria, Dungeon Storage, Dungeon Guard Room, Dungeon Armory, Dungeon Torture Chamber, Dungeon Shrine			Average		20	40	Dungeon 100
 City Block	City	0%	0%	0%	0%	0%	0%	0	0		Grass, Bush, Shrub, Fern, Hedge, Oak Tree, Aspen Tree, Stump					Many			48	200	
+Urban	City	0%	0%	0%	0%	0%	0%	0	0		Grass, Bush, Shrub, Fern, Hedge, Oak Tree, Aspen Tree, Stump					Many			48	200	
+Desert	TBD	0%	0%	0%	0%	0%	0%	0	0												
+Forest	TBD	0%	0%	0%	0%	0%	0%	0	0												
+Marsh	TBD	0%	0%	0%	0%	0%	0%	0	0												
+Mountain	TBD	0%	0%	0%	0%	0%	0%	0	0												
+Plain	TBD	0%	0%	0%	0%	0%	0%	0	0												
+Sea	TBD	0%	0%	0%	0%	0%	0%	0	0												
+Sky	TBD	0%	0%	0%	0%	0%	0%	0	0												
+Snowy	TBD	0%	0%	0%	0%	0%	0%	0	0												
+Tropical	TBD	0%	0%	0%	0%	0%	0%	0	0												
+Volcanic	TBD	0%	0%	0%	0%	0%	0%	0	0												

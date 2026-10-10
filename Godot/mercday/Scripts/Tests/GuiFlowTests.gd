@@ -26,6 +26,7 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
+	SubscriptionManager.max_out()
 
 
 static func _spawn(host: Node) -> GameHUD:
@@ -37,6 +38,12 @@ static func _spawn(host: Node) -> GameHUD:
 	hud.wire_for_test()
 	await host.get_tree().process_frame
 	return hud
+
+
+#Frees a spawned HUD and lets the tree settle.
+static func _close_hud(hud: GameHUD, host: Node) -> void:
+	hud.queue_free()
+	await host.get_tree().process_frame
 
 
 #Crosses at least want_days day boundaries by ticking the clock, not by calling process_until
@@ -63,8 +70,7 @@ static func _case_merc_flow(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "menu 0 opens a MercViewer in the HUD popup",
 		hud.popup().is_open() and screen != null, "current %s" % [hud.popup().current()])
 	if screen == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close_hud(hud, host)
 		return
 	TestFixtures.check(res, "the merc list carries every roster row",
 		screen.list.row_count() == GameState.roster.size(),
@@ -95,8 +101,7 @@ static func _case_merc_flow(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "closing the HUD popup empties it",
 		not hud.popup().is_open(), "open %s" % hud.popup().is_open())
 	MetricsHistory.clear_preview()
-	hud.queue_free()
-	await host.get_tree().process_frame
+	await _close_hud(hud, host)
 
 
 #Case 2: accept an open posting, fill and dispatch a team, then open a crew member from Active.
@@ -108,14 +113,12 @@ static func _case_contract_flow(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "menu 1 opens a ContractViewer in the HUD popup",
 		hud.popup().is_open() and viewer != null, "current %s" % [hud.popup().current()])
 	if viewer == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close_hud(hud, host)
 		return
 	var view: ContractView = GuiContractTests._first_open(viewer)
 	TestFixtures.check(res, "the board offers an open posting to work with", view != null, "view %s" % [view])
 	if view == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close_hud(hud, host)
 		return
 	viewer.select_entry(view.entry_id)
 	await host.get_tree().process_frame
@@ -128,35 +131,24 @@ static func _case_contract_flow(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "Accept opens the DispatchWindow nested in the ContractViewer popup",
 		viewer.window().is_open() and window != null, "window %s" % [window])
 	if window == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close_hud(hud, host)
 		return
-	var placed: Array[int] = GuiContractTests._fill_team(window)
+	var placed: Array[int] = await GuiContractTests._ready_team(window, host)
 	TestFixtures.check(res, "the dispatch window seats a crew", not placed.is_empty(),
 		"placed %s" % [placed])
-	window.pick_travel(0, "foot")
-	window.pick_travel(1, "foot")
-	await host.get_tree().process_frame
 	var travel_cost: int = window.travel_total()
 	var bank_before: int = GameState.bank_notes
 	var sent: bool = window.commit()
 	await host.get_tree().process_frame
 	await GuiContractTests._walk_dialogs(window, host)
 	TestFixtures.check(res, "the dispatch commits", sent, "sent %s" % sent)
-	var after: ContractView = null
-	for row: ContractView in GameState.contracts:
-		if row.entry_id == view.entry_id:
-			after = row
+	var after: ContractView = GuiContractTests._view_by_id(view.entry_id)
 	TestFixtures.check(res, "the posting turns Active after dispatch",
 		after != null and after.status == GuiTypes.ContractStatus.ACTIVE,
 		"status %s" % [after.status if after != null else -1])
-	var busy: Array[int] = GameState.busy_uids()
-	var all_busy: bool = true
-	for uid: int in placed:
-		if not busy.has(uid):
-			all_busy = false
 	TestFixtures.check(res, "every placed uid reads busy on the roster",
-		all_busy, "placed %s busy %s" % [placed, busy])
+		GuiContractTests._all_busy(placed),
+		"placed %s busy %s" % [placed, GameState.busy_uids()])
 	TestFixtures.check(res, "the HUD money menu reflects the travel spend",
 		hud.bottom_bar.money_menu().text().contains(str(GameState.bank_notes))
 			and GameState.bank_notes == bank_before - travel_cost,
@@ -180,8 +172,7 @@ static func _case_contract_flow(res: Dictionary, host: Node) -> void:
 			"selected %s wanted %d" % [nested.selected().uid if nested.selected() != null else -1, leader_uid])
 	hud.popup().close()
 	await host.get_tree().process_frame
-	hud.queue_free()
-	await host.get_tree().process_frame
+	await _close_hud(hud, host)
 
 
 #Case 3: open the Metrics menu unlocked, cross day boundaries live, confirm the chart fills in.
@@ -195,8 +186,7 @@ static func _case_metrics_flow(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "menu 8 opens a MetricsViewer in the HUD popup",
 		hud.popup().is_open() and viewer != null, "current %s" % [hud.popup().current()])
 	if viewer == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close_hud(hud, host)
 		return
 	TestFixtures.check(res, "opened from the HUD menu the viewer stays unlocked with its tabs shown",
 		viewer.locked_uid() == -1 and viewer.tabs.visible,
@@ -214,8 +204,7 @@ static func _case_metrics_flow(res: Dictionary, host: Node) -> void:
 		viewer.chart.point_count(0) if viewer.chart.series_count() >= 1 else -1])
 	hud.popup().close()
 	await host.get_tree().process_frame
-	hud.queue_free()
-	await host.get_tree().process_frame
+	await _close_hud(hud, host)
 
 
 #Case 4: the bottom bar time and money menus relay clock and bank changes live.
@@ -246,8 +235,7 @@ static func _case_time_and_money(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "money_changed refreshes the money menu label",
 		money_menu.text().contains("57"), "text '%s'" % money_menu.text())
-	hud.queue_free()
-	await host.get_tree().process_frame
+	await _close_hud(hud, host)
 
 
 #Case 5: closing a nested popup leaves the HUD popup on the screen underneath, not stacked stale.
@@ -260,8 +248,7 @@ static func _case_popup_stacking(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a ContractViewer opens with an open posting to accept",
 		viewer != null and view != null, "viewer %s view %s" % [viewer, view])
 	if viewer == null or view == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close_hud(hud, host)
 		return
 	viewer.select_entry(view.entry_id)
 	await host.get_tree().process_frame
@@ -287,8 +274,7 @@ static func _case_popup_stacking(res: Dictionary, host: Node) -> void:
 		"screen %s" % [merc_screen])
 	hud.popup().close()
 	await host.get_tree().process_frame
-	hud.queue_free()
-	await host.get_tree().process_frame
+	await _close_hud(hud, host)
 
 
 #Case 6: rejecting a posting from GameState rebuilds the contract list live under the open viewer.
@@ -300,15 +286,13 @@ static func _case_screen_rebuild(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "menu 1 opens a ContractViewer to reject from", viewer != null,
 		"viewer %s" % [viewer])
 	if viewer == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close_hud(hud, host)
 		return
 	var before: int = viewer.list().row_count()
 	var view: ContractView = GuiContractTests._first_open(viewer)
 	TestFixtures.check(res, "an open posting exists to reject", view != null, "view %s" % [view])
 	if view == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close_hud(hud, host)
 		return
 	viewer.select_entry(view.entry_id)
 	await host.get_tree().process_frame
@@ -331,5 +315,4 @@ static func _case_screen_rebuild(res: Dictionary, host: Node) -> void:
 		GameState.roster.size()])
 	hud.popup().close()
 	await host.get_tree().process_frame
-	hud.queue_free()
-	await host.get_tree().process_frame
+	await _close_hud(hud, host)

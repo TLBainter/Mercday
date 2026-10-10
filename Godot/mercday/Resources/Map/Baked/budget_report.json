@@ -1,0 +1,37 @@
+{
+	"disk_bytes": 97864591,
+	"disk_cap_bytes": 268435456,
+	"layers": {
+		"props/foliage": {
+			"bytes": 11551533,
+			"cap": 40000,
+			"chunks": 125,
+			"max_surface_verts": 39856,
+			"max_surfaces": 2,
+			"max_verts": 54144,
+			"surfaces": 127,
+			"total_verts": 1291408
+		},
+		"props/ground": {
+			"bytes": 7401610,
+			"cap": 500000,
+			"chunks": 172,
+			"max_surface_verts": 32480,
+			"max_surfaces": 72,
+			"max_verts": 466408,
+			"surfaces": 4898,
+			"total_verts": 16946564
+		},
+		"terrain": {
+			"bytes": 8031329,
+			"cap": 60000,
+			"chunks": 175,
+			"max_surface_verts": 33360,
+			"max_surfaces": 1,
+			"max_verts": 33360,
+			"surfaces": 175,
+			"total_verts": 1695060
+		}
+	},
+	"problems": []
+}

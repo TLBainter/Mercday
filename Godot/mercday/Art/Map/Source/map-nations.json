@@ -1,0 +1,87 @@
+{
+ "description": "Nations layer. Every land pixel of the Color layer belongs to exactly one nation; sea pixels are transparent. Borders derived from the political map; islets take the nearest nation. Edited 2026-10-06: river px whose nearest dry land (8 rays, ≤16 px) is another nation or the sea are set to no nation (border rivers + river mouths), filled across the channel; interior rivers keep their nation.",
+ "layer": "Nations",
+ "canvas": [
+  5696,
+  2960
+ ],
+ "nations": [
+  {
+   "id": 1,
+   "name": "Principality of Vaernebo",
+   "color": "#e6194b",
+   "pixels": 310442,
+   "percent": 6.52
+  },
+  {
+   "id": 2,
+   "name": "Federation of Miliim",
+   "color": "#f58231",
+   "pixels": 350772,
+   "percent": 7.36
+  },
+  {
+   "id": 3,
+   "name": "Corrupted Lands of Cyfrolaef",
+   "color": "#911eb4",
+   "pixels": 446094,
+   "percent": 9.36
+  },
+  {
+   "id": 4,
+   "name": "Principality of Buern",
+   "color": "#3cb44b",
+   "pixels": 683176,
+   "percent": 14.34
+  },
+  {
+   "id": 5,
+   "name": "Kingdom of Aerdis",
+   "color": "#42d4f4",
+   "pixels": 645679,
+   "percent": 13.55
+  },
+  {
+   "id": 6,
+   "name": "Kingdom of Kathaya",
+   "color": "#800000",
+   "pixels": 273675,
+   "percent": 5.74
+  },
+  {
+   "id": 7,
+   "name": "Free Cities of Suorr",
+   "color": "#ffe119",
+   "pixels": 409051,
+   "percent": 8.59
+  },
+  {
+   "id": 8,
+   "name": "Queendom of Aldurstein",
+   "color": "#4363d8",
+   "pixels": 177912,
+   "percent": 3.73
+  },
+  {
+   "id": 9,
+   "name": "Republic of Copari",
+   "color": "#f032e6",
+   "pixels": 348138,
+   "percent": 7.31
+  },
+  {
+   "id": 10,
+   "name": "Isolationist Empire of Zukei",
+   "color": "#000075",
+   "pixels": 876369,
+   "percent": 18.39
+  },
+  {
+   "id": 11,
+   "name": "Principality of Rossade",
+   "color": "#9a6324",
+   "pixels": 243082,
+   "percent": 5.1
+  }
+ ]
+}

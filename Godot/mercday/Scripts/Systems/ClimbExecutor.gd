@@ -1,5 +1,8 @@
 class_name ClimbExecutor extends RefCounted
 
+const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
+const CLIMB_HOLD_MAX := 2
+
 
 #The gates ClimbAction.can_execute tests before it starts a climb: a body to grab with, a target
 #the search still finds, and the Moves the first grab costs.
@@ -8,8 +11,8 @@ static func climb_startable(merc: MercenaryData, state: BattleState) -> bool:
 		return false
 	if int(merc.stats.get("size", 0)) <= 0 or ClimbAction.find_target(merc, state).is_empty():
 		return false
-	var grab: int = maxi(1, int(merc.stats.get("size", 1)))
-	return MovementExecutor.can_fund_climb(merc, state, "Climb", grab * MovementExecutor.climb_pace_cost(merc))
+	var grab: int = merc.unit_size()
+	return can_fund_climb(merc, state, "Climb", grab * climb_pace_cost(merc))
 
 
 #True when the pending climb route can run now, so a Move on the foot cell buys nothing.
@@ -57,33 +60,26 @@ static func execute_climb(
 			init_target_h = int(link["paces"])
 			link_end = (link["to"] if going_down else link["top"]) as Vector3i
 		var grab_h := merc_size
-		var init_c := MovementExecutor.climb_pace_cost(merc)
-		if not MovementExecutor._climb_fund(merc, state, action_name, grab_h * init_c):
-			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("CLIMB REFUSED: %s reason=ap_short" % merc.merc_name)
+		var init_c := climb_pace_cost(merc)
+		if not _climb_fund(merc, state, action_name, grab_h * init_c):
+			_refuse(merc)
 			return []
 		var init_pool := state.get_pace_pool(merc)
 		state.set_pace_pool(merc, init_pool - grab_h * init_c)
-		if link.is_empty():
-			state.climbing_data[merc] = {
-				"wall_pos": target_pos,
-				"current_h": grab_h,
-				"target_h": init_target_h,
-				"top_pos": target_pos,
-			}
-		else:
-			var link_cd: Dictionary = {
-				"wall_pos": target_pos,
-				"current_h": grab_h,
-				"target_h": init_target_h,
-				"top_pos": Vector2i(link_end.x, link_end.y),
-				"top_floor": link_end.z,
-				"link": true,
-			}
+		var init_cd: Dictionary = {
+			"wall_pos": target_pos,
+			"current_h": grab_h,
+			"target_h": init_target_h,
+			"top_pos": target_pos,
+		}
+		if not link.is_empty():
+			init_cd["top_pos"] = Vector2i(link_end.x, link_end.y)
+			init_cd["top_floor"] = link_end.z
+			init_cd["link"] = true
 			if going_down:
-				link_cd["down"] = true
-			state.climbing_data[merc] = link_cd
-		ConstStates.apply_state(merc, ConstStates.CLIMBING, null, "", "engine:climb")
+				init_cd["down"] = true
+		state.climbing_data[merc] = init_cd
+		StateCascade.apply_state(merc, ConstStates.CLIMBING, null, "", "engine:climb")
 		if link.is_empty() or not going_down:
 			state.set_height(merc, grab_h)
 		else:
@@ -114,12 +110,11 @@ static func execute_climb(
 	var current_h := int(cd.get("current_h", 0))
 	var target_h := int(cd.get("target_h", 0))
 
-	var climb_c := MovementExecutor.climb_pace_cost(merc)
+	var climb_c := climb_pace_cost(merc)
 	var remaining := target_h - current_h
 	if remaining > 0 and state.get_pace_pool(merc) < climb_c:
-		if not MovementExecutor._climb_fund(merc, state, action_name, climb_c):
-			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("CLIMB REFUSED: %s reason=ap_short" % merc.merc_name)
+		if not _climb_fund(merc, state, action_name, climb_c):
+			_refuse(merc)
 			return []
 	var climb_pool := state.get_pace_pool(merc)
 	var gained := mini(int(climb_pool / float(climb_c)), remaining)
@@ -151,14 +146,14 @@ static func _complete_climb(merc: MercenaryData, state: BattleState, lines: Arra
 	var pit_pos := state.get_position(merc)
 	var merc_floor := state.get_floor(merc)
 	state.clear_climbing(merc)
-	ConstStates.remove_state(merc, ConstStates.CLIMBING)
+	StateCascade.remove_state(merc, ConstStates.CLIMBING)
 	if state.battlefield != null:
 		var _obs := state.battlefield.get_obs(top_pos, merc_floor)
 		if not _obs.is_empty() and _obs.get("cell_type", "") == "wall":
 			var wall_pos: Vector2i = cd.get("wall_pos", top_pos) as Vector2i
 			var _dir := Vector2i(signi(wall_pos.x - pit_pos.x), signi(wall_pos.y - pit_pos.y))
 			var _beyond := wall_pos + _dir
-			if state.battlefield.get_nav_passable_cells().has(_beyond) and not state.is_position_occupied(_beyond, merc, merc_floor):
+			if state.battlefield.reserved_corridor_cells.has(_beyond) and not state.is_position_occupied(_beyond, merc, merc_floor):
 				top_pos = _beyond
 	if not state.is_position_occupied(top_pos, merc, merc_floor):
 		state.set_position(merc, top_pos)
@@ -180,7 +175,7 @@ static func _complete_link_climb(merc: MercenaryData, state: BattleState, cd: Di
 	var going_down: bool = bool(cd.get("down", false))
 	if not going_down and state.is_position_occupied(top_pos, merc, top_floor):
 		var held: int = int(cd.get("hold", 0))
-		if held >= MovementExecutor.CLIMB_HOLD_MAX:
+		if held >= CLIMB_HOLD_MAX:
 			_abandon_climb(merc, state, lines, held)
 			return
 		cd["current_h"] = int(cd.get("target_h", 0))
@@ -188,11 +183,9 @@ static func _complete_link_climb(merc: MercenaryData, state: BattleState, cd: Di
 		state.climbing_data[merc] = cd
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("CLIMB HOLD: %s top occupied (%d/%d)" % [
-				merc.merc_name, held + 1, MovementExecutor.CLIMB_HOLD_MAX])
+				merc.merc_name, held + 1, CLIMB_HOLD_MAX])
 		return
-	state.clear_climbing(merc)
-	ConstStates.remove_state(merc, ConstStates.CLIMBING)
-	state.set_height(merc, 0)
+	_end_climb(merc, state)
 	if going_down:
 		lines.append("  %s reaches the ground." % BattleState.colored_name(merc, state))
 		return
@@ -202,9 +195,7 @@ static func _complete_link_climb(merc: MercenaryData, state: BattleState, cd: Di
 
 #A climber held CLIMB_HOLD_MAX turns lets go at the base, forgets its goal and post, and picks again.
 static func _abandon_climb(merc: MercenaryData, state: BattleState, lines: Array[String], held: int) -> void:
-	state.clear_climbing(merc)
-	ConstStates.remove_state(merc, ConstStates.CLIMBING)
-	state.set_height(merc, 0)
+	_end_climb(merc, state)
 	state.move_goals.erase(merc)
 	state.move_targets.erase(merc)
 	state.clear_climb_route(merc)
@@ -212,3 +203,58 @@ static func _abandon_climb(merc: MercenaryData, state: BattleState, lines: Array
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("CLIMB ABANDON: %s top occupied %d turns" % [merc.merc_name, held])
 	lines.append("  %s drops back to the ground; the ledge is taken." % BattleState.colored_name(merc, state))
+
+
+#Takes the climber off the wall and back to its cell surface.
+static func _end_climb(merc: MercenaryData, state: BattleState) -> void:
+	state.clear_climbing(merc)
+	StateCascade.remove_state(merc, ConstStates.CLIMBING)
+	state.set_height(merc, 0)
+
+
+static func _refuse(merc: MercenaryData) -> void:
+	if EncounterLogger.is_active():
+		EncounterLogger.log_verbose("CLIMB REFUSED: %s reason=ap_short" % merc.merc_name)
+
+
+#Pool paces one height of climb costs this climber.
+static func climb_pace_cost(merc: MercenaryData) -> int:
+	var pp := maxi(1, PaceBudget.pace_per_move(merc))
+	if ConstStates.has_state(merc, ConstStates.DEPOSED):
+		return pp
+	if int(merc.stats.get("climb", 0)) > 0:
+		return 1
+	if merc.circumstance_flags.get(ConstCircumstances.ATHLETICS_VIGOR, false):
+		return maxi(1, int(ceil(float(pp) / 2.0)))
+	return pp
+
+
+#Banks Moves until the pool holds `need` paces; false when the AP cannot cover them.
+static func _climb_fund(merc: MercenaryData, state: BattleState, action_name: String, need: int) -> bool:
+	if not can_fund_climb(merc, state, action_name, need):
+		return false
+	var pool := state.get_pace_pool(merc)
+	if pool >= need:
+		return true
+	var moves := _climb_moves(merc, pool, need)
+	for k: int in range(moves):
+		PaceBudget.buy_move(merc, state, action_name)
+	return true
+
+
+#Moves to bank so a pool of `pool` paces reaches `need`.
+static func _climb_moves(merc: MercenaryData, pool: int, need: int) -> int:
+	var pp := maxi(1, PaceBudget.pace_per_move(merc))
+	return int(ceil(float(need - pool) / float(pp)))
+
+
+#True when _climb_fund would succeed for `need` paces; spends nothing.
+static func can_fund_climb(merc: MercenaryData, state: BattleState, action_name: String, need: int) -> bool:
+	var pool := state.get_pace_pool(merc)
+	if pool >= need:
+		return true
+	var moves := _climb_moves(merc, pool, need)
+	var total := 0
+	for k: int in range(moves):
+		total += state.get_cost_after(merc, action_name, _CONFIG.move_base_ap, k)
+	return state.can_afford(merc, total)

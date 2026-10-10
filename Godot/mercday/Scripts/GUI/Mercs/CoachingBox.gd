@@ -17,8 +17,7 @@ const TIP_TITLE: String = "Performance Improvement Plan"
 const TIP_DESC: String = "Choose how this merc focuses when they level up. Current plan: %s."
 const BUTTON_HEIGHT: float = 40.0
 const ICON_PX: int = 2
-const GREY_TINT: Color = Color(GuiColors.GRAY_ICON_BRIGHTNESS, GuiColors.GRAY_ICON_BRIGHTNESS,
-	GuiColors.GRAY_ICON_BRIGHTNESS, 0.4)
+const GREY_TINT: Color = GuiColors.GREY_TINT_FADED
 
 @export var merc_uid: int = 0:
 	set(value):

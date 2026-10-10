@@ -21,8 +21,6 @@ const DIRS: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), 
 
 #Lamp posts, then sidewalk objects, then alley scatter. Runs after CityAccess.build.
 static func build(area: BattlefieldArea) -> void:
-	if area == null or not area.city.has("streets"):
-		return
 	var lamps: Array[ObstacleData] = _use_rows(area, "lamp")
 	var walks: Array[ObstacleData] = _use_rows(area, "sidewalk")
 	var alleys: Array[ObstacleData] = _use_rows(area, "alley")
@@ -39,9 +37,6 @@ static func _use_rows(area: BattlefieldArea, use: String) -> Array[ObstacleData]
 	if out.is_empty():
 		area.generation_log.append("[CITY] street objects: no obstacle row with City use %s" % use)
 	return out
-
-
-#### Lamp posts.
 
 
 static func _lamp_posts(area: BattlefieldArea, lamps: Array[ObstacleData], taken: Dictionary) -> int:
@@ -69,20 +64,13 @@ static func _lamp_posts(area: BattlefieldArea, lamps: Array[ObstacleData], taken
 static func _curb_runs(area: BattlefieldArea, sid: int, seg: Dictionary, carriage: int,
 		side: int) -> Array[Array]:
 	var runs: Array[Array] = []
-	var rect: Rect2i = seg.get("rect", Rect2i())
-	if rect.size.x <= 0 or rect.size.y <= 0:
+	var band: Dictionary = _band(seg, side)
+	if band.is_empty():
 		return runs
-	var along_x: bool = String(seg.get("axis", "x")) == "x"
-	var a0: int = rect.position.x if along_x else rect.position.y
-	var a1: int = (rect.end.x if along_x else rect.end.y) - 1
-	var lo: int = rect.position.y if along_x else rect.position.x
-	var hi: int = (rect.end.y if along_x else rect.end.x) - 1
-	var curb: int = lo - 1 if side < 0 else hi + 1
-	var inner: int = lo if side < 0 else hi
 	var run: Array[Vector2i] = []
-	for a: int in range(a0, a1 + 1):
-		var cc: Vector2i = Vector2i(a, curb) if along_x else Vector2i(curb, a)
-		var rc: Vector2i = Vector2i(a, inner) if along_x else Vector2i(inner, a)
+	for a: int in range(int(band["a0"]), int(band["a1"]) + 1):
+		var cc: Vector2i = _at(band, a, int(band["curb"]))
+		var rc: Vector2i = _at(band, a, int(band["inner"]))
 		if _is_curb(area, sid, cc, rc, carriage):
 			run.append(cc)
 			continue
@@ -92,6 +80,27 @@ static func _curb_runs(area: BattlefieldArea, sid: int, seg: Dictionary, carriag
 	if not run.is_empty():
 		runs.append(run)
 	return runs
+
+
+#The along range and the curb and road lines beside one side of a segment; {} when the segment has no area.
+static func _band(seg: Dictionary, side: int) -> Dictionary:
+	var rect: Rect2i = seg.get("rect", Rect2i())
+	if rect.size.x <= 0 or rect.size.y <= 0:
+		return {}
+	var along_x: bool = String(seg.get("axis", "x")) == "x"
+	var lo: int = rect.position.y if along_x else rect.position.x
+	var hi: int = (rect.end.y if along_x else rect.end.x) - 1
+	return {
+		"along_x": along_x,
+		"a0": rect.position.x if along_x else rect.position.y,
+		"a1": (rect.end.x if along_x else rect.end.y) - 1,
+		"curb": lo - 1 if side < 0 else hi + 1,
+		"inner": lo if side < 0 else hi,
+	}
+
+
+static func _at(band: Dictionary, a: int, line: int) -> Vector2i:
+	return Vector2i(a, line) if bool(band["along_x"]) else Vector2i(line, a)
 
 
 #A sidewalk cell that lies against the carriageway of street sid.
@@ -139,9 +148,6 @@ static func _try_post(area: BattlefieldArea, data: ObstacleData, run: Array, at:
 	return false
 
 
-#### Sidewalk objects.
-
-
 static func _furniture(area: BattlefieldArea, walks: Array[ObstacleData], taken: Dictionary) -> int:
 	if walks.is_empty():
 		return 0
@@ -172,24 +178,18 @@ static func _furniture(area: BattlefieldArea, walks: Array[ObstacleData], taken:
 
 #Wall side sidewalk cells of a main segment, each mapped to its curb cell.
 static func _wall_cells(area: BattlefieldArea, sid: int, seg: Dictionary, out: Dictionary) -> void:
-	var rect: Rect2i = seg.get("rect", Rect2i())
-	if rect.size.x <= 0 or rect.size.y <= 0:
-		return
-	var along_x: bool = String(seg.get("axis", "x")) == "x"
-	var a0: int = rect.position.x if along_x else rect.position.y
-	var a1: int = (rect.end.x if along_x else rect.end.y) - 1
-	var lo: int = rect.position.y if along_x else rect.position.x
-	var hi: int = (rect.end.y if along_x else rect.end.x) - 1
 	for side: int in SIDES:
-		var curb: int = lo - 1 if side < 0 else hi + 1
-		var inner: int = lo if side < 0 else hi
+		var band: Dictionary = _band(seg, side)
+		if band.is_empty():
+			return
+		var curb: int = int(band["curb"])
 		var wall: int = curb - 1 if side < 0 else curb + 1
-		for a: int in range(a0, a1 + 1):
-			var cc: Vector2i = Vector2i(a, curb) if along_x else Vector2i(curb, a)
-			var rc: Vector2i = Vector2i(a, inner) if along_x else Vector2i(inner, a)
+		for a: int in range(int(band["a0"]), int(band["a1"]) + 1):
+			var cc: Vector2i = _at(band, a, curb)
+			var rc: Vector2i = _at(band, a, int(band["inner"]))
 			if not _is_curb(area, sid, cc, rc, BattlefieldArea.SURF_MAIN):
 				continue
-			var wc: Vector2i = Vector2i(a, wall) if along_x else Vector2i(wall, a)
+			var wc: Vector2i = _at(band, a, wall)
 			if CityGrid.surf(area, wc.x, wc.y) != BattlefieldArea.SURF_SIDEWALK:
 				continue
 			out[wc] = cc
@@ -230,9 +230,6 @@ static func _clear(taken: Dictionary, lo: Vector2i, hi: Vector2i, step: Vector2i
 	return true
 
 
-#### Alley scatter.
-
-
 static func _scatter(area: BattlefieldArea, pool: Array[ObstacleData]) -> int:
 	if pool.is_empty():
 		return 0
@@ -268,7 +265,7 @@ static func _alley_cells(area: BattlefieldArea, sid: int, street: Dictionary) ->
 	for cell: Vector2i in owned.keys():
 		for d: Vector2i in DIRS:
 			var n: Vector2i = cell + d
-			if CityGrid.inside(area, n.x, n.y) and CityGrid.is_street(CityGrid.surf(area, n.x, n.y)):
+			if area.in_bounds_xy(n.x, n.y) and CityGrid.is_street(CityGrid.surf(area, n.x, n.y)):
 				continue
 			edge[cell] = true
 			break
@@ -313,9 +310,6 @@ static func _beside(area: BattlefieldArea, from: Vector2i, eset: Dictionary,
 			continue
 		return cell
 	return Vector2i(-1, -1)
-
-
-#### Cell helpers.
 
 
 static func _street_len(street: Dictionary) -> int:

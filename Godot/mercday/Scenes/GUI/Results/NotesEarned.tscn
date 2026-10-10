@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Results/NotesEarned.gd" id="1"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/results_notes.tres" id="2"]
-[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyMedium.tres" id="4"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_NotesEarned.tres" id="6"]
 
 [node name="NotesEarned" type="PanelContainer"]
 custom_minimum_size = Vector2(250, 0)
@@ -24,9 +25,7 @@ theme_override_constants/separation = 8
 
 [node name="Key" type="Label" parent="Rows/RewardRow"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1.000000)
-theme_override_fonts/font = ExtResource("3")
-theme_override_font_sizes/font_size = 9
+theme_type_variation = &"KeySmall"
 vertical_alignment = 1
 text = "Reward"
 
@@ -58,9 +57,7 @@ theme_override_constants/separation = 8
 
 [node name="Key" type="Label" parent="Rows/ExpenseRow"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1.000000)
-theme_override_fonts/font = ExtResource("3")
-theme_override_font_sizes/font_size = 9
+theme_type_variation = &"KeySmall"
 vertical_alignment = 1
 text = "Expenses"
 
@@ -97,9 +94,7 @@ theme_override_constants/separation = 8
 
 [node name="Key" type="Label" parent="Rows/NetBox/NetRow"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1.000000)
-theme_override_fonts/font = ExtResource("3")
-theme_override_font_sizes/font_size = 9
+theme_type_variation = &"KeySmall"
 vertical_alignment = 1
 text = "Notes Earned"
 
@@ -132,9 +127,7 @@ theme_override_constants/separation = 8
 
 [node name="Key" type="Label" parent="Rows/BonusRow"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1.000000)
-theme_override_fonts/font = ExtResource("3")
-theme_override_font_sizes/font_size = 9
+theme_type_variation = &"KeySmall"
 vertical_alignment = 1
 text = "Merc Bonus"
 
@@ -158,3 +151,7 @@ text = "-0"
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("3")
+hint = ExtResource("6")

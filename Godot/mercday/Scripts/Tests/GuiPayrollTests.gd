@@ -6,6 +6,11 @@ class_name GuiPayrollTests
 #Statuses the campaign cannot reach on its own are forced on the merc resource itself.
 
 const BASE_SALARY: int = 100
+#Roster sizes hired up to by the cases that read past the start roster: the status case reads the fourth merc,
+#the unique trait case the sixth and the fire case the tenth once four are let go.
+const STATUS_ROSTER: int = 4
+const TRAITS_ROSTER: int = 6
+const FIRE_ROSTER: int = 10
 #Years the cases run the clock on before dating a hire back; a hire before year one reads nothing.
 const CLOCK_YEARS: int = 4
 const ROW_KEYS: Array[String] = ["uid", "name", "level", "level_text", "tradition",
@@ -22,7 +27,7 @@ const SUMMARY_KEYS: Array[String] = ["name", "level_text", "tradition", "employe
 static func run(host: Node) -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
 	await host.get_tree().process_frame
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	_case_defaults(res)
 	_case_benefit_clamp(res)
 	_case_benefit_rows(res)
@@ -49,7 +54,7 @@ static func run(host: Node) -> bool:
 	_case_max_at(res)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	BenefitsManager.reset()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	CampaignClock.reset()
 	return TestFixtures.summarize(res, "GUI PAYROLL")
 
@@ -60,6 +65,15 @@ static func _fresh() -> void:
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
 	BenefitsManager.reset()
+
+
+#The keys the dictionary lacks, each followed by a space; empty when it carries all of them.
+static func _missing(dict: Dictionary, keys: Array) -> String:
+	var out: String = ""
+	for key: Variant in keys:
+		if not dict.has(key):
+			out += str(key) + " "
+	return out
 
 
 static func _uid(index: int) -> int:
@@ -111,6 +125,7 @@ static func _rest(uid: int, kind: String) -> void:
 	if merc == null:
 		return
 	merc.rest_lockout_kind = kind
+	merc.rest_lockout_start = CampaignClock.now()
 	merc.rest_lockout_until = CampaignClock.now() + CampaignClock.MINUTES_PER_DAY
 	GameState.refresh_views()
 
@@ -121,6 +136,7 @@ static func _wake(uid: int) -> void:
 		return
 	merc.rest_lockout_kind = ""
 	merc.rest_lockout_until = 0
+	merc.rest_lockout_start = -1
 	GameState.refresh_views()
 
 
@@ -645,10 +661,7 @@ static func _case_apply_salary(res: Dictionary) -> void:
 	_set_pay(uid, BASE_SALARY, 0)
 	GameState.bank_notes = 1000
 	var view: Dictionary = BenefitsManager.salary_preview(uid, 115)
-	var missing: String = ""
-	for key: String in PREVIEW_KEYS:
-		if not view.has(key):
-			missing += key + " "
+	var missing: String = _missing(view, PREVIEW_KEYS)
 	TestFixtures.check(res, "the wage preview carries every field", missing == "", missing)
 	TestFixtures.check(res, "the preview holds the wage it pays now",
 		int(view["base"]) == BASE_SALARY, str(view["base"]))
@@ -662,6 +675,11 @@ static func _case_apply_salary(res: Dictionary) -> void:
 		int(view["preview"]) == 1, str(view["preview"]))
 	TestFixtures.check(res, "the preview names the old wage",
 		String(view["was"]) == "Was 100", String(view["was"]))
+	var flat_view: Dictionary = BenefitsManager.salary_preview(uid, BASE_SALARY)
+	TestFixtures.check(res, "an unchanged wage leaves the move blank",
+		String(flat_view["delta_text"]) == "", String(flat_view["delta_text"]))
+	TestFixtures.check(res, "an unchanged wage leaves the old-wage note blank",
+		String(flat_view["was"]) == "", String(flat_view["was"]))
 	var seen: Dictionary = {"n": 0}
 	var counter: Callable = func() -> void:
 		seen["n"] = int(seen["n"]) + 1
@@ -694,10 +712,16 @@ static func _case_apply_salary(res: Dictionary) -> void:
 		int(tank["shift"]) == SalarySystem.OPINION_MIN - 5, str(tank["shift"]))
 	TestFixtures.check(res, "a cut reads red",
 		tank["color"] == PayrollLogic.OVER_COLOR, str(tank["color"]))
+	var sunk: int = BenefitsManager.apply_salary(uid, PayrollLogic.TANK_SALARY)
+	TestFixtures.check(res, "tank: a committed cut to one note leaves the previewed mood",
+		sunk == int(tank["preview"]) and BenefitsManager.opinion_of(uid) == int(tank["preview"])
+		and BenefitsManager.salary_of(uid) == PayrollLogic.TANK_SALARY,
+		"committed %d, previewed %d, wage %d" % [sunk, int(tank["preview"]), BenefitsManager.salary_of(uid)])
 
 
 static func _case_status_note(res: Dictionary) -> void:
 	_fresh()
+	TestFixtures.add_mercs(STATUS_ROSTER - GameState.mercs.size())
 	var uid: int = _uid(0)
 	TestFixtures.check(res, "an available merc is ready for action",
 		BenefitsManager.status_note(uid) == "Ready for action. Salary can be changed.",
@@ -745,10 +769,7 @@ static func _case_payroll_rows(res: Dictionary) -> void:
 	var rows: Array[Dictionary] = BenefitsManager.payroll_rows()
 	TestFixtures.check(res, "payroll lists every merc of the roster",
 		rows.size() == GameState.roster.size(), str(rows.size()))
-	var missing: String = ""
-	for key: String in ROW_KEYS:
-		if rows.size() > 0 and not rows[0].has(key):
-			missing += key + " "
+	var missing: String = _missing(rows[0], ROW_KEYS) if rows.size() > 0 else ""
 	TestFixtures.check(res, "a payroll row carries every field", missing == "", missing)
 	var order: bool = true
 	for i: int in range(rows.size()):
@@ -812,6 +833,7 @@ static func _clear_traits() -> void:
 
 static func _case_unique_traits(res: Dictionary) -> void:
 	_fresh()
+	TestFixtures.add_mercs(TRAITS_ROSTER - GameState.mercs.size())
 	_clear_traits()
 	var mine: MercView = BenefitsManager.view_of(_uid(0))
 	mine.knowledges.append("Shared")
@@ -867,10 +889,7 @@ static func _case_fire_summary(res: Dictionary) -> void:
 		view.tradition = "Common"
 		view.relationships[uid] = BenefitsManager.GOOD_RELATION
 	var summary: Dictionary = BenefitsManager.fire_summary(uid)
-	var missing: String = ""
-	for key: String in SUMMARY_KEYS:
-		if not summary.has(key):
-			missing += key + " "
+	var missing: String = _missing(summary, SUMMARY_KEYS)
 	TestFixtures.check(res, "the fire summary carries every field", missing == "", missing)
 	TestFixtures.check(res, "the fire summary names the merc",
 		String(summary["name"]) == mine.name, String(summary["name"]))
@@ -888,7 +907,7 @@ static func _case_fire_summary(res: Dictionary) -> void:
 		String(summary["friends_text"]) == "0 mercs have a good relationship with this merc",
 		String(summary["friends_text"]))
 	TestFixtures.check(res, "no friends reads dim",
-		summary["friends_color"] == BenefitsManager.OFF_COLOR, str(summary["friends_color"]))
+		summary["friends_color"] == PayrollLogic.OFF_COLOR, str(summary["friends_color"]))
 	var friend: MercView = BenefitsManager.view_of(_uid(1))
 	friend.relationships[uid] = BenefitsManager.GOOD_RELATION + 10
 	summary = BenefitsManager.fire_summary(uid)
@@ -898,12 +917,12 @@ static func _case_fire_summary(res: Dictionary) -> void:
 		String(summary["friends_text"]) == "1 merc has a good relationship with this merc",
 		String(summary["friends_text"]))
 	TestFixtures.check(res, "a friend reads in the warning colour",
-		summary["friends_color"] == BenefitsManager.FRIEND_COLOR, str(summary["friends_color"]))
+		summary["friends_color"] == PayrollLogic.OVER_COLOR, str(summary["friends_color"]))
 	var notes: Array[Dictionary] = summary["notes"]
 	var found: bool = false
 	for note: Dictionary in notes:
 		if String(note["text"]) == "You have no other Lonelys":
-			found = note["color"] == BenefitsManager.NOTE_COLOR
+			found = note["color"] == PayrollLogic.NOTE_COLOR
 	TestFixtures.check(res, "the last of a tradition is noted", found, str(notes))
 	mine.tradition = "Common"
 	notes = BenefitsManager.fire_summary(uid)["notes"]
@@ -916,6 +935,7 @@ static func _case_fire_summary(res: Dictionary) -> void:
 
 static func _case_fire(res: Dictionary) -> void:
 	_fresh()
+	TestFixtures.add_mercs(FIRE_ROSTER - GameState.mercs.size())
 	var seen: Dictionary = {"n": 0}
 	var counter: Callable = func() -> void:
 		seen["n"] = int(seen["n"]) + 1
@@ -990,7 +1010,7 @@ static func _case_fire(res: Dictionary) -> void:
 static func _case_contract_bonus(res: Dictionary) -> void:
 	_fresh()
 	BenefitsManager.set_benefit("contract", 20)
-	var ids: Array[int] = GameState.seed_results_preview()
+	var ids: Array[int] = ResultsPreview.seed_results()
 	TestFixtures.check(res, "the seeded results are there", ids.size() >= 2, str(ids.size()))
 	if ids.size() < 2:
 		return
@@ -1005,15 +1025,15 @@ static func _case_contract_bonus(res: Dictionary) -> void:
 		paid += member.pay
 	TestFixtures.check(res, "the pay handed out is the whole bonus", paid == won.bonus(),
 		str(paid) + " of " + str(won.bonus()))
-	TestFixtures.check(res, "the bonus is a fifth of the net",
-		won.bonus() == int(floor(float(won.net()) * 0.2)), str(won.bonus()))
+	TestFixtures.check(res, "the bonus is a fifth of the reward, before the expenses",
+		won.bonus() == int(floor(float(won.reward) * 0.2)), str(won.bonus()))
 	TestFixtures.check(res, "the guild keeps the rest",
 		won.guild_share() == won.net() - won.bonus(), str(won.guild_share()))
 	var lost: ContractResultData = GameState.result_of(ids[1])
 	TestFixtures.check(res, "a failed contract pays no bonus",
 		lost != null and lost.bonus() == 0, str(ids[1]))
 	BenefitsManager.set_benefit("contract", 0)
-	var again: Array[int] = GameState.seed_results_preview()
+	var again: Array[int] = ResultsPreview.seed_results()
 	if again.size() < 1:
 		return
 	var plain: ContractResultData = GameState.result_of(again[0])
@@ -1061,8 +1081,8 @@ static func _case_tick(res: Dictionary) -> void:
 		str(seen["n"]))
 	BenefitsManager.profit_share_due.disconnect(counter)
 	BenefitsManager.reset()
-#The payday countdown off the calendar: a fresh campaign sits on the 2nd of Daith at 8:00, so the
-#next wages are a whole month out, and the text falls to whole hours on the last day.
+#The payday countdown off the calendar: a fresh campaign sits on the 3rd of Erta at 8:00, so the
+#next wages are 39 days out on the 2nd of Kusarra, and the text falls to whole hours on the last day.
 static func _case_payday(res: Dictionary) -> void:
 	_fresh()
 	var now: int = CampaignClock.now()
@@ -1074,16 +1094,16 @@ static func _case_payday(res: Dictionary) -> void:
 		BenefitsManager.payday_minutes_left() == due - now,
 		"left %d gap %d" % [BenefitsManager.payday_minutes_left(), due - now])
 	var days: int = BenefitsManager.payday_days_left()
-	TestFixtures.check(res, "a fresh campaign is a whole month from payday",
-		days == 30 and BenefitsManager.payday_text() == VacationPolicy.plural(30, "Day"),
+	TestFixtures.check(res, "a fresh campaign on the 3rd of Erta is 39 days from payday",
+		days == 39 and BenefitsManager.payday_text() == GuiDates.plural(39, "Day"),
 		"days %d text '%s'" % [days, BenefitsManager.payday_text()])
 	TestFixtures.check(res, "a payday that far out reads in the good colour",
-		BenefitsManager.payday_color() == BenefitsManager.ON_COLOR,
+		BenefitsManager.payday_color() == PayrollLogic.OK_COLOR,
 		str(BenefitsManager.payday_color()))
 	CampaignClock.advance_to(due - 15 * TrynnCalendar.MINUTES_PER_DAY)
 	TestFixtures.check(res, "fifteen days out reads plainly",
 		BenefitsManager.payday_days_left() == 15
-			and BenefitsManager.payday_color() == BenefitsManager.PLAIN_COLOR,
+			and BenefitsManager.payday_color() == GuiColors.CREAM,
 		"days %d colour %s"
 			% [BenefitsManager.payday_days_left(), BenefitsManager.payday_color()])
 	CampaignClock.advance_to(due - 6 * TrynnCalendar.MINUTES_PER_DAY)
@@ -1095,19 +1115,19 @@ static func _case_payday(res: Dictionary) -> void:
 	CampaignClock.advance_to(due - 2 * TrynnCalendar.MINUTES_PER_DAY)
 	TestFixtures.check(res, "two days out reads over",
 		BenefitsManager.payday_days_left() == 2
-			and BenefitsManager.payday_text() == VacationPolicy.plural(2, "Day")
+			and BenefitsManager.payday_text() == GuiDates.plural(2, "Day")
 			and BenefitsManager.payday_color() == PayrollLogic.OVER_COLOR,
 		"days %d text '%s'" % [BenefitsManager.payday_days_left(),
 			BenefitsManager.payday_text()])
 	CampaignClock.advance_to(due - 90)
 	TestFixtures.check(res, "the last day counts in whole hours rounded up",
 		BenefitsManager.payday_days_left() == 0
-			and BenefitsManager.payday_text() == VacationPolicy.plural(2, "Hour"),
+			and BenefitsManager.payday_text() == GuiDates.plural(2, "Hour"),
 		"days %d text '%s'" % [BenefitsManager.payday_days_left(),
 			BenefitsManager.payday_text()])
 	CampaignClock.advance_to(due - 30)
 	TestFixtures.check(res, "half an hour out still reads one hour",
-		BenefitsManager.payday_text() == VacationPolicy.plural(1, "Hour"),
+		BenefitsManager.payday_text() == GuiDates.plural(1, "Hour"),
 		BenefitsManager.payday_text())
 	CampaignClock.advance_to(due)
 	TestFixtures.check(res, "the payday minute itself points at the next month",
@@ -1133,7 +1153,7 @@ static func _case_max_at(res: Dictionary) -> void:
 		if String(row.get("key", "")) == "max_at":
 			text = String(row.get("value_text", ""))
 	TestFixtures.check(res, "the Simultaneous row reads the capped count",
-		text == VacationPolicy.plural(50, "Merc"), text)
+		text == GuiDates.plural(50, "Merc"), text)
 	BenefitsManager.set_vacation({"max_at": -4})
 	TestFixtures.check(res, "the policy floors the mercs away at once at none",
 		BenefitsManager.policy().max_at == 0, str(BenefitsManager.policy().max_at))

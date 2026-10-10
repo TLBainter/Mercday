@@ -1,7 +1,10 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/HUD/MoneyMenu.gd" id="1"]
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/NoteIcon.gd" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/hud_money.tres" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/hud_expenses.tres" id="5"]
 
 [node name="MoneyMenu" type="HBoxContainer"]
 custom_minimum_size = Vector2(0, 76)
@@ -34,3 +37,11 @@ layout_mode = 2
 size_flags_vertical = 4
 theme_type_variation = &"SmallLabel"
 text = ""
+
+[node name="HelpTarget" type="Node" parent="Amount"]
+script = ExtResource("3")
+hint = ExtResource("4")
+
+[node name="HelpTarget" type="Node" parent="Expenses"]
+script = ExtResource("3")
+hint = ExtResource("5")

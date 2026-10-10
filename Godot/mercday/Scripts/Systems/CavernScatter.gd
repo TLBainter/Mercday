@@ -78,7 +78,7 @@ static func _fill_tunnel(field: BattlefieldArea, tunnel: Dictionary, protected: 
 	for _i: int in range(count):
 		var obs_name: String = "Stalactite"
 		if wide:
-			obs_name = CAVE_NAMES[CavernGenerator._weighted_pick(TUNNEL_WEIGHTS)]
+			obs_name = CAVE_NAMES[WeightedTable.pick_index(TUNNEL_WEIGHTS)]
 		_place_cave(field, obs_name, cells, protected, tally)
 
 
@@ -164,8 +164,7 @@ static func _usable(field: BattlefieldArea, cell: Vector2i, protected: Dictionar
 
 
 static func _attach(field: BattlefieldArea, obs: Dictionary) -> void:
-	field.obstacles.append(obs)
-	field._obs_map[field.obs_key(obs["pos"] as Vector2i, 0)] = obs
+	field.add_obstacle(obs, field.obs_key(obs["pos"] as Vector2i, 0))
 
 
 static func _detach(field: BattlefieldArea, added: Array[Dictionary]) -> void:

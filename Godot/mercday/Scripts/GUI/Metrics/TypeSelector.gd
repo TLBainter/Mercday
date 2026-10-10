@@ -1,4 +1,4 @@
-class_name TypeSelector extends Button
+class_name TypeSelector extends PopupButton
 
 #Picks which contract types the Contract graph plots. The button opens a checkbox popup, one row
 #per contract type; every type checked reads the bare totals the record keeps beside the per type
@@ -8,30 +8,29 @@ class_name TypeSelector extends Button
 const ALL := "All"
 const BOX_SIZE := Vector2(14, 14)
 const DOT_SIZE := Vector2(4, 4)
-const BORDER_COLOR := Color(0.949020, 0.549020, 0.156863, 1)
-const OFF_BOX := Color(0.039216, 0.058824, 0.109804, 1)
-const ON_TEXT := Color(0.952941, 0.917647, 0.843137, 1)
-const OFF_TEXT := Color(0.541176, 0.592157, 0.678431, 1)
+const BORDER_COLOR: Color = GuiColors.ORANGE
+const OFF_BOX: Color = GuiColors.INK
+const ON_TEXT: Color = GuiColors.CREAM
+const OFF_TEXT: Color = GuiColors.DIM_TEXT
 const LOCKED_ALPHA := 0.6
 const LOCKED_TIP := "At least one type must stay selected"
 const ALL_CAPTION := "All Contract Types"
 const ALL_SUB := "Showing totals across every type"
+#The Margin around the popup list, top and bottom together.
+const POPUP_PAD := 16
 
 signal types_changed(names: Array[String])
-
-@export var popup_width: int = 260
 
 var _names: Array[String] = []
 var _selected: Array[String] = []
 
 @onready var caption_label: Label = $Row/Caption
 @onready var sub_label: Label = $Row/Sub
-@onready var menu: PopupPanel = $Menu
 @onready var list: VBoxContainer = $Menu/Margin/List
 
 
 func _ready() -> void:
-	pressed.connect(_on_pressed)
+	super()
 	rebuild()
 
 
@@ -107,9 +106,7 @@ func _rows() -> Array[Button]:
 
 
 func _build_rows() -> void:
-	for child: Node in list.get_children():
-		list.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(list)
 	for i: int in _names.size():
 		list.add_child(_make_row(_names[i], i))
 
@@ -121,14 +118,7 @@ func _make_row(type_name: String, index: int) -> Button:
 	row.flat = true
 	row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	row.pressed.connect(_on_row_pressed.bind(type_name))
-	var line := HBoxContainer.new()
-	line.name = "Line"
-	line.set_anchors_preset(Control.PRESET_FULL_RECT)
-	line.offset_left = 6.0
-	line.offset_right = -6.0
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	line.add_theme_constant_override("separation", 8)
-	row.add_child(line)
+	var line: HBoxContainer = row_line(row)
 	var box := Panel.new()
 	box.name = "Box"
 	box.custom_minimum_size = BOX_SIZE
@@ -173,18 +163,12 @@ func _apply() -> void:
 
 
 static func _box_style(on: bool) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = BORDER_COLOR if on else OFF_BOX
-	style.border_color = BORDER_COLOR
-	style.set_border_width_all(2)
-	return style
+	return GuiStyle.flat(BORDER_COLOR if on else OFF_BOX, 2, BORDER_COLOR)
 
 
-func _on_pressed() -> void:
-	var rect: Rect2 = get_global_rect()
-	var pos := Vector2i(int(rect.position.x), int(rect.end.y))
-	var height: int = int(list.get_combined_minimum_size().y) + 16
-	menu.popup(Rect2i(pos, Vector2i(maxi(popup_width, int(rect.size.x)), height)))
+func _popup_size() -> Vector2:
+	return Vector2(maxi(popup_width, int(get_global_rect().size.x)),
+		int(list.get_combined_minimum_size().y) + POPUP_PAD)
 
 
 func _on_row_pressed(type_name: String) -> void:

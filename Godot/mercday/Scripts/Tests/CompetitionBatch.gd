@@ -36,15 +36,9 @@ static func run(host: Node, count: int) -> void:
 	var total: int = deck.size()
 	for i: int in range(total):
 		TestFixtures.reset_generator_rolls()
-		CampaignKnowledge.clear()
-		MercPool.clear()
-		FleeSystem.reset()
+		ContractFixtures.reset_party_state()
 		var size: int = randi_range(PARTY_MIN, PARTY_MAX)
-		var team: Array[MercenaryData] = []
-		for j: int in range(size):
-			team.append(HarnessRoster.roster_merc(j))
-		BeauSystem.set_roster(team)
-		GuildRoster.set_roster(team)
+		var team: Array[MercenaryData] = ContractFixtures.roster_team(size)
 		CompetitionResolver.reset()
 		var contract: ContractData = ContractGenerator.generate(CONTRACT_TYPE)
 		if contract == null:
@@ -54,12 +48,9 @@ static func run(host: Node, count: int) -> void:
 		contract.difficulty = deck[i]
 		contract.assigned_primary_event = EVENT_NAME
 		contract.unsavory = false
-		var party_level: float = _level_mean(team)
-		var contract_run := ContractRun.new()
-		contract_run.contract = contract
-		contract_run.team.assign(team)
-		contract_run.location = _location(contract, places)
-		contract_run.line_fn = _line_fn()
+		var party_level: float = BatchReport.level_mean(team)
+		var contract_run: ContractRun = ContractFixtures.contract_run(contract, team,
+			ContractFixtures.contract_location(contract, places, true), _line_fn())
 		_lines.clear()
 		var outcome: Dictionary = await EventRunner.run(event, contract_run)
 		var record: Dictionary = _measure(outcome, deck[i], size, party_level)
@@ -68,16 +59,6 @@ static func run(host: Node, count: int) -> void:
 	CompetitionResolver.reset()
 	print_report(records, skipped)
 	host.get_tree().quit()
-
-
-#Contracts name a city for a Competition; a place without a terrain fights on a random wilderness map instead.
-static func _location(contract: ContractData, places: Array[LocationData]) -> LocationData:
-	var loc: LocationData = DataManager.locations.get(contract.location_a, null) as LocationData
-	if loc != null and ContractTerrain.has_terrain(loc):
-		return loc
-	if places.is_empty():
-		return loc
-	return places[randi() % places.size()]
 
 
 static func _line_fn() -> Callable:
@@ -92,15 +73,6 @@ static func _count_lines(mark: String) -> int:
 	for line: String in _lines:
 		n += line.count(mark)
 	return n
-
-
-static func _level_mean(mercs: Array[MercenaryData]) -> float:
-	if mercs.is_empty():
-		return -1.0
-	var total: float = 0.0
-	for merc: MercenaryData in mercs:
-		total += float(merc.stats.get("level", 0.0))
-	return total / float(mercs.size())
 
 
 #One event reduced to the numbers the tables read; -1 marks nothing to measure.
@@ -134,7 +106,7 @@ static func _measure(outcome: Dictionary, difficulty: float, party: int, party_l
 		"party": party,
 		"rivals": rivals.size(),
 		"party_level": party_level,
-		"rival_level": _level_mean(rivals),
+		"rival_level": BatchReport.level_mean(rivals),
 		"shape": shape,
 		"rounds": rounds,
 		"rounds_won": int(outcome.get("rounds_won", 0)),
@@ -177,7 +149,7 @@ static func print_report(records: Array[Dictionary], skipped: int) -> void:
 		print("COMPETITION BATCH: no event completed")
 		return
 	print(_row(HEADINGS))
-	print(_rule(WIDTHS, ROW_FMT))
+	print(BatchReport.rule(WIDTHS, ROW_FMT))
 	for difficulty: float in TestFixtures.difficulties(records):
 		print(_row(_stats_row("%.1f" % difficulty, TestFixtures.at_difficulty(records, difficulty))))
 	print(_row(_stats_row("ALL", records)))
@@ -200,10 +172,10 @@ static func _stats_row(label: String, rows: Array[Dictionary]) -> Array:
 		TestFixtures.num(TestFixtures.mean_valid(rows, "party_level")),
 		TestFixtures.num(TestFixtures.mean_valid(rows, "rival_level")),
 		TestFixtures.pct(TestFixtures.rate(rows, "win")),
-		TestFixtures.pct(_share(_sum(rows, "rounds_won"), total)),
-		TestFixtures.pct(_share(_sum(rows, "ties"), total)),
-		TestFixtures.pct(_share(_sum(rows, "war_won"), bouts)),
-		TestFixtures.ratio(_per(_sum(rows, "outs"), bouts)),
+		TestFixtures.pct(BatchReport.share(_sum(rows, "rounds_won"), total)),
+		TestFixtures.pct(BatchReport.share(_sum(rows, "ties"), total)),
+		TestFixtures.pct(BatchReport.share(_sum(rows, "war_won"), bouts)),
+		TestFixtures.ratio(BatchReport.per(_sum(rows, "outs"), bouts)),
 	]
 
 
@@ -229,7 +201,7 @@ static func _print_kinds(records: Array[Dictionary]) -> void:
 				tally[2] = int(tally[2]) + 1
 	print("\n--- ROUNDS BY KIND (contested rounds) ---\n")
 	print(KIND_FMT % KIND_HEADINGS)
-	print(_rule(KIND_WIDTHS, KIND_FMT))
+	print(BatchReport.rule(KIND_WIDTHS, KIND_FMT))
 	var sums: Array = [0, 0, 0]
 	for key: String in tallies.keys():
 		var tally: Array = tallies[key]
@@ -241,8 +213,8 @@ static func _print_kinds(records: Array[Dictionary]) -> void:
 
 static func _kind_row(label: String, tally: Array) -> String:
 	var n: int = int(tally[0]) + int(tally[1]) + int(tally[2])
-	return KIND_FMT % [label, str(n), TestFixtures.pct(_share(int(tally[0]), n)), TestFixtures.pct(_share(int(tally[1]), n)),
-		TestFixtures.pct(_share(int(tally[2]), n))]
+	return KIND_FMT % [label, str(n), TestFixtures.pct(BatchReport.share(int(tally[0]), n)),
+		TestFixtures.pct(BatchReport.share(int(tally[1]), n)), TestFixtures.pct(BatchReport.share(int(tally[2]), n))]
 
 
 static func _print_shapes(records: Array[Dictionary]) -> void:
@@ -260,25 +232,18 @@ static func _print_shapes(records: Array[Dictionary]) -> void:
 	for key: String in shapes.keys():
 		parts.append("%s %d" % [key, int(shapes[key])])
 	print("\nSHAPES: %s" % ", ".join(parts))
-	print("FORFEITS: %d of %d rounds (%s)" % [forfeits, rounds, TestFixtures.pct(_share(forfeits, rounds))])
+	print("FORFEITS: %d of %d rounds (%s)" % [forfeits, rounds, TestFixtures.pct(BatchReport.share(forfeits, rounds))])
 
 
 static func _print_removals(records: Array[Dictionary]) -> void:
 	var outs: int = _sum(records, "outs")
 	var bouts: int = _sum(records, "war_bouts")
 	print("REMOVALS: %d out of the competition in %d War bouts (%s per bout), fled %d, departed %d" % [
-		outs, bouts, TestFixtures.ratio(_per(outs, bouts)), _sum(records, "fled"), _sum(records, "departed")])
+		outs, bouts, TestFixtures.ratio(BatchReport.per(outs, bouts)), _sum(records, "fled"), _sum(records, "departed")])
 
 
 static func _row(cells: Array) -> String:
 	return ROW_FMT % cells
-
-
-static func _rule(widths: Array, fmt: String) -> String:
-	var cells: Array = []
-	for width: int in widths:
-		cells.append("-".repeat(width))
-	return fmt % cells
 
 
 static func _sum(rows: Array[Dictionary], key: String) -> int:
@@ -286,15 +251,3 @@ static func _sum(rows: Array[Dictionary], key: String) -> int:
 	for record: Dictionary in rows:
 		total += int(record[key])
 	return total
-
-
-static func _share(part: int, whole: int) -> float:
-	if whole <= 0:
-		return -1.0
-	return float(part) / float(whole) * 100.0
-
-
-static func _per(part: int, whole: int) -> float:
-	if whole <= 0:
-		return -1.0
-	return float(part) / float(whole)

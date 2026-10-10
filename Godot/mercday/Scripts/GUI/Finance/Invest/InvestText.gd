@@ -4,32 +4,27 @@ class_name InvestText
 #portfolio value, gain, New Position Value) carries two decimals; notes that move through the
 #bank (the fee, a total, a dividend) are whole notes.
 
-const INK: Color = Color("#0a0f1c")
-const NAVY: Color = Color("#0e1628")
-const NAVY2: Color = Color("#15223d")
-const PANEL: Color = Color("#1a2b4d")
-const BLUE: Color = Color("#1f3560")
-const BLUE2: Color = Color("#2b4f8a")
-const BLUE3: Color = Color("#3b6fb6")
-const BEVEL_HI: Color = Color("#28447a")
-const BEVEL_LO: Color = Color("#111c33")
-const ORANGE: Color = Color("#f28c28")
-const ORANGE_HI: Color = Color("#ffb266")
-const ORANGE_LO: Color = Color("#b85a12")
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
-const MUTED: Color = Color("#5e7699")
-const GREEN: Color = Color("#6cc36a")
-const GREEN_HI: Color = Color("#9be29a")
-const GREEN_LO: Color = Color("#3f8a3e")
-const RED: Color = Color("#e8583f")
-const RED_HI: Color = Color("#ff8a70")
+const INK: Color = GuiColors.INK
+const NAVY: Color = GuiColors.ROW_FILL
+const NAVY2: Color = GuiColors.ROW_HOVER
+const PANEL: Color = GuiColors.BOX_BG
+const BLUE: Color = GuiColors.BLUE_LO
+const BLUE2: Color = GuiColors.BLUE
+const BLUE3: Color = GuiColors.BLUE_HI
+const ORANGE: Color = GuiColors.ORANGE
+const ORANGE_HI: Color = GuiColors.ORANGE_HI
+const ORANGE_LO: Color = GuiColors.ORANGE_LO
+const CREAM: Color = GuiColors.CREAM
+const SKY: Color = GuiColors.SKY
+const MUTED: Color = GuiColors.MUTED
+const GREEN: Color = GuiColors.GREEN
+const GREEN_HI: Color = GuiColors.GREEN_HI
+const GREEN_LO: Color = GuiColors.GREEN_LO
+const RED: Color = GuiColors.RED
+const RED_HI: Color = GuiColors.RED_HI
 const RED_LO: Color = Color("#a83a28")
-const LIGHT_BLUE: Color = Color("#5aa6e8")
-const YELLOW: Color = Color("#f2d33d")
-const SWITCH_BG: Color = Color("#0f1a30")
-const SWITCH_OFF: Color = Color("#4a6588")
-const BACKDROP: Color = Color(0.023529, 0.039216, 0.078431, 0.72)
+const YELLOW: Color = GuiColors.RAMP_YELLOW
+const SWITCH_OFF: Color = GuiColors.SWITCH_OFF
 
 #A change this small prints in cream: the PROTO treats it as flat.
 const FLAT_LIMIT: float = 0.05
@@ -51,13 +46,13 @@ static func value_text(v: float) -> String:
 	if cents >= 100:
 		whole += 1
 		cents -= 100
-	var out: String = "%s.%02d" % [NotesLabel.format_amount(whole), cents]
+	var out: String = "%s.%02d" % [TransactionData.grouped(whole), cents]
 	return ("-" + out) if v < 0.0 else out
 
 
 #Whole notes grouped by thousands: "1,204".
 static func notes_text(n: int) -> String:
-	return NotesLabel.format_amount(n)
+	return TransactionData.grouped(n)
 
 
 static func sign_text(v: float) -> String:
@@ -106,20 +101,6 @@ static func since_text(day: int) -> String:
 	return TrynnCalendar.date_text(day * CampaignClock.MINUTES_PER_DAY)
 
 
-#A PROTO bevel: the body, a light band along the top, a dark band along the bottom and a hard
-#outline around all of it.
-static func draw_bevel(target: CanvasItem, box: Rect2, body: Color, hi: Color, lo: Color,
-		band: float = 3.0, outline_width: float = 3.0, outline: Color = INK) -> void:
-	target.draw_rect(box, body, true)
-	target.draw_rect(Rect2(box.position, Vector2(box.size.x, band)), hi, true)
-	target.draw_rect(Rect2(box.position + Vector2(0.0, box.size.y - band),
-		Vector2(box.size.x, band)), lo, true)
-	if outline_width > 0.0:
-		var half: float = outline_width / 2.0
-		target.draw_rect(Rect2(box.position + Vector2(half, half),
-			box.size - Vector2(outline_width, outline_width)), outline, false, outline_width)
-
-
 #Godot paints the built-in text of a Button before the script _draw, so a bevel fill covers it.
 #The caption of a painted button therefore rides in a child Label, which paints after the fill.
 static func caption_label(host: Button) -> Label:
@@ -137,16 +118,13 @@ static func caption_label(host: Button) -> Label:
 	return made
 
 
-#The font, the size, the colour and the outline the Button carries, written as Label overrides.
+#The font, the size and the colour the Button carries, written as Label overrides; no text outline.
 static func copy_button_font(host: Button, target: Label) -> void:
 	var face: Font = host.get_theme_font("font")
 	if face != null:
 		target.add_theme_font_override("font", face)
 	target.add_theme_font_size_override("font_size", host.get_theme_font_size("font_size"))
 	target.add_theme_color_override("font_color", host.get_theme_color("font_color"))
-	target.add_theme_constant_override("outline_size", host.get_theme_constant("outline_size"))
-	target.add_theme_color_override("font_outline_color",
-		host.get_theme_color("font_outline_color"))
 
 
 #The dashed ring of the empty tooltip box.

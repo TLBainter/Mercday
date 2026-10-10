@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://io77wfh0frn7"
+path="res://.godot/imported/ESM_BG_Cinematic_FX_ui_notification_one_shot_menu_digital_pause_vintage_ghost_03.wav-f099f25a5e224271318fdba8d6a62e83.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/UX/Hovers/MercDave Hovers/ESM_BG_Cinematic_FX_ui_notification_one_shot_menu_digital_pause_vintage_ghost_03.wav"
+dest_files=["res://.godot/imported/ESM_BG_Cinematic_FX_ui_notification_one_shot_menu_digital_pause_vintage_ghost_03.wav-f099f25a5e224271318fdba8d6a62e83.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

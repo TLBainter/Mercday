@@ -66,16 +66,9 @@ static func named_check(label: String, mercs: Array[MercenaryData]) -> void:
 static func _run_check(merc: MercenaryData, check_def: Dictionary) -> void:
 	var result: Dictionary = CheckSystem.make_check(merc, check_def)
 	var rerolls := int(result["rerolls"])
-	var k_bonus := int(result["k_bonus"])
-	var t_bonus := int(result["t_bonus"])
 	var threshold := float(result["threshold"])
 	print("%s" % merc.merc_name)
-	var bonus_parts: Array[String] = []
-	if k_bonus > 0:
-		bonus_parts.append("K+1")
-	if t_bonus > 0:
-		bonus_parts.append("T+1")
-	var bonus_str := (" [%s]" % ", ".join(bonus_parts)) if bonus_parts.size() > 0 else ""
+	var bonus_str := _bonus_str(result)
 	print("  Stat: %-12s Threshold: %.1f%%%s" % [str(result["stat_used"]), threshold, bonus_str])
 	print_rich("  Roll 1:  %s" % MercSheetPrinter.fmt_rolls(result["roll1"] as Array, threshold))
 	if rerolls > 0:
@@ -89,6 +82,16 @@ static func _run_check(merc: MercenaryData, check_def: Dictionary) -> void:
 	if bool(result.get("critical", false)):
 		print_rich("  [color=yellow]** CRITICAL SUCCESS! **[/color]  %s gained: %s\n" % [
 			merc.merc_name, str(result.get("crit_reward", ""))])
+
+
+#The " [K+1, T+1]" tag for the knowledge and tool bonuses a check result carries, or "".
+static func _bonus_str(result: Dictionary) -> String:
+	var bonus_parts: Array[String] = []
+	if int(result["k_bonus"]) > 0:
+		bonus_parts.append("K+1")
+	if int(result["t_bonus"]) > 0:
+		bonus_parts.append("T+1")
+	return (" [%s]" % ", ".join(bonus_parts)) if bonus_parts.size() > 0 else ""
 
 
 static func attack_check(mercs: Array[MercenaryData]) -> void:
@@ -127,8 +130,6 @@ static func _run_attack_check(merc: MercenaryData) -> void:
 	var threshold: float = float(core_result["threshold"])
 	var stat_used: String = str(core_result["stat_used"])
 	var rerolls: int = int(core_result["rerolls"])
-	var k_bonus: int = int(core_result["k_bonus"])
-	var t_bonus: int = int(core_result["t_bonus"])
 
 	var dice: Dictionary = _roll_weapon_dice(weapon, threshold)
 	var weapon_die_successes: int = dice["successes"]
@@ -141,12 +142,7 @@ static func _run_attack_check(merc: MercenaryData) -> void:
 
 	var weapon_name: String = weapon.item_name if weapon != null else "(unarmed)"
 	var weapon_type_str: String = weapon.weapon_type if weapon != null else ""
-	var bonus_parts: Array[String] = []
-	if k_bonus > 0:
-		bonus_parts.append("K+1")
-	if t_bonus > 0:
-		bonus_parts.append("T+1")
-	var bonus_str: String = (" [%s]" % ", ".join(bonus_parts)) if bonus_parts.size() > 0 else ""
+	var bonus_str := _bonus_str(core_result)
 
 	print("%s" % merc.merc_name)
 	print("  Weapon:     %s  (%s)" % [weapon_name, weapon_type_str])
@@ -187,10 +183,10 @@ static func _roll_weapon_dice(weapon: WeaponData, threshold: float) -> Dictionar
 		out["dmg_type"] = weapon.damage_types_1[0]
 	else:
 		out["dmg_type"] = "Unknown"
-	var parsed: Dictionary = AttackSystem._parse_damage_formula(dmg_formula)
+	var parsed: Dictionary = AttackSystem.parse_damage_formula(dmg_formula)
 	out["flat_bonus"] = parsed["flat_bonus"]
 	if parsed["is_todo"]:
-		out["label"] = dmg_formula + "  [#TODO: ammunition]"
+		out["label"] = "(no dice)"
 		return out
 	var num_dice: int = parsed["num_dice"]
 	var die_sides: int = parsed["die_sides"]
@@ -297,7 +293,7 @@ static func drop_mercs(mercs: Array[MercenaryData]) -> void:
 		var fall_distance := randi_range(1, 6)
 		state.set_height(merc, fall_distance)
 		print_rich("  [color=cyan]%s dropped from height %d[/color]" % [merc.merc_name, fall_distance])
-		var lines := CombatApplicator.resolve_fall(merc, fall_distance, state)
+		var lines := FallResolver.resolve_fall(merc, fall_distance, state)
 		for line: String in lines:
 			print_rich(line)
 		state.set_height(merc, 0)

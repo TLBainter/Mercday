@@ -1,12 +1,11 @@
 class_name GuiCoachTests
 
-#Stage 2 coaching: the Coaching box on the Overview tab, the CoachDialog and its PipModules.
+#Coaching: the Coaching box on the Overview tab, the CoachDialog and its PipModules.
 #Run: godot --headless --path . with the user arg --gui-coach-tests
 
 const COACH_BOX := preload("res://Scenes/GUI/Mercs/CoachingBox.tscn")
 const COACH_DIALOG := preload("res://Scenes/GUI/Mercs/CoachDialog.tscn")
 const PIP_MODULE := preload("res://Scenes/GUI/Mercs/PipModule.tscn")
-const MERC_VIEWER := preload("res://Scenes/GUI/Mercs/MercViewer.tscn")
 
 const STANDARD_MODES: Array[StringName] = [&"Auto", &"Random", &"Utility", &"Stats"]
 const COMBAT_MODES: Array[StringName] = [&"Support", &"Defensive", &"Offensive"]
@@ -28,7 +27,7 @@ static func run(host: Node) -> bool:
 	await _case_prune(res, host)
 	await _case_lock_hover(res, host)
 	await _case_on_page(res, host)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	return TestFixtures.summarize(res, "GUI COACH")
 
@@ -36,9 +35,9 @@ static func run(host: Node) -> bool:
 static func _fresh() -> void:
 	TestFixtures.reset_generator_rolls()
 	seed(11)
-	SubscriptionManager.reset()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
+	SubscriptionManager.max_out()
 
 
 static func _first() -> MercView:
@@ -81,7 +80,7 @@ static func _case_box(res: Dictionary, host: Node) -> void:
 		box.caption.text == "Coaching", "got '%s'" % box.caption.text)
 	TestFixtures.check(res, "the caption is Silkscreen 9 px orange",
 		box.caption.get_theme_font_size("font_size") == 9
-			and box.caption.get_theme_color("font_color").is_equal_approx(Color("#f28c28")),
+			and box.caption.get_theme_color("font_color").is_equal_approx(GuiColors.ORANGE),
 		"size %d colour %s" % [box.caption.get_theme_font_size("font_size"),
 			box.caption.get_theme_color("font_color")])
 	TestFixtures.check(res, "the button reads Coach in Silkscreen 11 px",
@@ -103,8 +102,8 @@ static func _case_box(res: Dictionary, host: Node) -> void:
 		box.plan_text() == "Plan: Auto" and box.plan_value.text == "Auto",
 		"line '%s' value '%s'" % [box.plan_text(), box.plan_value.text])
 	TestFixtures.check(res, "the plan prefix is sky and the mode is cream",
-		box.plan_prefix.get_theme_color("font_color").is_equal_approx(Color("#9cc6ef"))
-			and box.plan_value.get_theme_color("font_color").is_equal_approx(Color("#f3ead7")),
+		box.plan_prefix.get_theme_color("font_color").is_equal_approx(GuiColors.SKY)
+			and box.plan_value.get_theme_color("font_color").is_equal_approx(GuiColors.CREAM),
 		"prefix %s mode %s" % [box.plan_prefix.get_theme_color("font_color"),
 			box.plan_value.get_theme_color("font_color")])
 	TestFixtures.check(res, "the plan line is 12 px on both halves",
@@ -156,7 +155,7 @@ static func _case_box_follows_plan(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a mode whose gate is shut is never stored",
 		GameState.pip_mode(uid) == &"Auto" and box.plan_text() == "Plan: Auto",
 		"mode '%s' line '%s'" % [GameState.pip_mode(uid), box.plan_text()])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	box.queue_free()
 
 
@@ -167,25 +166,25 @@ static func _case_dialog_chrome(res: Dictionary, host: Node) -> void:
 		dialog.visible and dialog.merc != null and dialog.merc.uid == view.uid,
 		"visible %s merc %s" % [dialog.visible, dialog.merc])
 	TestFixtures.check(res, "the header names the Performance Improvement Plan",
-		dialog.header_label.text == "Performance Improvement Plan",
-		"got '%s'" % dialog.header_label.text)
+		dialog.kicker_label.text == "Performance Improvement Plan",
+		"got '%s'" % dialog.kicker_label.text)
 	TestFixtures.check(res, "the merc name is orange at 18 px",
-		dialog.name_label.text == view.name
-			and dialog.name_label.get_theme_color("font_color").is_equal_approx(Color("#f28c28"))
-			and dialog.name_label.get_theme_font_size("font_size") == 18,
-		"name '%s' colour %s size %d" % [dialog.name_label.text,
-			dialog.name_label.get_theme_color("font_color"),
-			dialog.name_label.get_theme_font_size("font_size")])
+		dialog.title_label.text == view.name
+			and dialog.title_label.get_theme_color("font_color").is_equal_approx(GuiColors.ORANGE)
+			and dialog.title_label.get_theme_font_size("font_size") == 18,
+		"name '%s' colour %s size %d" % [dialog.title_label.text,
+			dialog.title_label.get_theme_color("font_color"),
+			dialog.title_label.get_theme_font_size("font_size")])
 	TestFixtures.check(res, "the line under the name explains the pick",
 		dialog.subtitle_label.text == "Choose how this merc focuses when they level up.",
 		"got '%s'" % dialog.subtitle_label.text)
 	TestFixtures.check(res, "the box is 600 px wide",
 		is_equal_approx(dialog.box.custom_minimum_size.x, 600.0)
-			and is_equal_approx(CoachDialog.BOX_WIDTH, 600.0),
-		"min %f const %f" % [dialog.box.custom_minimum_size.x, CoachDialog.BOX_WIDTH])
+			and is_equal_approx(dialog.box_width, 600.0),
+		"min %f width %f" % [dialog.box.custom_minimum_size.x, dialog.box_width])
 	var ring: StyleBoxFlat = dialog.box.get_theme_stylebox("panel") as StyleBoxFlat
 	TestFixtures.check(res, "the box wears the four px orange ring",
-		ring != null and ring.border_color == Color("#f28c28") and ring.border_width_left == 4,
+		ring != null and ring.border_color == GuiColors.ORANGE and ring.border_width_left == 4,
 		"ring %s width %d" % [ring.border_color if ring != null else Color.BLACK,
 			ring.border_width_left if ring != null else -1])
 	var dim: StyleBoxFlat = dialog.backdrop.get_theme_stylebox("panel") as StyleBoxFlat
@@ -196,11 +195,11 @@ static func _case_dialog_chrome(res: Dictionary, host: Node) -> void:
 		"dim %s" % [dim.bg_color if dim != null else Color.BLACK])
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the close X is the shared 36 px art and the footer names Cancel and Confirm",
-		dialog.close_x.text == "" and dialog.close_x.icon == CloseX.icon(CloseX.SCALE_WINDOW)
-			and dialog.close_x.size == Vector2(36, 36)
+		dialog.close_button.text == "" and dialog.close_button.icon == CloseX.icon(CloseX.SCALE_WINDOW)
+			and dialog.close_button.size == Vector2(36, 36)
 			and dialog.cancel_button.text == "Cancel" and dialog.confirm_button.text == "Confirm",
-		"icon %s size %s cancel '%s' confirm '%s'" % [dialog.close_x.icon,
-			dialog.close_x.size, dialog.cancel_button.text, dialog.confirm_button.text])
+		"icon %s size %s cancel '%s' confirm '%s'" % [dialog.close_button.icon,
+			dialog.close_button.size, dialog.cancel_button.text, dialog.confirm_button.text])
 	TestFixtures.check(res, "an open dialog is the top frame so escape reaches it",
 		GuiFrameStack.top() == dialog, "top %s" % GuiFrameStack.top())
 	dialog.press_cancel()
@@ -222,7 +221,7 @@ static func _case_dialog_groups(res: Dictionary, host: Node) -> void:
 		var heading: Label = block.get_node("Heading") as Label
 		if heading.text != group or heading.get_theme_font_size("font_size") != 9:
 			bad_heads.append(group)
-		if not heading.get_theme_color("font_color").is_equal_approx(Color("#9cc6ef")):
+		if not heading.get_theme_color("font_color").is_equal_approx(GuiColors.SKY):
 			bad_heads.append(group + " colour")
 	TestFixtures.check(res, "every group heading is Silkscreen 9 px sky",
 		bad_heads.is_empty(), "bad %s" % str(bad_heads))
@@ -268,9 +267,9 @@ static func _case_dialog_groups(res: Dictionary, host: Node) -> void:
 			if dialog.module_for(mode).group_color != PipDefs.group_color(group):
 				colours_ok = false
 	TestFixtures.check(res, "each module takes the colour of its group",
-		colours_ok and PipDefs.group_color(PipDefs.GROUP_STANDARD) == Color("#9cc6ef")
-			and PipDefs.group_color(PipDefs.GROUP_COMBAT) == Color("#e8583f")
-			and PipDefs.group_color(PipDefs.GROUP_SKILL) == Color("#6cc36a"),
+		colours_ok and PipDefs.group_color(PipDefs.GROUP_STANDARD) == GuiColors.SKY
+			and PipDefs.group_color(PipDefs.GROUP_COMBAT) == GuiColors.RED
+			and PipDefs.group_color(PipDefs.GROUP_SKILL) == GuiColors.GREEN,
 		"standard %s combat %s skill %s" % [PipDefs.group_color(PipDefs.GROUP_STANDARD),
 			PipDefs.group_color(PipDefs.GROUP_COMBAT),
 			PipDefs.group_color(PipDefs.GROUP_SKILL)])
@@ -297,7 +296,7 @@ static func _case_module_states(res: Dictionary, host: Node) -> void:
 	var box_style: StyleBoxFlat = module.icon_box.get_theme_stylebox("panel") as StyleBoxFlat
 	TestFixtures.check(res, "the icon box is 30 by 30 over the ink swatch",
 		module.icon_box.custom_minimum_size == Vector2(30.0, 30.0)
-			and box_style != null and box_style.bg_color == Color("#0a0f1c"),
+			and box_style != null and box_style.bg_color == GuiColors.INK,
 		"size %s bg %s" % [module.icon_box.custom_minimum_size,
 			box_style.bg_color if box_style != null else Color.BLACK])
 	var span: float = module.icon_rect.offset_right - module.icon_rect.offset_left
@@ -311,16 +310,16 @@ static func _case_module_states(res: Dictionary, host: Node) -> void:
 			module.name_label.get_theme_font_size("font_size")])
 	var idle: StyleBoxFlat = module.get_theme_stylebox("panel") as StyleBoxFlat
 	TestFixtures.check(res, "an idle module sits dark under a two px blue ring",
-		idle.bg_color == Color("#0e1628") and idle.border_color == Color("#2b4f8a")
+		idle.bg_color == GuiColors.ROW_FILL and idle.border_color == GuiColors.BLUE
 			and idle.border_width_left == 2
-			and module.name_label.get_theme_color("font_color") == Color("#f3ead7"),
+			and module.name_label.get_theme_color("font_color") == GuiColors.CREAM,
 		"bg %s ring %s width %d" % [idle.bg_color, idle.border_color, idle.border_width_left])
 	module.selected = true
 	var hot: StyleBoxFlat = module.get_theme_stylebox("panel") as StyleBoxFlat
 	TestFixtures.check(res, "the picked module takes the three px orange ring and orange name",
-		hot.bg_color == Color("#15223d") and hot.border_color == Color("#f28c28")
+		hot.bg_color == GuiColors.ROW_HOVER and hot.border_color == GuiColors.ORANGE
 			and hot.border_width_left == 3
-			and module.name_label.get_theme_color("font_color") == Color("#f28c28"),
+			and module.name_label.get_theme_color("font_color") == GuiColors.ORANGE,
 		"bg %s ring %s width %d name %s" % [hot.bg_color, hot.border_color, hot.border_width_left,
 			module.name_label.get_theme_color("font_color")])
 	TestFixtures.check(res, "the Current tag waits until the mode is the plan in force",
@@ -330,8 +329,8 @@ static func _case_module_states(res: Dictionary, host: Node) -> void:
 	var pill: StyleBoxFlat = module.tag.get_theme_stylebox("panel") as StyleBoxFlat
 	TestFixtures.check(res, "the Current tag is a sky pill with ink text at 7 px",
 		module.tag.visible and module.tag_label.text == "Current"
-			and pill != null and pill.bg_color == Color("#9cc6ef")
-			and module.tag_label.get_theme_color("font_color") == Color("#0a0f1c")
+			and pill != null and pill.bg_color == GuiColors.SKY
+			and module.tag_label.get_theme_color("font_color") == GuiColors.INK
 			and module.tag_label.get_theme_font_size("font_size") == 7,
 		"visible %s text '%s' bg %s" % [module.tag.visible, module.tag_label.text,
 			pill.bg_color if pill != null else Color.BLACK])
@@ -347,12 +346,12 @@ static func _case_module_states(res: Dictionary, host: Node) -> void:
 	module.set_row(PipDefs.find(&"Support"), SubscriptionManager.entitlements())
 	var shut: StyleBoxFlat = module.get_theme_stylebox("panel") as StyleBoxFlat
 	TestFixtures.check(res, "a locked module goes flat under a two px deep ring",
-		module.locked and shut.bg_color == Color("#101a30")
-			and shut.border_color == Color("#1f3560") and shut.border_width_left == 2,
+		module.locked and shut.bg_color == GuiColors.FRAME_BG
+			and shut.border_color == GuiColors.BLUE_LO and shut.border_width_left == 2,
 		"locked %s bg %s ring %s" % [module.locked, shut.bg_color, shut.border_color])
 	TestFixtures.check(res, "a locked module greys its icon and its name",
-		module.icon_rect.modulate == Color("#3b4d6e")
-			and module.name_label.get_theme_color("font_color") == Color("#5e7699"),
+		module.icon_rect.modulate == GuiColors.LOCK_RING
+			and module.name_label.get_theme_color("font_color") == GuiColors.MUTED,
 		"icon %s name %s" % [module.icon_rect.modulate,
 			module.name_label.get_theme_color("font_color")])
 	TestFixtures.check(res, "a locked module carries the lock of its own upgrade",
@@ -368,7 +367,7 @@ static func _case_module_states(res: Dictionary, host: Node) -> void:
 	module.press()
 	TestFixtures.check(res, "a locked module never answers a press",
 		heard[0] == &"", "heard '%s'" % heard[0])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	module.queue_free()
 
 
@@ -383,7 +382,7 @@ static func _open_modes(dialog: CoachDialog) -> Array[StringName]:
 
 static func _case_locked_modules(res: Dictionary, host: Node) -> void:
 	var dialog: CoachDialog = await _open_dialog(host)
-	TestFixtures.check(res, "the dev default offers every mode",
+	TestFixtures.check(res, "max_out offers every mode",
 		_open_modes(dialog).size() == 14, "open %d" % _open_modes(dialog).size())
 	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
 	var free_only: Array[StringName] = [&"Auto"]
@@ -413,7 +412,7 @@ static func _case_locked_modules(res: Dictionary, host: Node) -> void:
 		{"pip": 1, "combatpip": 3, "skillpip": 5, "magicpip": 1})
 	TestFixtures.check(res, "every coaching tier owned offers all fourteen modes",
 		_open_modes(dialog).size() == 14, "open %d" % _open_modes(dialog).size())
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	dialog.press_cancel()
 	dialog.queue_free()
 
@@ -436,7 +435,7 @@ static func _case_confirm_gate(res: Dictionary, host: Node) -> void:
 			and is_equal_approx(dialog.confirm_button.modulate.a, 1.0),
 		"draft '%s' disabled %s" % [dialog.draft_mode, dialog.confirm_button.disabled])
 	TestFixtures.check(res, "Confirm is the deep prototype green through the shared BevelButton",
-		dialog.confirm_button is BevelButton and dialog.confirm_button.fill == Color("#3f9a4a"),
+		dialog.confirm_button is BevelButton and dialog.confirm_button.fill == GuiColors.GO_FILL,
 		"fill %s" % [dialog.confirm_button.fill])
 	TestFixtures.check(res, "Cancel and Confirm are both the shared BevelButton scene",
 		dialog.cancel_button is BevelButton and dialog.confirm_button is BevelButton
@@ -457,7 +456,7 @@ static func _case_confirm_gate(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a locked mode is refused at the dialog as well as the ledger",
 		dialog.draft_mode == &"Auto" and not dialog.confirm_enabled(),
 		"draft '%s'" % dialog.draft_mode)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	dialog.press_cancel()
 	dialog.queue_free()
 
@@ -522,7 +521,7 @@ static func _case_prune(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the box shows Auto the moment the upgrade goes",
 		box.plan_text() == "Plan: Auto" and _level_mode(uid) == "Auto",
 		"line '%s' level '%s'" % [box.plan_text(), _level_mode(uid)])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	GameState.set_pip_mode(uid, &"Tradition")
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE,
 		{"pip": 1, "skillpip": 5})
@@ -533,7 +532,7 @@ static func _case_prune(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a Free plan takes every coached mode with it",
 		GameState.pip_modes.is_empty() and box.plan_text() == "Plan: Auto",
 		"modes %s line '%s'" % [str(GameState.pip_modes), box.plan_text()])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	box.queue_free()
 
 
@@ -568,16 +567,14 @@ static func _case_lock_hover(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "an open module tooltip carries no lock beside it",
 		live.lock == null and not live.lock_holder.visible and tip.visible,
 		"lock %s holder %s" % [live.lock, live.lock_holder.visible])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	dialog.press_cancel()
 	dialog.queue_free()
 
 
 static func _case_on_page(res: Dictionary, host: Node) -> void:
-	_fresh()
-	var screen: MercViewer = MERC_VIEWER.instantiate()
-	host.add_child(screen)
-	await host.get_tree().process_frame
+	SubscriptionManager.max_out()
+	var screen: MercViewer = await GuiMercTests._open(host)
 	var uid: int = _first().uid
 	screen.show_merc(uid)
 	await host.get_tree().process_frame

@@ -35,8 +35,9 @@ static func header(run: ContractRun) -> void:
 		run.emit("TEAM: %s" % merc_line(merc))
 	run.emit("CONTRACT MISHAPS: %s" % _join_or_none(contract.rolled_mishaps))
 	run.emit("CONTRACT PRIMARY: %s" % (contract.assigned_primary_event if contract.assigned_primary_event != "" else "none"))
-	for line: String in (run.modifier_record.get("lines", []) as Array):
-		run.emit(line)
+	var modifier_lines: Array[String] = []
+	modifier_lines.assign(run.modifier_record.get("lines", []) as Array)
+	run.emit_all(modifier_lines)
 	for merc: MercenaryData in run.team:
 		var entries: Array = run.penalties_by_merc.get(merc, []) as Array
 		if entries.is_empty():
@@ -45,8 +46,9 @@ static func header(run: ContractRun) -> void:
 		for entry: Dictionary in entries:
 			run.emit("CONTRACT PENALTY: %s %s -%.0f%%" % [
 				merc.merc_name, String(entry.get("expr", "")), float(entry.get("percent", 0.0))])
+	var leader: MercenaryData = run.leader()
 	for merc: MercenaryData in run.team:
-		run.emit(OverallSuccess.describe(merc, OverallSuccess.for_merc(run.contract, run.team, merc, null)))
+		run.emit(OverallSuccess.describe(merc, OverallSuccess.for_merc(run.contract, run.team, merc, null, leader)))
 
 
 static func verdict(run: ContractRun) -> void:

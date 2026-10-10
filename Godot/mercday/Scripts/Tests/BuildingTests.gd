@@ -35,36 +35,18 @@ static func run() -> bool:
 	_case_tavern(res)
 	_case_spawns(res, fields)
 	_case_patio_gate(res, fields)
-	_print_summary(fields)
 	randomize()
 	return TestFixtures.summarize(res, "BUILDING")
 
 
-static func _field(area_name: String, front: String, seed_i: int) -> BattlefieldArea:
-	seed(seed_i)
-	var ctx := GenerationContext.new()
-	ctx.building_front = front
-	return BattlefieldArea.generate_random(null, ctx, "Interior", DataManager.get_area_by_name(area_name))
-
-
-#Every Buildings.tsv row that carries a layout, in sheet order.
-static func _planned_names() -> Array[String]:
-	var out: Array[String] = []
-	for entry: String in DataManager.get_building_names():
-		if not BuildingRules.is_legacy(DataManager.get_area_by_name(entry)):
-			out.append(entry)
-	return out
-
-
 static func _all_fields() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	for area_name: String in _planned_names():
+	for area_name: String in GenFixtures.planned_names():
 		for front: String in FRONTS:
 			for s: int in range(SEEDS):
-				var t0: int = Time.get_ticks_msec()
-				var field: BattlefieldArea = _field(area_name, front, SEED_BASE + s)
+				var field: BattlefieldArea = GenFixtures.building_field(area_name, front, SEED_BASE + s)
 				out.append({"name": area_name, "front": front, "seed": SEED_BASE + s, "si": s,
-					"field": field, "ms": Time.get_ticks_msec() - t0})
+					"field": field})
 	return out
 
 
@@ -78,7 +60,7 @@ static func _case_data(res: Dictionary) -> void:
 		if area.has("building"):
 			rows += 1
 	var names: Array[String] = DataManager.get_building_names()
-	var planned: Array[String] = _planned_names()
+	var planned: Array[String] = GenFixtures.planned_names()
 	TestFixtures.check(res, "Buildings.tsv carries %d rows" % ROWS, rows == ROWS, "%d row(s)" % rows)
 	TestFixtures.check(res, "get_building_names lists every row", names.size() == rows,
 		"%d name(s) for %d row(s)" % [names.size(), rows])
@@ -181,42 +163,22 @@ static func _case_plan(res: Dictionary, fields: Array[Dictionary]) -> void:
 static func _case_validate(res: Dictionary, fields: Array[Dictionary]) -> void:
 	var bad: Array[String] = []
 	var bad_tries: Array[String] = []
-	var ext_unreached: int = 0
-	var retried: int = 0
 	for e: Dictionary in fields:
 		var f: BattlefieldArea = e["field"]
 		var hard: Array[String] = []
 		for text: String in BuildingRules.validate(f):
-			if _is_exterior_issue(text):
-				ext_unreached += 1
-				continue
-			hard.append(text)
+			if not GenFixtures.is_exterior_issue(text):
+				hard.append(text)
 		if not hard.is_empty():
 			bad.append("%s %s" % [_tag(e), hard[0]])
 		var tries: int = int((f.building_plan as Dictionary).get("tries", 0))
 		if tries < 1 or tries > BuildingRules.TRIES:
 			bad_tries.append("%s tries=%d" % [_tag(e), tries])
-		if tries > 1:
-			retried += 1
 	var n: int = fields.size()
 	TestFixtures.check(res, "the validator reports no structural violation", bad.is_empty(),
 		TestFixtures.detail(bad, n, "field(s)"))
 	TestFixtures.check(res, "no field passes the retry limit", bad_tries.is_empty(),
 		TestFixtures.detail(bad_tries, n, "field(s)"))
-	print("BUILDING RETRIES: %d%% of %d field(s) needed more than one try; %d unreached exterior room(s)"
-		% [roundi(100.0 * float(retried) / float(maxi(1, n))), n, ext_unreached])
-
-
-#An "unreached <name> f<n>" line for a Patio or a Balcony; those rooms sit outside the floor mask.
-static func _is_exterior_issue(text: String) -> bool:
-	if not text.begins_with("unreached "):
-		return false
-	var body: String = text.substr(10)
-	var cut: int = body.rfind(" f")
-	if cut < 0:
-		return false
-	var d: ObstacleData = DataManager.get_obstacle_by_name(body.substr(0, cut))
-	return d != null and d.room_type.begins_with("Exterior")
 
 
 static func _case_front_door(res: Dictionary, fields: Array[Dictionary]) -> void:
@@ -228,7 +190,7 @@ static func _case_front_door(res: Dictionary, fields: Array[Dictionary]) -> void
 	for e: Dictionary in fields:
 		var f: BattlefieldArea = e["field"]
 		var front: String = String(e["front"])
-		if String((f.building_plan as Dictionary).get("shell", "Walled")) == "Open":
+		if _is_open(f.building_plan):
 			open_shells += 1
 			var solid: int = 0
 			for obs: Dictionary in f.obstacles:
@@ -240,7 +202,7 @@ static func _case_front_door(res: Dictionary, fields: Array[Dictionary]) -> void
 			continue
 		walled += 1
 		var door: Vector3i = (f.building_plan as Dictionary).get("front_door", Vector3i(-1, -1, 0))
-		var kind: String = String((f._obs_map.get(door, {}) as Dictionary).get("cell_type", ""))
+		var kind: String = f.cell_type_at(door)
 		if door.x < 0 or door.z != 0 or kind != "door" or not _on_front_wall(f, door, front):
 			bad_door.append("%s at %s" % [_tag(e), str(door)])
 			continue
@@ -264,12 +226,7 @@ static func _case_reach(res: Dictionary, fields: Array[Dictionary]) -> void:
 		if start.x < 0:
 			no_start.append(_tag(e))
 			continue
-		var dist: Dictionary = DungeonGenerator._walk_dist(f, start, true)
-		var orphans: int = 0
-		for key: Variant in f.footprint_cells.keys():
-			var c: Vector3i = key as Vector3i
-			if DungeonGenerator._passable(f, c, true) and not dist.has(c):
-				orphans += 1
+		var orphans: int = GenFixtures.orphan_count(f, start, f.footprint_cells.keys())
 		if orphans > 0:
 			cut_off.append("%s %d cell(s)" % [_tag(e), orphans])
 	var n: int = fields.size()
@@ -333,7 +290,7 @@ static func _case_main_room(res: Dictionary, fields: Array[Dictionary]) -> void:
 			bad_name.append("%s got %s f%d" % [_tag(e), String(main.get("name", "")),
 				int(main.get("floor", 0))])
 			continue
-		if String(plan.get("shell", "Walled")) == "Open":
+		if _is_open(plan):
 			continue
 		walled += 1
 		var door: Vector3i = plan.get("front_door", Vector3i(-1, -1, 0))
@@ -452,7 +409,7 @@ static func _case_windows(res: Dictionary, fields: Array[Dictionary]) -> void:
 		var f: BattlefieldArea = e["field"]
 		var plan: Dictionary = f.building_plan
 		var level: String = String(plan.get("windows", "Normal"))
-		var walled: bool = String(plan.get("shell", "Walled")) != "Open"
+		var walled: bool = not _is_open(plan)
 		var area_name: String = String(e["name"])
 		if walled and (level == "Normal" or level == "Many"):
 			want_lit[area_name] = true
@@ -511,7 +468,7 @@ static func _case_furniture(res: Dictionary, fields: Array[Dictionary]) -> void:
 			if _rect_holds_any(f, entry.get("rect", Rect2i()) as Rect2i, int(entry.get("floor", 0)),
 					d.guaranteed_structures):
 				hit[key] = true
-		if String((f.building_plan as Dictionary).get("shell", "Walled")) != "Open":
+		if not _is_open(f.building_plan):
 			continue
 		stalls += 1
 		var corners: Dictionary = _ring_corners(f)
@@ -538,7 +495,7 @@ static func _case_furniture(res: Dictionary, fields: Array[Dictionary]) -> void:
 static func _case_sizes(res: Dictionary, fields: Array[Dictionary]) -> void:
 	var small_cap: int = 0
 	var large_floor: int = 1 << 20
-	for area_name: String in _planned_names():
+	for area_name: String in GenFixtures.planned_names():
 		var b: Dictionary = DataManager.get_area_by_name(area_name).get("building", {})
 		var w_range: Vector2i = b.get("width", Vector2i.ONE)
 		var d_range: Vector2i = b.get("depth", Vector2i.ONE)
@@ -574,8 +531,8 @@ static func _case_tavern(res: Dictionary) -> void:
 	var bad_wings: Array[String] = []
 	for s: int in range(TAVERN_SEEDS):
 		var seed_i: int = TAVERN_SEED_BASE + s
-		var a: BattlefieldArea = _field(TAVERN, "", seed_i)
-		var b: BattlefieldArea = _field(TAVERN, "", seed_i)
+		var a: BattlefieldArea = GenFixtures.building_field(TAVERN, "", seed_i)
+		var b: BattlefieldArea = GenFixtures.building_field(TAVERN, "", seed_i)
 		if a.width != b.width or a.length != b.length or a.obstacles.size() != b.obstacles.size() \
 				or a.interior_rooms.size() != b.interior_rooms.size():
 			drift.append("s%d %dx%d/%dx%d obs %d/%d rooms %d/%d" % [seed_i, a.width, a.length,
@@ -623,7 +580,7 @@ static func _case_patio_gate(res: Dictionary, fields: Array[Dictionary]) -> void
 		for i: int in range(GATE_TRIES):
 			var front: String = FRONTS[i % FRONTS.size()]
 			var s: int = TAVERN_SEED_BASE + i
-			var extra: BattlefieldArea = _field(TAVERN, front, s)
+			var extra: BattlefieldArea = GenFixtures.building_field(TAVERN, front, s)
 			gates += _gate_hits(extra, "%s %s s%d" % [TAVERN, front, s], bad)
 			if gates > 0:
 				break
@@ -651,26 +608,6 @@ static func _gate_hits(field: BattlefieldArea, tag: String, bad: Array[String]) 
 				bad.append("%s gate %d,%d,%d is sealed at %d,%d" % [tag, g.x, g.y, g.z, n.x, n.y])
 			break
 	return gates
-
-
-static func _print_summary(fields: Array[Dictionary]) -> void:
-	for area_name: String in _planned_names():
-		var count: int = 0
-		var tries: int = 0
-		var rooms: int = 0
-		var ms: int = 0
-		for e: Dictionary in fields:
-			if String(e["name"]) != area_name:
-				continue
-			var f: BattlefieldArea = e["field"]
-			count += 1
-			tries += int((f.building_plan as Dictionary).get("tries", 0))
-			rooms += f.interior_rooms.size()
-			ms += int(e["ms"])
-		if count == 0:
-			continue
-		print("BUILDING %s: fields=%d tries=%.2f rooms=%.1f ms=%.1f" % [area_name, count,
-			float(tries) / float(count), float(rooms) / float(count), float(ms) / float(count)])
 
 
 #Interior rect of the main block on floor 0, walls excluded; the generator clamps both sides to 3.
@@ -703,7 +640,7 @@ static func _on_front_wall(field: BattlefieldArea, door: Vector3i, front: String
 static func _start_cell(field: BattlefieldArea, front: String) -> Vector3i:
 	var plan: Dictionary = field.building_plan
 	var rect: Rect2i = _inner_rect(field)
-	if String(plan.get("shell", "Walled")) == "Open":
+	if _is_open(plan):
 		return Vector3i(rect.position.x + (rect.size.x >> 1), rect.position.y + (rect.size.y >> 1), 0)
 	var door: Vector3i = plan.get("front_door", Vector3i(-1, -1, 0))
 	if door.x < 0:
@@ -714,12 +651,16 @@ static func _start_cell(field: BattlefieldArea, front: String) -> Vector3i:
 #Street cell a merc walks in from: outside the front door, or the middle of an open shell.
 static func _street_cell(field: BattlefieldArea, front: String) -> Vector3i:
 	var plan: Dictionary = field.building_plan
-	if String(plan.get("shell", "Walled")) == "Open":
+	if _is_open(plan):
 		return _start_cell(field, front)
 	var door: Vector3i = plan.get("front_door", Vector3i(-1, -1, 0))
 	if door.x < 0:
 		return Vector3i(-1, -1, 0)
 	return door - BuildingLayouts.inward(front)
+
+
+static func _is_open(plan: Dictionary) -> bool:
+	return String(plan.get("shell", "Walled")) == "Open"
 
 
 static func _layout_of(plan: Dictionary, fl: int) -> String:

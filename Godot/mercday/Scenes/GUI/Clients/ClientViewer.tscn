@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Clients/ClientViewer.gd" id="1"]
 [ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Clients/ClientList.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Clients/ClientOverview.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/TabStrip.gd" id="5"]
 
 [node name="ClientViewer" type="Control"]
 custom_minimum_size = Vector2(1280, 644)
@@ -12,6 +13,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource("2")
 script = ExtResource("1")
+tab_strip_path = NodePath("Margin/Columns/Left/TabsWrap/Tabs")
+default_tab = &"orgs"
 
 [node name="Margin" type="MarginContainer" parent="."]
 anchors_preset = 15
@@ -38,6 +41,11 @@ theme_override_constants/margin_bottom = 0
 [node name="Tabs" type="HBoxContainer" parent="Margin/Columns/Left/TabsWrap"]
 custom_minimum_size = Vector2(0, 44)
 theme_override_constants/separation = 8
+script = ExtResource("5")
+keys = Array[StringName]([&"people", &"places", &"orgs"])
+labels = Array[String](["People", "Places", "Orgs"])
+tips = Array[String](["Clients who are people", "Clients who are places", "Companies that issue contracts"])
+icon_ids = Array[String](["person", "house", "building"])
 
 [node name="List" parent="Margin/Columns/Left" instance=ExtResource("3")]
 layout_mode = 2

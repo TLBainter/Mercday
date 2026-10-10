@@ -1,8 +1,9 @@
 class_name GuiFilterTests
 
 #The shared trait filter atoms: ChipRow, ModuleTile, StarRangePicker, FilterSection, FilterGroup and
-#TraitFilterPanel. Every case renders real TraitFilterDefs rows, so a change to the def table shows
-#up here instead of in a screen. Run with the gui-filter-tests harness flag.
+#TraitFilterPanel, plus the FilterCheckRow hover look. Every case renders real TraitFilterDefs rows,
+#so a change to the def table shows up here instead of in a screen. Run with the gui-filter-tests
+#harness flag.
 
 const CHIP_SCENE: String = "res://Scenes/GUI/Shared/ChipRow.tscn"
 const TILE_SCENE: String = "res://Scenes/GUI/Shared/ModuleTile.tscn"
@@ -10,37 +11,96 @@ const STARS_SCENE: String = "res://Scenes/GUI/Shared/StarRangePicker.tscn"
 const SECTION_SCENE: String = "res://Scenes/GUI/Shared/FilterSection.tscn"
 const GROUP_SCENE: String = "res://Scenes/GUI/Shared/FilterGroup.tscn"
 const PANEL_SCENE: String = "res://Scenes/GUI/Shared/TraitFilterPanel.tscn"
+const CHECK_ROW_SCENE: String = "res://Scenes/GUI/Shared/FilterCheckRow.tscn"
 const SPONSOR_TYPE: StringName = &"sponsor"
 const DIRECT_TYPE: StringName = &"direct"
 const PLANS_TARGET: Dictionary = {"page": "plans", "upgrade": "guildpromo"}
+const TILE_RELATION: int = 2
+#The rows the campaign builder offers, in the order its panel draws them.
+const BUILDER_ROWS: Array[StringName] = [&"salary", &"tradition", &"ancestry", &"vigor", &"speed",
+	&"dexterity", &"cognition", &"wile"]
+#The rows only applicant review in Hiring narrows by, which the builder never carries.
+const REVIEW_ONLY_ROWS: Array[StringName] = [&"bloodline", &"heritage", &"criminality", &"age",
+	&"knowledges", &"tools"]
+const VIA_ROW: StringName = &"from"
+const VALUE_GROUP: String = "Value"
+const IDENTITY_GROUP: String = "Identity"
+const PHYSICAL_GROUP: String = "Physical"
+const MENTAL_GROUP: String = "Mental"
+const BUILDER_GROUPS: Dictionary = {
+	VALUE_GROUP: [&"salary"],
+	IDENTITY_GROUP: [&"tradition", &"ancestry"],
+	PHYSICAL_GROUP: [&"vigor", &"speed", &"dexterity"],
+	MENTAL_GROUP: [&"cognition", &"wile"],
+}
+const UNKNOWN_GROUP: String = "Nowhere"
+#The prefix the old placeholder ancestry names carried; no real ancestry name starts with it.
+const PLACEHOLDER_ANCESTRY: String = "Ancestry "
+#The pad of the box a headed group draws around a section, and the rounding a layout check allows.
+const BOX_PAD: float = 8.0
+const GEOMETRY_SLACK: float = 0.5
+#Travel ratio and the salary the track gives there, each pinned within TABLE_SLACK notes.
+const SALARY_TABLE: Array = [[0.0, 1.0], [0.1, 29.0], [0.2, 58.0], [0.3, 86.0], [0.35, 100.0], [0.5, 181.0],
+	[0.7, 406.0], [1.0, 999.0]]
+const TABLE_SLACK: float = 1.0
+const RATIO_SLACK: float = 0.001
+const VALUE_SLACK: float = 0.5
+const CURVE_SAMPLES: int = 100
+#A salary off the grid and the stop it snaps onto.
+const SALARY_SNAPS: Array = [[101.0, 100.0], [102.0, 100.0], [103.0, 105.0], [104.0, 105.0], [996.0, 995.0],
+	[997.0, 995.0], [998.0, 999.0]]
+#A held salary, whether the arrow rises, and the step the salary track takes from there.
+const SALARY_ARROWS: Array = [[99.0, true, 1.0], [99.0, false, 1.0], [100.0, true, 5.0], [100.0, false, 1.0],
+	[105.0, true, 5.0], [105.0, false, 5.0]]
+#The high salary thumb pressed at 99, then the arrows right, right, left and left, and the salary after each.
+const JOIN_RISING: Array[bool] = [true, true, false, false]
+const JOIN_WALK: Array[float] = [99.0, 100.0, 105.0, 100.0, 99.0]
+const TRACK_WIDTH: float = 400.0
 
 
 static func run(host: Node) -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
-	SubscriptionManager.reset()
+	ContractResourceBuilder.build_all()
+	SubscriptionManager.max_out()
 	await _case_chip_row(res, host)
 	await _case_module_tile(res, host)
 	await _case_star_range_picker(res, host)
 	await _case_star_locked_ends(res, host)
 	await _case_section_numbers(res, host)
+	await _case_salary_curve(res, host)
 	await _case_section_chips(res, host)
 	await _case_section_mods(res, host)
 	await _case_section_locks(res, host)
 	await _case_filter_group(res, host)
+	await _case_section_boxes(res, host)
+	_case_builder_rows(res)
+	await _case_ancestry_chips(res, host)
 	await _case_panel_merc(res, host)
+	await _case_panel_builder(res, host)
+	await _case_panel_accordion(res, host)
+	await _case_panel_stale(res, host)
 	await _case_panel_contract(res, host)
-	SubscriptionManager.reset()
+	await _case_check_row_hover(res, host)
+	SubscriptionManager.max_out()
 	return TestFixtures.summarize(res, "GUI FILTER")
 
 
-static func _section(host: Node, def: Dictionary, value: Variant,
-		ents: Dictionary) -> FilterSection:
+static func _section(host: Node, def: Dictionary, ents: Dictionary) -> FilterSection:
 	var section: FilterSection = (load(SECTION_SCENE) as PackedScene).instantiate()
 	host.add_child(section)
 	await host.get_tree().process_frame
-	section.setup(def, value, ents)
+	section.setup(def, FilterSection.default_value(def), ents)
 	await host.get_tree().process_frame
 	return section
+
+
+#The titles of the groups a panel shows open, in draw order.
+static func _open_titles(panel: TraitFilterPanel) -> Array[String]:
+	var out: Array[String] = []
+	for group: FilterGroup in panel.groups():
+		if group.is_open():
+			out.append(group.title)
+	return out
 
 
 static func _case_chip_row(res: Dictionary, host: Node) -> void:
@@ -103,21 +163,26 @@ static func _case_chip_row(res: Dictionary, host: Node) -> void:
 static func _case_module_tile(res: Dictionary, host: Node) -> void:
 	var tile: ModuleTile = (load(TILE_SCENE) as PackedScene).instantiate()
 	tile.key = &"t0"
-	tile.label = "Type 1"
+	tile.label = "Assassinate"
 	tile.image_note = "Contract Image"
 	tile.received = 5
 	tile.completed = 3
 	tile.failed = 1
-	tile.relationship = 2
+	tile.relationship = TILE_RELATION
 	host.add_child(tile)
 	await host.get_tree().process_frame
+	var square: Vector2 = Vector2(ModuleTile.TILE_SIDE, ModuleTile.TILE_SIDE)
+	var needed: float = tile.rows.get_combined_minimum_size().y + 2.0 * ModuleTile.PAD_PX
+	TestFixtures.check(res, "a module tile is a %d px square" % int(ModuleTile.TILE_SIDE),
+		tile.custom_minimum_size == square and tile.size == square and needed <= ModuleTile.TILE_SIDE,
+		"needs %s of %s, size %s" % [needed, ModuleTile.TILE_SIDE, tile.size])
 	var hits: Array = []
 	tile.pressed_tile.connect(func(k: Variant) -> void: hits.append(k))
 	tile.press_tile()
 	TestFixtures.check(res, "a module tile reports its key on a press",
 		hits == [&"t0"], "hits %s" % str(hits))
-	var received: Label = tile.get_node("Rows/Top/Stats/Received/Row/Value")
-	var failed: Label = tile.get_node("Rows/Top/Stats/Failed/Row/Value")
+	var received: Label = tile.get_node("Rows/Stats/Received/Row/Value")
+	var failed: Label = tile.get_node("Rows/Stats/Failed/Row/Value")
 	TestFixtures.check(res, "the tile prints the contract history it was given",
 		received.text == "5" and failed.text == "1",
 		"got %s and %s" % [received.text, failed.text])
@@ -125,22 +190,24 @@ static func _case_module_tile(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a tile without art shows the image caption",
 		placeholder.visible and placeholder.text == "Contract Image", "cap %s" % placeholder.text)
 	tile.set_selected(true)
-	var mark: TextureRect = tile.get_node("Rows/Top/Check/Mark")
+	var mark: TextureRect = tile.get_node("Rows/Top/Side/Check/Mark")
 	TestFixtures.check(res, "a picked tile checks its box",
 		tile.selected and mark.visible, "selected %s" % str(tile.selected))
-	var rel_value: Label = tile.get_node("Rows/Top/Stats/Relation/Row/Value")
-	TestFixtures.check(res, "an open relationship prints with its sign",
-		rel_value.visible and rel_value.text == "+2", "rel %s" % rel_value.text)
+	var face: MoodFace = tile.relationship_face()
+	TestFixtures.check(res, "an open relationship shows the guild face",
+		face != null and face.visible and face.guild and face.opinion == TILE_RELATION
+		and not tile.relationship_lock().visible,
+		"opinion %s" % (str(face.opinion) if face != null else "missing"))
 	tile.relationship_open = false
 	tile.refresh()
 	TestFixtures.check(res, "a closed relationship shows the upgrade lock instead",
 		tile.relationship_lock() != null and tile.relationship_lock().visible
-		and not rel_value.visible, "lock state wrong")
+		and face != null and not face.visible, "lock state wrong")
 	tile.relationship = ModuleTile.NO_RELATION
 	tile.refresh()
-	var rel_row: PanelContainer = tile.get_node("Rows/Top/Stats/Relation")
-	TestFixtures.check(res, "a module with no relationship hides the row",
-		not rel_row.visible, "row still shown")
+	TestFixtures.check(res, "a module with no relationship hides the face and the lock",
+		face != null and not face.visible and not tile.relationship_lock().visible,
+		"face or lock still shown")
 	tile.disabled_reason = TraitFilterDefs.NO_PERMIT_NOTE
 	tile.refresh()
 	tile.press_tile()
@@ -151,7 +218,8 @@ static func _case_module_tile(res: Dictionary, host: Node) -> void:
 		and tile.tooltip_text == TraitFilterDefs.NO_PERMIT_NOTE, "alpha %s" % str(tile.modulate.a))
 	var note: Label = tile.get_node("Rows/Note")
 	TestFixtures.check(res, "the blocked reason shows under the module name",
-		note.visible and note.text == TraitFilterDefs.NO_PERMIT_NOTE, "note %s" % note.text)
+		note.visible and note.text == TraitFilterDefs.NO_PERMIT_NOTE and not tile.stats.visible,
+		"note %s, counts shown %s" % [note.text, tile.stats.visible])
 	tile.queue_free()
 
 
@@ -207,9 +275,7 @@ static func _case_star_range_picker(res: Dictionary, host: Node) -> void:
 		"hit %s" % str(right_half))
 	picker.star_scale = StarRangePicker.DEFAULT_STAR_SCALE
 	await host.get_tree().process_frame
-	var locks: Array[Dictionary] = [{"feature": "Min Difficulty", "upgrade": "Guild Promo",
-		"upgrade_id": TraitFilterDefs.GUILD_PROMO_ID, "tier": 2,
-		"tiers": TraitFilterDefs.GUILD_PROMO_TIERS, "verb": "target"}, {}]
+	var locks: Array[Dictionary] = [_star_lock("Min Difficulty", 2), {}]
 	picker.set_row_locks(locks)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a row lock shows only on the row it names",
@@ -238,7 +304,7 @@ static func _case_star_range_picker(res: Dictionary, host: Node) -> void:
 static func _star_lock(feature: String, tier: int) -> Dictionary:
 	return {"feature": feature, "upgrade": "Guild Promo",
 		"upgrade_id": TraitFilterDefs.GUILD_PROMO_ID, "tier": tier,
-		"tiers": TraitFilterDefs.GUILD_PROMO_TIERS, "verb": "target"}
+		"tiers": UpgradeDefs.display_tiers(TraitFilterDefs.GUILD_PROMO_ID), "verb": "target"}
 
 
 #A locked row keeps its pinned end whatever a stored pair or a press on the other row asks for.
@@ -283,50 +349,47 @@ static func _case_star_locked_ends(res: Dictionary, host: Node) -> void:
 
 
 static func _case_section_numbers(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var ents: Dictionary = SubscriptionManager.entitlements()
 	var defs: Array[Dictionary] = TraitFilterDefs.merc_defs(true)
 	var salary_def: Dictionary = TraitFilterDefs.find(defs, &"salary")
-	var salary: FilterSection = await _section(host, salary_def,
-		FilterSection.default_value(salary_def), ents)
+	var salary: FilterSection = await _section(host, salary_def, ents)
 	TestFixtures.check(res, "a slider2 row renders a dual slider",
 		salary.kind() == TraitFilterDefs.KIND_SLIDER2 and not salary.is_locked()
 		and salary.dual_slider() != null, "kind %s" % salary.kind())
 	var dual: DualSlider = salary.dual_slider()
 	TestFixtures.check(res, "the dual slider takes its bounds from the def",
-		is_equal_approx(dual.min_value, 0.0) and is_equal_approx(dual.max_value,
+		is_equal_approx(dual.min_value, TraitFilterDefs.SALARY_MIN) and is_equal_approx(dual.max_value,
 		TraitFilterDefs.SALARY_MAX) and is_equal_approx(dual.step, TraitFilterDefs.SALARY_STEP),
 		"min %s max %s step %s" % [str(dual.min_value), str(dual.max_value), str(dual.step)])
 	var seen: Array = []
 	salary.value_changed.connect(func(k: StringName, v: Variant) -> void: seen.append([k, v]))
-	salary.set_value([250.0, 1750.0])
+	salary.set_value([250.0, 750.0])
 	TestFixtures.check(res, "set_value moves the slider without emitting",
-		is_equal_approx(dual.low, 250.0) and is_equal_approx(dual.high, 1750.0) and seen.is_empty(),
+		is_equal_approx(dual.low, 250.0) and is_equal_approx(dual.high, 750.0) and seen.is_empty(),
 		"low %s high %s" % [str(dual.low), str(dual.high)])
 	TestFixtures.check(res, "a narrowed salary range counts as active",
 		salary.is_active(), "not active")
-	salary.press_value([0.0, TraitFilterDefs.SALARY_MAX])
+	salary.press_value([TraitFilterDefs.SALARY_MIN, TraitFilterDefs.SALARY_MAX])
 	TestFixtures.check(res, "press_value reports the def key and the new pair",
 		seen.size() == 1 and seen[0][0] == &"salary" and not salary.is_active(),
 		"seen %s" % str(seen))
 	var low_label: Label = salary.get_node("Body/Values/Low")
-	TestFixtures.check(res, "the value labels print grouped numbers and the unit",
-		low_label.text == "0 / mo", "low %s" % low_label.text)
+	TestFixtures.check(res, "the low label prints the bottom of the range and the unit",
+		low_label.text == "1 / mo", "low %s" % low_label.text)
 	var high_label: Label = salary.get_node("Body/Values/High")
 	TestFixtures.check(res, "the high label prints the top of the range",
-		high_label.text == "2,000 / mo", "high %s" % high_label.text)
+		high_label.text == "999 / mo", "high %s" % high_label.text)
 	salary.queue_free()
 	var age_def: Dictionary = TraitFilterDefs.find(defs, &"age")
-	var age: FilterSection = await _section(host, age_def, FilterSection.default_value(age_def),
-		ents)
+	var age: FilterSection = await _section(host, age_def, ents)
 	TestFixtures.check(res, "a range row renders a dual slider on the def bounds",
 		age.dual_slider() != null and is_equal_approx(age.dual_slider().min_value,
 		TraitFilterDefs.AGE_MIN) and is_equal_approx(age.dual_slider().max_value,
 		TraitFilterDefs.AGE_MAX), "age bounds wrong")
 	age.queue_free()
 	var vigor_def: Dictionary = TraitFilterDefs.find(defs, &"vigor")
-	var vigor: FilterSection = await _section(host, vigor_def,
-		FilterSection.default_value(vigor_def), ents)
+	var vigor: FilterSection = await _section(host, vigor_def, ents)
 	TestFixtures.check(res, "a min row renders one pixel slider",
 		vigor.min_slider() != null and vigor.dual_slider() == null
 		and vigor.title_text() == "Min Vigor", "title %s" % vigor.title_text())
@@ -345,13 +408,113 @@ static func _case_section_numbers(res: Dictionary, host: Node) -> void:
 	vigor.queue_free()
 
 
+static func _case_salary_curve(res: Dictionary, host: Node) -> void:
+	var curve: SalaryCurve = SalaryCurve.new()
+	var lo: float = TraitFilterDefs.SALARY_MIN
+	var hi: float = TraitFilterDefs.SALARY_MAX
+	var ends: Array[float] = [curve.value_of(0.0, lo, hi), curve.value_of(SalaryCurve.LOW_SHARE, lo, hi),
+		curve.value_of(1.0, lo, hi)]
+	TestFixtures.check(res, "the salary track starts at 1, reaches 100 at the join and ends at 999",
+		is_equal_approx(ends[0], SalaryCurve.SALARY_MIN) and is_equal_approx(ends[1], SalaryCurve.LOW_TOP)
+			and is_equal_approx(ends[2], SalaryCurve.SALARY_MAX), str(ends))
+	var misses: Array = []
+	for row: Array in SALARY_TABLE:
+		var at: float = curve.value_of(float(row[0]), lo, hi)
+		if absf(at - float(row[1])) > TABLE_SLACK:
+			misses.append([row[0], at])
+	TestFixtures.check(res, "the salary track meets the design table within one note",
+		misses.is_empty(), str(misses))
+	var increasing: bool = true
+	var last: float = ends[0]
+	var worst_ratio: float = absf(curve.ratio_of(last, lo, hi))
+	for i: int in range(1, CURVE_SAMPLES + 1):
+		var t: float = float(i) / CURVE_SAMPLES
+		var v: float = curve.value_of(t, lo, hi)
+		increasing = increasing and v > last
+		last = v
+		worst_ratio = maxf(worst_ratio, absf(curve.ratio_of(v, lo, hi) - t))
+	TestFixtures.check(res, "the salary track rises at every step of its travel", increasing,
+		"a sample did not rise")
+	TestFixtures.check(res, "a travel ratio maps to a salary and back to the same ratio",
+		worst_ratio <= RATIO_SLACK, "worst %.6f" % worst_ratio)
+	var stops: Array[float] = _salary_stops()
+	var on_stop: Dictionary = {}
+	for stop: float in stops:
+		on_stop[stop] = true
+	var worst_value: float = 0.0
+	var strays: Array = []
+	for whole: int in range(int(lo), int(hi) + 1):
+		var pay: float = float(whole)
+		worst_value = maxf(worst_value, absf(curve.value_of(curve.ratio_of(pay, lo, hi), lo, hi) - pay))
+		if not on_stop.has(curve.snap(pay, lo, hi, TraitFilterDefs.SALARY_STEP)):
+			strays.append(whole)
+	TestFixtures.check(res, "a salary maps to a ratio and back to the same salary",
+		worst_value <= VALUE_SLACK, "worst %.4f" % worst_value)
+	var moved: Array = []
+	for stop: float in stops:
+		if curve.snap(stop, lo, hi, TraitFilterDefs.SALARY_STEP) != stop:
+			moved.append(stop)
+	TestFixtures.check(res, "every salary stop snaps to itself", moved.is_empty(), str(moved))
+	TestFixtures.check(res, "every whole salary snaps onto a stop", strays.is_empty(), str(strays))
+	var off: Array = []
+	for row: Array in SALARY_SNAPS:
+		var landed: float = curve.snap(float(row[0]), lo, hi, TraitFilterDefs.SALARY_STEP)
+		if landed != float(row[1]):
+			off.append([row[0], landed])
+	TestFixtures.check(res, "a salary between stops snaps onto the stop the table names",
+		off.is_empty(), str(off))
+	var wrong: Array = []
+	for row: Array in SALARY_ARROWS:
+		var stride: float = curve.step_at(float(row[0]), bool(row[1]), TraitFilterDefs.SALARY_STEP)
+		if stride != float(row[2]):
+			wrong.append([row[0], row[1], stride])
+	TestFixtures.check(res, "arrows step one note below 100 and five above it, and 100 falls by one",
+		wrong.is_empty(), str(wrong))
+	SubscriptionManager.max_out()
+	var defs: Array[Dictionary] = TraitFilterDefs.merc_defs(true)
+	var salary_row: FilterSection = await _section(host, TraitFilterDefs.find(defs, &"salary"),
+		SubscriptionManager.entitlements())
+	var dual: DualSlider = salary_row.dual_slider()
+	TestFixtures.check(res, "the salary row slider runs on the salary curve",
+		dual != null and dual.curve is SalaryCurve, "no salary curve on the slider")
+	if dual == null:
+		salary_row.queue_free()
+		return
+	salary_row.set_value([lo, SalaryCurve.LOW_TOP])
+	TestFixtures.check(res, "the thumb for 100 sits at the join of the salary track",
+		is_equal_approx(dual.high_ratio(), SalaryCurve.LOW_SHARE), "ratio %.4f" % dual.high_ratio())
+	salary_row.set_value([lo, JOIN_WALK[0]])
+	dual.size = Vector2(TRACK_WIDTH, dual.size.y)
+	var press: Vector2 = Vector2(dual.size.x * dual.high_ratio(), 0.0)
+	dual._gui_input(GuiAtomTests._mouse_button(press, true))
+	var walk: Array[float] = [dual.high]
+	for up: bool in JOIN_RISING:
+		dual._gui_input(GuiAtomTests._key(KEY_RIGHT if up else KEY_LEFT))
+		walk.append(dual.high)
+	dual._gui_input(GuiAtomTests._mouse_button(press, false))
+	TestFixtures.check(res, "arrow keys walk the high thumb from 99 to 100 to 105 and back down",
+		walk == JOIN_WALK, str(walk))
+	salary_row.queue_free()
+
+
+#Every salary the track can rest on: each note up to LOW_TOP, then every COARSE_STEP, then SALARY_MAX.
+static func _salary_stops() -> Array[float]:
+	var out: Array[float] = []
+	for fine: int in range(int(SalaryCurve.SALARY_MIN), int(SalaryCurve.LOW_TOP) + 1):
+		out.append(float(fine))
+	var coarse: int = int(SalaryCurve.COARSE_STEP)
+	for stop: int in range(int(SalaryCurve.LOW_TOP) + coarse, int(SalaryCurve.SALARY_MAX), coarse):
+		out.append(float(stop))
+	out.append(SalaryCurve.SALARY_MAX)
+	return out
+
+
 static func _case_section_chips(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var ents: Dictionary = SubscriptionManager.entitlements()
 	var defs: Array[Dictionary] = TraitFilterDefs.merc_defs(true)
 	var trad_def: Dictionary = TraitFilterDefs.find(defs, &"tradition")
-	var trad: FilterSection = await _section(host, trad_def, FilterSection.default_value(trad_def),
-		ents)
+	var trad: FilterSection = await _section(host, trad_def, ents)
 	var traditions: Array[String] = TraitFilterDefs.traditions()
 	TestFixtures.check(res, "a trad row renders one chip per tradition",
 		trad.chip_row() != null and trad.chip_row().chip_count() == traditions.size(),
@@ -373,8 +536,7 @@ static func _case_section_chips(res: Dictionary, host: Node) -> void:
 		"value %s" % str(trad.value()))
 	trad.queue_free()
 	var from_def: Dictionary = TraitFilterDefs.find(defs, &"from")
-	var from: FilterSection = await _section(host, from_def, FilterSection.default_value(from_def),
-		ents)
+	var from: FilterSection = await _section(host, from_def, ents)
 	TestFixtures.check(res, "the Applied Via row lists the walk-in chip",
 		from.chip_row() != null and from.chip_row().chip_count() == 1
 		and from.chip_row().index_of(TraitFilterDefs.WALK_IN) == 0, "walk-in chip missing")
@@ -383,8 +545,7 @@ static func _case_section_chips(res: Dictionary, host: Node) -> void:
 		from.value() == [TraitFilterDefs.WALK_IN], "value %s" % str(from.value()))
 	from.queue_free()
 	var know_def: Dictionary = TraitFilterDefs.find(defs, &"knowledges")
-	var know: FilterSection = await _section(host, know_def, FilterSection.default_value(know_def),
-		ents)
+	var know: FilterSection = await _section(host, know_def, ents)
 	TestFixtures.check(res, "a chips row renders every placeholder option",
 		know.chip_row() != null
 		and know.chip_row().chip_count() == TraitFilterDefs.KNOWLEDGE_COUNT,
@@ -394,8 +555,7 @@ static func _case_section_chips(res: Dictionary, host: Node) -> void:
 	know.queue_free()
 	var contract_defs: Array[Dictionary] = TraitFilterDefs.contract_defs(SPONSOR_TYPE)
 	var target_def: Dictionary = TraitFilterDefs.find(contract_defs, &"target")
-	var target: FilterSection = await _section(host, target_def,
-		FilterSection.default_value(target_def), ents)
+	var target: FilterSection = await _section(host, target_def, ents)
 	TestFixtures.check(res, "a one row is a single pick chip row that says pick 1",
 		target.chip_row() != null and not target.chip_row().multi
 		and target.title_text().ends_with(FilterSection.PICK_ONE_NOTE), "%s" % target.title_text())
@@ -408,8 +568,7 @@ static func _case_section_chips(res: Dictionary, host: Node) -> void:
 	target.queue_free()
 	var direct_defs: Array[Dictionary] = TraitFilterDefs.contract_defs(DIRECT_TYPE)
 	var direct_def: Dictionary = TraitFilterDefs.find(direct_defs, &"target")
-	var direct: FilterSection = await _section(host, direct_def,
-		FilterSection.default_value(direct_def), ents)
+	var direct: FilterSection = await _section(host, direct_def, ents)
 	TestFixtures.check(res, "the Advertise To row is a multi pick chip row with no pick 1 note",
 		direct.chip_row() != null and direct.chip_row().multi
 		and direct.title_text() == "Advertise To"
@@ -430,17 +589,23 @@ static func _case_section_chips(res: Dictionary, host: Node) -> void:
 
 
 static func _case_section_mods(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var ents: Dictionary = SubscriptionManager.entitlements()
 	var defs: Array[Dictionary] = TraitFilterDefs.contract_defs(SPONSOR_TYPE)
 	var ctype_def: Dictionary = TraitFilterDefs.find(defs, &"ctype")
-	var ctype: FilterSection = await _section(host, ctype_def,
-		FilterSection.default_value(ctype_def), ents)
+	var ctype: FilterSection = await _section(host, ctype_def, ents)
 	TestFixtures.check(res, "a mods row renders one module tile per option",
-		ctype.tiles().size() == TraitFilterDefs.CONTRACT_TYPE_COUNT,
+		ctype.tiles().size() == TraitFilterDefs.contract_type_count()
+		and TraitFilterDefs.contract_type_count() > 0,
 		"tiles %d" % ctype.tiles().size())
 	TestFixtures.check(res, "a module tile takes its name from the mods row",
-		ctype.tiles()[0].label == "Type 1", "name %s" % ctype.tiles()[0].label)
+		ctype.tiles()[0].label == "Assassinate", "name %s" % ctype.tiles()[0].label)
+	var labels: Array[String] = []
+	for shown: ModuleTile in ctype.tiles():
+		labels.append(shown.label)
+	TestFixtures.check(res, "the Contract Type tiles carry the real type names in library order",
+		labels == ["Assassinate", "Entertain", "Escort", "Investigate", "Military",
+		"Monster Hunt", "Rescue", "Treasure Hunt"], "%s" % [labels])
 	var picks: Array = []
 	ctype.value_changed.connect(func(_k: StringName, v: Variant) -> void: picks.append(v))
 	ctype.tiles()[1].press_tile()
@@ -452,13 +617,13 @@ static func _case_section_mods(res: Dictionary, host: Node) -> void:
 		ctype.value() == [] and not ctype.tiles()[1].selected, "value %s" % str(ctype.value()))
 	TestFixtures.check(res, "a mods row with no single flag is multi pick",
 		not ctype.tiles()[0].single, "single pick")
-	TestFixtures.check(res, "contract type modules carry no relationship row",
-		ctype.tiles()[0].relationship == ModuleTile.NO_RELATION,
+	TestFixtures.check(res, "contract type modules carry no relationship face or lock",
+		ctype.tiles()[0].relationship == ModuleTile.NO_RELATION
+		and not ctype.tiles()[0].relationship_face().visible
+		and not ctype.tiles()[0].relationship_lock().visible,
 		"rel %d" % ctype.tiles()[0].relationship)
-	ctype.queue_free()
 	var loc_def: Dictionary = TraitFilterDefs.find(defs, &"loc")
-	var loc: FilterSection = await _section(host, loc_def, FilterSection.default_value(loc_def),
-		ents)
+	var loc: FilterSection = await _section(host, loc_def, ents)
 	var rows: Array = loc_def["mods"]
 	TestFixtures.check(res, "the locations row renders every location module",
 		loc.tiles().size() == rows.size(), "tiles %d of %d" % [loc.tiles().size(), rows.size()])
@@ -471,19 +636,26 @@ static func _case_section_mods(res: Dictionary, host: Node) -> void:
 		blocked_ok, "a tile disagrees with its mods row")
 	TestFixtures.check(res, "location modules show their relationship when it is open",
 		loc.tiles()[0].relationship != ModuleTile.NO_RELATION
-		and loc.tiles()[0].relationship_open, "relationship closed")
+		and loc.tiles()[0].relationship_open and loc.tiles()[0].relationship_face().visible
+		and not loc.tiles()[0].relationship_lock().visible, "relationship closed")
+	SubscriptionManager.changed.emit()
+	await host.get_tree().process_frame
+	var type_lock: bool = ctype.tiles()[0].relationship_lock().visible
+	var loc_lock: bool = loc.tiles()[0].relationship_lock().visible
+	TestFixtures.check(res, "a subscription change keeps the lock off tiles with no relationship or an open one",
+		not type_lock and not loc_lock, "lock shown: contract type %s, location %s" % [type_lock, loc_lock])
+	ctype.queue_free()
 	loc.queue_free()
 	SubscriptionManager.set_entitlements({"clientOpinion": false})
-	var shut: FilterSection = await _section(host, loc_def, FilterSection.default_value(loc_def),
-		SubscriptionManager.entitlements())
+	var shut: FilterSection = await _section(host, loc_def, SubscriptionManager.entitlements())
 	TestFixtures.check(res, "without Customer Satisfaction the relationship shows locked",
 		not shut.tiles()[0].relationship_open
-		and shut.tiles()[0].relationship_lock().visible, "relationship still open")
+		and shut.tiles()[0].relationship_lock().visible
+		and not shut.tiles()[0].relationship_face().visible, "relationship still open")
 	shut.queue_free()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var diff_def: Dictionary = TraitFilterDefs.find(defs, &"diff")
-	var diff: FilterSection = await _section(host, diff_def, FilterSection.default_value(diff_def),
-		SubscriptionManager.entitlements())
+	var diff: FilterSection = await _section(host, diff_def, SubscriptionManager.entitlements())
 	TestFixtures.check(res, "a stars2 row renders the star range picker",
 		diff.star_picker() != null and not diff.is_active(), "no picker")
 	var pairs: Array = []
@@ -496,13 +668,12 @@ static func _case_section_mods(res: Dictionary, host: Node) -> void:
 
 
 static func _case_section_locks(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_entitlements({"hiringDiscrim": false, "brawn": false})
 	var ents: Dictionary = SubscriptionManager.entitlements()
 	var defs: Array[Dictionary] = TraitFilterDefs.merc_defs(true)
 	var anc_def: Dictionary = TraitFilterDefs.find(defs, &"ancestry")
-	var anc: FilterSection = await _section(host, anc_def, FilterSection.default_value(anc_def),
-		ents)
+	var anc: FilterSection = await _section(host, anc_def, ents)
 	TestFixtures.check(res, "a locked row builds no widget at all",
 		anc.is_locked() and anc.chip_row() == null
 		and (anc.get_node("Body") as VBoxContainer).get_child_count() == 0, "body not empty")
@@ -521,30 +692,27 @@ static func _case_section_locks(res: Dictionary, host: Node) -> void:
 		relayed.size() == 1 and relayed[0] == PLANS_TARGET, "relayed %s" % str(relayed))
 	anc.queue_free()
 	var vigor_def: Dictionary = TraitFilterDefs.find(defs, &"vigor")
-	var vigor: FilterSection = await _section(host, vigor_def,
-		FilterSection.default_value(vigor_def), ents)
+	var vigor: FilterSection = await _section(host, vigor_def, ents)
 	TestFixtures.check(res, "the lock strips the Min prefix from a stat row",
 		vigor.is_locked() and vigor.section_lock().feature == "Vigor"
 		and vigor.min_slider() == null, "feature %s" % vigor.section_lock().feature)
 	vigor.queue_free()
-	SubscriptionManager.reset()
-	var open: FilterSection = await _section(host, anc_def, FilterSection.default_value(anc_def),
-		SubscriptionManager.entitlements())
+	SubscriptionManager.max_out()
+	var open: FilterSection = await _section(host, anc_def, SubscriptionManager.entitlements())
 	TestFixtures.check(res, "an entitled row pins its lock out of the layout",
 		not open.is_locked() and not open.section_lock().visible
 		and not open.section_lock().always_visible, "lock still visible")
 	open.queue_free()
 	var free_ents: Dictionary = {"plan": TraitFilterDefs.PLAN_RANKS[0]}
 	var speed_def: Dictionary = TraitFilterDefs.find(defs, &"speed")
-	var speed: FilterSection = await _section(host, speed_def,
-		FilterSection.default_value(speed_def), free_ents)
+	var speed: FilterSection = await _section(host, speed_def, free_ents)
 	TestFixtures.check(res, "a plan rank below the row locks it",
 		speed.is_locked() and speed.section_lock().visible, "open on the free plan")
 	speed.queue_free()
 	var diff_def: Dictionary = TraitFilterDefs.find(TraitFilterDefs.contract_defs(SPONSOR_TYPE),
 		&"diff")
 	var tiered: FilterSection = await _section(host, diff_def,
-		FilterSection.default_value(diff_def), {"gpMinDifficulty": false, "gpMaxDifficulty": true})
+		{"gpMinDifficulty": false, "gpMaxDifficulty": true})
 	TestFixtures.check(res, "a stars2 row locks one star row at a time",
 		tiered.star_picker() != null
 		and tiered.star_picker().is_row_locked(StarRangePicker.ROW_MIN)
@@ -558,7 +726,7 @@ static func _case_section_locks(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a star row lock relays through the section",
 		up.size() == 1, "relayed %s" % str(up))
 	tiered.queue_free()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 static func _case_filter_group(res: Dictionary, host: Node) -> void:
@@ -618,8 +786,160 @@ static func _case_filter_group(res: Dictionary, host: Node) -> void:
 		"cache wrong")
 
 
+static func _case_section_boxes(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.max_out()
+	var ents: Dictionary = SubscriptionManager.entitlements()
+	var defs: Array[Dictionary] = TraitFilterDefs.merc_defs(false)
+	var panel: TraitFilterPanel = (load(PANEL_SCENE) as PackedScene).instantiate()
+	host.add_child(panel)
+	await host.get_tree().process_frame
+	panel.set_defs(defs, {}, ents)
+	await host.get_tree().process_frame
+	var identity: FilterGroup = panel.group_for(IDENTITY_GROUP)
+	var children: Array[Node] = identity.body().get_children()
+	var boxed: int = 0
+	for child: Node in children:
+		if child is PanelContainer and child.get_child_count() == 1:
+			if child.get_child(0) is FilterSection:
+				boxed += 1
+	TestFixtures.check(res, "a headed group holds each of its sections in a box of its own",
+		children.size() == 2 and boxed == 2 and identity.sections().size() == 2,
+		"%d children, %d boxed" % [children.size(), boxed])
+	var tradition: FilterSection = panel.section_for("tradition")
+	var box: PanelContainer = tradition.get_parent() as PanelContainer
+	var style: StyleBox = box.get_theme_stylebox(&"panel")
+	TestFixtures.check(res, "each box wears the tile style with the same pad on every side",
+		style == FilterGroup.STYLE_SECTION
+		and style.get_minimum_size().is_equal_approx(Vector2(BOX_PAD * 2.0, BOX_PAD * 2.0)),
+		"minimum size %s" % [style.get_minimum_size()])
+	var band: StyleBox = tradition.title_label.get_theme_stylebox(&"normal")
+	TestFixtures.check(res, "a boxed section sets its title on a band of the band height",
+		tradition.banded and band == FilterSection.STYLE_BAND
+		and is_equal_approx(tradition.title_label.custom_minimum_size.y, FilterSection.BAND_HEIGHT),
+		"banded %s, height %s" % [tradition.banded, tradition.title_label.custom_minimum_size.y])
+	identity.set_open(true)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var ancestry: FilterSection = panel.section_for("ancestry")
+	var ancestry_box: Control = ancestry.get_parent() as Control
+	var inner: Rect2 = ancestry_box.get_global_rect().grow(-BOX_PAD)
+	var span: Rect2 = ancestry.chip_row().get_global_rect()
+	TestFixtures.check(res, "the chips sit inside the box pad on both sides",
+		ancestry_box.size.x > BOX_PAD * 2.0
+		and span.position.x >= inner.position.x - GEOMETRY_SLACK
+		and span.end.x <= inner.end.x + GEOMETRY_SLACK,
+		"box %s chips %s" % [ancestry_box.get_global_rect(), span])
+	panel.queue_free()
+	var lone: FilterSection = await _section(host,
+		TraitFilterDefs.find(defs, &"tradition"), ents)
+	TestFixtures.check(res, "a section outside any group draws a plain title",
+		not lone.banded and not lone.title_label.has_theme_stylebox_override(&"normal")
+		and is_zero_approx(lone.title_label.custom_minimum_size.y),
+		"banded %s" % [lone.banded])
+	lone.banded = true
+	TestFixtures.check(res, "banding a section puts its title on the band",
+		lone.title_label.get_theme_stylebox(&"normal") == FilterSection.STYLE_BAND
+		and is_equal_approx(lone.title_label.custom_minimum_size.y, FilterSection.BAND_HEIGHT),
+		"height %s" % [lone.title_label.custom_minimum_size.y])
+	lone.banded = false
+	TestFixtures.check(res, "unbanding a section gives the plain title back",
+		not lone.title_label.has_theme_stylebox_override(&"normal")
+		and is_zero_approx(lone.title_label.custom_minimum_size.y),
+		"height %s" % [lone.title_label.custom_minimum_size.y])
+	lone.queue_free()
+	var bare: FilterGroup = (load(GROUP_SCENE) as PackedScene).instantiate()
+	bare.headless = true
+	host.add_child(bare)
+	await host.get_tree().process_frame
+	var plain: FilterSection = (load(SECTION_SCENE) as PackedScene).instantiate()
+	bare.add_section(plain)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a headless group adds its sections bare, with no box and no band",
+		plain.get_parent() == bare.body() and not plain.banded
+		and not plain.title_label.has_theme_stylebox_override(&"normal")
+		and bare.sections().size() == 1, "parent %s" % [plain.get_parent()])
+	bare.queue_free()
+
+
+static func _case_builder_rows(res: Dictionary) -> void:
+	var builder: Array[Dictionary] = TraitFilterDefs.merc_defs(false)
+	var hiring: Array[Dictionary] = TraitFilterDefs.merc_defs(true)
+	var builder_keys: Array[StringName] = TraitFilterDefs.keys_of(builder)
+	TestFixtures.check(res, "the campaign builder offers eight merc rows in the design order",
+		builder_keys == BUILDER_ROWS, "keys %s" % [builder_keys])
+	var carried: Array[String] = []
+	for key: StringName in REVIEW_ONLY_ROWS:
+		if not TraitFilterDefs.find(builder, key).is_empty():
+			carried.append(String(key))
+	TestFixtures.check(res, "the builder carries no row that only applicant review narrows by",
+		carried.is_empty() and TraitFilterDefs.find(builder, VIA_ROW).is_empty(),
+		"builder carries %s" % [carried])
+	var wanted: Array[StringName] = []
+	wanted.append_array(BUILDER_ROWS)
+	wanted.append_array(REVIEW_ONLY_ROWS)
+	wanted.append(VIA_ROW)
+	var absent: Array[String] = []
+	for key: StringName in wanted:
+		if TraitFilterDefs.find(hiring, key).is_empty():
+			absent.append(String(key))
+	TestFixtures.check(res, "Hiring keeps every builder row, every review row and Applied Via",
+		absent.is_empty() and hiring.size() == wanted.size(),
+		"missing %s, %d rows" % [absent, hiring.size()])
+	var misfiled: Array[String] = []
+	for group: String in BUILDER_GROUPS:
+		var rows: Array[StringName] = TraitFilterDefs.keys_of(
+			TraitFilterDefs.in_group(builder, group))
+		if rows != BUILDER_GROUPS[group]:
+			misfiled.append(group)
+	TestFixtures.check(res, "the builder fills the four groups with the rows the design lists",
+		misfiled.is_empty(), "off groups %s" % [misfiled])
+
+
+static func _case_ancestry_chips(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.max_out()
+	var ents: Dictionary = SubscriptionManager.entitlements()
+	var real_names: Array[String] = TraitFilterDefs.ancestry_names()
+	var sheet: Array = DataManager.ancestries.keys()
+	TestFixtures.check(res, "the ancestry names are the ancestries the data sheet holds, in order",
+		not real_names.is_empty() and real_names == sheet, "names %s" % [real_names])
+	var placeholders: Array[String] = []
+	for ancestry_name: String in real_names:
+		if ancestry_name.begins_with(PLACEHOLDER_ANCESTRY):
+			placeholders.append(ancestry_name)
+	TestFixtures.check(res, "no ancestry name is a numbered placeholder",
+		placeholders.is_empty(), "placeholders %s" % [placeholders])
+	var off_hosts: Array[String] = []
+	for hiring: bool in [false, true]:
+		var row: Dictionary = TraitFilterDefs.find(TraitFilterDefs.merc_defs(hiring), &"ancestry")
+		if row.get("options", []) != real_names or row.get("values", []) != real_names:
+			off_hosts.append("Hiring" if hiring else "builder")
+	TestFixtures.check(res, "the builder and Hiring both list the real ancestries as labels and values",
+		off_hosts.is_empty(), "off in %s" % [off_hosts])
+	var builder: Array[Dictionary] = TraitFilterDefs.merc_defs(false)
+	var section: FilterSection = await _section(host,
+		TraitFilterDefs.find(builder, &"ancestry"), ents)
+	var chips: ChipRow = section.chip_row()
+	TestFixtures.check(res, "the ancestry row renders one chip per real ancestry",
+		chips != null and chips.chip_count() == real_names.size(),
+		"count %d of %d" % [0 if chips == null else chips.chip_count(), real_names.size()])
+	var read: Array[String] = []
+	for ancestry_name: String in real_names:
+		var chip: Button = chips.chip_for(ancestry_name)
+		read.append("" if chip == null else chip.text)
+	TestFixtures.check(res, "each ancestry chip reads its ancestry name and stores it as its value",
+		read == real_names, "chips %s" % [read])
+	TestFixtures.check(res, "the ancestry row is a multi pick without tradition dots",
+		chips.multi and chips.chip_for(real_names[0]).icon == null, "single pick or dotted")
+	chips.press_chip(real_names[0])
+	chips.press_chip(real_names[1])
+	TestFixtures.check(res, "two ancestry chips store two real names and count as active",
+		section.value() == [real_names[0], real_names[1]] and section.is_active(),
+		"value %s" % [section.value()])
+	section.queue_free()
+
+
 static func _case_panel_merc(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var panel: TraitFilterPanel = (load(PANEL_SCENE) as PackedScene).instantiate()
 	host.add_child(panel)
 	await host.get_tree().process_frame
@@ -690,8 +1010,125 @@ static func _case_panel_merc(res: Dictionary, host: Node) -> void:
 	panel.queue_free()
 
 
+static func _case_panel_builder(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.max_out()
+	var panel: TraitFilterPanel = (load(PANEL_SCENE) as PackedScene).instantiate()
+	host.add_child(panel)
+	await host.get_tree().process_frame
+	panel.set_defs(TraitFilterDefs.merc_defs(false), {}, SubscriptionManager.entitlements())
+	await host.get_tree().process_frame
+	var drawn: Array[StringName] = []
+	for section: FilterSection in panel.sections():
+		drawn.append(section.def_key())
+	TestFixtures.check(res, "the builder panel draws its eight rows in the design order",
+		drawn == BUILDER_ROWS, "rows %s" % [drawn])
+	var titles: Array[String] = []
+	for group: FilterGroup in panel.groups():
+		titles.append(group.title)
+	TestFixtures.check(res, "the builder panel keeps all four groups",
+		titles == TraitFilterDefs.GROUPS, "titles %s" % [titles])
+	var found: Array[String] = []
+	for key: StringName in REVIEW_ONLY_ROWS:
+		if panel.section_for(String(key)) != null:
+			found.append(String(key))
+	TestFixtures.check(res, "the builder panel has no section for a row only review narrows by",
+		found.is_empty(), "sections %s" % [found])
+	panel.queue_free()
+
+
+static func _case_panel_accordion(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.max_out()
+	var ents: Dictionary = SubscriptionManager.entitlements()
+	var panel: TraitFilterPanel = (load(PANEL_SCENE) as PackedScene).instantiate()
+	host.add_child(panel)
+	await host.get_tree().process_frame
+	panel.set_defs(TraitFilterDefs.merc_defs(false), {}, ents)
+	await host.get_tree().process_frame
+	var events: Array = []
+	panel.filters_changed.connect(func(f: Dictionary) -> void: events.append(f))
+	var none_open: Array[String] = []
+	var only_identity: Array[String] = [IDENTITY_GROUP]
+	var only_physical: Array[String] = [PHYSICAL_GROUP]
+	var only_mental: Array[String] = [MENTAL_GROUP]
+	var only_value: Array[String] = [VALUE_GROUP]
+	TestFixtures.check(res, "every named group starts shut",
+		_open_titles(panel) == none_open, "open %s" % [_open_titles(panel)])
+	panel.group_for(IDENTITY_GROUP).toggle()
+	TestFixtures.check(res, "opening a group leaves it as the only open one",
+		_open_titles(panel) == only_identity, "open %s" % [_open_titles(panel)])
+	panel.group_for(PHYSICAL_GROUP).toggle()
+	TestFixtures.check(res, "opening a second group shuts the first",
+		_open_titles(panel) == only_physical and not panel.group_for(IDENTITY_GROUP).is_open(),
+		"open %s" % [_open_titles(panel)])
+	panel.group_for(PHYSICAL_GROUP).toggle()
+	TestFixtures.check(res, "closing the open group leaves every group shut",
+		_open_titles(panel) == none_open, "open %s" % [_open_titles(panel)])
+	panel.open_group(MENTAL_GROUP)
+	TestFixtures.check(res, "open_group opens the named group, shuts the rest and reports nothing",
+		_open_titles(panel) == only_mental and events.is_empty(),
+		"open %s, %d events" % [_open_titles(panel), events.size()])
+	panel.open_group(VALUE_GROUP)
+	TestFixtures.check(res, "open_group moves the open slot to the group it names",
+		_open_titles(panel) == only_value, "open %s" % [_open_titles(panel)])
+	panel.open_group(UNKNOWN_GROUP)
+	TestFixtures.check(res, "open_group with an unknown name changes nothing",
+		_open_titles(panel) == only_value, "open %s" % [_open_titles(panel)])
+	panel.press_value("tradition", [TraitFilterDefs.traditions()[0]])
+	panel.open_group(PHYSICAL_GROUP)
+	var identity: FilterGroup = panel.group_for(IDENTITY_GROUP)
+	TestFixtures.check(res, "a group shut by the accordion still counts its narrowed rows",
+		not identity.is_open() and identity.count() == 1, "identity count %d" % identity.count())
+	panel.set_defs(TraitFilterDefs.merc_defs(true), panel.filters(), ents)
+	await host.get_tree().process_frame
+	panel.group_for(VALUE_GROUP).toggle()
+	panel.group_for(MENTAL_GROUP).toggle()
+	TestFixtures.check(res, "a panel rebuilt with the Hiring rows still keeps one group open",
+		_open_titles(panel) == only_mental, "open %s" % [_open_titles(panel)])
+	panel.queue_free()
+
+
+static func _case_panel_stale(res: Dictionary, host: Node) -> void:
+	SubscriptionManager.max_out()
+	var ents: Dictionary = SubscriptionManager.entitlements()
+	var held: Dictionary = {&"salary": [100.0, 500.0], &"bloodline": ["Bloodline 2"],
+		&"age": [20.0, 40.0], "tools": ["Tool 1"]}
+	var panel: TraitFilterPanel = (load(PANEL_SCENE) as PackedScene).instantiate()
+	host.add_child(panel)
+	await host.get_tree().process_frame
+	panel.set_defs(TraitFilterDefs.merc_defs(false), held, ents)
+	await host.get_tree().process_frame
+	var events: Array = []
+	panel.filters_changed.connect(func(f: Dictionary) -> void: events.append(f))
+	TestFixtures.check(res, "saved filters for rows the builder dropped stay out of the table",
+		panel.filters().keys() == BUILDER_ROWS, "keys %s" % [panel.filters().keys()])
+	TestFixtures.check(res, "the saved rows the builder still carries come through",
+		panel.active_total() == 1
+		and is_equal_approx(float((panel.value_of("salary") as Array)[1]), 500.0),
+		"total %d" % panel.active_total())
+	TestFixtures.check(res, "a dropped row reads as unknown and draws no section",
+		panel.value_of("bloodline") == null and panel.value_of("tools") == null
+		and panel.section_for("age") == null, "bloodline %s" % [panel.value_of("bloodline")])
+	panel.press_value("bloodline", ["Bloodline 1"])
+	panel.set_value("age", [30.0, 50.0])
+	TestFixtures.check(res, "writing a dropped row reports nothing and adds no key",
+		events.is_empty() and panel.filters().keys() == BUILDER_ROWS
+		and panel.active_total() == 1, "%d events, keys %s" % [events.size(), panel.filters().keys()])
+	TestFixtures.check(res, "only the Value group counts a narrowed row after the stale keys",
+		panel.group_for(VALUE_GROUP).count() == 1 and panel.group_for(IDENTITY_GROUP).count() == 0
+		and panel.group_for(PHYSICAL_GROUP).count() == 0
+		and panel.group_for(MENTAL_GROUP).count() == 0,
+		"Value %d" % panel.group_for(VALUE_GROUP).count())
+	panel.set_defs(TraitFilterDefs.merc_defs(true), held, ents)
+	await host.get_tree().process_frame
+	var revived: Dictionary = panel.filters()
+	TestFixtures.check(res, "the same saved table applies in full once the Hiring rows are back",
+		revived.has(&"bloodline") and revived.has(&"age") and revived.has(&"tools")
+		and panel.active_total() == 4, "total %d" % panel.active_total())
+	panel.queue_free()
+
+
 static func _case_panel_contract(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var panel: TraitFilterPanel = (load(PANEL_SCENE) as PackedScene).instantiate()
 	panel.lock_verb = "target"
 	host.add_child(panel)
@@ -744,4 +1181,37 @@ static func _case_panel_contract(res: Dictionary, host: Node) -> void:
 			and panel.group_for("").count() == 1,
 		"total %d on %s" % [panel.active_total(), str(panel.value_of("ctype"))])
 	panel.queue_free()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
+
+
+static func _case_check_row_hover(res: Dictionary, host: Node) -> void:
+	var cold_off: Color = FilterCheckRow.border_for(false, false)
+	var cold_on: Color = FilterCheckRow.border_for(true, false)
+	var hot_off: Color = FilterCheckRow.border_for(false, true)
+	var hot_on: Color = FilterCheckRow.border_for(true, true)
+	TestFixtures.check(res, "a resting check box keeps its pale or dark orange border",
+		cold_off == FilterCheckRow.OFF_BORDER and cold_on == FilterCheckRow.ON_BORDER,
+		"off %s on %s" % [cold_off.to_html(false), cold_on.to_html(false)])
+	TestFixtures.check(res, "a hovered check box turns its border orange, brighter when ticked",
+		hot_off == FilterCheckRow.BORDER_HOT_OFF and hot_on == FilterCheckRow.BORDER_HOT_ON
+		and hot_off != cold_off and hot_on != cold_on and hot_on != hot_off,
+		"off %s on %s" % [hot_off.to_html(false), hot_on.to_html(false)])
+	var row: FilterCheckRow = (load(CHECK_ROW_SCENE) as PackedScene).instantiate()
+	host.add_child(row)
+	await host.get_tree().process_frame
+	var label_rest: Color = row._label_color()
+	row.mouse_entered.emit()
+	var label_hot_on: Color = row._label_color()
+	row.on = false
+	var label_hot_off: Color = row._label_color()
+	row.mouse_exited.emit()
+	var label_after: Color = row._label_color()
+	TestFixtures.check(res, "the label turns orange under the pointer, ticked or not",
+		label_rest == FilterCheckRow.ROW_COLOR and label_hot_on == FilterCheckRow.HOVER_COLOR
+		and label_hot_off == FilterCheckRow.HOVER_COLOR and label_after == FilterCheckRow.ROW_COLOR,
+		"rest %s ticked %s clear %s after %s" % [label_rest.to_html(false), label_hot_on.to_html(false),
+		label_hot_off.to_html(false), label_after.to_html(false)])
+	TestFixtures.check(res, "the row shows the pointing hand over it",
+		row.mouse_default_cursor_shape == Control.CURSOR_POINTING_HAND,
+		"cursor %d" % row.mouse_default_cursor_shape)
+	row.queue_free()

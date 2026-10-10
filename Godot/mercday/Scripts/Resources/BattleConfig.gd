@@ -11,7 +11,7 @@ class_name BattleConfig extends Resource
 #These two stat names are fixed: no resource overrides them and the sheets never rename the keys.
 @export var base_success_chance_stat: String = "base_success_chance"
 @export var reroll_stat: String = "reroll"
-@export var fragility_success_threshold: int = 6  # d6 must roll >= this to count as a survival success (default 6 = only a 6 survives)
+@export var fragility_success_threshold: int = 6  #d6 must roll at least this to count as a survival success; default 6
 @export var flee_gate: float = 51.0  #flee value (sheet plus battle swing) at or above which a merc rolls to flee each turn
 @export var flee_escape_paces: int = 15  #paces a merc on the map edge must bank off-map before it has fled
 @export var flee_pursuit_paces: float = 8.0  #distance credit per point of escaping_bonus when picking a Move target

@@ -17,6 +17,10 @@ static func build(event: EventData, run: ContractRun, bad_luck_extra: int) -> Ar
 	if run.contract != null:
 		req.contract_level = run.contract.contract_level
 	req.extra_ctx = {"bad_luck_roll": bad_luck_extra}
+	var factor: float = EventConfig.counter_factor(event.event_name,
+		run.event_config())
+	if not is_nan(factor):
+		req.extra_ctx["difficulty_factor"] = factor
 	req.tag = event.event_name
 	var config: ContractConfig = ContractLibrary.config()
 	if event.enemy == "Mercs":

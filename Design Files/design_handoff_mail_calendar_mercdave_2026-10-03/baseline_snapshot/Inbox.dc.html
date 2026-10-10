@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./fit-frame.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 0 0 0 2px #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-button{display:none}
+</style>
+<script src="./merc-icons.js"></script>
+<script src="./mail-cal-core.js"></script>
+</helmet>
+<div data-help-scope="window" style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Inbox" style="position:relative;width:1280px;height:{{ frameH }};flex:none;background:#101a30;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px);padding:20px;display:grid;grid-template-columns:420px minmax(0,1fr);gap:20px;box-shadow:0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000">
+    <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:4px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">Inbox.tscn</div></sc-if>
+
+    <div style="min-height:0;display:flex;flex-direction:column">
+      <div data-help="mail_tabs" style="position:relative;display:flex;gap:8px;height:44px;flex:none;padding:0 4px">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">TabButton.tscn ×5 (MailFolder)</div></sc-if>
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+          <dc-import name="Tab Button" label="{{ t.label }}" icon="{{ t.icon }}" active="{{ t.active }}" title="{{ t.title }}" badge="{{ t.badge }}" badge-bg="#f28c28" on-click="{{ t.onClick }}" style="flex:{{ t.flex }};align-self:flex-end" hint-size="52px,38px"></dc-import>
+        </sc-for>
+      </div>
+      <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;padding:14px 10px 14px 14px;background:#1a2b4d;box-shadow:inset 4px 0 0 #28447a,inset -4px -4px 0 #111c33,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,0 -4px 0 #f28c28">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;right:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">MailList.tscn</div></sc-if>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-right:4px">
+          <span style="font:400 13px Silkscreen;color:#f28c28;letter-spacing:1px">{{ folderTitle }}</span>
+          <span style="font:400 11px Silkscreen;color:#9cc6ef;white-space:nowrap">{{ listCount }}</span>
+        </div>
+        <div data-help="mail_list" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;padding:4px 6px 4px 4px;background:#0a0f1c">
+          <sc-for list="{{ list }}" as="m" hint-placeholder-count="4">
+            <div onClick="{{ m.onClick }}" style="position:relative;flex:none;display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;padding:10px;cursor:pointer;background:{{ m.bg }};box-shadow:inset 0 0 0 2px {{ m.ring }}" style-hover="background:#15223d">
+              <sc-if value="{{ m.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-8px;left:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MailItem.tscn</span></sc-if>
+              <div style="position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#0e1628;box-shadow:inset 0 0 0 2px #3b6fb6">
+                <sc-if value="{{ m.avatar }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c);background:url({{ m.avatar }}) 0 0/100% 100% no-repeat"></span></sc-if>
+                <sc-if value="{{ m.unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;left:-4px;width:12px;height:12px;background:#f28c28;box-shadow:0 0 0 2px #0a0f1c"></span></sc-if>
+              </div>
+              <div style="min-width:0;display:flex;flex-direction:column;gap:5px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+                  <span style="min-width:0;font:{{ m.fromFont }};color:{{ m.fromColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.from }}</span>
+                  <span style="flex:none;font-size:12px;color:#8a97ad;white-space:nowrap">{{ m.short }}</span>
+                </div>
+                <span style="font-size:15px;line-height:1.1;color:{{ m.subjColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.subject }}</span>
+                <sc-if value="{{ m.needsReply }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:flex;align-items:center;gap:6px;font:400 10px Silkscreen;color:#f28c28"><sc-if value="{{ alertUrl }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:4px;height:10px;image-rendering:pixelated;background:url({{ alertUrl }}) 0 0/100% 100% no-repeat"></span></sc-if>Needs a reply</span>
+                </sc-if>
+                <sc-if value="{{ m.replied }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;color:#6cc36a;white-space:nowrap;overflow:hidden"><sc-if value="{{ checkUrl }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:11px;height:10px;image-rendering:pixelated;background:url({{ checkUrl }}) 0 0/100% 100% no-repeat"></span></sc-if><span style="overflow:hidden;text-overflow:ellipsis">You replied: {{ m.choice }}</span></span>
+                </sc-if>
+                <sc-if value="{{ m.showSnippet }}" hint-placeholder-val="{{ true }}">
+                  <span style="font-size:12px;color:#8a97ad;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.snippet }}</span>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:16px;text-align:center;font-size:14px;color:#9cc6ef">{{ emptyLabel }}</div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">MailReader.tscn</div></sc-if>
+      <sc-if value="{{ noSel }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#9cc6ef;font-size:15px">
+          <sc-if value="{{ bigMail }}" hint-placeholder-val="{{ false }}"><span style="display:block;width:64px;height:64px;image-rendering:pixelated;opacity:0.5;background:url({{ bigMail }}) 0 0/100% 100% no-repeat"></span></sc-if>
+          <span>{{ noSelLabel }}</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:none;display:flex;flex-direction:column;gap:14px;padding:20px 22px 16px">
+          <span style="font:700 16px/1.3 Silkscreen;color:#f28c28;text-wrap:pretty">{{ sel.subject }}</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;background:#0e1628;box-shadow:inset 0 0 0 2px #3b6fb6">
+              <sc-if value="{{ sel.avatar }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c);background:url({{ sel.avatar }}) 0 0/100% 100% no-repeat"></span></sc-if>
+            </div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+              <span style="position:relative;align-self:flex-start;display:flex;align-items:baseline;gap:8px">
+                <span data-help="mail_sender" onMouseEnter="{{ showCard }}" onMouseLeave="{{ hideCard }}" style="font:700 13px Silkscreen;color:#f3ead7;cursor:help;border-bottom:2px dotted #5aa6e8;padding-bottom:1px">{{ sel.from }}</span>
+                <sc-if value="{{ cardOn }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:calc(100% + 10px);left:0;z-index:30;width:320px;padding:14px;display:flex;flex-direction:column;gap:10px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5);pointer-events:none">
+                    <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">SenderCard.tscn</div></sc-if>
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <div style="width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;background:#0e1628;box-shadow:inset 0 0 0 2px #3b6fb6"><sc-if value="{{ card.avatar }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;background:url({{ card.avatar }}) 0 0/100% 100% no-repeat"></span></sc-if></div>
+                      <div style="min-width:0;display:flex;flex-direction:column;gap:5px">
+                        <span style="font:700 13px Silkscreen;color:#f3ead7">{{ card.name }}</span>
+                        <span style="align-self:flex-start;padding:2px 6px;font:700 9px Silkscreen;color:#0a0f1c;background:{{ card.badgeBg }}">{{ card.badge }}</span>
+                      </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px;padding:10px;background:#0e1628">
+                      <sc-for list="{{ card.rows }}" as="r" hint-placeholder-count="3">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px"><span style="color:#9cc6ef">{{ r.k }}</span><span style="color:#f3ead7;text-align:right">{{ r.v }}</span></div>
+                      </sc-for>
+                      <sc-if value="{{ card.hasFace }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px">
+                          <span style="color:#9cc6ef">{{ card.faceKey }}</span>
+                          <span style="display:flex;align-items:center;gap:8px"><span style="color:{{ card.faceColor }}">{{ card.faceLabel }}</span><sc-if value="{{ card.face }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:24px;height:24px;image-rendering:pixelated;background:url({{ card.face }}) 0 0/100% 100% no-repeat"></span></sc-if></span>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ card.locked }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px">
+                          <span style="color:#9cc6ef">{{ card.faceKey }}</span>
+                          <span style="display:flex;align-items:center;gap:6px;color:#8a97ad;font-size:12px"><sc-if value="{{ lockUrl }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:8px;height:9px;image-rendering:pixelated;background:url({{ lockUrl }}) 0 0/100% 100% no-repeat"></span></sc-if>{{ card.lockText }}</span>
+                        </div>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ card.hasAbout }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;line-height:1.35;color:#c9d3e3">{{ card.about }}</span></sc-if>
+                  </div>
+                </sc-if>
+              </span>
+              <span style="font-size:13px;color:#9cc6ef">{{ sel.fromSub }}</span>
+            </div>
+            <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+              <span style="font-size:12px;color:#8a97ad;white-space:nowrap">{{ sel.when }}</span>
+              <span style="padding:2px 6px;font:400 9px Silkscreen;color:#9cc6ef;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">{{ sel.folder }}</span>
+            </div>
+          </div>
+        </div>
+        <div style="flex:none;height:4px;margin:0 4px;background:#111c33"></div>
+        <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding:18px 22px">
+          <sc-if value="{{ sel.hasThread }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font:400 10px Silkscreen;color:#9cc6ef;letter-spacing:1px">Earlier in this thread</span>
+              <sc-for list="{{ sel.thread }}" as="p" hint-placeholder-count="1">
+                <div style="display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span style="font:700 10px Silkscreen;color:#9cc6ef">{{ p.from }}</span><span style="font-size:12px;color:#8a97ad;white-space:nowrap">{{ p.when }}</span></div>
+                  <span style="font-size:14px;line-height:1.35;color:#c9d3e3;white-space:pre-wrap">{{ p.body }}</span>
+                </div>
+                <sc-if value="{{ p.hasChoice }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:5px;margin-left:28px;padding:10px 12px;background:#15223d;box-shadow:inset 0 0 0 2px #2b4f8a">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span style="font:700 10px Silkscreen;color:#f28c28">{{ p.replyFrom }}</span><span style="font-size:12px;color:#8a97ad;white-space:nowrap">{{ p.replyWhen }}</span></div>
+                    <span style="font-size:14px;line-height:1.35;color:#f3ead7">{{ p.choice }}</span>
+                  </div>
+                </sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ sel.hasThread }}" hint-placeholder-val="{{ false }}"><span style="font:400 10px Silkscreen;color:#9cc6ef;letter-spacing:1px">Latest</span></sc-if>
+          <span style="font-size:17px;line-height:1.45;color:#f3ead7;white-space:pre-wrap;text-wrap:pretty">{{ sel.body }}</span>
+
+          <sc-if value="{{ sel.hasVac }}" hint-placeholder-val="{{ false }}">
+            <div data-help="mail_vac" style="position:relative;display:flex;flex-direction:column;gap:12px;margin:0 3px;padding:14px;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+              <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">VacationRequestBlock.tscn</div></sc-if>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+                <span style="display:flex;align-items:center;gap:8px;font:400 11px Silkscreen;color:#9cc6ef;letter-spacing:1px"><sc-if value="{{ vacIcon }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ vacIcon }}) 0 0/100% 100% no-repeat"></span></sc-if>Vacation Request</span>
+                <span style="padding:2px 8px;font:700 10px Silkscreen;color:#0a0f1c;background:{{ sel.vac.stateColor }}">{{ sel.vac.state }}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 24px">
+                <div style="display:flex;flex-direction:column;gap:3px"><span style="font:400 9px Silkscreen;color:#8a97ad">Merc</span><span style="font-size:16px">{{ sel.vac.merc }}</span></div>
+                <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end"><span style="font:400 9px Silkscreen;color:#8a97ad">Days</span><span style="font-size:16px">{{ sel.vac.days }}</span></div>
+                <div style="grid-column:1 / -1;display:flex;flex-direction:column;gap:3px"><span style="font:400 9px Silkscreen;color:#8a97ad">Dates</span><span style="font-size:16px">{{ sel.vac.range }}</span></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:10px;box-shadow:0 -2px 0 #1f3560">
+                <span style="font-size:14px;color:{{ sel.vac.balColor }}">{{ sel.vac.balLine }}</span>
+                <sc-if value="{{ canCal }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sel.vac.toCal }}" style="flex:none;height:28px;padding:0 10px;display:flex;align-items:center;gap:8px;background:#2b4f8a;font:400 10px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6"><sc-if value="{{ calIcon }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ calIcon }}) 0 0/100% 100% no-repeat"></span></sc-if>View in Calendar</button></sc-if>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ sel.hasBill }}" hint-placeholder-val="{{ false }}">
+            <div data-help="mail_bill" style="position:relative;display:flex;flex-direction:column;gap:12px;margin:0 3px;padding:14px;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+              <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">BillBlock.tscn</div></sc-if>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+                <span style="display:flex;align-items:center;gap:8px;font:400 11px Silkscreen;color:#9cc6ef;letter-spacing:1px"><sc-if value="{{ billIcon }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ billIcon }}) 0 0/100% 100% no-repeat"></span></sc-if>Bill</span>
+                <span style="padding:2px 8px;font:700 10px Silkscreen;color:#0a0f1c;background:{{ sel.bill.statusColor }}">{{ sel.bill.status }}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 24px">
+                <div style="display:flex;flex-direction:column;gap:3px"><span style="font:400 9px Silkscreen;color:#8a97ad">Amount</span>
+                  <span style="display:flex;align-items:center;gap:6px;font:700 15px Silkscreen;color:#f3ead7">{{ sel.bill.amount }}<span style="flex:none;width:12px;height:16px;display:flex;align-items:center;justify-content:center;background:#f28c28"><sc-if value="{{ noteDark }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:5px;height:9px;image-rendering:pixelated;background:url({{ noteDark }}) 0 0/100% 100% no-repeat"></span></sc-if></span></span></div>
+                <sc-if value="{{ sel.bill.hasDue }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end"><span style="font:400 9px Silkscreen;color:#8a97ad">Due</span><span style="font-size:16px">{{ sel.bill.due }}</span></div></sc-if>
+              </div>
+              <sc-if value="{{ sel.bill.showCal }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:10px;box-shadow:0 -2px 0 #1f3560">
+                  <span style="font-size:14px;color:{{ sel.bill.dueColor }}">{{ sel.bill.dueLine }}</span>
+                  <sc-if value="{{ canCal }}" hint-placeholder-val="{{ false }}"><button onClick="{{ sel.bill.toCal }}" style="flex:none;height:28px;padding:0 10px;display:flex;align-items:center;gap:8px;background:#2b4f8a;font:400 10px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6"><sc-if value="{{ calIcon }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ calIcon }}) 0 0/100% 100% no-repeat"></span></sc-if>View in Calendar</button></sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ sel.hasReply }}" hint-placeholder-val="{{ false }}">
+            <div style="position:relative;display:flex;flex-direction:column;gap:6px;margin:0 3px 0 28px;padding:12px 14px;background:#15223d;box-shadow:inset 0 0 0 2px #2b4f8a">
+              <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MailReply.tscn</div></sc-if>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span style="font:700 11px Silkscreen;color:#f28c28">{{ sel.replyFrom }}</span><span style="font-size:12px;color:#8a97ad;white-space:nowrap">{{ sel.replyWhen }}</span></div>
+              <span style="font-size:16px;line-height:1.4;color:#f3ead7">{{ sel.choice }}</span>
+              <sc-if value="{{ sel.waiting }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#f2b33d">A reply is on the way.</span></sc-if>
+            </div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ sel.open }}" hint-placeholder-val="{{ true }}">
+        <div data-help="mail_options" style="position:relative;flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:76px;padding:16px 22px;background:#16233f;box-shadow:inset 0 4px 0 #111c33">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-8px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MailOptions.tscn (OptionButton ×1–3)</div></sc-if>
+          <sc-if value="{{ sel.open }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ sel.options }}" as="o" hint-placeholder-count="2">
+              <button onClick="{{ o.onClick }}" style="flex:1 1 0;min-width:0;max-width:240px;height:44px;display:flex;align-items:center;justify-content:center;gap:10px;padding:0 12px;background:#2b4f8a;color:#f3ead7;font:700 12px Silkscreen;white-space:nowrap;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#f28c28;color:#0a0f1c;box-shadow:inset 0 3px 0 #ffb266,inset 0 -3px 0 #b85a12,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+                <span style="overflow:hidden;text-overflow:ellipsis">{{ o.label }}</span>
+                <sc-if value="{{ o.hasCost }}" hint-placeholder-val="{{ false }}"><span style="flex:none;display:flex;align-items:center;gap:3px;padding:3px 5px;background:#0a0f1c;color:{{ o.costColor }};font:700 11px Silkscreen">{{ o.cost }}<sc-if value="{{ noteMask }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ noteMask }}) 0 0/100% 100% no-repeat;mask:url({{ noteMask }}) 0 0/100% 100% no-repeat"></span></sc-if></span></sc-if>
+              </button>
+            </sc-for>
+          </sc-if>
+        </div>
+        </sc-if>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+      <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span><span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span></div>
+          <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+          <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7"><sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for></div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;},&quot;startFolder&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Inbox&quot;,&quot;Requests&quot;,&quot;Bills&quot;,&quot;News&quot;,&quot;Spam&quot;],&quot;default&quot;:&quot;Inbox&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;frameH&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;openId&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;string&quot;},&quot;nonce&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  mi() { const M = window.MercIcons; if (M) return M; if (!this._miWait) this._miWait = setInterval(() => { if (window.MercIcons) { clearInterval(this._miWait); this.forceUpdate(); } }, 50); return { cells: () => [], cell16: () => [], tabOn: () => [], mask: () => [''], pxUrl: () => '' }; }
+  state = { folder: null, sel: null, card: false };
+  folders = [['Inbox', 'mail'], ['Requests', 'request'], ['Bills', 'bill'], ['News', 'news'], ['Spam', 'prohibited']];
+  // Relationship / Guild Opinion −5…+5 → face icon + color (same meter as Client Viewer / Merc Viewer).
+  faceColors = { '-5': '#e8583f', '-4': '#ec6a36', '-3': '#ef7c2f', '-2': '#f28c28', '-1': '#f2a033', '0': '#f2b33d', '1': '#5aa6e8', '2': '#5fb0b8', '3': '#64b98c', '4': '#6cc36a', '5': '#3fae5a' };
+  faceId(lv) { return 'face_' + (lv === 0 ? '0' : (lv < 0 ? 'm' : 'p') + Math.abs(lv)); }
+  kindIcon(s) { const M = this.mi(), k = s.kind; return k === 'Merc' ? M.cell16('mercs') : k === 'Person' ? M.cell16('person', '#f3ead7') : k === 'Place' ? M.cell16('house', '#f3ead7') : k === 'Org' ? M.cell16('building', '#f3ead7') : M.cell16('person_outline', '#8a97ad'); }
+  url(c, n) { const M = window.MercIcons; return c && c.length && M ? M.pxUrl(c, n || 16) : ''; }
+  componentDidMount() {
+    this.onS = () => this.forceUpdate();
+    const hook = () => { const S = window.MailCal; if (!S) return false; this._S = S; S.subs.add(this.onS); this.forceUpdate(); return true; };
+    if (!hook()) this._w = setInterval(() => { if (hook()) clearInterval(this._w); }, 50);
+    if (window.__mercStore) { this._G = window.__mercStore; this._G.subs.add(this.onS); }
+    if (this.props.openId) this.openMail(this.props.openId);
+  }
+  componentDidUpdate(pp) { if (this.props.nonce !== pp.nonce && this.props.openId) this.openMail(this.props.openId); }
+  componentWillUnmount() { clearInterval(this._w); clearInterval(this._miWait); if (this._S) this._S.subs.delete(this.onS); if (this._G) this._G.subs.delete(this.onS); }
+  openMail(id) { const S = window.MailCal; if (!S || !S.ready) { setTimeout(() => this.openMail(id), 120); return; } const m = S.mail.find(x => x.id === id); if (!m) return; S.markRead(id); this.setState({ folder: S.row(m).folder, sel: id, card: false }); }
+  short(t, S) { const d = Math.floor(t / 1440), mi = t % 1440, hh = Math.floor(mi / 60), mm = mi % 60;
+    return d === S.today() ? (hh % 12 || 12) + ':' + String(mm).padStart(2, '0') + ' ' + (hh < 12 ? 'AM' : 'PM') : 'Day ' + (d % 30 + 1) + ', Month ' + (Math.floor(d / 30) % 12 + 1); }
+  sceneMap = [
+    { name: 'Inbox.tscn', uses: 'HUD › Mail button (window)', root: 'HBox › VBox (TabButton ×5 over MailList) + MailReader', vars: ['@export var start_folder: MailFolder  # INBOX, REQUESTS, BILLS, NEWS, SPAM', 'func open_mail(id: StringName)  # from Calendar (bill) or code', '# reads MailCenter; no NotificationCenter entries (mail is its own notification)'] },
+    { name: 'MailList.tscn', uses: 'x1', root: 'PanelContainer › ScrollContainer › MailItem ×N', vars: ['@export var folder: MailFolder', '# newest first; header: "N · M unread"'] },
+    { name: 'MailItem.tscn', uses: 'x N', root: 'Button › HBox (SenderAvatar 44, VBox)', vars: ['@export var mail: MailInstance', '# unread: orange square on avatar, orange sender name', '# row 3: "Needs a reply" (2–3 options, unanswered) | "You chose: X" | first line of body'] },
+    { name: 'MailReader.tscn', uses: 'x1', root: 'VBox › Header (subject, sender, date, folder) + Scroll (thread, body, blocks) + MailOptions', vars: ['@export var mail: MailInstance', '# body: {merc} {vac_start} {vac_end} {vac_days} {amount} {date} {sender} tokens filled from the row', '# thread = parent chain; each answered email is followed by a MailReply (You → sender, your option label, time)'] },
+    { name: 'SenderCard.tscn', uses: 'hover on sender name', root: 'PopupPanel › VBox (avatar, name, badge, rows, opinion face, about)', vars: ['@export var sender: SenderData  # senders.tsv row', '# Client: type, location · km, Relationship (FeatureLock: Customer Satisfaction)', '# Merc: level, status, vacation days left, Guild Opinion (FeatureLock: Survey)', '# Not a client / Unknown: about line'] },
+    { name: 'VacationRequestBlock.tscn', uses: 'emails with vac', root: 'PanelContainer › VBox', vars: ['@export var request: VacationRequest  # merc, start_day, days, state PENDING/APPROVED/DENIED', '# balance line: days left → after; red when days > balance', 'signal view_in_calendar(day)'] },
+    { name: 'BillBlock.tscn', uses: 'emails with amount', root: 'PanelContainer › VBox', vars: ['@export var bill: Bill  # key = bill_id (reminders share it), amount, due_day', '# status: PAID / UNPAID (has a pay option) / AUTO-PAY (no pay option)', 'signal view_in_calendar(day)'] },
+    { name: 'MailOptions.tscn', uses: 'x1', root: 'HBox › OptionButton ×1–3 (max 240 px each, right-aligned)', vars: ['# cost chip from fx money:N / pay (red −, green +)', '# hidden once answered; the choice becomes a MailReply entry (You → sender, time) in the chain', 'signal chosen(index)'] },
+    { name: 'MailCenter (autoload)', uses: 'data', root: 'Node', vars: ['var rows: Dictionary  # emails.tsv by id', 'var mail: Array[MailInstance]  # {id, received_at, read, choice, parent, root, vacation}', 'func choose(id, i)  # apply fx, record choice, deliver next after delay_h', 'signal changed'] },
+  ];
+  renderVals() {
+    const S = window.MailCal, M = this.mi(), ready = !!(S && S.ready), show = this.props.showScenes ?? false;
+    const folder = this.state.folder || this.props.startFolder || 'Inbox';
+    const tabs = this.folders.map(([k, ic]) => { const a = folder === k, u = S ? S.unread(k) : 0;
+      return { label: k, title: k + (u ? ' (' + u + ' unread)' : ''), icon: a ? M.tabOn(ic) : M.cell16(ic), active: a, flex: a ? '1 1 auto' : '0 0 52px', badge: u ? String(u) : '', onClick: () => this.setState({ folder: k, sel: null, card: false }) }; });
+    const mine = ready ? S.mail.filter(m => S.row(m).folder === folder).sort((a, b) => b.t - a.t) : [];
+    const list = mine.map((m, i) => { const r = S.row(m), s = S.sender(r.sender), opts = S.opts(r), on = this.state.sel === m.id, needs = m.choice == null && opts.length > 1, replied = m.choice != null && opts.length > 1;
+      return { id: m.id, tag: show && i === 0, from: s.name, short: this.short(m.t, S), subject: S.fill(r.subject, m), snippet: S.fill(r.body, m).split('\n')[0],
+        needsReply: needs, replied, choice: replied ? opts[m.choice].label : '', showSnippet: !needs && !replied, unread: !m.read,
+        fromFont: m.read ? '400 11px Silkscreen' : '700 11px Silkscreen', fromColor: m.read ? '#9cc6ef' : '#f28c28', subjColor: m.read ? '#c9d3e3' : '#f3ead7',
+        avatar: this.url(this.kindIcon(s)), bg: on ? '#1f3560' : '#0e1628', ring: on ? '#f28c28' : '#1f3560',
+        onClick: () => { S.markRead(m.id); this.setState({ sel: m.id, card: false }); } }; });
+    const unreadHere = mine.filter(m => !m.read).length;
+    const m = ready && this.state.sel ? S.mail.find(x => x.id === this.state.sel) : null;
+    let sel = { options: [], thread: [], vac: {}, bill: {} }, card = { rows: [] };
+    if (m) { const r = S.row(m), s = S.sender(r.sender), opts = S.opts(r), v = S.vacOf(m), b = S.bill(r), t = S.today();
+      const vac = v && (() => { const mc = S.merc(v.merc), after = mc.vacLeft - v.days, st = v.state;
+        return { merc: mc.name, days: v.days + (v.days === 1 ? ' Day' : ' Days'), range: S.date(v.start) + '  to  ' + S.date(v.start + v.days - 1),
+          state: st === 'pending' ? 'Pending' : st === 'approved' ? 'Approved' : 'Denied', stateColor: st === 'pending' ? '#f2b33d' : st === 'approved' ? '#6cc36a' : '#e8583f',
+          balLine: st !== 'pending' ? 'Vacation days left: ' + mc.vacLeft : after < 0 ? 'Requests ' + v.days + ' days, only ' + mc.vacLeft + ' left (' + (-after) + ' unpaid)' : 'Vacation days left: ' + mc.vacLeft + ' → ' + after + ' if approved',
+          balColor: st === 'pending' && after < 0 ? '#e8583f' : '#9cc6ef', toCal: () => S.openCalendar && S.openCalendar(v.start) }; })();
+      const bill = b && (() => { const left = b.due != null ? b.due - t : null;
+        return { amount: b.amount.toLocaleString('en-US'), hasDue: b.due != null, due: b.due != null ? S.date(b.due) : '', status: b.status,
+          statusColor: b.status === 'Paid' ? '#6cc36a' : b.status === 'Unpaid' ? '#e8583f' : '#9cc6ef', showCal: b.due != null,
+          dueLine: b.status === 'Paid' ? 'Paid.' : b.status === 'Auto-pay' ? 'Deducted automatically on the due date.' : left < 0 ? 'Overdue by ' + (-left) + (left === -1 ? ' day' : ' days') : left === 0 ? 'Due today' : 'Due in ' + left + (left === 1 ? ' day' : ' days'),
+          dueColor: b.status === 'Unpaid' && left != null && left <= 3 ? '#e8583f' : '#9cc6ef', toCal: () => S.openCalendar && S.openCalendar(b.due) }; })();
+      sel = { subject: S.fill(r.subject, m), from: s.name, fromSub: s.kind === 'Merc' ? 'Your merc' : s.kind === 'Unknown' ? 'Unknown sender' : s.kind + ' · ' + s.sub, when: S.when(m.t), folder: r.folder,
+        avatar: this.url(this.kindIcon(s)), body: S.fill(r.body, m),
+        thread: S.thread(m).map(p => { const pr = S.row(p), po = S.opts(pr); return { from: S.sender(pr.sender).name, when: S.when(p.t), body: S.fill(pr.body, p), hasChoice: p.choice != null && po.length > 1, choice: p.choice != null ? po[p.choice].label : '', replyFrom: 'You → ' + S.sender(pr.sender).name, replyWhen: S.when(p.choiceT ?? p.t) }; }),
+        hasVac: !!vac, vac: vac || {}, hasBill: !!bill, bill: bill || {},
+        open: m.choice == null, answered: m.choice != null, choice: m.choice != null ? opts[m.choice].label : '', waiting: !!S.pending[m.id],
+        options: opts.map((o, k) => { const c = S.cost(r, o); return { label: o.label, hasCost: c !== 0, cost: (c > 0 ? '+' : '−') + Math.abs(c).toLocaleString('en-US'), costColor: c > 0 ? '#6cc36a' : '#e8583f',
+          onClick: () => { const del = o.fx.includes('delete'); S.choose(m.id, k); if (del) { const nx = S.mail.filter(x => S.row(x).folder === folder).sort((a, b2) => b2.t - a.t)[0]; this.setState({ sel: nx ? nx.id : null, card: false }); if (nx) S.markRead(nx.id); } } }; }) };
+      sel.hasThread = sel.thread.length > 0; sel.hasReply = m.choice != null && opts.length > 1; sel.replyFrom = 'You → ' + s.name; sel.replyWhen = S.when(m.choiceT ?? m.t); // your reply is its own entry in the chain
+      // Sender card
+      const g = S.game(), E = g && g.entitlements ? g.entitlements() : { clientOpinion: true, guildOpinion: true };
+      const cardRows = [], isMerc = s.kind === 'Merc', client = s.client === '1';
+      let lv = null, faceKey = '', locked = false, lockText = '';
+      if (isMerc) { const mc = S.merc(+s.merc); cardRows.push({ k: 'Level', v: String(mc.level) }, { k: 'Status', v: mc.status }, { k: 'Vacation days left', v: String(mc.vacLeft) }); faceKey = 'Guild Opinion'; if (E.guildOpinion) lv = Math.max(-5, Math.min(5, mc.opinion)); else { locked = true; lockText = 'Requires Survey'; } }
+      else { cardRows.push({ k: 'Type', v: s.kind === 'Unknown' ? 'Unknown' : s.kind + ' · ' + s.sub }, { k: 'Location', v: s.location + (s.km ? ' · ' + s.km + ' km away' : '') });
+        if (client) { faceKey = 'Relationship'; if (E.clientOpinion) lv = Math.max(-5, Math.min(5, (+s.rel || 0) + (S.rel[s.id] || 0))); else { locked = true; lockText = 'Requires Customer Satisfaction'; } } }
+      card = { name: s.name, avatar: this.url(this.kindIcon(s)), badge: isMerc ? 'Your Merc' : client ? 'Client' : 'Not a Client', badgeBg: isMerc ? '#5aa6e8' : client ? '#6cc36a' : '#8a97ad',
+        rows: cardRows, hasFace: lv != null, faceKey, faceLabel: lv == null ? '' : (lv > 0 ? '+' : '') + lv, faceColor: lv == null ? '#f3ead7' : this.faceColors[String(lv)], face: lv == null ? '' : this.url(M.cells(this.faceId(lv), this.faceColors[String(lv)]), 12),
+        locked, lockText, about: s.about || '', hasAbout: !!s.about };
+    }
+    const noteRows = M.mask('note').join('').split('');
+    return {
+      showScenes: show, sceneMap: this.sceneMap, frameH: this.props.frameH || '720px', tabs,
+      folderTitle: folder, listCount: !ready ? '' : mine.length + (mine.length === 1 ? ' email' : ' emails') + (unreadHere ? ' · ' + unreadHere + ' unread' : ''),
+      list, listEmpty: ready && !list.length, emptyLabel: S && S.error ? 'Could not load emails.tsv' : 'No emails in ' + folder + '.',
+      noSel: !m, hasSel: !!m, noSelLabel: !ready ? (S && S.error ? 'Could not load mail data.' : 'Loading mail…') : 'Select an email to read it.', bigMail: this.url(M.cell16('mail_open', '#9cc6ef', true)),
+      sel, card, cardOn: !!m && this.state.card,
+      showCard: () => this.setState({ card: true }), hideCard: () => this.setState({ card: false }),
+      canCal: !!(S && S.openCalendar),
+      alertUrl: this.url(M.cells('alert'), 4), checkUrl: this.url(M.cells('check_sm'), 11), lockUrl: this.url(M.cells('lock', '#f2d33d'), 8),
+      vacIcon: this.url(M.cell16('sun_rising')), billIcon: this.url(M.cell16('bill')), calIcon: this.url(M.cell16('calendar')),
+      noteDark: this.url(noteRows.map(ch => ch === '#' ? '#0a0f1c' : 'transparent'), 5), noteMask: this.url(noteRows.map(ch => ch === '#' ? '#ffffff' : 'transparent'), 5),
+    };
+  }
+}
+</script>
+</body>
+</html>

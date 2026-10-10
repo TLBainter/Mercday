@@ -7,7 +7,7 @@ const VALUE_FONT: String = "res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres
 const ACCENT_FONT: String = "res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres"
 const VALUE_SIZE: int = 15
 const ACCENT_SIZE: int = 14
-const VALUE_COLOR: Color = Color("#f3ead7")
+const VALUE_COLOR: Color = GuiColors.CREAM
 const ACCENT_CAPTION: String = "Urgency"
 
 #When true the note rides to the right of the value instead of stacking under it.
@@ -22,7 +22,7 @@ const ACCENT_CAPTION: String = "Urgency"
 var caption: String = ""
 var value: String = ""
 var note: String = ""
-var accent: Color = Color("#f28c28")
+var accent: Color = GuiColors.ORANGE
 
 
 func _ready() -> void:
@@ -30,7 +30,7 @@ func _ready() -> void:
 
 
 func set_card(new_caption: String, new_value: String, new_note: String,
-		new_accent: Color = Color("#f28c28")) -> void:
+		new_accent: Color = GuiColors.ORANGE) -> void:
 	caption = new_caption
 	value = new_value
 	note = new_note
@@ -42,9 +42,7 @@ func set_card(new_caption: String, new_value: String, new_note: String,
 func set_value_style(font: Font, size_px: int, color: Color) -> void:
 	if not is_node_ready():
 		return
-	value_label.add_theme_font_override("font", font)
-	value_label.add_theme_font_size_override("font_size", size_px)
-	value_label.add_theme_color_override("font_color", color)
+	GuiStyle.paint(value_label, font, size_px, color)
 
 
 func value_text() -> String:

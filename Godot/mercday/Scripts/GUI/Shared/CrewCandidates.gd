@@ -13,16 +13,19 @@ static func from_roster(fit: Callable, exclude: Array[int] = []) -> Array[Dictio
 			continue
 		if view.status != GuiTypes.MercStatus.AVAILABLE and view.status != GuiTypes.MercStatus.RESTING:
 			continue
-		if GameState.has_method("is_away") and GameState.is_away(view.uid):
+		if GameState.is_away(view.uid):
 			continue
 		var raw: float = float(fit.call(view.uid))
-		var half_step: float = clampf(roundf(raw * 2.0) / 2.0, 0.5, 5.0)
+		var half_step: float = GuiTypes.snap_half(raw)
 		rows.append({"id": view.uid, "name": view.name, "fit": half_step})
-	rows.sort_custom(_by_fit_then_name)
+	rows.sort_custom(by_fit_then_name)
 	return rows
 
 
-static func _by_fit_then_name(a: Dictionary, b: Dictionary) -> bool:
-	if a["fit"] != b["fit"]:
-		return a["fit"] > b["fit"]
-	return String(a["name"]) < String(b["name"])
+#Best fit first; equal fits fall back to the name. Every merc picker list sorts with it.
+static func by_fit_then_name(a: Dictionary, b: Dictionary) -> bool:
+	var fit_a: float = float(a.get("fit", 0.0))
+	var fit_b: float = float(b.get("fit", 0.0))
+	if fit_a != fit_b:
+		return fit_a > fit_b
+	return String(a.get("name", "")) < String(b.get("name", ""))

@@ -23,7 +23,7 @@ static func _score_weapon_at_pos(
 	var closest_dist := 999999
 	for enemy: MercenaryData in enemies:
 		var ep := state.get_position(enemy)
-		var d := maxi(abs(weapon_pos.x - ep.x), abs(weapon_pos.y - ep.y))
+		var d := Pathfinder.chebyshev2(weapon_pos, ep)
 		if d < closest_dist:
 			closest_dist = d
 	var score := 0.0
@@ -37,14 +37,14 @@ static func _score_weapon_at_pos(
 			var in_range := 0
 			for enemy: MercenaryData in enemies:
 				var ep := state.get_position(enemy)
-				var d := maxi(abs(weapon_pos.x - ep.x), abs(weapon_pos.y - ep.y))
+				var d := Pathfinder.chebyshev2(weapon_pos, ep)
 				if weapon.ranged_extended_range <= 0 or d <= weapon.ranged_extended_range:
 					in_range += 1
 			score += 1.5 * float(in_range)
 		elif weapon.is_throwable:
 			for enemy: MercenaryData in enemies:
 				var ep := state.get_position(enemy)
-				var d := maxi(abs(weapon_pos.x - ep.x), abs(weapon_pos.y - ep.y))
+				var d := Pathfinder.chebyshev2(weapon_pos, ep)
 				if weapon.thrown_extended_range <= 0 or d <= weapon.thrown_extended_range:
 					score += 0.5
 	return score
@@ -89,7 +89,7 @@ static func _pickup_total_cost(
 	var plan := WeaponActionExecutor.plan_free_hands(merc, weapon, enemies, state, attack_base_cost)
 	if not bool(plan.get("ok", false)):
 		return -1
-	return state.get_cost(merc, "Interact", 2) + int(plan.get("cost", 0))
+	return state.get_cost(merc, "Interact", InteractTargetFacet.INTERACT_AP) + int(plan.get("cost", 0))
 
 
 static func decide_pickup_action(
@@ -101,13 +101,13 @@ static func decide_pickup_action(
 	var no_action := {"type": "none", "action_name": "", "target": null, "weapon": null,
 			"weapon_entry": {}, "weapon_pos": Vector2i(-1, -1)}
 
-	var _ctx: Dictionary = _pickup_context(merc, enemies, state)
-	var merc_pos: Vector2i = _ctx["merc_pos"] as Vector2i
-	var current_score: float = _ctx["current_score"] as float
-	var reach_paces: int = _ctx["reach_paces"] as int
-	var enemy_far: bool = _ctx["enemy_far"] as bool
-	var enemy_adjacent: bool = _ctx["enemy_adjacent"] as bool
-	var ranged_priority: bool = _ctx["ranged_priority"] as bool
+	var ctx: Dictionary = _pickup_context(merc, enemies, state)
+	var merc_pos: Vector2i = ctx["merc_pos"] as Vector2i
+	var current_score: float = ctx["current_score"] as float
+	var reach_paces: int = ctx["reach_paces"] as int
+	var enemy_far: bool = ctx["enemy_far"] as bool
+	var enemy_adjacent: bool = ctx["enemy_adjacent"] as bool
+	var ranged_priority: bool = ctx["ranged_priority"] as bool
 
 	var gates: Dictionary = _pickup_gates(merc, enemies, state, attack_base_cost, ranged_priority, enemy_adjacent)
 
@@ -124,8 +124,7 @@ static func decide_pickup_action(
 			EncounterLogger.log_verbose("PICKUP AT-POS SKIP: %s  -  %d weapon(s) at pos, none passed gates (current=%.2f)" % [
 				merc.merc_name, at_pos.size(), current_score])
 
-	var best_on_hand := WeaponEvaluator._best_available_weapon(merc, enemies, state)
-	var on_hand_score := WeaponEvaluator.score_weapon(best_on_hand, merc, enemies, state) if best_on_hand != null else -9999.0
+	var on_hand_score := WeaponEvaluator.best_on_hand_score(merc, enemies, state)
 
 	if state.battlefield == null or state.dropped_weapons.is_empty():
 		if EncounterLogger.is_active():
@@ -144,12 +143,12 @@ static func decide_pickup_action(
 		EncounterLogger.log_verbose("PICKUP EVAL: %s  -  on_hand=%.2f, scanning %d drop location(s) within pace=%d" % [
 			merc.merc_name, on_hand_score, state.dropped_weapons.size(), pace])
 
-	var _scan: Dictionary = _pickup_scan(merc, enemies, state, merc_pos, pace, enemy_far, gates)
-	var best_wp_entry: Dictionary = _scan["entry"] as Dictionary
-	var best_wp_pos: Vector2i = _scan["pos"] as Vector2i
-	var best_wp_score: float = _scan["score"] as float
-	var best_is_priority: bool = _scan["priority"] as bool
-	var best_wp_shed: Dictionary = _scan["shed"] as Dictionary
+	var scan: Dictionary = _pickup_scan(merc, enemies, state, merc_pos, pace, enemy_far, gates)
+	var best_wp_entry: Dictionary = scan["entry"] as Dictionary
+	var best_wp_pos: Vector2i = scan["pos"] as Vector2i
+	var best_wp_score: float = scan["score"] as float
+	var best_is_priority: bool = scan["priority"] as bool
+	var best_wp_shed: Dictionary = scan["shed"] as Dictionary
 	if best_wp_entry.is_empty():
 		return no_action
 	if not best_is_priority and best_wp_score <= on_hand_score + 0.5:
@@ -157,45 +156,42 @@ static func decide_pickup_action(
 			EncounterLogger.log_verbose("PICKUP SKIP: %s  -  score=%.2f below threshold (on_hand=%.2f+0.5)" % [
 				merc.merc_name, best_wp_score, on_hand_score])
 		return no_action
-	var dist_to_wp := maxi(abs(best_wp_pos.x - merc_pos.x), abs(best_wp_pos.y - merc_pos.y))
+	var dist_to_wp := Pathfinder.chebyshev2(best_wp_pos, merc_pos)
 	if dist_to_wp == 0:
-		var _pw0: WeaponData = best_wp_entry.get("weapon") as WeaponData
-		var _pu_cost := _pickup_total_cost(merc, _pw0, enemies, state, attack_base_cost) if _pw0 != null else -1
-		if _pu_cost < 0 or not state.can_afford(merc, _pu_cost):
+		var pw0: WeaponData = best_wp_entry.get("weapon") as WeaponData
+		var pu_cost := _pickup_total_cost(merc, pw0, enemies, state, attack_base_cost) if pw0 != null else -1
+		if pu_cost < 0 or not state.can_afford(merc, pu_cost):
 			if EncounterLogger.is_active():
 				EncounterLogger.log_verbose("PICKUP SKIP: %s  -  cannot free hands for %s (need=%d have=%d)" % [
-					merc.merc_name, _pw0.item_name if _pw0 != null else "?", _pu_cost,
+					merc.merc_name, pw0.item_name if pw0 != null else "?", pu_cost,
 					merc.current_ap + merc.excess_ap])
 			return no_action
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("PICKUP: %s -> '%s' at %s (score=%.2f, at-pos)" % [
-				merc.merc_name, _pw0.item_name if _pw0 != null else "?", str(best_wp_pos), best_wp_score])
+				merc.merc_name, pw0.item_name if pw0 != null else "?", str(best_wp_pos), best_wp_score])
 		return {"type": "pickup", "action_name": "PickUp", "target": null, "weapon": null,
 				"weapon_entry": best_wp_entry, "weapon_pos": best_wp_pos, "shed": best_wp_shed}
 	if not enemies.is_empty():
-		var _nearest_d := 999999
-		var _nearest_ep := Vector2i(-1, -1)
-		for _ne: MercenaryData in enemies:
-			var _ep := state.get_position(_ne)
-			var _d := maxi(absi(merc_pos.x - _ep.x), absi(merc_pos.y - _ep.y))
-			if _d < _nearest_d:
-				_nearest_d = _d
-				_nearest_ep = _ep
-		if _nearest_ep != Vector2i(-1, -1):
-			var _wp_to_enemy := maxi(absi(best_wp_pos.x - _nearest_ep.x), absi(best_wp_pos.y - _nearest_ep.y))
-			var _detour := maxi(0, dist_to_wp + _wp_to_enemy - _nearest_d)
-			var _max_detour := maxi(1, int(best_wp_score - on_hand_score))
-			if _detour > _max_detour:
+		var near: Dictionary = MovementDecider.nearest_enemy(merc, enemies, state, -1, true)
+		var nearest_d: int = near["dist"]
+		var nearest_ep := Vector2i(-1, -1)
+		if near["merc"] != null:
+			nearest_ep = state.get_position(near["merc"])
+		if nearest_ep != Vector2i(-1, -1):
+			var wp_to_enemy := Pathfinder.chebyshev2(best_wp_pos, nearest_ep)
+			var detour := maxi(0, dist_to_wp + wp_to_enemy - nearest_d)
+			var max_detour := maxi(1, int(best_wp_score - on_hand_score))
+			if detour > max_detour:
 				if EncounterLogger.is_active():
-					var _wn: String = (best_wp_entry.get("weapon") as WeaponData).item_name \
+					var wn: String = (best_wp_entry.get("weapon") as WeaponData).item_name \
 						if best_wp_entry.get("weapon") != null else "?"
 					EncounterLogger.log_verbose("PICKUP SKIP: %s  -  '%s' at %s detour=%d > max=%d (improvement=%.1f)" % [
-						merc.merc_name, _wn, str(best_wp_pos), _detour, _max_detour, best_wp_score - on_hand_score])
+						merc.merc_name, wn, str(best_wp_pos), detour, max_detour, best_wp_score - on_hand_score])
 				return no_action
-	var _pw: WeaponData = best_wp_entry.get("weapon") as WeaponData
+	var pw: WeaponData = best_wp_entry.get("weapon") as WeaponData
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("PICKUP: %s -> '%s' at %s (score=%.2f)" % [
-			merc.merc_name, _pw.item_name if _pw != null else "?", str(best_wp_pos), best_wp_score])
+			merc.merc_name, pw.item_name if pw != null else "?", str(best_wp_pos), best_wp_score])
 	merc.active_states["target_weapon_pos"] = best_wp_pos
 	return {"type": "move_to_pickup", "action_name": "Move Close", "target": null, "weapon": null,
 			"weapon_entry": best_wp_entry, "weapon_pos": best_wp_pos, "shed": best_wp_shed}
@@ -209,7 +205,7 @@ static func _pickup_context(merc: MercenaryData, enemies: Array[MercenaryData],
 	if merc.equipped_weapon != null and merc.weapon_drawn:
 		current_score = WeaponEvaluator.score_weapon(merc.equipped_weapon, merc, enemies, state)
 
-	var reach_paces := int(MovementExecutor.turn_paces(merc, state, 0)["paces"])
+	var reach_paces := int(PaceBudget.turn_paces(merc, state, 0)["paces"])
 	var enemy_far := true
 	var enemy_adjacent := false
 	for enemy: MercenaryData in enemies:
@@ -228,7 +224,7 @@ static func _pickup_context(merc: MercenaryData, enemies: Array[MercenaryData],
 			"enemy_far": enemy_far, "enemy_adjacent": enemy_adjacent, "ranged_priority": ranged_priority}
 
 
-#Gate callables every dropped entry must clear, keyed usable, priority, ranged and stow.
+#Gate callables every dropped entry must clear, keyed priority, ranged and stow.
 static func _pickup_gates(merc: MercenaryData, enemies: Array[MercenaryData], state: BattleState,
 		attack_base_cost: int, ranged_priority: bool, enemy_adjacent: bool) -> Dictionary:
 	var entry_usable := func(entry: Dictionary) -> bool:
@@ -240,7 +236,7 @@ static func _pickup_gates(merc: MercenaryData, enemies: Array[MercenaryData], st
 		var w: WeaponData = entry.get("weapon")
 		if w == null or not w.is_ranged or not ranged_priority:
 			return false
-		return WeaponEvaluator.is_ranged_usable(merc, w) or int(entry.get("ammo_loaded", 0)) > 0
+		return entry_usable.call(entry) as bool
 	#A ranged weapon on the ground is only worth the Interact when it can be fired from there.
 	var ranged_gate := func(entry: Dictionary, pos: Vector2i) -> bool:
 		var w: WeaponData = entry.get("weapon")
@@ -270,7 +266,7 @@ static func _pickup_gates(merc: MercenaryData, enemies: Array[MercenaryData], st
 						merc.merc_name, held.item_name if held != null else "?"])
 				return false
 		return true
-	return {"usable": entry_usable, "priority": priority_pick, "ranged": ranged_gate, "stow": stow_gate}
+	return {"priority": priority_pick, "ranged": ranged_gate, "stow": stow_gate}
 
 
 #Best dropped weapon on the mover's own cell that clears every gate, with the shed it wants.
@@ -283,6 +279,7 @@ static func _pickup_at_pos(merc: MercenaryData, enemies: Array[MercenaryData], s
 	var best_entry: Dictionary = {}
 	var best_shed: Dictionary = {}
 	var best_score := -9999.0
+	var inv_score := WeaponEvaluator.best_on_hand_score(merc, enemies, state)
 	for entry: Dictionary in at_pos:
 		var w: WeaponData = entry.get("weapon")
 		if w == null:
@@ -290,9 +287,9 @@ static func _pickup_at_pos(merc: MercenaryData, enemies: Array[MercenaryData], s
 		var cost := _pickup_total_cost(merc, w, enemies, state, attack_base_cost)
 		if cost < 0:
 			if EncounterLogger.is_active():
-				var _hh: WeaponData = merc.equipped_weapon
+				var hh: WeaponData = merc.equipped_weapon
 				EncounterLogger.log_verbose("PICKUP SKIP: %s  -  keeps %s in hand (hands_full)" % [
-					merc.merc_name, _hh.item_name if _hh != null else "?"])
+					merc.merc_name, hh.item_name if hh != null else "?"])
 			continue
 		if not state.can_afford(merc, cost):
 			if EncounterLogger.is_active():
@@ -318,8 +315,6 @@ static func _pickup_at_pos(merc: MercenaryData, enemies: Array[MercenaryData], s
 			continue
 		if score <= best_score:
 			continue
-		var best_inv := WeaponEvaluator._best_available_weapon(merc, enemies, state)
-		var inv_score := WeaponEvaluator.score_weapon(best_inv, merc, enemies, state) if best_inv != null else -9999.0
 		if score < inv_score and not is_priority:
 			continue
 		var ap_after := (merc.current_ap + merc.excess_ap) - cost
@@ -342,17 +337,17 @@ static func _pickup_scan(merc: MercenaryData, enemies: Array[MercenaryData], sta
 	var best_wp_score := -9999.0
 	var best_is_priority := false
 	var best_shed: Dictionary = {}
-	var _blocked_pu: Vector2i = merc.active_states.get("blocked_pickup_pos", Vector2i(-1, -1)) as Vector2i
+	var blocked_pu: Vector2i = merc.active_states.get("blocked_pickup_pos", Vector2i(-1, -1)) as Vector2i
 	for pos: Vector2i in state.dropped_weapons.keys():
-		var dist := maxi(abs(pos.x - merc_pos.x), abs(pos.y - merc_pos.y))
+		var dist := Pathfinder.chebyshev2(pos, merc_pos)
 		if dist > pace or dist == 0:
 			continue
-		if pos == _blocked_pu:
+		if pos == blocked_pu:
 			continue
 		var enemies_adj := 0
 		for enemy: MercenaryData in enemies:
 			var ep := state.get_position(enemy)
-			if maxi(abs(pos.x - ep.x), abs(pos.y - ep.y)) <= 1:
+			if Pathfinder.chebyshev2(pos, ep) <= 1:
 				enemies_adj += 1
 		if enemies_adj > 1:
 			if EncounterLogger.is_active():

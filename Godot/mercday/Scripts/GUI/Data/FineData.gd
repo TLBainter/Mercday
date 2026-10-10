@@ -23,10 +23,7 @@ static func from_dict(d: Dictionary) -> FineData:
 	fine.id = int(d.get("id", 0))
 	fine.location_id = int(d.get("location_id", 0))
 	fine.crime = str(d.get("crime", ""))
-	var uids: Array[int] = []
-	for uid: Variant in (d.get("mercs", []) as Array):
-		uids.append(int(uid))
-	fine.mercs = uids
+	fine.mercs.assign(d.get("mercs", []))
 	fine.contract_id = int(d.get("contract_id", 0))
 	fine.day_issued = int(d.get("day_issued", 0))
 	fine.day_due = int(d.get("day_due", 0))

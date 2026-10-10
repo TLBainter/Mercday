@@ -58,46 +58,21 @@ static func _fx(merc_name: String, cog: int = 2, luck: float = 0.0) -> Mercenary
 	return m
 
 
-#Stats come from the real Stats.tsv formulas so BattleState.create can order the merc.
-static func _battle_merc(merc_name: String) -> MercenaryData:
-	return TestFixtures.sheet_merc(merc_name)
-
-
 static func _def() -> Dictionary:
 	return {"stat_keys": ["cognition"], "circumstances": [], "tools": [], "knowledges": [], "formula": "15"}
-
-
-static func _utility(utility_name: String) -> UtilityTraitData:
-	var u := UtilityTraitData.new()
-	u.utility_name = utility_name
-	return u
-
-
-static func _fx_run(team: Array[MercenaryData], difficulty: float) -> ContractRun:
-	var cr := ContractRun.new()
-	cr.contract = ContractData.new()
-	cr.contract.difficulty = difficulty
-	cr.team.assign(team)
-	return cr
 
 
 static func _removal_state(att: MercenaryData, target: MercenaryData, no_death: bool) -> BattleState:
 	var side_a: Array[MercenaryData] = [att]
 	var side_b: Array[MercenaryData] = [target]
-	var st: BattleState = BattleState.create(side_a, side_b, null, true)
+	var st: BattleState = BattleState.create(side_a, side_b, null)
 	st.no_death_removal = no_death
 	return st
 
 
 #The contract's own place when it has a terrain, else the first wilderness location.
 static func _location_for(contract: ContractData) -> LocationData:
-	var loc: LocationData = DataManager.locations.get(contract.location_a, null) as LocationData
-	if loc != null and ContractTerrain.has_terrain(loc):
-		return loc
-	var places: Array[LocationData] = TestFixtures.wilderness_pool()
-	if not places.is_empty():
-		return places[0]
-	return loc
+	return ContractFixtures.contract_location(contract, TestFixtures.wilderness_pool(), false)
 
 
 static func _same(a: Array, b: Array) -> bool:
@@ -114,13 +89,6 @@ static func _count_has(lines: Array[String], needle: String) -> int:
 	for line: String in lines:
 		n += line.count(needle)
 	return n
-
-
-static func _index_of(lines: Array[String], prefix: String) -> int:
-	for i: int in range(lines.size()):
-		if lines[i].begins_with(prefix):
-			return i
-	return -1
 
 
 static func _opposed(a: MercenaryData, b: MercenaryData, rolls: Array) -> Dictionary:
@@ -224,10 +192,10 @@ static func _case_relevance(res: Dictionary) -> void:
 	other.stats["base_success_chance"] = 10.0
 	var champ := _fx("Champ", 3)
 	champ.stats["base_success_chance"] = 10.0
-	champ.knowledges.append(_utility("Education"))
+	champ.knowledges.append(ContractFixtures.utility("Education"))
 	var rival := _fx("Rival", 1)
 	var team: Array[MercenaryData] = [other, champ]
-	var cr := _fx_run(team, 1.0)
+	var cr := ContractFixtures.bare_run(team, 1.0)
 	CompetitionResolver.forced_kinds.assign(["Wit"])
 	CompetitionResolver.forced_rivals = [rival]
 	var rolls: Array[int] = []
@@ -262,8 +230,8 @@ static func _case_rivals(res: Dictionary) -> void:
 		m.stats["level"] = level
 		party.append(m)
 		total += level
-	var low: Array[MercenaryData] = CompetitionResolver.build_rivals(_fx_run(party, 1.0), party)
-	var high: Array[MercenaryData] = CompetitionResolver.build_rivals(_fx_run(party, 5.0), party)
+	var low: Array[MercenaryData] = CompetitionResolver.build_rivals(ContractFixtures.bare_run(party, 1.0), party)
+	var high: Array[MercenaryData] = CompetitionResolver.build_rivals(ContractFixtures.bare_run(party, 5.0), party)
 	TestFixtures.check(res, "rivals_count_d1", low.size() == 2, "party 4 at D1: %d rivals" % low.size())
 	TestFixtures.check(res, "rivals_count_d5", high.size() == 8, "party 4 at D5: %d rivals" % high.size())
 	var avg: float = total / float(party.size())
@@ -294,7 +262,7 @@ static func _case_skew(res: Dictionary) -> void:
 	TestFixtures.check(res, "rival_skew_by_difficulty", s1 == 1 and s3 == 2 and s5 == 4,
 		"D1 %d, D3 %d, D5 %d" % [s1, s3, s5])
 	var solo: Array[MercenaryData] = [_fx("Solo")]
-	var skew_run := _fx_run(solo, 3.0)
+	var skew_run := ContractFixtures.bare_run(solo, 3.0)
 	var config: ContractConfig = ContractLibrary.config()
 	var req := OpponentRequest.new()
 	req.source = "Mercs"
@@ -352,7 +320,7 @@ static func _case_check_def(res: Dictionary) -> void:
 		CompetitionResolver.forced_rivals = [_fx("Hauler")]
 		CompetitionResolver.forced_kinds.assign(["Strength"])
 		CheckSystem.forced_rolls.assign([10, 100, 100, 100, 100, 100, 100])
-		await CompetitionResolver.resolve(ContractLibrary.event("Competition"), _fx_run(team, difficulty))
+		await CompetitionResolver.resolve(ContractLibrary.event("Competition"), ContractFixtures.bare_run(team, difficulty))
 		var rounds: Array[Dictionary] = CompetitionResolver.last_rounds
 		if rounds.size() != 1 or not rounds[0].has("a"):
 			seen.append({})
@@ -409,8 +377,8 @@ static func _case_plan(res: Dictionary) -> void:
 
 static func _case_removal_hit(res: Dictionary) -> void:
 	_fresh()
-	var att := _battle_merc("Striker")
-	var target := _battle_merc("Target")
+	var att := TestFixtures.sheet_merc("Striker")
+	var target := TestFixtures.sheet_merc("Target")
 	var st: BattleState = _removal_state(att, target, true)
 	target.current_hp = 3
 	target.excess_hp = 0
@@ -426,12 +394,12 @@ static func _case_removal_hit(res: Dictionary) -> void:
 
 static func _case_removal_dot(res: Dictionary) -> void:
 	_fresh()
-	var att := _battle_merc("Burner")
-	var target := _battle_merc("Smoulder")
+	var att := TestFixtures.sheet_merc("Burner")
+	var target := TestFixtures.sheet_merc("Smoulder")
 	var st: BattleState = _removal_state(att, target, true)
 	target.current_hp = 1
 	target.excess_hp = 0
-	ConstStates.apply_state(target, ConstStates.BURNING)
+	StateCascade.apply_state(target, ConstStates.BURNING)
 	var lines: Array[String] = BattleStateUpdater.apply_dot_effects(target, st)
 	TestFixtures.check(res, "removal_dot", target.current_hp == 1 and target.off_field and st.removed_from_field.has(target)
 		and not target.is_dead and _count_has(lines, OUT_MARK) >= 1, "hp %d, off_field %s, lines: %s" % [
@@ -440,8 +408,8 @@ static func _case_removal_dot(res: Dictionary) -> void:
 
 static func _case_dying_unchanged(res: Dictionary) -> void:
 	_fresh()
-	var att := _battle_merc("Striker")
-	var target := _battle_merc("Faller")
+	var att := TestFixtures.sheet_merc("Striker")
+	var target := TestFixtures.sheet_merc("Faller")
 	var st: BattleState = _removal_state(att, target, false)
 	target.current_hp = 3
 	target.excess_hp = 0
@@ -454,14 +422,8 @@ static func _case_dying_unchanged(res: Dictionary) -> void:
 static func _case_war_round(res: Dictionary) -> void:
 	_fresh()
 	seed(4242)
-	CampaignKnowledge.clear()
-	MercPool.clear()
-	FleeSystem.reset()
-	var mercs: Array[MercenaryData] = []
-	for i: int in range(2):
-		mercs.append(HarnessRoster.roster_merc(i))
-	BeauSystem.set_roster(mercs)
-	GuildRoster.set_roster(mercs)
+	ContractFixtures.reset_party_state()
+	var mercs: Array[MercenaryData] = ContractFixtures.roster_team(2)
 	var contract: ContractData = ContractGenerator.generate("Entertain")
 	var event: EventData = ContractLibrary.event("Competition")
 	if contract == null or event == null:
@@ -470,11 +432,8 @@ static func _case_war_round(res: Dictionary) -> void:
 	contract.difficulty = 1.0
 	contract.unsavory = false
 	var lines: Array[String] = []
-	var cr := ContractRun.new()
-	cr.contract = contract
-	cr.team.assign(mercs)
-	cr.location = _location_for(contract)
-	cr.line_fn = func(line: String) -> void: lines.append(line)
+	var cr: ContractRun = ContractFixtures.contract_run(contract, mercs, _location_for(contract),
+		func(line: String) -> void: lines.append(line))
 	CompetitionResolver.forced_kinds.assign(["War"])
 	var out: Dictionary = await EventRunner.run(event, cr)
 	var rounds: Array[Dictionary] = CompetitionResolver.last_rounds
@@ -528,7 +487,7 @@ static func _case_score(res: Dictionary) -> void:
 static func _case_forfeit(res: Dictionary) -> void:
 	_fresh()
 	var team: Array[MercenaryData] = [_fx("Lone")]
-	var cr := _fx_run(team, 1.0)
+	var cr := ContractFixtures.bare_run(team, 1.0)
 	CompetitionResolver.forced_rivals = []
 	CompetitionResolver.forced_kinds.assign(["Strength", "Wit", "Speed"])
 	var out: Dictionary = await CompetitionResolver.resolve(ContractLibrary.event("Competition"), cr)
@@ -555,7 +514,7 @@ static func _case_forfeit_before_rest(res: Dictionary) -> void:
 	var quitter := _fx("Quitter")
 	var team: Array[MercenaryData] = [quitter]
 	var gone: Array[MercenaryData] = [quitter]
-	var cr := _fx_run(team, 1.0)
+	var cr := ContractFixtures.bare_run(team, 1.0)
 	cr.line_fn = func(line: String) -> void: _drop_after_round_one(cr, gone, line)
 	CompetitionResolver.forced_rivals = [_fx("Waiter")]
 	CompetitionResolver.forced_kinds.assign(["Strength", "Strength"])
@@ -579,7 +538,7 @@ static func _case_forfeit_before_rest(res: Dictionary) -> void:
 static func _case_depletion_order(res: Dictionary) -> void:
 	_fresh()
 	var team: Array[MercenaryData] = [_fx("Runner")]
-	var cr := _fx_run(team, 1.0)
+	var cr := ContractFixtures.bare_run(team, 1.0)
 	CompetitionResolver.forced_rivals = [_fx("Pacer")]
 	CompetitionResolver.forced_kinds.assign(["Strength", "Wit"])
 	var rolls: Array[int] = []
@@ -588,8 +547,8 @@ static func _case_depletion_order(res: Dictionary) -> void:
 	CheckSystem.forced_rolls.assign(rolls)
 	var out: Dictionary = await CompetitionResolver.resolve(ContractLibrary.event("Competition"), cr)
 	var rival_rests: int = _count_has(cr.log_lines, "RIVAL REST:")
-	var rest_at: int = _index_of(cr.log_lines, "RIVAL REST:")
-	var round_at: int = _index_of(cr.log_lines, "COMPETITION ROUND 1:")
+	var rest_at: int = ContractFixtures.index_of_prefix(cr.log_lines, "RIVAL REST:")
+	var round_at: int = ContractFixtures.index_of_prefix(cr.log_lines, "COMPETITION ROUND 1:")
 	TestFixtures.check(res, "depletion_after_round_one", rival_rests == 1 and round_at >= 0 and rest_at > round_at,
 		"rival rest %d at line %d, round 1 at line %d, rounds_total %d" % [rival_rests, rest_at, round_at,
 		int(out.get("rounds_total", 0))])
@@ -627,7 +586,7 @@ static func _case_loss(res: Dictionary) -> void:
 static func _case_rest_no_trigger(res: Dictionary) -> void:
 	_fresh()
 	var team: Array[MercenaryData] = [_fx("Camper")]
-	var cr := _fx_run(team, 1.0)
+	var cr := ContractFixtures.bare_run(team, 1.0)
 	var places: Array[LocationData] = TestFixtures.wilderness_pool()
 	if not places.is_empty():
 		cr.location = places[0]
@@ -644,14 +603,8 @@ static func _case_rest_no_trigger(res: Dictionary) -> void:
 static func _case_manager(res: Dictionary) -> ContractRun:
 	_fresh()
 	CampaignClock.reset()
-	CampaignKnowledge.clear()
-	MercPool.clear()
-	FleeSystem.reset()
-	var mercs: Array[MercenaryData] = []
-	for i: int in range(3):
-		mercs.append(HarnessRoster.roster_merc(i))
-	BeauSystem.set_roster(mercs)
-	GuildRoster.set_roster(mercs)
+	ContractFixtures.reset_party_state()
+	var mercs: Array[MercenaryData] = ContractFixtures.roster_team(3)
 	var contract: ContractData = ContractGenerator.generate("Entertain")
 	if contract == null:
 		TestFixtures.check(res, "manager_setup", false, "Entertain contract generation failed")
@@ -659,10 +612,7 @@ static func _case_manager(res: Dictionary) -> ContractRun:
 	contract.unsavory = false
 	contract.assigned_primary_event = "Competition"
 	contract.rolled_mishaps.clear()
-	var cr := ContractRun.new()
-	cr.contract = contract
-	cr.team.assign(mercs)
-	cr.location = _location_for(contract)
+	var cr: ContractRun = ContractFixtures.contract_run(contract, mercs, _location_for(contract))
 	cr.triggered_events.append("Ambush")
 	CompetitionResolver.forced_kinds.assign(["Wit", "Wit", "Wit"])
 	var config: ContractConfig = ContractLibrary.config()
@@ -702,9 +652,9 @@ static func _case_victor(res: Dictionary) -> void:
 	var m := _fx("Laurel")
 	m.stats["wile"] = 3
 	var team: Array[MercenaryData] = [m]
-	var won_run := _fx_run(team, 1.0)
+	var won_run := ContractFixtures.bare_run(team, 1.0)
 	won_run.outcomes.append({"event": "Competition", "rounds_won": 3})
-	var short_run := _fx_run(team, 1.0)
+	var short_run := ContractFixtures.bare_run(team, 1.0)
 	short_run.outcomes.append({"event": "Competition", "rounds_won": 2})
 	TestFixtures.check(res, "victor_three_wins", LifepathRequirements.allows(m, lp, won_run), "rounds_won 3, wile 3")
 	TestFixtures.check(res, "victor_two_wins_refused", not LifepathRequirements.allows(m, lp, short_run),

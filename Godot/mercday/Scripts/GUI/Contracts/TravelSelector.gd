@@ -7,6 +7,10 @@ signal mode_selected(leg: int, key: String)
 
 const BUTTON_SCENE: PackedScene = preload("res://Scenes/GUI/Contracts/TravelButton.tscn")
 const BUTTON_HEIGHT: int = 32
+const REASON_RED: String = "In the red: foot only"
+const REASON_PERMIT: String = "No teleport permit here"
+const REASON_LATE: String = "Arrives after the deadline"
+const REASON_COST: String = "Costs more than you hold"
 
 @onready var caption_label: Label = $Caption
 @onready var buttons: HBoxContainer = $Buttons
@@ -28,9 +32,11 @@ func set_leg(new_leg: int, caption: String) -> void:
 		caption_label.text = caption.to_upper()
 
 
-#other_cost is the other leg's bill, so a leg is only affordable on what that leg leaves behind.
-func configure(team_size: int, merc_min: int, distance_km: int, bank: int,
-		other_cost: int = 0) -> void:
+#The guild always walks; a paid leg needs its fare out of the bank less other_cost, what the caller holds back for
+#the other leg (DispatchWindow.fares_ok is the rule). Tiles outside shown are hidden. A barred tile takes its
+#reasons entry first, then the deadline when it is not in in_time, then the bill.
+func configure(team_size: int, merc_min: int, distance_km: int, bank: int, other_cost: int,
+		shown: Array, in_time: Array, reasons: Dictionary) -> void:
 	if not is_node_ready():
 		return
 	_build()
@@ -39,11 +45,19 @@ func configure(team_size: int, merc_min: int, distance_km: int, bank: int,
 		var button: TravelButton = child as TravelButton
 		if button == null:
 			continue
-		var mode: Dictionary = GuiTypes.travel_mode(button.mode_key())
+		var key: String = button.mode_key()
+		var mode: Dictionary = GuiTypes.travel_mode(key)
 		var cost: int = DispatchLogic.travel_cost(mode, team_size, merc_min, distance_km)
 		var hours: float = DispatchLogic.travel_hours(mode, distance_km)
-		button.configure(mode, cost, hours, cost <= spare)
-		button.set_picked(button.mode_key() == chosen)
+		var affordable: bool = Reachability.fare_ok(key, cost, spare)
+		var reason: String = String(reasons.get(key, ""))
+		if reason == "" and not in_time.has(key):
+			reason = REASON_LATE
+		if reason == "" and not affordable:
+			reason = REASON_COST
+		button.visible = shown.has(key)
+		button.configure(mode, cost, hours, affordable, reason)
+		button.set_picked(key == chosen)
 
 
 func select_key(key: String) -> void:

@@ -240,7 +240,8 @@ static func _case_resist(res: Dictionary) -> void:
 	var plain := _merc(2, 0.0, 0.0)
 	CheckSystem.forced_rolls.assign([15, 50, 50] as Array[int])
 	r = StateInfliction.resist_check(plain, {"stat": "vigor", "trial": 2})
-	TestFixtures.check(res, "unnamed resist keeps the old form", int(r["successes"]) == 1 and not bool(r["passed"]) and str(r["bias"]) == "",
+	TestFixtures.check(res, "unnamed resist rolls the plain trial with no bias",
+		int(r["successes"]) == 1 and not bool(r["passed"]) and str(r["bias"]) == "",
 		"successes %d passed %s bias %s" % [int(r["successes"]), str(r["passed"]), str(r["bias"])])
 	_drained(res, "unnamed queue drained")
 
@@ -315,9 +316,7 @@ static func _case_item_inflict(res: Dictionary) -> void:
 	def_4.stats["cognition"] = 2
 	def_4.current_hp = 15
 	team_b.append(def_4)
-	state.positions[def_4] = Vector2i(2 + col, 2)
-	state.heights[def_4] = 0
-	state.floors[def_4] = 0
+	TestFixtures.place(state, def_4, Vector2i(2 + col, 2))
 	var gun := WeaponData.new()
 	gun.is_ranged = true
 	atk_m.equipped_weapon = gun
@@ -337,7 +336,8 @@ static func _case_item_inflict(res: Dictionary) -> void:
 	var empty := AttackSystem._empty_attack_result("Strike", true, false, true)
 	var keys_ok := empty.has("enhancements") and empty.has("flaws") and empty.has("critical") \
 		and empty.has("ammo_name") and bool(empty["is_throw"])
-	TestFixtures.check(res, "empty attack carries the new keys", keys_ok, "keys %s" % str(empty.keys()))
+	TestFixtures.check(res, "empty attack carries enhancements, flaws, critical, ammo_name and is_throw", keys_ok,
+		"keys %s" % str(empty.keys()))
 
 
 static func _case_reward_pool(res: Dictionary) -> void:
@@ -368,17 +368,11 @@ static func _case_reward_pool(res: Dictionary) -> void:
 
 
 static func _case_toxic_damage(res: Dictionary) -> void:
-	var atk_m := _merc(2, 0.0, 0.0)
-	atk_m.merc_name = "Ash"
-	var def_m := _merc(2, 0.0, 0.0)
-	def_m.merc_name = "Mark"
-	def_m.stats["maximum_hit_points"] = 20
-	var def_2 := _merc(2, 0.0, 0.0)
-	def_2.merc_name = "Mona"
-	def_2.stats["maximum_hit_points"] = 20
-	var team_a: Array[MercenaryData] = [atk_m]
-	var team_b: Array[MercenaryData] = [def_m, def_2]
-	var state := BattleState.create(team_a, team_b, null)
+	var ar := _arena(20, ["Mona"])
+	var atk_m: MercenaryData = ar["atk"]
+	var def_m: MercenaryData = ar["def"]
+	var def_2: MercenaryData = ar["extras"][0]
+	var state: BattleState = ar["state"]
 	CheckSystem.forced_rolls.assign([50, 50, 50, 50] as Array[int])
 	var lines := CombatApplicator.apply_damage(atk_m, def_m, 3, "Toxic", state)
 	TestFixtures.check(res, "toxic damage rolls Poisoned", ConstStates.has_state(def_m, ConstStates.POISONED) and def_m.current_hp == 17,
@@ -413,7 +407,7 @@ static func _case_attack_result(res: Dictionary) -> void:
 	CheckSystem.forced_rolls.assign([100, 50] as Array[int])
 	var r := AttackSystem.execute_attack(m)
 	var mis_ok := bool(r["misfired"]) and m.weapon_misfired and not bool(r["critical"]) and str(r["ammo_name"]) == "Fang Dart" and r.has("enhancements") and r.has("flaws") and not bool(r["is_throw"])
-	TestFixtures.check(res, "misfire result carries the new keys", mis_ok,
+	TestFixtures.check(res, "misfire result carries critical, ammo_name, enhancements, flaws and is_throw", mis_ok,
 		"misfired %s critical %s ammo %s" % [str(r["misfired"]), str(r["critical"]), str(r["ammo_name"])])
 	_drained(res, "misfire queue drained")
 	m.weapon_misfired = false
@@ -426,7 +420,8 @@ static func _case_attack_result(res: Dictionary) -> void:
 	_drained(res, "crit misfire queue drained")
 	r = AttackSystem.execute_attack(m)
 	var empty_ok := bool(r["no_ammo"]) and r.has("critical") and r.has("ammo_name") and r.has("enhancements") and r.has("flaws")
-	TestFixtures.check(res, "empty gun result carries the new keys", empty_ok, "no_ammo %s keys %d" % [str(r["no_ammo"]), r.keys().size()])
+	TestFixtures.check(res, "empty gun result carries critical, ammo_name, enhancements and flaws", empty_ok,
+		"no_ammo %s keys %d" % [str(r["no_ammo"]), r.keys().size()])
 
 
 static func _case_apply_hit(res: Dictionary) -> void:
@@ -452,13 +447,10 @@ static func _case_apply_hit(res: Dictionary) -> void:
 
 
 static func _case_perk_abort(res: Dictionary) -> void:
-	var m := _merc(2, 0.0, 0.0)
-	m.merc_name = "Ash"
-	var t := _merc(2, 0.0, 0.0)
-	t.merc_name = "Mark"
-	var team_a: Array[MercenaryData] = [m]
-	var team_b: Array[MercenaryData] = [t]
-	var state := BattleState.create(team_a, team_b, null)
+	var ar := _arena(20)
+	var m: MercenaryData = ar["atk"]
+	var t: MercenaryData = ar["def"]
+	var state: BattleState = ar["state"]
 	m.current_ap = 1
 	m.excess_ap = 1
 	m.current_ep = 2
@@ -492,7 +484,8 @@ static func _defense_pool_ok(pool: Array, own_req: String) -> bool:
 	return plain_dex == _plain_dex_rows() and own == 1
 
 
-static func _case_whip_pull(res: Dictionary) -> void:
+#The arena with Ash two paces from a grappled Mark, holding a whip whose perk pulls the target on a hit.
+static func _whip_arena() -> Dictionary:
 	var ar := _arena(10)
 	var atk_m: MercenaryData = ar["atk"]
 	var def_m: MercenaryData = ar["def"]
@@ -509,7 +502,15 @@ static func _case_whip_pull(res: Dictionary) -> void:
 	perk.gear_key = "Probe Whip"
 	atk_m.weapon_perks.assign([perk] as Array[TraitData])
 	atk_m.current_ep = 2
-	ConstStates.apply_state(def_m, ConstStates.GRAPPLED, atk_m)
+	StateCascade.apply_state(def_m, ConstStates.GRAPPLED, atk_m)
+	return ar
+
+
+static func _case_whip_pull(res: Dictionary) -> void:
+	var ar := _whip_arena()
+	var atk_m: MercenaryData = ar["atk"]
+	var def_m: MercenaryData = ar["def"]
+	var state: BattleState = ar["state"]
 	var lines := WeaponReactiveSystem.apply_on_hit(atk_m, def_m, {"damage_type": "Strike"}, state)
 	var pulled := state.distance_to(atk_m, def_m) == 1 and ConstStates.has_state(def_m, ConstStates.GRAPPLED) and atk_m.current_ep == 1
 	TestFixtures.check(res, "whip pull drags a grappled target adjacent", pulled,
@@ -527,31 +528,18 @@ static func _plain_dex_rows() -> int:
 
 
 static func _case_resolve_hit(res: Dictionary) -> void:
-	var ar := _arena(10)
+	var ar := _whip_arena()
 	var atk_m: MercenaryData = ar["atk"]
 	var def_m: MercenaryData = ar["def"]
 	var state: BattleState = ar["state"]
-	state.positions[atk_m] = Vector2i(2, 2)
-	state.positions[def_m] = Vector2i(4, 2)
-	var w := WeaponData.new()
-	w.item_name = "Probe Whip"
-	w.weapon_type = "Probe Whip (Specialized)"
-	atk_m.equipped_weapon = w
-	atk_m.weapon_drawn = true
-	var perk := TraitData.new()
-	perk.effect_dsl = "reactive_action:on_hit:size_lte_self:pull_target:1"
-	perk.gear_key = "Probe Whip"
-	atk_m.weapon_perks.assign([perk] as Array[TraitData])
-	atk_m.current_ep = 2
-	ConstStates.apply_state(def_m, ConstStates.GRAPPLED, atk_m)
 	var atk := {"damage_type": "Strike", "ammo_name": ""}
-	var lines := AutoBattle._resolve_hit(atk_m, def_m, atk, 3, true, def_m.current_hp, state, 0)
+	var lines := AttackArm.resolve_hit(atk_m, def_m, atk, 3, true, def_m.current_hp, state, 0)
 	var chosen_ok := def_m.current_hp == 10 and state.distance_to(atk_m, def_m) == 1 and atk_m.current_ep == 1
 	TestFixtures.check(res, "a hit whose damage a choose arm replaced still fires the whip pull", chosen_ok,
 		"hp %d distance %d ep %d lines %d" % [def_m.current_hp, state.distance_to(atk_m, def_m), atk_m.current_ep, lines.size()])
 	state.positions[def_m] = Vector2i(4, 2)
 	atk_m.current_ep = 2
-	lines = AutoBattle._resolve_hit(atk_m, def_m, atk, 3, false, def_m.current_hp, state, 0)
+	lines = AttackArm.resolve_hit(atk_m, def_m, atk, 3, false, def_m.current_hp, state, 0)
 	var plain_ok := def_m.current_hp == 7 and state.distance_to(atk_m, def_m) == 1 and atk_m.current_ep == 1
 	TestFixtures.check(res, "a plain hit deals damage and then fires the whip pull", plain_ok,
 		"hp %d distance %d ep %d lines %d" % [def_m.current_hp, state.distance_to(atk_m, def_m), atk_m.current_ep, lines.size()])
@@ -560,24 +548,15 @@ static func _case_resolve_hit(res: Dictionary) -> void:
 #A Success Formula names its contract checks with team.<stat>; target and location terms name none.
 static func _case_formula_kinds(res: Dictionary) -> void:
 	var one: Array[String] = FormulaEventResolver.check_kinds("team.negotiate - (50.0 - (target.wile * 10.0))")
-	TestFixtures.check(res, "one team stat is one check kind", _kinds_eq(one, ["negotiate"] as Array[String]),
+	TestFixtures.check(res, "one team stat is one check kind", one == (["negotiate"] as Array[String]),
 		"got [%s]" % ", ".join(one))
 	var two: Array[String] = FormulaEventResolver.check_kinds("team.negotiate + team.stealth - location.difficulty")
-	TestFixtures.check(res, "two team stats are two check kinds", _kinds_eq(two, ["negotiate", "stealth"] as Array[String]),
+	TestFixtures.check(res, "two team stats are two check kinds", two == (["negotiate", "stealth"] as Array[String]),
 		"got [%s]" % ", ".join(two))
 	var dup: Array[String] = FormulaEventResolver.check_kinds("(team.wile * 2.0) + team.wile")
-	TestFixtures.check(res, "a repeated team stat is named once", _kinds_eq(dup, ["wile"] as Array[String]),
+	TestFixtures.check(res, "a repeated team stat is named once", dup == (["wile"] as Array[String]),
 		"got [%s]" % ", ".join(dup))
 	var none: Array[String] = FormulaEventResolver.check_kinds("100.0 - (target.wile * 10.0)")
 	TestFixtures.check(res, "target terms are not check kinds", none.is_empty(), "got [%s]" % ", ".join(none))
 	TestFixtures.check(res, "a blank formula names no check", FormulaEventResolver.check_kinds("").is_empty(),
 		"blank formula")
-
-
-static func _kinds_eq(actual: Array[String], want: Array[String]) -> bool:
-	if actual.size() != want.size():
-		return false
-	for i: int in range(want.size()):
-		if actual[i] != want[i]:
-			return false
-	return true

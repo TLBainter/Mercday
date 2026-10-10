@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/Big Button Click/BRS_Button_Metal_Sml_Loose_Push_2.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/Big Button Click/BRS_Button_Metal_Sml_Loose_Push_4.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/Big Button Click/BRS_Switch_Light_Pull_Metal_2.wav" id="4_s3"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/Big Button Click/BRS_Switch_Light_Pull_Metal_Dull2.wav" id="5_s4"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/Big Button Click/BRS_Switch_Light_Sml_On-Off_Fst1.wav" id="6_s5"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3"), ExtResource("5_s4"), ExtResource("6_s5")])

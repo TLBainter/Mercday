@@ -1,74 +1,11 @@
-[gd_scene format=3 uid="uid://tuuyeo0js8xo"]
+[gd_scene load_steps=2 format=3 uid="uid://tuuyeo0js8xo"]
 
-[ext_resource type="Texture2D" uid="uid://dr4f5qdns3yvc" path="res://Art/Character/Class Art/Archer/backpack.png" id="1_gfja6"]
-[ext_resource type="Texture2D" uid="uid://cbj0vfwkkvlh5" path="res://Art/Character/Class Art/Archer/Body/0.png" id="1_lw6cw"]
-[ext_resource type="Texture2D" uid="uid://dss444s7kcb1h" path="res://Art/Character/Face/Hair/5-behind_hair.png" id="2_meoi7"]
-[ext_resource type="Texture2D" uid="uid://bdefxes8yah8f" path="res://Art/Character/Capes/cape2.png" id="2_neqmx"]
-[ext_resource type="Texture2D" uid="uid://cd237aajx1pfm" path="res://Art/Character/Class Art/Archer/Bow/bow1.png" id="4_vt7oj"]
-[ext_resource type="Texture2D" uid="uid://5hhkn3ggm520" path="res://Art/Character/Clothing Extras/1.png" id="6_yibia"]
-[ext_resource type="Texture2D" uid="uid://crccjmencejq7" path="res://Art/Character/Face/Eyes/eye1.png" id="7_7wyko"]
-[ext_resource type="Texture2D" uid="uid://cd1bsol5x0fuj" path="res://Art/Character/Face/Hair/5-front_hair.png" id="8_lrh2s"]
-[ext_resource type="Texture2D" uid="uid://en0sbv5v5e72" path="res://Art/Character/Hats/Hoods/Open_Hood/1.png" id="9_7eb0c"]
+[ext_resource type="Script" path="res://Scripts/Character/CharacterSprite.gd" id="1_csprite"]
 
-[node name="Character" type="Node2D" unique_id=1634644871]
+[node name="Character" type="Node2D"]
+script = ExtResource("1_csprite")
 
-[node name="Character Display" type="Node2D" parent="." unique_id=868271655]
-
-[node name="Backpack" type="Sprite2D" parent="Character Display" unique_id=1356982548]
-texture = ExtResource("1_gfja6")
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
-
-[node name="HairBack" type="Sprite2D" parent="Character Display" unique_id=1370916383]
-texture = ExtResource("2_meoi7")
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
-
-[node name="Cape" type="Sprite2D" parent="Character Display" unique_id=1837519158]
-texture = ExtResource("2_neqmx")
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
-
-[node name="Body" type="Sprite2D" parent="Character Display" unique_id=1173743482]
-texture = ExtResource("1_lw6cw")
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
-
-[node name="Weapon" type="Sprite2D" parent="Character Display" unique_id=1244445697]
-texture = ExtResource("4_vt7oj")
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
-
-[node name="OverCape" type="Sprite2D" parent="Character Display" unique_id=214039201]
-texture = ExtResource("6_yibia")
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
-
-[node name="Eyes" type="Sprite2D" parent="Character Display" unique_id=1604490816]
-texture = ExtResource("7_7wyko")
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
-
-[node name="HairFront" type="Sprite2D" parent="Character Display" unique_id=1572156922]
-texture = ExtResource("8_lrh2s")
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
-
-[node name="Headwear" type="Sprite2D" parent="Character Display" unique_id=2087308378]
-texture = ExtResource("9_7eb0c")
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
-
-[node name="Headwear Add-On" type="Sprite2D" parent="Character Display" unique_id=50954750]
-offset = Vector2(0, -18)
-hframes = 10
-vframes = 8
+[node name="Sheet" type="Sprite2D" parent="."]
+texture_filter = 1
+hframes = 9
+vframes = 6

@@ -4,8 +4,6 @@ extends Control
 #What the page host shows when the scene of a tab is not in the build yet: one centred line and
 #nothing else. The label is built in code as well, so a bare new() is safe in a test.
 
-const FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const TEXT_COLOR: Color = Color("#9cc6ef")
 const FONT_SIZE: int = 12
 const LABEL_NAME: String = "Text"
 
@@ -48,6 +46,4 @@ func _apply() -> void:
 	_label.text = _text
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_label.add_theme_color_override("font_color", TEXT_COLOR)
-	_label.add_theme_font_override("font", FONT)
-	_label.add_theme_font_size_override("font_size", FONT_SIZE)
+	GuiStyle.paint(_label, GuiStyle.SILK, FONT_SIZE, GuiColors.SKY)

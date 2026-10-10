@@ -1,11 +1,5 @@
 class_name CavernGenerator
 
-const DIRS4: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
-const DIRS8: Array[Vector2i] = [
-	Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
-	Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
-]
-
 const MAX_ATTEMPTS := 10
 const CHAMBER_MARGIN := 3
 const TUNNEL_MARGIN := 2
@@ -63,28 +57,47 @@ static func open_cells(field: BattlefieldArea) -> Dictionary:
 
 #8-way flood over open cells; rock, solid obstacles and steps above one slope stop it.
 static func reachable_from(field: BattlefieldArea, starts: Array[Vector2i]) -> Dictionary:
-	var out: Dictionary = {}
+	return _flood(starts, PathCost.DIRS8, _walkable_step.bind(field))
+
+
+static func _walkable_step(curr: Vector2i, nb: Vector2i, field: BattlefieldArea) -> bool:
+	if not field.in_bounds_xy(nb.x, nb.y):
+		return false
+	if field.rock_cells.has(nb) or field.is_obstacle(nb, 0):
+		return false
+	return absf(field.surface_height(nb) - field.surface_height(curr)) <= SLOPE + EPS
+
+
+static func _in_set(_from: Vector2i, cell: Vector2i, cells: Dictionary) -> bool:
+	return cells.has(cell)
+
+
+#Breadth-first flood in seed, then direction order; returns cell -> steps from the nearest seed.
+static func _flood(seeds: Array[Vector2i], dirs: Array[Vector2i], can_step: Callable, first_dist: int = 0,
+		max_dist: int = -1, limit: int = -1) -> Dictionary:
+	var dist: Dictionary = {}
 	var queue: Array[Vector2i] = []
-	for s: Vector2i in starts:
-		if out.has(s):
+	for s: Vector2i in seeds:
+		if dist.has(s):
 			continue
-		out[s] = true
+		dist[s] = first_dist
 		queue.append(s)
 	var qi: int = 0
-	while qi < queue.size():
+	while qi < queue.size() and (limit < 0 or dist.size() < limit):
 		var curr: Vector2i = queue[qi]
 		qi += 1
-		for d: Vector2i in DIRS8:
+		var nd: int = int(dist[curr]) + 1
+		if max_dist >= 0 and nd > max_dist:
+			continue
+		for d: Vector2i in dirs:
 			var nb: Vector2i = curr + d
-			if nb.x < 0 or nb.x >= field.width or nb.y < 0 or nb.y >= field.length:
+			if dist.has(nb) or not bool(can_step.call(curr, nb)):
 				continue
-			if out.has(nb) or field.rock_cells.has(nb) or field.is_obstacle(nb, 0):
-				continue
-			if absf(field.surface_height(nb) - field.surface_height(curr)) > SLOPE + EPS:
-				continue
-			out[nb] = true
+			dist[nb] = nd
 			queue.append(nb)
-	return out
+			if limit >= 0 and dist.size() >= limit:
+				break
+	return dist
 
 
 #One line per broken invariant; empty when the cavern is sound.
@@ -138,7 +151,7 @@ static func _validate_heights(field: BattlefieldArea, open: Dictionary) -> Array
 		var wet: bool = field.is_water(cell)
 		if h < -EPS and not wet:
 			out.append("cell (%d,%d) height %.2f below 0" % [cell.x, cell.y, h])
-		for d: Vector2i in DIRS8:
+		for d: Vector2i in PathCost.DIRS8:
 			var nb: Vector2i = cell + d
 			if not open.has(nb) or wet or field.is_water(nb):
 				continue
@@ -150,7 +163,7 @@ static func _validate_heights(field: BattlefieldArea, open: Dictionary) -> Array
 
 static func _validate_ceilings(field: BattlefieldArea, open: Dictionary) -> Array[String]:
 	var out: Array[String] = []
-	var in_chamber: Dictionary = _chamber_index(field)
+	var in_chamber: Dictionary = chamber_index(field)
 	for cell: Vector2i in open.keys():
 		if not field.cavern_ceiling.has(cell):
 			out.append("cell (%d,%d) has no ceiling" % [cell.x, cell.y])
@@ -211,7 +224,7 @@ static func _validate_water(field: BattlefieldArea, open: Dictionary) -> Array[S
 		if absf(field.get_terrain_height(cell) - (surface - float(depth))) > EPS:
 			out.append("water (%d,%d) floor %.2f is not surface %.2f minus depth %d" % [
 				cell.x, cell.y, field.get_terrain_height(cell), surface, depth])
-		for d8: Vector2i in DIRS8:
+		for d8: Vector2i in PathCost.DIRS8:
 			var lip: Vector2i = cell + d8
 			if not open.has(lip) or field.is_water(lip):
 				continue
@@ -219,7 +232,7 @@ static func _validate_water(field: BattlefieldArea, open: Dictionary) -> Array[S
 			if lip_h < surface - EPS or lip_h > surface + SLOPE + EPS:
 				out.append("water (%d,%d) lip (%d,%d) height %.2f off the surface %.2f" % [
 					cell.x, cell.y, lip.x, lip.y, lip_h, surface])
-		for d: Vector2i in DIRS4:
+		for d: Vector2i in PathCost.DIRS4:
 			var nb: Vector2i = cell + d
 			if open.has(nb) and not field.is_water(nb):
 				rims[allowed[cell]] = true
@@ -230,15 +243,17 @@ static func _validate_water(field: BattlefieldArea, open: Dictionary) -> Array[S
 	return out
 
 
+static func _touches_open(open: Dictionary, cell: Vector2i) -> bool:
+	for d: Vector2i in PathCost.DIRS8:
+		if open.has(cell + d):
+			return true
+	return false
+
+
 static func _validate_rock(field: BattlefieldArea, open: Dictionary) -> Array[String]:
 	var out: Array[String] = []
 	for cell: Vector2i in field.rock_cells.keys():
-		var touches: bool = false
-		for d: Vector2i in DIRS8:
-			if open.has(cell + d):
-				touches = true
-				break
-		if not touches:
+		if not _touches_open(open, cell):
 			continue
 		var obs: Dictionary = field.get_obs(cell, 0)
 		if obs.get("cell_type", "") != "wall":
@@ -286,7 +301,7 @@ static func _entrance_count(field: BattlefieldArea) -> int:
 
 
 #Vector2i -> chamber index over every chamber cell.
-static func _chamber_index(field: BattlefieldArea) -> Dictionary:
+static func chamber_index(field: BattlefieldArea) -> Dictionary:
 	var out: Dictionary = {}
 	for i: int in range(field.cavern_chambers.size()):
 		for cell: Vector2i in (field.cavern_chambers[i]["cells"] as Dictionary).keys():
@@ -296,28 +311,9 @@ static func _chamber_index(field: BattlefieldArea) -> Dictionary:
 
 #Chamber cells plus every open cell within two steps of them.
 static func _spill_zone(open: Dictionary, cells: Dictionary) -> Dictionary:
-	var zone: Dictionary = {}
-	var queue: Array[Vector2i] = []
-	var dist: Dictionary = {}
-	for cell: Vector2i in cells.keys():
-		zone[cell] = true
-		dist[cell] = 0
-		queue.append(cell)
-	var qi: int = 0
-	while qi < queue.size():
-		var curr: Vector2i = queue[qi]
-		qi += 1
-		var d_curr: int = int(dist[curr])
-		if d_curr >= SPILL_RANGE:
-			continue
-		for d: Vector2i in DIRS4:
-			var nb: Vector2i = curr + d
-			if not open.has(nb) or zone.has(nb):
-				continue
-			zone[nb] = true
-			dist[nb] = d_curr + 1
-			queue.append(nb)
-	return zone
+	var seeds: Array[Vector2i] = []
+	seeds.assign(cells.keys())
+	return _flood(seeds, PathCost.DIRS4, _in_set.bind(open), 0, SPILL_RANGE)
 
 
 static func _build(field: BattlefieldArea, area_data: Dictionary, ctx: GenerationContext) -> void:
@@ -429,8 +425,8 @@ static func _carve_tunnels(field: BattlefieldArea, open: Dictionary, cell_chambe
 		var b: int = int(e["b"])
 		var from_pt: Vector2i = _edge_cell(chambers[a], _chamber_center(chambers[b]))
 		var to_pt: Vector2i = _edge_cell(chambers[b], _chamber_center(chambers[a]))
-		var w: int = _weighted_pick(WIDTH_WEIGHTS) + 1
-		var h: int = _weighted_pick(HEIGHT_WEIGHTS) + 1
+		var w: int = WeightedTable.pick_index(WIDTH_WEIGHTS) + 1
+		var h: int = WeightedTable.pick_index(HEIGHT_WEIGHTS) + 1
 		var cells: Array[Vector2i] = []
 		var points: Array[Vector2i] = _tunnel_points(field, from_pt, to_pt)
 		for p: int in range(points.size() - 1):
@@ -526,16 +522,22 @@ static func _carve(field: BattlefieldArea, open: Dictionary, cell_chamber: Dicti
 #Lays the tunnel width across the step direction at center.
 static func _stamp(field: BattlefieldArea, open: Dictionary, cell_chamber: Dictionary, tunnel_h: Dictionary,
 		cells: Array[Vector2i], center: Vector2i, perp: Vector2i, w: int, h: int, margin: int) -> void:
-	for p: int in _band_offsets(w):
-		var cell := Vector2i(
-			clampi(center.x + perp.x * p, margin, field.width - 1 - margin),
-			clampi(center.y + perp.y * p, margin, field.length - 1 - margin))
+	for cell: Vector2i in _band_cells(field, center, perp, w, margin):
 		_open_cell(field, open, cell)
 		if cell_chamber.has(cell):
 			continue
 		tunnel_h[cell] = maxi(int(tunnel_h.get(cell, 0)), h)
 		if not cells.has(cell):
 			cells.append(cell)
+
+
+static func _band_cells(field: BattlefieldArea, center: Vector2i, perp: Vector2i, w: int, margin: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for p: int in _band_offsets(w):
+		out.append(Vector2i(
+			clampi(center.x + perp.x * p, margin, field.width - 1 - margin),
+			clampi(center.y + perp.y * p, margin, field.length - 1 - margin)))
+	return out
 
 
 static func _band_offsets(w: int) -> Array[int]:
@@ -554,7 +556,7 @@ static func _open_cell(field: BattlefieldArea, open: Dictionary, cell: Vector2i)
 
 static func _carve_entrances(field: BattlefieldArea, open: Dictionary, cell_chamber: Dictionary,
 		tunnel_h: Dictionary, chambers: Array[Dictionary]) -> Array[Dictionary]:
-	var count: int = _weighted_pick(ENTRANCE_WEIGHTS) + 1
+	var count: int = WeightedTable.pick_index(ENTRANCE_WEIGHTS) + 1
 	var sides: Array[int] = [0, 1, 2, 3]
 	sides.shuffle()
 	var entrances: Array[Dictionary] = []
@@ -562,21 +564,14 @@ static func _carve_entrances(field: BattlefieldArea, open: Dictionary, cell_cham
 		var side: int = sides[i]
 		var ci: int = _chamber_nearest_side(field, chambers, side)
 		var border: Vector2i = _border_cell(field, side)
-		var w: int = _weighted_pick(WIDTH_WEIGHTS) + 1
-		var h: int = _weighted_pick(HEIGHT_WEIGHTS) + 1
+		var w: int = WeightedTable.pick_index(WIDTH_WEIGHTS) + 1
+		var h: int = WeightedTable.pick_index(HEIGHT_WEIGHTS) + 1
 		var cells: Array[Vector2i] = []
 		_carve(field, open, cell_chamber, tunnel_h, cells, _edge_cell(chambers[ci], border), border, w, h, 0)
 		var along := Vector2i(1, 0) if side < 2 else Vector2i(0, 1)
+		_stamp(field, open, cell_chamber, tunnel_h, cells, border, along, w, h, 0)
 		var mouth: Array[Vector2i] = []
-		for p: int in _band_offsets(w):
-			var cell := Vector2i(
-				clampi(border.x + along.x * p, 0, field.width - 1),
-				clampi(border.y + along.y * p, 0, field.length - 1))
-			_open_cell(field, open, cell)
-			if not cell_chamber.has(cell):
-				tunnel_h[cell] = maxi(int(tunnel_h.get(cell, 0)), h)
-				if not cells.has(cell):
-					cells.append(cell)
+		for cell: Vector2i in _band_cells(field, border, along, w, 0):
 			if not mouth.has(cell):
 				mouth.append(cell)
 		for cell: Vector2i in mouth:
@@ -624,7 +619,7 @@ static func _carve_dead_ends(field: BattlefieldArea, open: Dictionary, cell_cham
 	var count: int = randi_range(0, 3)
 	for _i: int in range(count):
 		var start: Vector2i = _random_open_cell(open)
-		var dir: Vector2i = DIRS4[randi_range(0, 3)]
+		var dir: Vector2i = PathCost.DIRS4[randi_range(0, 3)]
 		var cells: Array[Vector2i] = []
 		var carved: Dictionary = {start: true}
 		var length: int = randi_range(3, 10)
@@ -661,7 +656,7 @@ static func _dead_end_free(field: BattlefieldArea, open: Dictionary, carved: Dic
 		return false
 	if open.has(cell):
 		return false
-	for d: Vector2i in DIRS8:
+	for d: Vector2i in PathCost.DIRS8:
 		var nb: Vector2i = cell + d
 		if not open.has(nb) or carved.has(nb):
 			continue
@@ -685,16 +680,16 @@ static func _assign_levels(field: BattlefieldArea, open: Dictionary, chambers: A
 	for e: Dictionary in entrances:
 		top = maxf(top, float(int(e["level"])))
 	var anchors: Array[Dictionary] = []
-	_add_anchor(field, open, anchors, entrances[0]["cells"] as Array[Vector2i], float(int(entrances[0]["level"])))
+	anchors.append({"dist": _bfs_dist(open, entrances[0]["cells"] as Array[Vector2i]), "level": float(int(entrances[0]["level"]))})
 	for i: int in range(1, entrances.size()):
 		var cells: Array[Vector2i] = entrances[i]["cells"] as Array[Vector2i]
 		var span: Vector2 = _feasible(anchors, cells, top)
-		_add_anchor(field, open, anchors, cells, span.y)
+		anchors.append({"dist": _bfs_dist(open, cells), "level": span.y})
 		entrances[i]["level"] = span.y
 	var party: Dictionary = anchors[0]["dist"] as Dictionary
 	var scores: Array[float] = []
 	for i: int in range(chambers.size()):
-		scores.append(_set_distance(party, chambers[i]["cells"]))
+		scores.append(_set_distance(party, chambers[i]["cells"] as Dictionary))
 	var order: Array[int] = _order_by(scores, true)
 	for i: int in order:
 		var cells: Array[Vector2i] = []
@@ -703,7 +698,7 @@ static func _assign_levels(field: BattlefieldArea, open: Dictionary, chambers: A
 		var span: Vector2 = _feasible(anchors, cells, top)
 		var steps: int = int(round((span.y - span.x) * 4.0))
 		var level: float = span.x + 0.25 * float(randi_range(0, int(steps / 3.0)))
-		_add_anchor(field, open, anchors, cells, level)
+		anchors.append({"dist": _bfs_dist(open, cells), "level": level})
 		chambers[i]["level"] = level
 	for cell: Vector2i in open.keys():
 		var h: float = INF
@@ -725,17 +720,12 @@ static func _assign_levels(field: BattlefieldArea, open: Dictionary, chambers: A
 		field.generation_log.append("[CAVERN] chamber %d level=%.2f" % [i + 1, float(chambers[i]["level"])])
 
 
-static func _add_anchor(_field: BattlefieldArea, open: Dictionary, anchors: Array[Dictionary],
-		cells: Array[Vector2i], level: float) -> void:
-	anchors.append({"dist": _bfs_dist(open, cells), "level": level})
-
-
 #Lowest and highest level a new anchor may take without breaking the one-slope rule.
 static func _feasible(anchors: Array[Dictionary], cells: Array[Vector2i], top: float) -> Vector2:
 	var lo: float = 0.0
 	var hi: float = top
 	for a: Dictionary in anchors:
-		var d: float = float(_set_distance(a["dist"] as Dictionary, cells))
+		var d: float = _list_distance(a["dist"] as Dictionary, cells)
 		if d >= INF:
 			continue
 		lo = maxf(lo, float(a["level"]) - SLOPE * d)
@@ -748,35 +738,26 @@ static func _feasible(anchors: Array[Dictionary], cells: Array[Vector2i], top: f
 
 
 #Fewest steps from a distance map to any cell of the set; INF when none is reachable.
-static func _set_distance(dist: Dictionary, cells: Variant) -> float:
+static func _list_distance(dist: Dictionary, cells: Array[Vector2i]) -> float:
 	var best: float = INF
-	var keys: Array = (cells as Dictionary).keys() if typeof(cells) == TYPE_DICTIONARY else (cells as Array)
-	for cell: Vector2i in keys:
+	for cell: Vector2i in cells:
 		if dist.has(cell):
 			best = minf(best, float(int(dist[cell])))
 	return best
 
 
+static func _set_distance(dist: Dictionary, cells: Dictionary) -> float:
+	var list: Array[Vector2i] = []
+	list.assign(cells.keys())
+	return _list_distance(dist, list)
+
+
 static func _bfs_dist(open: Dictionary, starts: Array[Vector2i]) -> Dictionary:
-	var dist: Dictionary = {}
-	var queue: Array[Vector2i] = []
+	var seeds: Array[Vector2i] = []
 	for s: Vector2i in starts:
-		if dist.has(s) or not open.has(s):
-			continue
-		dist[s] = 0
-		queue.append(s)
-	var qi: int = 0
-	while qi < queue.size():
-		var curr: Vector2i = queue[qi]
-		qi += 1
-		var nd: int = int(dist[curr]) + 1
-		for d: Vector2i in DIRS8:
-			var nb: Vector2i = curr + d
-			if dist.has(nb) or not open.has(nb):
-				continue
-			dist[nb] = nd
-			queue.append(nb)
-	return dist
+		if open.has(s):
+			seeds.append(s)
+	return _flood(seeds, PathCost.DIRS8, _in_set.bind(open))
 
 
 static func _build_ceilings(field: BattlefieldArea, open: Dictionary, cell_chamber: Dictionary,
@@ -791,7 +772,7 @@ static func _build_ceilings(field: BattlefieldArea, open: Dictionary, cell_chamb
 		var cells: Dictionary = ch["cells"] as Dictionary
 		var edge_c: int = 1
 		for cell: Vector2i in cells.keys():
-			for d: Vector2i in DIRS8:
+			for d: Vector2i in PathCost.DIRS8:
 				var nb: Vector2i = cell + d
 				if open.has(nb) and not cell_chamber.has(nb):
 					edge_c = maxi(edge_c, int(tunnel_h.get(nb, 1)))
@@ -825,26 +806,13 @@ static func _build_ceilings(field: BattlefieldArea, open: Dictionary, cell_chamb
 
 #Chebyshev distance from each chamber cell to the nearest cell outside the chamber.
 static func _edge_distance(cells: Dictionary) -> Dictionary:
-	var dist: Dictionary = {}
-	var queue: Array[Vector2i] = []
+	var rim: Array[Vector2i] = []
 	for cell: Vector2i in cells.keys():
-		for d: Vector2i in DIRS8:
+		for d: Vector2i in PathCost.DIRS8:
 			if not cells.has(cell + d):
-				dist[cell] = 1
-				queue.append(cell)
+				rim.append(cell)
 				break
-	var qi: int = 0
-	while qi < queue.size():
-		var curr: Vector2i = queue[qi]
-		qi += 1
-		var nd: int = int(dist[curr]) + 1
-		for d: Vector2i in DIRS8:
-			var nb: Vector2i = curr + d
-			if dist.has(nb) or not cells.has(nb):
-				continue
-			dist[nb] = nd
-			queue.append(nb)
-	return dist
+	return _flood(rim, PathCost.DIRS8, _in_set.bind(cells), 1)
 
 
 #Top-left cell of a peak block that lies wholly inside the chamber.
@@ -885,7 +853,7 @@ static func _flood_chambers(field: BattlefieldArea, open: Dictionary, chambers: 
 		var pool: Array[Vector2i] = _grow_pool(field, open, chambers[i], dry_near)
 		if pool.is_empty():
 			continue
-		var depth: int = _weighted_pick(DEPTH_WEIGHTS) + 1
+		var depth: int = WeightedTable.pick_index(DEPTH_WEIGHTS) + 1
 		var surface: float = float(chambers[i]["level"])
 		for cell: Vector2i in pool:
 			var clear: float = float(field.cavern_ceiling[cell]) - field.get_terrain_height(cell)
@@ -926,7 +894,7 @@ static func _grow_pool(field: BattlefieldArea, open: Dictionary, ch: Dictionary,
 	while pool.size() < target:
 		var cand: Array[Vector2i] = []
 		for cell: Vector2i in pool:
-			for d: Vector2i in DIRS4:
+			for d: Vector2i in PathCost.DIRS4:
 				var nb: Vector2i = cell + d
 				if allowed.has(nb) and not in_pool.has(nb) and not cand.has(nb):
 					cand.append(nb)
@@ -945,7 +913,7 @@ static func _grow_pool(field: BattlefieldArea, open: Dictionary, ch: Dictionary,
 static func _holds_water(field: BattlefieldArea, open: Dictionary, cell: Vector2i, level: float) -> bool:
 	if absf(field.get_terrain_height(cell) - level) > EPS:
 		return false
-	for d: Vector2i in DIRS8:
+	for d: Vector2i in PathCost.DIRS8:
 		var nb: Vector2i = cell + d
 		if open.has(nb) and field.get_terrain_height(nb) < level - EPS:
 			return false
@@ -955,7 +923,7 @@ static func _holds_water(field: BattlefieldArea, open: Dictionary, cell: Vector2
 #True when at least one open cell beside the pool stays dry.
 static func _has_rim(open: Dictionary, in_pool: Dictionary) -> bool:
 	for cell: Vector2i in in_pool.keys():
-		for d: Vector2i in DIRS4:
+		for d: Vector2i in PathCost.DIRS4:
 			var nb: Vector2i = cell + d
 			if open.has(nb) and not in_pool.has(nb):
 				return true
@@ -966,18 +934,12 @@ static func _build_rock_shell(field: BattlefieldArea, open: Dictionary) -> void:
 	var wall_data: ObstacleData = DataManager.get_obstacle_by_name("Wall")
 	var walls: int = 0
 	for cell: Vector2i in field.rock_cells.keys():
-		var touches: bool = false
-		for d: Vector2i in DIRS8:
-			if open.has(cell + d):
-				touches = true
-				break
-		if not touches:
+		if not _touches_open(open, cell):
 			field.jagged_cells[cell] = true
 			continue
 		var obs := {"pos": cell, "size": 1, "data": wall_data, "floor": 0,
 			"cell_type": "wall", "orientation": "v"}
-		field.obstacles.append(obs)
-		field._obs_map[field.obs_key(cell, 0)] = obs
+		field.add_obstacle(obs, field.obs_key(cell, 0))
 		walls += 1
 	field.generation_log.append("[CAVERN] rock shell: %d wall(s), %d solid cell(s)" % [walls, field.jagged_cells.size()])
 
@@ -994,7 +956,7 @@ static func _place_spawns(field: BattlefieldArea, open: Dictionary, chambers: Ar
 	var dist: Dictionary = _bfs_dist(open, mouth)
 	var scores: Array[float] = []
 	for i: int in range(chambers.size()):
-		scores.append(_set_distance(dist, chambers[i]["cells"]))
+		scores.append(_set_distance(dist, chambers[i]["cells"] as Dictionary))
 	var order: Array[int] = _order_by(scores, false)
 	var need: int = ctx.team_size_b + 2
 	var chosen: int = order[0]
@@ -1017,7 +979,7 @@ static func _place_spawns(field: BattlefieldArea, open: Dictionary, chambers: Ar
 
 #The open cell one step in from an entrance mouth; the mouth cell itself when nothing lies inside.
 static func _inward_cell(field: BattlefieldArea, open: Dictionary, mouth: Vector2i) -> Vector2i:
-	for d: Vector2i in DIRS8:
+	for d: Vector2i in PathCost.DIRS8:
 		var nb: Vector2i = mouth + d
 		if not open.has(nb) or field.is_water(nb):
 			continue
@@ -1030,28 +992,11 @@ static func _inward_cell(field: BattlefieldArea, open: Dictionary, mouth: Vector
 
 
 static func _spawn_zone_a(field: BattlefieldArea, open: Dictionary, mouth: Array[Vector2i], want: int) -> Dictionary:
-	var zone: Dictionary = {}
-	var queue: Array[Vector2i] = []
-	for cell: Vector2i in mouth:
-		if zone.has(cell):
-			continue
-		zone[cell] = true
-		queue.append(cell)
-	var qi: int = 0
-	while qi < queue.size() and zone.size() < want:
-		var curr: Vector2i = queue[qi]
-		qi += 1
-		for d: Vector2i in DIRS8:
-			var nb: Vector2i = curr + d
-			if zone.has(nb) or not open.has(nb) or field.is_water(nb):
-				continue
-			if field.clearance(nb) < 1.0 - EPS:
-				continue
-			zone[nb] = true
-			queue.append(nb)
-			if zone.size() >= want:
-				break
-	return zone
+	return _flood(mouth, PathCost.DIRS8, _dry_open_step.bind(field, open), 0, -1, want)
+
+
+static func _dry_open_step(_from: Vector2i, cell: Vector2i, field: BattlefieldArea, open: Dictionary) -> bool:
+	return open.has(cell) and not field.is_water(cell) and field.clearance(cell) >= 1.0 - EPS
 
 
 static func _dry_cells(field: BattlefieldArea, ch: Dictionary) -> Array[Vector2i]:
@@ -1076,30 +1021,11 @@ static func _nearest(cells: Array[Vector2i], to: Vector2i) -> Vector2i:
 #Indices of scores sorted by value, nearest first when ascending.
 static func _order_by(scores: Array[float], ascending: bool) -> Array[int]:
 	var order: Array[int] = []
-	var used: Array[bool] = []
 	for i: int in range(scores.size()):
-		used.append(false)
-	for _n: int in range(scores.size()):
-		var best: int = -1
-		for i: int in range(scores.size()):
-			if used[i]:
-				continue
-			if best < 0 or (scores[i] < scores[best] if ascending else scores[i] > scores[best]):
-				best = i
-		used[best] = true
-		order.append(best)
+		order.append(i)
+	order.sort_custom(func(a: int, b: int) -> bool:
+		if scores[a] == scores[b]:
+			return a < b
+		return scores[a] < scores[b] if ascending else scores[a] > scores[b])
 	return order
 
-
-#Index of a weight table drawn in proportion to its entries.
-static func _weighted_pick(weights: Array[int]) -> int:
-	var total: int = 0
-	for w: int in weights:
-		total += w
-	var roll: int = randi_range(1, maxi(1, total))
-	var cum: int = 0
-	for i: int in range(weights.size()):
-		cum += weights[i]
-		if roll <= cum:
-			return i
-	return weights.size() - 1

@@ -15,10 +15,24 @@ class_name EventData extends Resource
 @export var enemy: String = ""
 @export var enemy_counter: String = ""
 @export var map_rule: String = ""
+#A failed mishap ends the contract only when its row sets Fail Ends Contract.
+@export var fail_ends_contract: bool = false
 
 
 func is_battle() -> bool:
 	return success_formula == "Battle"
+
+
+func is_chase() -> bool:
+	return success_formula == "Chase"
+
+
+#Must match TimelineRunner.PRIMARY_PREFIX; kept literal so this Resource takes no class dependency.
+const TIMELINE_PREFIX: String = "timeline:"
+
+
+func is_timeline() -> bool:
+	return event_name.begins_with(TIMELINE_PREFIX)
 
 
 func is_competition() -> bool:

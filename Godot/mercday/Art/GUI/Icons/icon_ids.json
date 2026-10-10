@@ -1251,6 +1251,86 @@
    "note": null
   },
   {
+   "id": "bandit",
+   "cell": [
+    10,
+    2
+   ],
+   "name": "Bandit",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Contract results > Defected overlay on merc portrait",
+   "replaces": [],
+   "note": "New."
+  },
+  {
+   "id": "missing",
+   "cell": [
+    11,
+    2
+   ],
+   "name": "Missing",
+   "offset": [
+    2,
+    0
+   ],
+   "size": [
+    12,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Contract results > Missing overlay on a merc who abandoned the party",
+   "replaces": [],
+   "note": "New."
+  },
+  {
+   "id": "spam",
+   "cell": [
+    12,
+    2
+   ],
+   "name": "Spam",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Mail Inbox Spam folder tab",
+   "replaces": [],
+   "note": "New."
+  },
+  {
+   "id": "archive",
+   "cell": [
+    13,
+    2
+   ],
+   "name": "Archive",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    15
+   ],
+   "tint": "color",
+   "usedOn": "Mail reader Archive button",
+   "replaces": [],
+   "note": "New."
+  },
+  {
    "id": "note",
    "cell": [
     14,
@@ -2686,6 +2766,299 @@
    "note": null
   },
   {
+   "id": "mail",
+   "cell": [
+    0,
+    6
+   ],
+   "name": "Mail",
+   "offset": [
+    0,
+    3
+   ],
+   "size": [
+    16,
+    10
+   ],
+   "tint": "color",
+   "usedOn": "Mail button; Inbox folder tab; unread mail",
+   "note": null
+  },
+  {
+   "id": "mail_open",
+   "cell": [
+    1,
+    6
+   ],
+   "name": "Mail (opened)",
+   "offset": [
+    0,
+    1
+   ],
+   "size": [
+    16,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Read mail",
+   "note": null
+  },
+  {
+   "id": "calendar",
+   "cell": [
+    2,
+    6
+   ],
+   "name": "Calendar",
+   "offset": [
+    1,
+    0
+   ],
+   "size": [
+    13,
+    15
+   ],
+   "tint": "color",
+   "usedOn": "Calendar button",
+   "note": null
+  },
+  {
+   "id": "request",
+   "cell": [
+    3,
+    6
+   ],
+   "name": "Request",
+   "offset": [
+    0,
+    1
+   ],
+   "size": [
+    16,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Mail Requests folder; vacation requests",
+   "note": null
+  },
+  {
+   "id": "bill",
+   "cell": [
+    4,
+    6
+   ],
+   "name": "Bill",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Mail Bills folder; bill events",
+   "note": null
+  },
+  {
+   "id": "news",
+   "cell": [
+    5,
+    6
+   ],
+   "name": "News",
+   "offset": [
+    1,
+    1
+   ],
+   "size": [
+    14,
+    14
+   ],
+   "tint": "color",
+   "usedOn": "Mail News folder",
+   "note": null
+  },
+  {
+   "id": "mercdave_screen",
+   "cell": [
+    6,
+    6
+   ],
+   "name": "Mercdave screen",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "color",
+   "usedOn": "Mercdave face backdrop",
+   "note": null
+  },
+  {
+   "id": "status_preparing",
+   "cell": [
+    7,
+    6
+   ],
+   "name": "Status - Preparing",
+   "offset": [
+    1,
+    6
+   ],
+   "size": [
+    14,
+    4
+   ],
+   "tint": "mono",
+   "usedOn": "Merc portrait status badge",
+   "replaces": [],
+   "note": "New. No old equivalent."
+  },
+  {
+   "id": "status_contract",
+   "cell": [
+    8,
+    6
+   ],
+   "name": "Status - On a Contract",
+   "offset": [
+    0,
+    2
+   ],
+   "size": [
+    16,
+    12
+   ],
+   "tint": "mono",
+   "usedOn": "Merc portrait status badge",
+   "replaces": [],
+   "note": "New. No old equivalent."
+  },
+  {
+   "id": "status_resting",
+   "cell": [
+    9,
+    6
+   ],
+   "name": "Status - Resting",
+   "offset": [
+    2,
+    0
+   ],
+   "size": [
+    12,
+    15
+   ],
+   "tint": "mono",
+   "usedOn": "Merc portrait status badge",
+   "replaces": [],
+   "note": "New. No old equivalent."
+  },
+  {
+   "id": "status_captured",
+   "cell": [
+    10,
+    6
+   ],
+   "name": "Status - Captured",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "mono",
+   "usedOn": "Merc portrait status badge",
+   "replaces": [],
+   "note": "New. No old equivalent."
+  },
+  {
+   "id": "status_dead",
+   "cell": [
+    11,
+    6
+   ],
+   "name": "Status - Dead",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    13,
+    15
+   ],
+   "tint": "mono",
+   "usedOn": "Merc portrait status badge",
+   "replaces": [],
+   "note": "New. No old equivalent."
+  },
+  {
+   "id": "status_defected",
+   "cell": [
+    12,
+    6
+   ],
+   "name": "Status - Defected",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "mono",
+   "usedOn": "Merc portrait status badge",
+   "replaces": [],
+   "note": "New. No old equivalent."
+  },
+  {
+   "id": "status_missing",
+   "cell": [
+    13,
+    6
+   ],
+   "name": "Status - Missing",
+   "offset": [
+    1,
+    0
+   ],
+   "size": [
+    14,
+    16
+   ],
+   "tint": "mono",
+   "usedOn": "Merc portrait status badge",
+   "replaces": [],
+   "note": "New. No old equivalent."
+  },
+  {
+   "id": "status_vacation",
+   "cell": [
+    14,
+    6
+   ],
+   "name": "Status - Vacationing",
+   "offset": [
+    0,
+    0
+   ],
+   "size": [
+    16,
+    16
+   ],
+   "tint": "mono",
+   "usedOn": "Merc portrait status badge",
+   "replaces": [],
+   "note": "New. No old equivalent."
+  },
+  {
    "id": "face_unselected",
    "cell": [
     0,
@@ -3294,6 +3667,82 @@
    "tint": "mono",
    "usedOn": "Every opinion / relationship / mood scale: the faces that are not the current value (tinted #2b4f8a)",
    "replaces": [],
+   "note": null
+  },
+  {
+   "id": "face_devil_frown",
+   "cell": [
+    12,
+    8
+   ],
+   "name": "Devil Frown (outline)",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Mercdave only (reserved)",
+   "note": null
+  },
+  {
+   "id": "face_devil_smile",
+   "cell": [
+    13,
+    8
+   ],
+   "name": "Devil Smile (outline)",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Mercdave only (reserved)",
+   "note": null
+  },
+  {
+   "id": "face_devil_rage",
+   "cell": [
+    14,
+    8
+   ],
+   "name": "Devil Rage (outline)",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Mercdave only (reserved)",
+   "note": null
+  },
+  {
+   "id": "face_devil_laugh",
+   "cell": [
+    15,
+    8
+   ],
+   "name": "Devil Laugh (outline)",
+   "offset": [
+    2,
+    1
+   ],
+   "size": [
+    12,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "Mercdave only (reserved)",
    "note": null
   },
   {
@@ -4683,6 +5132,26 @@
    "note": null
   },
   {
+   "id": "question",
+   "cell": [
+    4,
+    13
+   ],
+   "name": "Question mark",
+   "offset": [
+    4,
+    1
+   ],
+   "size": [
+    8,
+    14
+   ],
+   "tint": "mono",
+   "usedOn": "MercDave notice marker (HintMarker)",
+   "replaces": [],
+   "note": null
+  },
+  {
    "id": "sigil_divine",
    "cell": [
     0,
@@ -4961,6 +5430,128 @@
     }
    ],
    "note": null
+  }
+ ],
+ "cursors": [
+  {
+   "id": "arrow",
+   "name": "Standard",
+   "orange": [
+    10,
+    240,
+    18,
+    32
+   ],
+   "blue": [
+    10,
+    272,
+    18,
+    32
+   ],
+   "hotspot": [
+    1,
+    4
+   ]
+  },
+  {
+   "id": "hand",
+   "name": "Hover clickable",
+   "orange": [
+    33,
+    240,
+    30,
+    32
+   ],
+   "blue": [
+    33,
+    272,
+    30,
+    32
+   ],
+   "hotspot": [
+    2,
+    4
+   ]
+  },
+  {
+   "id": "press",
+   "name": "Press",
+   "orange": [
+    66,
+    240,
+    29,
+    32
+   ],
+   "blue": [
+    66,
+    272,
+    29,
+    32
+   ],
+   "hotspot": [
+    2,
+    5
+   ]
+  },
+  {
+   "id": "grab",
+   "name": "Grab",
+   "orange": [
+    98,
+    240,
+    29,
+    32
+   ],
+   "blue": [
+    98,
+    272,
+    29,
+    32
+   ],
+   "hotspot": [
+    2,
+    5
+   ]
+  },
+  {
+   "id": "ibeam",
+   "name": "Text entry",
+   "orange": [
+    134,
+    240,
+    20,
+    32
+   ],
+   "blue": [
+    134,
+    272,
+    20,
+    32
+   ],
+   "hotspot": [
+    10,
+    16
+   ]
+  },
+  {
+   "id": "caret",
+   "name": "Caret",
+   "orange": [
+    163,
+    240,
+    10,
+    16
+   ],
+   "blue": [
+    163,
+    272,
+    10,
+    16
+   ],
+   "hotspot": [
+    5,
+    8
+   ]
   }
  ]
 }

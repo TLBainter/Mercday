@@ -13,6 +13,13 @@ const OPINION_MIN: int = -5
 const OPINION_MAX: int = 5
 #Opinion a merc starts at before their Wile is added.
 const OPINION_BASE: int = -1
+#A cut that leaves this wage or less drops the merc to the lowest opinion.
+const TANK_SALARY: int = 1
+const FIRE_DROP_SHARE: float = 0.75
+#Notes asked per level, per rarity point and per need point.
+const ASK_LEVEL: int = 2
+const ASK_RARITY: int = 2
+const ASK_NEED: int = 2
 
 
 #Knowledges and tools by their own rarity, the primary ancestry, and every piece of carried gear.
@@ -63,55 +70,32 @@ static func need_score(merc: MercenaryData, earlier: Array[MercenaryData]) -> in
 	if merc == null:
 		return 0
 	var total: int = 0
-	if merc.tradition != null and not _shares_tradition(merc, earlier):
+	if merc.tradition != null and not _shares(merc, earlier, "tradition"):
 		total += 3
-	if merc.ancestry != null and not _shares_ancestry(merc, earlier):
+	if merc.ancestry != null and not _shares(merc, earlier, "ancestry"):
 		total += 1
-	if merc.heritage != null and not _shares_heritage(merc, earlier):
+	if merc.heritage != null and not _shares(merc, earlier, "heritage"):
 		total += 1
 	for k: UtilityTraitData in merc.knowledges:
-		if k != null and _holders(earlier, "knowledge:" + k.utility_name) == 0:
+		if k != null and GuildRoster.holders("knowledge:" + k.utility_name, null, earlier) == 0:
 			total += 1
 	for t: UtilityTraitData in merc.tools:
-		if t != null and _holders(earlier, "tool:" + t.utility_name) == 0:
+		if t != null and GuildRoster.holders("tool:" + t.utility_name, null, earlier) == 0:
 			total += 1
 	return total
 
 
-static func _holders(earlier: Array[MercenaryData], key: String) -> int:
-	var count: int = 0
-	for other: MercenaryData in earlier:
-		if other != null and GuildRoster.holds(other, key):
-			count += 1
-	return count
-
-
-static func _shares_tradition(merc: MercenaryData, earlier: Array[MercenaryData]) -> bool:
-	if merc.tradition == null:
+#True when an earlier hire has a row in `field` (tradition, ancestry or heritage) with the merc's own <field>_name.
+static func _shares(merc: MercenaryData, earlier: Array[MercenaryData], field: String) -> bool:
+	var mine: Resource = merc.get(field) as Resource
+	if mine == null:
 		return false
+	var name_key: String = field + "_name"
 	for other: MercenaryData in earlier:
-		if other != null and other.tradition != null \
-				and other.tradition.tradition_name == merc.tradition.tradition_name:
-			return true
-	return false
-
-
-static func _shares_ancestry(merc: MercenaryData, earlier: Array[MercenaryData]) -> bool:
-	if merc.ancestry == null:
-		return false
-	for other: MercenaryData in earlier:
-		if other != null and other.ancestry != null \
-				and other.ancestry.ancestry_name == merc.ancestry.ancestry_name:
-			return true
-	return false
-
-
-static func _shares_heritage(merc: MercenaryData, earlier: Array[MercenaryData]) -> bool:
-	if merc.heritage == null:
-		return false
-	for other: MercenaryData in earlier:
-		if other != null and other.heritage != null \
-				and other.heritage.heritage_name == merc.heritage.heritage_name:
+		if other == null:
+			continue
+		var theirs: Resource = other.get(field) as Resource
+		if theirs != null and theirs.get(name_key) == mine.get(name_key):
 			return true
 	return false
 
@@ -120,7 +104,8 @@ static func asking_salary(merc: MercenaryData, earlier: Array[MercenaryData]) ->
 	if merc == null:
 		return 1
 	var level: int = ExperienceSystem.current_level(merc)
-	return maxi(1, level + 2 * rarity_score(merc) + 2 * need_score(merc, earlier))
+	return maxi(1, ASK_LEVEL * level + ASK_RARITY * rarity_score(merc)
+		+ ASK_NEED * need_score(merc, earlier))
 
 
 #Signs the merc on: their place in the hire order, the minute, the agreed wage and their opening opinion.
@@ -185,12 +170,26 @@ static func opinion_delta(old_salary: int, new_salary: int) -> int:
 	return 0
 
 
+#The opinion a merc holds after a wage change: the raise or cut step, or the floor when a cut tanks the wage.
+static func opinion_after(old_salary: int, new_salary: int, opinion: int) -> int:
+	var shift: int = opinion_delta(old_salary, new_salary)
+	if new_salary < old_salary and new_salary <= TANK_SALARY:
+		shift = OPINION_MIN - opinion
+	return clampi(opinion + shift, OPINION_MIN, OPINION_MAX)
+
+
 #Writes the new wage and moves the opinion with it; returns the opinion the merc now holds.
 static func apply_salary_change(merc: MercenaryData, new_salary: int) -> int:
 	if merc == null:
 		return 0
 	var old_salary: int = merc.monthly_salary
 	merc.monthly_salary = maxi(1, new_salary)
-	merc.guild_opinion = clampi(merc.guild_opinion + opinion_delta(old_salary, merc.monthly_salary),
-		OPINION_MIN, OPINION_MAX)
+	return adjust_opinion(merc, opinion_after(old_salary, merc.monthly_salary, merc.guild_opinion) - merc.guild_opinion)
+
+
+#Moves the merc's guild opinion by delta inside OPINION_MIN..OPINION_MAX; returns the opinion it now holds.
+static func adjust_opinion(merc: MercenaryData, delta: int) -> int:
+	if merc == null:
+		return 0
+	merc.guild_opinion = clampi(merc.guild_opinion + delta, OPINION_MIN, OPINION_MAX)
 	return merc.guild_opinion

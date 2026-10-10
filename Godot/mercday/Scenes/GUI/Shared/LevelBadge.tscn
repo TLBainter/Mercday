@@ -1,8 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/LevelBadge.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/XPTooltip.tscn" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_LevelBadge.tres" id="5"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_badge"]
 bg_color = Color(0.949020, 0.549020, 0.156863, 1)
@@ -38,3 +40,7 @@ theme_override_colors/font_color = Color(0.039216, 0.058824, 0.109804, 1)
 text = "1"
 
 [node name="Tip" parent="." instance=ExtResource("2")]
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("4")
+hint = ExtResource("5")

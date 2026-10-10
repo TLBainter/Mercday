@@ -3,12 +3,10 @@ class_name AimPayoffFacet extends DecisionFacet
 #Passes only when aiming would flip a failed attack into a passing one.
 #Blocks aim when: unaimed attack already passes (wasted AP), or aimed attack still fails.
 #Fails when Aim plus the follow-up Attack are unaffordable this turn (ExAP counts).
-#Weights mirror AttackRangeAimed.tres: reliability w=2.5, aim_boost w=2.0, threshold=0.50.
 func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var weapon := merc.equipped_weapon
 	if weapon == null or not weapon.is_ranged:
 		return 0.0
-	#Aim only when the shot it sets up is affordable this turn; banked ExAP counts.
 	var afford_state: BattleState = ctx.get("state")
 	if afford_state != null:
 		var attack_cost := maxi(1, afford_state.get_cost(merc, "Attack", int(ctx.get("attack_base_ap", 3)))

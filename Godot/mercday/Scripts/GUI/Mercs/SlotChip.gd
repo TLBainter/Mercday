@@ -4,13 +4,13 @@ class_name SlotChip extends PanelContainer
 #SlotTooltip on hover; an empty chip reads "Empty" in the faint blue and never opens a tooltip.
 
 const EMPTY_TEXT: String = "Empty"
-const EMPTY_COLOR: Color = Color("#5e7699")
-const FILLED_COLOR: Color = Color("#f3ead7")
-const EMPTY_FILL: Color = Color("#0e1628")
-const EMPTY_EDGE: Color = Color("#1f3560")
-const FILLED_FILL: Color = Color("#2b4f8a")
-const BEVEL_HI: Color = Color("#3b6fb6")
-const BEVEL_LO: Color = Color("#1f3560")
+const EMPTY_COLOR: Color = GuiColors.MUTED
+const FILLED_COLOR: Color = GuiColors.CREAM
+const EMPTY_FILL: Color = GuiColors.ROW_FILL
+const EMPTY_EDGE: Color = GuiColors.BLUE_LO
+const FILLED_FILL: Color = GuiColors.BLUE
+const BEVEL_HI: Color = GuiColors.BLUE_HI
+const BEVEL_LO: Color = GuiColors.BLUE_LO
 const BEVEL_PX: float = 3.0
 
 @export var kind: String = "":
@@ -62,8 +62,8 @@ func _refresh() -> void:
 func _draw() -> void:
 	if not is_filled():
 		return
-	draw_rect(Rect2(0.0, 0.0, size.x, BEVEL_PX), BEVEL_HI)
-	draw_rect(Rect2(0.0, size.y - BEVEL_PX, size.x, BEVEL_PX), BEVEL_LO)
+	BevelButton.paint_edges(self, Rect2(Vector2.ZERO, size), BEVEL_HI, BEVEL_LO, BEVEL_PX,
+		BevelButton.BEVEL_TOP | BevelButton.BEVEL_BOTTOM)
 
 
 static func empty_box() -> StyleBoxFlat:
@@ -78,11 +78,7 @@ static func filled_box() -> StyleBoxFlat:
 
 
 static func _chip_box(fill: Color) -> StyleBoxFlat:
-	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = fill
-	box.set_border_width_all(0)
+	var box: StyleBoxFlat = GuiStyle.flat(fill, 0, GuiColors.CLEAR, 0.0)
 	box.content_margin_left = 10.0
 	box.content_margin_right = 10.0
-	box.content_margin_top = 0.0
-	box.content_margin_bottom = 0.0
 	return box

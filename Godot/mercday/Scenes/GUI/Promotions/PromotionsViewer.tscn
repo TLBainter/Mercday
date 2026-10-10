@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://Scripts/GUI/Promotions/PromotionsViewer.gd" id="1"]
 [ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/TabButton.tscn" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/TabStrip.gd" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Promotions/AdsToolbar.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Promotions/CampaignList.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Promotions/CampaignBuilder.tscn" id="6"]
@@ -14,6 +14,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource("2")
 script = ExtResource("1")
+tab_strip_path = NodePath("Body/Rows/Tabs/Strip")
+default_tab = &"job"
 
 [node name="Body" type="MarginContainer" parent="."]
 anchor_right = 1.0
@@ -31,11 +33,21 @@ theme_override_constants/separation = 12
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="Job" parent="Body/Rows/Tabs" instance=ExtResource("3")]
+[node name="Strip" type="HBoxContainer" parent="Body/Rows/Tabs"]
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+script = ExtResource("3")
+keys = Array[StringName]([&"job", &"promo"])
+labels = Array[String](["Job Ads", "Guild Ads"])
+tips = Array[String](["Ads that bring mercs to your door", "Ads that bring contracts to your door"])
+icon_ids = Array[String](["job_ads", "guild_ads"])
 
-[node name="Guild" parent="Body/Rows/Tabs" instance=ExtResource("3")]
+[node name="CloseReserve" type="Control" parent="Body/Rows/Tabs"]
+custom_minimum_size = Vector2(42, 0)
 layout_mode = 2
+mouse_filter = 2
 
 [node name="Head" type="HBoxContainer" parent="Body/Rows"]
 layout_mode = 2

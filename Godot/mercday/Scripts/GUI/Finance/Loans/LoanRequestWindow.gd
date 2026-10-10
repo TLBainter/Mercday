@@ -1,33 +1,27 @@
-class_name LoanRequestWindow extends LoanModal
+class_name LoanRequestWindow extends ModalDialog
 
 #The Request a Loan window: the lender list, the four draft sliders, the preview of what the draft
 #works out to, the envoy crew, the approval odds and the Request button.
 
 signal confirm_asked(snap: Dictionary)
-signal sent(lender: String)
 
-const WINDOW_WIDTH: float = 1100.0
 const COLUMN_GAP: int = 16
 const COLUMN_PAD: int = 12
 const ROW_GAP: int = 8
-const BUTTON_GAP: int = 12
 const LIST_HEIGHT: float = 260.0
 const TITLE: String = "Request a Loan"
 const CLOSE_TIP: String = "Close"
 const LENDER_CAPTION: String = "Lender"
 const CONFIG_CAPTION: String = "Configuration"
 const PREVIEW_CAPTION: String = "Preview"
-const ODDS_CAPTION: String = "Approval Odds"
 const CANCEL_TEXT: String = "Cancel"
 const REQUEST_TEXT: String = "Request"
-const BUTTON_HEIGHT: float = 42.0
 const BLOCK_ALPHA: float = 0.45
 const BUSY_BLOCK: String = "You already have an open offer or request with %s"
 const MONEY_BLOCK: String = "Not enough notes to pay the odd job total"
 const AWAY_TEAM: String = "Returns in "
 const AWAY_LETTER: String = "Offer expected in "
-const AWAY_FMT: String = "%d Days, %d Hours"
-const CREW_SCENE: String = "res://Scenes/GUI/Shared/OddJobCrew.tscn"
+const CREW_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/OddJobCrew.tscn")
 const CREW_KIND: String = "Loan Envoy"
 const CREW_TIP: String = "Send a merc to \"persuade\" the lenders to give you a good rate."
 const CREW_PICK: String = "Sorted by best fit. Performer and Warrior traditions, Wile and Vigor raise approval odds."
@@ -40,7 +34,6 @@ const RATE_STEP: float = 0.001
 const RATE_ROUND: float = 1000.0
 const TERM_HEAT_CAP: float = 0.9
 const EMPTY_TEXT: String = "--"
-const SCENE_PATH: String = "res://Scenes/GUI/Finance/Loans/LoanRequestWindow.tscn"
 
 var _lender: String = ""
 var _draft: Dictionary = {}
@@ -58,53 +51,44 @@ var _odds_label: Label = null
 var _meter: SuccessMeter = null
 var _crew: OddJobCrew = null
 var _away: Label = null
-var _cancel: Button = null
-var _request: Button = null
 var _quiet: bool = false
 
 
-func title_text() -> String:
-	return TITLE
-
-
-func close_tip() -> String:
-	return CLOSE_TIP
-
-
-func frame_size() -> Vector2:
-	return Vector2(WINDOW_WIDTH, 0.0)
-
-
-func _fill(col: VBoxContainer) -> void:
-	var columns: HBoxContainer = LoanStyle.hbox(COLUMN_GAP)
+func _ready() -> void:
+	title = TITLE
+	cancel_text = CANCEL_TEXT
+	confirm_text = REQUEST_TEXT
+	var columns: HBoxContainer = GuiStyle.hbox(COLUMN_GAP)
 	columns.add_child(_lender_column())
 	columns.add_child(_config_column())
 	columns.add_child(_preview_column())
-	col.add_child(columns)
-	var crew_row: Control = _crew_row()
-	if crew_row != null:
-		col.add_child(crew_row)
-	col.add_child(_odds_row())
-	col.add_child(_buttons_row())
-	_away = LoanStyle.body("", 13, LoanStyle.SKY)
+	rows.add_child(columns)
+	rows.add_child(_crew_row())
+	var block: VBoxContainer = LoanStyle.odds_block()
+	_odds_label = block.get_node(^"Head/Value") as Label
+	_meter = block.get_node(^"Shell/Meter") as SuccessMeter
+	rows.add_child(block)
+	super()
+	add_child(TimeHold.new())
+	LoanStyle.dress(self, CLOSE_TIP)
+	_away = GuiStyle.label("", GuiStyle.BODY, 13, GuiColors.SKY)
 	_away.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(_away)
+	rows.add_child(_away)
 
 
-func _on_open() -> void:
+func _on_present() -> void:
 	_rebuild_list()
-	if _crew != null:
-		var cap: int = odd_job_cap()
-		var empty: Array[int] = []
-		_quiet = true
-		_crew.max_mercs = cap
-		_crew.locked = cap <= 0
-		_crew.team = empty
-		_crew.default_pay = default_pay()
-		_crew.per = default_pay()
-		_crew.money = GameState.bank_notes
-		_crew.candidates = CrewCandidates.from_roster(FinanceManager.merc_fit)
-		_quiet = false
+	var cap: int = odd_job_cap()
+	var empty: Array[int] = []
+	_quiet = true
+	_crew.max_mercs = cap
+	_crew.locked = cap <= 0
+	_crew.team = empty
+	_crew.default_pay = default_pay()
+	_crew.per = default_pay()
+	_crew.money = GameState.bank_notes
+	_crew.candidates = CrewCandidates.from_roster(FinanceManager.merc_fit)
+	_quiet = false
 	var first: String = first_free_lender()
 	_lender = first
 	_draft = FinanceManager.fair_draft(first) if first != "" else {}
@@ -158,7 +142,7 @@ func value_text(key: String) -> String:
 
 
 func value_color(key: String) -> Color:
-	return _colors.get(key, LoanStyle.CREAM) as Color
+	return _colors.get(key, GuiColors.CREAM) as Color
 
 
 func set_amount(notes: int) -> void:
@@ -279,29 +263,15 @@ func away_hours() -> int:
 func away_text() -> String:
 	if _lender == "":
 		return ""
-	var hours: int = away_hours()
-	var head: String = AWAY_TEAM if not team().is_empty() else AWAY_LETTER
-	var days: int = floori(float(hours) / float(LoanRows.HOURS_PER_DAY))
-	return head + AWAY_FMT % [days, hours % LoanRows.HOURS_PER_DAY]
+	var lead: String = AWAY_TEAM if not team().is_empty() else AWAY_LETTER
+	return lead + GuiDates.duration_text(float(away_hours()))
 
 
-func cancel_button() -> Button:
-	return _cancel
-
-
-func request_button() -> Button:
-	return _request
-
-
-func press_cancel() -> void:
-	close_window()
-
-
-#The Request button only asks; LoansTab answers with the confirm window.
-func press_request() -> void:
-	if not can_send():
-		return
-	confirm_asked.emit(snapshot())
+#The Request button only asks, so the window stays open; LoansTab answers with the confirm window.
+func _on_confirm() -> bool:
+	if can_send():
+		confirm_asked.emit(snapshot())
+	return false
 
 
 func snapshot() -> Dictionary:
@@ -324,57 +294,52 @@ func send_request() -> bool:
 		"per": pay_per()}
 	if not FinanceManager.request_loan(req):
 		return false
-	sent.emit(String(snap["lender"]))
-	close_window()
+	close()
 	return true
 
 
 func _column(caption: String) -> PanelContainer:
-	var box: PanelContainer = LoanStyle.panel(LoanStyle.NAVY, COLUMN_PAD, COLUMN_PAD)
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var col: VBoxContainer = LoanStyle.vbox(ROW_GAP)
-	col.add_child(LoanStyle.text(caption, 11, LoanStyle.ORANGE))
-	box.add_child(col)
-	return box
+	var shell: PanelContainer = LoanStyle.panel(GuiColors.ROW_FILL, COLUMN_PAD, COLUMN_PAD)
+	shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var col: VBoxContainer = GuiStyle.vbox(ROW_GAP)
+	col.add_child(GuiStyle.label(caption, GuiStyle.SILK, 11, GuiColors.ORANGE))
+	shell.add_child(col)
+	return shell
 
 
 func _lender_column() -> PanelContainer:
-	var box: PanelContainer = _column(LENDER_CAPTION)
-	var col: VBoxContainer = box.get_child(0) as VBoxContainer
+	var shell: PanelContainer = _column(LENDER_CAPTION)
+	var col: VBoxContainer = shell.get_child(0) as VBoxContainer
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0.0, LIST_HEIGHT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_list = LoanStyle.vbox(ROW_GAP)
+	_list = GuiStyle.vbox(ROW_GAP)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_list)
 	col.add_child(scroll)
-	return box
+	return shell
 
 
 func _config_column() -> PanelContainer:
-	var box: PanelContainer = _column(CONFIG_CAPTION)
-	var col: VBoxContainer = box.get_child(0) as VBoxContainer
+	var shell: PanelContainer = _column(CONFIG_CAPTION)
+	var col: VBoxContainer = shell.get_child(0) as VBoxContainer
 	col.add_child(_config_row(KEY_AMOUNT, "Amount", true))
 	col.add_child(_config_row(KEY_TERM, "Term", false))
 	col.add_child(_config_row(KEY_RATE, "Interest", false))
 	col.add_child(_config_row(KEY_FIRST, "First Payment Due", false))
-	return box
+	return shell
 
 
 func _config_row(key: String, caption: String, notes: bool) -> PanelContainer:
-	var shell: PanelContainer = LoanStyle.panel(LoanStyle.NAVY2, 10, 6)
-	var col: VBoxContainer = LoanStyle.vbox(3)
-	var head: HBoxContainer = LoanStyle.hbox(8)
-	head.add_child(LoanStyle.text(caption, 10, LoanStyle.SKY))
-	head.add_child(_spacer())
-	var value: Control = null
-	if notes:
-		value = LoanStyle.notes(0, LoanStyle.CREAM, 15)
-	else:
-		value = LoanStyle.text("", 15, LoanStyle.CREAM, true)
-	head.add_child(value)
-	col.add_child(head)
+	var shell: PanelContainer = LoanStyle.panel(GuiColors.ROW_HOVER, 10, 6)
+	var col: VBoxContainer = GuiStyle.vbox(3)
+	var top: HBoxContainer = GuiStyle.hbox(8)
+	top.add_child(GuiStyle.label(caption, GuiStyle.SILK, 10, GuiColors.SKY))
+	top.add_child(GuiStyle.spacer())
+	var value: Control = LoanStyle.value_cell(notes, 15, GuiColors.CREAM)
+	top.add_child(value)
+	col.add_child(top)
 	var node := LoanSlider.new()
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	node.value_changed.connect(_on_slider.bind(key))
@@ -385,51 +350,40 @@ func _config_row(key: String, caption: String, notes: bool) -> PanelContainer:
 
 
 func _preview_column() -> PanelContainer:
-	var box: PanelContainer = _column(PREVIEW_CAPTION)
-	var col: VBoxContainer = box.get_child(0) as VBoxContainer
-	var head_box: PanelContainer = LoanStyle.panel(LoanStyle.NAVY2, 10, 8)
-	var head: HBoxContainer = LoanStyle.hbox(8)
-	_lender_label = LoanStyle.text("", 14, LoanStyle.CREAM, true)
-	head.add_child(_lender_label)
-	head.add_child(_spacer())
-	_rate_label = LoanStyle.text("", 11, LoanStyle.CREAM)
-	head.add_child(_rate_label)
-	head_box.add_child(head)
-	col.add_child(head_box)
-	col.add_child(_preview_row("Amount", true, LoanStyle.YELLOW))
-	col.add_child(_preview_row("Term", false, LoanStyle.CREAM))
-	col.add_child(_preview_row("Monthly", true, LoanStyle.CREAM))
-	col.add_child(_preview_row("First Payment Due", false, LoanStyle.CREAM))
-	col.add_child(_preview_row("Interest", true, LoanStyle.RED))
-	col.add_child(_preview_row("Total Repaid", true, LoanStyle.CREAM))
-	return box
+	var shell: PanelContainer = _column(PREVIEW_CAPTION)
+	var col: VBoxContainer = shell.get_child(0) as VBoxContainer
+	var top_box: PanelContainer = LoanStyle.panel(GuiColors.ROW_HOVER, 10, 8)
+	var top: HBoxContainer = GuiStyle.hbox(8)
+	_lender_label = GuiStyle.label("", GuiStyle.SILK_BOLD, 14, GuiColors.CREAM)
+	top.add_child(_lender_label)
+	top.add_child(GuiStyle.spacer())
+	_rate_label = GuiStyle.label("", GuiStyle.SILK, 11, GuiColors.CREAM)
+	top.add_child(_rate_label)
+	top_box.add_child(top)
+	col.add_child(top_box)
+	col.add_child(_preview_row("Amount", true, GuiColors.AMBER))
+	col.add_child(_preview_row("Term", false, GuiColors.CREAM))
+	col.add_child(_preview_row("Monthly", true, GuiColors.CREAM))
+	col.add_child(_preview_row("First Payment Due", false, GuiColors.CREAM))
+	col.add_child(_preview_row("Interest", true, GuiColors.RED))
+	col.add_child(_preview_row("Total Repaid", true, GuiColors.CREAM))
+	return shell
 
 
 func _preview_row(caption: String, notes: bool, color: Color) -> PanelContainer:
-	var shell: PanelContainer = LoanStyle.panel(LoanStyle.NAVY2, 10, 7)
-	var line: HBoxContainer = LoanStyle.hbox(8)
-	line.add_child(LoanStyle.text(caption, 9, LoanStyle.SKY))
-	line.add_child(_spacer())
-	var value: Control = null
-	if notes:
-		value = LoanStyle.notes(0, color, 13)
-	else:
-		value = LoanStyle.text("", 13, color, true)
+	var shell: PanelContainer = LoanStyle.panel(GuiColors.ROW_HOVER, 10, 7)
+	var line: HBoxContainer = GuiStyle.hbox(8)
+	line.add_child(GuiStyle.label(caption, GuiStyle.SILK, 9, GuiColors.SKY))
+	line.add_child(GuiStyle.spacer())
+	var value: Control = LoanStyle.value_cell(notes, 13, color)
 	line.add_child(value)
 	shell.add_child(line)
 	_preview.append({"caption": caption, "node": value, "notes": notes, "text": ""})
 	return shell
 
 
-func _crew_row() -> Control:
-	if not ResourceLoader.exists(CREW_SCENE):
-		return null
-	var scene: PackedScene = load(CREW_SCENE) as PackedScene
-	if scene == null:
-		return null
-	_crew = scene.instantiate() as OddJobCrew
-	if _crew == null:
-		return null
+func _crew_row() -> OddJobCrew:
+	_crew = CREW_SCENE.instantiate() as OddJobCrew
 	_crew.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_crew.tip_kind = CREW_KIND
 	_crew.tip_text = CREW_TIP
@@ -440,47 +394,8 @@ func _crew_row() -> Control:
 	return _crew
 
 
-func _odds_row() -> VBoxContainer:
-	var col: VBoxContainer = LoanStyle.vbox(6)
-	var head: HBoxContainer = LoanStyle.hbox(8)
-	head.add_child(LoanStyle.text(ODDS_CAPTION, 11, LoanStyle.ORANGE))
-	head.add_child(_spacer())
-	_odds_label = LoanStyle.text("", 20, LoanStyle.CREAM, true)
-	head.add_child(_odds_label)
-	col.add_child(head)
-	var shell: PanelContainer = LoanStyle.panel(LoanStyle.INK, 2, 2)
-	_meter = SuccessMeter.new()
-	_meter.stretch = true
-	_meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shell.add_child(_meter)
-	col.add_child(shell)
-	return col
-
-
-func _buttons_row() -> HBoxContainer:
-	var line: HBoxContainer = LoanStyle.hbox(BUTTON_GAP)
-	_cancel = LoanStyle.button(CANCEL_TEXT, LoanStyle.BLUE2, LoanStyle.CREAM, BUTTON_HEIGHT)
-	_cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_cancel.pressed.connect(press_cancel)
-	line.add_child(_cancel)
-	_request = LoanStyle.button(REQUEST_TEXT, LoanStyle.GREEN, LoanStyle.INK, BUTTON_HEIGHT)
-	_request.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_request.pressed.connect(press_request)
-	line.add_child(_request)
-	return line
-
-
-func _spacer() -> Control:
-	var node := Control.new()
-	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return node
-
-
 #Free lenders first, then the warmest relationship.
 func _rebuild_list() -> void:
-	for node: LenderCard in _cards:
-		node.queue_free()
 	_cards = []
 	_rows = []
 	for row: Dictionary in FinanceManager.lenders():
@@ -490,6 +405,7 @@ func _rebuild_list() -> void:
 	_rows.sort_custom(_by_lender)
 	if _list == null:
 		return
+	GuiNodes.clear(_list)
 	for row: Dictionary in _rows:
 		var node := LenderCard.new()
 		node.picked.connect(pick_lender)
@@ -532,7 +448,7 @@ func _on_pay_changed(_per: int) -> void:
 
 
 func _on_take_me_there(target: Dictionary) -> void:
-	close_window()
+	close()
 	GameState.go_to_plans(target)
 
 
@@ -551,97 +467,64 @@ func _refresh() -> void:
 	_draft = {"amount": int(_calc["amount"]), "term_idx": int(_calc["term_idx"]),
 		"rate_mul": float(_calc["rate_mul"]), "first_due": int(_calc["first_due"])}
 	_quiet = true
-	_write_amount()
-	_write_term()
-	_write_rate()
-	_write_first_due()
+	_write_sliders()
 	_quiet = false
 	_write_preview()
-	_write_odds()
-	if _crew != null:
-		_crew.money = GameState.bank_notes
-	if _away != null:
-		_away.text = away_text()
+	LoanStyle.set_odds(_odds_label, _meter, odds())
+	_crew.money = GameState.bank_notes
+	_away.text = away_text()
 	_write_request()
 
 
-func _write_amount() -> void:
+#The heat of each slider: amount against the money short of expenses, term against income,
+#rate against the fair rate and first due against its range.
+func _write_sliders() -> void:
 	var amount: int = int(_calc["amount"])
 	var amt_max: int = int(_calc["amt_max"])
-	var fair_amount: float = float(_calc["fair_amount"])
-	var node: LoanSlider = slider(KEY_AMOUNT)
-	node.disabled = false
-	node.min_value = float(LoanLogic.AMOUNT_MIN)
-	node.max_value = float(amt_max)
-	node.step = float(LoanLogic.OFFER_STEP)
-	var marks: Array[float] = [fair_amount]
-	node.markers = marks
-	node.snap_to = fair_amount
 	var short: float = maxf(0.0, float(_expenses() - GameState.bank_notes))
 	var t: float = 1.0
 	if float(amount) > short:
 		t = 1.0 - (float(amount) - short) / maxf(1.0, float(amt_max) - short)
-	var color: Color = LoanLogic.heat(t)
-	node.fill = color
-	node.set_value_silent(float(amount))
-	_set_value(KEY_AMOUNT, NotesLabel.format_amount(amount), color, amount)
-
-
-func _write_term() -> void:
-	var node: LoanSlider = slider(KEY_TERM)
-	node.disabled = false
-	node.min_value = float(int(_calc["lo"]))
-	node.max_value = float(int(_calc["hi"]))
-	node.step = 1.0
-	var marks: Array[float] = [float(int(_calc["fair_idx"]))]
-	node.markers = marks
-	node.snap_to = float(int(_calc["fair_idx"]))
+	_write_slider(KEY_AMOUNT, float(LoanLogic.AMOUNT_MIN), float(amt_max), float(LoanLogic.OFFER_STEP),
+		float(_calc["fair_amount"]), float(amount), t, TransactionData.grouped(amount), amount)
 	var monthly: int = int(_calc["monthly"])
 	var income: int = int(FinanceManager.budget()["income"])
-	var t: float = 1.0
+	t = 1.0
 	if monthly <= GameState.bank_notes:
 		t = minf(TERM_HEAT_CAP, float(monthly) / maxf(1.0, float(income)))
-	var color: Color = LoanLogic.heat(t)
-	node.fill = color
-	node.set_value_silent(float(int(_calc["term_idx"])))
-	_set_value(KEY_TERM, LoanLogic.term_label(int(_calc["months"])), color, 0)
-
-
-func _write_rate() -> void:
+	_write_slider(KEY_TERM, float(int(_calc["lo"])), float(int(_calc["hi"])), 1.0,
+		float(int(_calc["fair_idx"])), float(int(_calc["term_idx"])), t,
+		LoanLogic.term_label(int(_calc["months"])), 0)
 	var fair: float = float(_calc["fair"])
 	var rate: float = float(_calc["rate"])
-	var node: LoanSlider = slider(KEY_RATE)
-	node.disabled = false
-	node.min_value = _round_rate(fair * LoanLogic.RATE_MUL_MIN)
-	node.max_value = _round_rate(fair * LoanLogic.RATE_MUL_MAX)
-	node.step = RATE_STEP
-	var marks: Array[float] = [_round_rate(fair)]
-	node.markers = marks
-	node.snap_to = _round_rate(fair)
-	var t: float = 0.0
+	t = 0.0
 	if fair > 0.0:
 		t = (rate - fair * LoanLogic.RATE_MUL_MIN) / fair
+	_write_slider(KEY_RATE, _round_rate(fair * LoanLogic.RATE_MUL_MIN),
+		_round_rate(fair * LoanLogic.RATE_MUL_MAX), RATE_STEP, _round_rate(fair), rate, t,
+		LoanLogic.percent_text(rate), 0)
+	var first: int = int(_calc["first_due"])
+	var span: float = float(LoanLogic.FIRST_DUE_MAX - LoanLogic.FIRST_DUE_MIN)
+	_write_slider(KEY_FIRST, float(LoanLogic.FIRST_DUE_MIN), float(LoanLogic.FIRST_DUE_MAX), 1.0,
+		float(LoanLogic.FIRST_DUE_FAIR), float(first),
+		1.0 - float(first - LoanLogic.FIRST_DUE_MIN) / span, LoanLogic.months_label(first), 0)
+
+
+#One draft slider: its range, the fair mark it snaps to, the heat fill and its value cell.
+func _write_slider(key: String, lo: float, hi: float, step: float, fair: float, value: float,
+		t: float, text: String, amount: int) -> void:
+	var node: LoanSlider = slider(key)
+	node.disabled = false
+	node.min_value = lo
+	node.max_value = hi
+	node.step = step
+	var marks: Array[float] = [fair]
+	node.markers = marks
+	node.snap_to = fair
 	var color: Color = LoanLogic.heat(t)
 	node.fill = color
-	node.set_value_silent(rate)
-	_set_value(KEY_RATE, LoanLogic.percent_text(rate), color, 0)
-
-
-func _write_first_due() -> void:
-	var first: int = int(_calc["first_due"])
-	var node: LoanSlider = slider(KEY_FIRST)
-	node.disabled = false
-	node.min_value = float(LoanLogic.FIRST_DUE_MIN)
-	node.max_value = float(LoanLogic.FIRST_DUE_MAX)
-	node.step = 1.0
-	var marks: Array[float] = [float(LoanLogic.FIRST_DUE_FAIR)]
-	node.markers = marks
-	node.snap_to = float(LoanLogic.FIRST_DUE_FAIR)
-	var span: float = float(LoanLogic.FIRST_DUE_MAX - LoanLogic.FIRST_DUE_MIN)
-	var color: Color = LoanLogic.heat(1.0 - float(first - LoanLogic.FIRST_DUE_MIN) / span)
-	node.fill = color
-	node.set_value_silent(float(first))
-	_set_value(KEY_FIRST, LoanLogic.months_label(first), color, 0)
+	node.set_value_silent(value)
+	_set_value(key, text, color, amount)
 
 
 func _write_preview() -> void:
@@ -651,29 +534,21 @@ func _write_preview() -> void:
 	var rate: float = float(_calc["rate"])
 	_rate_label.text = LoanLogic.percent_text(rate)
 	_rate_label.add_theme_color_override("font_color", LoanLogic.rate_color(rate))
-	_set_preview(0, NotesLabel.format_amount(amount), amount)
+	_set_preview(0, TransactionData.grouped(amount), amount)
 	_set_preview(1, LoanLogic.term_label(int(_calc["months"])), 0)
-	_set_preview(2, NotesLabel.format_amount(int(_calc["monthly"])), int(_calc["monthly"]))
+	_set_preview(2, TransactionData.grouped(int(_calc["monthly"])), int(_calc["monthly"]))
 	_set_preview(3, LoanLogic.months_label(int(_calc["first_due"])), 0)
-	_set_preview(4, NotesLabel.format_amount(interest), interest)
-	_set_preview(5, NotesLabel.format_amount(amount + interest), amount + interest)
-
-
-func _write_odds() -> void:
-	var value: int = odds()
-	_odds_label.text = "%d%%" % value
-	_odds_label.add_theme_color_override("font_color", LoanLogic.odds_color(value))
-	if _meter != null:
-		_meter.odds = value
+	_set_preview(4, TransactionData.grouped(interest), interest)
+	_set_preview(5, TransactionData.grouped(amount + interest), amount + interest)
 
 
 func _write_request() -> void:
-	if _request == null:
+	if confirm_button == null:
 		return
 	var ok: bool = can_send()
-	_request.disabled = not ok
-	_request.modulate = Color(1.0, 1.0, 1.0, 1.0 if ok else BLOCK_ALPHA)
-	_request.tooltip_text = block_text()
+	confirm_button.disabled = not ok
+	confirm_button.modulate = Color(1.0, 1.0, 1.0, 1.0 if ok else BLOCK_ALPHA)
+	confirm_button.tooltip_text = block_text()
 
 
 func _clear() -> void:
@@ -681,7 +556,7 @@ func _clear() -> void:
 		var node: LoanSlider = slider(key)
 		if node != null:
 			node.disabled = true
-		_set_value(key, EMPTY_TEXT, LoanStyle.MUTED, 0)
+		_set_value(key, EMPTY_TEXT, GuiColors.MUTED, 0)
 	for i: int in _preview.size():
 		_set_preview(i, EMPTY_TEXT, 0)
 	if _lender_label != null:
@@ -718,15 +593,12 @@ func _set_preview(index: int, text: String, amount: int) -> void:
 		return
 	var row: Dictionary = _preview[index]
 	row["text"] = text
-	if bool(row["notes"]):
-		(row["node"] as NotesLabel).amount = amount
-	else:
-		(row["node"] as Label).text = text
+	LoanStyle.set_value(row["node"] as Control, text, amount)
 
 
 func _expenses() -> int:
-	var rows: Dictionary = FinanceManager.budget()
-	return int(rows["other_expenses"]) + int(rows["subscription"]) \
+	var budget: Dictionary = FinanceManager.budget()
+	return int(budget["other_expenses"]) + int(budget["subscription"]) \
 		+ FinanceManager.monthly_loans()
 
 

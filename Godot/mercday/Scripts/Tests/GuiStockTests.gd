@@ -1,10 +1,11 @@
 class_name GuiStockTests
 extends RefCounted
 
-#StockMarket: the deterministic price history, holdings, trades, dividends, alerts and the
+#StockMarket: the deterministic price history, holdings, trades, dividends, alerts, chart ranges
+#and the readers the Invest page draws on.
 #Run headless with the --gui-stock-tests flag after the harness argument separator.
 
-#Companies without a seeded holding, used as scratch for the trade and alert cases.
+#Scratch companies for the trade and alert cases; a reset holds no shares in any company.
 const FREE_K: int = 1
 const OTHER_FREE_K: int = 7
 const DAY_A: int = 5080
@@ -30,7 +31,7 @@ static func run(host: Node) -> bool:
 	_case_history(res)
 	_case_determinism(res)
 	_case_events(res)
-	_case_holdings_seed(res)
+	_case_holdings_reset(res)
 	_case_buy(res)
 	_case_sell(res)
 	_case_check_notify(res)
@@ -43,7 +44,7 @@ static func run(host: Node) -> bool:
 	_case_stats_and_accepted(res)
 	_case_ranges(res)
 	_case_invest_readers(res)
-	_case_f5f_constants(res)
+	_case_market_constants(res)
 	_reset()
 	return TestFixtures.summarize(res, "GUI STOCK")
 
@@ -59,12 +60,8 @@ static func _fresh() -> void:
 
 
 static func _reset() -> void:
-	GameState.set_speed(ClockRunner.Speed.PAUSE)
-	SubscriptionManager.reset()
-	NotificationCenter.reset()
-	CampaignClock.reset()
-	StockMarket.reset()
-	TestFixtures.reset_campaign()
+	SubscriptionManager.max_out()
+	GuiInvestTests._reset()
 
 
 #StockRng
@@ -176,34 +173,17 @@ static func _case_events(res: Dictionary) -> void:
 
 #Holdings
 
-static func _case_holdings_seed(res: Dictionary) -> void:
-	for row: Array in StockMarket.SEED_HOLDINGS:
-		var k: int = int(row[0])
-		var shares: int = int(row[1])
-		var pct: float = float(row[2])
-		var div: int = int(row[3])
-		var h: Dictionary = StockMarket.holding(k)
-		TestFixtures.check(res, "seed holding(%d) present" % k, not h.is_empty(), "%s" % h)
-		if h.is_empty():
-			continue
-		var px: float = StockMarket.price(k)
-		var expect_seen: float = px / (1.0 + pct / 100.0)
-		var factor: float = 0.08 if k == 3 else -0.04
-		var expect_avg: float = expect_seen / (1.0 + factor)
-		TestFixtures.check(res, "seed holding(%d) shares" % k, int(h["shares"]) == shares,
-			"%d vs %d" % [h["shares"], shares])
-		TestFixtures.check(res, "seed holding(%d) seen" % k, is_equal_approx(float(h["seen"]), expect_seen),
-			"%.4f vs %.4f" % [h["seen"], expect_seen])
-		TestFixtures.check(res, "seed holding(%d) avg" % k, is_equal_approx(float(h["avg"]), expect_avg),
-			"%.4f vs %.4f" % [h["avg"], expect_avg])
-		TestFixtures.check(res, "seed holding(%d) dividends" % k, int(h["dividends"]) == div,
-			"%d vs %d" % [h["dividends"], div])
-		TestFixtures.check(res, "seed holding(%d) band" % k, int(h["band"]) == MARKET_SCRIPT._band(pct),
-			"%d vs %d" % [h["band"], MARKET_SCRIPT._band(pct)])
-		TestFixtures.check(res, "seed holding(%d) since_day stamped" % k,
-			h.has("since_day") and int(h["since_day"]) == StockMarket._today,
-			"%s vs %d" % [h.get("since_day"), StockMarket._today])
-	TestFixtures.check(res, "unseeded holding empty", StockMarket.holding(FREE_K).is_empty(), "holding(1)")
+static func _case_holdings_reset(res: Dictionary) -> void:
+	var held: Array[int] = []
+	for k: int in range(StockMarket.company_count()):
+		if not StockMarket.holding(k).is_empty():
+			held.append(k)
+	TestFixtures.check(res, "a reset holds no shares in any company",
+		held.is_empty() and StockMarket.holdings().is_empty()
+			and is_zero_approx(StockMarket.portfolio_value()),
+		"held %s, value %.2f" % [str(held), StockMarket.portfolio_value()])
+	TestFixtures.check(res, "the scratch company holds nothing before the trades",
+		StockMarket.holding(FREE_K).is_empty(), "holding(1)")
 
 
 #Trades
@@ -231,6 +211,10 @@ static func _case_buy(res: Dictionary) -> void:
 	TestFixtures.check(res, "buy stamps since_day on the first buy",
 		h1.has("since_day") and int(h1["since_day"]) == StockMarket._today,
 		"%s vs %d" % [h1.get("since_day"), StockMarket._today])
+	TestFixtures.check(res, "a first buy sets the alert baseline at the price with no band or dividends",
+		is_equal_approx(float(h1["seen"]), px) and int(h1["band"]) == 0 and int(h1["dividends"]) == 0
+			and int(h1["payouts"]) == 0,
+		"seen %.4f band %d dividends %d" % [h1["seen"], h1["band"], h1["dividends"]])
 	var cost2: int = StockMarket.buy_cost(FREE_K, 2)
 	StockMarket.buy(FREE_K, 2)
 	var h2: Dictionary = StockMarket.holding(FREE_K)
@@ -312,11 +296,8 @@ static func _case_mark_viewed(res: Dictionary) -> void:
 	StockMarket.mark_viewed(OTHER_FREE_K)
 	TestFixtures.check(res, "mark_viewed resets seen", is_equal_approx(h.seen, px), "%.4f" % h.seen)
 	TestFixtures.check(res, "mark_viewed resets band", h.band == 0, "%d" % h.band)
-	var unread: int = 0
-	for row: NotificationData in NotificationCenter.rows_of(NotificationData.TYPE_STOCK_MOVE, OTHER_FREE_K):
-		if not row.read:
-			unread += 1
-	TestFixtures.check(res, "mark_viewed resolves rows", unread == 0, "%d unread" % unread)
+	TestFixtures.check(res, "mark_viewed resolves rows", _unread_count(OTHER_FREE_K) == 0,
+		"%d unread" % _unread_count(OTHER_FREE_K))
 	StockMarket.sell(OTHER_FREE_K, h.shares)
 
 
@@ -330,14 +311,14 @@ static func _case_advance_day(res: Dictionary) -> void:
 	var after: PackedFloat32Array = StockMarket.history(0)
 	TestFixtures.check(res, "advance_day keeps size", after.size() == StockMarket.HISTORY_DAYS,
 		"%d" % after.size())
-	TestFixtures.check(res, "advance_day changes last value", not is_equal_approx(after[after.size() - 1], last_before) or
+	TestFixtures.check(res, "advance_day changes last value",
 		after[after.size() - 1] != last_before, "%.5f -> %.5f" % [last_before, after[after.size() - 1]])
 	StockMarket.reset()
 
 
 static func _case_dividend_day(res: Dictionary) -> void:
 	var div_day: int = 45
-	while div_day < 100000 and not MARKET_SCRIPT._is_div_day(div_day + 1):
+	while div_day < 100000 and not MARKET_SCRIPT.is_div_day(div_day + 1):
 		div_day += 1
 	StockMarket.build(div_day)
 	StockMarket._holdings.clear()
@@ -555,7 +536,7 @@ static func _case_ranges(res: Dictionary) -> void:
 				TestFixtures.check(res, "the 5Y labels name five years up to the build year",
 					years_ok, str(ticks))
 	StockMarket.reset()
-#Readers the Invest page (GX3G) added to StockMarket.
+#Readers the Invest page added to StockMarket.
 
 static func _case_invest_readers(res: Dictionary) -> void:
 	GameState.bank_notes = 10000
@@ -574,8 +555,7 @@ static func _case_invest_readers(res: Dictionary) -> void:
 	GameState.bank_notes = 10000
 	TestFixtures.check(res, "has_unread is false with no row",
 		not StockMarket.has_unread(OTHER_FREE_K), "no rows")
-	NotificationCenter.push(NotificationData.TYPE_STOCK_MOVE, OTHER_FREE_K,
-		{"company_id": OTHER_FREE_K, "company": "Company", "pct": 5.0, "band": 1})
+	GuiInvestTests._push_move(OTHER_FREE_K)
 	TestFixtures.check(res, "has_unread sees an unread stockMove row",
 		StockMarket.has_unread(OTHER_FREE_K), "pushed one row")
 	StockMarket.mark_viewed(OTHER_FREE_K)
@@ -620,12 +600,12 @@ static func _case_invest_readers(res: Dictionary) -> void:
 
 
 #The named market constants: the dividend day rule, the win and loss jump formulas and the
-#determinism of two resets in a row. The numbers themselves are unchanged from before naming.
-static func _case_f5f_constants(res: Dictionary) -> void:
-	TestFixtures.check(res, "_is_div_day(45) is a dividend day", MARKET_SCRIPT._is_div_day(45), "45")
-	TestFixtures.check(res, "_is_div_day(44) is not a dividend day",
-		not MARKET_SCRIPT._is_div_day(44), "44")
-	TestFixtures.check(res, "_is_div_day(135) is a dividend day", MARKET_SCRIPT._is_div_day(135),
+#determinism of two resets in a row.
+static func _case_market_constants(res: Dictionary) -> void:
+	TestFixtures.check(res, "is_div_day(45) is a dividend day", MARKET_SCRIPT.is_div_day(45), "45")
+	TestFixtures.check(res, "is_div_day(44) is not a dividend day",
+		not MARKET_SCRIPT.is_div_day(44), "44")
+	TestFixtures.check(res, "is_div_day(135) is a dividend day", MARKET_SCRIPT.is_div_day(135),
 		"135")
 	var jump_win: float = MARKET_SCRIPT._jump_of(true, 1.0)
 	var jump_loss: float = MARKET_SCRIPT._jump_of(false, 1.0)

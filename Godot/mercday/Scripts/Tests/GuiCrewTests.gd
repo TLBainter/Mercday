@@ -1,13 +1,11 @@
 class_name GuiCrewTests
 
-#The shared Odd Job atom set: FitStars, CrewCandidates, EnvoySlot, SendMercsPanel, PayMercsPanel,
-#CrewMercPicker, OddJobCrew and OddJobWindow. Run with the --gui-crew-tests harness flag.
+#The shared Odd Job atom set: fit Stars, CrewCandidates, EnvoySlot, SendMercsPanel, PayMercsPanel,
+#the crew MercPicker, OddJobCrew and OddJobWindow. Run with the --gui-crew-tests harness flag.
 
-const FIT_STARS_SCENE: String = "res://Scenes/GUI/Shared/FitStars.tscn"
 const ENVOY_SLOT_SCENE: String = "res://Scenes/GUI/Shared/EnvoySlot.tscn"
 const SEND_PANEL_SCENE: String = "res://Scenes/GUI/Shared/SendMercsPanel.tscn"
 const PAY_PANEL_SCENE: String = "res://Scenes/GUI/Shared/PayMercsPanel.tscn"
-const PICKER_SCENE: String = "res://Scenes/GUI/Shared/CrewMercPicker.tscn"
 const CREW_SCENE: String = "res://Scenes/GUI/Shared/OddJobCrew.tscn"
 const WINDOW_SCENE: String = "res://Scenes/GUI/Shared/OddJobWindow.tscn"
 
@@ -29,22 +27,22 @@ static func _case_fit_stars(res: Dictionary, host: Node) -> void:
 	var color_checks: Array[float] = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
 	for value: float in color_checks:
 		var expect: Color = Icons.star_color(value, true)
-		var got: Color = FitStars.color_of(value)
-		TestFixtures.check(res, "FitStars.color_of(%s) matches the table" % value,
+		var got: Color = Stars.color_of(value, Stars.MATCH, true)
+		TestFixtures.check(res, "Stars.color_of(%s) matches the table" % value,
 			got.is_equal_approx(expect), "got %s" % got.to_html(false))
 	TestFixtures.check(res, "color_of clamps below 0.5 to 0.5",
-		FitStars.color_of(0.1).is_equal_approx(Icons.star_color(0.5, true)), "")
+		Stars.color_of(0.1, Stars.MATCH, true).is_equal_approx(Icons.star_color(0.5, true)), "")
 	TestFixtures.check(res, "color_of clamps above 5.0 to 5.0",
-		FitStars.color_of(9.0).is_equal_approx(Icons.star_color(5.0, true)), "")
+		Stars.color_of(9.0, Stars.MATCH, true).is_equal_approx(Icons.star_color(5.0, true)), "")
 	TestFixtures.check(res, "color_of rounds to the nearest half step",
-		FitStars.color_of(1.24).is_equal_approx(Icons.star_color(1.0, true)), "")
-	var star: FitStars = (load(FIT_STARS_SCENE) as PackedScene).instantiate()
+		Stars.color_of(1.24, Stars.MATCH, true).is_equal_approx(Icons.star_color(1.0, true)), "")
+	var star: Stars = Stars.fit_stars(1)
 	host.add_child(star)
 	await host.get_tree().process_frame
-	star.cell = 2
+	star.star_px = 2
 	await host.get_tree().process_frame
 	var expected_size: Vector2 = Vector2(float(Icons.stars_width(2)), 32.0)
-	TestFixtures.check(res, "the minimum size follows the cell size",
+	TestFixtures.check(res, "the minimum size follows the star scale",
 		star.get_combined_minimum_size().is_equal_approx(expected_size),
 		"got %s" % star.get_combined_minimum_size())
 	star.value = 0.2
@@ -57,41 +55,39 @@ static func _case_fit_stars(res: Dictionary, host: Node) -> void:
 	star.queue_free()
 
 
+#The candidate rows for the roster with Fay excluded, each merc fitting as the map says (0.5 if absent).
+static func _candidate_rows(fit_map: Dictionary) -> Array[Dictionary]:
+	var fit_fn := func(uid: int) -> float: return float(fit_map.get(uid, 0.5))
+	return CrewCandidates.from_roster(fit_fn, [9106])
+
+
+static func _fit_by_id(rows: Array[Dictionary]) -> Dictionary:
+	var out: Dictionary = {}
+	for row: Dictionary in rows:
+		out[int(row["id"])] = row["fit"]
+	return out
+
+
 static func _case_crew_candidates(res: Dictionary, _host: Node) -> void:
 	var saved_roster: Array[MercView] = GameState.roster
 	var saved_mercs: Array[MercenaryData] = GameState.mercs
-	var a := MercView.new()
-	a.uid = 9101
-	a.name = "Anna"
-	a.status = GuiTypes.MercStatus.AVAILABLE
-	var b := MercView.new()
-	b.uid = 9102
-	b.name = "Bram"
-	b.status = GuiTypes.MercStatus.AVAILABLE
-	var c := MercView.new()
-	c.uid = 9103
-	c.name = "Cora"
-	c.status = GuiTypes.MercStatus.RESTING
-	var d := MercView.new()
-	d.uid = 9104
-	d.name = "Dez"
-	d.status = GuiTypes.MercStatus.CONTRACT
-	var e := MercView.new()
-	e.uid = 9105
-	e.name = "Elm"
-	e.status = GuiTypes.MercStatus.VACATION
-	var f := MercView.new()
-	f.uid = 9106
-	f.name = "Fay"
-	f.status = GuiTypes.MercStatus.AVAILABLE
-	GameState.roster = [a, b, c, d, e, f]
+	var specs: Array = [[9101, "Anna", GuiTypes.MercStatus.AVAILABLE],
+		[9102, "Bram", GuiTypes.MercStatus.AVAILABLE], [9103, "Cora", GuiTypes.MercStatus.RESTING],
+		[9104, "Dez", GuiTypes.MercStatus.CONTRACT], [9105, "Elm", GuiTypes.MercStatus.VACATION],
+		[9106, "Fay", GuiTypes.MercStatus.AVAILABLE]]
+	var views: Array[MercView] = []
+	for spec: Array in specs:
+		var view := MercView.new()
+		view.uid = spec[0]
+		view.name = spec[1]
+		view.status = spec[2]
+		views.append(view)
+	GameState.roster = views
 	var busy_merc: MercenaryData = TestFixtures.flat_merc("BusyOne")
 	busy_merc.merc_uid = 9101
 	busy_merc.on_contract = true
 	GameState.mercs = [busy_merc]
-	var fit_map: Dictionary = {9101: 1.0, 9102: 4.0, 9103: 4.0, 9106: 2.3}
-	var fit_fn := func(uid: int) -> float: return float(fit_map.get(uid, 0.5))
-	var rows: Array[Dictionary] = CrewCandidates.from_roster(fit_fn, [9106])
+	var rows: Array[Dictionary] = _candidate_rows({9101: 1.0, 9102: 4.0, 9103: 4.0, 9106: 2.3})
 	var ids: Array[int] = []
 	for row: Dictionary in rows:
 		ids.append(int(row.get("id", -1)))
@@ -99,22 +95,12 @@ static func _case_crew_candidates(res: Dictionary, _host: Node) -> void:
 		ids == [9102, 9103], "got %s" % str(ids))
 	TestFixtures.check(res, "from_roster sorts by fit descending then name",
 		rows[0]["name"] == "Bram" and rows[1]["name"] == "Cora", "got %s" % str(ids))
-	var snap_map: Dictionary = {9102: 3.24, 9103: 3.26}
-	var snap_fn := func(uid: int) -> float: return float(snap_map.get(uid, 0.5))
-	var snap_rows: Array[Dictionary] = CrewCandidates.from_roster(snap_fn, [9106])
-	var by_id: Dictionary = {}
-	for row: Dictionary in snap_rows:
-		by_id[int(row["id"])] = row["fit"]
+	var by_id: Dictionary = _fit_by_id(_candidate_rows({9102: 3.24, 9103: 3.26}))
 	TestFixtures.check(res, "fit rounds 3.24 down to 3.0",
 		is_equal_approx(float(by_id.get(9102, 0.0)), 3.0), "got %s" % str(by_id))
 	TestFixtures.check(res, "fit rounds 3.26 up to 3.5",
 		is_equal_approx(float(by_id.get(9103, 0.0)), 3.5), "got %s" % str(by_id))
-	var clamp_map: Dictionary = {9102: -4.0, 9103: 40.0}
-	var clamp_fn := func(uid: int) -> float: return float(clamp_map.get(uid, 0.5))
-	var clamped: Array[Dictionary] = CrewCandidates.from_roster(clamp_fn, [9106])
-	var clamped_by_id: Dictionary = {}
-	for row: Dictionary in clamped:
-		clamped_by_id[int(row["id"])] = row["fit"]
+	var clamped_by_id: Dictionary = _fit_by_id(_candidate_rows({9102: -4.0, 9103: 40.0}))
 	TestFixtures.check(res, "fit clamps to a 0.5 floor",
 		is_equal_approx(float(clamped_by_id.get(9102, 0.0)), 0.5), "got %s" % str(clamped_by_id))
 	TestFixtures.check(res, "fit clamps to a 5.0 ceiling",
@@ -256,10 +242,10 @@ static func _case_pay_mercs_panel(res: Dictionary, host: Node) -> void:
 		panel.total() == 300, "got %d" % panel.total())
 	panel.money = 1000
 	TestFixtures.check(res, "the total prints cream under the guild's notes",
-		panel.total_color().is_equal_approx(Color("#f3ead7")), "")
+		panel.total_color().is_equal_approx(GuiColors.CREAM), "")
 	panel.money = 50
 	TestFixtures.check(res, "the total turns red past the guild's notes",
-		panel.total_color().is_equal_approx(Color("#e8583f")), "")
+		panel.total_color().is_equal_approx(GuiColors.RED), "")
 	var saved_notes: int = GameState.bank_notes
 	GameState.bank_notes = 5000
 	panel.per = 100
@@ -274,18 +260,21 @@ static func _case_pay_mercs_panel(res: Dictionary, host: Node) -> void:
 
 
 static func _case_crew_merc_picker(res: Dictionary, host: Node) -> void:
-	var picker: CrewMercPicker = (load(PICKER_SCENE) as PackedScene).instantiate()
+	var crew_shell: OddJobCrew = (load(CREW_SCENE) as PackedScene).instantiate()
+	var picker: MercPicker = crew_shell.get_node(^"Picker") as MercPicker
+	crew_shell.remove_child(picker)
+	crew_shell.free()
 	host.add_child(picker)
 	await host.get_tree().process_frame
 	picker.title = "Send a Merc"
-	picker.pick_desc = "Sorted by best fit."
-	TestFixtures.check(res, "title and pick_desc push to the labels",
-		picker.title_text() == "Send a Merc" and picker.desc_text() == "Sorted by best fit.", "")
+	picker.subtitle = "Sorted by best fit."
+	TestFixtures.check(res, "title and subtitle push to the labels",
+		picker.title_text() == "Send a Merc" and picker.subtitle_text() == "Sorted by best fit.", "")
 	picker.open_for(1, [], false)
 	TestFixtures.check(res, "an empty candidate list shows No available mercs.",
-		picker.is_empty_shown() and picker.row_count() == 0, "")
+		picker.empty_label.visible and picker.row_count() == 0, "")
 	TestFixtures.check(res, "an empty, unfilled slot hides the remove button",
-		not picker.remove_visible(), "")
+		not picker.remove_button.visible, "")
 	picker.press_close()
 	var rows_in: Array[Dictionary] = [
 		{"id": 21, "name": "Vex", "fit": 4.5},
@@ -295,30 +284,29 @@ static func _case_crew_merc_picker(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "open_for builds one row per candidate",
 		picker.row_count() == 2, "got %d" % picker.row_count())
 	TestFixtures.check(res, "rows carry their id, name and fit",
-		picker.row_name(0) == "Vex" and picker.row_id(0) == 21
+		picker.row_name(0) == "Vex" and picker.row_uid(0) == 21
 			and is_equal_approx(picker.row_fit(0), 4.5), "")
-	TestFixtures.check(res, "a filled slot shows the remove button", picker.remove_visible(), "")
+	TestFixtures.check(res, "a filled slot shows the remove button", picker.remove_button.visible, "")
 	TestFixtures.check(res, "Remove From Slot is the shared BevelButton scene",
 		picker.remove_button is BevelButton and picker.remove_button.text == "Remove From Slot"
-			and picker.remove_button.fill.is_equal_approx(Color("#2b4f8a"))
-			and picker.remove_button.text_color.is_equal_approx(Color("#e8583f")),
+			and picker.remove_button.fill.is_equal_approx(GuiColors.BLUE)
+			and picker.remove_button.text_color.is_equal_approx(GuiColors.RED),
 		"fill %s text %s" % [picker.remove_button.fill, picker.remove_button.text_color])
 	var row_line: HBoxContainer = picker.row_button(0).get_child(0) as HBoxContainer
-	TestFixtures.check(res, "a picker row holds the portrait then one column, gap 10",
-		row_line.get_child_count() == 2 and row_line.get_child(0) is MercPortrait
-			and row_line.get_child(1) is VBoxContainer
-			and row_line.get_theme_constant(&"separation") == CrewMercPicker.ROW_GAP, "")
+	TestFixtures.check(res, "a picker row holds the portrait, one column and the stars, gap 8",
+		row_line.get_child_count() == 3 and row_line.get_child(0) is MercPortrait
+			and row_line.get_child(1) is VBoxContainer and row_line.get_child(2) is Stars
+			and row_line.get_theme_constant(&"separation") == 8, "")
 	var row_col: VBoxContainer = row_line.get_child(1) as VBoxContainer
-	TestFixtures.check(res, "the row column stacks the name above the stars with gap 6",
-		row_col.get_child_count() == 2 and row_col.get_child(0) is Label
-			and row_col.get_child(1) is FitStars
-			and row_col.get_theme_constant(&"separation") == CrewMercPicker.ROW_COL_GAP, "")
+	TestFixtures.check(res, "the row column holds the name alone, with no detail line",
+		row_col.get_child_count() == 1 and row_col.get_child(0) is Label
+			and row_col.get_theme_constant(&"separation") == 2, "")
 	var row_portrait: MercPortrait = row_line.get_child(0) as MercPortrait
 	TestFixtures.check(res, "the row portrait column is 40 px wide",
-		is_equal_approx(row_portrait.custom_minimum_size.x, float(CrewMercPicker.ROW_PORTRAIT_PX)),
+		is_equal_approx(row_portrait.custom_minimum_size.x, float(MercPicker.PORTRAIT_SIZE)),
 		"got %s" % row_portrait.custom_minimum_size)
 	var picked: Array = []
-	picker.picked.connect(func(slot_index: int, id: int) -> void: picked.append([slot_index, id]))
+	picker.picked.connect(func(id: int, slot_index: int) -> void: picked.append([slot_index, id]))
 	picker.press_row(22)
 	TestFixtures.check(res, "press_row emits picked with the slot index and the id",
 		picked == [[2, 22]], "got %s" % str(picked))
@@ -350,36 +338,24 @@ static func _case_odd_job_crew(res: Dictionary, host: Node) -> void:
 	crew.candidates = candidates
 	crew.default_pay = 50
 	crew.money = 1000
-	crew.max_mercs = 1
-	crew.team = []
-	TestFixtures.check(res, "max 1, an empty team shows one add slot",
-		crew.send_panel.slot_count() == 1, "got %d" % crew.send_panel.slot_count())
-	crew.team = [31]
-	TestFixtures.check(res, "max 1, a full team shows no trailing add slot",
-		crew.send_panel.slot_count() == 1, "got %d" % crew.send_panel.slot_count())
-	crew.max_mercs = 2
-	crew.team = []
-	TestFixtures.check(res, "max 2, an empty team shows one add slot",
-		crew.send_panel.slot_count() == 1, "got %d" % crew.send_panel.slot_count())
-	crew.team = [31]
-	TestFixtures.check(res, "max 2, one merc shows a trailing add slot",
-		crew.send_panel.slot_count() == 2, "got %d" % crew.send_panel.slot_count())
-	crew.team = [31, 32]
-	TestFixtures.check(res, "max 2, a full team shows no trailing add slot",
-		crew.send_panel.slot_count() == 2, "got %d" % crew.send_panel.slot_count())
-	crew.max_mercs = 3
-	crew.team = []
-	TestFixtures.check(res, "max 3, an empty team shows one add slot",
-		crew.send_panel.slot_count() == 1, "got %d" % crew.send_panel.slot_count())
-	crew.team = [31]
-	TestFixtures.check(res, "max 3, one merc shows two slots",
-		crew.send_panel.slot_count() == 2, "got %d" % crew.send_panel.slot_count())
-	crew.team = [31, 32]
-	TestFixtures.check(res, "max 3, two mercs shows three slots",
-		crew.send_panel.slot_count() == 3, "got %d" % crew.send_panel.slot_count())
-	crew.team = [31, 32, 33]
-	TestFixtures.check(res, "max 3, a full team shows no trailing add slot",
-		crew.send_panel.slot_count() == 3, "got %d" % crew.send_panel.slot_count())
+	var slot_cases: Array = [
+		[1, [], 1, "max 1, an empty team shows one add slot"],
+		[1, [31], 1, "max 1, a full team shows no trailing add slot"],
+		[2, [], 1, "max 2, an empty team shows one add slot"],
+		[2, [31], 2, "max 2, one merc shows a trailing add slot"],
+		[2, [31, 32], 2, "max 2, a full team shows no trailing add slot"],
+		[3, [], 1, "max 3, an empty team shows one add slot"],
+		[3, [31], 2, "max 3, one merc shows two slots"],
+		[3, [31, 32], 3, "max 3, two mercs shows three slots"],
+		[3, [31, 32, 33], 3, "max 3, a full team shows no trailing add slot"],
+	]
+	for slot_case: Array in slot_cases:
+		var team: Array[int] = []
+		team.assign(slot_case[1])
+		crew.max_mercs = slot_case[0]
+		crew.team = team
+		TestFixtures.check(res, slot_case[3] as String,
+			crew.send_panel.slot_count() == slot_case[2], "got %d" % crew.send_panel.slot_count())
 
 	var team_events: Array = []
 	crew.team_changed.connect(func(t: Array[int]) -> void: team_events.append(t.duplicate()))
@@ -406,13 +382,13 @@ static func _case_odd_job_crew(res: Dictionary, host: Node) -> void:
 	crew.open_picker(1)
 	var picker_ids: Array[int] = []
 	for i: int in crew.picker().row_count():
-		picker_ids.append(crew.picker().row_id(i))
+		picker_ids.append(crew.picker().row_uid(i))
 	TestFixtures.check(res, "the picker leaves out mercs already in another slot",
 		not picker_ids.has(31) and picker_ids.has(32), "got %s" % str(picker_ids))
 	TestFixtures.check(res, "the picker still offers the occupant of the slot itself",
 		picker_ids.has(33), "got %s" % str(picker_ids))
 	TestFixtures.check(res, "the picker sorts its rows by fit descending",
-		crew.picker().row_id(0) == 32, "got %s" % str(picker_ids))
+		crew.picker().row_uid(0) == 32, "got %s" % str(picker_ids))
 	crew.picker().press_row(32)
 	TestFixtures.check(res, "picking a new id fills the target slot",
 		crew.team == [31, 32], "got %s" % str(crew.team))
@@ -440,8 +416,7 @@ static func _case_odd_job_crew(res: Dictionary, host: Node) -> void:
 
 	crew.size = Vector2(900.0, 300.0)
 	crew.team = []
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	TestFixtures.check(res, "the crew row took the width the block was given",
 		crew.cols.size.x > 800.0, "got %s" % crew.cols.size.x)
 	TestFixtures.check(res, "the pay column stays in the row while the pay panel hides",
@@ -474,7 +449,7 @@ static func _case_odd_job_window(res: Dictionary, host: Node) -> void:
 	var config: Dictionary = {
 		"title": "Renegotiate the Fine",
 		"facts": [
-			{"label": "Fine", "value": "500", "color": Color("#e8583f")},
+			{"label": "Fine", "value": "500", "color": GuiColors.RED},
 			{"label": "Days Left", "value": "3"},
 		],
 		"max_mercs": 3,
@@ -502,12 +477,12 @@ static func _case_odd_job_window(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a fact cell shows its label and value",
 		label0.text == "Fine" and value0.text == "500", "")
 	TestFixtures.check(res, "a fact's own colour overrides the default",
-		value0.get_theme_color(&"font_color").is_equal_approx(Color("#e8583f")), "")
+		value0.get_theme_color(&"font_color").is_equal_approx(GuiColors.RED), "")
 	var cell1: PanelContainer = window.facts_grid.get_child(1) as PanelContainer
 	var line1: HBoxContainer = cell1.get_child(0) as HBoxContainer
 	var value1: Label = line1.get_child(1) as Label
 	TestFixtures.check(res, "a fact without a colour uses the default cream",
-		value1.get_theme_color(&"font_color").is_equal_approx(Color("#f3ead7")), "")
+		value1.get_theme_color(&"font_color").is_equal_approx(GuiColors.CREAM), "")
 	TestFixtures.check(res, "the facts grid uses gap 8 on both axes",
 		window.facts_grid.get_theme_constant(&"h_separation") == 8
 			and window.facts_grid.get_theme_constant(&"v_separation") == 8, "")
@@ -521,8 +496,8 @@ static func _case_odd_job_window(res: Dictionary, host: Node) -> void:
 			and value0.size_flags_horizontal == Control.SIZE_EXPAND_FILL, "")
 	var box_style: StyleBoxFlat = window.box.get_theme_stylebox(&"panel") as StyleBoxFlat
 	TestFixtures.check(res, "the window box wears the crew window chrome",
-		box_style != null and box_style.bg_color.is_equal_approx(Color("#1a2b4d"))
-			and box_style.border_color.is_equal_approx(Color("#f28c28"))
+		box_style != null and box_style.bg_color.is_equal_approx(GuiColors.BOX_BG)
+			and box_style.border_color.is_equal_approx(GuiColors.ORANGE)
 			and box_style.border_width_left == 4 and box_style.border_width_top == 4
 			and box_style.border_width_right == 4 and box_style.border_width_bottom == 4,
 		"got %s" % ("null" if box_style == null else box_style.bg_color.to_html(false)))
@@ -545,28 +520,28 @@ static func _case_odd_job_window(res: Dictionary, host: Node) -> void:
 	window.crew().team = [401]
 	TestFixtures.check(res, "odds 5 lights only the first cell",
 		window.bar_cell_lit(0) and not window.bar_cell_lit(1), "")
-	TestFixtures.check(res, "odds under 40 reads red",
-		window.odds_value_label.get_theme_color(&"font_color").is_equal_approx(Color("#e8583f")), "")
+	TestFixtures.check(res, "odds 5 reads red",
+		window.odds_value_label.get_theme_color(&"font_color").is_equal_approx(GuiColors.RED), "")
 
 	window.crew().team = [402]
 	TestFixtures.check(res, "odds 38 lights 8 of 20 cells",
 		window.bar_cell_lit(7) and not window.bar_cell_lit(8), "")
 
 	window.crew().team = [405]
-	TestFixtures.check(res, "odds 45 reads yellow",
-		window.odds_value_label.get_theme_color(&"font_color").is_equal_approx(Color("#f2b33d")), "")
+	TestFixtures.check(res, "odds 45 reads amber",
+		window.odds_value_label.get_theme_color(&"font_color").is_equal_approx(GuiColors.AMBER), "")
 
 	window.crew().team = [403]
 	TestFixtures.check(res, "odds 60 lights 12 of 20 cells",
 		window.bar_cell_lit(11) and not window.bar_cell_lit(12), "")
-	TestFixtures.check(res, "odds 60 or more reads green",
-		window.odds_value_label.get_theme_color(&"font_color").is_equal_approx(Color("#6cc36a")), "")
+	TestFixtures.check(res, "odds 60 reads light blue",
+		window.odds_value_label.get_theme_color(&"font_color").is_equal_approx(GuiColors.LIGHT_BLUE), "")
 
 	window.crew().team = [404]
 	TestFixtures.check(res, "odds 95 lights 19 of 20 cells",
 		window.bar_cell_lit(18) and not window.bar_cell_lit(19), "")
-	TestFixtures.check(res, "odds 95 reads green",
-		window.odds_value_label.get_theme_color(&"font_color").is_equal_approx(Color("#6cc36a")), "")
+	TestFixtures.check(res, "odds 95 reads deep green",
+		window.odds_value_label.get_theme_color(&"font_color").is_equal_approx(GuiColors.DEEP_GREEN), "")
 
 	window.crew().team = []
 	TestFixtures.check(res, "clearing the team resets the odds percent to 0",
@@ -575,7 +550,7 @@ static func _case_odd_job_window(res: Dictionary, host: Node) -> void:
 	var cleared_fills: PackedColorArray = window.bar_cell_colors()
 	var cleared_unlit: int = 0
 	for fill: Color in cleared_fills:
-		if fill.is_equal_approx(Color("#1f3560")):
+		if fill.is_equal_approx(GuiColors.BLUE_LO):
 			cleared_unlit += 1
 	TestFixtures.check(res, "an empty team still paints the 20 unlit cells",
 		cleared_fills.size() == 20 and cleared_unlit == 20,
@@ -607,11 +582,11 @@ static func _case_odd_job_window(res: Dictionary, host: Node) -> void:
 	window.show_outcome("It worked.", true)
 	TestFixtures.check(res, "show_outcome in success shows green text",
 		window.outcome_label.text == "It worked."
-			and window.outcome_label.get_theme_color(&"font_color").is_equal_approx(Color("#6cc36a")), "")
+			and window.outcome_label.get_theme_color(&"font_color").is_equal_approx(GuiColors.GREEN), "")
 	window.show_outcome("It failed.", false)
 	TestFixtures.check(res, "show_outcome in failure shows red text",
 		window.outcome_label.text == "It failed."
-			and window.outcome_label.get_theme_color(&"font_color").is_equal_approx(Color("#e8583f")), "")
+			and window.outcome_label.get_theme_color(&"font_color").is_equal_approx(GuiColors.RED), "")
 
 	var boosted: Dictionary = config.duplicate()
 	boosted["boost_text"] = "+5% from morale"

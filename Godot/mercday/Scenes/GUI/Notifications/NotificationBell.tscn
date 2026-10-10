@@ -1,24 +1,20 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Notifications/NotificationBell.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Notifications/NotificationPanel.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/HUD/SettingsButton.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Notifications/NotificationBell.gd" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Notifications/NotificationPanel.tscn" id="3"]
 
-[node name="NotificationBell" type="Control"]
-custom_minimum_size = Vector2(56, 56)
-offset_right = 56.0
-offset_bottom = 56.0
+[node name="NotificationBell" instance=ExtResource("1")]
+toggle_mode = false
 tooltip_text = "Notifications"
-script = ExtResource("1")
+focus_mode = 0
+action_mode = 0
+script = ExtResource("2")
 
-[node name="Center" type="CenterContainer" parent="."]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
+[node name="Icon" parent="." index="0"]
+icon_id = "bell"
 
-[node name="Panel" parent="." instance=ExtResource("2")]
+[node name="Panel" parent="." instance=ExtResource("3")]
 visible = false
 offset_left = -384.0
 offset_top = 70.0

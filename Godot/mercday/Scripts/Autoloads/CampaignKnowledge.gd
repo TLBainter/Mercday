@@ -93,9 +93,7 @@ func relation_count() -> int:
 
 
 func forget(uid: int) -> void:
-	_known.erase(uid)
-	for viewer_uid: int in _known.keys():
-		(_known[viewer_uid] as Dictionary).erase(uid)
+	_forget_relations(_known, uid)
 	_forget_relations(_relations, uid)
 	_forget_relations(_known_since, uid)
 	_forget_relations(_last_changed, uid)

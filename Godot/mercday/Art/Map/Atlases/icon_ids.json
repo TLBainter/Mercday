@@ -1,0 +1,9 @@
+{
+ "menu": {
+  "col": 0,
+  "row": 0,
+  "source": "new (add-on map)",
+  "tint": "full color",
+  "used_by": "MenuToggleButton (HUD top-left)"
+ }
+}

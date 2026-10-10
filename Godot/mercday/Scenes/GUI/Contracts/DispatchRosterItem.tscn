@@ -1,13 +1,10 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/DispatchRosterItem.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPortrait.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LevelBadge.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/DifficultyStars.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/Stars.gd" id="4"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="5"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_roster"]
-bg_color = Color(0, 0, 0, 0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_status"]
 content_margin_left = 0.0
@@ -18,7 +15,6 @@ bg_color = Color(0.039216, 0.058824, 0.109804, 0.750000)
 
 [node name="DispatchRosterItem" type="Button"]
 custom_minimum_size = Vector2(210, 56)
-theme_override_styles/normal = SubResource("StyleBoxFlat_roster")
 script = ExtResource("1")
 
 [node name="Row" type="HBoxContainer" parent="."]
@@ -85,10 +81,11 @@ mouse_filter = 2
 theme_type_variation = &"ListSecondaryLabel"
 clip_text = true
 
-[node name="Stars" parent="Row/Text" instance=ExtResource("4")]
+[node name="Stars" type="Control" parent="Row/Text"]
 layout_mode = 2
-star_size = 1
-ramp = 1
+script = ExtResource("4")
+star_px = 1
+ramp = &"match"
 
 [node name="Level" parent="Row" instance=ExtResource("3")]
 layout_mode = 2

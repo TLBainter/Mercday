@@ -1,45 +1,33 @@
-class_name PlanSwitchDialog extends Control
+class_name PlanSwitchDialog extends ModalDialog
 
 #The modal that confirms a plan switch. Which sections it shows depends on the direction: dropping
-#to Free warns about the contracts that leave the board, leaving Enterprise lists the upgrades the
-#guild loses, and any upgrade lists what the new plan includes. The fee shown is one month of the
-#target plan; the confirm side is dead while the bank cannot cover it.
+#to Free warns about the contracts that leave the board, leaving Enterprise shows each upgrade the
+#guild loses as a card in a scrolling list, and any upgrade lists what the new plan includes. The fee
+#shown is one month of the target plan; the confirm side is dead while the bank cannot cover it.
 
-signal confirmed(plan: int)
-signal cancelled
-
-const BOX_WIDTH: float = 600.0
-const BOX_BG: Color = Color("#1a2b4d")
-const BOX_BORDER: int = 4
-const BOX_INSET: float = 4.0
-const EDGE_HI: Color = Color("#28447a")
-const EDGE_LO: Color = Color("#111c33")
-const EDGE_PX: float = 4.0
-const RING_UP: Color = Color("#f28c28")
-const RING_DOWN: Color = Color("#f2b33d")
-const WARN: Color = Color("#f2b33d")
-const SKY: Color = Color("#9cc6ef")
-const CREAM: Color = Color("#f3ead7")
-const RED: Color = Color("#e8583f")
-const GREEN: Color = Color("#6cc36a")
+const RING_UP: Color = GuiColors.ORANGE
+const RING_DOWN: Color = GuiColors.AMBER
+const WARN: Color = GuiColors.AMBER
+const SKY: Color = GuiColors.SKY
+const CREAM: Color = GuiColors.CREAM
+const RED: Color = GuiColors.RED
+const GREEN: Color = GuiColors.GREEN
 const DEAD_ALPHA: float = 0.4
-const ROW_GAP: int = 6
-const DOT_PX: float = 8.0
 const COST_LABEL: String = "Monthly Service Fee"
-const BUTTON_SIZE: Vector2 = Vector2(120.0, 34.0)
 const HEAD_SLACK: float = 60.0
+#The box is BOX_H tall while the upgrade list shows, and never taller than the band less BAND_GAP.
+const BOX_H: float = 560.0
+const BAND_GAP: float = 24.0
 
-@onready var backdrop: Panel = $Backdrop
-@onready var box: PanelContainer = $Box
-@onready var edges: Control = $Box/Edges
 @onready var kind_label: Label = $Box/Pad/Rows/Kind
 @onready var target_label: Label = $Box/Pad/Rows/Target
 @onready var sections_box: VBoxContainer = $Box/Pad/Rows/Sections
 @onready var cost_label: Label = $Box/Pad/Rows/Cost/CostLabel
-@onready var cost_value: Label = $Box/Pad/Rows/Cost/CostValue
-@onready var cost_glyph: NoteIcon = $Box/Pad/Rows/Cost/CostGlyph
+@onready var cost_value: NotesLabel = $Box/Pad/Rows/Cost/CostValue
 @onready var note_label: Label = $Box/Pad/Rows/Note
-@onready var button_row: HBoxContainer = $Box/Pad/Rows/Buttons
+@onready var modules_box: PanelContainer = $Box/Pad/Rows/Modules
+@onready var modules_scroll: ScrollContainer = $Box/Pad/Rows/Modules/Scroll
+@onready var modules_list: VBoxContainer = $Box/Pad/Rows/Modules/Scroll/List
 
 var _check_row: PackedScene = preload("res://Scenes/GUI/Shared/CheckRow.tscn")
 var _target: int = SubscriptionManager.Plan.FREE
@@ -48,29 +36,16 @@ var _leave_ent: bool = false
 var _can: bool = false
 var _fee: int = 0
 var _lines: Array[String] = []
+var _owned: Array[Dictionary] = []
 var _link: BevelButton = null
 var _solid: BevelButton = null
-var _viewport_hook: Viewport = null
 
 
 func _ready() -> void:
-	top_level = true
-	edges.draw.connect(_draw_edges)
-	edges.resized.connect(edges.queue_redraw)
-	box.custom_minimum_size.x = BOX_WIDTH
+	super()
 	cost_label.text = COST_LABEL
 	cost_label.add_theme_color_override(&"font_color", SKY)
 	note_label.add_theme_color_override(&"font_color", SKY)
-	_hook_viewport()
-	hide()
-
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_EXIT_TREE:
-		_unhook_viewport()
-		GuiFrameStack.remove(self)
-	elif what == NOTIFICATION_ENTER_TREE and is_node_ready():
-		_hook_viewport()
 
 
 #Opens the modal for one target plan and works out the direction and the sections from there.
@@ -83,9 +58,7 @@ func open_for(plan: int) -> void:
 	_fee = SubscriptionManager.service_fee(_target)
 	_can = GameState.bank_notes >= _fee
 	_rebuild()
-	show()
-	GuiFrameStack.push(self)
-	_place_box()
+	present()
 
 
 func target_plan() -> int:
@@ -108,10 +81,6 @@ func kind_text() -> String:
 	return "Downgrade Plan" if _down else "Upgrade Plan"
 
 
-func ring_color() -> Color:
-	return RING_DOWN if _down else RING_UP
-
-
 func ok_text() -> String:
 	return "Downgrade" if _down else "Upgrade"
 
@@ -120,7 +89,7 @@ func note_text() -> String:
 	if _fee <= 0:
 		return "No service fee."
 	var per_merc: int = int(UpgradeDefs.plan_data(_target).get("per_merc", 0))
-	return "%d notes per merc, billed with Loans & Services on the 15th." % per_merc
+	return "%d notes per merc, billed with Guild Expenses on the 2nd." % per_merc
 
 
 func cost_color() -> Color:
@@ -132,69 +101,81 @@ func sections() -> Array[String]:
 	return _lines.duplicate()
 
 
-func press_ok() -> void:
+func module_count() -> int:
+	return modules_list.get_child_count()
+
+
+#The loss card at index in the order it is shown, or null.
+func module(index: int) -> UpgradeLossCard:
+	if index < 0 or index >= module_count():
+		return null
+	return modules_list.get_child(index) as UpgradeLossCard
+
+
+func modules_visible() -> bool:
+	return modules_box.visible
+
+
+func list_box() -> VBoxContainer:
+	return modules_list
+
+
+#A dead confirm or a switch the manager refuses keeps the dialog open and plays the reject cue.
+func _on_confirm() -> bool:
 	if not _can:
-		return
+		UiSfx.reject_press(confirm_button)
+		return false
 	if not SubscriptionManager.switch_plan(_target):
-		return
-	var plan: int = _target
-	_dismiss()
-	confirmed.emit(plan)
+		UiSfx.reject_press(confirm_button)
+		return false
+	return true
 
 
-func press_back() -> void:
-	_dismiss()
-	cancelled.emit()
+func _layout() -> void:
+	box.custom_minimum_size.y = _box_height()
+	super()
+
+
+#BOX_H while the loss list shows, held to what the band above the bottom bar leaves; 0 lets the box fit its rows.
+func _box_height() -> float:
+	if not modules_visible():
+		return 0.0
+	var band: float = GuiFrameStack.band_height(get_viewport().get_visible_rect().size.y)
+	return maxf(0.0, minf(BOX_H, band - BAND_GAP))
 
 
 func _rebuild() -> void:
 	if not is_node_ready():
 		return
+	ring_color = RING_DOWN if _down else RING_UP
 	kind_label.text = kind_text()
-	kind_label.add_theme_color_override(&"font_color", ring_color())
+	kind_label.add_theme_color_override(&"font_color", ring_color)
 	target_label.text = SubscriptionManager.plan_name(_target)
-	cost_value.text = "%d" % _fee
-	cost_value.add_theme_color_override(&"font_color", cost_color())
-	cost_glyph.visible = _fee > 0
+	cost_value.text_override = "%d" % _fee
+	cost_value.value_color = cost_color()
+	cost_value.show_glyph = _fee > 0
 	note_label.text = note_text()
+	if _leave_ent:
+		_owned = SubscriptionManager.owned_upgrades()
+	else:
+		_owned = []
 	_build_sections()
+	_build_modules()
 	_build_buttons()
-	_apply_ring()
-
-
-func _apply_ring() -> void:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = BOX_BG
-	style.border_width_left = BOX_BORDER
-	style.border_width_top = BOX_BORDER
-	style.border_width_right = BOX_BORDER
-	style.border_width_bottom = BOX_BORDER
-	style.border_color = ring_color()
-	style.content_margin_left = BOX_INSET
-	style.content_margin_top = BOX_INSET
-	style.content_margin_right = BOX_INSET
-	style.content_margin_bottom = BOX_INSET
-	box.add_theme_stylebox_override(&"panel", style)
 
 
 func _build_sections() -> void:
 	_lines.clear()
-	for child: Node in sections_box.get_children():
-		sections_box.remove_child(child)
-		child.queue_free()
-	var board: int = SubscriptionManager.board_count()
+	GuiNodes.clear(sections_box)
+	var board: int = GameState.board.own_open() if GameState.board != null else 0
 	var free_board: int = UpgradeDefs.plan_max_contracts(SubscriptionManager.Plan.FREE, 0)
 	if _target == SubscriptionManager.Plan.FREE and board > free_board:
 		var lost: int = board - free_board
-		_add_head("%d contracts will be removed from your board in %d Days if you proceed"
-			% [lost, SubscriptionManager.days_to_bill()], WARN)
-	if _leave_ent:
-		var owned: Array[String] = SubscriptionManager.owned_lines()
-		if not owned.is_empty():
-			_add_head("You will lose access to the following upgrades and will have to purchase"
-				+ " them individually again", WARN)
-			for line: String in owned:
-				_add_dot_row(line, RED)
+		_add_head(("%d postings are over the Free cap of %d; they stay until they close and nothing new is posted"
+			+ " until the board is under the cap") % [lost, free_board], WARN)
+	if not _owned.is_empty():
+		_add_head("You will lose access to the following upgrades and will have to purchase"
+			+ " them individually again", WARN)
 	if not _down:
 		_add_head("Includes:", SKY)
 		for line: Variant in UpgradeDefs.plan_data(_target).get("features", []) as Array:
@@ -203,14 +184,25 @@ func _build_sections() -> void:
 		_add_head("You will lose the features of %s." % SubscriptionManager.plan_name(), WARN)
 
 
+#One card per owned upgrade, scrolled back to the top; the shell hides when nothing is lost.
+func _build_modules() -> void:
+	GuiNodes.clear(modules_list)
+	for row: Dictionary in _owned:
+		var card: UpgradeLossCard = UpgradeLossCard.new()
+		card.setup(String(row["id"]), int(row["tier"]))
+		modules_list.add_child(card)
+	modules_box.visible = not _owned.is_empty()
+	modules_scroll.scroll_vertical = 0
+
+
 func _add_head(text: String, tint: Color) -> void:
-	var head: Label = Label.new()
-	head.text = text
-	head.theme_type_variation = &"DescriptionLabel"
-	head.add_theme_color_override(&"font_color", tint)
-	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	head.custom_minimum_size.x = BOX_WIDTH - HEAD_SLACK
-	sections_box.add_child(head)
+	var heading: Label = Label.new()
+	heading.text = text
+	heading.theme_type_variation = &"DescriptionLabel"
+	heading.add_theme_color_override(&"font_color", tint)
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	heading.custom_minimum_size.x = box_width - HEAD_SLACK
+	sections_box.add_child(heading)
 	_lines.append(text)
 
 
@@ -221,110 +213,16 @@ func _add_check_row(text: String) -> void:
 	row.text = text
 
 
-#The lost upgrades read as a red dot and the tier line; nothing about them is clickable.
-func _add_dot_row(text: String, tint: Color) -> void:
-	var line: HBoxContainer = HBoxContainer.new()
-	line.add_theme_constant_override(&"separation", ROW_GAP)
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var dot: ColorRect = ColorRect.new()
-	dot.color = tint
-	dot.custom_minimum_size = Vector2.ONE * DOT_PX
-	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(dot)
-	var label: Label = Label.new()
-	label.text = text
-	label.theme_type_variation = &"DescriptionLabel"
-	label.add_theme_color_override(&"font_color", CREAM)
-	line.add_child(label)
-	sections_box.add_child(line)
-
-
 #An upgrade confirms on a green button with Back as a link; a downgrade swaps the two, so the
 #dangerous answer is the quiet one.
 func _build_buttons() -> void:
-	for child: Node in button_row.get_children():
-		button_row.remove_child(child)
-		child.queue_free()
-	_link = null
-	_solid = null
-	if _down:
-		_link = _make_bevel(ok_text(), &"danger")
-		_link.pressed.connect(press_ok)
-		_solid = _make_bevel("Back", &"blue")
-		_solid.pressed.connect(press_back)
-		_link.modulate.a = 1.0 if _can else DEAD_ALPHA
-	else:
-		_link = _make_bevel("Back", &"blue")
-		_link.pressed.connect(press_back)
-		_solid = _make_bevel(ok_text(), &"go")
-		_solid.pressed.connect(press_ok)
-		_solid.modulate.a = 1.0 if _can else DEAD_ALPHA
-	button_row.add_child(_link)
-	button_row.add_child(_solid)
+	confirm_text = ok_text()
+	confirm_kind = &"danger" if _down else &"go"
+	_link = confirm_button if _down else cancel_button
+	_solid = cancel_button if _down else confirm_button
+	button_row.move_child(_link, 0)
+	confirm_button.modulate.a = ok_alpha()
 
 
 func ok_alpha() -> float:
 	return 1.0 if _can else DEAD_ALPHA
-
-
-func _make_bevel(text: String, kind_name: StringName) -> BevelButton:
-	var node: BevelButton = BevelButton.make(text, kind_name, BUTTON_SIZE)
-	node.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	return node
-
-
-func _draw_edges() -> void:
-	var span: Vector2 = edges.size
-	edges.draw_rect(Rect2(0.0, 0.0, span.x, EDGE_PX), EDGE_HI)
-	edges.draw_rect(Rect2(0.0, 0.0, EDGE_PX, span.y), EDGE_HI)
-	edges.draw_rect(Rect2(0.0, span.y - EDGE_PX, span.x, EDGE_PX), EDGE_LO)
-	edges.draw_rect(Rect2(span.x - EDGE_PX, 0.0, EDGE_PX, span.y), EDGE_LO)
-
-
-func _place_box() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var view: Vector2 = get_viewport().get_visible_rect().size
-	backdrop.offset_bottom = -GuiFrameStack.bottom_reserve
-	box.reset_size()
-	box.size.x = BOX_WIDTH
-	box.position = Vector2((view.x - box.size.x) / 2.0,
-		(GuiFrameStack.band_height(view.y) - box.size.y) / 2.0)
-	box.position.y = maxf(box.position.y, 0.0)
-
-
-func _dismiss() -> void:
-	hide()
-	GuiFrameStack.remove(self)
-
-
-func _on_viewport_resized() -> void:
-	if is_node_ready() and visible:
-		_place_box()
-
-
-func _hook_viewport() -> void:
-	if _viewport_hook != null:
-		return
-	_viewport_hook = get_viewport()
-	if _viewport_hook != null:
-		_viewport_hook.size_changed.connect(_on_viewport_resized)
-
-
-func _unhook_viewport() -> void:
-	if _viewport_hook == null:
-		return
-	if not is_instance_valid(_viewport_hook):
-		_viewport_hook = null
-		return
-	if _viewport_hook.size_changed.is_connected(_on_viewport_resized):
-		_viewport_hook.size_changed.disconnect(_on_viewport_resized)
-	_viewport_hook = null
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not event.is_action_pressed("ui_cancel"):
-		return
-	if GuiFrameStack.top() != self:
-		return
-	press_back()
-	get_viewport().set_input_as_handled()

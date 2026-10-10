@@ -67,9 +67,11 @@ static func mark_for(status_value: int) -> int:
 	return int(STATUS_MARKS.get(status_value, Mark.NONE))
 
 
+#Test probe: the atlas id of the mark a status value shows.
 static func id_for(status_value: int) -> String:
 	return id_of(mark_for(status_value))
 
 
+#Test probe: the icon of the mark a status value shows.
 static func icon_for(status_value: int) -> Texture2D:
 	return icon_of(mark_for(status_value))

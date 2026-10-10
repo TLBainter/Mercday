@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Completed Contract/Success/ESM_HG_Cinematic_FX_alert_ui_swell_01.wav" id="2_s1"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1")])

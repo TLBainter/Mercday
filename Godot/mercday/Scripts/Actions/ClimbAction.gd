@@ -10,19 +10,19 @@ func can_execute(merc: MercenaryData, ctx: Dictionary) -> bool:
 	var state: BattleState = ctx.get("state")
 	if state == null:
 		return false
-	var pace_c := MovementExecutor.climb_pace_cost(merc)
+	var pace_c := ClimbExecutor.climb_pace_cost(merc)
 	if ConstStates.has_state(merc, ConstStates.CLIMBING):
 		if _is_climb_complete(merc, state):
 			return false
-		return MovementExecutor.can_fund_climb(merc, state, action_name, pace_c)
+		return ClimbExecutor.can_fund_climb(merc, state, action_name, pace_c)
 	#Starting a climb needs a size that can grab and a steep tile nearby.
 	if int(merc.stats.get("size", 0)) <= 0:
 		return false
 	_climb_found = find_target(merc, state)
 	if _climb_found.is_empty():
 		return false
-	var grab := maxi(1, int(merc.stats.get("size", 0)))
-	return MovementExecutor.can_fund_climb(merc, state, action_name, grab * pace_c)
+	var grab := int(merc.stats.get("size", 0))
+	return ClimbExecutor.can_fund_climb(merc, state, action_name, grab * pace_c)
 
 
 func to_decision_dict(merc: MercenaryData, ctx: Dictionary) -> Dictionary:
@@ -60,7 +60,7 @@ static func find_target(merc: MercenaryData, state: BattleState) -> Dictionary:
 		if not down.is_empty():
 			var to: Vector3i = down["to"] as Vector3i
 			return {"pos": Vector2i(to.x, to.y), "link": down, "down": true}
-	var pick := _find_climb_target(merc, state)
+	var pick := find_climb_target(merc, state)
 	if pick == Vector2i(-1, -1):
 		return {}
 	return {"pos": pick, "link": {}, "down": false}
@@ -78,8 +78,8 @@ static func _route_target(merc: MercenaryData, state: BattleState, field: Battle
 	var link: Dictionary = row["link"] as Dictionary
 	if link.is_empty():
 		return {}
-	var merc_size := maxi(1, int(merc.stats.get("size", 1)))
-	if not _vault_ok(link, field, merc_size):
+	var merc_size := merc.unit_size()
+	if not vault_ok(link, field, merc_size):
 		return {}
 	var down: bool = bool(row["down"])
 	var end: Vector3i = (link["to"] if down else link["top"]) as Vector3i
@@ -109,7 +109,7 @@ static func _nearest_enemy(merc: MercenaryData, state: BattleState, pos: Vector2
 
 
 #True when the link's vault cell is absent or low enough for this climber to cross.
-static func _vault_ok(link: Dictionary, field: BattlefieldArea, merc_size: int) -> bool:
+static func vault_ok(link: Dictionary, field: BattlefieldArea, merc_size: int) -> bool:
 	var vault: Vector3i = link["vault"] as Vector3i
 	if vault.x < 0:
 		return true
@@ -133,7 +133,7 @@ static func _link_up(merc: MercenaryData, state: BattleState, field: Battlefield
 	var foe_roof: bool = foe != null and field.is_roof_footing(state.get_position(foe), foe_floor)
 	#The one roof link the post score picked for this unit this turn; (-1,-1,-1) when it wants none.
 	var post_top: Vector3i = RoofPostScore.post_top(merc, state)
-	var merc_size := maxi(1, int(merc.stats.get("size", 1)))
+	var merc_size := merc.unit_size()
 	var best: Dictionary = {}
 	for link: Dictionary in links:
 		var kind: String = String(link["kind"])
@@ -145,7 +145,7 @@ static func _link_up(merc: MercenaryData, state: BattleState, field: Battlefield
 			wanted = true
 		if not wanted:
 			continue
-		if not _vault_ok(link, field, merc_size):
+		if not vault_ok(link, field, merc_size):
 			continue
 		if state.is_position_occupied(Vector2i(top.x, top.y), merc, top.z):
 			continue
@@ -168,7 +168,7 @@ static func _link_down(merc: MercenaryData, state: BattleState, field: Battlefie
 		return {}
 	if WeaponEvaluator.is_ranged_focused(merc) and bool(LineOfSight.check(state, merc, foe).get("visible", true)):
 		return {}
-	var merc_size := maxi(1, int(merc.stats.get("size", 1)))
+	var merc_size := merc.unit_size()
 	var tol := PathTargeter.fall_tolerance(merc)
 	var best: Dictionary = {}
 	for link: Dictionary in links:
@@ -176,7 +176,7 @@ static func _link_down(merc: MercenaryData, state: BattleState, field: Battlefie
 		#A drop the walker accepts and survives cheaply is left to movement.
 		if not PathCost.prefers_down_climb(paces, tol, merc.current_hp):
 			continue
-		if not _vault_ok(link, field, merc_size):
+		if not vault_ok(link, field, merc_size):
 			continue
 		var to: Vector3i = link["to"] as Vector3i
 		if state.is_position_occupied(Vector2i(to.x, to.y), merc, to.z):
@@ -186,7 +186,7 @@ static func _link_down(merc: MercenaryData, state: BattleState, field: Battlefie
 	return best
 
 
-static func _find_climb_target(merc: MercenaryData, state: BattleState) -> Vector2i:
+static func find_climb_target(merc: MercenaryData, state: BattleState) -> Vector2i:
 	if state == null or state.battlefield == null:
 		return Vector2i(-1, -1)
 	var field: BattlefieldArea = state.battlefield
@@ -194,16 +194,12 @@ static func _find_climb_target(merc: MercenaryData, state: BattleState) -> Vecto
 	if merc_pos == Vector2i(-1, -1):
 		return Vector2i(-1, -1)
 	var merc_h := field.surface_height(merc_pos)
-	var dirs: Array[Vector2i] = [
-		Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
-		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
-	]
 	#From the bottom of a pool the wall is the whole depth, and only a dry cell ends the climb.
 	if state.is_sunk(merc):
 		merc_h = field.get_terrain_height(merc_pos)
-		for wd: Vector2i in dirs:
+		for wd: Vector2i in PathCost.DIRS8:
 			var wet_nb := merc_pos + wd
-			if wet_nb.x < 0 or wet_nb.x >= field.width or wet_nb.y < 0 or wet_nb.y >= field.length:
+			if not field.in_bounds_xy(wet_nb.x, wet_nb.y):
 				continue
 			if field.is_water(wet_nb) or field.rock_cells.has(wet_nb):
 				continue
@@ -217,12 +213,12 @@ static func _find_climb_target(merc: MercenaryData, state: BattleState) -> Vecto
 				continue
 			return wet_nb
 		return Vector2i(-1, -1)
-	for d: Vector2i in dirs:
+	for d: Vector2i in PathCost.DIRS8:
 		var nb := merc_pos + d
-		if nb.x < 0 or nb.x >= field.width or nb.y < 0 or nb.y >= field.length:
+		if not field.in_bounds_xy(nb.x, nb.y):
 			continue
 		var nb_h := field.get_terrain_height(nb)
-		if nb_h <= merc_h + 0.1 and not field.get_nav_passable_cells().has(nb):
+		if nb_h <= merc_h + 0.1 and not field.reserved_corridor_cells.has(nb):
 			#A building wall is climbed through its links, never hopped.
 			if wall_hop(field, nb):
 				nb_h = merc_h + 2.0

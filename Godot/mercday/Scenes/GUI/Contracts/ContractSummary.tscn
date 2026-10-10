@@ -1,11 +1,13 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/ContractSummary.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/DifficultyStars.tscn" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/Stars.gd" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NoteIcon.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercCount.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LevelBadge.tscn" id="5"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="6"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="7"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_ContractSummary.tres" id="8"]
 
 [node name="ContractSummary" type="PanelContainer"]
 theme_type_variation = &"DeepInsetPanel"
@@ -89,10 +91,11 @@ size_flags_horizontal = 8
 size_flags_vertical = 4
 theme_override_constants/separation = 10
 
-[node name="Stars" parent="Pad/Rows/Line" instance=ExtResource("2")]
+[node name="Stars" type="Control" parent="Pad/Rows/Line"]
 layout_mode = 2
 size_flags_vertical = 4
-star_size = 1
+script = ExtResource("2")
+star_px = 1
 
 [node name="Note" parent="Pad/Rows/Line" instance=ExtResource("3")]
 layout_mode = 2
@@ -107,3 +110,7 @@ text = "0"
 [node name="Count" parent="Pad/Rows/Line" instance=ExtResource("4")]
 layout_mode = 2
 size_flags_vertical = 4
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("7")
+hint = ExtResource("8")

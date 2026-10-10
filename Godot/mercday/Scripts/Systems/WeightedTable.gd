@@ -128,7 +128,7 @@ static func _build_table(
 	return table
 
 
-#Sets one entry to new_value and takes `taken` back from its tier siblings in proportion.
+#Sets one entry to new_value and takes the taken amount back from its tier siblings in proportion.
 static func _redistribute(working: Dictionary, items: Array[Dictionary], item_name: String,
 		item_tier: String, new_value: float, taken: float) -> void:
 	var total_others: float = 0.0
@@ -146,3 +146,16 @@ static func _redistribute(working: Dictionary, items: Array[Dictionary], item_na
 			var share: float = (old / total_others) * taken
 			working[other_name] = maxf(0.1, old - share)
 
+
+#Index of a weight table drawn in proportion to its entries.
+static func pick_index(weights: Array[int]) -> int:
+	var total: int = 0
+	for w: int in weights:
+		total += w
+	var drawn: int = randi_range(1, maxi(1, total))
+	var cum: int = 0
+	for i: int in range(weights.size()):
+		cum += weights[i]
+		if drawn <= cum:
+			return i
+	return weights.size() - 1

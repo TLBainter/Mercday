@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://cp4rlmm5l7ngm"
+path="res://.godot/imported/ESM_HG_Cinematic_FX_alert_ui_swell_01.wav-45aef7a5539ce31a658a132e0bbac471.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/Event/Completed Contract/Success/ESM_HG_Cinematic_FX_alert_ui_swell_01.wav"
+dest_files=["res://.godot/imported/ESM_HG_Cinematic_FX_alert_ui_swell_01.wav-45aef7a5539ce31a658a132e0bbac471.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

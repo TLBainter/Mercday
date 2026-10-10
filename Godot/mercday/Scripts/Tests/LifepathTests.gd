@@ -32,7 +32,7 @@ static func run() -> bool:
 	_case_payoff_placeholder(res)
 	_case_apply_effect(res)
 	_case_location_condition(res)
-	_audit()
+	LifepathAudit.pool_summary()
 	return TestFixtures.summarize(res, "LIFEPATH")
 
 
@@ -42,18 +42,16 @@ static func _merc(name: String) -> MercenaryData:
 
 #A stand-in event registered in the Experienced pool so grant and force can find it by name.
 static func _fake(event_name: String, perk: String) -> LifepathData:
-	var lp := LifepathData.new()
-	lp.event_type = "Experienced"
-	lp.event_name = event_name
+	var lp := TestFixtures.register_stub(TestFixtures.lifepath_stub(event_name))
 	lp.perks = [perk] as Array[String]
-	if not DataManager.lifepaths_by_category.has("Experienced"):
-		DataManager.lifepaths_by_category["Experienced"] = []
-	(DataManager.lifepaths_by_category["Experienced"] as Array).append(lp)
 	return lp
 
 
-static func _unregister(lp: LifepathData) -> void:
-	(DataManager.lifepaths_by_category["Experienced"] as Array).erase(lp)
+#Fills the event list to the cap, then forces Buddy's Passing so it displaces the oldest event.
+static func _fill_and_force(a: MercenaryData) -> void:
+	for i: int in range(LifepathProgression.MAX_EVENTS - a.lifepaths.size()):
+		a.lifepaths.append(TestFixtures.lifepath("Death Trauma"))
+	var _f: Array[String] = LifepathProgression.force(a, "Buddy's Passing")
 
 
 #Sets the roll step high enough that chance_for returns 100, so a level up always draws.
@@ -232,14 +230,12 @@ static func _case_stat_delta(res: Dictionary) -> void:
 		"cheat death %d to %d" % [before, after])
 	TestFixtures.check(res, "delta recorded", a.lifepath_stat_deltas.has("TEST Boost"),
 		"the event stored what it moved")
-	for i: int in range(LifepathProgression.MAX_EVENTS - a.lifepaths.size()):
-		a.lifepaths.append(TestFixtures.lifepath("Death Trauma"))
-	var _f: Array[String] = LifepathProgression.force(a, "Buddy's Passing")
+	_fill_and_force(a)
 	TestFixtures.check(res, "displacement undoes the stat", int(a.stats.get("cheat_death", 0)) == before,
 		"cheat death back to %d, got %d" % [before, int(a.stats.get("cheat_death", 0))])
 	TestFixtures.check(res, "delta cleared", not a.lifepath_stat_deltas.has("TEST Boost"),
 		"the record went with the event")
-	_unregister(boost)
+	TestFixtures.unregister_stub(boost)
 
 
 static func _case_capacity(res: Dictionary) -> void:
@@ -259,7 +255,7 @@ static func _case_capacity(res: Dictionary) -> void:
 	TestFixtures.check(res, "size held at the cap", a.lifepaths.size() == LifepathProgression.MAX_EVENTS,
 		"still %d events, got %d" % [LifepathProgression.MAX_EVENTS, a.lifepaths.size()])
 	TestFixtures.check(res, "displacement reported", forced.size() >= 2, "%d line(s)" % forced.size())
-	_unregister(spare)
+	TestFixtures.unregister_stub(spare)
 
 
 static func _case_forced_replace(res: Dictionary) -> void:
@@ -662,13 +658,11 @@ static func _case_stat_bonus(res: Dictionary) -> void:
 	var record: Dictionary = a.lifepath_stat_deltas.get("TEST Vigor Boost", {}) as Dictionary
 	var mult: Dictionary = record.get("mult", {}) as Dictionary
 	TestFixtures.check(res, "stat bonus recorded", mult.has("vigor"), "the delta names vigor")
-	for i: int in range(LifepathProgression.MAX_EVENTS - a.lifepaths.size()):
-		a.lifepaths.append(TestFixtures.lifepath("Death Trauma"))
-	var _f: Array[String] = LifepathProgression.force(a, "Buddy's Passing")
+	_fill_and_force(a)
 	TestFixtures.check(res, "stat bonus reverted",
 		is_equal_approx(float(a.stat_multipliers.get("vigor", 0.0)), before),
 		"vigor multiplier back to %.2f" % float(a.stat_multipliers.get("vigor", 0.0)))
-	_unregister(boost)
+	TestFixtures.unregister_stub(boost)
 
 
 static func _case_placeholder_trait(res: Dictionary) -> void:
@@ -687,11 +681,9 @@ static func _case_placeholder_trait(res: Dictionary) -> void:
 	TestFixtures.check(res, "resolved name from the column", column.has(resolved), "resolved %s" % resolved)
 	TestFixtures.check(res, "merc holds the resolved trait", TestFixtures.holds_trait(a, resolved),
 		"%s is on the trait list" % resolved)
-	for i: int in range(LifepathProgression.MAX_EVENTS - a.lifepaths.size()):
-		a.lifepaths.append(TestFixtures.lifepath("Death Trauma"))
-	var _f: Array[String] = LifepathProgression.force(a, "Buddy's Passing")
+	_fill_and_force(a)
 	TestFixtures.check(res, "resolved trait removed", not TestFixtures.holds_trait(a, resolved), "%s is gone" % resolved)
-	_unregister(temple)
+	TestFixtures.unregister_stub(temple)
 
 
 static func _case_payoff_placeholder(res: Dictionary) -> void:
@@ -776,17 +768,3 @@ static func _case_location_condition(res: Dictionary) -> void:
 		"hp held at %d in a Forest country" % a.current_hp)
 	TraitRuntime.clear_all()
 
-
-#Prints which Experienced events the level up pool can actually draw, for the sheet audit.
-static func _audit() -> void:
-	var supported: Array[String] = []
-	var blocked: Array[String] = []
-	for lp: LifepathData in DataManager.lifepaths_by_category.get("Experienced", []) as Array:
-		if lp == null:
-			continue
-		if LifepathRequirements.is_supported(lp) and LifepathProgression.has_payoff(lp):
-			supported.append(lp.event_name)
-		else:
-			blocked.append(lp.event_name)
-	print("LIFEPATH POOL AUDIT: %d drawable, %d blocked" % [supported.size(), blocked.size()])
-	print("  DRAWABLE: %s" % ", ".join(supported))

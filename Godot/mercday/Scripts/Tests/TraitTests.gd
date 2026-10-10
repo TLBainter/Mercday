@@ -54,6 +54,14 @@ static func _merc(name: String) -> MercenaryData:
 	return TestFixtures.level_merc(name, false)
 
 
+#A fresh merc with this trait DSL applied and its stats refreshed, to compare against a plain merc.
+static func _applied(name: String, dsl: String) -> MercenaryData:
+	var m := _merc(name)
+	TraitDSL.apply_dsl_to_merc(m, dsl)
+	StatCalculator.refresh(m)
+	return m
+
+
 #Raises the hit point pool before BattleState.create copies it into current_hp.
 static func _hp(merc: MercenaryData, amount: int) -> void:
 	merc.stats["maximum_hit_points"] = amount
@@ -82,6 +90,12 @@ static func _require(res: Dictionary, label: String, trait_name: String) -> Trai
 	return td
 
 
+#Clears the trait runtime and looks up the row the case is about.
+static func _begin(res: Dictionary, label: String, trait_name: String) -> TraitData:
+	TraitRuntime.clear_all()
+	return _require(res, label, trait_name)
+
+
 static func _give(merc: MercenaryData, td: TraitData) -> void:
 	if td == null:
 		return
@@ -104,14 +118,6 @@ static func _contract(type_name: String, stats: Dictionary, circs: Dictionary) -
 	c.stat_boosts = stats
 	c.circumstance_boosts = circs
 	return c
-
-
-static func _run_for(c: ContractData, team: Array[MercenaryData], verdict: String) -> ContractRun:
-	var contract_run := ContractRun.new()
-	contract_run.contract = c
-	contract_run.team = team
-	contract_run.verdict = verdict
-	return contract_run
 
 
 static func _weapon(fragility: int, is_virtual: bool) -> WeaponData:
@@ -145,8 +151,7 @@ static func _parse_groups(cell: String) -> Array[String]:
 #Cases
 
 static func _case_untapped_potential(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "untapped potential row", "Untapped Potential")
+	var td: TraitData = _begin(res, "untapped potential row", "Untapped Potential")
 	if td == null:
 		return
 	var m := _merc("Una")
@@ -156,7 +161,7 @@ static func _case_untapped_potential(res: Dictionary) -> void:
 	circs[relevant] = 15.0
 	var c := _contract("Monster Hunt", {"Dexterity": 15.0}, circs)
 	var team: Array[MercenaryData] = [m]
-	var contract_run := _run_for(c, team, "")
+	var contract_run := TestFixtures.run_for(team, c, "")
 	var before: int = TestFixtures.true_flags(m).size()
 	TraitRuntime.begin_contract(contract_run)
 	var after: Array[String] = TestFixtures.true_flags(m)
@@ -172,8 +177,7 @@ static func _case_untapped_potential(res: Dictionary) -> void:
 
 
 static func _case_curse_marked(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "curse marked row", "Curse Marked")
+	var td: TraitData = _begin(res, "curse marked row", "Curse Marked")
 	if td == null:
 		return
 	var m := _merc("Cain")
@@ -186,15 +190,14 @@ static func _case_curse_marked(res: Dictionary) -> void:
 
 
 static func _case_beginners_luck(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "beginners luck row", "Beginner's Luck")
+	var td: TraitData = _begin(res, "beginners luck row", "Beginner's Luck")
 	if td == null:
 		return
 	var m := _merc("Bel")
 	_give(m, td)
 	var c := _contract("Assassinate", {"Dexterity": 15.0, "Cognition": 10.0}, {})
 	var team: Array[MercenaryData] = [m]
-	var contract_run := _run_for(c, team, "")
+	var contract_run := TestFixtures.run_for(team, c, "")
 	var before: int = int(m.stats.get("dexterity", 0))
 	TraitRuntime.end_contract(contract_run)
 	var after: int = int(m.stats.get("dexterity", 0))
@@ -205,8 +208,7 @@ static func _case_beginners_luck(res: Dictionary) -> void:
 
 
 static func _case_survivors_guilt(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "survivors guilt row", "Survivor's Guilt")
+	var td: TraitData = _begin(res, "survivors guilt row", "Survivor's Guilt")
 	if td == null:
 		return
 	var holder := _merc("Sur")
@@ -227,8 +229,7 @@ static func _case_survivors_guilt(res: Dictionary) -> void:
 
 
 static func _case_less_than_important(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "less than important row", "Less Than Important")
+	var td: TraitData = _begin(res, "less than important row", "Less Than Important")
 	if td == null:
 		return
 	var holder := _merc("Les")
@@ -255,8 +256,7 @@ static func _case_less_than_important(res: Dictionary) -> void:
 
 
 static func _case_down_to_clown(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "down to clown row", "Down to Clown")
+	var td: TraitData = _begin(res, "down to clown row", "Down to Clown")
 	if td == null:
 		return
 	var m := _merc("Clo")
@@ -270,7 +270,7 @@ static func _case_down_to_clown(res: Dictionary) -> void:
 	m.blocked_circumstances = blocked
 	var c := _contract("Entertain", {"Wile": 10.0}, {})
 	var team: Array[MercenaryData] = [m]
-	var contract_run := _run_for(c, team, "")
+	var contract_run := TestFixtures.run_for(team, c, "")
 	seed(SEED_CLOWN)
 	var count_held: bool = true
 	var saw_kept: bool = false
@@ -297,15 +297,12 @@ static func _case_down_to_clown(res: Dictionary) -> void:
 
 
 static func _case_tavern_brawler(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "tavern brawler row", "Tavern Brawler")
+	var td: TraitData = _begin(res, "tavern brawler row", "Tavern Brawler")
 	if td == null:
 		return
 	var plain := _merc("Tav0")
 	var base: float = _stat(plain, "accuracy")
-	var m := _merc("Tav")
-	TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
-	StatCalculator.refresh(m)
+	var m := _applied("Tav", td.effect_dsl)
 	TestFixtures.check(res, "tavern brawler grants +15 percent accuracy at generation",
 		base > 0.0 and _near(_stat(m, "accuracy"), base * 1.15),
 		"accuracy %.2f (base %.2f, expected %.2f)" % [_stat(m, "accuracy"), base, base * 1.15])
@@ -326,8 +323,7 @@ static func _case_tavern_brawler(res: Dictionary) -> void:
 
 
 static func _case_playing_with_fire(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "playing with fire row", "Playing with Fire")
+	var td: TraitData = _begin(res, "playing with fire row", "Playing with Fire")
 	if td == null:
 		return
 	var atk := _merc("Pyr")
@@ -351,8 +347,7 @@ static func _case_playing_with_fire(res: Dictionary) -> void:
 
 
 static func _case_wont_let_it_happen(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "wont let it happen row", "Won't Let It Happen")
+	var td: TraitData = _begin(res, "wont let it happen row", "Won't Let It Happen")
 	if td == null:
 		return
 	var holder := _merc("Won")
@@ -381,21 +376,20 @@ static func _case_wont_let_it_happen(res: Dictionary) -> void:
 
 
 static func _case_dont_heckle_me(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "dont heckle me row", "Don't Heckle Me")
+	var td: TraitData = _begin(res, "dont heckle me row", "Don't Heckle Me")
 	if td == null:
 		return
 	var m := _merc("Hek")
 	_hp(m, 30)
 	_give(m, td)
 	var team: Array[MercenaryData] = [m]
-	var wile_run := _run_for(_contract("Entertain", {"Wile": 15.0}, {}), team, "Failed")
+	var wile_run := TestFixtures.run_for(team, _contract("Entertain", {"Wile": 15.0}, {}), "Failed")
 	var before: int = m.current_hp
 	TraitRuntime.end_contract(wile_run)
 	TestFixtures.check(res, "dont heckle me costs 1 Will on a failed Wile contract", m.current_hp == before - 1,
 		"hp %d -> %d" % [before, m.current_hp])
 	TraitRuntime.clear_all()
-	var vigor_run := _run_for(_contract("Rescue", {"Vigor": 15.0}, {}), team, "Failed")
+	var vigor_run := TestFixtures.run_for(team, _contract("Rescue", {"Vigor": 15.0}, {}), "Failed")
 	before = m.current_hp
 	TraitRuntime.end_contract(vigor_run)
 	TestFixtures.check(res, "dont heckle me ignores a failed Vigor contract", m.current_hp == before,
@@ -403,14 +397,13 @@ static func _case_dont_heckle_me(res: Dictionary) -> void:
 
 
 static func _case_expert_dissector(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "expert dissector row", "Expert Dissector")
+	var td: TraitData = _begin(res, "expert dissector row", "Expert Dissector")
 	if td == null:
 		return
 	var m := _merc("Dis")
 	_give(m, td)
 	var team: Array[MercenaryData] = [m]
-	var hunt := _run_for(_contract("Monster Hunt", {"Dexterity": 15.0}, {}), team, "Succeeded")
+	var hunt := TestFixtures.run_for(team, _contract("Monster Hunt", {"Dexterity": 15.0}, {}), "Succeeded")
 	seed(SEED_DISSECTOR)
 	var rose: int = 0
 	var fell: int = 0
@@ -426,7 +419,7 @@ static func _case_expert_dissector(res: Dictionary) -> void:
 	TestFixtures.check(res, "expert dissector does not fire on every run", rose < REPS,
 		"%d of %d runs paid the bonus" % [rose, REPS])
 	TraitRuntime.clear_all()
-	var other := _run_for(_contract("Military", {"Vigor": 15.0}, {}), team, "Succeeded")
+	var other := TestFixtures.run_for(team, _contract("Military", {"Vigor": 15.0}, {}), "Succeeded")
 	var changed: int = 0
 	for _j: int in range(REPS):
 		other.reward_paid = 1000
@@ -438,8 +431,7 @@ static func _case_expert_dissector(res: Dictionary) -> void:
 
 
 static func _case_damage_dealt_bonus(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "fearsome cannonball row", "Fearsome Cannonball")
+	var td: TraitData = _begin(res, "fearsome cannonball row", "Fearsome Cannonball")
 	if td == null:
 		return
 	var atk := _merc("Can")
@@ -470,8 +462,7 @@ static func _case_damage_dealt_bonus(res: Dictionary) -> void:
 
 
 static func _case_claustrophobic(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "claustrophobic row", "Claustrophobic")
+	var td: TraitData = _begin(res, "claustrophobic row", "Claustrophobic")
 	if td == null:
 		return
 	var m := _merc("Cla")
@@ -497,8 +488,7 @@ static func _case_claustrophobic(res: Dictionary) -> void:
 
 
 static func _case_threat_of_capture(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "threat of capture row", "Threat of Capture")
+	var td: TraitData = _begin(res, "threat of capture row", "Threat of Capture")
 	if td == null:
 		return
 	var m := _merc("Thr")
@@ -516,14 +506,11 @@ static func _case_threat_of_capture(res: Dictionary) -> void:
 
 
 static func _case_eyes_in_the_back(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "eyes in the back row", "Eyes in the Back of My Head")
+	var td: TraitData = _begin(res, "eyes in the back row", "Eyes in the Back of My Head")
 	if td == null:
 		return
 	var plain := _merc("Eye0")
-	var m := _merc("Eye")
-	TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
-	StatCalculator.refresh(m)
+	var m := _applied("Eye", td.effect_dsl)
 	TestFixtures.check(res, "eyes in the back raises avoid by 40",
 		_near(_stat(m, "avoid"), _stat(plain, "avoid") + 40.0),
 		"avoid %.2f vs base %.2f" % [_stat(m, "avoid"), _stat(plain, "avoid")])
@@ -533,8 +520,7 @@ static func _case_eyes_in_the_back(res: Dictionary) -> void:
 
 
 static func _case_gotta_go_fastest(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "gotta go fastest row", "Gotta Go Fastest")
+	var td: TraitData = _begin(res, "gotta go fastest row", "Gotta Go Fastest")
 	if td == null:
 		return
 	var m := _merc("Fas")
@@ -560,8 +546,7 @@ static func _case_gotta_go_fastest(res: Dictionary) -> void:
 
 
 static func _case_shockingly_vicious(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "shockingly vicious row", "Shockingly Vicious and Vile")
+	var td: TraitData = _begin(res, "shockingly vicious row", "Shockingly Vicious and Vile")
 	if td == null:
 		return
 	var killer := _merc("Kil")
@@ -581,14 +566,11 @@ static func _case_shockingly_vicious(res: Dictionary) -> void:
 
 
 static func _case_party_tank(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "party tank row", "Party Tank")
+	var td: TraitData = _begin(res, "party tank row", "Party Tank")
 	if td == null:
 		return
 	var plain := _merc("Tnk0")
-	var m := _merc("Tnk")
-	TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
-	StatCalculator.refresh(m)
+	var m := _applied("Tnk", td.effect_dsl)
 	TestFixtures.check(res, "party tank adds 1 maximum hit point",
 		int(m.stats.get("maximum_hit_points", 0)) == int(plain.stats.get("maximum_hit_points", 0)) + 1,
 		"maximum_hit_points %d vs base %d" % [int(m.stats.get("maximum_hit_points", 0)),
@@ -610,8 +592,7 @@ static func _case_party_tank(res: Dictionary) -> void:
 
 
 static func _case_no_one_escapes_me(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "no one escapes me row", "No One Escapes Me")
+	var td: TraitData = _begin(res, "no one escapes me row", "No One Escapes Me")
 	if td == null:
 		return
 	var m := _merc("Esc")
@@ -672,14 +653,11 @@ static func _case_knowledge_grants(res: Dictionary) -> void:
 
 
 static func _case_fragile_cannon(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var td: TraitData = _require(res, "fragile cannon row", "Fragile Cannon")
+	var td: TraitData = _begin(res, "fragile cannon row", "Fragile Cannon")
 	if td == null:
 		return
 	var plain := _merc("Fra0")
-	var m := _merc("Fra")
-	TraitDSL.apply_dsl_to_merc(m, td.effect_dsl)
-	StatCalculator.refresh(m)
+	var m := _applied("Fra", td.effect_dsl)
 	TestFixtures.check(res, "fragile cannon lowers the computed maximum hit points",
 		int(m.stats.get("maximum_hit_points", 0)) == int(plain.stats.get("maximum_hit_points", 0)) - 2,
 		"maximum_hit_points %d vs base %d" % [int(m.stats.get("maximum_hit_points", 0)),
@@ -708,9 +686,7 @@ static func _case_new_rows(res: Dictionary) -> void:
 			continue
 		var amount: float = drops[row_name2]
 		var plain := _merc("Bsc_" + row_name2)
-		var m2 := _merc("New_" + row_name2)
-		TraitDSL.apply_dsl_to_merc(m2, td.effect_dsl)
-		StatCalculator.refresh(m2)
+		var m2 := _applied("New_" + row_name2, td.effect_dsl)
 		TestFixtures.check(res, "%s lowers base success chance by %d" % [row_name2, int(amount)],
 			_near(_stat(m2, "base_success_chance"), _stat(plain, "base_success_chance") - amount),
 			"base_success_chance %.2f vs base %.2f" % [_stat(m2, "base_success_chance"),
@@ -718,8 +694,7 @@ static func _case_new_rows(res: Dictionary) -> void:
 
 
 static func _case_buddy_clauses(res: Dictionary) -> void:
-	TraitRuntime.clear_all()
-	var combo: TraitData = _require(res, "companion combo row", "Companion Combo")
+	var combo: TraitData = _begin(res, "companion combo row", "Companion Combo")
 	var missing: TraitData = _require(res, "missing your pal row", "Missing Your Pal")
 	if combo == null or missing == null:
 		return
@@ -839,7 +814,7 @@ static func _case_group_perk_generation(res: Dictionary) -> void:
 	var m := _merc("Gen")
 	m.lifepaths = lifepaths
 	var before: int = int(m.max_stats.get("max_cognition", 0))
-	MercGenerator._step6_traits(m)
+	GenerationSteps.step6_traits(m)
 	var after: int = int(m.max_stats.get("max_cognition", 0))
 	TestFixtures.check(res, "a drawn group perk cell runs exactly once through generation",
 		after == before + 1,

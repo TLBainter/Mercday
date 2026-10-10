@@ -15,7 +15,7 @@ const CLIENT_KEY: String = "clientOpinion"
 const SNAKE_OF: Dictionary = {"guildOpinion": "guild_opinion", "clientOpinion": "client_opinion",
 	"contractMetrics": "contract_metrics", "mercMetrics": "merc_metrics"}
 
-const ENTERPRISE_PLAN: String = "Mercday Enterprise"
+const ENTERPRISE_PLAN: String = SubscriptionManager.PLAN_NAMES[SubscriptionManager.Plan.ENTERPRISE]
 const PRO_PLAN: String = "Mercday Pro"
 const MERC_FEATURE: String = "Merc Metrics"
 const MERC_UPGRADE_ID: String = "mercmetrics"
@@ -82,23 +82,9 @@ static func graph_lock(source_name: String) -> Dictionary:
 	var row: Dictionary = GRAPH_LOCKS.get(source_name, GRAPH_LOCKS["Guild"])
 	var out: Dictionary = row.duplicate()
 	var id: String = String(out.get("upgrade_id", ""))
-	out["upgrade"] = upgrade_name(id)
-	out["tiers"] = upgrade_tiers(id)
+	out["upgrade"] = UpgradeDefs.display_name(id)
+	out["tiers"] = UpgradeDefs.display_tiers(id)
 	return out
-
-
-#The upgrade name UpgradeDefs holds for an id, empty when the row names no upgrade.
-static func upgrade_name(id: String) -> String:
-	if id == "" or not UpgradeDefs.has_id(id):
-		return ""
-	return UpgradeDefs.name_of(id)
-
-
-#How many tiers UpgradeDefs holds for an id; a row with no upgrade still reads one tier.
-static func upgrade_tiers(id: String) -> int:
-	if id == "" or not UpgradeDefs.has_id(id):
-		return 1
-	return maxi(1, UpgradeDefs.tier_count(id))
 
 
 static func can_pick_merc() -> bool:
@@ -116,8 +102,8 @@ static func embed_unlocked() -> bool:
 
 static func merc_tier_lock(tier_wanted: int) -> Dictionary:
 	return {"feature": MERC_FEATURE, "plan": ENTERPRISE_PLAN, "entitlement": MERC_KEY,
-		"upgrade": upgrade_name(MERC_UPGRADE_ID), "upgrade_id": MERC_UPGRADE_ID,
-		"tier": tier_wanted, "tiers": upgrade_tiers(MERC_UPGRADE_ID)}
+		"upgrade": UpgradeDefs.display_name(MERC_UPGRADE_ID), "upgrade_id": MERC_UPGRADE_ID,
+		"tier": tier_wanted, "tiers": UpgradeDefs.display_tiers(MERC_UPGRADE_ID)}
 
 
 static func metric_locked(def: MetricDef) -> bool:
@@ -133,7 +119,8 @@ static func metric_lock(def: MetricDef) -> Dictionary:
 	var row: Dictionary = METRIC_UPGRADES.get(def.lock_key, {})
 	var id: String = String(row.get("upgrade_id", def.upgrade_id))
 	return {"feature": def.label, "plan": ENTERPRISE_PLAN, "entitlement": def.lock_key,
-		"upgrade": upgrade_name(id), "upgrade_id": id, "tier": 1, "tiers": upgrade_tiers(id)}
+		"upgrade": UpgradeDefs.display_name(id), "upgrade_id": id, "tier": 1,
+		"tiers": UpgradeDefs.display_tiers(id)}
 
 
 static func _snake_of(camel: String) -> String:

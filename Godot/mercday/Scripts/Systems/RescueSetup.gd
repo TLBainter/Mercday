@@ -2,6 +2,8 @@ class_name RescueSetup extends RefCounted
 
 #Builds the rescue map state: the cell room, the gear chest and the captor roles.
 
+const _ANY_FLOOR: int = -99999
+
 
 #Caged captive, stripped gear, enemy roles and the stealth start; returns the pre-battle lines.
 static func attach(state: BattleState, captive: MercenaryData, mode: String, difficulty: float) -> Array[String]:
@@ -27,7 +29,7 @@ static func attach(state: BattleState, captive: MercenaryData, mode: String, dif
 	if not inside.is_empty():
 		captive_cell = inside[randi() % inside.size()]
 	state.set_pos3(captive, captive_cell)
-	var gate: Dictionary = RescueSystem.find_gate(field, cell_rect, cell_floor)
+	var gate: Dictionary = RescueSetup.find_gate(field, cell_rect, cell_floor)
 	var gate_obs: Dictionary = gate.get("obs", {}) as Dictionary
 	var gate_cell: Vector3i = gate.get("cell", PathTargeter.NO_CELL) as Vector3i
 	if not gate_obs.is_empty():
@@ -44,7 +46,6 @@ static func attach(state: BattleState, captive: MercenaryData, mode: String, dif
 		exit_cell = Vector3i(door.x, door.y, 0)
 	state.rescue = {
 		"mode": mode,
-		"difficulty": difficulty,
 		"captive": captive,
 		"cell_rect": cell_rect,
 		"cell_floor": cell_floor,
@@ -100,7 +101,6 @@ static func attach(state: BattleState, captive: MercenaryData, mode: String, dif
 		"ambushes": 0,
 		"aborted": false,
 		"captive_acted": false,
-		"acted_round": 0,
 		"reason": "",
 	}
 	if exit_cell != PathTargeter.NO_CELL:
@@ -129,7 +129,7 @@ static func attach(state: BattleState, captive: MercenaryData, mode: String, dif
 
 
 static func _pick_room(field: BattlefieldArea, room_name: String) -> Dictionary:
-	var rooms: Array[Dictionary] = RescueSystem.rooms_named(field, room_name)
+	var rooms: Array[Dictionary] = RescueSetup.rooms_named(field, room_name)
 	if rooms.is_empty():
 		return {}
 	return rooms[randi() % rooms.size()]
@@ -145,7 +145,7 @@ static func _choose_chest(field: BattlefieldArea, state: BattleState, rect: Rect
 			continue
 		if cell.z == f and rect.has_point(Vector2i(cell.x, cell.y)):
 			continue
-		var room_name: String = RescueSystem.room_name_at(field, cell)
+		var room_name: String = RescueSetup.room_name_at(field, cell)
 		if room_name == RescueSystem.FOYER_ROOM:
 			continue
 		if room_name == RescueSystem.STORAGE_ROOM and best.is_empty():
@@ -166,22 +166,16 @@ static func _place_chest(field: BattlefieldArea, state: BattleState, rect: Rect2
 		push_warning("RescueSystem: no Chest obstacle row; the captive gear is lost")
 		return {}
 	var spots: Array[Vector3i] = []
-	for room: Dictionary in field.interior_rooms:
-		var name: String = str(room.get("name", ""))
-		if name == RescueSystem.CELL_ROOM or name == RescueSystem.FOYER_ROOM:
-			continue
-		var rf: int = int(room.get("floor", 0))
-		var rr: Rect2i = room.get("rect", Rect2i()) as Rect2i
-		if rf == f and rr == rect:
-			continue
-		spots.append_array(RescueGrid.free_cells(field, state, rr, rf, null))
+	for room: Dictionary in _open_rooms(field, rect, f):
+		spots.append_array(RescueGrid.free_cells(field, state, room.get("rect", Rect2i()) as Rect2i,
+			int(room.get("floor", 0)), null))
 	if spots.is_empty():
 		push_warning("RescueSystem: no free cell for the chest")
 		return {}
 	var cell: Vector3i = spots[randi() % spots.size()]
 	var obs: Dictionary = {"pos": cell, "size": 1, "data": data, "cell_type": "furniture",
 		"pw": 1, "ph": 1, "floor": cell.z}
-	InteriorGenerator._add_obstacle(field, obs, cell)
+	field.add_obstacle(obs, cell)
 	field.los_version += 1
 	field.bump_path_version()
 	MovementExecutor.clear_caches()
@@ -192,7 +186,6 @@ static func _place_chest(field: BattlefieldArea, state: BattleState, rect: Rect2
 static func _assign_roles(state: BattleState) -> Array[String]:
 	var out: Array[String] = []
 	var rescue: Dictionary = state.rescue
-	var field: BattlefieldArea = state.battlefield
 	var roles: Dictionary = rescue["roles"]
 	var patrol_goals: Dictionary = rescue["patrol_goals"]
 	var rect: Rect2i = rescue["cell_rect"] as Rect2i
@@ -204,19 +197,14 @@ static func _assign_roles(state: BattleState) -> Array[String]:
 		var spot: Vector3i = PathTargeter.NO_CELL
 		if i == 0:
 			role = RescueSystem.ROLE_GUARD
-			spot = RescueSystem.free_cell_near(state, rescue["gate_cell"] as Vector3i, 2, rect)
+			spot = RescueSetup.free_cell_near(state, rescue["gate_cell"] as Vector3i, 2, rect)
 		elif i == 1 and enemies.size() >= 3:
 			role = RescueSystem.ROLE_CHEST
-			spot = RescueSystem.free_cell_near(state, rescue["chest_cell"] as Vector3i, 2, rect)
+			spot = RescueSetup.free_cell_near(state, rescue["chest_cell"] as Vector3i, 2, rect)
 		else:
 			role = RescueSystem.ROLE_WANDER if rest % 2 == 0 else RescueSystem.ROLE_PATROL
 			rest += 1
-			var room: Dictionary = _random_open_room(field, rect)
-			if not room.is_empty():
-				var cells: Array[Vector3i] = RescueGrid.free_cells(field, state, room.get("rect", Rect2i()) as Rect2i,
-					int(room.get("floor", 0)), null)
-				if not cells.is_empty():
-					spot = cells[randi() % cells.size()]
+			spot = _random_open_cell(state, rect)
 		if spot != PathTargeter.NO_CELL:
 			state.set_pos3(enemy, spot)
 		roles[enemy] = role
@@ -228,28 +216,92 @@ static func _assign_roles(state: BattleState) -> Array[String]:
 
 static func _patrol_pair(state: BattleState, rect: Rect2i) -> Array[Vector3i]:
 	var out: Array[Vector3i] = []
-	var field: BattlefieldArea = state.battlefield
 	for _i: int in range(2):
-		var room: Dictionary = _random_open_room(field, rect)
-		if room.is_empty():
-			continue
-		var cells: Array[Vector3i] = RescueGrid.free_cells(field, state, room.get("rect", Rect2i()) as Rect2i,
-			int(room.get("floor", 0)), null)
-		if cells.is_empty():
-			continue
-		out.append(cells[randi() % cells.size()])
+		var cell: Vector3i = _random_open_cell(state, rect)
+		if cell != PathTargeter.NO_CELL:
+			out.append(cell)
 	return out
 
 
-static func _random_open_room(field: BattlefieldArea, rect: Rect2i) -> Dictionary:
+#Rooms other than the cell room and the foyer; the cell rect only counts on floor f unless f is _ANY_FLOOR.
+static func _open_rooms(field: BattlefieldArea, rect: Rect2i, f: int = _ANY_FLOOR) -> Array[Dictionary]:
 	var rooms: Array[Dictionary] = []
 	for room: Dictionary in field.interior_rooms:
 		var name: String = str(room.get("name", ""))
 		if name == RescueSystem.CELL_ROOM or name == RescueSystem.FOYER_ROOM:
 			continue
-		if (room.get("rect", Rect2i()) as Rect2i) == rect:
+		if (room.get("rect", Rect2i()) as Rect2i) == rect and (f == _ANY_FLOOR or int(room.get("floor", 0)) == f):
 			continue
 		rooms.append(room)
+	return rooms
+
+
+static func _random_open_room(field: BattlefieldArea, rect: Rect2i) -> Dictionary:
+	var rooms: Array[Dictionary] = _open_rooms(field, rect)
 	if rooms.is_empty():
 		return {}
 	return rooms[randi() % rooms.size()]
+
+
+#A random free cell in a random open room; NO_CELL when there is none.
+static func _random_open_cell(state: BattleState, rect: Rect2i) -> Vector3i:
+	var field: BattlefieldArea = state.battlefield
+	var room: Dictionary = _random_open_room(field, rect)
+	if room.is_empty():
+		return PathTargeter.NO_CELL
+	var cells: Array[Vector3i] = RescueGrid.free_cells(field, state, room.get("rect", Rect2i()) as Rect2i,
+		int(room.get("floor", 0)), null)
+	if cells.is_empty():
+		return PathTargeter.NO_CELL
+	return cells[randi() % cells.size()]
+
+
+#Rooms of one name on the map, with the rect and floor the generator recorded.
+static func rooms_named(field: BattlefieldArea, room_name: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if field == null:
+		return out
+	for room: Dictionary in field.interior_rooms:
+		if str(room.get("name", "")) == room_name:
+			out.append(room)
+	return out
+
+
+static func free_cell_near(state: BattleState, center: Vector3i, radius: int, avoid: Rect2i) -> Vector3i:
+	if center == PathTargeter.NO_CELL or state == null:
+		return PathTargeter.NO_CELL
+	var options: Array[Vector3i] = []
+	for dx: int in range(-radius, radius + 1):
+		for dy: int in range(-radius, radius + 1):
+			var cell := Vector3i(center.x + dx, center.y + dy, center.z)
+			if avoid.size.x > 0 and avoid.has_point(Vector2i(cell.x, cell.y)):
+				continue
+			if RescueGrid.cell_free(state.battlefield, state, cell, null):
+				options.append(cell)
+	if options.is_empty():
+		return PathTargeter.NO_CELL
+	return options[randi() % options.size()]
+
+
+#The locked bar door on the cell ring, with the cell it stands in.
+static func find_gate(field: BattlefieldArea, rect: Rect2i, f: int) -> Dictionary:
+	var ring: Rect2i = rect.grow(1)
+	for x: int in range(ring.position.x, ring.position.x + ring.size.x):
+		for y: int in range(ring.position.y, ring.position.y + ring.size.y):
+			if rect.has_point(Vector2i(x, y)):
+				continue
+			var obs: Dictionary = field.get_obs(Vector2i(x, y), f)
+			if obs.is_empty() or not DungeonLocks.has_bars(obs):
+				continue
+			return {"obs": obs, "cell": Vector3i(x, y, f)}
+	return {}
+
+
+static func room_name_at(field: BattlefieldArea, cell: Vector3i) -> String:
+	for room: Dictionary in field.interior_rooms:
+		if int(room.get("floor", 0)) != cell.z:
+			continue
+		var r: Rect2i = room.get("rect", Rect2i()) as Rect2i
+		if r.has_point(Vector2i(cell.x, cell.y)):
+			return str(room.get("name", ""))
+	return ""

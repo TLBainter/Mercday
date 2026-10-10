@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/BRS_Switch_DC3_Flip_Multi_3.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/BRS_Switch_DC3_Rotary_B3.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/BRS_Switch_DC3_Rotary_B4.wav" id="4_s3"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/BRS_Switch_DC3_Steering_01.wav" id="5_s4"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/ESM_Empire_Game_Menu_User_Interface_UI_Metal_Tap_Bass_Hit_Click_2_Light_Wisp.wav" id="6_s5"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/ESM_Empire_Game_Settlement_UI_Select_1_Woosh_Ding_Impact.wav" id="7_s6"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3"), ExtResource("5_s4"), ExtResource("6_s5"), ExtResource("7_s6")])

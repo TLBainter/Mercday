@@ -7,7 +7,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var state: BattleState = ctx.get("state") as BattleState
 	if state == null:
 		return 0.0
-	var target := CombatDecision.current_or_best(merc, ctx, state)
+	var target := TargetSelector.current_or_best(merc, ctx, state)
 	if target == null:
 		return 0.0
 	if not weapon.is_throwable \

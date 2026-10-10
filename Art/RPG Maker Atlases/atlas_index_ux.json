@@ -1,0 +1,51 @@
+{
+ "source_root": "U:/Game Design/MyProjects/MercManager/Art/RPG Maker",
+ "max_px": 4069,
+ "atlases": [
+  {
+   "atlas": "UX/Windows and Frames/WindowFrame_01.png",
+   "category": "UX/Windows and Frames",
+   "cell": null,
+   "size": [
+    128,
+    128
+   ],
+   "layout": "packed",
+   "entries": [
+    {
+     "sub": "Window",
+     "src": "UX/Window/DS_Window_x.png",
+     "rect": [
+      0,
+      0,
+      128,
+      128
+     ]
+    }
+   ]
+  },
+  {
+   "atlas": "UX/Backgrounds/Background_01.png",
+   "category": "UX/Backgrounds",
+   "cell": null,
+   "size": [
+    124,
+    123
+   ],
+   "layout": "packed",
+   "entries": [
+    {
+     "sub": "Background",
+     "src": "UX/Background/gear7_02.png",
+     "rect": [
+      0,
+      0,
+      124,
+      123
+     ]
+    }
+   ]
+  }
+ ],
+ "left_loose": []
+}

@@ -5,19 +5,56 @@ extends RefCounted
 #chart, the portfolio and position widgets, the trade panel and the trade confirmation.
 #Run headless with the gui invest tests flag after the harness argument separator.
 
+const MARKET_SCRIPT := preload("res://Scripts/GUI/Autoloads/StockMarket.gd")
 const PAGE_SCENE: String = "res://Scenes/GUI/Finance/Invest/InvestTab.tscn"
+const STEPPER_SCENE: String = "res://Scenes/GUI/Shared/QuantityStepper.tscn"
 const PAGE_SIZE: Vector2 = Vector2(1400.0, 820.0)
+#The height the finance page host gives a tab.
+const PAGE_HOST_HEIGHT: float = 532.0
 const LIST_WIDTH: float = 272.0
 const RIGHT_WIDTH: float = 290.0
 const COLUMN_GAP: float = 16.0
-#Company 0 carries a seeded holding of 25 shares; 1 and 7 carry none.
+#_fresh lays a holding of 25 shares in company 0; 1 and 7 carry none.
 const HELD_K: int = 0
 const FREE_K: int = 1
 const OTHER_FREE_K: int = 7
 #Entry 12 belongs to company 4, which ContractIssuer maps it to.
 const ENTRY_COMPANY: int = 4
 const ENTRY_ID: int = 12
+#Failed contracts stacked on one sample, the tallest tip with one event row, and the height slack.
+const TIP_STACKED: int = 6
+const TIP_ONE_ROW_MAX: float = 140.0
+const TIP_FIT_TOLERANCE: float = 1.0
+#The companies the five year tip sweep visits, first through last.
+const TIP_SWEEP_FIRST: int = 2
+const TIP_SWEEP_LAST: int = 5
+#Wheel presses that carry the tip list to its end.
+const WHEEL_PRESSES: int = 40
 const MONEY: int = 10000
+#The positions _fresh lays, as [company, shares, move since last view in percent, cost factor,
+#dividend notes, payouts], and the bank that covers their buys.
+const LAY_HOLDINGS: Array[Array] = [[0, 25, 2.1, -0.04, 38, 2], [3, 40, 6.4, 0.08, 71, 3],
+	[5, 120, -5.3, -0.04, 164, 5]]
+const LAY_BANK: int = 1000000
+
+
+#Counts the step click and reject cues the audio manager plays.
+class CueLog extends RefCounted:
+	var clicks: int = 0
+	var rejects: int = 0
+
+	func record(stream: AudioStream, _bus: String, _pitch: float) -> void:
+		if UiSfx.config.click.sounds.has(stream):
+			clicks += 1
+		elif UiSfx.config.reject.sounds.has(stream):
+			rejects += 1
+
+	func clear() -> void:
+		clicks = 0
+		rejects = 0
+
+	func text() -> String:
+		return "%d clicks, %d rejects" % [clicks, rejects]
 
 
 static func run(host: Node) -> bool:
@@ -26,6 +63,7 @@ static func run(host: Node) -> bool:
 	_fresh()
 	await host.get_tree().process_frame
 	await _case_layout(res, host)
+	await _case_fit(res, host)
 	await _case_mount_size(res, host)
 	await _case_list(res, host)
 	await _case_viewed(res, host)
@@ -34,11 +72,13 @@ static func run(host: Node) -> bool:
 	await _case_ranges(res, host)
 	await _case_chart(res, host)
 	await _case_hover(res, host)
+	await _case_hover_tip(res, host)
 	await _case_reveal(res, host)
 	await _case_widgets(res, host)
 	await _case_switch(res, host)
 	await _case_captions(res, host)
 	await _case_quantity(res, host)
+	await _case_quantity_press(res, host)
 	await _case_rows(res, host)
 	await _case_confirm(res, host)
 	await _case_sell_all(res, host)
@@ -61,7 +101,27 @@ static func _fresh() -> void:
 	CampaignClock.reset()
 	NotificationCenter.reset()
 	StockMarket.reset()
+	_lay_holdings()
 	GameState.bank_notes = MONEY
+
+
+#A reset holds no shares, so each position is bought at the live price, then its move since the
+#last view, its cost and its dividends are written into the market's holding row.
+static func _lay_holdings() -> void:
+	GameState.bank_notes = LAY_BANK
+	for row: Array in LAY_HOLDINGS:
+		var k: int = int(row[0])
+		StockMarket.buy(k, int(row[1]))
+		var h: StockHolding = StockMarket._holdings.get(k) as StockHolding
+		if h == null:
+			continue
+		var pct: float = float(row[2])
+		h.seen = StockMarket.price(k) / (1.0 + pct / 100.0)
+		h.avg = h.seen / (1.0 + float(row[3]))
+		h.band = MARKET_SCRIPT._band(pct)
+		h.dividends = int(row[4])
+		h.payouts = int(row[5])
+	StockMarket.changed.emit()
 
 
 static func _reset() -> void:
@@ -70,6 +130,12 @@ static func _reset() -> void:
 	CampaignClock.reset()
 	StockMarket.reset()
 	TestFixtures.reset_campaign()
+
+
+#One unread stock-move alert for the company.
+static func _push_move(k: int) -> void:
+	NotificationCenter.push(NotificationData.TYPE_STOCK_MOVE, k,
+		{"company_id": k, "company": "Company", "pct": 5.0, "band": 1})
 
 
 static func _mount(host: Node) -> InvestTab:
@@ -107,6 +173,35 @@ static func _force_change(k: int, from_price: float, to_price: float) -> void:
 
 #Layout
 
+#The right column with a position open asks no more height than the finance page gives it.
+static func _case_fit(res: Dictionary, host: Node) -> void:
+	var page: InvestTab = await _mount(host)
+	page.select_company(HELD_K)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var need: float = page.right_column.get_combined_minimum_size().y
+	TestFixtures.check(res, "the right column with a position open fits the page host",
+		need <= PAGE_HOST_HEIGHT, "%.1f of %.1f: %s" % [need, PAGE_HOST_HEIGHT,
+		_heights(page.right_column, 2)])
+	TestFixtures.check(res, "the fit is measured with the change row open",
+		page.panel_node().change_row.visible, "row hidden")
+	await _drop(host, page)
+
+
+#The visible children of one control with the height each asks for, two levels deep at most.
+static func _heights(node: Control, depth: int) -> String:
+	var out: PackedStringArray = []
+	for child: Node in node.get_children():
+		var control: Control = child as Control
+		if control == null or not control.visible:
+			continue
+		var line: String = "%s %.0f" % [control.name, control.get_combined_minimum_size().y]
+		if depth > 0 and control.get_child_count() > 0:
+			line += " [%s]" % _heights(control, depth - 1)
+		out.append(line)
+	return ", ".join(out)
+
+
 static func _case_layout(res: Dictionary, host: Node) -> void:
 	var page: InvestTab = await _mount(host)
 	var w: PackedFloat32Array = page.column_widths()
@@ -143,14 +238,23 @@ static func _case_layout(res: Dictionary, host: Node) -> void:
 		page.position_widget() == null, "%s" % page.position_widget())
 	var scrolls: Array[Node] = []
 	_scrolls(page, scrolls)
-	TestFixtures.check(res, "the page holds one scroll", scrolls.size() == 1,
+	var in_roster: int = 0
+	var in_chart: int = 0
+	for found: Node in scrolls:
+		if page.company_list.is_ancestor_of(found):
+			in_roster += 1
+		if page.chart_node().is_ancestor_of(found):
+			in_chart += 1
+	TestFixtures.check(res, "the page holds two scrolls", scrolls.size() == 2,
 		"%d" % scrolls.size())
-	TestFixtures.check(res, "the scroll belongs to the roster",
-		scrolls.size() == 1 and page.company_list.is_ancestor_of(scrolls[0]), "roster")
+	TestFixtures.check(res, "one scroll belongs to the roster", in_roster == 1,
+		"%d" % in_roster)
+	TestFixtures.check(res, "one scroll belongs to the chart tip", in_chart == 1,
+		"%d" % in_chart)
 	await _drop(host, page)
 
 
-#GX4F-13: the page mounts to its full size with no anchor warning.
+#The page mounts to its full size with no anchor warning.
 static func _case_mount_size(res: Dictionary, host: Node) -> void:
 	var page: InvestTab = await _mount(host)
 	TestFixtures.check(res, "the page mounts at its full size", page.size == PAGE_SIZE,
@@ -206,25 +310,25 @@ static func _colour_rows(res: Dictionary, page: InvestTab, list: InvestCompanyLi
 	var saved: PackedFloat32Array = StockMarket.companies[OTHER_FREE_K].history
 	var row7: InvestCompanyItem = list.item(OTHER_FREE_K)
 	_force_change(OTHER_FREE_K, 100.0, 110.0)
-	page.refresh()
+	page.mark_dirty()
 	TestFixtures.check(res, "a rising row reads +10.0%", row7.change_text() == "+10.0%",
 		row7.change_text())
 	TestFixtures.check(res, "a rising row is green", row7.change_color() == InvestText.GREEN,
 		"%s" % row7.change_color())
 	_force_change(OTHER_FREE_K, 100.0, 90.0)
-	page.refresh()
+	page.mark_dirty()
 	TestFixtures.check(res, "a falling row reads -10.0%", row7.change_text() == "-10.0%",
 		row7.change_text())
 	TestFixtures.check(res, "a falling row is red", row7.change_color() == InvestText.RED,
 		"%s" % row7.change_color())
 	_force_change(OTHER_FREE_K, 100.0, 100.0)
-	page.refresh()
+	page.mark_dirty()
 	TestFixtures.check(res, "a flat row reads +0.0%", row7.change_text() == "+0.0%",
 		row7.change_text())
 	TestFixtures.check(res, "a flat row is cream", row7.change_color() == InvestText.CREAM,
 		"%s" % row7.change_color())
 	StockMarket.companies[OTHER_FREE_K].history = saved
-	page.refresh()
+	page.mark_dirty()
 
 
 #The unread dot of a roster row and the pick that clears it.
@@ -232,9 +336,8 @@ static func _dot_rows(res: Dictionary, host: Node, page: InvestTab,
 		list: InvestCompanyList) -> void:
 	var row7: InvestCompanyItem = list.item(OTHER_FREE_K)
 	TestFixtures.check(res, "no unread row leaves the dot off", not row7.has_dot(), "dot off")
-	NotificationCenter.push(NotificationData.TYPE_STOCK_MOVE, OTHER_FREE_K,
-		{"company_id": OTHER_FREE_K, "company": "Company", "pct": 5.0, "band": 1})
-	page.refresh()
+	_push_move(OTHER_FREE_K)
+	page.mark_dirty()
 	TestFixtures.check(res, "an unread row lights the dot", row7.has_dot(), "dot on")
 	page.select_company(OTHER_FREE_K)
 	await host.get_tree().process_frame
@@ -245,8 +348,7 @@ static func _dot_rows(res: Dictionary, host: Node, page: InvestTab,
 #page_shown marks the open company viewed; _ready does not
 
 static func _case_viewed(res: Dictionary, host: Node) -> void:
-	NotificationCenter.push(NotificationData.TYPE_STOCK_MOVE, 0,
-		{"company_id": 0, "company": "Company", "pct": 5.0, "band": 1})
+	_push_move(0)
 	var page: InvestTab = await _mount(host)
 	TestFixtures.check(res, "_ready leaves the alert unread", StockMarket.has_unread(0),
 		"still unread")
@@ -551,6 +653,175 @@ static func _event_rows(res: Dictionary, page: InvestTab) -> void:
 	page.select_company(0)
 
 
+#The chart hover tip: its height fits its rows, three event rows show and the rest scroll
+
+static func _case_hover_tip(res: Dictionary, host: Node) -> void:
+	var page: InvestTab = await _mount(host)
+	var chart: InvestChart = page.chart_node()
+	var company: StockCompany = StockMarket.companies[ENTRY_COMPANY]
+	var saved_history: PackedFloat32Array = company.history.duplicate()
+	var saved_events: Array[Dictionary] = company.events.duplicate(true)
+	var saved_fair: float = company.lf
+	company.events.clear()
+	page.select_company(ENTRY_COMPANY)
+	await TestFixtures.frames(host)
+	await _tip_one_row(res, host, chart)
+	await _tip_capped(res, host, chart)
+	company.history = saved_history
+	company.events = saved_events
+	company.lf = saved_fair
+	await _tip_sweep(res, host, page)
+	await _drop(host, page)
+
+
+#Adds failed contracts to the last sample of company 4, then hovers that sample afresh.
+static func _hover_stack(host: Node, chart: InvestChart, extra: int) -> void:
+	for _i: int in extra:
+		StockMarket.contract_result(ENTRY_ID, false, 1.0)
+	await TestFixtures.frames(host)
+	chart.clear_hover()
+	chart.hover_at(1.0)
+	await TestFixtures.frames(host)
+
+
+static func _tip_wheel(up: bool) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_WHEEL_UP if up else MOUSE_BUTTON_WHEEL_DOWN
+	event.pressed = true
+	return event
+
+
+#The name of every Control under root that would take a mouse event.
+static func _tip_blockers(root: Node, out: Array[String]) -> void:
+	for child: Node in root.get_children(true):
+		var control: Control = child as Control
+		if control != null and control.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+			out.append(String(control.name))
+		_tip_blockers(child, out)
+
+
+#One failed contract on the last sample: a short tip as tall as its content, no scroll.
+static func _tip_one_row(res: Dictionary, host: Node, chart: InvestChart) -> void:
+	await _hover_stack(host, chart, 1)
+	var tip: PanelContainer = chart.hover_tip
+	var scroll: ScrollContainer = chart.event_scroll
+	var rows: int = chart.tip_events.get_child_count()
+	TestFixtures.check(res, "a failed contract adds one tip row", rows == 1, "%d rows" % rows)
+	var events: Array = chart.hover_texts().get("events", []) as Array
+	var tint: Color = Color.BLACK
+	if not events.is_empty():
+		tint = (events[0] as Dictionary).get("color", Color.BLACK) as Color
+	TestFixtures.check(res, "a failed contract row is red", tint == InvestText.RED, "%s" % tint)
+	TestFixtures.check(res, "the tip shows on a hovered sample", tip.visible, "visible")
+	var fit: float = tip.get_combined_minimum_size().y
+	TestFixtures.check(res, "a one row tip is as tall as its content",
+		absf(tip.size.y - fit) < TIP_FIT_TOLERANCE, "%.1f vs %.1f" % [tip.size.y, fit])
+	TestFixtures.check(res, "a one row tip stays short", tip.size.y < TIP_ONE_ROW_MAX,
+		"%.1f" % tip.size.y)
+	TestFixtures.check(res, "a one row tip keeps its width",
+		_near(tip.size.x, InvestChart.TIP_WIDTH), "%.1f" % tip.size.x)
+	TestFixtures.check(res, "a one row list shows no scroll bar",
+		not scroll.get_v_scroll_bar().visible, "hidden")
+	chart._gui_input(_tip_wheel(false))
+	TestFixtures.check(res, "the wheel leaves a one row list alone", scroll.scroll_vertical == 0,
+		"%d" % scroll.scroll_vertical)
+
+
+#Six failed contracts on the last sample: three rows show, the rest scroll with the wheel.
+static func _tip_capped(res: Dictionary, host: Node, chart: InvestChart) -> void:
+	await _hover_stack(host, chart, TIP_STACKED - 1)
+	var tip: PanelContainer = chart.hover_tip
+	var scroll: ScrollContainer = chart.event_scroll
+	var list: VBoxContainer = chart.tip_events
+	var rows: int = list.get_child_count()
+	TestFixtures.check(res, "stacked failures all reach the tip", rows == TIP_STACKED,
+		"%d rows" % rows)
+	if rows <= InvestChart.EVENT_ROWS_VISIBLE:
+		return
+	var last_shown: Control = list.get_child(InvestChart.EVENT_ROWS_VISIBLE - 1) as Control
+	var cap: float = last_shown.position.y + last_shown.size.y
+	TestFixtures.check(res, "the list is as tall as its first three rows",
+		absf(scroll.custom_minimum_size.y - cap) < TIP_FIT_TOLERANCE
+			and absf(scroll.size.y - cap) < TIP_FIT_TOLERANCE,
+		"min %.1f size %.1f rows %.1f" % [scroll.custom_minimum_size.y, scroll.size.y, cap])
+	TestFixtures.check(res, "the rows are taller than the list",
+		list.size.y > scroll.size.y + TIP_FIT_TOLERANCE,
+		"%.1f vs %.1f" % [list.size.y, scroll.size.y])
+	TestFixtures.check(res, "a capped list shows its scroll bar",
+		scroll.get_v_scroll_bar().visible, "visible")
+	var settled: float = tip.size.y
+	var fit: float = tip.get_combined_minimum_size().y
+	TestFixtures.check(res, "a capped tip is as tall as its content",
+		absf(settled - fit) < TIP_FIT_TOLERANCE, "%.1f vs %.1f" % [settled, fit])
+	var bottom: float = tip.position.y + settled
+	TestFixtures.check(res, "a capped tip stays inside the chart", bottom <= chart.size.y,
+		"%.1f of %.1f" % [bottom, chart.size.y])
+	TestFixtures.check(res, "a capped tip keeps its width",
+		_near(tip.size.x, InvestChart.TIP_WIDTH), "%.1f" % tip.size.x)
+	var blockers: Array[String] = []
+	_tip_blockers(tip, blockers)
+	TestFixtures.check(res, "nothing in the tip takes the mouse",
+		tip.mouse_filter == Control.MOUSE_FILTER_IGNORE and blockers.is_empty(),
+		"%d blockers: %s" % [blockers.size(), ", ".join(blockers)])
+	var step: int = roundi(InvestChart.WHEEL_STEP)
+	chart._gui_input(_tip_wheel(false))
+	TestFixtures.check(res, "the wheel scrolls a capped list", scroll.scroll_vertical == step,
+		"%d" % scroll.scroll_vertical)
+	chart.hover_at(1.0)
+	TestFixtures.check(res, "the same sample keeps the scroll", scroll.scroll_vertical == step,
+		"%d" % scroll.scroll_vertical)
+	chart._gui_input(_tip_wheel(true))
+	TestFixtures.check(res, "the wheel scrolls back up", scroll.scroll_vertical == 0,
+		"%d" % scroll.scroll_vertical)
+	for _i: int in WHEEL_PRESSES:
+		chart._gui_input(_tip_wheel(false))
+	var reach: float = float(scroll.scroll_vertical) + scroll.size.y
+	TestFixtures.check(res, "the wheel reaches the last row",
+		reach >= list.size.y - TIP_FIT_TOLERANCE, "%.1f of %.1f" % [reach, list.size.y])
+	chart.hover_at(0.0)
+	await TestFixtures.frames(host)
+	TestFixtures.check(res, "a sample without events hides the list", not chart.event_frame.visible,
+		"hidden")
+	TestFixtures.check(res, "a sample without events shrinks the tip",
+		absf(tip.size.y - tip.get_combined_minimum_size().y) < TIP_FIT_TOLERANCE
+			and tip.size.y < settled - TIP_FIT_TOLERANCE, "%.1f from %.1f" % [tip.size.y, settled])
+	chart.hover_at(1.0)
+	await TestFixtures.frames(host)
+	TestFixtures.check(res, "a new sample resets the scroll", scroll.scroll_vertical == 0,
+		"%d" % scroll.scroll_vertical)
+	await _hover_stack(host, chart, 1)
+	TestFixtures.check(res, "one more failure adds a row", list.get_child_count() == TIP_STACKED + 1,
+		"%d rows" % list.get_child_count())
+	TestFixtures.check(res, "one more row leaves the tip height alone",
+		absf(tip.size.y - settled) < TIP_FIT_TOLERANCE, "%.1f vs %.1f" % [tip.size.y, settled])
+
+
+#Five years of samples for companies 2 to 5: a tip with events is as tall as its content.
+static func _tip_sweep(res: Dictionary, host: Node, page: InvestTab) -> void:
+	page.set_range("5Y")
+	var chart: InvestChart = page.chart_node()
+	var tip: PanelContainer = chart.hover_tip
+	var checked: int = 0
+	var bad: Array[String] = []
+	for k: int in range(TIP_SWEEP_FIRST, TIP_SWEEP_LAST + 1):
+		page.select_company(k)
+		var n: int = chart.sample_count()
+		for j: int in n:
+			chart.hover_at(float(j) / float(n - 1))
+			if chart.tip_events.get_child_count() == 0:
+				continue
+			await TestFixtures.frames(host)
+			checked += 1
+			var fit: float = tip.get_combined_minimum_size().y
+			var bottom: float = tip.position.y + tip.size.y
+			if absf(tip.size.y - fit) >= TIP_FIT_TOLERANCE or bottom > chart.size.y:
+				bad.append("c%d s%d %.0f of %.0f" % [k, j, tip.size.y, fit])
+	TestFixtures.check(res, "a tip with events is as tall as its content on every sample",
+		checked > 0 and bad.is_empty(), TestFixtures.detail(bad, checked, "samples"))
+	chart.clear_hover()
+	page.set_range("1Y")
+
+
 #The reveal sweep
 
 static func _case_reveal(res: Dictionary, host: Node) -> void:
@@ -608,23 +879,20 @@ static func _case_widgets(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the position prints its value",
 		pos.value_text() == InvestText.value_text(float(held.get("value", 0.0))),
 		pos.value_text())
-	TestFixtures.check(res, "the position prints its shares and its move",
-		pos.gain_text() == " (%s, %s)" % [InvestText.shares_text(int(held.get("shares", 0))),
-			InvestText.change_text(float(held.get("gain_pct", 0.0)))],
+	TestFixtures.check(res, "the position prints its shares and its move under the value",
+		pos.gain_text() == "%s, %s" % [InvestText.shares_text(int(held.get("shares", 0))),
+			InvestText.change_text(float(held.get("gain_pct", 0.0)))]
+			and pos.gain_label.visible and pos.gain_label.text == pos.gain_text(),
 		pos.gain_text())
-	TestFixtures.check(res, "the worth suffix runs small and trims before widening the column",
-		pos.value_notes.suffix_label.get_theme_font_size("font_size") == InvestPosition.SUFFIX_SIZE
-			and pos.value_notes.suffix_label.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS
-			and pos.value_notes.suffix_label.size_flags_horizontal == Control.SIZE_EXPAND_FILL,
-		str(pos.value_notes.suffix_label.get_theme_font_size("font_size")))
+	TestFixtures.check(res, "the worth line carries no suffix",
+		pos.value_notes.suffix == "", pos.value_notes.suffix)
 	TestFixtures.check(res, "a positive share count carries no minus sign",
 		not pos.gain_text().contains(" - ") and
 			not pos.gain_text().contains("-%d share" % int(held.get("shares", 0))),
 		pos.gain_text())
-	TestFixtures.check(res, "the position counts its dividends since the buy day",
-		pos.dividends_text() == "%s notes earned in dividends since %s" % [
-			InvestText.notes_text(int(held.get("dividends", 0))),
-			InvestText.since_text(int(held.get("since_day", 0)))],
+	TestFixtures.check(res, "the position counts its dividends over its payouts",
+		pos.dividends_text() == "+%s notes over %d dividend payouts" % [
+			InvestText.notes_text(int(held.get("dividends", 0))), int(held.get("payouts", 0))],
 		pos.dividends_text())
 	page.select_company(3)
 	await host.get_tree().process_frame
@@ -712,6 +980,16 @@ static func _case_captions(res: Dictionary, host: Node) -> void:
 			and field.max_button.custom_minimum_size == Vector2(56.0, 28.0)
 			and field.field.custom_minimum_size == Vector2(0.0, 28.0),
 		"%s" % [field.minus_button.custom_minimum_size])
+	var bazaar_scene: PackedScene = load(STEPPER_SCENE) as PackedScene
+	var bazaar: QuantityStepper = bazaar_scene.instantiate() as QuantityStepper
+	var bazaar_box: StyleBox = (bazaar.get_node("ValueBox") as Control).get_theme_stylebox("panel")
+	var bazaar_size: int = (bazaar.get_node("ValueBox/Value") as Label).get_theme_font_size("font_size")
+	TestFixtures.check(res, "the quantity value sits in the Bazaar inset box at its type size",
+		bazaar_box != null and field.field.get_theme_stylebox("normal") == bazaar_box
+			and field.field.get_theme_stylebox("focus") == bazaar_box
+			and field.field.get_theme_font_size("font_size") == bazaar_size,
+		"%d vs %d" % [field.field.get_theme_font_size("font_size"), bazaar_size])
+	bazaar.free()
 	var minus: IconRect = field.minus_button.get_node("Glyph") as IconRect
 	var plus: IconRect = field.plus_button.get_node("Glyph") as IconRect
 	TestFixtures.check(res, "the minus and plus are atlas art at two pixels an art pixel",
@@ -744,7 +1022,7 @@ static func _case_captions(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the confirmation opens for its caption check", box != null,
 		"%s" % box)
 	_caption_row(res, box.cancel_button, "Cancel", InvestText.CREAM, "the dialog Cancel")
-	_caption_row(res, box.ok_button, "Confirm", InvestText.INK, "the dialog Confirm")
+	_caption_row(res, box.confirm_button, "Confirm", InvestText.INK, "the dialog Confirm")
 	page.press_confirm_cancel()
 	_range_captions(res, page)
 	await _drop(host, page)
@@ -816,12 +1094,20 @@ static func _case_quantity(res: Dictionary, host: Node) -> void:
 		"%d" % field.value)
 	TestFixtures.check(res, "the field prints its value", field.field.text == "1",
 		field.field.text)
+	var rest_typed: Color = field.field.get_theme_color("font_color")
 	field.press_minus()
 	TestFixtures.check(res, "minus at one share holds", field.value == 1, "%d" % field.value)
 	TestFixtures.check(res, "minus at one share tints the field", field.is_rejecting(),
 		"rejecting")
-	field.end_reject()
+	TestFixtures.check(res, "a refused press paints the field red",
+		_field_wears(field, QuantityStepper.STYLE_REJECT), "red")
+	var typed: Color = field.field.get_theme_color("font_color")
+	TestFixtures.check(res, "the typed number does not turn red",
+		typed == rest_typed and not typed.is_equal_approx(InvestText.RED), typed.to_html(false))
+	field.step_reject(field.reject_seconds)
 	TestFixtures.check(res, "the reject ends", not field.is_rejecting(), "settled")
+	TestFixtures.check(res, "the field drops the red once the reject ends",
+		_field_wears(field, QuantityStepper.STYLE_REST), "rest")
 	field.press_plus()
 	TestFixtures.check(res, "plus adds one share", field.value == 2, "%d" % field.value)
 	field.press_max()
@@ -854,6 +1140,10 @@ static func _case_quantity(res: Dictionary, host: Node) -> void:
 	_hold_steps(res, field)
 	_shake_base_holds(res, field)
 	await _drop(host, page)
+
+
+static func _field_wears(field: InvestQuantityField, style: StyleBox) -> bool:
+	return field.field.get_theme_stylebox("normal") == style and field.field.get_theme_stylebox("focus") == style
 
 
 #A held minus or plus button: nothing before the delay, one step as it is crossed, then a step
@@ -916,6 +1206,143 @@ static func _shake_base_holds(res: Dictionary, field: InvestQuantityField) -> vo
 	field.set_value_silent(1)
 
 
+#A press on minus or plus steps at once like every other stepper, a release adds nothing, and a
+#press at a bound rejects once without a step.
+static func _case_quantity_press(res: Dictionary, host: Node) -> void:
+	const PINNED_DELAY: float = 60.0
+	var page: InvestTab = await _mount(host)
+	page.select_company(FREE_K)
+	page.set_side(InvestTradePanel.SIDE_BUY)
+	await host.get_tree().process_frame
+	var field: InvestQuantityField = page.panel_node().quantity_field
+	var top: int = field.ceiling()
+	var heard: CueLog = CueLog.new()
+	var bounces: Array[int] = [0]
+	var watcher: Callable = func(_side: int) -> void:
+		bounces[0] += 1
+	AudioManager.played.connect(heard.record)
+	field.rejected.connect(watcher)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the press cases have room to step", top >= 4, "%d" % top)
+	field.hold_delay = PINNED_DELAY
+	field.set_value_silent(1)
+	await _press_steps(res, host, field, heard, field.plus_button, "plus", 2)
+	await _press_steps(res, host, field, heard, field.minus_button, "minus", 1)
+	TestFixtures.check(res, "presses and releases reject nothing", bounces[0] == 0,
+		"%d" % bounces[0])
+	field.hold_delay = InvestQuantityField.HOLD_DELAY
+	_press_holds(res, field)
+	await host.get_tree().process_frame
+	field.set_value_silent(top)
+	await _press_at_bound(res, host, field, heard, bounces, field.plus_button,
+		"plus at the ceiling")
+	field.set_value_silent(1)
+	await _press_at_bound(res, host, field, heard, bounces, field.minus_button,
+		"minus at one share")
+	await _hold_into_ceiling(res, host, field, heard, bounces)
+	field.set_value_silent(1)
+	field.max_button.pressed.emit()
+	TestFixtures.check(res, "the Max button takes the ceiling on its press", field.value == top,
+		"%d" % field.value)
+	field.end_reject()
+	AudioManager.played.disconnect(heard.record)
+	field.rejected.disconnect(watcher)
+	await _drop(host, page)
+
+
+#One press and release of a step button: the value moves at once, the step click plays once, and
+#the release adds neither a step nor a sound.
+static func _press_steps(res: Dictionary, host: Node, field: InvestQuantityField, heard: CueLog,
+		button: Button, what: String, want: int) -> void:
+	heard.clear()
+	button.button_down.emit()
+	TestFixtures.check(res, "a press of %s steps at once" % what, field.value == want,
+		"%d vs %d" % [field.value, want])
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a press of %s plays one step click" % what,
+		heard.clicks == 1 and heard.rejects == 0, heard.text())
+	heard.clear()
+	button.pressed.emit()
+	button.button_up.emit()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the release of %s adds no step" % what, field.value == want,
+		"%d vs %d" % [field.value, want])
+	TestFixtures.check(res, "the release of %s plays nothing" % what,
+		heard.clicks == 0 and heard.rejects == 0, heard.text())
+
+
+#A pressed plus: the press steps, the hold repeats once the delay is crossed, the release ends it.
+static func _press_holds(res: Dictionary, field: InvestQuantityField) -> void:
+	field.set_value_silent(1)
+	field.plus_button.button_down.emit()
+	field.step_hold(0.2)
+	TestFixtures.check(res, "a pressed plus adds nothing more under the delay", field.value == 2,
+		"%d" % field.value)
+	field.step_hold(0.2)
+	TestFixtures.check(res, "a pressed plus steps again past the delay", field.value == 3,
+		"%d" % field.value)
+	field.plus_button.pressed.emit()
+	field.plus_button.button_up.emit()
+	field.step_hold(1.0)
+	TestFixtures.check(res, "the release of a pressed plus ends the hold", field.value == 3,
+		"%d" % field.value)
+	field.set_value_silent(1)
+
+
+#A press whose step runs past a bound: the value stays, one reject plays, no step click plays, no
+#hold is armed, and the release adds nothing.
+static func _press_at_bound(res: Dictionary, host: Node, field: InvestQuantityField,
+		heard: CueLog, bounces: Array[int], button: Button, what: String) -> void:
+	var kept: int = field.value
+	heard.clear()
+	bounces[0] = 0
+	button.button_down.emit()
+	TestFixtures.check(res, "a press of %s keeps the value" % what, field.value == kept,
+		"%d vs %d" % [field.value, kept])
+	TestFixtures.check(res, "a press of %s tints the field" % what, field.is_rejecting(),
+		"rejecting")
+	field.step_hold(1.0)
+	TestFixtures.check(res, "a press of %s arms no hold" % what,
+		bounces[0] == 1 and field.value == kept, "%d rejects, value %d" % [bounces[0], field.value])
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a press of %s rejects once" % what,
+		bounces[0] == 1 and heard.rejects == 1, "%d signals, %s" % [bounces[0], heard.text()])
+	TestFixtures.check(res, "a press of %s plays no step click" % what, heard.clicks == 0,
+		heard.text())
+	heard.clear()
+	button.pressed.emit()
+	button.button_up.emit()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the release of %s adds nothing" % what,
+		bounces[0] == 1 and field.value == kept and heard.clicks == 0 and heard.rejects == 0,
+		"%d signals, value %d, %s" % [bounces[0], field.value, heard.text()])
+	field.end_reject()
+
+
+#A press that lands on the ceiling steps once; the hold that follows runs into it and rejects once.
+static func _hold_into_ceiling(res: Dictionary, host: Node, field: InvestQuantityField,
+		heard: CueLog, bounces: Array[int]) -> void:
+	var top: int = field.ceiling()
+	field.set_value_silent(top - 1)
+	heard.clear()
+	bounces[0] = 0
+	field.plus_button.button_down.emit()
+	TestFixtures.check(res, "a press onto the ceiling steps without a reject",
+		field.value == top and bounces[0] == 0, "%d, %d rejects" % [field.value, bounces[0]])
+	field.step_hold(0.4)
+	field.step_hold(1.0)
+	field.plus_button.pressed.emit()
+	field.plus_button.button_up.emit()
+	TestFixtures.check(res, "a hold into the ceiling rejects once",
+		bounces[0] == 1 and field.value == top, "%d rejects, value %d" % [bounces[0], field.value])
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a hold into the ceiling plays one step click and one reject",
+		heard.clicks == 1 and heard.rejects == 1, heard.text())
+	field.end_reject()
+	field.set_value_silent(1)
+
+
 #The three rows and the two cells of the trade panel
 
 static func _case_rows(res: Dictionary, host: Node) -> void:
@@ -949,7 +1376,26 @@ static func _case_rows(res: Dictionary, host: Node) -> void:
 		not panel.confirm_button.disabled
 			and is_equal_approx(panel.confirm_button.modulate.a, 1.0),
 		"%.2f" % panel.confirm_button.modulate.a)
+	TestFixtures.check(res, "a buy with no position shows no change row",
+		not panel.change_row.visible, panel.change_label.text)
+	var cell_fill: StyleBox = panel.share_cell.get_theme_stylebox("panel")
+	var panel_fill: StyleBox = panel.get_theme_stylebox("panel")
+	TestFixtures.check(res, "both cells sit on the row fill, lighter than the panel",
+		cell_fill is StyleBoxFlat and panel_fill is StyleBoxFlat
+			and panel.value_cell.get_theme_stylebox("panel") == cell_fill
+			and _same_color((cell_fill as StyleBoxFlat).bg_color, InvestText.NAVY2)
+			and (cell_fill as StyleBoxFlat).bg_color.get_luminance()
+				> (panel_fill as StyleBoxFlat).bg_color.get_luminance(), "%s" % cell_fill)
 	page.select_company(HELD_K)
+	page.set_quantity(5)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a buy against 25 shares prints a green plus 20 percent",
+		panel.change_row.visible and panel.change_label.text == "+20.0%"
+			and panel.change_label.get_theme_color("font_color") == InvestText.GREEN,
+		panel.change_label.text)
+	TestFixtures.check(res, "a rising position value carries a green up arrow",
+		panel.change_arrow.icon_id == "trend_up"
+			and panel.change_arrow.tint == InvestText.GREEN, panel.change_arrow.icon_id)
 	page.set_side(InvestTradePanel.SIDE_SELL)
 	page.set_quantity(4)
 	await host.get_tree().process_frame
@@ -966,6 +1412,19 @@ static func _case_rows(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the value cell prices the position after the sale",
 		sell_cells[1] == InvestText.value_text(float(panel.shares_held() - 4) * sell_px),
 		sell_cells[1])
+	TestFixtures.check(res, "a sale of 4 of 25 prints a red minus 16 percent",
+		panel.change_row.visible and panel.change_label.text == "-16.0%"
+			and panel.change_label.get_theme_color("font_color") == InvestText.RED,
+		panel.change_label.text)
+	TestFixtures.check(res, "a falling position value carries a red down arrow",
+		panel.change_arrow.icon_id == "trend_down"
+			and panel.change_arrow.tint == InvestText.RED, panel.change_arrow.icon_id)
+	panel.show_change(100.0, 100.02)
+	TestFixtures.check(res, "a move under the flat limit hides the change row",
+		not panel.change_row.visible, "%s" % panel.change_row.visible)
+	panel.show_change(0.0, 50.0)
+	TestFixtures.check(res, "a zero position value hides the change row",
+		not panel.change_row.visible, "%s" % panel.change_row.visible)
 	TestFixtures.check(res, "a sale labels its shares",
 		panel.confirm_label() == "Sell 4 Shares", panel.confirm_label())
 	panel.quantity_field.max_value = 2000
@@ -994,12 +1453,25 @@ static func _case_rows(res: Dictionary, host: Node) -> void:
 	await _drop(host, page)
 
 
-static func _row_name(row: PanelContainer) -> String:
-	return (row.get_node("Row/NameLabel") as Label).text
+static func _row_name(row: ValueRow) -> String:
+	return row.caption
 
 
 static func _cell_name(cell: PanelContainer) -> String:
 	return (cell.get_node("Col/NameLabel") as Label).text
+
+
+#True when every state of the button paints the lit blue box, or every state paints no box.
+static func _lit_box(button: Button, lit: bool) -> bool:
+	for state: StringName in GuiStyle.BOX_STATES:
+		var box: StyleBox = button.get_theme_stylebox(state)
+		if not lit:
+			if not (box is StyleBoxEmpty):
+				return false
+		elif not (box is StyleBoxFlat) or not _same_color((box as StyleBoxFlat).bg_color,
+				InvestText.BLUE):
+			return false
+	return true
 
 
 #The trade confirmation, both sides
@@ -1108,6 +1580,11 @@ static func _case_sell_all(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the held company opens with its position widget",
 		page.position_widget() != null, "%s" % page.position_widget())
 	page.set_quantity(page.max_quantity())
+	var panel: InvestTradePanel = page.panel_node()
+	TestFixtures.check(res, "selling every share prints a red minus 100 percent",
+		panel.change_row.visible and panel.change_label.text == "-100.0%"
+			and panel.change_label.get_theme_color("font_color") == InvestText.RED,
+		panel.change_label.text)
 	page.press_confirm()
 	page.press_confirm_ok()
 	await host.get_tree().process_frame
@@ -1186,7 +1663,7 @@ static func _tooltip_contract(res: Dictionary, host: Node, page: InvestTab,
 		tip.status_text())
 	var accepted: Dictionary = StockMarket.last_accepted(ENTRY_COMPANY)
 	TestFixtures.check(res, "the row tints the status",
-		tip.status_color() == Color(String(accepted.get("color", "#f3ead7"))),
+		tip.status_color() == (accepted.get("color", InvestText.CREAM) as Color),
 		"%s" % tip.status_color())
 	TestFixtures.check(res, "the row carries the entry id", tip.entry_id() == ENTRY_ID,
 		"%d" % tip.entry_id())
@@ -1257,7 +1734,7 @@ static func _case_modal_host(res: Dictionary, host: Node) -> void:
 	shell.size = PAGE_SIZE
 	host.add_child(shell)
 	var layer := Control.new()
-	layer.name = InvestTab.MODAL_NAME
+	layer.name = String(FinanceViewer.MODAL_LAYER)
 	shell.add_child(layer)
 	var page: InvestTab = (load(PAGE_SCENE) as PackedScene).instantiate() as InvestTab
 	shell.add_child(page)
@@ -1267,11 +1744,11 @@ static func _case_modal_host(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a layer outside the group is not the host",
 		page.modal_host() == page, "%s" % page.modal_host())
-	layer.add_to_group(InvestTab.MODAL_GROUP)
+	layer.add_to_group(FinanceViewer.MODAL_GROUP)
 	TestFixtures.check(res, "a grouped layer is the host", page.modal_host() == layer,
 		"%s" % page.modal_host())
-	layer.remove_from_group(InvestTab.MODAL_GROUP)
-	shell.add_to_group(InvestTab.MODAL_GROUP)
+	layer.remove_from_group(FinanceViewer.MODAL_GROUP)
+	shell.add_to_group(FinanceViewer.MODAL_GROUP)
 	TestFixtures.check(res, "a grouped ancestor gives its layer", page.modal_host() == layer,
 		"%s" % page.modal_host())
 	page.select_company(FREE_K)
@@ -1294,7 +1771,7 @@ static func _case_hidden(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a shown page is clean", not page.is_dirty(), "clean")
 	page.visible = false
 	await host.get_tree().process_frame
-	page.refresh()
+	page.mark_dirty()
 	TestFixtures.check(res, "a refresh while hidden is held", page.is_dirty(), "dirty")
 	page.visible = true
 	await host.get_tree().process_frame
@@ -1306,7 +1783,7 @@ static func _case_hidden(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a market change while hidden is held", page.is_dirty(), "dirty")
 	page.visible = true
 	await host.get_tree().process_frame
-	page.refresh()
+	page.mark_dirty()
 	TestFixtures.check(res, "a refresh while shown runs at once", not page.is_dirty(), "clean")
 	await _drop(host, page)
 
@@ -1367,8 +1844,12 @@ static func _case_glyphs(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "Buy lights its own label",
 		panel.buy_button.get_theme_color("font_color") == InvestText.GREEN,
 		panel.buy_button.get_theme_color("font_color").to_html(false))
+	TestFixtures.check(res, "Buy selected lights a box behind Buy and none behind Sell",
+		_lit_box(panel.buy_button, true) and _lit_box(panel.sell_button, false), "sides")
 	page.set_side(InvestTradePanel.SIDE_SELL)
 	await host.get_tree().process_frame
+	TestFixtures.check(res, "Sell selected lights a box behind Sell and none behind Buy",
+		_lit_box(panel.sell_button, true) and _lit_box(panel.buy_button, false), "sides")
 	TestFixtures.check(res, "the Sell arrow is mirrored", panel.arrow.flip_h, "flipped")
 	TestFixtures.check(res, "the Sell arrow is red",
 		panel.arrow.texture == InvestGlyphs.arrow(InvestText.RED, InvestTradePanel.ARROW_SCALE),
@@ -1383,9 +1864,9 @@ static func _case_glyphs(res: Dictionary, host: Node) -> void:
 		page.range_button("5Y").body_color() == InvestText.BLUE2,
 		page.range_button("5Y").body_color().to_html(false))
 	TestFixtures.check(res, "the active range inks its text",
-		page.range_button("1Y").text_color() == InvestText.INK, "ink")
+		page.range_button("1Y").text_color == InvestText.INK, "ink")
 	TestFixtures.check(res, "an idle range creams its text",
-		page.range_button("5Y").text_color() == InvestText.CREAM, "cream")
+		page.range_button("5Y").text_color == InvestText.CREAM, "cream")
 	await _drop(host, page)
 
 

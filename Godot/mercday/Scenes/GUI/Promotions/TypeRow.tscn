@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Promotions/TypeRow.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FitStars.tscn" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/Stars.gd" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FeatureLock.tscn" id="3"]
 
 [node name="TypeRow" type="Button"]
@@ -46,9 +46,15 @@ clip_text = true
 mouse_filter = 2
 autowrap_mode = 3
 
-[node name="Stars" parent="Body/Texts" instance=ExtResource("2")]
+[node name="Stars" type="Control" parent="Body/Texts"]
 layout_mode = 2
 mouse_filter = 1
+script = ExtResource("2")
+ramp = &"match"
+snap_half = true
+star_px = 1
+value_tip = false
+value = 0.5
 
 [node name="Effect" type="VBoxContainer" parent="Body"]
 mouse_filter = 1

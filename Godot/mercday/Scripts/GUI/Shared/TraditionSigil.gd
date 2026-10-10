@@ -3,8 +3,6 @@ class_name TraditionSigil extends Control
 #The tradition sigil. A tradition with an atlas id draws its own colour art unmodulated; anything
 #else falls back to the icon export, which is white art so modulate carries the tint.
 
-const CREAM: Color = Color("#f3ead7")
-
 @export var tradition: String = "":
 	set(value):
 		tradition = value
@@ -13,7 +11,7 @@ const CREAM: Color = Color("#f3ead7")
 	set(value):
 		icon = value
 		_refresh()
-@export var tint: Color = CREAM:
+@export var tint: Color = GuiColors.CREAM:
 	set(value):
 		tint = value
 		_refresh()

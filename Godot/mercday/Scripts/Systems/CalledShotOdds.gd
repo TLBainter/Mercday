@@ -144,7 +144,7 @@ static func plain_score(merc: MercenaryData, target: MercenaryData, state: Battl
 	return float(expected_marked(ctx, 0)["damage"])
 
 
-#D: what this option is worth against this target: the HP it still marks plus the effect when it lands.
+#What this option is worth against this target: the HP it still marks plus the effect when it lands.
 static func option_score(merc: MercenaryData, target: MercenaryData, key: String, state: BattleState,
 		enhancements: int = 0, ctx: Dictionary = {}) -> float:
 	if merc == null or target == null or not CalledShotSystem.OPTIONS.has(key):

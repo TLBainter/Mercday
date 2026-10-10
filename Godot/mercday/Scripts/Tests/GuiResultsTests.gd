@@ -17,11 +17,14 @@ const FAIL_EXPENSE: int = 150
 const BONUS_PCT: int = 10
 const LEVEL_NEED: int = 160
 const LEVEL_NEED_AFTER: int = 180
+#The preview results send the first four of the roster: in the failure the second dies and the third is captured.
+const PREVIEW_CREW: int = 4
 
 
 static func run(host: Node) -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
 	_fresh()
+	TestFixtures.add_mercs(PREVIEW_CREW - GameState.mercs.size())
 	await host.get_tree().process_frame
 	_case_keys(res)
 	_case_verdict_curve(res)
@@ -31,6 +34,7 @@ static func run(host: Node) -> bool:
 	_case_pay(res)
 	await _case_mount_size(res, host)
 	await _case_panel_pending(res, host)
+	await _case_panel_start(res, host)
 	await _case_panel_fates(res, host)
 	await _case_panel_verdict(res, host)
 	await _case_panel_money(res, host)
@@ -38,8 +42,10 @@ static func run(host: Node) -> bool:
 	await _case_panel_bonus(res, host)
 	await _case_panel_fly(res, host)
 	await _case_panel_continue(res, host)
+	await _case_panel_cue(res, host)
 	await _case_panel_fit(res, host)
 	await _case_panel_real_view(res, host)
+	await _case_panel_time_hold(res, host)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	return TestFixtures.summarize(res, "GUI RESULTS")
 
@@ -63,6 +69,42 @@ static func _panel(host: Node) -> ContractResults:
 	return node
 
 
+static func _open(host: Node, result: ContractResultData) -> ContractResults:
+	var node: ContractResults = _panel(host)
+	node.show_result(result)
+	await host.get_tree().process_frame
+	return node
+
+
+#The panel holds campaign time while it shows: paused on open, the old speed back on hide and on free.
+static func _case_panel_time_hold(res: Dictionary, host: Node) -> void:
+	await host.get_tree().process_frame
+	var ticking: bool = GameState.clock.is_processing()
+	GameState.clock.set_process(false)
+	GameState.set_speed(ClockRunner.Speed.PLAY)
+	TestFixtures.check(res, "no results panel holds time before one opens",
+		not GameState.is_time_held(), "held")
+	var panel: ContractResults = await _open(host, _made(false, 2, 0))
+	TestFixtures.check(res, "an open results panel pauses time",
+		GameState.is_time_held() and GameState.clock.speed == ClockRunner.Speed.PAUSE,
+		"held %s speed %d" % [GameState.is_time_held(), GameState.clock.speed])
+	panel.hide()
+	TestFixtures.check(res, "a hidden results panel lets time run at the old speed",
+		not GameState.is_time_held() and GameState.clock.speed == ClockRunner.Speed.PLAY,
+		"held %s speed %d" % [GameState.is_time_held(), GameState.clock.speed])
+	panel.show()
+	TestFixtures.check(res, "a results panel shown again pauses time again",
+		GameState.is_time_held() and GameState.clock.speed == ClockRunner.Speed.PAUSE,
+		"held %s speed %d" % [GameState.is_time_held(), GameState.clock.speed])
+	panel.queue_free()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a freed results panel lets time run at the old speed",
+		not GameState.is_time_held() and GameState.clock.speed == ClockRunner.Speed.PLAY,
+		"held %s speed %d" % [GameState.is_time_held(), GameState.clock.speed])
+	GameState.set_speed(ClockRunner.Speed.PAUSE)
+	GameState.clock.set_process(ticking)
+
+
 #A result built by hand, so the suite owns every number the timeline reads.
 static func _made(failed: bool, count: int, bonus_pct: int) -> ContractResultData:
 	var result := ContractResultData.new()
@@ -75,26 +117,33 @@ static func _made(failed: bool, count: int, bonus_pct: int) -> ContractResultDat
 	result.expenses = FAIL_EXPENSE if failed else SUCCESS_EXPENSE
 	result.bonus_pct = bonus_pct
 	for i: int in count:
-		var member := ResultMemberData.new()
-		member.uid = 900 + i
+		var member: ResultMemberData = _real_member(900 + i, ResultMemberData.Fate.ALIVE)
 		member.name = "Made %d" % i
 		member.role = ContractResultData.ROLE_LEADER if i == 0 else "Guide"
-		member.tradition = "Bowman"
-		member.level_before = 3
-		member.level_after = 3
-		member.xp_before = 20
-		member.xp_need = LEVEL_NEED
-		member.xp_gained = 40
-		member.hp = Vector2i(24, 40)
-		member.ep = Vector2i(12, 20)
-		member.mp = Vector2i(6, 10)
-		member.hp_before = 40
-		member.ep_before = 20
-		member.mp_before = 10
 		result.members.append(member)
 	result.pick_mvp()
 	result.assign_pay()
 	return result
+
+
+#A result whose bars never moved opens on the verdict; one moved bar keeps the clock at zero.
+static func _case_panel_start(res: Dictionary, host: Node) -> void:
+	var still: ContractResultData = _made(false, 2, 0)
+	for member: ResultMemberData in still.members:
+		member.hp_before = member.hp.x
+		member.ep_before = member.ep.x
+		member.mp_before = member.mp.x
+	var panel: ContractResults = _panel(host)
+	panel.show_result(still)
+	TestFixtures.check(res, "a result with no bar change opens on the verdict",
+		_near(panel.time(), ResultsTimeline.VERDICT_IN), "%.2f" % panel.time())
+	var moved: ContractResultData = _made(false, 2, 0)
+	moved.members[0].hp_before = moved.members[0].hp.x + 1
+	panel.show_result(moved)
+	TestFixtures.check(res, "a moved bar keeps the clock at zero", _near(panel.time(), 0.0),
+		"%.2f" % panel.time())
+	panel.queue_free()
+	await host.get_tree().process_frame
 
 
 static func _levelled() -> ResultMemberData:
@@ -140,7 +189,7 @@ static func _mvp_row(result: ContractResultData) -> int:
 	return -1
 
 
-#Case 1: the keys of the timeline and the two shared curves.
+#The keys of the timeline and the two shared curves.
 static func _case_keys(res: Dictionary) -> void:
 	var t: Dictionary = {
 		"BARS_START": [ResultsTimeline.BARS_START, 0.2],
@@ -201,7 +250,7 @@ static func _case_keys(res: Dictionary) -> void:
 			and _near(ResultsTimeline.fate_scale(1.4), 1.0), "1.5 then 1.0")
 
 
-#Case 2: the verdict slam, hold, shrink and flight.
+#The verdict slam, hold, shrink and flight.
 static func _case_verdict_curve(res: Dictionary) -> void:
 	var win: ContractResultData = _made(false, 2, 0)
 	var lose: ContractResultData = _made(true, 2, 0)
@@ -254,7 +303,7 @@ static func _case_verdict_curve(res: Dictionary) -> void:
 			"0, 1 then 0 at 3.6")
 
 
-#Case 3: the money rows at every key, for a success and a failure.
+#The money rows at every key, for a success and a failure.
 static func _case_money(res: Dictionary) -> void:
 	var win: ContractResultData = _made(false, 2, BONUS_PCT)
 	var lose: ContractResultData = _made(true, 2, BONUS_PCT)
@@ -286,7 +335,7 @@ static func _case_money(res: Dictionary) -> void:
 	TestFixtures.check(res, "a success keeps the plain labels",
 			String(at_net["reward_label"]) == ResultsTimeline.REWARD_LABEL
 			and String(at_net["net_label"]) == ResultsTimeline.NET_LABEL
-			and at_net["reward_color"] == ResultsTimeline.CREAM
+			and at_net["reward_color"] == GuiColors.CREAM
 			and at_net["net_color"] == ResultsTimeline.SUCCESS,
 			"Reward and Notes Earned in cream and green")
 	var lost_early: Dictionary = ResultsTimeline.money_state(lose, 2.49)
@@ -294,7 +343,7 @@ static func _case_money(res: Dictionary) -> void:
 	TestFixtures.check(res, "a failure forfeits the reward only once it is told",
 			String(lost_early["reward_label"]) == ResultsTimeline.REWARD_LABEL
 			and String(lost["reward_label"]) == ResultsTimeline.REWARD_LOST_LABEL
-			and lost["reward_color"] == ResultsTimeline.MUTED,
+			and lost["reward_color"] == GuiColors.MUTED,
 			"plain at 2.49, forfeited at 8.0")
 	TestFixtures.check(res, "a failure shows the total cost",
 			String(lost["net_label"]) == ResultsTimeline.COST_LABEL
@@ -305,12 +354,13 @@ static func _case_money(res: Dictionary) -> void:
 			lose.bonus() == 0 and int(lost["bonus"]) == 0
 			and not bool(ResultsTimeline.money_state(lose, 9.4)["bonus_visible"]),
 			"no bonus on a failure")
-	TestFixtures.check(res, "a failure flies the expenses out and a success the guild share",
-			lose.fly_amount() == -FAIL_EXPENSE and win.fly_amount() == win.guild_share(),
-			"%d out, %d in" % [lose.fly_amount(), win.fly_amount()])
+	TestFixtures.check(res, "a failure flies nothing and a success the reward less the bonus",
+			lose.fly_amount() == 0 and win.bonus() == floori(SUCCESS_REWARD * BONUS_PCT / 100.0)
+			and win.fly_amount() == win.reward - win.bonus(),
+			"%d out, %d in, bonus %d" % [lose.fly_amount(), win.fly_amount(), win.bonus()])
 
 
-#Case 4: the experience column of a member who does not level.
+#The experience column of a member who does not level.
 static func _case_xp_flat(res: Dictionary) -> void:
 	var member: ResultMemberData = _flat()
 	var at_start: Dictionary = ResultsTimeline.xp_state(member, ResultsTimeline.XP_START)
@@ -337,7 +387,7 @@ static func _case_xp_flat(res: Dictionary) -> void:
 	var dead_early: Dictionary = ResultsTimeline.xp_state(_dead(), 0.5)
 	TestFixtures.check(res, "a lost member gains nothing",
 			String(dead["text"]) == ResultsTimeline.BLANK_TEXT
-			and dead["color"] == ResultsTimeline.MUTED
+			and dead["color"] == GuiColors.MUTED
 			and String(dead["number"]) == ""
 			and _near(float(dead["fill"]), 20.0 / float(LEVEL_NEED)),
 			"a dash on a muted column")
@@ -350,7 +400,7 @@ static func _case_xp_flat(res: Dictionary) -> void:
 			== ResultsTimeline.PENDING_TEXT, "no member, no numbers")
 
 
-#Case 5: the experience column through a level-up and its carry over.
+#The experience column through a level-up and its carry over.
 static func _case_xp_level(res: Dictionary) -> void:
 	var member: ResultMemberData = _levelled()
 	var mid: Dictionary = ResultsTimeline.xp_state(member,
@@ -397,7 +447,7 @@ static func _case_xp_level(res: Dictionary) -> void:
 			int(kept["need"]) == LEVEL_NEED, "%d kept" % int(kept["need"]))
 
 
-#Case 6: the bonus paid to each row and the notes in flight.
+#The bonus paid to each row and the notes in flight.
 static func _case_pay(res: Dictionary) -> void:
 	var win: ContractResultData = _made(false, 4, BONUS_PCT)
 	var lose: ContractResultData = _made(true, 4, BONUS_PCT)
@@ -405,14 +455,14 @@ static func _case_pay(res: Dictionary) -> void:
 	var paid: float = ResultsTimeline.PAY_START + ResultsTimeline.PAY_SPAN
 	TestFixtures.check(res, "the pay reads plus zero until it is told",
 			ResultsTimeline.pay_text(member, 0, 2.49, false) == "+0"
-			and ResultsTimeline.pay_color(member, 0, 2.49, false) == ResultsTimeline.SKY,
+			and ResultsTimeline.pay_color(member, 0, 2.49, false) == GuiColors.SKY,
 			"plus zero in sky blue")
 	TestFixtures.check(res, "the pay counts to the share",
 			ResultsTimeline.pay_value(member, 0, ResultsTimeline.PAY_START) == 0
 			and ResultsTimeline.pay_value(member, 0, paid) == member.pay,
 			"0 then %d" % member.pay)
 	TestFixtures.check(res, "a paid row turns gold",
-			ResultsTimeline.pay_color(member, 0, paid, false) == ResultsTimeline.GOLD
+			ResultsTimeline.pay_color(member, 0, paid, false) == GuiColors.RAMP_YELLOW
 			and ResultsTimeline.pay_text(member, 0, paid, false) == "+%d" % member.pay,
 			"+%d in gold" % member.pay)
 	TestFixtures.check(res, "a later row is paid later",
@@ -421,13 +471,13 @@ static func _case_pay(res: Dictionary) -> void:
 			"the stagger holds the fourth row back")
 	TestFixtures.check(res, "a lost member is paid nothing",
 			ResultsTimeline.pay_text(_dead(), 0, paid, false) == ResultsTimeline.BLANK_TEXT
-			and ResultsTimeline.pay_color(_dead(), 0, paid, false) == ResultsTimeline.MUTED,
+			and ResultsTimeline.pay_color(_dead(), 0, paid, false) == GuiColors.MUTED,
 			"a muted dash")
 	TestFixtures.check(res, "a failure pays nobody",
 			ResultsTimeline.pay_text(lose.members[0], 0, paid, true)
 			== ResultsTimeline.BLANK_TEXT
 			and ResultsTimeline.pay_color(lose.members[0], 0, paid, true)
-			== ResultsTimeline.MUTED, "a muted dash on every row")
+			== GuiColors.MUTED, "a muted dash on every row")
 	TestFixtures.check(res, "the bonus sum equals the bonus",
 			_pay_sum(win) == win.bonus(), "%d of %d" % [_pay_sum(win), win.bonus()])
 	var flying: Array[Dictionary] = ResultsTimeline.pay_notes(win, 8.4)
@@ -449,10 +499,10 @@ static func _case_pay(res: Dictionary) -> void:
 			"a plain success flies nothing")
 	var from := Vector2(100.0, 200.0)
 	var to := Vector2(300.0, 200.0)
-	var arc: Vector2 = ResultsTimeline.note_point(from, to, 0.5)
+	var arc: Vector2 = NoteIcon.arc_point(from, to, 0.5, ResultsTimeline.NOTE_ARC_PX)
 	TestFixtures.check(res, "a note arcs over the straight line",
-			ResultsTimeline.note_point(from, to, 0.0) == from
-			and ResultsTimeline.note_point(from, to, 1.0) == to
+			NoteIcon.arc_point(from, to, 0.0, ResultsTimeline.NOTE_ARC_PX) == from
+			and NoteIcon.arc_point(from, to, 1.0, ResultsTimeline.NOTE_ARC_PX) == to
 			and _near(arc.x, 200.0) and _near(arc.y, 200.0 - ResultsTimeline.NOTE_ARC_PX),
 			"70 px over the middle")
 
@@ -464,7 +514,7 @@ static func _pay_sum(result: ContractResultData) -> int:
 	return total
 
 
-#GX4F-13: the panel mounts to its full size with no anchor warning.
+#The panel mounts to its full size with no anchor warning.
 static func _case_mount_size(res: Dictionary, host: Node) -> void:
 	var panel: ContractResults = _panel(host)
 	await host.get_tree().process_frame
@@ -473,9 +523,9 @@ static func _case_mount_size(res: Dictionary, host: Node) -> void:
 	panel.queue_free()
 
 
-#Case 7: the seeded success at zero, before anything is revealed.
+#The seeded success at zero, before anything is revealed.
 static func _case_panel_pending(res: Dictionary, host: Node) -> void:
-	var ids: Array[int] = GameState.seed_results_preview()
+	var ids: Array[int] = ResultsPreview.seed_results()
 	TestFixtures.check(res, "the preview seeds a success and a failure", ids.size() == 2
 			and GameState.has_result(ids[0]) and GameState.has_result(ids[1]),
 			"entries %s" % str(ids))
@@ -533,15 +583,13 @@ static func _case_panel_pending(res: Dictionary, host: Node) -> void:
 	panel.queue_free()
 
 
-#Case 8: the fates at 1.2 and the reveal of every ring, overlay and filter.
+#The fates at 1.2 and the reveal of every ring, overlay and filter.
 static func _case_panel_fates(res: Dictionary, host: Node) -> void:
 	var ids: Array[int] = GameState.unclaimed_ids()
 	if ids.size() < 2:
 		return
 	var result: ContractResultData = GameState.result_of(ids[1])
-	var panel: ContractResults = _panel(host)
-	panel.show_result(result)
-	await host.get_tree().process_frame
+	var panel: ContractResults = await _open(host, result)
 	panel.set_time(ResultsTimeline.FATES)
 	var bad: Array[String] = []
 	for i: int in panel.rows().size():
@@ -598,15 +646,13 @@ static func _case_panel_fates(res: Dictionary, host: Node) -> void:
 	panel.queue_free()
 
 
-#Case 9: the verdict and the accent of the panel, on both outcomes.
+#The verdict and the accent of the panel, on both outcomes.
 static func _case_panel_verdict(res: Dictionary, host: Node) -> void:
 	var ids: Array[int] = GameState.unclaimed_ids()
 	if ids.size() < 2:
 		return
 	var win: ContractResultData = GameState.result_of(ids[0])
-	var panel: ContractResults = _panel(host)
-	panel.show_result(win)
-	await host.get_tree().process_frame
+	var panel: ContractResults = await _open(host, win)
 	panel.set_time(2.0)
 	TestFixtures.check(res, "the verdict stays hidden before the slam",
 			not panel.verdict_box().visible, "hidden at 2.0")
@@ -641,20 +687,18 @@ static func _case_panel_verdict(res: Dictionary, host: Node) -> void:
 			if panel.row_of(i).mvp_shown() != (i == mvp):
 				lit.append("row %d" % i)
 		TestFixtures.check(res, "only the MVP row wears the badge and the gold ring",
-				lit.is_empty() and panel.row_of(mvp).ring_color() == ResultsTimeline.GOLD,
+				lit.is_empty() and panel.row_of(mvp).ring_color() == GuiColors.RAMP_YELLOW,
 				TestFixtures.detail(lit, panel.rows().size(), "rows"))
 	panel.queue_free()
 
 
-#Case 10: the money box of the panel through the tally.
+#The money box of the panel through the tally.
 static func _case_panel_money(res: Dictionary, host: Node) -> void:
 	var ids: Array[int] = GameState.unclaimed_ids()
 	if ids.is_empty():
 		return
 	var win: ContractResultData = GameState.result_of(ids[0])
-	var panel: ContractResults = _panel(host)
-	panel.show_result(win)
-	await host.get_tree().process_frame
+	var panel: ContractResults = await _open(host, win)
 	panel.set_time(ResultsTimeline.REWARD_END)
 	TestFixtures.check(res, "the panel counts the reward out",
 			panel.notes().reward_text() == "%d" % win.reward,
@@ -693,15 +737,13 @@ static func _case_panel_money(res: Dictionary, host: Node) -> void:
 	panel.queue_free()
 
 
-#Case 11: the failure panel, its labels and the Continue style.
+#The failure panel, its labels and the Continue style.
 static func _case_panel_failure(res: Dictionary, host: Node) -> void:
 	var ids: Array[int] = GameState.unclaimed_ids()
 	if ids.size() < 2:
 		return
 	var lose: ContractResultData = GameState.result_of(ids[1])
-	var panel: ContractResults = _panel(host)
-	panel.show_result(lose)
-	await host.get_tree().process_frame
+	var panel: ContractResults = await _open(host, lose)
 	panel.set_time(ResultsTimeline.VERDICT_HOLD)
 	TestFixtures.check(res, "the failure verdict reads failure",
 			panel.verdict_box().verdict_text() == ResultsTimeline.FAILURE_TEXT
@@ -720,26 +762,22 @@ static func _case_panel_failure(res: Dictionary, host: Node) -> void:
 	panel.skip_to_end()
 	TestFixtures.check(res, "the failure Continue is the shared BevelButton scene in blue",
 			panel.continue_button is BevelButton and panel.continue_button.kind == &"blue"
-			and panel.continue_style().is_equal_approx(Color("#2b4f8a")),
+			and panel.continue_style().is_equal_approx(GuiColors.BLUE),
 			str(panel.continue_style()))
 	panel.queue_free()
-	var panel2: ContractResults = _panel(host)
-	panel2.show_result(GameState.result_of(ids[0]))
-	await host.get_tree().process_frame
+	var panel2: ContractResults = await _open(host, GameState.result_of(ids[0]))
 	panel2.skip_to_end()
 	TestFixtures.check(res, "the success Continue is the shared BevelButton scene in green",
 			panel2.continue_button is BevelButton
-			and panel2.continue_style().is_equal_approx(Color("#6cc36a")),
+			and panel2.continue_style().is_equal_approx(GuiColors.GREEN),
 			str(panel2.continue_style()))
 	panel2.queue_free()
 
 
-#Case 12: a made result with a bonus: the payout, the flying notes and the pay cells.
+#A made result with a bonus: the payout, the flying notes and the pay cells.
 static func _case_panel_bonus(res: Dictionary, host: Node) -> void:
 	var result: ContractResultData = _made(false, 4, BONUS_PCT)
-	var panel: ContractResults = _panel(host)
-	panel.show_result(result)
-	await host.get_tree().process_frame
+	var panel: ContractResults = await _open(host, result)
 	panel.set_time(ResultsTimeline.BONUS_END)
 	TestFixtures.check(res, "the bonus row shows what the crew took",
 			panel.notes().bonus_shown()
@@ -764,22 +802,21 @@ static func _case_panel_bonus(res: Dictionary, host: Node) -> void:
 	panel.queue_free()
 
 
-#Case 13: the money fly is asked for once, with the amount the result carries.
+#The money fly is asked for once, with the amount the result carries.
 static func _case_panel_fly(res: Dictionary, host: Node) -> void:
-	var result: ContractResultData = _made(false, 2, 0)
+	var result: ContractResultData = _made(false, 2, BONUS_PCT)
 	var seen: Array[int] = []
 	var grab: Callable = func(amount: int) -> void: seen.append(amount)
 	GameState.money_fly_requested.connect(grab)
-	var panel: ContractResults = _panel(host)
-	panel.show_result(result)
-	await host.get_tree().process_frame
+	var panel: ContractResults = await _open(host, result)
 	panel.set_time(ResultsTimeline.end_time(result) - 0.1)
 	TestFixtures.check(res, "the money fly waits for the end of the tally", seen.is_empty(),
 			"%d requests before the end" % seen.size())
 	panel.set_time(ResultsTimeline.end_time(result))
-	TestFixtures.check(res, "the money fly carries the guild share",
-			seen.size() == 1 and seen[0] == result.fly_amount(),
-			"%s for %d" % [str(seen), result.fly_amount()])
+	TestFixtures.check(res, "the money fly carries the reward less the merc bonus",
+			seen.size() == 1 and result.bonus() > 0
+			and seen[0] == result.reward - result.bonus(),
+			"%s for %d" % [str(seen), result.reward - result.bonus()])
 	panel.set_time(ResultsTimeline.total_time(result))
 	TestFixtures.check(res, "the money fly is asked for once only", seen.size() == 1,
 			"%d requests" % seen.size())
@@ -787,7 +824,7 @@ static func _case_panel_fly(res: Dictionary, host: Node) -> void:
 	GameState.money_fly_requested.disconnect(grab)
 
 
-#Case 14: Continue marks the entry seen and reports once; skip_to_end jumps the whole tally.
+#Continue marks the entry seen and reports once; skip_to_end jumps the whole tally.
 static func _case_panel_continue(res: Dictionary, host: Node) -> void:
 	var ids: Array[int] = GameState.unclaimed_ids()
 	if ids.is_empty():
@@ -820,13 +857,47 @@ static func _case_panel_continue(res: Dictionary, host: Node) -> void:
 	panel.queue_free()
 
 
-#Case 15: one member and four members both fit the frame with nothing to scroll.
+#A result shown the first time flies its notes with the cue; shown again after Continue, in silence.
+static func _case_panel_cue(res: Dictionary, host: Node) -> void:
+	var won: ContractResultData = null
+	for id: int in ResultsPreview.seed_results():
+		var seeded: ContractResultData = GameState.result_of(id)
+		if seeded != null and not seeded.failed and seeded.fly_amount() != 0:
+			won = seeded
+	if won == null:
+		TestFixtures.check(res, "the preview seeds a won result to fly", false, "no won result")
+		return
+	var asked: Array[int] = []
+	var cued: Array[int] = []
+	var on_ask: Callable = func(amount: int) -> void: asked.append(amount)
+	var on_cue: Callable = func(amount: int) -> void: cued.append(amount)
+	GameState.money_fly_requested.connect(on_ask)
+	GameState.money_fly_cued.connect(on_cue)
+	var first: ContractResults = await _open(host, won)
+	first.skip_to_end()
+	first.press_continue()
+	TestFixtures.check(res, "the first showing flies the notes with the cue",
+			asked == [won.fly_amount()] and cued == [won.fly_amount()]
+			and not GameState.is_unclaimed(won.entry_id),
+			"asked %s, cued %s" % [str(asked), str(cued)])
+	first.queue_free()
+	asked.clear()
+	cued.clear()
+	var again: ContractResults = await _open(host, won)
+	again.skip_to_end()
+	TestFixtures.check(res, "a second showing flies the notes again in silence",
+			asked == [won.fly_amount()] and cued.is_empty(),
+			"asked %s, cued %s" % [str(asked), str(cued)])
+	again.queue_free()
+	GameState.money_fly_requested.disconnect(on_ask)
+	GameState.money_fly_cued.disconnect(on_cue)
+
+
+#One member and four members both fit the frame with nothing to scroll.
 static func _case_panel_fit(res: Dictionary, host: Node) -> void:
 	var sizes: Array[float] = []
 	for count: int in [1, 4]:
-		var panel: ContractResults = _panel(host)
-		panel.show_result(_made(false, count, BONUS_PCT))
-		await host.get_tree().process_frame
+		var panel: ContractResults = await _open(host, _made(false, count, BONUS_PCT))
 		await host.get_tree().process_frame
 		panel.set_time(ResultsTimeline.total_time(panel.result()))
 		await host.get_tree().process_frame
@@ -867,8 +938,8 @@ static func _real_member(uid: int, fate: int) -> ResultMemberData:
 	return member
 
 
-#Case 16: a merc of GameState.mercs marked dead or held captive still shows a portrait; a
-#member with no matching merc anywhere still hides it (GX2I-01).
+#A merc of GameState.mercs marked dead or held captive still shows a portrait; a
+#member with no matching merc anywhere still hides it.
 static func _case_panel_real_view(res: Dictionary, host: Node) -> void:
 	if GameState.mercs.size() < 2:
 		return
@@ -886,9 +957,7 @@ static func _case_panel_real_view(res: Dictionary, host: Node) -> void:
 	result.members.append(_real_member(dead_merc.merc_uid, ResultMemberData.Fate.DEAD))
 	result.members.append(_real_member(captive_merc.merc_uid, ResultMemberData.Fate.CAPTURED))
 	result.members.append(_real_member(-999999, ResultMemberData.Fate.DEAD))
-	var panel: ContractResults = _panel(host)
-	panel.show_result(result)
-	await host.get_tree().process_frame
+	var panel: ContractResults = await _open(host, result)
 	panel.set_time(ResultsTimeline.FATES)
 	TestFixtures.check(res, "a real dead merc still shows a portrait",
 			panel.row_of(0).portrait_shown(), "row 0 uid %d" % dead_merc.merc_uid)

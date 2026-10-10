@@ -262,12 +262,14 @@ static func _stamp_mains(area: BattlefieldArea, g: Dictionary, streets: Array[Di
 	var bands: Array[Rect2i] = []
 	for y0: int in rows:
 		bands.append(Rect2i(0, y0, area.width, mt))
-		streets.append(_main_record(streets.size(), "x",
-			Rect2i(0, y0 + MAIN_SIDEWALK, area.width, main_w), main_w))
+		CityGrid.add_street(streets, "main", "x",
+			_main_segments("x", Rect2i(0, y0 + MAIN_SIDEWALK, area.width, main_w), main_w),
+			false, -1, Vector2i(-1, -1))
 	for x0: int in cols:
 		bands.append(Rect2i(x0, 0, mt, area.length))
-		streets.append(_main_record(streets.size(), "y",
-			Rect2i(x0 + MAIN_SIDEWALK, 0, main_w, area.length), main_w))
+		CityGrid.add_street(streets, "main", "y",
+			_main_segments("y", Rect2i(x0 + MAIN_SIDEWALK, 0, main_w, area.length), main_w),
+			false, -1, Vector2i(-1, -1))
 	for i: int in range(bands.size()):
 		CityGrid.paint_rect(area, bands[i], BattlefieldArea.SURF_SIDEWALK, i)
 	for j: int in range(streets.size()):
@@ -276,17 +278,8 @@ static func _stamp_mains(area: BattlefieldArea, g: Dictionary, streets: Array[Di
 		CityGrid.paint_rect(area, carriage, BattlefieldArea.SURF_MAIN, j)
 
 
-static func _main_record(id: int, axis: String, carriage: Rect2i, w: int) -> Dictionary:
-	var segs: Array[Dictionary] = [{"rect": carriage, "axis": axis, "width": w}]
-	return {
-		"id": id,
-		"kind": "main",
-		"axis": axis,
-		"dead_end": false,
-		"block": -1,
-		"mouth": Vector2i(-1, -1),
-		"segments": segs,
-	}
+static func _main_segments(axis: String, carriage: Rect2i, w: int) -> Array[Dictionary]:
+	return [{"rect": carriage, "axis": axis, "width": w}]
 
 
 #One block per pair of free intervals, ids row-major over the y intervals then the x intervals.

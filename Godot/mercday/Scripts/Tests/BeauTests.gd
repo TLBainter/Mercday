@@ -37,43 +37,35 @@ static func run() -> bool:
 	return TestFixtures.summarize(res, "BEAU")
 
 
-#Helpers
-
 static func _reset() -> void:
 	CampaignClock.reset()
 	BeauSystem.reset()
 	TraitRuntime.clear_all()
 
 
-static func _merc(name: String) -> MercenaryData:
-	return TestFixtures.level_merc(name)
-
-
 #Two mercs pointing at each other, seeded as the whole roster BeauSystem.tick walks.
 static func _pair(a_name: String, b_name: String) -> Array[MercenaryData]:
-	var a := _merc(a_name)
-	var b := _merc(b_name)
+	var a := TestFixtures.level_merc(a_name)
+	var b := TestFixtures.level_merc(b_name)
 	a.beau_uid = b.merc_uid
 	b.beau_uid = a.merc_uid
 	var pair: Array[MercenaryData] = [a, b]
-	BeauSystem.set_roster(pair)
-	GuildRoster.set_roster(pair)
+	TestFixtures.set_roster(pair)
 	return pair
-
-
-static func _give(merc: MercenaryData, name: String, cell: String) -> void:
-	var td := TraitData.new()
-	td.trait_name = name
-	td.trait_type = "Perk"
-	td.effect_dsl = cell
-	merc.perks.append(td)
 
 
 static func _max_hp(merc: MercenaryData) -> int:
 	return int(merc.stats.get("maximum_hit_points", 0))
 
 
-#Cases
+#The pair against one foe on round one; the caller gives the perks first.
+static func _round_one(a: MercenaryData, b: MercenaryData) -> BattleState:
+	var team_a: Array[MercenaryData] = [a, b]
+	var team_b: Array[MercenaryData] = [TestFixtures.level_merc("Ghul")]
+	var state := BattleState.create(team_a, team_b, null)
+	state.round_number = 1
+	return state
+
 
 static func _case_partner(res: Dictionary) -> void:
 	_reset()
@@ -85,7 +77,7 @@ static func _case_partner(res: Dictionary) -> void:
 		"%s resolves to %s through run.team" % [a.merc_name, b.merc_name])
 	TestFixtures.check(res, "partner falls back to the roster", BeauSystem.partner(a, {}) == b,
 		"with no run in ctx the roster still holds %s" % b.merc_name)
-	var lone := _merc("Toft")
+	var lone := TestFixtures.level_merc("Toft")
 	TestFixtures.check(res, "no beau uid resolves to nothing", BeauSystem.partner(lone, {}) == null,
 		"beau_uid 0 has no partner")
 	BeauSystem.reset()
@@ -140,7 +132,7 @@ static func _case_bond_max_hp(res: Dictionary) -> void:
 	_reset()
 	var pair := _pair("Kael", "Mira")
 	var a: MercenaryData = pair[0]
-	_give(a, YEARNING, YEARNING_CELL)
+	a.perks.append(TestFixtures.perk(YEARNING, YEARNING_CELL))
 	a.on_contract = true
 	var base: int = _max_hp(a)
 	BeauSystem.tick(CampaignClock.now())
@@ -169,7 +161,7 @@ static func _case_hp_floor(res: Dictionary) -> void:
 	_reset()
 	var pair := _pair("Nim", "Vale")
 	var a: MercenaryData = pair[0]
-	_give(a, YEARNING, YEARNING_CELL)
+	a.perks.append(TestFixtures.perk(YEARNING, YEARNING_CELL))
 	a.on_contract = true
 	a.stats["maximum_hit_points"] = 2
 	a.current_hp = 2
@@ -220,8 +212,8 @@ static func _case_seen_grants(res: Dictionary) -> void:
 	_reset()
 	var pair := _pair("Kael", "Mira")
 	var a: MercenaryData = pair[0]
-	_give(a, HEART_EYED, HEART_EYED_CELL)
-	_give(a, WAKE_UP, WAKE_UP_CELL)
+	a.perks.append(TestFixtures.perk(HEART_EYED, HEART_EYED_CELL))
+	a.perks.append(TestFixtures.perk(WAKE_UP, WAKE_UP_CELL))
 	var contract_run := TestFixtures.run_for(pair)
 	BeauSystem.begin_contract(contract_run)
 	TestFixtures.check(res, "both beau_seen clauses grant excess HP", ExcessPool.amount(a, "hp") == 2,
@@ -232,7 +224,7 @@ static func _case_seen_grants(res: Dictionary) -> void:
 	_reset()
 	var solo := _pair("Odd", "Wren")
 	var c: MercenaryData = solo[0]
-	_give(c, WAKE_UP, WAKE_UP_CELL)
+	c.perks.append(TestFixtures.perk(WAKE_UP, WAKE_UP_CELL))
 	BeauSystem.begin_contract(TestFixtures.run_for(solo))
 	TestFixtures.check(res, "the second clause needs the first perk", ExcessPool.amount(c, "hp") == 0,
 		"expected 0 Excess HP without %s, got %d" % [HEART_EYED, ExcessPool.amount(c, "hp")])
@@ -243,7 +235,7 @@ static func _case_support(res: Dictionary) -> void:
 	var pair := _pair("Kael", "Mira")
 	var a: MercenaryData = pair[0]
 	var b: MercenaryData = pair[1]
-	var other := _merc("Toft")
+	var other := TestFixtures.level_merc("Toft")
 	TestFixtures.check(res, "no token is no bonus",
 		is_equal_approx(BeauSystem.support_multiplier(a, b), 1.0),
 		"the passive token is what turns the bonus on")
@@ -271,11 +263,8 @@ static func _case_compound_condition(res: Dictionary) -> void:
 	var pair := _pair("Kael", "Mira")
 	var a: MercenaryData = pair[0]
 	var b: MercenaryData = pair[1]
-	_give(a, "TEST Compound Round", COMPOUND_CELL)
-	var team_a: Array[MercenaryData] = [a, b]
-	var team_b: Array[MercenaryData] = [_merc("Ghul")]
-	var state := BattleState.create(team_a, team_b, null)
-	state.round_number = 1
+	a.perks.append(TestFixtures.perk("TEST Compound Round", COMPOUND_CELL))
+	var state := _round_one(a, b)
 	var lines: Array[String] = []
 	TraitRuntime.on_round_start(state, lines)
 	TestFixtures.check(res, "first_round with the beau present passes", ExcessPool.amount(a, "hp") == 1,
@@ -297,11 +286,8 @@ static func _case_honeymoon(res: Dictionary) -> void:
 	var pair := _pair("Kael", "Mira")
 	var a: MercenaryData = pair[0]
 	var b: MercenaryData = pair[1]
-	_give(a, HONEYMOON, HONEYMOON_SELF + "|" + HONEYMOON_BEAU)
-	var team_a: Array[MercenaryData] = [a, b]
-	var team_b: Array[MercenaryData] = [_merc("Ghul")]
-	var state := BattleState.create(team_a, team_b, null)
-	state.round_number = 1
+	a.perks.append(TestFixtures.perk(HONEYMOON, HONEYMOON_SELF + "|" + HONEYMOON_BEAU))
+	var state := _round_one(a, b)
 	var lines: Array[String] = []
 	TraitRuntime.on_round_start(state, lines)
 	TestFixtures.check(res, "round one distracts the holder", ConstStates.has_state(a, DISTRACTED),
@@ -313,8 +299,8 @@ static func _case_honeymoon(res: Dictionary) -> void:
 	TestFixtures.check(res, "the state carries a one round timer",
 		expires_a == 1 and expires_b == 1,
 		"expires holder %d, beau %d" % [expires_a, expires_b])
-	ConstStates.remove_state(a, DISTRACTED)
-	ConstStates.remove_state(b, DISTRACTED)
+	StateCascade.remove_state(a, DISTRACTED)
+	StateCascade.remove_state(b, DISTRACTED)
 	state.clear_state_timer(a, DISTRACTED)
 	state.clear_state_timer(b, DISTRACTED)
 	state.round_number = 2
@@ -347,7 +333,7 @@ static func _case_beau_text(res: Dictionary) -> void:
 	TestFixtures.check(res, "beau_name reads the roster partner",
 		BeauSystem.beau_name(a, {}) == b.merc_name,
 		"expected %s, got %s" % [b.merc_name, BeauSystem.beau_name(a, {})])
-	var lone := _merc("Toft")
+	var lone := TestFixtures.level_merc("Toft")
 	TestFixtures.check(res, "beau_name is empty without a beau", BeauSystem.beau_name(lone, {}) == "",
 		"got %s" % BeauSystem.beau_name(lone, {}))
 	data["remove_text"] = "[Target] looks away from [Beau]."

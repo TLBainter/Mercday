@@ -14,7 +14,6 @@ const EMPTY_NOTE: String = "Items you add from the Shop appear here."
 const EMPTY_BUTTON: String = "Continue Shopping"
 const TITLE_SIZE: int = 14
 const COUNT_SIZE: int = 11
-const EMPTY_TITLE_SIZE: int = 13
 const EMPTY_NOTE_SIZE: int = 11
 const EMPTY_HEIGHT: float = 34.0
 const COLUMN_GAP: int = 16
@@ -77,9 +76,7 @@ func row_for(item_id: int) -> CartRow:
 func refresh() -> void:
 	if not is_node_ready() or _list == null:
 		return
-	for child: Node in _list.get_children():
-		_list.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(_list)
 	var ids: Array[int] = BazaarManager.cart_ids()
 	for id: int in ids:
 		var found: BazaarItemData = BazaarManager.item(id)
@@ -97,23 +94,23 @@ func refresh() -> void:
 
 
 func _build() -> void:
-	var columns: HBoxContainer = BazaarUi.hbox(COLUMN_GAP)
+	var columns: HBoxContainer = GuiStyle.hbox(COLUMN_GAP)
 	columns.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(columns)
-	var left: VBoxContainer = BazaarUi.vbox(LIST_GAP)
+	var left: VBoxContainer = GuiStyle.vbox(LIST_GAP)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(left)
-	var head: HBoxContainer = BazaarUi.hbox(10)
+	var head: HBoxContainer = GuiStyle.hbox(10)
 	left.add_child(head)
-	_title = BazaarUi.silk_bold(TITLE, TITLE_SIZE, BazaarUi.CREAM)
+	_title = GuiStyle.label(TITLE, GuiStyle.SILK_BOLD, TITLE_SIZE, GuiColors.CREAM)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(_title)
-	_count = BazaarUi.body("", COUNT_SIZE, BazaarUi.SKY)
+	_count = GuiStyle.label("", GuiStyle.BODY, COUNT_SIZE, GuiColors.SKY)
 	_count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(_count)
-	_scroll = BazaarUi.scroll()
+	_scroll = GuiStyle.scroll()
 	left.add_child(_scroll)
-	_list = BazaarUi.vbox(LIST_GAP)
+	_list = GuiStyle.vbox(LIST_GAP)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_list)
 	_empty = _build_empty()
@@ -125,23 +122,10 @@ func _build() -> void:
 
 
 func _build_empty() -> VBoxContainer:
-	var box: VBoxContainer = BazaarUi.vbox(10)
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(_centered(BazaarUi.silk_bold(EMPTY_TITLE, EMPTY_TITLE_SIZE, BazaarUi.CREAM)))
-	_empty_note = BazaarUi.body(EMPTY_NOTE, EMPTY_NOTE_SIZE, BazaarUi.SKY)
-	box.add_child(_centered(_empty_note))
-	var button: Button = BazaarUi.button(EMPTY_BUTTON, &"ButtonOrange", EMPTY_HEIGHT, 10)
+	_empty_note = GuiStyle.label(EMPTY_NOTE, GuiStyle.BODY, EMPTY_NOTE_SIZE, GuiColors.SKY)
+	var button: Button = BazaarUi.button(EMPTY_BUTTON, &"orange", EMPTY_HEIGHT, 10)
 	button.pressed.connect(_on_continue_pressed)
-	box.add_child(_centered(button))
-	return box
-
-
-func _centered(inner: Control) -> HBoxContainer:
-	var row: HBoxContainer = BazaarUi.hbox(0)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_child(inner)
-	return row
+	return BazaarUi.empty_state(EMPTY_TITLE, _empty_note, button)
 
 
 func _on_checkout_pressed() -> void:

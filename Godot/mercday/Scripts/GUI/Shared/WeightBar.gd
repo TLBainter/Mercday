@@ -3,10 +3,10 @@ class_name WeightBar extends PanelContainer
 #Carry weight as one cell per unit of capacity; the filled cells turn red and the Encumbered flag
 #shows once the load passes the limit.
 
-const TRACK_COLOR: Color = Color("#1f3560")
-const FILL_COLOR: Color = Color("#f28c28")
-const FILL_HI_COLOR: Color = Color("#ffb266")
-const OVER_COLOR: Color = Color("#e8583f")
+const TRACK_COLOR: Color = GuiColors.BLUE_LO
+const FILL_COLOR: Color = GuiColors.ORANGE
+const FILL_HI_COLOR: Color = GuiColors.ORANGE_HI
+const OVER_COLOR: Color = GuiColors.RED
 const VALUE_TEXT: String = "%d / %d"
 const GAP_PX: float = 2.0
 
@@ -63,11 +63,8 @@ func _draw_cells() -> void:
 		return
 	var filled: int = filled_cells(current_wt, capacity)
 	var over: bool = is_over(current_wt, capacity)
-	for i: int in count:
-		var x: float = float(i) * (width + GAP_PX)
-		var body: Color = TRACK_COLOR
-		if i < filled:
-			body = OVER_COLOR if over else FILL_COLOR
-		cells.draw_rect(Rect2(x, 0.0, width, cells.size.y), body)
-		if i < filled and not over:
-			cells.draw_rect(Rect2(x, 0.0, width, 1.0), FILL_HI_COLOR)
+	CellBar.paint(cells, Vector2.ZERO, Vector2(width, cells.size.y), width + GAP_PX,
+		CellBar.split(count, filled, OVER_COLOR if over else FILL_COLOR, TRACK_COLOR))
+	if not over:
+		CellBar.paint(cells, Vector2.ZERO, Vector2(width, 1.0), width + GAP_PX,
+			CellBar.split(filled, filled, FILL_HI_COLOR, FILL_HI_COLOR))

@@ -1,5 +1,5 @@
 class_name ClientFilterButton
-extends Button
+extends PopupButton
 
 #The client list filter: one check row per sub type over one per location. The button turns orange
 #while anything is hidden, so a short list never looks like a bug.
@@ -7,29 +7,10 @@ extends Button
 signal changed
 
 const ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FilterCheckRow.tscn")
-const HEAD_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const HEAD_SIZE: int = 10
-const HEAD_COLOR: Color = Color("#9cc6ef")
 const TYPE_HEAD: String = "Type"
 const PLACE_HEAD: String = "Location"
-const POPUP_WIDTH: int = 250
 const POPUP_MAX_HEIGHT: int = 430
-const PLAIN_FILL: Color = Color("#2b4f8a")
-const PLAIN_HI: Color = Color("#3b6fb6")
-const PLAIN_LO: Color = Color("#1f3560")
-const PLAIN_TEXT: Color = Color("#f3ead7")
-const CHANGED_FILL: Color = Color("#f28c28")
-const CHANGED_HI: Color = Color("#ffb266")
-const CHANGED_LO: Color = Color("#b85a12")
-const CHANGED_TEXT: Color = Color("#0a0f1c")
-const BEVEL_PX: float = 2.0
-const PAD_X: float = 8.0
-const PAD_Y: float = 4.0
-const STATES: Array[String] = ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]
-const TEXT_KEYS: Array[String] = ["font_color", "font_hover_color", "font_pressed_color",
-	"font_focus_color", "font_disabled_color"]
 
-@onready var menu: PopupPanel = $Menu
 @onready var rows: VBoxContainer = $Menu/Box/Scroll/Rows
 @onready var reset_button: Button = $Menu/Box/Reset
 
@@ -43,9 +24,8 @@ var _quiet: bool = false
 
 
 func _ready() -> void:
+	super()
 	focus_mode = Control.FOCUS_NONE
-	if not pressed.is_connected(open_popup):
-		pressed.connect(open_popup)
 	if not reset_button.pressed.is_connected(reset):
 		reset_button.pressed.connect(reset)
 	_build()
@@ -93,46 +73,29 @@ func reset() -> void:
 	changed.emit()
 
 
-func open_popup() -> void:
-	var rect: Rect2 = get_global_rect()
-	var wanted: Vector2 = menu.get_contents_minimum_size()
-	var height: int = mini(POPUP_MAX_HEIGHT, maxi(int(wanted.y), 1))
-	var pos := Vector2i(int(rect.position.x), int(rect.end.y))
-	menu.popup(Rect2i(pos, Vector2i(POPUP_WIDTH, height)))
-
-
-func popup_open() -> bool:
-	return is_node_ready() and menu.visible
-
-
 func row_count() -> int:
 	return _sub_rows.size() + _loc_rows.size()
 
 
 func fill_color() -> Color:
-	return CHANGED_FILL if is_changed() else PLAIN_FILL
+	return fill
 
 
-func text_color() -> Color:
-	return CHANGED_TEXT if is_changed() else PLAIN_TEXT
+func caption_color() -> Color:
+	return text_color
 
 
-func _draw() -> void:
-	var hi: Color = CHANGED_HI if is_changed() else PLAIN_HI
-	var lo: Color = CHANGED_LO if is_changed() else PLAIN_LO
-	draw_rect(Rect2(0.0, 0.0, size.x, BEVEL_PX), hi)
-	draw_rect(Rect2(0.0, 0.0, BEVEL_PX, size.y), hi)
-	draw_rect(Rect2(0.0, size.y - BEVEL_PX, size.x, BEVEL_PX), lo)
-	draw_rect(Rect2(size.x - BEVEL_PX, 0.0, BEVEL_PX, size.y), lo)
+#The popup keeps the width the base picks but stops at POPUP_MAX_HEIGHT; past that the rows scroll.
+func _popup_size() -> Vector2:
+	var wanted: Vector2 = super()
+	return Vector2(wanted.x, mini(POPUP_MAX_HEIGHT, maxi(int(wanted.y), 1)))
 
 
 func _build() -> void:
 	_quiet = true
 	_sub_rows.clear()
 	_loc_rows.clear()
-	for child: Node in rows.get_children():
-		rows.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(rows)
 	if not _subs.is_empty():
 		rows.add_child(_heading(TYPE_HEAD))
 	for sub: String in _subs:
@@ -148,9 +111,7 @@ func _build() -> void:
 func _heading(text_value: String) -> Label:
 	var head := Label.new()
 	head.text = text_value
-	head.add_theme_font_override(&"font", HEAD_FONT)
-	head.add_theme_font_size_override(&"font_size", HEAD_SIZE)
-	head.add_theme_color_override(&"font_color", HEAD_COLOR)
+	head.theme_type_variation = &"CaptionLabel"
 	return head
 
 
@@ -205,17 +166,5 @@ func _row_of(map: Dictionary, key: String) -> FilterCheckRow:
 
 
 func _apply_look() -> void:
-	var fill: Color = fill_color()
-	var ink: Color = text_color()
-	var box := StyleBoxFlat.new()
-	box.bg_color = fill
-	box.content_margin_left = PAD_X
-	box.content_margin_top = PAD_Y
-	box.content_margin_right = PAD_X
-	box.content_margin_bottom = PAD_Y
-	for state: String in STATES:
-		add_theme_stylebox_override(state, box)
-	for key: String in TEXT_KEYS:
-		add_theme_color_override(key, ink)
-	icon = GuiGlyphs.funnel(ink)
-	queue_redraw()
+	apply_palette(&"orange" if is_changed() else kind)
+	icon = GuiGlyphs.funnel(caption_color())

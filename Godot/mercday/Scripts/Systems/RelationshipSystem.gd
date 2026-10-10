@@ -52,6 +52,12 @@ static func adjust(viewer: MercenaryData, target: MercenaryData, delta: int) -> 
 	CampaignKnowledge.adjust_relation(viewer.merc_uid, target.merc_uid, delta)
 
 
+#Both directions of the pair by delta, a toward b first.
+static func adjust_pair(a: MercenaryData, b: MercenaryData, delta: int) -> void:
+	adjust(a, b, delta)
+	adjust(b, a, delta)
+
+
 #Average of the two directions, floored. -1 when the pair is not tracked.
 static func mutual_value(a: MercenaryData, b: MercenaryData) -> int:
 	var ab := value(a, b)
@@ -138,13 +144,11 @@ static func end_contract(run: ContractRun) -> Array[String]:
 			var turns := int(_turns.get(k, 0))
 			var near := int(_near.get(k, 0))
 			if turns > 0 and near * 2 > turns:
-				adjust(a, b, 1)
-				adjust(b, a, 1)
+				adjust_pair(a, b, 1)
 				lines.append("RELATIONSHIP: %s and %s fought side by side (%d/%d turns within %d), +1 each" % [
 					a.merc_name, b.merc_name, near, turns, PROXIMITY_PACES])
 			if bool(_aided.get(k, false)):
-				adjust(a, b, 1)
-				adjust(b, a, 1)
+				adjust_pair(a, b, 1)
 				lines.append("RELATIONSHIP: %s and %s helped each other, +1 each" % [a.merc_name, b.merc_name])
 	for roller: MercenaryData in survivors:
 		var result: Dictionary = CheckSystem.make_check(roller, _bond_def())

@@ -3,25 +3,30 @@ class_name ContractPreview extends PanelContainer
 #The right column of the Dispatch Window: how long the journey runs, what it costs and what is
 #left of the reward. preview() is static so the numbers can be read without a scene.
 
-const GREEN: Color = Color("#6cc36a")
-const RED: Color = Color("#e8583f")
-const BLUE: Color = Color("#9cc6ef")
-const GOLD: Color = Color("#f2d33d")
-const CREAM: Color = Color("#f3ead7")
+const ROW_FONT: String = "res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres"
+const CAPTION_SIZE: int = 10
+const VALUE_SIZE: int = 13
 
-@onready var travel_to_row: PreviewRow = $Rows/TravelTo
-@onready var completion_row: PreviewRow = $Rows/Completion
-@onready var return_row: PreviewRow = $Rows/Return
-@onready var total_days_row: PreviewRow = $Rows/TotalDays
-@onready var travel_costs_row: PreviewRow = $Rows/TravelCosts
-@onready var final_reward_row: PreviewRow = $Rows/FinalReward
-@onready var merc_bonus_row: PreviewRow = $Rows/MercBonus
-@onready var guild_cut_row: PreviewRow = $Rows/GuildCut
+@onready var travel_to_row: InfoField = $Rows/TravelTo
+@onready var completion_row: InfoField = $Rows/Completion
+@onready var return_row: InfoField = $Rows/Return
+@onready var total_days_row: InfoField = $Rows/TotalDays
+@onready var travel_costs_row: InfoField = $Rows/TravelCosts
+@onready var final_reward_row: InfoField = $Rows/FinalReward
+@onready var merc_bonus_row: InfoField = $Rows/MercBonus
+@onready var guild_cut_row: InfoField = $Rows/GuildCut
 
 var data: Dictionary = {}
 
 
 func _ready() -> void:
+	var font: Font = load(ROW_FONT) as Font
+	for field: InfoField in rows():
+		field.size_flags_horizontal = SIZE_EXPAND_FILL
+		field.caption_label.uppercase = true
+		GuiStyle.paint(field.caption_label, font, CAPTION_SIZE, GuiColors.SKY)
+		field.value_label.add_theme_font_override("font", font)
+		field.value_label.add_theme_font_size_override("font_size", VALUE_SIZE)
 	_refresh()
 
 
@@ -34,14 +39,14 @@ func values() -> Dictionary:
 	return data
 
 
-func row(row_name: String) -> PreviewRow:
-	return $Rows.get_node(row_name) as PreviewRow
+func row(row_name: String) -> InfoField:
+	return $Rows.get_node(row_name) as InfoField
 
 
-func rows() -> Array[PreviewRow]:
-	var out: Array[PreviewRow] = []
+func rows() -> Array[InfoField]:
+	var out: Array[InfoField] = []
 	for child: Node in $Rows.get_children():
-		if child is PreviewRow:
+		if child is InfoField:
 			out.append(child)
 	return out
 
@@ -55,26 +60,39 @@ func _refresh() -> void:
 		return
 	var travel_cost: int = int(data.get("travel_cost", 0))
 	var final_reward: int = int(data.get("final_reward", 0))
-	var pct: int = bonus_pct()
+	var pct: int = int(data.get("bonus_pct", bonus_pct()))
 	var merc_bonus: int = int(data.get("merc_bonus", 0))
 	var guild_cut: int = int(data.get("guild_cut", final_reward))
-	var reward_tint: Color = GREEN if final_reward >= 0 else RED
-	var cut_tint: Color = GREEN if guild_cut >= 0 else RED
-	var bonus_tint: Color = GOLD if merc_bonus > 0 else BLUE
-	travel_to_row.set_row("Travel To", days_text(float(data.get("travel_to_hours", 0.0))),
-		CREAM, false)
-	completion_row.set_row("Completion", days_text(float(data.get("completion_hours", 0.0))),
-		CREAM, false)
-	return_row.set_row("Return", days_text(float(data.get("return_hours", 0.0))), CREAM, false)
-	total_days_row.set_row("Total Days", "%d" % int(data.get("total_days", 0)), CREAM, false)
-	travel_costs_row.set_row("Travel Costs", "-%d" % travel_cost, RED, true)
-	final_reward_row.set_row("Final Reward", "%d" % final_reward, reward_tint, true)
-	merc_bonus_row.set_row("Mercenary Bonus (%d%%)" % pct, "%d" % merc_bonus, bonus_tint, true)
-	guild_cut_row.set_row("Guild Cut", "%d" % guild_cut, cut_tint, true)
+	var reward_tint: Color = GuiColors.GREEN if final_reward >= 0 else GuiColors.RED
+	var cut_tint: Color = GuiColors.GREEN if guild_cut >= 0 else GuiColors.RED
+	var bonus_tint: Color = GuiColors.RAMP_YELLOW if merc_bonus > 0 else GuiColors.SKY
+	_fill_row(travel_to_row, "Travel To", days_text(float(data.get("travel_to_hours", 0.0))),
+		GuiColors.CREAM, false)
+	_fill_row(completion_row, "Completion", days_text(float(data.get("completion_hours", 0.0))),
+		GuiColors.CREAM, false)
+	_fill_row(return_row, "Return", days_text(float(data.get("return_hours", 0.0))),
+		GuiColors.CREAM, false)
+	_fill_row(total_days_row, "Total Days", "%d" % int(data.get("total_days", 0)),
+		GuiColors.CREAM, false)
+	_fill_row(travel_costs_row, "Travel Costs", "-%d" % travel_cost, GuiColors.RED, true)
+	_fill_row(final_reward_row, "Final Reward", "%d" % final_reward, reward_tint, true)
+	_fill_row(merc_bonus_row, "Mercenary Bonus (%d%%)" % pct, "%d" % merc_bonus, bonus_tint, true)
+	_fill_row(guild_cut_row, "Guild Cut", "%d" % guild_cut, cut_tint, true)
+
+
+func _fill_row(field: InfoField, caption: String, value: String, tint: Color, note: bool) -> void:
+	field.set_field(caption, value)
+	field.value_color = tint
+	field.show_note = note
 
 
 static func bonus_pct() -> int:
-	return BenefitsManager.DEFAULT_BONUS_PCT
+	return BenefitsManager.per_contract
+
+
+#The notes one leg of the trip costs for a crew of team_size.
+static func leg_cost(contract: ContractView, mode: Dictionary, team_size: int) -> int:
+	return DispatchLogic.travel_cost(mode, team_size, contract.merc_min, contract.distance_km)
 
 
 static func preview(contract: ContractView, venture: Dictionary, ret: Dictionary,
@@ -86,11 +104,10 @@ static func preview(contract: ContractView, venture: Dictionary, ret: Dictionary
 	var back_hours: float = DispatchLogic.travel_hours(ret, distance)
 	var work_hours: float = float(contract.completion_hours)
 	var total: float = out_hours + work_hours + back_hours
-	var cost: int = DispatchLogic.travel_cost(venture, team_size, contract.merc_min, distance) \
-		+ DispatchLogic.travel_cost(ret, team_size, contract.merc_min, distance)
+	var cost: int = leg_cost(contract, venture, team_size) + leg_cost(contract, ret, team_size)
 	var final_reward: int = contract.reward - cost
 	var pct: int = bonus_pct()
-	var merc_bonus: int = floori(final_reward * pct / 100.0) if final_reward > 0 else 0
+	var merc_bonus: int = ContractResultData.bonus_of(contract.reward, pct)
 	var guild_cut: int = final_reward - merc_bonus
 	return {
 		"travel_to_hours": out_hours,
@@ -106,7 +123,8 @@ static func preview(contract: ContractView, venture: Dictionary, ret: Dictionary
 	}
 
 
+#"2 Days, 1 Hours" the way the design prototype spells it; a span with no time in it arrives at once.
 static func days_text(hours: float) -> String:
 	if hours <= 0.0:
 		return "Instant"
-	return "%d Days, %d Hours" % [floori(hours / 24.0), floori(hours) % 24]
+	return GuiDates.duration_text(hours)

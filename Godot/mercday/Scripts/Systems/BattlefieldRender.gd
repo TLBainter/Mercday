@@ -36,11 +36,13 @@ static func _floor_glyph(area: BattlefieldArea, pos: Vector2i, floor_num: int, l
 			return "w" if (obs.get("broken", false) as bool) else "W"
 		if ct == "fence":
 			return "f"
-		var d: ObstacleData = obs.get("data") as ObstacleData
-		if d != null and d.ramp:
-			return "S"
-		if d != null and d.passthrough:
-			return "*" if (d.pt_enter_harm > 0 or d.pt_exit_harm > 0) else "~"
+		match _obs_kind(obs):
+			"ramp":
+				return "S"
+			"harm":
+				return "*"
+			"pass":
+				return "~"
 		return "o"
 	if floor_num == 0:
 		return "."
@@ -51,9 +53,19 @@ static func _floor_glyph(area: BattlefieldArea, pos: Vector2i, floor_num: int, l
 	return " "
 
 
+#ramp, harm (harmful passthrough), pass (passthrough) or block, from the obstacle data alone.
+static func _obs_kind(obs: Dictionary) -> String:
+	var d: ObstacleData = obs.get("data") as ObstacleData
+	if d != null and d.ramp:
+		return "ramp"
+	if d == null or not d.passthrough:
+		return "block"
+	return "harm" if (d.pt_enter_harm > 0 or d.pt_exit_harm > 0) else "pass"
+
+
 #One ASCII grid per floor, lowest first. markers: Vector3i -> glyph; only_floors limits the set.
 static func to_floor_maps_string(area: BattlefieldArea, markers: Dictionary = {}, only_floors: Dictionary = {}) -> String:
-	var landings: Dictionary = area._landing_cells()
+	var landings: Dictionary = area.landing_cells()
 	var out: Array[String] = []
 	for f: int in area.sorted_floors():
 		if not only_floors.is_empty() and not only_floors.has(f):
@@ -122,19 +134,14 @@ static func _to_exterior_visual_string(area: BattlefieldArea, markers: Dictionar
 				else:
 					row += "[color=white]^[/color]"
 			else:
-				var obs: Dictionary = pos_map[pos]
-				var d: ObstacleData = obs.get("data") as ObstacleData
-				if d != null and d.ramp:
-					row += "[color=cyan]S[/color]"
-				else:
-					var ct: String = obs.get("cell_type", "")
-					if ct == "wall" or ct == "door":
-						row += "[color=orange]#[/color]"
-					elif d == null or not d.passthrough:
-						row += "[color=orange]#[/color]"
-					elif d.pt_enter_harm > 0 or d.pt_exit_harm > 0:
+				match _obs_kind(pos_map[pos] as Dictionary):
+					"ramp":
+						row += "[color=cyan]S[/color]"
+					"harm":
 						row += "[color=red]*[/color]"
-					else:
+					"pass":
 						row += "[color=pink]~[/color]"
+					_:
+						row += "[color=orange]#[/color]"
 		rows.append(row)
 	return "\n".join(rows)

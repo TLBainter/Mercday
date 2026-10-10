@@ -1,17 +1,18 @@
-class_name FeatureLock extends Button
+class_name FeatureLock extends BevelButton
 
-#A small locked-feature affordance. Icon mode is just the gold lock in a dark box; label mode
-#is a full greyed button with the lock to the right of its text. Either way a press opens
+#A small locked-feature affordance. Icon mode is the gold lock in a dark box inside a greyed bevel;
+#label mode is a greyed button with the lock to the right of its text. Either way a press opens
 #FeatureLockDialog, and the control hides itself once the guild is entitled (unless pinned
 #visible for layout reasons).
 
 signal take_me_there(target: Dictionary)
 
-const BEVEL_PX: float = 2.0
 const ICON_SCALE: int = 2
+#The content margins of label mode; icon mode has none.
+const LABEL_PAD: Vector2 = Vector2(10.0, 4.0)
 const DIALOG_SCENE_PATH: String = "res://Scenes/GUI/Shared/FeatureLockDialog.tscn"
 const TOOLTIP_SCENE_PATH: String = "res://Scenes/GUI/Shared/LockTooltip.tscn"
-const ROMAN: Array[String] = ["I", "II", "III", "IV", "V", "VI", "VII"]
+const ROMAN: Array[String] = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"]
 
 @export var feature: String = "":
 	set(value):
@@ -69,7 +70,6 @@ const ROMAN: Array[String] = ["I", "II", "III", "IV", "V", "VI", "VII"]
 @export var entitlement: String = "":
 	set(value):
 		entitlement = value
-		_warned_key = false
 		_refresh()
 #The value a numeric entitlement must reach. Zero reads `tier` instead.
 @export var entitlement_tier: int = 0:
@@ -95,10 +95,24 @@ const ROMAN: Array[String] = ["I", "II", "III", "IV", "V", "VI", "VII"]
 
 var _dialog: FeatureLockDialog = null
 var _tip: TooltipPanel = null
-var _warned_key: bool = false
+#Unknown entitlement keys already warned about, one entry each, so a key warns once per run.
+static var warned_keys: Array[String] = []
+
+
+func _init() -> void:
+	set_colors(GuiColors.LOCKED_BG, GuiColors.LOCKED_HI, GuiColors.LOCKED_LO, GuiColors.LOCKED_TEXT)
+	click_move = ButtonFx.ClickMove.ROCK
+	click_shade = ButtonFx.ClickShade.HALO
+	hover_move = ButtonFx.HoverMove.NONE
+	hover_shade = ButtonFx.HoverShade.RING
+	stay_move = ButtonFx.StayMove.NONE
+	stay_shade = ButtonFx.StayShade.NONE
+	active_move = ButtonFx.HoverMove.NONE
+	active_shade = ButtonFx.HoverShade.RING
 
 
 func _ready() -> void:
+	super()
 	pressed.connect(open_dialog)
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
@@ -132,20 +146,24 @@ func wanted_tier() -> int:
 	return entitlement_tier if entitlement_tier > 0 else tier
 
 
-#A flag key opens the feature when true; a number is a tier and must reach wanted_tier(). A key
-#entitlements() does not carry stays locked and warns once, so a misspelling never opens a feature.
 func _entitled() -> bool:
+	return entitled(entitlement, wanted_tier())
+
+
+#A flag key opens the feature when true; a number is a tier and must reach p_tier. A key
+#entitlements() does not carry stays locked and warns once, so a misspelling never opens a feature.
+static func entitled(key: String, p_tier: int) -> bool:
 	var table: Dictionary = SubscriptionManager.entitlements()
-	if not table.has(entitlement):
-		if not _warned_key:
-			_warned_key = true
-			push_warning("FeatureLock '%s': entitlements() has no key '%s'" % [feature, entitlement])
+	if not table.has(key):
+		if not warned_keys.has(key):
+			warned_keys.append(key)
+			push_warning("FeatureLock: entitlements() has no key '%s'" % key)
 		return false
-	var value: Variant = table[entitlement]
+	var value: Variant = table[key]
 	if value is bool:
 		return bool(value)
 	if value is int or value is float:
-		return int(value) >= wanted_tier()
+		return int(value) >= p_tier
 	return false
 
 
@@ -154,12 +172,39 @@ func open_dialog() -> void:
 		var scene: PackedScene = load(DIALOG_SCENE_PATH) as PackedScene
 		_dialog = scene.instantiate() as FeatureLockDialog
 		add_child(_dialog)
-		_dialog.take_me_there.connect(func(target: Dictionary) -> void: take_me_there.emit(target))
+		_dialog.take_me_there.connect(func(dest: Dictionary) -> void: take_me_there.emit(dest))
 	_dialog.open_for(self)
 
 
 func copy_lines() -> Array[String]:
 	return build_copy(feature, plan, upgrade, upgrade_id, tier, tiers, verb, upgrade_end)
+
+
+#Sets every property a props dictionary names, in its key order.
+func apply_props(props: Dictionary) -> void:
+	for key: String in props:
+		set(key, props[key])
+
+
+#The copy keys a LockPanel reads.
+static func to_props(lock: FeatureLock) -> Dictionary:
+	return {
+		"feature": lock.feature,
+		"plan": lock.plan,
+		"upgrade": lock.upgrade,
+		"upgrade_id": lock.upgrade_id,
+		"tier": lock.tier,
+		"tiers": lock.tiers,
+		"verb": lock.verb,
+		"upgrade_end": lock.upgrade_end,
+	}
+
+
+#The Plans tab, or the Customize upgrade target when the guild already holds Enterprise.
+static func target(p_upgrade_id: String, p_tier: int) -> Dictionary:
+	if SubscriptionManager.plan() == SubscriptionManager.Plan.ENTERPRISE and p_upgrade_id != "":
+		return {"tab": "customize", "upgrade": p_upgrade_id, "tier": p_tier}
+	return {"tab": "plans"}
 
 
 #Plan text when the guild's plan itself falls short; upgrade text when the plan covers
@@ -205,18 +250,14 @@ func _refresh() -> void:
 
 
 func _apply_style() -> void:
-	var btn_style: StyleBoxFlat = StyleBoxFlat.new()
 	var box_style: StyleBoxFlat = StyleBoxFlat.new()
+	var pad: Vector2 = Vector2.ZERO
+	fill = GuiColors.LOCKED_BG if label != "" else GuiColors.CLEAR
 	if label != "":
-		btn_style.bg_color = GuiColors.LOCKED_BG
-		btn_style.content_margin_left = 10.0
-		btn_style.content_margin_right = 10.0
-		btn_style.content_margin_top = 4.0
-		btn_style.content_margin_bottom = 4.0
-		box_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+		pad = LABEL_PAD
+		box_style.bg_color = GuiColors.CLEAR
 	else:
-		btn_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
-		box_style.bg_color = Color("#0a0f1c")
+		box_style.bg_color = GuiColors.INK
 		box_style.border_width_left = 1
 		box_style.border_width_top = 1
 		box_style.border_width_right = 1
@@ -226,18 +267,13 @@ func _apply_style() -> void:
 		box_style.content_margin_top = 1.0
 		box_style.content_margin_right = 1.0
 		box_style.content_margin_bottom = 1.0
-	for state: StringName in [&"normal", &"hover", &"pressed", &"focus", &"disabled"]:
-		add_theme_stylebox_override(state, btn_style)
+	#The base shares one box across its states; its margins carry the padding of the mode.
+	var own: StyleBox = get_theme_stylebox(&"normal")
+	own.content_margin_left = pad.x
+	own.content_margin_right = pad.x
+	own.content_margin_top = pad.y
+	own.content_margin_bottom = pad.y
 	lock_box.add_theme_stylebox_override(&"panel", box_style)
-	queue_redraw()
-
-
-#Label mode carries the same top hi / bottom lo bevel bars TabButton draws for its own look.
-func _draw() -> void:
-	if label == "":
-		return
-	draw_rect(Rect2(0.0, 0.0, size.x, BEVEL_PX), GuiColors.LOCKED_HI)
-	draw_rect(Rect2(0.0, size.y - BEVEL_PX, size.x, BEVEL_PX), GuiColors.LOCKED_LO)
 
 
 func _on_mouse_entered() -> void:

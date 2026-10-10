@@ -6,7 +6,7 @@ class_name RelationshipCard extends PanelContainer
 const KNOWN_TEXT: String = "Known since %s"
 const CHANGED_TEXT: String = "Last change %s"
 const RELATION_TEXT: String = "Relationship %d / 10"
-const PANEL_FILL: Color = Color("#0e1628")
+const PANEL_FILL: Color = GuiColors.ROW_FILL
 const EDGE_PX: int = 4
 const NO_DAY: int = -1
 
@@ -64,16 +64,10 @@ static func day_text(day: int) -> String:
 	return TrynnCalendar.date_text(day * CampaignClock.MINUTES_PER_DAY)
 
 
-#The name the roster shows: everything up to the first space.
-static func first_name(full: String) -> String:
-	var parts: PackedStringArray = full.split(" ", false, 1)
-	return parts[0] if parts.size() > 0 else ""
-
-
 func _refresh() -> void:
 	if not is_node_ready():
 		return
-	name_label.text = first_name(merc_name).to_upper()
+	name_label.text = MercHeader.split_name(merc_name)[0].to_upper()
 	var face: int = MercView.relationship_face(relation)
 	mood_label.text = MoodFace.MOOD_NAMES[face].to_upper()
 	mood_label.add_theme_color_override("font_color", MoodFace.MOOD_COLORS[face])
@@ -94,12 +88,6 @@ func _tip() -> String:
 
 
 static func _card_box(edge: Color) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = PANEL_FILL
-	box.border_color = edge
+	var box: StyleBoxFlat = GuiStyle.flat(PANEL_FILL, 0, edge, 10.0)
 	box.border_width_bottom = EDGE_PX
-	box.content_margin_left = 10.0
-	box.content_margin_top = 10.0
-	box.content_margin_right = 10.0
-	box.content_margin_bottom = 10.0
 	return box

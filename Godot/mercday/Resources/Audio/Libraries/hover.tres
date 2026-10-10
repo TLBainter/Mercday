@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Hovers/ESM_Empire_Game_Menu_User_Interface_Button_Bamboo_Button_Tap_Hit_1.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Hovers/ESM_Empire_Game_Menu_User_Interface_UI_Continue_1_Wood_Knock_Hit.wav" id="4_s3"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Hovers/ESM_Empire_Game_Menu_User_Interface_UI_Navigation_1_Click_Snap_Tone.wav" id="5_s4"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Hovers/ESM_Empire_Game_Menu_User_Interface_UI_Tab_Click_Switch_Wooden_1.wav" id="6_s5"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("3_s2"), ExtResource("4_s3"), ExtResource("5_s4"), ExtResource("6_s5")])

@@ -8,6 +8,8 @@ const COVER_DENSITY: Array[float] = [0.01, 0.03, 0.05, 0.08, 0.12]
 const COVER_AMOUNT_NAMES: Array[String] = ["minimal", "some", "average", "many", "excessive"]
 
 const SPAWN_BUFFER := 3
+#Paces past spawn_radius that terrain, scatter obstacles and the exit check keep clear around a spawn.
+const SPAWN_CLEAR_MARGIN := 4.0
 
 #Thickness in paces of the sloped slab under a stair tread; the solid band is [tread - this, tread].
 const STAIR_SLAB := 0.5
@@ -16,9 +18,6 @@ const NO_HEADROOM_LIMIT := 1000.0
 
 #Max buildings per combat, indexed by cover_amount (0-4)
 const MAX_BUILDINGS_BY_DENSITY: Array[int] = [0, 0, 1, 2, 3]
-
-#Cardinal steps used for balcony and window drop edges.
-const DROP_DIRS: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
 
 #A drop edge that crosses no obstacle cell on its way down.
 const NO_VAULT := Vector3i(-1, -1, -1)
@@ -172,10 +171,10 @@ static func generate_random(config: BuildingConfig = null, context: GenerationCo
 	for w: int in weights:
 		total_w += w
 	var ctx: GenerationContext = context if context != null else GenerationContext.new()
-	if area_type == "City" or str(area_data.get("type", "")) == "City":
+	if _area_is(area_type, area_data, "City"):
 		CityGenerator.generate(f, area_data, ctx)
 		return f
-	if area_type == "Cavern" or str(area_data.get("type", "")) == "Cavern":
+	if _area_is(area_type, area_data, "Cavern"):
 		var min_sz: int = int(area_data.get("min_size", 30))
 		var max_sz: int = maxi(int(area_data.get("max_size", 45)), min_sz)
 		f.is_cavern = true
@@ -184,24 +183,18 @@ static func generate_random(config: BuildingConfig = null, context: GenerationCo
 		f.height = 20
 		f.unevenness = 0
 		CavernGenerator.generate(f, area_data, ctx)
-		f.build_stair_links()
-		f.build_drop_links()
-		return f
-	if area_type == "Dungeon" or str(area_data.get("type", "")) == "Dungeon":
+		return _finish(f)
+	if _area_is(area_type, area_data, "Dungeon"):
 		f.unevenness = 6
 		f.is_interior_map = true
 		f.is_dungeon = true
 		DungeonGenerator.generate(f, area_data, ctx)
-		f.build_stair_links()
-		f.build_drop_links()
-		return f
+		return _finish(f)
 	if total_w == 0:
 		f.unevenness = 6
 		f.is_interior_map = true
 		InteriorGenerator.generate_interior(f, area_data, ctx)
-		f.build_stair_links()
-		f.build_drop_links()
-		return f
+		return _finish(f)
 	var roll: int = randi() % total_w
 	var cum: int = 0
 	f.unevenness = 0
@@ -213,10 +206,19 @@ static func generate_random(config: BuildingConfig = null, context: GenerationCo
 	f._pick_spawn_centers(ctx)
 	for _attempt: int in range(4):
 		ExteriorGenerator.generate_cover(f, config)
-		if ConnectivityVerifier.spawns_connected(f) and f._approach_zone_ok():
+		if ConnectivityVerifier.spawns_connected(f) and ExteriorGenerator.approach_zone_ok(f):
 			break
-	f.build_stair_links()
-	f.build_drop_links()
+	return _finish(f)
+
+
+static func _area_is(area_type: String, area_data: Dictionary, kind: String) -> bool:
+	return area_type == kind or str(area_data.get("type", "")) == kind
+
+
+#Builds the stair and drop links of a generated map and hands the map back.
+static func _finish(f: BattlefieldArea) -> BattlefieldArea:
+	NavLinkBuilder.build_stair_links(f)
+	NavLinkBuilder.build_drop_links(f)
 	return f
 
 
@@ -251,7 +253,7 @@ func build_spawn_zone(center: Vector2i) -> Dictionary:
 	for dy: int in range(-ri, ri + 1):
 		for dx: int in range(-ri, ri + 1):
 			var cell := Vector2i(center.x + dx, center.y + dy)
-			if cell.x < 0 or cell.x >= width or cell.y < 0 or cell.y >= length:
+			if not in_bounds(cell):
 				continue
 			if Vector2(float(dx), float(dy)).length() <= spawn_radius:
 				zone[cell] = true
@@ -262,8 +264,13 @@ func clamp_position(pos: Vector2i) -> Vector2i:
 	return Vector2i(clamp(pos.x, 0, width - 1), clamp(pos.y, 0, length - 1))
 
 
-func to_header_string() -> String:
-	return BattlefieldRender.to_header_string(self)
+#True when the cell lies on the map grid.
+func in_bounds(p: Vector2i) -> bool:
+	return p.x >= 0 and p.x < width and p.y >= 0 and p.y < length
+
+
+func in_bounds_xy(x: int, y: int) -> bool:
+	return x >= 0 and x < width and y >= 0 and y < length
 
 
 #Floor numbers lowest first; empty on exterior maps.
@@ -287,29 +294,13 @@ static func run_top_y(run: Dictionary) -> int:
 
 
 #Cells where a stair run ends on the floor below; Vector3i -> true.
-func _landing_cells() -> Dictionary:
+func landing_cells() -> Dictionary:
 	var out: Dictionary = {}
 	for f: Variant in stair_runs.keys():
 		for entry: Variant in (stair_runs[f] as Array):
 			var run: Dictionary = entry as Dictionary
 			out[Vector3i(int(run["sx"]), run_bottom_y(run), (f as int) - 1)] = true
 	return out
-
-
-#One ASCII grid per floor, lowest first. markers: Vector3i -> glyph; only_floors limits the set.
-func to_floor_maps_string(markers: Dictionary = {}, only_floors: Dictionary = {}) -> String:
-	return BattlefieldRender.to_floor_maps_string(self, markers, only_floors)
-
-
-#Header map: per-floor grids indoors, the single terrain grid outdoors.
-func to_visual_string() -> String:
-	return BattlefieldRender.to_visual_string(self)
-
-
-#F0 grid plus every floor holding a merc, team digits written over the terrain glyph.
-#spawns entries: {"team": int, "floor": int, "pos": Vector2i}.
-func to_spawn_map_string(spawns: Array) -> String:
-	return BattlefieldRender.to_spawn_map_string(self, spawns)
 
 
 #Generator markers (stair_run, reserved_stairwell) keep cells free of furniture; they are not obstacles.
@@ -367,14 +358,17 @@ func floor_base_elevation(floor_num: int) -> float:
 	return float(interior_floor_elevations.get(floor_num, 0))
 
 
+#True when floor_num at pos is a roof cell.
+func _is_roof(pos: Vector2i, floor_num: int) -> bool:
+	return floor_num >= 1 and not roof_cells.is_empty() and roof_cells.has(Vector3i(pos.x, pos.y, floor_num))
+
+
 #Elevation of floor_num at pos. A city map reads the planes of the building that owns the cell.
 func floor_elevation_at(pos: Vector2i, floor_num: int) -> float:
-	if not is_interior_map:
-		if floor_num >= 1 and not roof_cells.is_empty() and roof_cells.has(Vector3i(pos.x, pos.y, floor_num)):
-			return float(roof_elevations.get(pos, 0))
-		return 0.0
-	if floor_num >= 1 and not roof_cells.is_empty() and roof_cells.has(Vector3i(pos.x, pos.y, floor_num)):
+	if _is_roof(pos, floor_num):
 		return float(roof_elevations.get(pos, 0))
+	if not is_interior_map:
+		return 0.0
 	if not building_id_at.is_empty():
 		var bid: int = int(building_id_at.get(pos, -1))
 		if bid >= 0 and bid < building_planes.size():
@@ -401,16 +395,9 @@ func building_at(pos: Vector2i) -> int:
 
 #SURF_* of pos on a city block map; SURF_NONE off the map and on every other map.
 func surface_at(pos: Vector2i) -> int:
-	if surface_grid.is_empty() or pos.x < 0 or pos.y < 0 or pos.x >= width or pos.y >= length:
+	if surface_grid.is_empty() or not in_bounds(pos):
 		return SURF_NONE
 	return surface_grid[pos.y * width + pos.x]
-
-
-#Id of the street that owns pos (an index into city["streets"]); -1 when none.
-func street_at(pos: Vector2i) -> int:
-	if street_grid.is_empty() or pos.x < 0 or pos.y < 0 or pos.x >= width or pos.y >= length:
-		return -1
-	return street_grid[pos.y * width + pos.x]
 
 
 #The run of floor_num whose band holds pos. The only run of a floor is returned as is. {} when there is none.
@@ -431,12 +418,11 @@ func stair_run_at(pos: Vector2i, floor_num: int) -> Dictionary:
 #Stair run cells interpolate between the floor below and their own floor.
 func cell_base_elevation(pos: Vector2i, floor_num: int) -> float:
 	if not is_interior_map:
-		if floor_num >= 1 and not roof_cells.is_empty() and roof_cells.has(Vector3i(pos.x, pos.y, floor_num)):
+		if _is_roof(pos, floor_num):
 			return float(roof_elevations.get(pos, 0))
 		return surface_height(pos)
-	var roof_key := Vector3i(pos.x, pos.y, floor_num)
-	if floor_num >= 1 and not roof_cells.is_empty() and roof_cells.has(roof_key):
-		return float(roof_elevations.get(pos, 0)) + float(roof_rise.get(roof_key, 0.0))
+	if _is_roof(pos, floor_num):
+		return float(roof_elevations.get(pos, 0)) + float(roof_rise.get(Vector3i(pos.x, pos.y, floor_num), 0.0))
 	if stair_runs.has(floor_num) and is_stair_cell(pos, floor_num):
 		var run: Dictionary = stair_run_at(pos, floor_num)
 		if not run.is_empty():
@@ -455,8 +441,7 @@ func cell_base_elevation(pos: Vector2i, floor_num: int) -> float:
 
 #Standing elevation for walkers: terrain outdoors; floor plane or tread indoors, relative to floor 0.
 func walk_elevation(pos: Vector2i, floor_num: int) -> float:
-	if not is_interior_map and floor_num >= 1 and not roof_cells.is_empty() \
-			and roof_cells.has(Vector3i(pos.x, pos.y, floor_num)):
+	if not is_interior_map and _is_roof(pos, floor_num):
 		return cell_base_elevation(pos, floor_num)
 	if is_interior_map and (floor_num != 0 or in_footprint(pos)):
 		return cell_base_elevation(pos, floor_num) - floor_base_elevation(0)
@@ -505,221 +490,21 @@ func stair_headroom(pos: Vector2i, floor_num: int) -> float:
 	return cell_base_elevation(pos, above) - STAIR_SLAB - floor_elevation_at(pos, floor_num)
 
 
-#Rebuilds stair_runs and stair_links from stairwell_connections; safe on exterior maps.
-func build_stair_links() -> void:
-	stair_runs.clear()
-	stair_links.clear()
-	well_links.clear()
-	neighbor_cache.clear()
-	if not is_interior_map:
-		return
-	for key: Vector3i in stairwell_connections.keys():
-		var dest: Vector3i = stairwell_connections[key] as Vector3i
-		if dest.z >= key.z:
-			continue
-		var runs: Array = stair_runs.get(key.z, []) as Array
-		runs.append({"sx": key.x, "ly": mini(dest.y, key.y), "uy": maxi(dest.y, key.y),
-			"up": 1 if key.y > dest.y else -1})
-		stair_runs[key.z] = runs
-	for f: int in stair_runs.keys():
-		for entry: Variant in (stair_runs[f] as Array):
-			var run: Dictionary = entry as Dictionary
-			var sx: int = run["sx"] as int
-			var ly: int = run_bottom_y(run)
-			var landing := Vector3i(sx, ly, f - 1)
-			if not stair_run_cells.has(landing):
-				continue
-			#The well opening joins the landing to the floor cells around the run alias above it.
-			for wdx: int in [-1, 0, 1]:
-				for wdy: int in [-1, 0, 1]:
-					if wdx == 0 and wdy == 0:
-						continue
-					var w2 := Vector2i(sx + wdx, ly + wdy)
-					if w2.x < 0 or w2.x >= width or w2.y < 0 or w2.y >= length:
-						continue
-					if is_stair_cell(w2, f):
-						continue
-					if not has_walkable_surface(w2, f):
-						continue
-					var wn := Vector3i(w2.x, w2.y, f)
-					var w_down: Array[Vector3i] = []
-					if well_links.has(landing):
-						w_down.assign(well_links[landing] as Array)
-					w_down.append(wn)
-					well_links[landing] = w_down
-					var w_up: Array[Vector3i] = []
-					if well_links.has(wn):
-						w_up.assign(well_links[wn] as Array)
-					w_up.append(landing)
-					well_links[wn] = w_up
-			var ups: Array[Vector3i] = []
-			for dx: int in [-1, 0, 1]:
-				for dy: int in [-1, 1]:
-					var c := Vector3i(sx + dx, ly + dy, f)
-					if not stair_run_cells.has(c):
-						continue
-					ups.append(c)
-			if ups.is_empty():
-				continue
-			stair_links[landing] = ups
-			for c: Vector3i in ups:
-				var down: Array[Vector3i] = []
-				if stair_links.has(c):
-					down.assign(stair_links[c] as Array)
-				down.append(landing)
-				stair_links[c] = down
-
-
-#Rebuilds drop_links from balcony edges, broken shell windows and roof edges; safe on exterior maps.
-func build_drop_links() -> void:
-	drop_links.clear()
-	climb_links.clear()
-	roof_fly_links.clear()
-	#Every build path ends here, so the reach and cost caches are reset for the finished geometry.
-	bump_path_version()
-	if not is_interior_map:
-		if not roof_cells.is_empty():
-			_add_roof_drop_links()
-			_add_dome_links()
-			_build_climb_links()
-		return
-	for key: Variant in building_interiors.keys():
-		if typeof(key) != TYPE_VECTOR3I:
-			continue
-		var b: Vector3i = key as Vector3i
-		if b.z < 1:
-			continue
-		var b2 := Vector2i(b.x, b.y)
-		if in_footprint(b2):
-			continue
-		for d: Vector2i in DROP_DIRS:
-			var edge := Vector2i(b.x + d.x, b.y + d.y)
-			if in_footprint(edge) or building_interiors.has(Vector3i(edge.x, edge.y, b.z)):
-				continue
-			var edge_obs: Dictionary = get_obs(edge, b.z)
-			var land := edge
-			var vault := Vector3i(-1, -1, -1)
-			if not edge_obs.is_empty():
-				if edge_obs.get("cell_type", "") == "wall":
-					continue
-				land = Vector2i(edge.x + d.x, edge.y + d.y)
-				vault = Vector3i(edge.x, edge.y, b.z)
-			_add_drop_link(b, land, vault, "balcony")
-	for wkey: Variant in _obs_map.keys():
-		if typeof(wkey) != TYPE_VECTOR3I:
-			continue
-		var w: Vector3i = wkey as Vector3i
-		if w.z < 1:
-			continue
-		var wobs: Dictionary = _obs_map[wkey] as Dictionary
-		if wobs.get("cell_type", "") != "window":
-			continue
-		if not (wobs.get("broken", false) as bool):
-			continue
-		if not _on_footprint_edge(Vector2i(w.x, w.y)):
-			continue
-		for d: Vector2i in DROP_DIRS:
-			var inner := Vector2i(w.x - d.x, w.y - d.y)
-			if not in_footprint(inner) or not building_interiors.has(Vector3i(inner.x, inner.y, w.z)):
-				continue
-			var outer := Vector2i(w.x + d.x, w.y + d.y)
-			if in_footprint(outer) and not _roof_under(outer, w.z):
-				continue
-			_add_drop_link(Vector3i(inner.x, inner.y, w.z), outer, w, "window")
-	_add_roof_drop_links()
-	_add_dome_links()
-	_build_climb_links()
-
-
-#A broken roof object opens its cell, so the roof link tables are rebuilt from the new geometry.
-func relink_after_obstacle_loss(obs: Dictionary) -> void:
-	bump_path_version()
-	los_version += 1
-	if not is_interior_map or roof_cells.is_empty():
-		return
-	if not bool(obs.get("roof_object", false)):
-		return
-	_rebuild_cover_obstacles()
-	_rebuild_droppable_obs_map()
-	build_drop_links()
-
-
-#Sorts cells by z, then y, then x, so a table built from dictionary keys never follows hash order.
-static func _cell_before(a: Vector3i, b: Vector3i) -> bool:
-	if a.z != b.z:
-		return a.z < b.z
-	if a.y != b.y:
-		return a.y < b.y
-	return a.x < b.x
-
-
-#Reverses every drop link into climb_links: the landing cell keys the top it rises to.
-func _build_climb_links() -> void:
-	var keys: Array[Vector3i] = []
-	for k: Variant in drop_links.keys():
-		keys.append(k as Vector3i)
-	keys.sort_custom(_cell_before)
-	for from: Vector3i in keys:
-		for dl: Dictionary in (drop_links[from] as Array):
-			var to: Vector3i = dl["to"] as Vector3i
-			var ups: Array = climb_links.get(to, []) as Array
-			ups.append({"top": from, "paces": int(dl["paces"]), "kind": String(dl["kind"]),
-				"vault": dl["vault"] as Vector3i})
-			climb_links[to] = ups
-
-
 #Climb links rising out of base; empty when the cell carries none.
 func climb_links_at(base: Vector3i) -> Array:
 	return climb_links.get(base, []) as Array
 
 
-#True when pos carries a roof footing at or below floor_num: the drop has somewhere to land.
-func _roof_under(pos: Vector2i, floor_num: int) -> bool:
-	var rl: int = roof_level_at(pos)
-	return rl >= 0 and rl <= floor_num and is_roof_footing(pos, rl)
-
-
-#One drop edge off every open roof edge, plus the reverse rise a flyer takes back up.
-func _add_roof_drop_links() -> void:
-	if roof_cells.is_empty():
+#Appends obs and maps it at key; a pw x ph object maps every covered cell from its Vector3i key.
+func add_obstacle(obs: Dictionary, key: Variant, pw: int = 1, ph: int = 1) -> void:
+	obstacles.append(obs)
+	if pw == 1 and ph == 1:
+		_obs_map[key] = obs
 		return
-	for rkey: Variant in roof_cells.keys():
-		var r: Vector3i = rkey as Vector3i
-		if int(roof_cells[rkey]) == RoofBuilder.SOLID:
-			continue
-		if not get_obs(Vector2i(r.x, r.y), r.z).is_empty():
-			continue
-		for d: Vector2i in DROP_DIRS:
-			var n := Vector2i(r.x + d.x, r.y + d.y)
-			if n.x < 0 or n.x >= width or n.y < 0 or n.y >= length:
-				continue
-			var land := n
-			var vault := NO_VAULT
-			var nobs: Dictionary = get_obs(n, r.z)
-			if not nobs.is_empty():
-				#A parapet or dormer is climbed over; a merlon stands too tall to clear.
-				if not bool(nobs.get("roof_object", false)) or obstacle_height(nobs) >= 2.0:
-					continue
-				land = Vector2i(n.x + d.x, n.y + d.y)
-				vault = Vector3i(n.x, n.y, r.z)
-				if land.x < 0 or land.x >= width or land.y < 0 or land.y >= length:
-					continue
-			if is_roof_footing(land, r.z) or has_walkable_surface(land, r.z):
-				continue
-			if not _add_drop_link(r, land, vault, "roof"):
-				continue
-			_register_fly_back(r)
-
-
-#The rise a flyer takes back up, written on the cell the drop link just appended lands on.
-func _register_fly_back(from: Vector3i) -> void:
-	var added: Array = drop_links[from] as Array
-	var to: Vector3i = (added[added.size() - 1] as Dictionary)["to"] as Vector3i
-	var ups: Array[Vector3i] = []
-	if roof_fly_links.has(to):
-		ups.assign(roof_fly_links[to] as Array)
-	ups.append(from)
-	roof_fly_links[to] = ups
+	var k: Vector3i = key
+	for ox: int in range(pw):
+		for oy: int in range(ph):
+			_obs_map[Vector3i(k.x + ox, k.y + oy, k.z)] = obs
 
 
 #Drops one obstacle cell from the obstacle list and from the obstacle index.
@@ -737,120 +522,6 @@ func remove_obstacle_at(obs_cell: Dictionary, raw_pos: Variant, pos: Vector2i, f
 		for ox: int in range(maxi(1, int(obs_cell.get("pw", 1)))):
 			for oy: int in range(maxi(1, int(obs_cell.get("ph", 1)))):
 				_obs_map.erase(Vector3i(pos.x + ox, pos.y + oy, floor_num))
-
-
-#A dome is climbed as a wall: every ground cell beside it links to the nearest crown cell of the dome.
-func _add_dome_links() -> void:
-	if roof_parts.is_empty():
-		return
-	for part: Dictionary in roof_parts:
-		if String(part.get("kind", "")) != "dome":
-			continue
-		var level: int = int(part.get("level", 1))
-		var rect: Rect2i = part.get("rect", Rect2i()) as Rect2i
-		var crowns: Array[Vector3i] = []
-		for cell: Vector2i in (part.get("cells", []) as Array):
-			var key := Vector3i(cell.x, cell.y, level)
-			if int(roof_cells.get(key, RoofBuilder.SOLID)) != RoofBuilder.FLAT:
-				continue
-			if not get_obs(cell, level).is_empty():
-				continue
-			crowns.append(key)
-		if crowns.is_empty():
-			continue
-		for gy: int in range(rect.position.y - 1, rect.end.y + 1):
-			for gx: int in range(rect.position.x - 1, rect.end.x + 1):
-				var g := Vector2i(gx, gy)
-				if rect.has_point(g) or g.x < 0 or g.x >= width or g.y < 0 or g.y >= length:
-					continue
-				if in_footprint(g) or roof_level_at(g) >= 0:
-					continue
-				if not has_walkable_surface(g, 0) or not get_obs(g, 0).is_empty():
-					continue
-				_dome_link_to(crowns, g)
-
-
-#Links the one crown cell nearest g, unless a roof edge already drops from it onto g.
-func _dome_link_to(crowns: Array[Vector3i], g: Vector2i) -> void:
-	var best := Vector3i(-1, -1, -1)
-	var best_d: int = 1 << 30
-	for c: Vector3i in crowns:
-		var d2: int = (c.x - g.x) * (c.x - g.x) + (c.y - g.y) * (c.y - g.y)
-		if d2 > best_d:
-			continue
-		if d2 == best_d and not (c.y < best.y or (c.y == best.y and c.x < best.x)):
-			continue
-		best = c
-		best_d = d2
-	if best.x < 0:
-		return
-	for old: Dictionary in (drop_links.get(best, []) as Array):
-		var ot: Vector3i = old["to"] as Vector3i
-		if ot.x == g.x and ot.y == g.y:
-			return
-	if not _add_drop_link(best, g, NO_VAULT, "roof"):
-		return
-	_register_fly_back(best)
-
-
-#True when pos sits on the outermost ring of the building footprint.
-func _on_footprint_edge(pos: Vector2i) -> bool:
-	if not in_footprint(pos):
-		return false
-	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		if not in_footprint(pos + d):
-			return true
-	return false
-
-
-#Highest footing of the column `land` that lies under from_elev; -1 when the drop has no landing.
-func drop_landing_level(land: Vector2i, from_elev: float, below: int) -> int:
-	var rl: int = roof_level_at(land)
-	if rl >= 0 and rl < below:
-		if is_roof_footing(land, rl):
-			if cell_base_elevation(land, rl) < from_elev:
-				return rl
-		elif float(roof_elevations.get(land, 0)) < from_elev:
-			return -1
-	var lz: int = 0
-	for z: int in range(below - 1, 0, -1):
-		if has_walkable_surface(land, z) and floor_elevation_at(land, z) < from_elev:
-			lz = z
-			break
-	if in_footprint(land) and lz != rl:
-		return -1
-	return lz
-
-
-#Records one drop edge from `from` down to `land`; false when the landing is unusable.
-func _add_drop_link(from: Vector3i, land: Vector2i, vault: Vector3i, kind: String) -> bool:
-	if land.x < 0 or land.x >= width or land.y < 0 or land.y >= length:
-		return false
-	var from2 := Vector2i(from.x, from.y)
-	var from_e: float = cell_base_elevation(from2, from.z) if is_roof_footing(from2, from.z) \
-		else floor_elevation_at(from2, from.z)
-	var lz: int = drop_landing_level(land, from_e, from.z + 1)
-	if lz < 0:
-		return false
-	if lz == 0 and jagged_cells.has(land):
-		return false
-	var lobs: Dictionary = get_obs(land, lz)
-	if not lobs.is_empty():
-		var lct: String = lobs.get("cell_type", "")
-		if lct == "wall":
-			return false
-		if lct == "door" and not OpenCloseState.is_open(lobs):
-			return false
-		#A roof edge never drops a mover into an obstacle cell; an open door is the one exception.
-		if kind == "roof" and lct != "door":
-			return false
-	var paces: int = int(floor(from_e - cell_base_elevation(land, lz)))
-	if paces <= 0:
-		return false
-	var links: Array = drop_links.get(from, []) as Array
-	links.append({"to": Vector3i(land.x, land.y, lz), "paces": paces, "kind": kind, "vault": vault})
-	drop_links[from] = links
-	return true
 
 
 #Rebuilds footprint_union and the bounding rect from the per-floor masks; generators call it once.
@@ -991,13 +662,18 @@ func break_window(pos: Vector2i, floor_num: int) -> bool:
 		return false
 	obs["broken"] = true
 	los_version += 1
-	build_drop_links()
+	NavLinkBuilder.build_drop_links(self)
 	bump_path_version()
 	return true
 
 
 func get_obstacle_at_3d(pos: Vector3i) -> Dictionary:
 	return _skip_placeholder(_obs_map.get(pos, {}) as Dictionary)
+
+
+#cell_type of the raw _obs_map entry at an interior cell, stair placeholders included; "" for an empty cell.
+func cell_type_at(pos: Vector3i) -> String:
+	return String((_obs_map.get(pos, {}) as Dictionary).get("cell_type", ""))
 
 
 #Clears every field the generation pipeline fills in, before a fresh run.
@@ -1076,43 +752,8 @@ func log_gen(text: String) -> void:
 	print(text)
 
 
-func _classify_fly_only_cells() -> void:
-	for y: int in range(length):
-		for x: int in range(width):
-			var cell := Vector2i(x, y)
-			if jagged_cells.has(cell):
-				continue
-			if _obs_map.has(cell):
-				continue
-			if reserved_corridor_cells.has(cell):
-				continue
-			var cell_h: float = get_terrain_height(cell)
-			var reachable: bool = false
-			for dir: Vector2i in DROP_DIRS:
-				var nb := cell + dir
-				if nb.x < 0 or nb.x >= width or nb.y < 0 or nb.y >= length:
-					continue
-				if jagged_cells.has(nb):
-					continue
-				var h_diff: float = cell_h - get_terrain_height(nb)
-				if h_diff <= 2.0:
-					reachable = true
-					break
-			if not reachable:
-				fly_only_cells[cell] = true
-
-
-func _smooth_corridor_edges() -> void:
-	for _pass: int in range(3):
-		for cell: Vector2i in reserved_corridor_cells.keys():
-			var sum: float = terrain_heights.get(cell, 0.0)
-			var count: int = 1
-			for dir: Vector2i in DROP_DIRS:
-				var nb: Vector2i = cell + dir
-				if nb.x >= 0 and nb.x < width and nb.y >= 0 and nb.y < length:
-					sum += terrain_heights.get(nb, 0.0)
-					count += 1
-			terrain_heights[cell] = clampf(sum / float(count), -0.1, 0.1)
+func log_total(total_ms: int) -> void:
+	log_gen("[GEN] TOTAL: %dms  -  %s" % [total_ms, BattlefieldRender.to_header_string(self)])
 
 
 func _in_spawn_zone(pos: Vector2i) -> bool:
@@ -1131,72 +772,6 @@ func is_obstacle(pos: Vector2i, floor_num: int = 0) -> bool:
 	if d != null and (d.passthrough or d.ramp):
 		return false
 	return true
-
-
-func _ensure_pathability() -> void:
-	var skip: Dictionary = {}
-	for k: Vector2i in reserved_corridor_cells.keys():
-		skip[k] = true
-	for k: Vector2i in jagged_cells.keys():
-		skip[k] = true
-	var terrain_passes := 0
-	while not _is_passable() and terrain_passes < 5:
-		TerrainGenerator.smooth(terrain_heights, width, length, skip)
-		terrain_passes += 1
-
-
-#Cardinal flood from starts over ground cells; true as soon as reached returns true for one cell.
-#Steps reject a height change over 0.5, or over 0.25 onto a cell without stairs.
-func _flood(starts: Array[Vector2i], reached: Callable) -> bool:
-	var visited: Dictionary = {}
-	var queue: Array[Vector2i] = []
-	for start: Vector2i in starts:
-		if not visited.has(start):
-			visited[start] = true
-			queue.append(start)
-	while not queue.is_empty():
-		var curr: Vector2i = queue.pop_front()
-		if bool(reached.call(curr)):
-			return true
-		for d: Vector2i in DROP_DIRS:
-			var nxt: Vector2i = curr + d
-			if nxt.x < 0 or nxt.x >= width or nxt.y < 0 or nxt.y >= length:
-				continue
-			if visited.has(nxt) or is_obstacle(nxt) or jagged_cells.has(nxt):
-				continue
-			var h_diff: float = absf(get_terrain_height(nxt) - get_terrain_height(curr))
-			if h_diff > 0.5:
-				continue
-			if h_diff > 0.25 and not has_stairs_at(nxt):
-				continue
-			visited[nxt] = true
-			queue.append(nxt)
-	return false
-
-
-func _is_passable() -> bool:
-	var starts: Array[Vector2i] = []
-	for x: int in range(width):
-		var start := Vector2i(x, 0)
-		if not is_obstacle(start):
-			starts.append(start)
-	return _flood(starts, func(cell: Vector2i) -> bool: return cell.y == length - 1)
-
-
-func _spawn_exit_blocked(center: Vector2i, zone: Dictionary) -> bool:
-	var outer: float = spawn_radius + 4.0
-	var starts: Array[Vector2i] = []
-	for cell: Vector2i in zone.keys():
-		if not is_obstacle(cell) and not jagged_cells.has(cell):
-			starts.append(cell)
-	var far := func(cell: Vector2i) -> bool:
-		return Vector2(float(cell.x - center.x), float(cell.y - center.y)).length() > outer
-	return not _flood(starts, far)
-
-
-func _approach_zone_ok() -> bool:
-	return not _spawn_exit_blocked(spawn_center_a, spawn_zone_a) \
-		and not _spawn_exit_blocked(spawn_center_b, spawn_zone_b)
 
 
 func get_adjacent_obstacles(pos: Vector2i, floor_num: int = 0) -> Array[Dictionary]:
@@ -1221,10 +796,6 @@ func has_stairs_at(pos: Vector2i, floor_num: int = 0) -> bool:
 		return false
 	var d: ObstacleData = obs.get("data") as ObstacleData
 	return d != null and d.ramp
-
-
-func get_nav_passable_cells() -> Dictionary:
-	return reserved_corridor_cells
 
 
 func _rebuild_cover_obstacles() -> void:

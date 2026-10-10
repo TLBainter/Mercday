@@ -6,7 +6,6 @@ class_name LocationCard extends PanelContainer
 
 signal request_pressed(loc_id: int)
 
-const STARS_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/DifficultyStars.tscn")
 const LOCK_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FeatureLock.tscn")
 const CARD_WIDTH: int = 330
 const ICON_SPAN: Vector2 = Vector2(84, 84)
@@ -27,7 +26,7 @@ var location: LegalLocationData = null:
 
 var name_label: Label = null
 var nation_label: Label = null
-var stars: DifficultyStars = null
+var stars: Stars = null
 var rules_box: VBoxContainer = null
 var permissions_box: VBoxContainer = null
 var request_button: Button = null
@@ -94,35 +93,35 @@ func _build() -> void:
 	if name_label != null:
 		return
 	custom_minimum_size = Vector2(float(CARD_WIDTH), 0.0)
-	add_theme_stylebox_override(&"panel", LegalStyle.card_style(LegalStyle.BLUE))
-	var body: VBoxContainer = LegalStyle.vbox(9)
+	add_theme_stylebox_override(&"panel", LegalStyle.card_style(GuiColors.BLUE_LO))
+	var body: VBoxContainer = GuiStyle.vbox(9)
 	body.name = "Body"
-	var head_row: HBoxContainer = LegalStyle.hbox(12)
+	var head_row: HBoxContainer = GuiStyle.hbox(12)
 	head_row.name = "Head"
 	head_row.add_child(_icon_holder())
-	var head: VBoxContainer = LegalStyle.vbox(3)
+	var head: VBoxContainer = GuiStyle.vbox(3)
 	head.name = "Text"
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label = LegalStyle.pixel("", 15, LegalStyle.CREAM, true)
+	name_label = GuiStyle.label("", GuiStyle.SILK_BOLD, 15, GuiColors.CREAM)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	nation_label = LegalStyle.text("", 13, LegalStyle.SKY)
+	nation_label = GuiStyle.label("", GuiStyle.BODY, 13, GuiColors.SKY)
 	nation_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	head.add_child(name_label)
 	head.add_child(nation_label)
 	head.add_child(_difficulty_box())
 	head_row.add_child(head)
 	body.add_child(head_row)
-	body.add_child(LegalStyle.divider(LegalStyle.BLUE, 2))
-	rules_box = LegalStyle.vbox(6)
+	body.add_child(LegalStyle.divider(GuiColors.BLUE_LO, 2))
+	rules_box = GuiStyle.vbox(6)
 	rules_box.name = "Rules"
 	rules_box.add_child(LegalStyle.head("Rules"))
 	body.add_child(rules_box)
-	permissions_box = LegalStyle.vbox(9)
+	permissions_box = GuiStyle.vbox(9)
 	permissions_box.name = "Permissions"
 	permissions_box.add_child(LegalStyle.head("Your Permissions"))
 	body.add_child(permissions_box)
-	body.add_child(LegalStyle.spacer())
-	request_button = LegalStyle.button("Request", &"ButtonOrange", REQUEST_HEIGHT, 11)
+	body.add_child(GuiStyle.spacer(true))
+	request_button = LegalStyle.button("Request", &"orange", REQUEST_HEIGHT, 11)
 	request_button.name = "Request"
 	request_button.pressed.connect(press_request)
 	body.add_child(request_button)
@@ -130,14 +129,14 @@ func _build() -> void:
 
 
 func _difficulty_box() -> VBoxContainer:
-	var box: VBoxContainer = LegalStyle.vbox(4)
+	var box: VBoxContainer = GuiStyle.vbox(4)
 	box.name = "Difficulty"
 	var caption: Label = LegalStyle.head("Average Difficulty")
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	box.add_child(caption)
-	stars = STARS_SCENE.instantiate() as DifficultyStars
+	stars = Stars.new()
 	stars.name = "Stars"
-	stars.star_size = 2
+	stars.star_px = 2
 	stars.size_flags_horizontal = Control.SIZE_SHRINK_END
 	stars.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	box.add_child(stars)
@@ -152,7 +151,7 @@ func _icon_holder() -> Control:
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_box = LegalStyle.hatch_box(ICON_SPAN, LegalStyle.BLUE3)
+	icon_box = LegalStyle.hatch_box(ICON_SPAN, GuiColors.BLUE_HI)
 	icon_box.name = "Art"
 	icon_box.set_anchors_preset(Control.PRESET_FULL_RECT)
 	holder.add_child(icon_box)
@@ -162,8 +161,8 @@ func _icon_holder() -> Control:
 	chip.position = CHIP_AT
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	chip.add_theme_stylebox_override(&"panel",
-		LegalStyle.box_style(LegalStyle.ORANGE, LegalStyle.ORANGE_LO, 1, 2))
-	var chip_label: Label = LegalStyle.pixel("Home", 8, LegalStyle.INK)
+		GuiStyle.flat(GuiColors.ORANGE, 1, GuiColors.ORANGE_LO, 2.0))
+	var chip_label: Label = GuiStyle.label("Home", GuiStyle.SILK, 8, GuiColors.INK)
 	chip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	chip.add_child(chip_label)
 	chip.visible = false
@@ -183,27 +182,27 @@ func _refresh() -> void:
 		return
 	name_label.text = location.name
 	nation_label.text = location.nation
-	stars.rating = location.avg_difficulty
+	stars.value = location.avg_difficulty
 	chip.visible = is_home()
 	_fill_rules()
 	_fill_permissions()
 	var live: bool = LegalManager.permit_state(location.id,
 		LegalManager.PERMIT_OPS) == LegalManager.STATE_ACTIVE
 	add_theme_stylebox_override(&"panel",
-		LegalStyle.card_style(LegalStyle.GREEN_EDGE if live else LegalStyle.BLUE))
+		LegalStyle.card_style(GuiColors.GO_LO if live else GuiColors.BLUE_LO))
 
 
 func _fill_rules() -> void:
 	_clear_after(rules_box)
 	for rule: String in location.rules:
-		var row: HBoxContainer = LegalStyle.hbox(8)
+		var row: HBoxContainer = GuiStyle.hbox(8)
 		var bullet := ColorRect.new()
-		bullet.color = LegalStyle.SKY
+		bullet.color = GuiColors.SKY
 		bullet.custom_minimum_size = BULLET_SPAN
 		bullet.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bullet.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(bullet)
-		var text: Label = LegalStyle.text(rule, 13, LegalStyle.CREAM)
+		var text: Label = GuiStyle.label(rule, GuiStyle.BODY, 13, GuiColors.CREAM)
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(text)
@@ -213,10 +212,10 @@ func _fill_rules() -> void:
 func _fill_permissions() -> void:
 	_clear_after(permissions_box)
 	_states.clear()
-	permissions_box.add_child(_permission_row(LegalManager.PERMIT_OPS, "Operations Permit",
-		PermitRow.OPS_DESC))
-	permissions_box.add_child(_permission_row(LegalManager.PERMIT_TELE, "Teleportation Permit",
-		PermitRow.TELE_DESC))
+	permissions_box.add_child(_permission_row(LegalManager.PERMIT_OPS,
+		LegalStyle.permit_name(LegalManager.PERMIT_OPS), PermitRow.OPS_DESC))
+	permissions_box.add_child(_permission_row(LegalManager.PERMIT_TELE,
+		LegalStyle.permit_name(LegalManager.PERMIT_TELE), PermitRow.TELE_DESC))
 	permissions_box.add_child(_standing_row())
 
 
@@ -240,18 +239,18 @@ func _standing_row() -> Control:
 
 func _mark_row(state: int, title: String, desc: String, short: bool,
 		kind: StringName) -> Control:
-	var row: HBoxContainer = LegalStyle.hbox(9)
+	var row: HBoxContainer = GuiStyle.hbox(9)
 	row.name = title.replace(" ", "")
 	if short:
 		row.add_child(_row_lock(kind))
 	else:
 		row.add_child(LegalStyle.icon(_mark_texture(state), MARK_SPAN))
-	var stack: VBoxContainer = LegalStyle.vbox(2)
+	var stack: VBoxContainer = GuiStyle.vbox(2)
 	stack.name = "Text"
 	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var head: Label = LegalStyle.pixel(title, 10,
-		GuiColors.LOCKED_TEXT if short else _state_color(state), true)
-	var body: Label = LegalStyle.text(desc, 12, LegalStyle.SKY)
+	var head: Label = GuiStyle.label(title, GuiStyle.SILK_BOLD,
+		10, GuiColors.LOCKED_TEXT if short else _state_color(state))
+	var body: Label = GuiStyle.label(desc, GuiStyle.BODY, 12, GuiColors.SKY)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(head)
 	stack.add_child(body)
@@ -267,11 +266,10 @@ func _row_lock(kind: StringName) -> FeatureLock:
 	lock.verb = "hold"
 	lock.tiers = SCOPE_TIERS
 	lock.tier = location.scope
-	lock.upgrade_id = "teleport" if tele else "opspermit"
+	lock.upgrade_id = LegalStyle.permit_upgrade(kind)
 	lock.entitlement = PermitRow.TELE_KEY if tele else PermitRow.OPS_KEY
-	lock.upgrade = "Teleportation Permit" if tele else "Operations Permits"
-	lock.feature = "%ss in %s" % [
-		"Teleportation Permit" if tele else "Operations Permit",
+	lock.upgrade = UpgradeDefs.name_of(LegalStyle.permit_upgrade(kind))
+	lock.feature = "%ss in %s" % [LegalStyle.permit_name(kind),
 		PermitRow.scope_text(location.scope)]
 	lock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return lock
@@ -295,10 +293,10 @@ static func _mark_texture(state: int) -> ImageTexture:
 
 static func _state_color(state: int) -> Color:
 	if state == LegalManager.STATE_ACTIVE:
-		return LegalStyle.GREEN
+		return GuiColors.GREEN
 	if state == LegalManager.STATE_INACTIVE:
-		return LegalStyle.AMBER
-	return LegalStyle.CREAM
+		return GuiColors.AMBER
+	return GuiColors.CREAM
 
 
 static func _violation_text(n: int) -> String:

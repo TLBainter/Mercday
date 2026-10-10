@@ -38,7 +38,7 @@ static func resolve(
 		"notes":            [],
 	}
 
-	var taken := ConstStates.damage_taken(merc)
+	var taken := StateEffects.damage_taken(merc)
 	if int(taken["bonus"]) > 0:
 		raw_damage += int(taken["bonus"])
 		out["raw_damage"] = raw_damage
@@ -51,7 +51,7 @@ static func resolve(
 
 	var passive := _passive_modifier(merc, type_lower)
 	out["passive_modifier"] = passive
-	var modifier := _merge_modifier(passive, ConstStates.damage_modifier(merc, damage_type))
+	var modifier := _merge_modifier(passive, StateEffects.damage_modifier(merc, damage_type))
 	if modifier == "immune":
 		out["modifier"] = "immune"
 		out["is_immune"] = true
@@ -152,11 +152,9 @@ static func resolve(
 
 	var block_min_1: bool = type_data.get("block_min_1", false)
 	var dodge_min_1: bool = type_data.get("dodge_min_1", false)
+	var floor_1: bool = (source == "defend" and block_min_1) or (source == "dodge" and dodge_min_1)
 	var final_reducible: int
-	if source == "defend" and block_min_1 and reducible > 0:
-		final_reducible = maxi(1, reducible - best)
-		out["min_1_only"] = reducible - best <= 0 and direct_portion == 0
-	elif source == "dodge" and dodge_min_1 and reducible > 0:
+	if floor_1 and reducible > 0:
 		final_reducible = maxi(1, reducible - best)
 		out["min_1_only"] = reducible - best <= 0 and direct_portion == 0
 	else:
@@ -216,4 +214,4 @@ static func damage_modifier_for(merc: MercenaryData, damage_type: String) -> Str
 	if merc == null:
 		return "none"
 	return _merge_modifier(_passive_modifier(merc, damage_type.to_lower()),
-		ConstStates.damage_modifier(merc, damage_type))
+		StateEffects.damage_modifier(merc, damage_type))

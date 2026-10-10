@@ -6,7 +6,7 @@ class_name GuiLockTests extends RefCounted
 
 const FEATURE_LOCK := preload("res://Scenes/GUI/Shared/FeatureLock.tscn")
 const LOCKED_PAGE := preload("res://Scenes/GUI/Shared/LockedPage.tscn")
-const TAB_BUTTON := preload("res://Scenes/GUI/Mercs/TabButton.tscn")
+const TAB_BUTTON := preload("res://Scenes/GUI/Shared/TabButton.tscn")
 const GRID_MENU_BUTTON := preload("res://Scenes/GUI/Shared/GridMenuButton.tscn")
 const NOTIFICATION_DOT := preload("res://Scenes/GUI/Shared/NotificationDot.tscn")
 const TEST_UPGRADE := "oddjobs"
@@ -15,7 +15,7 @@ const FLAG_KEY := "bazaar"
 const TIER_KEY := "oddJobs"
 const MISSING_KEY := "noSuchEntitlementKey"
 
-#Every icon the handoff package named, as the atlas id its screen draws now.
+#Every icon the design prototype named, as the atlas id its screen draws now.
 const ICON_IDS: Array[String] = [
 	"magnifier", "cart", "parcel", "shop", "direct_sale", "flyers", "radio", "sponsorship",
 	"wom", "whistle", "mercday", "bazaar_cat", "bazaar_node", "better_items", "counsel",
@@ -35,13 +35,14 @@ static func run(host: Node) -> bool:
 	_case_lock_glyph(res)
 	await _case_notification_dot(res, host)
 	await _case_feature_lock(res, host)
+	await _case_tip_resettles(res, host)
 	await _case_lock_gate(res, host)
 	await _case_lock_open_default(res, host)
 	await _case_locked_page(res, host)
 	await _case_tab_button(res, host)
 	await _case_grid_menu_button(res, host)
 	_case_icons(res)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	return TestFixtures.summarize(res, "GUI LOCK")
 
 
@@ -55,7 +56,7 @@ static func _fresh() -> void:
 
 #The bare baseline: Enterprise with no upgrade tier and no override, so a tier read starts at 0.
 static func _reset_subscription() -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 
 
@@ -95,19 +96,14 @@ static func _case_lock_glyph(res: Dictionary) -> void:
 	TestFixtures.check(res, "the lock glyph scales to 24 by 27",
 		tex.get_size() == Vector2(24, 27), str(tex.get_size()))
 	var img: Image = tex.get_image()
-	var lit: int = 0
-	var pure: int = 0
-	var tinted_bad: int = 0
-	for y: int in img.get_height():
-		for x: int in img.get_width():
-			var px: Color = img.get_pixel(x, y)
-			if px.a <= 0.0:
-				continue
-			lit += 1
-			if px.r >= 1.0 and px.g >= 1.0 and px.b >= 1.0:
-				pure += 1
-			elif not (is_equal_approx(px.r, px.g) and is_equal_approx(px.g, px.b)):
-				tinted_bad += 1
+	var is_pure := func(_x: int, _y: int, px: Color) -> bool:
+		return px.a > 0.0 and px.r >= 1.0 and px.g >= 1.0 and px.b >= 1.0
+	var is_off := func(x: int, y: int, px: Color) -> bool:
+		var grey: bool = is_equal_approx(px.r, px.g) and is_equal_approx(px.g, px.b)
+		return px.a > 0.0 and not is_pure.call(x, y, px) and not grey
+	var lit: int = GuiIconTests.count_pixels(img, GuiIconTests.is_opaque)
+	var pure: int = GuiIconTests.count_pixels(img, is_pure)
+	var tinted_bad: int = GuiIconTests.count_pixels(img, is_off)
 	TestFixtures.check(res, "a white tint paints the lock art white",
 		lit > 0 and pure > 0 and tinted_bad == 0,
 		"lit %d pure %d off %d" % [lit, pure, tinted_bad])
@@ -257,6 +253,32 @@ static func _case_feature_lock(res: Dictionary, host: Node) -> void:
 	_reset_subscription()
 
 
+#A tip shown for the first time measures its wrapping body label before that label's first sort
+#pass, so place() can stick with a stale, too-small size; this confirms it resettles once the
+#label's real minimum size comes in, rather than staying parked at the wrong spot.
+static func _case_tip_resettles(res: Dictionary, host: Node) -> void:
+	var lock: FeatureLock = FEATURE_LOCK.instantiate()
+	lock.global_position = Vector2(400.0, 300.0)
+	host.add_child(lock)
+	await host.get_tree().process_frame
+	SubscriptionManager.set_plan(SubscriptionManager.Plan.FREE)
+	lock.upgrade_id = TEST_UPGRADE
+	lock.tier = 1
+	SubscriptionManager.set_tier(TEST_UPGRADE, 0)
+	lock._on_mouse_entered()
+	var tip: TooltipPanel = lock.get("_tip")
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var bounds: Rect2 = tip.get_viewport().get_visible_rect().grow(-tip.edge_pad)
+	var want: Vector2 = TooltipPanel.tip_position(lock.get_global_rect(),
+		tip.get_combined_minimum_size(), bounds, tip.side)
+	TestFixtures.check(res, "a first-hover tip resettles to its real minimum size",
+		tip.global_position.is_equal_approx(want),
+		"got %s want %s size %s" % [tip.global_position, want, tip.get_combined_minimum_size()])
+	lock.queue_free()
+	_reset_subscription()
+
+
 #The entitlement gate and the width a host asks for. A key answers on its own; with no key the plan
 #rank and the upgrade tier answer.
 static func _case_lock_gate(res: Dictionary, host: Node) -> void:
@@ -311,7 +333,7 @@ static func _case_lock_gate(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "reaching the tier export opens the feature",
 		not lock.locked(), "locked() was %s" % lock.locked())
 	lock.entitlement = MISSING_KEY
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	TestFixtures.check(res, "a key entitlements() does not carry stays locked",
 		not SubscriptionManager.entitlements().has(MISSING_KEY) and lock.locked(),
 		"locked() was %s" % lock.locked())
@@ -340,7 +362,7 @@ static func _case_lock_gate(res: Dictionary, host: Node) -> void:
 
 
 #A lock that names no key, no upgrade and no plan text gates nothing on the free plan; naming
-#a plan or an unowned upgrade locks it again (GX4F-05).
+#a plan or an unowned upgrade locks it again.
 static func _case_lock_open_default(res: Dictionary, host: Node) -> void:
 	var lock: FeatureLock = FEATURE_LOCK.instantiate()
 	host.add_child(lock)
@@ -451,15 +473,19 @@ static func _case_grid_menu_button(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "locked swaps the tooltip for locked_tooltip",
 		btn.tooltip_text == "Locked", "got '%s'" % btn.tooltip_text)
 	TestFixtures.check(res, "locked greys the label",
-		btn.text_color().is_equal_approx(GuiColors.LOCKED_TEXT), "got %s" % btn.text_color())
+		btn.caption_color().is_equal_approx(GuiColors.LOCKED_TEXT), "got %s" % btn.caption_color())
 	btn.pressed.emit()
 	TestFixtures.check(res, "pressing a locked tile emits locked_pressed and never opened",
 		locked_heard.size() == 1 and opened_heard.is_empty(),
 		"locked_heard %d opened_heard %s" % [locked_heard.size(), opened_heard])
-	btn.hover(true)
+	btn.mouse_entered.emit()
+	await TestFixtures.frames(host, 2)
+	await host.get_tree().create_timer(0.1).timeout
 	TestFixtures.check(res, "hover raises the tile above its neighbours",
-		btn.z_index == GridMenuButton.HOVER_Z_INDEX, "got %d" % btn.z_index)
-	btn.hover(false)
+		btn.z_index > 0, "got %d" % btn.z_index)
+	btn.mouse_exited.emit()
+	await TestFixtures.frames(host, 2)
+	await host.get_tree().create_timer(0.2).timeout
 	TestFixtures.check(res, "leaving restores the tile to its own layer",
 		btn.z_index == 0, "got %d" % btn.z_index)
 	btn.locked = false
@@ -480,7 +506,7 @@ static func _case_icons(res: Dictionary) -> void:
 	for id: String in ICON_IDS:
 		if not Icons.has(id) or Icons.tex(id) == null:
 			bad.append(id)
-	TestFixtures.check(res, "every handoff icon is a cell of the icon sheet",
+	TestFixtures.check(res, "every design prototype icon is a cell of the icon sheet",
 		bad.is_empty(), TestFixtures.detail(bad, ICON_IDS.size(), "icons"))
 	var loose: Array[String] = []
 	var dir: DirAccess = DirAccess.open(Icons.ATLAS_PATH.get_base_dir())

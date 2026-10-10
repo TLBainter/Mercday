@@ -1,4 +1,4 @@
-class_name BazaarViewer extends Control
+class_name BazaarViewer extends TabbedViewer
 
 #The My Bazaar window: the Shop, the Cart and the Orders pages under one tab row, with the two
 #order dialogs over them. Every rule lives in BazaarManager; this screen renders it and calls it.
@@ -6,52 +6,26 @@ class_name BazaarViewer extends Control
 
 signal tab_changed(key: StringName)
 
-enum Tab {SHOP, CART, ORDERS}
-
 const TAB_KEYS: Array[StringName] = [&"shop", &"cart", &"orders"]
-const TAB_LABELS: Array[String] = ["Shop", "Cart", "Orders"]
-const TAB_TIPS: Array[String] = ["Shop the Bazaar", "Your cart", "Your orders"]
-#The three tab cells of the icon sheet, in the TAB_LABELS order.
-const TAB_ICON_IDS: Array[String] = ["shop", "cart", "parcel"]
-const TAB_ICON_SCALE: int = 2
-const LOCK_FEATURE_PLAN: String = "the Bazaar"
-const LOCK_FEATURE_UPGRADE: String = "The Bazaar"
-#README C2 line 212: Cart and Orders tab badges read in this orange.
-const BADGE_COLOR: Color = Color("#f28c28")
 
-@export var start_tab: Tab = Tab.SHOP
-
-@onready var tab_row: HBoxContainer = $Margin/Rows/TabRowPad/TabRow
-@onready var shop_tab: TabButton = $Margin/Rows/TabRowPad/TabRow/ShopTab
-@onready var cart_tab: TabButton = $Margin/Rows/TabRowPad/TabRow/CartTab
-@onready var orders_tab: TabButton = $Margin/Rows/TabRowPad/TabRow/OrdersTab
 @onready var shop: ShopPage = $Margin/Rows/PagePanel/Pages/ShopPage
 @onready var cart: CartPage = $Margin/Rows/PagePanel/Pages/CartPage
 @onready var orders: OrdersPage = $Margin/Rows/PagePanel/Pages/OrdersPage
 @onready var lock: LockedPage = $Margin/Rows/PagePanel/Lock
 @onready var checkout: CheckoutDialog = $Checkout
 @onready var placed: OrderPlacedDialog = $Placed
-
-var _tab: StringName = TAB_KEYS[0]
+@onready var _pages: Dictionary = {TAB_KEYS[0]: shop, TAB_KEYS[1]: cart, TAB_KEYS[2]: orders}
 
 
 func _ready() -> void:
-	_tab = TAB_KEYS[clampi(int(start_tab), 0, TAB_KEYS.size() - 1)]
-	cart_tab.badge_color = BADGE_COLOR
-	orders_tab.badge_color = BADGE_COLOR
-	var index: int = 0
-	for tab: TabButton in [shop_tab, cart_tab, orders_tab]:
-		tab.index = index
-		tab.label = TAB_LABELS[index]
-		tab.description = TAB_TIPS[index]
-		tab.icon_id = TAB_ICON_IDS[index]
-		tab.icon_scale = TAB_ICON_SCALE
-		tab.tab_pressed.connect(_on_tab_pressed)
-		index += 1
+	super()
+	#Cart and Orders tab badges use orange.
+	for key: StringName in [TAB_KEYS[1], TAB_KEYS[2]]:
+		tab_button(key).badge_color = GuiColors.ORANGE
 	cart.checkout_pressed.connect(_on_checkout_pressed)
 	cart.continue_shopping.connect(_on_continue_shopping)
-	placed.keep_pressed.connect(_on_keep_pressed)
-	placed.view_pressed.connect(_on_view_pressed)
+	placed.cancelled.connect(_on_keep_pressed)
+	placed.confirmed.connect(_on_view_pressed)
 	SubscriptionManager.changed.connect(_on_subs_changed)
 	BazaarManager.cart_changed.connect(_on_cart_changed)
 	BazaarManager.order_placed.connect(_on_order_placed)
@@ -73,59 +47,9 @@ func _exit_tree() -> void:
 		GameState.day_changed.disconnect(_on_day_changed)
 
 
-func current_tab() -> StringName:
-	return _tab
-
-
-func shop_page() -> ShopPage:
-	return shop
-
-
-func cart_page() -> CartPage:
-	return cart
-
-
-func orders_page() -> OrdersPage:
-	return orders
-
-
-func checkout_dialog() -> CheckoutDialog:
-	return checkout
-
-
-func placed_dialog() -> OrderPlacedDialog:
-	return placed
-
-
-func locked_page() -> LockedPage:
-	return lock
-
-
-func tab_for(key: StringName) -> TabButton:
-	match key:
-		TAB_KEYS[1]:
-			return cart_tab
-		TAB_KEYS[2]:
-			return orders_tab
-	return shop_tab
-
-
-#What a click on one tab does; the suite and the HUD call this instead of pressing the button.
-func press_tab(key: StringName) -> void:
-	open_tab(key)
-
-
-#Opening the Orders tab is what marks a delivered order seen, so the dot clears on arrival.
 func open_tab(key: StringName) -> void:
-	if not TAB_KEYS.has(key):
-		return
-	var moved: bool = _tab != key
-	_tab = key
-	if key == TAB_KEYS[2]:
-		BazaarManager.mark_orders_seen()
-	refresh()
-	if moved:
-		tab_changed.emit(_tab)
+	if TAB_KEYS.has(key):
+		_open_tab(key)
 
 
 func refresh() -> void:
@@ -137,26 +61,31 @@ func refresh() -> void:
 	orders.refresh()
 
 
+func _open_tab(key: StringName) -> void:
+	var moved: bool = current_tab() != key
+	super(key)
+	if moved:
+		tab_changed.emit(key)
+
+
+#Opening the Orders tab is what marks a delivered order seen, so the dot clears on arrival.
+func _show_tab(key: StringName) -> void:
+	if key == TAB_KEYS[2]:
+		BazaarManager.mark_orders_seen()
+	refresh()
+
+
 func _apply() -> void:
 	var open: bool = BazaarManager.unlocked()
 	var enterprise: bool = SubscriptionManager.plan() == SubscriptionManager.Plan.ENTERPRISE
-	lock.feature = LOCK_FEATURE_UPGRADE if enterprise else LOCK_FEATURE_PLAN
+	var lock_def: Dictionary = GameHUD.LOCK_DEFS[&"bazaar"]
+	lock.feature = String(lock_def["feature_upgrade" if enterprise else "feature_plan"])
 	lock.visible = not open
-	shop_tab.active = _tab == TAB_KEYS[0]
-	cart_tab.active = _tab == TAB_KEYS[1]
-	orders_tab.active = _tab == TAB_KEYS[2]
-	cart_tab.badge = BazaarManager.cart_count()
-	orders_tab.badge = BazaarManager.in_transit_count()
-	orders_tab.dot = BazaarManager.has_unseen_delivery()
-	shop.visible = _tab == TAB_KEYS[0]
-	cart.visible = _tab == TAB_KEYS[1]
-	orders.visible = _tab == TAB_KEYS[2]
-
-
-func _on_tab_pressed(index: int) -> void:
-	if index < 0 or index >= TAB_KEYS.size():
-		return
-	open_tab(TAB_KEYS[index])
+	tab_strip.set_badge(TAB_KEYS[1], BazaarManager.cart_count())
+	tab_strip.set_badge(TAB_KEYS[2], BazaarManager.in_transit_count())
+	tab_strip.set_dot(TAB_KEYS[2], BazaarManager.has_unseen_delivery())
+	for key: StringName in _pages:
+		(_pages[key] as Control).visible = key == current_tab()
 
 
 func _on_checkout_pressed() -> void:
@@ -176,7 +105,7 @@ func _on_order_arrived(_order: OrderData) -> void:
 
 
 func _on_cart_changed() -> void:
-	cart_tab.badge = BazaarManager.cart_count()
+	tab_strip.set_badge(TAB_KEYS[1], BazaarManager.cart_count())
 	cart.refresh()
 	shop.sync_cart()
 	checkout.refresh()

@@ -2,8 +2,6 @@ class_name RescueSystem extends RefCounted
 
 #Rescue the Captive: a caged merc, a stealth approach through a roused dungeon and the gear chest.
 
-const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
-
 const EVENT_NAME := "Rescue the Captive"
 const MODE_COMBAT := "combat"
 const MODE_STEALTH := "stealth"
@@ -29,18 +27,6 @@ const CALL_AMBUSH := "ambush"
 const CALL_ABORT := "abort"
 
 
-static func attach(state: BattleState, captive: MercenaryData, mode: String, difficulty: float) -> Array[String]:
-	return RescueSetup.attach(state, captive, mode, difficulty)
-
-
-static func outcome(state: BattleState) -> Dictionary:
-	return RescueOutcome.outcome(state)
-
-
-static func on_battle_end(state: BattleState, lines: Array[String]) -> void:
-	RescueOutcome.on_battle_end(state, lines)
-
-
 static func is_active(state: BattleState) -> bool:
 	return state != null and not state.rescue.is_empty()
 
@@ -54,8 +40,8 @@ static func shelters(state: BattleState, merc: MercenaryData) -> bool:
 		return false
 	if not bool(rescue["freed"]) or bool(rescue.get("captive_acted", false)):
 		return false
-	if merc.turn_attack_total > 0:
-		mark_acted(state, "attacked")
+	on_turn_reset(merc, state)
+	if bool(rescue.get("captive_acted", false)):
 		return false
 	var own: Vector3i = state.pos3(merc)
 	var rect: Rect2i = rescue["cell_rect"] as Rect2i
@@ -70,7 +56,6 @@ static func mark_acted(state: BattleState, why: String) -> void:
 	if bool(rescue.get("captive_acted", false)):
 		return
 	rescue["captive_acted"] = true
-	rescue["acted_round"] = state.round_number
 	if EncounterLogger.is_active():
 		var captive: MercenaryData = rescue["captive"] as MercenaryData
 		EncounterLogger.log_verbose("RESCUE: %s has acted (%s) and can be targeted from now on" % [
@@ -128,11 +113,16 @@ static func start_of_turn(merc: MercenaryData, state: BattleState, lines: Array[
 			RescueTactics.set_posture(merc, state, lines)
 		if RescueTactics.takes_turn(merc, state):
 			return true
-	if merc == captive and bool(rescue["freed"]) and needs(state) > 0:
-		if not RescueTactics.careful or not RescueTactics.fighting(state):
-			return true
-		return RescueTactics.captive_rule(state) == 7
-	return false
+	return _chest_run_due(merc, state)
+
+
+#True when the freed captive should run for the chest: gear is still to take and the careful rule allows it.
+static func _chest_run_due(merc: MercenaryData, state: BattleState) -> bool:
+	var rescue: Dictionary = state.rescue
+	if merc != (rescue["captive"] as MercenaryData) or not bool(rescue["freed"]) or needs(state) <= 0:
+		return false
+	return not RescueTactics.careful or not RescueTactics.fighting(state) \
+		or RescueTactics.captive_rule(state) == RescueTactics.RULE_CHEST_RUN
 
 
 #Rescue-driven turn: creeping, patrolling, picking the gate or running for the chest.
@@ -149,15 +139,13 @@ static func run_turn(merc: MercenaryData, state: BattleState, lines: Array[Strin
 		lines.append("  %s waits behind the bars." % BattleState.colored_name(merc, state))
 		return true
 	if int(state._merc_team_index.get(merc, -1)) == 1:
-		_enemy_turn(merc, state, lines)
+		RescueStealth.enemy_turn(merc, state, lines)
 		return true
 	if RescueTactics.fighting(state) and RescueDirector.run_director(merc, state, lines, enhancements, turn):
 		return true
-	if merc == captive and needs(state) > 0 and not _is_sneaking(merc, state):
-		if not RescueTactics.careful or not RescueTactics.fighting(state) \
-				or RescueTactics.captive_rule(state) == 7:
-			_chest_run(merc, state, lines, enhancements, turn)
-			return true
+	if _chest_run_due(merc, state) and not _is_sneaking(merc, state):
+		_chest_run(merc, state, lines, enhancements, turn)
+		return true
 	return _sneak_turn(merc, state, lines)
 
 
@@ -191,13 +179,9 @@ static func on_pick_attempt(merc: MercenaryData, obs: Dictionary, state: BattleS
 		rescue["pick_fails"] = int(rescue["pick_fails"]) + 1
 	if merc != null and not bool(rescue["alarm"]) and ConstStates.has_state(merc, STATE_HIDDEN):
 		for enemy: MercenaryData in enemy_team(state):
-			if bool(rescue["alarm"]):
-				break
 			if not BattleState._is_alive(enemy):
 				continue
-			if not bool(LineOfSight.check(state, enemy, merc).get("visible", false)):
-				continue
-			RescueStealth.contest(merc, enemy, 0, state, lines)
+			RescueStealth.sight_contest(state, enemy, merc, lines)
 	if success and is_gate(state, obs) and int(state._merc_team_index.get(merc, 0)) == 0:
 		free_captive(state, lines, merc, false)
 
@@ -244,57 +228,6 @@ static func _is_sneaking(merc: MercenaryData, state: BattleState) -> bool:
 	var rescue: Dictionary = state.rescue
 	return str(rescue["mode"]) == MODE_STEALTH and not bool(rescue["alarm"]) \
 		and ConstStates.has_state(merc, STATE_HIDDEN)
-
-
-#Rooms of one name on the map, with the rect and floor the generator recorded.
-static func rooms_named(field: BattlefieldArea, room_name: String) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	if field == null:
-		return out
-	for room: Dictionary in field.interior_rooms:
-		if str(room.get("name", "")) == room_name:
-			out.append(room)
-	return out
-
-
-static func free_cell_near(state: BattleState, center: Vector3i, radius: int, avoid: Rect2i) -> Vector3i:
-	if center == PathTargeter.NO_CELL or state == null:
-		return PathTargeter.NO_CELL
-	var options: Array[Vector3i] = []
-	for dx: int in range(-radius, radius + 1):
-		for dy: int in range(-radius, radius + 1):
-			var cell := Vector3i(center.x + dx, center.y + dy, center.z)
-			if avoid.size.x > 0 and avoid.has_point(Vector2i(cell.x, cell.y)):
-				continue
-			if RescueGrid.cell_free(state.battlefield, state, cell, null):
-				options.append(cell)
-	if options.is_empty():
-		return PathTargeter.NO_CELL
-	return options[randi() % options.size()]
-
-
-#The locked bar door on the cell ring, with the cell it stands in.
-static func find_gate(field: BattlefieldArea, rect: Rect2i, f: int) -> Dictionary:
-	var ring: Rect2i = rect.grow(1)
-	for x: int in range(ring.position.x, ring.position.x + ring.size.x):
-		for y: int in range(ring.position.y, ring.position.y + ring.size.y):
-			if rect.has_point(Vector2i(x, y)):
-				continue
-			var obs: Dictionary = field.get_obs(Vector2i(x, y), f)
-			if obs.is_empty() or not DungeonLocks.has_bars(obs):
-				continue
-			return {"obs": obs, "cell": Vector3i(x, y, f)}
-	return {}
-
-
-static func room_name_at(field: BattlefieldArea, cell: Vector3i) -> String:
-	for room: Dictionary in field.interior_rooms:
-		if int(room.get("floor", 0)) != cell.z:
-			continue
-		var r: Rect2i = room.get("rect", Rect2i()) as Rect2i
-		if r.has_point(Vector2i(cell.x, cell.y)):
-			return str(room.get("name", ""))
-	return ""
 
 
 #Best odds on the gate itself; without a gate, the best Finesse roll on the team.
@@ -416,15 +349,7 @@ static func free_captive(state: BattleState, lines: Array[String], opener: Merce
 		return
 	var gate_obs: Dictionary = rescue["gate_obs"] as Dictionary
 	if not gate_obs.is_empty():
-		DungeonLocks.unlock(gate_obs)
-		if not OpenCloseState.is_open(gate_obs):
-			OpenCloseState.set_open(gate_obs, true)
-		var field: BattlefieldArea = state.battlefield
-		if field != null:
-			field.los_version += 1
-			field.bump_door_version()
-		state.los_cache.clear()
-		MovementExecutor.clear_caches()
+		DungeonLocks.open_door(gate_obs, state)
 	rescue["freed"] = true
 	rescue["freed_round"] = state.round_number
 	if not state.teams[0].has(captive):
@@ -440,6 +365,14 @@ static func free_captive(state: BattleState, lines: Array[String], opener: Merce
 		lines.append("FREED: the cell is open; %s is free." % captive.merc_name)
 
 
+#True when the chest holds at least one entry of this type ("weapon" or "ammo").
+static func chest_has_type(chest_obs: Dictionary, entry_type: String) -> bool:
+	for e: Dictionary in ChestLoot.entries(chest_obs):
+		if str(e.get("type", "")) == entry_type:
+			return true
+	return false
+
+
 #Entries the freed captive still wants out of the chest: a weapon, then ammo for it.
 static func needs(state: BattleState) -> int:
 	var rescue: Dictionary = state.rescue
@@ -449,79 +382,11 @@ static func needs(state: BattleState) -> int:
 	var chest_obs: Dictionary = rescue["chest_obs"] as Dictionary
 	if captive == null or chest_obs.is_empty() or ChestLoot.is_empty(chest_obs):
 		return 0
+	if RescueTactics.captive_armed(state):
+		return 0
 	var held: WeaponData = captive.equipped_weapon
-	if held == null or held.is_virtual:
-		for e: Dictionary in ChestLoot.entries(chest_obs):
-			if str(e.get("type", "")) == "weapon":
-				return 1
-		return 0
-	if not held.is_ranged:
-		return 0
-	if captive.ammo_loaded > 0 or int(captive.ammo_inventory.get(captive.ammo_loaded_type, 0)) > 0:
-		return 0
-	for e: Dictionary in ChestLoot.entries(chest_obs):
-		if str(e.get("type", "")) == "ammo":
-			return 1
-	return 0
-
-
-static func _enemy_turn(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
-	var rescue: Dictionary = state.rescue
-	var role: String = str((rescue["roles"] as Dictionary).get(merc, ""))
-	if role == ROLE_WANDER:
-		_wander(merc, state, lines)
-	elif role == ROLE_PATROL:
-		_patrol(merc, state, lines)
-	else:
-		lines.append("  %s keeps watch." % BattleState.colored_name(merc, state))
-	RescueStealth.notice_scan(merc, state, lines)
-
-
-static func _wander(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
-	var goals: Dictionary = state.rescue["wander_goal"]
-	var goal: Vector3i = goals.get(merc, PathTargeter.NO_CELL) as Vector3i
-	if goal == PathTargeter.NO_CELL or goal == state.pos3(merc):
-		goal = _new_wander_goal(merc, state)
-		goals[merc] = goal
-	if goal == PathTargeter.NO_CELL:
-		lines.append("  %s keeps watch." % BattleState.colored_name(merc, state))
-		return
-	RescueWalk.hidden_moves(merc, state, goal, lines, false, 1)
-
-
-static func _new_wander_goal(merc: MercenaryData, state: BattleState) -> Vector3i:
-	var reach: Dictionary = PathTargeter.reachable_for(merc, state)
-	var own: Vector3i = state.pos3(merc)
-	var rect: Rect2i = state.rescue["cell_rect"] as Rect2i
-	var cell_floor: int = int(state.rescue["cell_floor"])
-	var options: Array[Vector3i] = []
-	for key: Variant in reach.keys():
-		var cell: Vector3i = key as Vector3i
-		if cell == own or int(reach[key]) >= PathTargeter.JUMP_COST_OFFSET:
-			continue
-		if cell.z == cell_floor and rect.has_point(Vector2i(cell.x, cell.y)):
-			continue
-		options.append(cell)
-	if options.is_empty():
-		return PathTargeter.NO_CELL
-	return options[randi() % options.size()]
-
-
-static func _patrol(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
-	var goals: Dictionary = state.rescue["patrol_goals"]
-	var pair: Array = goals.get(merc, []) as Array
-	if pair.is_empty():
-		lines.append("  %s keeps watch." % BattleState.colored_name(merc, state))
-		return
-	var goal: Vector3i = pair[0] as Vector3i
-	if goal == state.pos3(merc) or goal == PathTargeter.NO_CELL:
-		pair.reverse()
-		goals[merc] = pair
-		goal = pair[0] as Vector3i
-	if goal == PathTargeter.NO_CELL or goal == state.pos3(merc):
-		lines.append("  %s keeps watch." % BattleState.colored_name(merc, state))
-		return
-	RescueWalk.hidden_moves(merc, state, goal, lines, false, 1)
+	var wanted: String = "weapon" if held == null or held.is_virtual else "ammo"
+	return 1 if chest_has_type(chest_obs, wanted) else 0
 
 
 #A hidden rescuer's turn: creep to the gate, pick it, then walk the captive out. False hands the turn to the fight loop.
@@ -541,11 +406,11 @@ static func _sneak_turn(merc: MercenaryData, state: BattleState, lines: Array[St
 	if goal == PathTargeter.NO_CELL or goal == state.pos3(merc):
 		lines.append("  %s holds still in the dark." % BattleState.colored_name(merc, state))
 		return true
-	var call_name: String = blocked_call(merc, state, goal, lines)
+	var call_name: String = RescueWalk.blocked_call(merc, state, goal, lines)
 	if call_name == CALL_ABORT:
-		abort(state, lines)
+		RescueWalk.abort(state, lines)
 		goal = exit_cell
-		call_name = blocked_call(merc, state, goal, lines)
+		call_name = RescueWalk.blocked_call(merc, state, goal, lines)
 	if call_name == CALL_WAIT:
 		return true
 	if call_name == CALL_AMBUSH:
@@ -590,85 +455,6 @@ static func enemy_cells(state: BattleState) -> Dictionary:
 		if BattleState._is_alive(enemy):
 			out[state.pos3(enemy)] = enemy
 	return out
-
-
-#What a hidden merc does about an enemy on its path. Pure: every input is a plain flag.
-static func blocked_decision(has_detour: bool, free_before: bool, is_captive: bool, favored: bool,
-		fixed: bool, may_abort: bool) -> String:
-	if has_detour:
-		return CALL_DETOUR
-	if free_before:
-		return CALL_GO
-	if is_captive:
-		return CALL_WAIT
-	if favored:
-		return CALL_AMBUSH
-	if may_abort:
-		return CALL_ABORT
-	if fixed:
-		return CALL_AMBUSH
-	return CALL_WAIT
-
-
-#Reads the way to the goal and settles wait, detour, ambush or abort; applies the wait and ambush itself.
-static func blocked_call(merc: MercenaryData, state: BattleState, goal: Vector3i,
-		lines: Array[String]) -> String:
-	var rescue: Dictionary = state.rescue
-	var counts: Dictionary = rescue["block_waits"]
-	var own: Vector3i = state.pos3(merc)
-	var path: Array[Vector3i] = PathTargeter.walk_path_for(merc, state, own, goal)
-	if path.size() < 2:
-		PathTargeter.reachable_far_for(merc, state, [goal])
-		path = PathTargeter.walk_path_for(merc, state, own, goal)
-	var blocker: MercenaryData = RescueWalk.path_blocker(state, path)
-	if blocker == null:
-		counts.erase(merc)
-		return CALL_GO
-	var used: int = int(counts.get(merc, 0))
-	var at: int = path.find(state.pos3(blocker))
-	var free_before: bool = false
-	for i: int in range(1, at):
-		if not state.is_position_occupied(Vector2i(path[i].x, path[i].y), merc, path[i].z):
-			free_before = true
-			break
-	if free_before and used < BLOCK_WAITS:
-		return CALL_GO
-	if used < BLOCK_WAITS and RescueGrid.cell_seers(state, own, merc).is_empty():
-		counts[merc] = used + 1
-		rescue["block_wait_turns"] = int(rescue.get("block_wait_turns", 0)) + 1
-		lines.append("  %s waits for the way to clear (%d/%d)." % [
-			BattleState.colored_name(merc, state), used + 1, BLOCK_WAITS])
-		return CALL_WAIT
-	var captive: MercenaryData = rescue["captive"] as MercenaryData
-	var role: String = str((rescue["roles"] as Dictionary).get(blocker, ""))
-	var fixed: bool = role != ROLE_WANDER and role != ROLE_PATROL
-	var may_abort: bool = not bool(rescue["freed"]) and not bool(rescue.get("aborted", false)) \
-		and goal != (rescue["exit_cell"] as Vector3i)
-	var o: float = RescueTactics.odds(state)
-	var favored: bool = o >= RescueTune.tuned("ambush_odds")
-	var has_detour: bool = not RescueWalk.detour_path(merc, state, goal).is_empty()
-	var call_name: String = blocked_decision(has_detour, free_before, merc == captive, favored, fixed, may_abort)
-	if EncounterLogger.is_active():
-		EncounterLogger.log_verbose("RESCUE BLOCKED: %s by %s calls %s (detour %s, odds %d%%, fixed %s)" % [
-			merc.merc_name, blocker.merc_name, call_name, str(has_detour),
-			roundi(o * 100.0), str(fixed)])
-	if call_name == CALL_DETOUR:
-		rescue["detours"] = int(rescue.get("detours", 0)) + 1
-	elif call_name == CALL_WAIT:
-		rescue["block_wait_turns"] = int(rescue.get("block_wait_turns", 0)) + 1
-		lines.append("  %s waits for the way to clear." % BattleState.colored_name(merc, state))
-	elif call_name == CALL_AMBUSH:
-		RescueStealth.spring_ambush(state, merc, blocker, lines)
-	return call_name
-
-
-#The party gives the captive up while still unseen and heads for the exit.
-static func abort(state: BattleState, lines: Array[String]) -> void:
-	var rescue: Dictionary = state.rescue
-	if bool(rescue.get("aborted", false)):
-		return
-	rescue["aborted"] = true
-	lines.append("RESCUE: the way is shut and the odds are poor; the party pulls out.")
 
 
 #The freed captive runs to the chest for a weapon and the ammo it needs.
@@ -717,21 +503,3 @@ static func _jammed_beside(merc: MercenaryData, state: BattleState) -> bool:
 			return true
 	return false
 
-
-#Free neighbour of the target nearest the merc, skipping the avoid rect; NO_CELL when the ring is shut.
-static func best_free_cell(state: BattleState, target: Vector3i, merc: MercenaryData,
-		avoid: Rect2i = Rect2i()) -> Vector3i:
-	var own: Vector3i = state.pos3(merc)
-	var best: Vector3i = PathTargeter.NO_CELL
-	var best_dist: int = 1 << 24
-	for d: Vector2i in PathCost.DIRS8:
-		var cell := Vector3i(target.x + d.x, target.y + d.y, target.z)
-		if avoid.size.x > 0 and avoid.has_point(Vector2i(cell.x, cell.y)):
-			continue
-		if not RescueGrid.cell_free(state.battlefield, state, cell, merc):
-			continue
-		var dist: int = maxi(absi(cell.x - own.x), absi(cell.y - own.y)) + absi(cell.z - own.z) * 8
-		if dist < best_dist:
-			best_dist = dist
-			best = cell
-	return best

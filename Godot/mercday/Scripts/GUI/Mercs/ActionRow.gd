@@ -4,9 +4,9 @@ class_name ActionRow extends PanelContainer
 #been used in. A turn action is orange and priced in AP, a reactive one blue and priced in EP.
 #The description stays blank until ActionData carries one (Q19).
 
-const TURN_COLOR: Color = Color("#f28c28")
-const REACTIVE_COLOR: Color = Color("#5aa6e8")
-const BG_COLOR: Color = Color("#0e1628")
+const TURN_COLOR: Color = GuiColors.ORANGE
+const REACTIVE_COLOR: Color = GuiColors.LIGHT_BLUE
+const BG_COLOR: Color = GuiColors.ROW_FILL
 const EDGE_PX: int = 4
 const PIP_PX: float = 12.0
 const PIP_GAP: float = 4.0
@@ -79,14 +79,10 @@ func _refresh() -> void:
 
 
 func _panel_box() -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = BG_COLOR
+	var box: StyleBoxFlat = GuiStyle.flat(BG_COLOR, 0, accent(), 10.0)
 	box.border_width_left = EDGE_PX
-	box.border_color = accent()
 	box.content_margin_left = 12.0
-	box.content_margin_top = 10.0
 	box.content_margin_right = 12.0
-	box.content_margin_bottom = 10.0
 	return box
 
 

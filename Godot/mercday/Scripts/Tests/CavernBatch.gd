@@ -6,12 +6,13 @@ extends RefCounted
 
 const DUMP_FIRST := 5
 const YIELD_EVERY := 5
+const SUB_DIR := "cavern_gen"
 const ROW_FMT := "CAVERN %d: %dx%d chambers=%d tunnels=%d entrances=%d pools=%d scatters=%d ms=%d violations=%d"
 
 
 static func run(host: Node, count: int) -> void:
 	print("\n====== CAVERN GEN BATCH ======\n")
-	EncounterLogger._ensure_dir()
+	TestFixtures.ensure_gen_dir(SUB_DIR)
 	var clean: int = 0
 	for i: int in range(count):
 		var ctx := GenerationContext.new()
@@ -30,9 +31,7 @@ static func run(host: Node, count: int) -> void:
 			for line: String in field.generation_log:
 				print("CAVERN %d LOG: %s" % [i, line])
 		if i < DUMP_FIRST or not violations.is_empty():
-			var stem: String = "%s/cavern_gen_%03d" % [EncounterLogger.LOG_DIR, i]
-			HtmlWireframeGenerator.save(field, stem)
-			LevelDumpWriter.save(field, stem)
+			TestFixtures.dump_gen(field, SUB_DIR, i)
 		if (i + 1) % YIELD_EVERY == 0:
 			await host.get_tree().process_frame
 	print("CAVERN GEN SUMMARY: %d/%d clean" % [clean, count])

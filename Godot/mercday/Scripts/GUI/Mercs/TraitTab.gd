@@ -6,7 +6,7 @@ class_name TraitTab extends HBoxContainer
 enum Kind {PERKS, DRAWBACKS, SKILLS}
 
 const TITLES: Array[String] = ["Perks", "Drawbacks", "Skills"]
-const ACCENTS: Array[Color] = [Color("#f28c28"), Color("#e8583f"), Color("#5aa6e8")]
+const ACCENTS: Array[Color] = [GuiColors.ORANGE, GuiColors.RED, GuiColors.LIGHT_BLUE]
 const SKILLS_TEXT: String = "Not yet designed"
 
 @export var kind: int = Kind.PERKS
@@ -29,10 +29,6 @@ func set_view(new_view: MercView) -> void:
 	view = new_view
 	if not is_node_ready():
 		return
-	panel.set_title(TITLES[kind], ACCENTS[kind])
-	detail.set_accent(ACCENTS[kind])
-	if kind == Kind.SKILLS:
-		panel.set_empty_text(SKILLS_TEXT)
 	panel.set_rows(rows_for(view, kind))
 	detail.clear()
 

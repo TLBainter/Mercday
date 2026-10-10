@@ -20,10 +20,7 @@ static func from_dict(d: Dictionary) -> OddJobData:
 	job.target_kind = StringName(d.get("target_kind", ""))
 	job.target_id = int(d.get("target_id", 0))
 	job.kind = StringName(d.get("kind", ""))
-	var uids: Array[int] = []
-	for uid: Variant in (d.get("team", []) as Array):
-		uids.append(int(uid))
-	job.team = uids
+	job.team.assign(d.get("team", []))
 	job.pay_per = int(d.get("pay_per", 0))
 	job.day_started = int(d.get("day_started", 0))
 	job.days = int(d.get("days", 0))

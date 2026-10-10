@@ -1,6 +1,6 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene format=3 uid="uid://6b7ofn5skba8"]
 
-[ext_resource type="Script" path="res://Scripts/GUI/HUD/GameHUD.gd" id="1"]
+[ext_resource type="Script" uid="uid://rcckjmclr8po" path="res://Scripts/GUI/HUD/GameHUD.gd" id="1"]
 [ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/HUD/MenuGrid.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/HUD/SettingsButton.tscn" id="4"]
@@ -8,24 +8,46 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SubWindow.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ScanlineOverlay.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/HUD/MoneyFly.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercdave/MercdaveLayer.tscn" id="9"]
+[ext_resource type="Script" uid="uid://bkclhqx30qhho" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="10"]
+[ext_resource type="Resource" uid="uid://c7be56rniknbq" path="res://Resources/Mercdave/Hints/hud_bell.tres" id="11"]
+[ext_resource type="Resource" uid="uid://bbpyxtqoqsehy" path="res://Resources/Mercdave/Hints/hud_settings.tres" id="12"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/HUD/MailButton.tscn" id="13"]
+[ext_resource type="Resource" uid="uid://bj6462ty81tin" path="res://Resources/Mercdave/Hints/hud_mail.tres" id="14"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Notifications/NotificationBell.tscn" id="15"]
+[ext_resource type="PackedScene" uid="uid://pkvbhlksaov7" path="res://Scenes/Map/MapView.tscn" id="16"]
+[ext_resource type="Script" uid="uid://do7gkytp4a7aa" path="res://Scripts/GUI/HUD/MainMenuToggle.gd" id="17"]
 
-[node name="GameHUD" type="CanvasLayer"]
+[node name="GameHUD" type="CanvasLayer" unique_id=380100042]
 script = ExtResource("1")
 
-[node name="Root" type="Control" parent="."]
+[node name="Root" type="Control" parent="." unique_id=1106641735]
 custom_minimum_size = Vector2(1280, 720)
+layout_mode = 3
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme = ExtResource("2")
 
-[node name="Background" type="ColorRect" parent="Root"]
+[node name="Background" type="ColorRect" parent="Root" unique_id=1803852371]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0.062745, 0.101961, 0.188235, 1)
 
-[node name="MenuGrid" parent="Root" instance=ExtResource("3")]
+[node name="MapView" parent="Root" unique_id=1494363019 instance=ExtResource("16")]
+layout_mode = 0
+anchors_preset = 0
+grow_horizontal = 1
+grow_vertical = 1
+mouse_filter = 1
+
+[node name="MenuGrid" parent="Root" unique_id=244956908 instance=ExtResource("3")]
 z_index = 3
+layout_mode = 0
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -258.0
@@ -33,7 +55,8 @@ offset_top = 90.0
 offset_right = 258.0
 offset_bottom = 606.0
 
-[node name="Description" type="Label" parent="Root"]
+[node name="Description" type="Label" parent="Root" unique_id=1624530222]
+layout_mode = 0
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -300.0
@@ -44,47 +67,70 @@ theme_type_variation = &"DescriptionLabel"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="TopRight" type="Control" parent="Root"]
+[node name="TopRight" type="Control" parent="Root" unique_id=1168846339]
 z_index = 25
+anchors_preset = 0
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -146.0
+offset_left = -216.0
 offset_top = 20.0
 offset_right = -20.0
 offset_bottom = 76.0
 mouse_filter = 1
 
-[node name="BellSlot" type="Control" parent="Root/TopRight"]
-custom_minimum_size = Vector2(56, 56)
+[node name="MailSlot" parent="Root/TopRight" unique_id=1843167917 instance=ExtResource("13")]
+layout_mode = 0
 offset_right = 56.0
 offset_bottom = 56.0
-mouse_filter = 1
 
-[node name="SettingsButton" parent="Root/TopRight" instance=ExtResource("4")]
+[node name="HelpTarget" type="Node" parent="Root/TopRight/MailSlot" unique_id=434430758]
+script = ExtResource("10")
+hint = ExtResource("14")
+
+[node name="BellSlot" parent="Root/TopRight" unique_id=1797578017 instance=ExtResource("15")]
+layout_mode = 0
 offset_left = 70.0
-offset_top = 0.0
 offset_right = 126.0
 offset_bottom = 56.0
+panel_path = NodePath("Panel")
 
-[node name="BottomBar" parent="Root" instance=ExtResource("5")]
+[node name="HelpTarget" type="Node" parent="Root/TopRight/BellSlot" unique_id=1798160850]
+script = ExtResource("10")
+hint = ExtResource("11")
+
+[node name="SettingsButton" parent="Root/TopRight" unique_id=1446079068 instance=ExtResource("4")]
+layout_mode = 0
+offset_left = 140.0
+offset_right = 196.0
+offset_bottom = 56.0
+
+[node name="HelpTarget" type="Node" parent="Root/TopRight/SettingsButton" unique_id=1920519488]
+script = ExtResource("10")
+hint = ExtResource("12")
+
+[node name="BottomBar" parent="Root" unique_id=66763803 instance=ExtResource("5")]
+layout_mode = 0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_top = -76.0
-offset_right = 0.0
-offset_bottom = 0.0
 
-[node name="Scanline" parent="Root" instance=ExtResource("7")]
+[node name="Scanline" parent="Root" unique_id=547433611 instance=ExtResource("7")]
 z_index = 10
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
+anchors_preset = 0
 
-[node name="Popup" parent="Root" instance=ExtResource("6")]
+[node name="MainMenuToggle" type="Node" parent="Root" unique_id=1643007636]
+script = ExtResource("17")
+menu_grid_path = NodePath("../MenuGrid")
+description_path = NodePath("../Description")
+map_view_path = NodePath("../MapView")
+
+[node name="Popup" parent="Root" unique_id=664105931 instance=ExtResource("6")]
 z_index = 100
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchors_preset = 0
 
-[node name="MoneyFly" parent="Root" instance=ExtResource("8")]
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="MoneyFly" parent="Root" unique_id=220055802 instance=ExtResource("8")]
+anchors_preset = 0
+
+[node name="MercdaveLayer" parent="Root" unique_id=347319157 instance=ExtResource("9")]
+anchors_preset = 0

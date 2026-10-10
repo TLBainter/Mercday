@@ -10,8 +10,7 @@ static func execute(action: Dictionary, merc: MercenaryData, state: BattleState,
 	match action_name:
 		"get_up":
 			_pay(state, merc, "get_up", "get_up")
-			if ConstStates.remove_state(merc, ConstStates.DEPOSED)["removed"]:
-				StateInfliction.note_removed(merc, ConstStates.DEPOSED, state, "action")
+			StateInfliction.remove_noted(merc, ConstStates.DEPOSED, state, "action")
 			lines.append("  %s gets up!" % BattleState.colored_name(merc, state))
 		"end_burning":
 			_pay(state, merc, "Interact", "Interact")
@@ -51,29 +50,7 @@ static func execute(action: Dictionary, merc: MercenaryData, state: BattleState,
 			_pay(state, merc, "attack_obstacle", "attack_obstacle", AutoBattle.ATTACK_BASE_AP)
 			lines.append_array(_do_attack_obstacle(merc, state, enhancements))
 		"withdraw":
-			_pay(state, merc, "withdraw", "withdraw")
-			merc.advantage_immune = true
-			FleeSystem.withdraws += 1
-			lines.append("  %s withdraws!" % BattleState.colored_name(merc, state))
-			var cap := ConstStates.max_paces(merc)
-			var paces := 2 if cap < 0 else mini(2, cap)
-			var goal: Vector3i = PathTargeter.NO_CELL
-			if FleeSystem.is_fleeing(merc):
-				goal = FleeSystem.escape_goal(merc, state)
-			elif state.battlefield != null and target != null:
-				goal = MovementExecutor.compute_move_position(merc, target, "Move Far", state, null, -1, [],
-						state.get_enemies(merc))
-			if EncounterLogger.is_active():
-				EncounterLogger.log_verbose("WITHDRAW: %s paces %d goal (%d,%d,%d)"
-						% [merc.merc_name, paces, goal.x, goal.y, goal.z])
-			if paces > 0 and goal != PathTargeter.NO_CELL and goal != state.pos3(merc):
-				var saved := state.get_pace_pool(merc)
-				state.set_pace_pool(merc, paces)
-				state.move_plan[merc] = {"moves_allowed": 1, "reserve_ap": 999}
-				lines.append_array(MovementExecutor.execute_move(merc, "Move Far", target, state, null,
-						enhancements, -1, false, [], [], goal))
-				state.move_plan.erase(merc)
-				state.set_pace_pool(merc, saved)
+			_do_withdraw(merc, target, state, enhancements, lines)
 	return lines
 
 
@@ -86,12 +63,39 @@ static func _pay(state: BattleState, merc: MercenaryData, cost_key: String, labe
 	return cost
 
 
+static func _do_withdraw(merc: MercenaryData, target: MercenaryData, state: BattleState, enhancements: int,
+		lines: Array[String]) -> void:
+	_pay(state, merc, "withdraw", "withdraw")
+	merc.advantage_immune = true
+	FleeSystem.withdraws += 1
+	lines.append("  %s withdraws!" % BattleState.colored_name(merc, state))
+	var cap := StateEffects.max_paces(merc)
+	var paces := 2 if cap < 0 else mini(2, cap)
+	var goal: Vector3i = PathTargeter.NO_CELL
+	if FleeSystem.is_fleeing(merc):
+		goal = FleeGoal.escape_goal(merc, state)
+	elif state.battlefield != null and target != null:
+		goal = MovementExecutor.compute_move_position(merc, target, "Move Far", state, null, -1,
+				state.get_enemies(merc))
+	if EncounterLogger.is_active():
+		EncounterLogger.log_verbose("WITHDRAW: %s paces %d goal (%d,%d,%d)"
+				% [merc.merc_name, paces, goal.x, goal.y, goal.z])
+	if paces > 0 and goal != PathTargeter.NO_CELL and goal != state.pos3(merc):
+		var saved := state.get_pace_pool(merc)
+		state.set_pace_pool(merc, paces)
+		state.move_plan[merc] = {"moves_allowed": 1, "reserve_ap": 999}
+		lines.append_array(MovementExecutor.execute_move(merc, "Move Far", target, state, null,
+				enhancements, -1, false, [], goal))
+		state.move_plan.erase(merc)
+		state.set_pace_pool(merc, saved)
+
+
 static func _do_seek_cover(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
 	if state.battlefield == null:
 		return
 	var enemies := state.get_enemies(merc)
 	var ranged := CoverSearch.ranged_enemies(enemies)
-	var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
+	var merc_size: int = merc.unit_size()
 	var pace: int = maxi(1, int(merc.stats.get("pace", 1)))
 	var seek_cost := state.get_cost(merc, "seek_cover", 2)
 	var dest := CoverSearch.find_cover_cell(merc, enemies, state)
@@ -242,14 +246,12 @@ static func _best_type(obs_data: ObstacleData, types: Array[String], picked: Str
 
 #Break Free contest def: a vigor luck roll with Athletics or Power; both sides roll it.
 static func break_free_def() -> Dictionary:
-	return {
-		"stat_keys": ["vigor"],
-		"circumstances": [ConstCircumstances.ATHLETICS_VIGOR, ConstCircumstances.POWER_VIGOR],
-		"knowledges": [],
-		"tools": [],
-		"formula": "luck",
-		"flat_threshold_bonus": 0.0,
-	}
+	return CheckSystem.luck_def("vigor", [ConstCircumstances.ATHLETICS_VIGOR, ConstCircumstances.POWER_VIGOR])
+
+
+#The Grapple action roll: a vigor luck roll carrying the Power circumstance.
+static func grapple_def() -> Dictionary:
+	return CheckSystem.luck_def("vigor", [ConstCircumstances.POWER_VIGOR])
 
 
 #The source that contests the roll: alive, still on the field and holding the state; null when nobody does.
@@ -308,11 +310,9 @@ static func _do_break_free(merc: MercenaryData, state: BattleState, enhancements
 				BattleState.colored_name(merc, state), int(plain["successes"]),
 				"breaks free" if freed else "stays held"])
 	if freed:
-		if ConstStates.remove_state(merc, state_name)["removed"]:
-			StateInfliction.note_removed(merc, state_name, state, "action")
+		StateInfliction.remove_noted(merc, state_name, state, "action")
 		if state_name == ConstStates.SUFFOCATING and ConstStates.has_state(merc, ConstStates.GRAPPLED):
-			if ConstStates.remove_state(merc, ConstStates.GRAPPLED)["removed"]:
-				StateInfliction.note_removed(merc, ConstStates.GRAPPLED, state, "action")
+			StateInfliction.remove_noted(merc, ConstStates.GRAPPLED, state, "action")
 		lines.append("  %s breaks free!" % BattleState.colored_name(merc, state))
 	else:
 		lines.append("  %s fails to break free!" % BattleState.colored_name(merc, state))
@@ -333,7 +333,7 @@ static func do_grapple(merc: MercenaryData, target: MercenaryData, state: Battle
 		return lines
 	if state.distance_to(merc, target) > 1:
 		return lines
-	var result := CheckSystem.make_check(merc, KidnapSystem.grapple_def())
+	var result := CheckSystem.make_check(merc, grapple_def())
 	var holds: bool = int(result["successes"]) > 0 or bool(result.get("critical", false))
 	lines.append("  GRAPPLE: %s vs %s -> %s" % [merc.merc_name, target.merc_name,
 		"holds" if holds else "fails"])

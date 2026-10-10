@@ -1,20 +1,19 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://bwj14wosucs1k"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/WasInMeleeRangeFacet.gd" id="WasInMeleeRange"]
-[ext_resource type="Script" path="res://Scripts/Decisions/KillLikelihoodFacet.gd" id="KillLikelihood"]
-[ext_resource type="Script" path="res://Scripts/Decisions/AllyThreatFacet.gd" id="AllyThreat"]
-[ext_resource type="Script" path="res://Scripts/Decisions/EpRatioFacet.gd" id="EpRatioFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/FocusFireFacet.gd" id="FocusFire"]
-[ext_resource type="Script" path="res://Scripts/Decisions/LastTargetFacet.gd" id="LastTarget"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_3l377"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://cgswub50ylas" path="res://Scripts/Decisions/AllyThreatFacet.gd" id="AllyThreat"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://bw0g0c3sht5fr" path="res://Scripts/Decisions/EpRatioFacet.gd" id="EpRatioFacet"]
+[ext_resource type="Script" uid="uid://xfl0a16jk5mq" path="res://Scripts/Decisions/FocusFireFacet.gd" id="FocusFire"]
+[ext_resource type="Script" uid="uid://br8jvicue8vhg" path="res://Scripts/Decisions/KillLikelihoodFacet.gd" id="KillLikelihood"]
+[ext_resource type="Script" uid="uid://v4iu3ki08g8o" path="res://Scripts/Decisions/LastTargetFacet.gd" id="LastTarget"]
+[ext_resource type="Script" uid="uid://bpe1l5cd6nlsr" path="res://Scripts/Decisions/WasInMeleeRangeFacet.gd" id="WasInMeleeRange"]
+[ext_resource type="Script" uid="uid://fueokp4cffvl" path="res://Scripts/Decisions/WeaponTypeFacet.gd" id="WeaponTypeFacet"]
 
 [sub_resource type="Resource" id="facet_weapon"]
 script = ExtResource("WeaponTypeFacet")
 is_required = true
-require_ranged = false
-require_drawn = true
 
 [sub_resource type="Resource" id="facet_range"]
 script = ExtResource("WasInMeleeRange")
@@ -31,8 +30,6 @@ weight = 0.25
 [sub_resource type="Resource" id="facet_ep"]
 script = ExtResource("EpRatioFacet")
 weight = 0.2
-threshold = 0.5
-below_is_high = false
 
 [sub_resource type="Resource" id="facet_focus"]
 script = ExtResource("FocusFire")
@@ -44,7 +41,7 @@ weight = 0.1
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_weapon"), SubResource("facet_range"), SubResource("facet_kill"), SubResource("facet_ally"), SubResource("facet_ep"), SubResource("facet_focus"), SubResource("facet_last")]
+facets = Array[ExtResource("1_3l377")]([SubResource("facet_weapon"), SubResource("facet_range"), SubResource("facet_kill"), SubResource("facet_ally"), SubResource("facet_ep"), SubResource("facet_focus"), SubResource("facet_last")])
 threshold = 0.8
 
 [resource]

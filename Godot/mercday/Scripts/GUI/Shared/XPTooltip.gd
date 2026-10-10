@@ -7,7 +7,7 @@ class_name XPTooltip extends TooltipPanel
 
 const CELLS: int = 10
 const CELL_GAP: float = 2.0
-const TRACK_COLOR := Color(0.121569, 0.207843, 0.376471, 1)
+const TRACK_COLOR := GuiColors.BLUE_HI
 #XP gold; the two shades are FILL_COLOR lightened and darkened by 0.30.
 const FILL_COLOR := Color("#f2d43d")
 const FILL_HI_COLOR := Color("#f6e177")
@@ -33,20 +33,12 @@ func _ready() -> void:
 
 
 func pass_mouse_through() -> void:
-	_ignore_mouse(self)
+	GuiNodes.ignore_mouse(self)
 
 
-#True when nothing in the tip can take the pointer.
+#Test probe: true when nothing in the tip can take the pointer.
 func passes_mouse() -> bool:
 	return _all_ignore(self)
-
-
-func _ignore_mouse(node: Node) -> void:
-	var control: Control = node as Control
-	if control != null:
-		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for child: Node in node.get_children():
-		_ignore_mouse(child)
 
 
 func _all_ignore(node: Node) -> bool:

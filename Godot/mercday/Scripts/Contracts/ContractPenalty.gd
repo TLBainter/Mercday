@@ -75,9 +75,7 @@ static func matches(parsed: Dictionary, merc: MercenaryData, team_size: int) -> 
 	var kind: String = String(parsed.get("kind", ""))
 	var op: String = String(parsed.get("op", ""))
 	if kind == "tradition":
-		if merc == null or merc.tradition == null:
-			return false
-		return merc.tradition.tradition_name.to_lower() == String(parsed.get("value", ""))
+		return ContractModifiers.tradition_matches(merc, String(parsed.get("value", "")))
 	var target: float = float(parsed.get("value", 0.0))
 	var actual: float = 0.0
 	if kind == "team":

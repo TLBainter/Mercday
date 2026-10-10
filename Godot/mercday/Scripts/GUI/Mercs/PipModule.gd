@@ -15,23 +15,22 @@ const ICON_BOX: Vector2 = Vector2(30.0, 30.0)
 const ICON_PX: int = 3
 const PAD_LEFT: int = 8
 const PAD_RIGHT: int = 10
-const SELECTED_BG: Color = Color("#15223d")
-const SELECTED_RING: Color = Color("#f28c28")
+const SELECTED_BG: Color = GuiColors.ROW_HOVER
+const SELECTED_RING: Color = GuiColors.ORANGE
 const SELECTED_RING_PX: int = 3
-const IDLE_BG: Color = Color("#0e1628")
-const IDLE_RING: Color = Color("#2b4f8a")
+const IDLE_BG: Color = GuiColors.ROW_FILL
+const IDLE_RING: Color = GuiColors.BLUE
 const IDLE_RING_PX: int = 2
-const LOCKED_BG: Color = Color("#101a30")
-const LOCKED_RING: Color = Color("#1f3560")
-const LOCKED_ICON: Color = Color("#3b4d6e")
-const LOCKED_NAME: Color = Color("#5e7699")
-const NAME_COLOR: Color = Color("#f3ead7")
-const ICON_BG: Color = Color("#0a0f1c")
-const TAG_BG: Color = Color("#9cc6ef")
-const TAG_TEXT: Color = Color("#0a0f1c")
+const LOCKED_BG: Color = GuiColors.FRAME_BG
+const LOCKED_RING: Color = GuiColors.BLUE_LO
+const LOCKED_ICON: Color = GuiColors.LOCK_RING
+const LOCKED_NAME: Color = GuiColors.MUTED
+const NAME_COLOR: Color = GuiColors.CREAM
+const ICON_BG: Color = GuiColors.INK
+const TAG_BG: Color = GuiColors.SKY
+const TAG_TEXT: Color = GuiColors.INK
 const CURRENT_TAG: String = "Current"
 const CURRENT_FOOT: String = "Current plan"
-const LOCK_HEIGHT: float = 20.0
 
 @export var mode: StringName = &"":
 	set(value):
@@ -43,7 +42,7 @@ const LOCK_HEIGHT: float = 20.0
 		icon = value
 		_refresh()
 var _locked_art: Texture2D = null
-@export var group_color: Color = Color("#9cc6ef"):
+@export var group_color: Color = GuiColors.SKY:
 	set(value):
 		group_color = value
 		_refresh()
@@ -159,7 +158,7 @@ func _sync_lock() -> void:
 	lock.tier = maxi(1, PipDefs.upgrade_tier(mode))
 	lock.tiers = PipDefs.upgrade_tiers(mode)
 	lock.verb = "view"
-	lock.height = LOCK_HEIGHT
+	lock.height = MercLocks.LOCK_HEIGHT
 	lock.always_visible = true
 
 
@@ -186,40 +185,28 @@ func _refresh() -> void:
 
 
 func _panel_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
+	var bg: Color = IDLE_BG
 	var ring: Color = IDLE_RING
 	var width: int = IDLE_RING_PX
-	style.bg_color = IDLE_BG
 	if locked:
-		style.bg_color = LOCKED_BG
+		bg = LOCKED_BG
 		ring = LOCKED_RING
 	elif selected:
-		style.bg_color = SELECTED_BG
+		bg = SELECTED_BG
 		ring = SELECTED_RING
 		width = SELECTED_RING_PX
-	style.border_color = ring
-	style.border_width_left = width
-	style.border_width_top = width
-	style.border_width_right = width
-	style.border_width_bottom = width
+	var style: StyleBoxFlat = GuiStyle.flat(bg, width, ring, 0.0)
 	style.content_margin_left = float(PAD_LEFT)
 	style.content_margin_right = float(PAD_RIGHT)
-	style.content_margin_top = 0.0
-	style.content_margin_bottom = 0.0
 	return style
 
 
 func _icon_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = ICON_BG
-	return style
+	return GuiStyle.flat(ICON_BG)
 
 
 func _tag_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = TAG_BG
+	var style: StyleBoxFlat = GuiStyle.flat(TAG_BG, 0, GuiColors.CLEAR, 1.0)
 	style.content_margin_left = 4.0
 	style.content_margin_right = 4.0
-	style.content_margin_top = 1.0
-	style.content_margin_bottom = 1.0
 	return style

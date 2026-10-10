@@ -67,8 +67,9 @@ static func resolve(event: EventData, run: ContractRun) -> Dictionary:
 	out["notes"] = notes
 	var parts: Array[String] = []
 	var total: float = 0.0
+	var leader: MercenaryData = run.leader()
 	for merc: MercenaryData in living:
-		var value: float = float(OverallSuccess.for_merc(run.contract, living, merc, event)["value"]) \
+		var value: float = float(OverallSuccess.for_merc(run.contract, living, merc, event, leader)["value"]) \
 			+ evaluate(event.success_formula, merc)
 		total += value
 		parts.append("%s %.1f" % [merc.merc_name, value])

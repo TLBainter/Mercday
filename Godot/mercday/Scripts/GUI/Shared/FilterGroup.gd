@@ -1,31 +1,34 @@
 class_name FilterGroup extends VBoxContainer
 
 #One collapsible band of filter sections: a header carrying a caret, the group name and the count of
-#the filters inside it that are active, over a body that holds the sections. A headless group has no
-#header at all and stays open, which is what a def table with no group names renders as.
+#the filters inside it that are active, over a body that holds the sections, each in a box of its own.
+#A headless group has no header at all, stays open and holds its sections unboxed, which is what a def
+#table with no group names renders as.
 
 signal toggled_open(open: bool)
 
 const HEAD_HEIGHT: float = 26.0
 const TITLE_SIZE: int = 10
-const TITLE_COLOR: Color = Color("#f3ead7")
-const TITLE_CLOSED: Color = Color("#9cc6ef")
+const TITLE_COLOR: Color = GuiColors.CREAM
+const TITLE_CLOSED: Color = GuiColors.SKY
 const BADGE_SIZE: int = 9
-const BADGE_TEXT: Color = Color("#0a0f1c")
+const BADGE_TEXT: Color = GuiColors.INK
 const CARET_PX: int = 10
-const CARET_COLOR: Color = Color("#9cc6ef")
+const CARET_COLOR: Color = GuiColors.SKY
 const ROW_GAP: int = 10
-const BODY_GAP: int = 12
+const BODY_GAP: int = 8
+const SECTION_BOX_NAME: String = "SectionBox"
 const STYLE_HEAD_OPEN: StyleBoxFlat = preload(
 	"res://Resources/GUI/Theme/Styles/filter_group_head_open.tres")
 const STYLE_HEAD_CLOSED: StyleBoxFlat = preload(
 	"res://Resources/GUI/Theme/Styles/filter_group_head_closed.tres")
 const STYLE_BODY: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/filter_group_body.tres")
+const STYLE_SECTION: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/filter_tile_off.tres")
 const STYLE_BADGE: StyleBoxFlat = preload(
 	"res://Resources/GUI/Theme/Styles/filter_group_badge.tres")
 const STATES: Array[StringName] = [&"normal", &"hover", &"pressed", &"focus", &"disabled"]
-const FONT_TITLE: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_BADGE: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
+const FONT_TITLE: Font = GuiStyle.SILK
+const FONT_BADGE: Font = GuiStyle.SILK_BOLD
 
 @export var expanded: bool = false
 @export var title: String = ""
@@ -53,9 +56,7 @@ func _ready() -> void:
 	title_label.add_theme_font_override(&"font", FONT_TITLE)
 	title_label.add_theme_font_size_override(&"font_size", TITLE_SIZE)
 	badge.add_theme_stylebox_override(&"panel", STYLE_BADGE)
-	badge_label.add_theme_font_override(&"font", FONT_BADGE)
-	badge_label.add_theme_font_size_override(&"font_size", BADGE_SIZE)
-	badge_label.add_theme_color_override(&"font_color", BADGE_TEXT)
+	GuiStyle.paint(badge_label, FONT_BADGE, BADGE_SIZE, BADGE_TEXT)
 	body_box.add_theme_stylebox_override(&"panel", STYLE_BODY)
 	body_rows.add_theme_constant_override(&"separation", BODY_GAP)
 	head.pressed.connect(toggle)
@@ -90,21 +91,32 @@ func is_open() -> bool:
 	return expanded or headless
 
 
+#A headed group boxes the section as a sub-module with its title on a band; a headless one adds it bare.
 func add_section(section: FilterSection) -> void:
-	body_rows.add_child(section)
+	if headless:
+		body_rows.add_child(section)
+		return
+	var box: PanelContainer = PanelContainer.new()
+	box.name = SECTION_BOX_NAME
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	box.add_theme_stylebox_override(&"panel", STYLE_SECTION)
+	body_rows.add_child(box)
+	box.add_child(section)
+	section.banded = true
 
 
 func clear_sections() -> void:
-	for child: Node in body_rows.get_children():
-		body_rows.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(body_rows)
 
 
 func sections() -> Array[FilterSection]:
 	var out: Array[FilterSection] = []
 	for child: Node in body_rows.get_children():
-		if child is FilterSection:
-			out.append(child)
+		var section: FilterSection = child as FilterSection
+		if section == null and child.get_child_count() > 0:
+			section = child.get_child(0) as FilterSection
+		if section != null:
+			out.append(section)
 	return out
 
 

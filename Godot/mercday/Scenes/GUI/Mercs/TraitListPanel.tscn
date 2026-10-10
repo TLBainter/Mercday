@@ -1,8 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/TraitListPanel.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FilterSortButton.tscn" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_TraitListPanel.tres" id="5"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_1"]
 
@@ -56,3 +58,7 @@ columns = 3
 visible = false
 theme_type_variation = &"DescriptionLabel"
 autowrap_mode = 3
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("4")
+hint = ExtResource("5")

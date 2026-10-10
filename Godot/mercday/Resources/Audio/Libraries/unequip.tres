@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Unequip/ESM_Empire_Game_Settlement_UI_Demolish_1_Destroy_Destruction_Crumble.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Unequip/ESM_Empire_Game_Settlement_UI_Demolish_3_Destroy_Destruction_Crumble_Hit_1.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Unequip/ESM_Empire_Game_Warfare_Armor_Movement_Leather_Cloth_Padded_Soldier_Foley.wav" id="4_s3"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Unequip/ESM_Empire_Game_Warfare_Dead_Body_Drop_1_Cloth_Leather_Impact_Foley_Collapse.wav" id="5_s4"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Unequip/ESM_Empire_Game_Warfare_Dead_Body_Drop_2_Cloth_Leather_Impact_Foley_Collapse.wav" id="6_s5"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3"), ExtResource("5_s4"), ExtResource("6_s5")])

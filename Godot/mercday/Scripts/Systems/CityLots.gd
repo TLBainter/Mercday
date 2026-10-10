@@ -7,14 +7,10 @@ const SETBACK := 2
 const FRONT_SLACK := 1
 const GAP := 2
 const NO_SPOT := Vector2i(-1, -1)
-const STREET_SURF: Array[int] = [BattlefieldArea.SURF_MAIN, BattlefieldArea.SURF_SIDE,
-	BattlefieldArea.SURF_SIDEWALK, BattlefieldArea.SURF_ALLEY]
 
 
 #One building per lot in lot id order; a lot that takes none is marked failed and keeps no building cell.
 static func build(area: BattlefieldArea) -> void:
-	if area == null or not area.city.has("lots"):
-		return
 	var t0: int = Time.get_ticks_msec()
 	var lots: Array = area.city["lots"]
 	var tally: Array[int] = [0]
@@ -80,12 +76,9 @@ static func _fit(scratch: BattlefieldArea, lot: Rect2i, front: String) -> Rect2i
 	var ur: Rect2i = BuildingStamp.used_rect(scratch)
 	if ur.size.x <= 0 or ur.size.y <= 0:
 		return Rect2i()
-	var flat: bool = front == "N" or front == "S"
-	var f_use: int = ur.size.x if flat else ur.size.y
-	var d_use: int = ur.size.y if flat else ur.size.x
-	var f_lot: int = lot.size.x if flat else lot.size.y
-	var d_lot: int = lot.size.y if flat else lot.size.x
-	if f_use > f_lot - 2 or d_use > d_lot - 1:
+	var use: Vector2i = CityGrid.front_span(ur.size, front)
+	var span: Vector2i = CityGrid.front_span(lot.size, front)
+	if use.x > span.x - 2 or use.y > span.y - 1:
 		return Rect2i()
 	return ur
 
@@ -96,11 +89,10 @@ static func _spot(area: BattlefieldArea, scratch: BattlefieldArea, lot: Rect2i, 
 	var ur: Rect2i = _fit(scratch, lot, front)
 	if ur.size.x <= 0:
 		return NO_SPOT
-	var flat: bool = front == "N" or front == "S"
-	var f_use: int = ur.size.x if flat else ur.size.y
-	var d_use: int = ur.size.y if flat else ur.size.x
-	var f_lot: int = lot.size.x if flat else lot.size.y
-	var d_lot: int = lot.size.y if flat else lot.size.x
+	var f_use: int = CityGrid.front_span(ur.size, front).x
+	var d_use: int = CityGrid.front_span(ur.size, front).y
+	var f_lot: int = CityGrid.front_span(lot.size, front).x
+	var d_lot: int = CityGrid.front_span(lot.size, front).y
 	var clear: Array[int] = []
 	var rest: Array[int] = []
 	for o: int in range(1, f_lot - f_use):
@@ -155,9 +147,9 @@ static func _street_front(area: BattlefieldArea, lot: Rect2i, front: String, sta
 				c = Vector2i(lot.position.x - 1, lot.position.y + i)
 			"E":
 				c = Vector2i(lot.end.x, lot.position.y + i)
-		if c.x < 0 or c.y < 0 or c.x >= area.width or c.y >= area.length:
+		if not area.in_bounds_xy(c.x, c.y):
 			continue
-		if not STREET_SURF.has(CityGrid.surf(area, c.x, c.y)):
+		if not CityGrid.is_street(CityGrid.surf(area, c.x, c.y)):
 			return false
 	return true
 

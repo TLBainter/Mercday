@@ -3,19 +3,23 @@ extends RefCounted
 
 #Run: godot --headless --path . with the --gui-tree-tests flag.
 #The Customize skill tree: cell geometry, category boxes, connector colours, requirement gates, the
-#pan, the deep link and the tier popover. Every case drives the public helpers, because a synthetic
-#click never reaches a button headless.
+#pan, the deep link, the tier popover and the module captions. Every case drives the public helpers,
+#because a synthetic click never reaches a button headless.
 
 const TREE: PackedScene = preload("res://Scenes/GUI/Subscription/SkillTree.tscn")
 const VIEW: Vector2 = Vector2(1200.0, 540.0)
-#Daith holds 30 days, so the 5th sits 10 whole days from the bill and every charge is exact.
+#Daith holds 30 days, so the 22nd sits 10 whole days from the bill on the 2nd of Ruadd.
 const SHORT_MONTH: int = 0
-const DAY: int = 5
+const DAY: int = 22
 const RICH: int = 5000
 const CREW: int = 3
 const BOARD: int = 4
 #Three prior tiers of the six Criminal Records asks for: a half full gate.
 const GATE_FIX: Dictionary = {"discrim": 2, "background": 1}
+#Pixels a caption may sit off the middle of its gap.
+const CAPTION_TOL: float = 1.0
+#How far a sampled pulse scale may sit off its peak or its edge, and the seconds stepped past the window.
+const PULSE_TOL: float = 0.001
 
 
 static func run(host: Node) -> bool:
@@ -38,10 +42,14 @@ static func run(host: Node) -> bool:
 	await _case_tooltip(res, host, tree)
 	_case_canvas(res, tree)
 	await _case_follow(res, host)
+	await _case_press(res, host, tree)
+	await _case_pointer(res, host, tree)
+	await _case_outside(res, host, tree)
+	_case_captions(res, tree)
 	GuiFrameStack.clear()
 	tree.queue_free()
 	CampaignClock.minutes = clock
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	TestFixtures.reset_campaign()
 	return TestFixtures.summarize(res, "GUI TREE")
@@ -52,7 +60,7 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 
 
 #Every upgrade at its highest tier, which is the state a fresh manager starts in.
@@ -89,12 +97,13 @@ static func _set_day(month: int, day: int) -> void:
 	CampaignClock.minutes = start + (day - 1) * CampaignClock.MINUTES_PER_DAY
 
 
-#The small guild the money cases price against: 3 mercs, 4 listed contracts, the 5th of Daith.
+#The small guild the money cases price against: 3 mercs, 4 listed contracts, the 22nd of Daith and the fallback income.
 static func _small_guild() -> void:
 	_set_crew(CREW)
 	_set_board(BOARD)
 	_set_day(SHORT_MONTH, DAY)
 	GameState.bank_notes = RICH
+	TestFixtures.fund_budget(SubscriptionManager.BUDGET_FALLBACK)
 
 
 #Case 1: one cell per upgrade, the cell to pixel step and the world every block stands on.
@@ -185,8 +194,8 @@ static func _case_categories(res: Dictionary) -> void:
 	#PROTO 107, 108 and 112 of the Subscription Viewer: the branch name reads blue at 11 px in the
 	#regular face and the total cream at 12 px in the bold one.
 	TestFixtures.check(res, "a branch box wears the label colours, faces and sizes of the sheet",
-		CategoryBox.NAME_COLOR.is_equal_approx(Color("#9cc6ef"))
-			and CategoryBox.TOTAL_COLOR.is_equal_approx(Color("#f3ead7"))
+		CategoryBox.NAME_COLOR.is_equal_approx(GuiColors.SKY)
+			and CategoryBox.TOTAL_COLOR.is_equal_approx(GuiColors.CREAM)
 			and CategoryBox.NAME_SIZE == 11 and CategoryBox.TOTAL_SIZE == 12
 			and CategoryBox.NAME_FONT.resource_path.ends_with("SilkscreenRegular.tres")
 			and CategoryBox.TOTAL_FONT.resource_path.ends_with("SilkscreenBold.tres"),
@@ -402,7 +411,7 @@ static func _case_gates(res: Dictionary) -> void:
 	for id: String in UpgradeDefs.ORDER:
 		if UpgradeDefs.requirement_need(id) > 0:
 			wanted += 1
-	var rows: Array[Dictionary] = TreeLayout.gates({})
+	var rows: Array[Dictionary] = TreeLayout.gates_for({})
 	TestFixtures.check(res, "one gate stands on every requirement", rows.size() == wanted,
 		"gates %d requirements %d" % [rows.size(), wanted])
 	var needs: Dictionary = {"criminal": 6, "education": 3, "skilltest": 2, "customer": 2,
@@ -414,7 +423,7 @@ static func _case_gates(res: Dictionary) -> void:
 			wrong.append(key)
 	TestFixtures.check(res, "each named gate asks for the tiers its upgrade needs", wrong.is_empty(),
 		TestFixtures.detail(wrong, needs.size(), "gates"))
-	var half: Array[Dictionary] = TreeLayout.gates(GATE_FIX)
+	var half: Array[Dictionary] = TreeLayout.gates_for(GATE_FIX)
 	var criminal: Dictionary = _gate_row(half, "criminal")
 	var education: Dictionary = _gate_row(half, "education")
 	TestFixtures.check(res, "a gate counts the tiers already standing under it",
@@ -422,8 +431,8 @@ static func _case_gates(res: Dictionary) -> void:
 			and not bool(criminal.get("met", true)),
 		"criminal %s education %s" % [criminal.get("have", -1), education.get("have", -1)])
 	TestFixtures.check(res, "a gate never counts past what it asks for",
-		int(_gate_row(TreeLayout.gates(_all_max()), "criminal").get("have", -1)) == 6,
-		"have %s" % [_gate_row(TreeLayout.gates(_all_max()), "criminal").get("have", -1)])
+		int(_gate_row(TreeLayout.gates_for(_all_max()), "criminal").get("have", -1)) == 6,
+		"have %s" % [_gate_row(TreeLayout.gates_for(_all_max()), "criminal").get("have", -1)])
 	var met: Array[Dictionary] = TreeLayout.gates_for(_all_max(), true)
 	var open_gates: int = 0
 	for row: Dictionary in met:
@@ -505,7 +514,7 @@ static func _case_pan(res: Dictionary, tree: SkillTree) -> void:
 
 #Case 7: the deep link, the click on one module and the Take Me There relay.
 static func _case_focus(res: Dictionary, host: Node, tree: SkillTree) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	var dialog: UpgradeTierDialog = tree.dialog()
 	var frame: Vector2 = tree.view()
@@ -546,12 +555,10 @@ static func _case_focus(res: Dictionary, host: Node, tree: SkillTree) -> void:
 	TestFixtures.check(res, "a reachable module opens on a click",
 		dialog.is_open() and dialog.upgrade_id() == "oddjobs",
 		"open %s id %s" % [dialog.is_open(), dialog.upgrade_id()])
-	TestFixtures.check(res, "Take Me There and Exit are the shared BevelButton scene",
+	TestFixtures.check(res, "Take Me There is the shared BevelButton scene",
 		dialog._plans is BevelButton and dialog._plans.kind == &"blue"
-			and dialog._plans.text == UpgradeTierDialog.PLANS_TEXT
-			and dialog._exit is BevelButton and dialog._exit.kind == &"blue"
-			and dialog._exit.text == UpgradeTierDialog.EXIT_TEXT,
-		"plans %s exit %s" % [dialog._plans.kind, dialog._exit.kind])
+			and dialog._plans.text == UpgradeTierDialog.PLANS_TEXT,
+		"plans %s" % [dialog._plans.kind])
 	var seen: Array[String] = []
 	tree.go_to_plans_pressed.connect(func() -> void: seen.append("plans"))
 	dialog.press_plans()
@@ -572,6 +579,21 @@ static func _case_focus(res: Dictionary, host: Node, tree: SkillTree) -> void:
 		"dragging %s" % [tree.is_dragging()])
 
 
+#The "name count" of each named child under the base that does not hold exactly one NoteIcon.
+static func _glyph_misses(base: Node, prefix: String, names: Array[String]) -> Array[String]:
+	var misses: Array[String] = []
+	for entry: String in names:
+		var line: Node = base.get_node_or_null(prefix + entry)
+		var glyphs: int = 0
+		if line != null:
+			for child: Node in line.get_children():
+				if child is NoteIcon:
+					glyphs += 1
+		if glyphs != 1:
+			misses.append("%s %d" % [entry, glyphs])
+	return misses
+
+
 #Case 8: the tier rows of the popover and the readout above them.
 static func _case_rows(res: Dictionary, host: Node, tree: SkillTree) -> void:
 	_small_guild()
@@ -583,20 +605,12 @@ static func _case_rows(res: Dictionary, host: Node, tree: SkillTree) -> void:
 	var frame_bg: Color = style.bg_color if style != null else Color.BLACK
 	var frame_px: int = style.border_width_left if style != null else 0
 	TestFixtures.check(res, "the popover wears the frame the prototype draws",
-		style != null and frame_bg.is_equal_approx(Color("#1a2b4d")) and frame_px == 4
+		style != null and frame_bg.is_equal_approx(GuiColors.BOX_BG) and frame_px == 4
 			and style.border_width_top == 4 and style.border_width_right == 4
 			and style.border_width_bottom == 4,
 		"bg %s border %d" % [frame_bg, frame_px])
-	var bare_lines: Array[String] = []
-	for line_name: String in ["Today", "Monthly", "MaxNote"]:
-		var line: Node = dialog.get_node_or_null("Pad/Col/Controls/Middle/" + line_name)
-		var glyphs: int = 0
-		if line != null:
-			for child: Node in line.get_children():
-				if child is NoteIcon:
-					glyphs += 1
-		if glyphs != 1:
-			bare_lines.append("%s %d" % [line_name, glyphs])
+	var bare_lines: Array[String] = _glyph_misses(dialog, "Pad/Col/Controls/Clip/Middle/",
+		["Today", "Monthly", "MaxNote"])
 	TestFixtures.check(res, "every money line of the popover carries one notes glyph",
 		bare_lines.is_empty(), TestFixtures.detail(bare_lines, 3, "lines"))
 	var row0: PanelContainer = dialog.get_node("Pad/Col/Tiers/Rows").get_child(0) as PanelContainer
@@ -644,9 +658,10 @@ static func _case_rows(res: Dictionary, host: Node, tree: SkillTree) -> void:
 		"rows %d" % [dialog.row_count()])
 	TestFixtures.check(res, "the next tier prices itself per month and against the bill",
 		dialog.next_fee() == SubscriptionManager.tier_price("oddjobs", 2)
-			and dialog.monthly_text() == "+%d/month starting Dai 15th" % [dialog.next_fee()],
+			and dialog.monthly_text() == "+%d/month starting Rua %s" % [dialog.next_fee(),
+				TrynnCalendar.ordinal(SubscriptionManager.BILL_DAY)],
 		"monthly %s" % [dialog.monthly_text()])
-	TestFixtures.check(res, "the charge today is the tier price pro rated to the 15th",
+	TestFixtures.check(res, "the charge today is the tier price pro rated to the 2nd",
 		dialog.charge_today() == 9 and dialog.today_text() == "9 today",
 		"today %s" % [dialog.today_text()])
 	TestFixtures.check(res, "the popover is not refusing anything on open",
@@ -655,7 +670,7 @@ static func _case_rows(res: Dictionary, host: Node, tree: SkillTree) -> void:
 	TestFixtures.check(res, "a tier chunk sits at rest while the upgrade is unfinished",
 		is_equal_approx(dialog.chunk_glow(0), 1.0) and not dialog.is_max(),
 		"glow %.2f" % [dialog.chunk_glow(0)])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	dialog.open_for("aptitude")
 	TestFixtures.check(res, "a finished upgrade asks for nothing more",
@@ -671,15 +686,13 @@ static func _case_rows(res: Dictionary, host: Node, tree: SkillTree) -> void:
 	#at no width and leaves the panel stretched, so it is put back on its own size and settles
 	#before the deep link asks for a tier of a list that does not fit.
 	dialog.reset_size()
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	dialog.open_for("seats")
 	var top_tier: int = dialog.max_tier()
 	dialog.scroll_to_tier(top_tier)
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	TestFixtures.check(res, "the first open of a long upgrade scrolls the asked tier into view",
-		dialog.row_count() == top_tier and top_tier == 6 and dialog.tier_scroll() > 0
+		dialog.row_count() == top_tier and top_tier == 8 and dialog.tier_scroll() > 0
 			and dialog.tier_scroll() <= dialog.row_offset(top_tier - 1),
 		"scroll %d last row %d rows %d" % [dialog.tier_scroll(),
 			dialog.row_offset(top_tier - 1), dialog.row_count()])
@@ -689,13 +702,16 @@ static func _case_rows(res: Dictionary, host: Node, tree: SkillTree) -> void:
 		dialog.tier_scroll() == dialog.row_offset(0) and dialog.row_count() == top_tier,
 		"scroll %d rows %d" % [dialog.tier_scroll(), dialog.row_count()])
 	dialog.press_close()
-	TestFixtures.check(res, "Exit shuts the popover", not dialog.is_open(),
+	TestFixtures.check(res, "the X shuts the popover", not dialog.is_open(),
 		"open %s" % [dialog.is_open()])
 
 
 #Case 9: plus and minus, the refusals they print and what a drop takes with it.
 static func _case_money(res: Dictionary, host: Node, tree: SkillTree) -> void:
 	_small_guild()
+	TestFixtures.check(res, "the small guild has the fallback income to spend",
+		SubscriptionManager.budget_available() == SubscriptionManager.BUDGET_FALLBACK,
+		"budget %d" % [SubscriptionManager.budget_available()])
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	await host.get_tree().process_frame
 	var dialog: UpgradeTierDialog = tree.dialog()
@@ -736,6 +752,45 @@ static func _case_money(res: Dictionary, host: Node, tree: SkillTree) -> void:
 		"reason %s tier %d" % [dialog.reason_text(), dialog.tier()])
 	TestFixtures.check(res, "the income line turns red on a refusal",
 		dialog.income_color() == UpgradeTierDialog.RED, "colour %s" % [dialog.income_color()])
+	TestFixtures.check(res, "an income refusal starts the income pulse",
+		dialog.is_flashing() and is_equal_approx(dialog.flash_scale(), 1.0)
+			and is_equal_approx(dialog.income_scale(), 1.0),
+		"flashing %s scale %.3f" % [dialog.is_flashing(), dialog.income_scale()])
+	var pulse: float = UpgradeTierDialog.FLASH_SECONDS / float(UpgradeTierDialog.FLASH_COUNT)
+	var elapsed: float = 0.0
+	var peaks: int = 0
+	var edges: int = 0
+	for k: int in UpgradeTierDialog.FLASH_COUNT:
+		var middle: float = (float(k) + 0.5) * pulse
+		dialog.step_flash(middle - elapsed)
+		elapsed = middle
+		if (absf(dialog.flash_scale() - UpgradeTierDialog.FLASH_SCALE) <= PULSE_TOL
+				and absf(dialog.income_scale() - UpgradeTierDialog.FLASH_SCALE) <= PULSE_TOL
+				and dialog.income_glow().is_equal_approx(UpgradeTierDialog.GLOW)):
+			peaks += 1
+		var edge: float = float(k + 1) * pulse
+		dialog.step_flash(edge - elapsed)
+		elapsed = edge
+		if absf(dialog.flash_scale() - 1.0) <= PULSE_TOL:
+			edges += 1
+	TestFixtures.check(res, "the pulse peaks three times inside the refusal window",
+		peaks == UpgradeTierDialog.FLASH_COUNT and edges == UpgradeTierDialog.FLASH_COUNT,
+		"peaks %d edges %d" % [peaks, edges])
+	dialog.step_flash(PULSE_TOL)
+	TestFixtures.check(res, "the pulse ends with the refusal window",
+		not dialog.is_flashing() and dialog.income_scale() == 1.0 and dialog.income_glow() == Color.WHITE,
+		"flashing %s scale %.3f glow %s" % [dialog.is_flashing(), dialog.income_scale(), dialog.income_glow()])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE,
+		{"representation": SubscriptionManager.max_tier("representation")})
+	await host.get_tree().process_frame
+	dialog.open_for("representation")
+	dialog.press_plus()
+	TestFixtures.check(res, "a highest tier refusal leaves the number still",
+		dialog.is_rejecting() and dialog.reject_kind() == "up"
+			and dialog.reason_text() == "Already at the highest tier."
+			and not dialog.is_flashing() and dialog.income_scale() == 1.0,
+		"reason %s flashing %s scale %.3f" % [dialog.reason_text(), dialog.is_flashing(),
+			dialog.income_scale()])
 	_set_crew(UpgradeDefs.ENTERPRISE_MERCS + 6)
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {"seats": 2})
 	await host.get_tree().process_frame
@@ -796,8 +851,8 @@ static func _case_tooltip(res: Dictionary, host: Node, tree: SkillTree) -> void:
 		"at %s" % [tip.position])
 	tip.show_for("block", "base", anchor, VIEW)
 	TestFixtures.check(res, "the Base card explains the root of the tree",
-		tip.kind_text() == TreeTooltip.BASE_KIND and tip.name_text() == TreeTooltip.BASE_NAME
-			and tip.desc_text() == TreeTooltip.BASE_DESC and not tip.is_rich(),
+		tip.kind_text() == TreeLayout.BASE_KIND and tip.name_text() == TreeLayout.BASE_NAME
+			and tip.desc_text() == TreeLayout.BASE_DESC and not tip.is_rich(),
 		"name %s" % [tip.name_text()])
 	tip.show_for("gate", "criminal", anchor, VIEW)
 	TestFixtures.check(res, "a gate card counts the upgrades still missing",
@@ -808,23 +863,14 @@ static func _case_tooltip(res: Dictionary, host: Node, tree: SkillTree) -> void:
 	tip.show_for("block", "seats", anchor, VIEW)
 	var fee: int = SubscriptionManager.upgrade_fee("seats")
 	TestFixtures.check(res, "a module card prints its tiers, its fee and the next tier",
-		tip.is_rich() and tip.stat_text() == "2/6   %d/month" % [fee]
+		tip.is_rich() and tip.stat_text() == "2/8   %d/month" % [fee]
 			and tip.next_text() == UpgradeDefs.tier_text("seats", 3)
 			and tip.next_fee_text() == "+%d/month" % [SubscriptionManager.tier_price("seats", 3)],
 		"stat %s next %s" % [tip.stat_text(), tip.next_fee_text()])
 	TestFixtures.check(res, "a reachable module card carries no warning",
 		tip.note_text() == "" and is_equal_approx(tip.tip_height(), TreeTooltip.RICH_HEIGHT),
 		"note %s" % [tip.note_text()])
-	var plain_rows: Array[String] = []
-	for row_name: String in ["Stat", "NextFee"]:
-		var row: Node = tip.get_node_or_null("Pad/Rows/" + row_name)
-		var glyphs: int = 0
-		if row != null:
-			for child: Node in row.get_children():
-				if child is NoteIcon:
-					glyphs += 1
-		if glyphs != 1:
-			plain_rows.append("%s %d" % [row_name, glyphs])
+	var plain_rows: Array[String] = _glyph_misses(tip, "Pad/Rows/", ["Stat", "NextFee"])
 	TestFixtures.check(res, "both fee rows of the hover card carry one notes glyph",
 		plain_rows.is_empty(), TestFixtures.detail(plain_rows, 2, "rows"))
 	tip.show_for("block", "criminal", anchor, VIEW)
@@ -833,7 +879,7 @@ static func _case_tooltip(res: Dictionary, host: Node, tree: SkillTree) -> void:
 		"note %s" % [tip.note_text()])
 	TestFixtures.check(res, "the hover card heads itself with the module icon",
 		tip.icon_id() == TreeIcons.id_of("criminal"), "id '%s'" % [tip.icon_id()])
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	tip.show_for("gate", "criminal", anchor, VIEW)
 	TestFixtures.check(res, "a met requirement says so",
@@ -857,7 +903,7 @@ static func _case_canvas(res: Dictionary, tree: SkillTree) -> void:
 		canvas.size == TreeLayout.WORLD, "size %s" % [canvas.size])
 	TestFixtures.check(res, "the world holds one child per module, box and gate",
 		canvas.block_ids().size() == TreeLayout.PLACE.size()
-			and canvas.gate_ids().size() == TreeLayout.gates({}).size()
+			and canvas.gate_ids().size() == TreeLayout.gates_for({}).size()
 			and canvas.cat_box("limits") != null,
 		"blocks %d gates %d" % [canvas.block_ids().size(), canvas.gate_ids().size()])
 	var wrong: Array[String] = []
@@ -868,7 +914,7 @@ static func _case_canvas(res: Dictionary, tree: SkillTree) -> void:
 			wrong.append(id)
 	TestFixtures.check(res, "every module stands on its own cell", wrong.is_empty(),
 		TestFixtures.detail(wrong, canvas.block_ids().size(), "modules"))
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	canvas.refresh()
 	var stuck: Array[String] = []
 	for id: String in canvas.block_ids():
@@ -925,7 +971,7 @@ static func _case_canvas(res: Dictionary, tree: SkillTree) -> void:
 	TestFixtures.check(res, "an unfinished branch box drops back to its plain frame",
 		not canvas.cat_box("limits").is_complete()
 			and canvas.cat_box("limits").bg_color() == CategoryBox.BG
-			and canvas.cat_box("limits").progress_text() == "0/10",
+			and canvas.cat_box("limits").progress_text() == "0/12",
 		"progress %s" % [canvas.cat_box("limits").progress_text()])
 
 
@@ -934,20 +980,17 @@ static func _case_canvas(res: Dictionary, tree: SkillTree) -> void:
 static func _case_follow(res: Dictionary, host: Node) -> void:
 	var tree: SkillTree = TREE.instantiate() as SkillTree
 	host.add_child(tree)
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	var real: Vector2 = Vector2(1192.0, 527.0)
 	tree.size = real
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	var home_a: Vector2 = TreeLayout.clamp_pan(TreeLayout.home_pan(real), real)
 	TestFixtures.check(res, "the first view follows the real frame once it settles",
 		tree.view() == real and (tree.pan() - home_a).length() <= 0.5,
 		"pan %s vs %s view %s" % [tree.pan(), home_a, tree.view()])
 	var second: Vector2 = Vector2(1000.0, 500.0)
 	tree.size = second
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	var home_b: Vector2 = TreeLayout.clamp_pan(TreeLayout.home_pan(second), second)
 	TestFixtures.check(res, "a second size moves the first view with it",
 		tree.view() == second and (tree.pan() - home_b).length() <= 0.5,
@@ -955,24 +998,259 @@ static func _case_follow(res: Dictionary, host: Node) -> void:
 	tree.set_pan(tree.pan() + Vector2(TreeLayout.DRAG_SLOP + 1.0, 0.0))
 	var dragged: Vector2 = tree.pan()
 	tree.size = real
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	TestFixtures.check(res, "a resize after a drag keeps the dragged pan",
 		tree.pan() == dragged, "pan %s vs %s" % [tree.pan(), dragged])
 	tree.focus_upgrade("counsel")
 	var focused: Vector2 = tree.pan()
 	tree.size = second
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	TestFixtures.check(res, "a resize after a focus jump keeps the focus pan",
 		tree.pan() == focused, "pan %s vs %s" % [tree.pan(), focused])
 	tree.close_dialog()
 	tree.home()
 	tree.size = real
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	await GuiHiringTests._frames(host, 2)
 	var home_c: Vector2 = TreeLayout.clamp_pan(TreeLayout.home_pan(real), real)
 	TestFixtures.check(res, "home called by the test brings the follow rule back",
 		tree.view() == real and (tree.pan() - home_c).length() <= 0.5,
 		"pan %s vs %s view %s" % [tree.pan(), home_c, tree.view()])
 	tree.queue_free()
+
+
+#A mouse button event at a frame position, the way the engine hands it to a control.
+static func _click(at: Vector2, down: bool,
+		button: MouseButton = MOUSE_BUTTON_LEFT) -> InputEventMouseButton:
+	var click: InputEventMouseButton = InputEventMouseButton.new()
+	click.position = at
+	click.button_index = button
+	click.pressed = down
+	return click
+
+
+static func _motion(at: Vector2) -> InputEventMouseMotion:
+	var move: InputEventMouseMotion = InputEventMouseMotion.new()
+	move.position = at
+	return move
+
+
+#The name of every Control at or below root that still takes the pointer.
+static func _pointer_takers(root: Node) -> Array[String]:
+	var out: Array[String] = []
+	var control: Control = root as Control
+	if control != null and control.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		out.append(String(root.name))
+	for child: Node in root.get_children():
+		out.append_array(_pointer_takers(child))
+	return out
+
+
+#Case 13: a module sinks under a held left press, and one the plan cannot use stays flat.
+static func _case_press(res: Dictionary, host: Node, tree: SkillTree) -> void:
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
+	tree.canvas().refresh()
+	await host.get_tree().process_frame
+	var mod: CustomizeBlock = tree.canvas().block("oddjobs")
+	var spot: Vector2 = Vector2(10.0, 10.0)
+	var rest_bg: Color = mod.bg_color()
+	var rest_hi: Color = mod.hi_color()
+	var rest_lo: Color = mod.lo_color()
+	TestFixtures.check(res, "a module at rest is not pressed", not mod.is_down(),
+		"down %s" % [mod.is_down()])
+	mod._gui_input(_click(spot, true, MOUSE_BUTTON_RIGHT))
+	TestFixtures.check(res, "only the left button presses a module", not mod.is_down(),
+		"down %s" % [mod.is_down()])
+	mod._gui_input(_click(spot, true))
+	TestFixtures.check(res, "a held left press darkens the face and swaps the bevel edges",
+		mod.is_down() and mod.bg_color().is_equal_approx(rest_bg.darkened(BevelButton.PRESS_DROP))
+			and mod.hi_color() == rest_lo and mod.lo_color() == rest_hi,
+		"bg %s hi %s lo %s" % [mod.bg_color(), mod.hi_color(), mod.lo_color()])
+	mod._gui_input(_click(spot, false))
+	tree.close_dialog()
+	TestFixtures.check(res, "the release lifts the module back to its rest look",
+		not mod.is_down() and mod.bg_color() == rest_bg and mod.hi_color() == rest_hi
+			and mod.lo_color() == rest_lo,
+		"bg %s down %s" % [mod.bg_color(), mod.is_down()])
+	mod._gui_input(_click(spot, true))
+	mod.mouse_exited.emit()
+	TestFixtures.check(res, "the pointer leaving a held module lifts it", not mod.is_down(),
+		"down %s" % [mod.is_down()])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.PRO, {})
+	tree.canvas().refresh()
+	await host.get_tree().process_frame
+	var flat_bg: Color = mod.bg_color()
+	var flat_hi: Color = mod.hi_color()
+	var flat_lo: Color = mod.lo_color()
+	mod._gui_input(_click(spot, true))
+	TestFixtures.check(res, "a module the plan cannot use never sinks",
+		not mod.is_down() and mod.bg_color() == flat_bg and mod.hi_color() == flat_hi
+			and mod.lo_color() == flat_lo and flat_hi != flat_lo,
+		"down %s bg %s" % [mod.is_down(), mod.bg_color()])
+	mod._gui_input(_click(spot, false))
+	TestFixtures.check(res, "a release on an unusable module opens nothing",
+		not tree.dialog().is_open(), "open %s" % [tree.dialog().is_open()])
+	var base: CustomizeBlock = tree.canvas().block("base")
+	base._gui_input(_click(spot, true))
+	TestFixtures.check(res, "the Base module never sinks", not base.is_down(),
+		"down %s" % [base.is_down()])
+	base._gui_input(_click(spot, false))
+
+
+#Case 14: the hover card rides below and right of the pointer, flips at the frame edges and
+#never takes the pointer itself.
+static func _case_pointer(res: Dictionary, host: Node, tree: SkillTree) -> void:
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
+	await host.get_tree().process_frame
+	var tip: TreeTooltip = tree.tooltip()
+	var gap: float = TreeTooltip.POINTER_GAP + float(TooltipPanel.GAP)
+	var back: float = float(TooltipPanel.GAP)
+	var frame: Rect2 = Rect2(Vector2.ZERO, VIEW)
+	tip.show_for("cat", "limits", Rect2(Vector2(100.0, 10.0), TreeLayout.CAT_BOX), VIEW)
+	tip.place_at_pointer(Vector2(300.0, 200.0), frame)
+	TestFixtures.check(res, "the card opens below and right of the pointer",
+		tip.position.is_equal_approx(Vector2(300.0 + gap, 200.0 + gap)),
+		"at %s" % [tip.position])
+	tip.place_at_pointer(Vector2(1100.0, 200.0), frame)
+	TestFixtures.check(res, "a card with no room on the right flips to the left of the pointer",
+		tip.position.is_equal_approx(Vector2(1100.0 - back - TreeTooltip.WIDTH, 200.0 + gap)),
+		"at %s" % [tip.position])
+	tip.place_at_pointer(Vector2(300.0, 480.0), frame)
+	TestFixtures.check(res, "a card with no room below flips above the pointer",
+		tip.position.is_equal_approx(Vector2(300.0 + gap, 480.0 - back - tip.tip_height())),
+		"at %s height %.0f" % [tip.position, tip.tip_height()])
+	tip.place_at_pointer(Vector2(1100.0, 480.0), frame)
+	TestFixtures.check(res, "a card in the bottom right corner flips on both axes",
+		tip.position.is_equal_approx(Vector2(1100.0 - back - TreeTooltip.WIDTH,
+			480.0 - back - tip.tip_height())),
+		"at %s" % [tip.position])
+	var cell: Vector2 = Vector2(TreeLayout.BLOCK, TreeLayout.BLOCK)
+	tip.show_for("block", "seats", Rect2(Vector2(100.0, 10.0), cell), VIEW)
+	tip.place_at_pointer(Vector2(300.0, 400.0), frame)
+	TestFixtures.check(res, "a tall module card flips above the pointer and stays in the frame",
+		is_equal_approx(tip.tip_height(), TreeTooltip.RICH_HEIGHT)
+			and tip.position.y >= TreeTooltip.TOP_MIN
+			and tip.position.y + tip.tip_height() <= 400.0,
+		"at %s height %.0f" % [tip.position, tip.tip_height()])
+	tip.follow(Vector2(500.0, 100.0))
+	TestFixtures.check(res, "a shown card follows the pointer",
+		tip.position.is_equal_approx(Vector2(500.0 + gap, 100.0 + gap)),
+		"at %s" % [tip.position])
+	tip.hide_tip()
+	var parked: Vector2 = tip.position
+	tip.follow(Vector2(50.0, 50.0))
+	TestFixtures.check(res, "a hidden card stays where it was", tip.position == parked,
+		"at %s" % [tip.position])
+	var takers: Array[String] = _pointer_takers(tip)
+	TestFixtures.check(res, "the card and every row inside it ignore the pointer",
+		takers.is_empty(), TestFixtures.detail(takers, 1, "nodes"))
+	tree.canvas().hover_changed.emit("cat", "limits", Rect2(Vector2(200.0, 200.0),
+		TreeLayout.CAT_BOX))
+	var mouse: Vector2 = tree.get_local_mouse_position()
+	TestFixtures.check(res, "a new hover puts the card at the pointer",
+		tip.visible and tip.position.is_equal_approx(mouse + Vector2(gap, gap)),
+		"at %s mouse %s" % [tip.position, mouse])
+	tree._gui_input(_motion(Vector2(300.0, 200.0)))
+	TestFixtures.check(res, "the pointer moving over the tree brings the card along",
+		tip.position.is_equal_approx(Vector2(300.0 + gap, 200.0 + gap)),
+		"at %s" % [tip.position])
+	tip.hide_tip()
+
+
+#Case 15: a left press outside the popover closes it and stays free for the module under it.
+static func _case_outside(res: Dictionary, host: Node, tree: SkillTree) -> void:
+	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
+	await host.get_tree().process_frame
+	var dialog: UpgradeTierDialog = tree.dialog()
+	tree.press_block("oddjobs")
+	var box: Rect2 = dialog.get_global_rect()
+	var away: Vector2 = box.end + Vector2(20.0, 20.0)
+	dialog._input(_click(box.get_center(), true))
+	TestFixtures.check(res, "a press inside the popover keeps it open", dialog.is_open(),
+		"open %s" % [dialog.is_open()])
+	dialog._input(_click(away, false))
+	dialog._input(_click(away, true, MOUSE_BUTTON_RIGHT))
+	dialog._input(_motion(away))
+	TestFixtures.check(res, "a release, another button or plain motion outside leaves it open",
+		dialog.is_open(), "open %s" % [dialog.is_open()])
+	var idle: InputEventAction = InputEventAction.new()
+	idle.action = &"ui_accept"
+	idle.pressed = false
+	dialog.get_viewport().push_input(idle)
+	dialog._input(_click(box.position - Vector2(20.0, 20.0), true))
+	TestFixtures.check(res, "a left press outside the popover closes it", not dialog.is_open(),
+		"open %s" % [dialog.is_open()])
+	TestFixtures.check(res, "the press that closed it is left for the module beneath",
+		not dialog.get_viewport().is_input_handled(), "the press was marked handled")
+	tree.focus_upgrade("counsel", 1)
+	TestFixtures.check(res, "another module opens its popover right after",
+		dialog.is_open() and dialog.upgrade_id() == "counsel",
+		"open %s id %s" % [dialog.is_open(), dialog.upgrade_id()])
+	var shut: Vector2 = dialog.get_global_rect().end + Vector2(20.0, 20.0)
+	dialog._input(_click(shut, true))
+	dialog._input(_click(shut, true))
+	TestFixtures.check(res, "a press outside a popover that is already shut leaves it shut",
+		not dialog.is_open(), "open %s" % [dialog.is_open()])
+
+
+
+#Case 16: a module name wraps inside the label width, and its lines and the fee sit centred in the gap
+#the connectors leave under the module.
+static func _case_captions(res: Dictionary, tree: SkillTree) -> void:
+	var canvas: TreeCanvas = tree.canvas()
+	var pip: CustomizeBlock = canvas.block("pip")
+	var lines: PackedStringArray = pip.name_lines()
+	var widest: float = 0.0
+	for line: String in lines:
+		widest = maxf(widest, CustomizeBlock.name_width(line))
+	TestFixtures.check(res, "the longest name wraps onto two lines and prints whole",
+		lines.size() == 2 and " ".join(lines) == pip.name_text()
+			and widest <= CustomizeBlock.LABEL_WIDTH,
+		"lines %s widest %.1f of %.1f" % [lines, widest, CustomizeBlock.LABEL_WIDTH])
+	var seats: PackedStringArray = canvas.block("seats").name_lines()
+	var root: PackedStringArray = canvas.block("base").name_lines()
+	TestFixtures.check(res, "a short name stays on one line", seats.size() == 1 and root.size() == 1,
+		"seats %s base %s" % [seats, root])
+	var cut: Array[String] = []
+	for id: String in canvas.block_ids():
+		var mod: CustomizeBlock = canvas.block(id)
+		var parts: PackedStringArray = mod.name_lines()
+		var over: bool = parts.size() > CustomizeBlock.NAME_MAX_LINES
+		for part: String in parts:
+			over = over or CustomizeBlock.name_width(part) > CustomizeBlock.LABEL_WIDTH
+		if over or " ".join(parts) != mod.name_text():
+			cut.append(id)
+	TestFixtures.check(res, "every module name prints whole inside the label width", cut.is_empty(),
+		TestFixtures.detail(cut, canvas.block_ids().size(), "modules"))
+	var sides: Array[float] = [TreeLayout.BLOCK, TreeLayout.BASE_BLOCK]
+	var mid: float = (TreeLayout.NODE_STUB + TreeLayout.LABEL_DROP) / 2.0
+	var off: Array[String] = []
+	var crowded: Array[String] = []
+	for side: float in sides:
+		for count: int in range(1, CustomizeBlock.NAME_MAX_LINES + 1):
+			var rows: PackedFloat32Array = CustomizeBlock.caption_baselines(side, count)
+			var top: float = rows[0] - CustomizeBlock.name_rise()
+			var bottom: float = rows[count] + CustomizeBlock.FEE_TILE_DROP
+			var tag: String = "%d lines on %d: %.2f to %.2f" % [count, int(side), top, bottom]
+			if absf((top + bottom) / 2.0 - (side + mid)) > CAPTION_TOL:
+				off.append(tag)
+			var clear_top: float = side + TreeLayout.NODE_STUB + TreeCanvas.HALF
+			var clear_bottom: float = side + TreeLayout.LABEL_DROP - TreeCanvas.HALF
+			if top < clear_top or bottom > clear_bottom:
+				crowded.append(tag)
+	TestFixtures.check(res, "one and two name lines with the fee sit centred in the gap", off.is_empty(),
+		TestFixtures.detail(off, sides.size() * CustomizeBlock.NAME_MAX_LINES, "captions"))
+	TestFixtures.check(res, "the caption clears the stub above and the line that resumes below",
+		crowded.is_empty(),
+		TestFixtures.detail(crowded, sides.size() * CustomizeBlock.NAME_MAX_LINES, "captions"))
+	var one: PackedFloat32Array = CustomizeBlock.caption_baselines(TreeLayout.BLOCK, 1)
+	var two: PackedFloat32Array = CustomizeBlock.caption_baselines(TreeLayout.BLOCK, 2)
+	var tile_top: float = two[2] - (NoteIcon.TILE_SIZE_PX.y - CustomizeBlock.FEE_TILE_DROP)
+	TestFixtures.check(res, "name lines step down one pitch and the fee tile sits under the last line",
+		one.size() == 2 and two.size() == 3 and one[1] > one[0]
+			and is_equal_approx(two[1] - two[0], CustomizeBlock.NAME_PITCH)
+			and two[2] > two[1] and tile_top > two[1],
+		"one %s two %s tile top %s" % [one, two, tile_top])
+	var stacked: float = 2.0 * TreeLayout.GY - TreeLayout.BLOCK
+	TestFixtures.check(res, "the label drop leaves a stacked pair a line to resume on",
+		TreeLayout.LABEL_DROP <= stacked - TreeCanvas.HALF,
+		"drop %s of %s" % [TreeLayout.LABEL_DROP, stacked])

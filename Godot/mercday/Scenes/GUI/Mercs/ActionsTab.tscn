@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/ActionsTab.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortButton.tscn" id="2"]
-[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/ActionColumn.tscn" id="3"]
 
 [node name="ActionsTab" type="VBoxContainer"]
 theme_override_constants/separation = 12
@@ -22,80 +22,12 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 24
 
-[node name="Turn" type="VBoxContainer" parent="Columns"]
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
-theme_override_constants/separation = 8
+[node name="Turn" parent="Columns" instance=ExtResource("3")]
+layout_mode = 2
+caption = "TURN ACTIONS"
+unit = "AP"
 
-[node name="GroupHead" type="HBoxContainer" parent="Columns/Turn"]
-theme_override_constants/separation = 8
-
-[node name="Caption" type="Label" parent="Columns/Turn/GroupHead"]
-theme_type_variation = &"PanelTitle"
-text = "TURN ACTIONS"
-
-[node name="Spacer" type="Control" parent="Columns/Turn/GroupHead"]
-size_flags_horizontal = 3
-mouse_filter = 2
-
-[node name="Unit" type="Label" parent="Columns/Turn/GroupHead"]
-size_flags_vertical = 4
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("3")
-theme_override_font_sizes/font_size = 9
-text = "AP"
-
-[node name="Scroll" type="ScrollContainer" parent="Columns/Turn"]
-size_flags_horizontal = 3
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="Pad" type="MarginContainer" parent="Columns/Turn/Scroll"]
-size_flags_horizontal = 3
-theme_override_constants/margin_left = 0
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 14
-
-[node name="List" type="VBoxContainer" parent="Columns/Turn/Scroll/Pad"]
-size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="Reactive" type="VBoxContainer" parent="Columns"]
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
-theme_override_constants/separation = 8
-
-[node name="GroupHead" type="HBoxContainer" parent="Columns/Reactive"]
-theme_override_constants/separation = 8
-
-[node name="Caption" type="Label" parent="Columns/Reactive/GroupHead"]
-theme_type_variation = &"PanelTitle"
-text = "REACTIVE ACTIONS"
-
-[node name="Spacer" type="Control" parent="Columns/Reactive/GroupHead"]
-size_flags_horizontal = 3
-mouse_filter = 2
-
-[node name="Unit" type="Label" parent="Columns/Reactive/GroupHead"]
-size_flags_vertical = 4
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("3")
-theme_override_font_sizes/font_size = 9
-text = "EP"
-
-[node name="Scroll" type="ScrollContainer" parent="Columns/Reactive"]
-size_flags_horizontal = 3
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="Pad" type="MarginContainer" parent="Columns/Reactive/Scroll"]
-size_flags_horizontal = 3
-theme_override_constants/margin_left = 0
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 14
-
-[node name="List" type="VBoxContainer" parent="Columns/Reactive/Scroll/Pad"]
-size_flags_horizontal = 3
-theme_override_constants/separation = 8
+[node name="Reactive" parent="Columns" instance=ExtResource("3")]
+layout_mode = 2
+caption = "REACTIVE ACTIONS"
+unit = "EP"

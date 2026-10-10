@@ -115,13 +115,11 @@ static func _case_misfire(res: Dictionary) -> void:
 
 
 static func _case_critical(res: Dictionary) -> void:
-	var was_banking := CriticalSuccessSystem.banking
-	CriticalSuccessSystem.banking = true
 	var m := _probe("Critter")
 	m.equipped_weapon = _light_melee()
 	m.weapon_drawn = true
-	CheckSystem.forced_rolls.assign([15, 15, 15] as Array[int])
-	var atk := AttackSystem.execute_attack(m, 0, 0, null, false, null, false, 3)
+	var atk: Dictionary = _with_rolls([15, 15, 15],
+		func() -> Dictionary: return AttackSystem.execute_attack(m, 0, 0, null, false, null, false, 3))
 	TestFixtures.check(res, "a critical ignores the called shot penalty",
 		bool(atk["critical"]) and int(atk["core_successes"]) == 3
 			and int(atk["success_penalty"]) == 0,
@@ -129,8 +127,6 @@ static func _case_critical(res: Dictionary) -> void:
 	TestFixtures.check(res, "a critical called shot always lands",
 		CalledShotSystem.landed(atk, CalledShotSystem.hp_total(m), m),
 		"critical %s" % str(atk["critical"]))
-	CriticalSuccessSystem.banking = was_banking
-	CheckSystem.forced_rolls.clear()
 
 
 static func _case_landed(res: Dictionary) -> void:
@@ -163,25 +159,24 @@ static func _case_landed(res: Dictionary) -> void:
 
 #The DefenseSystem flag that tells a min 1 floor mark apart from damage the defence let through.
 static func _case_min_1_floor(res: Dictionary) -> void:
-	var was_banking := CriticalSuccessSystem.banking
-	CriticalSuccessSystem.banking = true
-	var covered := DefenseSystem.resolve(_floor_target("Floored", 3), 2, "Impale", 0, true)
-	TestFixtures.check(res, "an impale the defend roll covers marks the floor and raises the flag",
-		int(covered["final_damage"]) == 1 and bool(covered["min_1_only"]),
-		"final %d flag %s" % [int(covered["final_damage"]), str(covered["min_1_only"])])
-	var partial := DefenseSystem.resolve(_floor_target("Grazed", 1), 3, "Impale", 0, true)
-	TestFixtures.check(res, "an impale the defend roll only blunts leaves the flag down",
-		int(partial["final_damage"]) == 2 and not bool(partial["min_1_only"]),
-		"final %d flag %s" % [int(partial["final_damage"]), str(partial["min_1_only"])])
-	var struck := DefenseSystem.resolve(_floor_target("Struck", 4), 2, "Strike", 0, true)
-	TestFixtures.check(res, "a strike has no min 1 rule so a covered hit marks nothing",
-		int(struck["final_damage"]) == 0 and not bool(struck["min_1_only"]),
-		"final %d flag %s" % [int(struck["final_damage"]), str(struck["min_1_only"])])
-	var burned := DefenseSystem.resolve(_floor_target("Burned", 3), 3, "Fire", 0, true)
-	TestFixtures.check(res, "a hit that marks only its direct portion leaves the flag down",
-		int(burned["final_damage"]) == 1 and not bool(burned["min_1_only"]),
-		"final %d flag %s" % [int(burned["final_damage"]), str(burned["min_1_only"])])
-	CriticalSuccessSystem.banking = was_banking
+	_with_rolls([], func() -> void:
+		var covered := DefenseSystem.resolve(_floor_target("Floored", 3), 2, "Impale", 0, true)
+		TestFixtures.check(res, "an impale the defend roll covers marks the floor and raises the flag",
+			int(covered["final_damage"]) == 1 and bool(covered["min_1_only"]),
+			"final %d flag %s" % [int(covered["final_damage"]), str(covered["min_1_only"])])
+		var partial := DefenseSystem.resolve(_floor_target("Grazed", 1), 3, "Impale", 0, true)
+		TestFixtures.check(res, "an impale the defend roll only blunts leaves the flag down",
+			int(partial["final_damage"]) == 2 and not bool(partial["min_1_only"]),
+			"final %d flag %s" % [int(partial["final_damage"]), str(partial["min_1_only"])])
+		var struck := DefenseSystem.resolve(_floor_target("Struck", 4), 2, "Strike", 0, true)
+		TestFixtures.check(res, "a strike has no min 1 rule so a covered hit marks nothing",
+			int(struck["final_damage"]) == 0 and not bool(struck["min_1_only"]),
+			"final %d flag %s" % [int(struck["final_damage"]), str(struck["min_1_only"])])
+		var burned := DefenseSystem.resolve(_floor_target("Burned", 3), 3, "Fire", 0, true)
+		TestFixtures.check(res, "a hit that marks only its direct portion leaves the flag down",
+			int(burned["final_damage"]) == 1 and not bool(burned["min_1_only"]),
+			"final %d flag %s" % [int(burned["final_damage"]), str(burned["min_1_only"])])
+	)
 
 
 static func _case_state_options(res: Dictionary) -> void:
@@ -190,18 +185,14 @@ static func _case_state_options(res: Dictionary) -> void:
 	for key: String in expect:
 		var merc := _probe("Caller")
 		var target := _probe("Mark")
-		merc.equipped_weapon = _light_melee()
-		target.equipped_weapon = _light_melee()
-		var state := TestFixtures.duel(merc, target)
+		var state := _duel(merc, target)
 		var lines := CalledShotSystem.apply_effect(merc, target, key, {}, state)
 		TestFixtures.check(res, "a called shot to the %s inflicts %s" % [key, str(expect[key])],
 			ConstStates.has_state(target, str(expect[key])) and not lines.is_empty(),
 			"%d lines" % lines.size())
 	var timer_merc := _probe("Timer")
 	var timed := _probe("Timed")
-	timer_merc.equipped_weapon = _light_melee()
-	timed.equipped_weapon = _light_melee()
-	var timer_state := TestFixtures.duel(timer_merc, timed)
+	var timer_state := _duel(timer_merc, timed)
 	timer_state.round_number = 4
 	CalledShotSystem.apply_effect(timer_merc, timed, "eye", {}, timer_state)
 	CalledShotSystem.apply_effect(timer_merc, timed, "heel", {}, timer_state)
@@ -214,10 +205,8 @@ static func _case_state_options(res: Dictionary) -> void:
 static func _case_immunity(res: Dictionary) -> void:
 	var merc := _probe("Prober")
 	var target := _probe("Warded")
-	merc.equipped_weapon = _light_melee()
-	target.equipped_weapon = _light_melee()
 	target.passive_effects.append("immune:blinded")
-	var state := TestFixtures.duel(merc, target)
+	var state := _duel(merc, target)
 	var lines := CalledShotSystem.apply_effect(merc, target, "eye", {}, state)
 	TestFixtures.check(res, "an immune target shrugs off the called shot state",
 		not ConstStates.has_state(target, "Blinded") and TestFixtures.has_line(lines, "is immune to Blinded!"),
@@ -230,13 +219,11 @@ static func _case_immunity(res: Dictionary) -> void:
 static func _case_validity(res: Dictionary) -> void:
 	var merc := _probe("Judge")
 	var target := _probe("Subject")
-	merc.equipped_weapon = _light_melee()
-	target.equipped_weapon = _light_melee()
-	var state := TestFixtures.duel(merc, target)
+	var state := _duel(merc, target)
 	TestFixtures.check(res, "an unknown option is never valid",
 		not CalledShotSystem.is_valid(merc, target, "nose", state), "nose")
 	var open := CalledShotSystem.is_valid(merc, target, "eye", state)
-	ConstStates.apply_state(target, "Blinded", merc, "", "test")
+	StateCascade.apply_state(target, "Blinded", merc, "", "test")
 	TestFixtures.check(res, "a held state takes its own option off the list",
 		open and not CalledShotSystem.is_valid(merc, target, "eye", state), "Blinded held")
 	TestFixtures.check(res, "the wing is called only against a flyer",
@@ -255,9 +242,7 @@ static func _case_validity(res: Dictionary) -> void:
 static func _case_wrist(res: Dictionary) -> void:
 	var merc := _probe("Disarmer")
 	var target := _probe("Holder")
-	merc.equipped_weapon = _light_melee()
-	target.equipped_weapon = _light_melee()
-	var state := TestFixtures.duel(merc, target)
+	var state := _duel(merc, target)
 	var held := target.equipped_weapon
 	var lines := CalledShotSystem.apply_effect(merc, target, "wrist", {}, state)
 	TestFixtures.check(res, "a called shot to the wrist drops the held weapon",
@@ -271,10 +256,8 @@ static func _case_wrist(res: Dictionary) -> void:
 static func _case_wing(res: Dictionary) -> void:
 	var merc := _probe("Clipper")
 	var target := _probe("Flyer")
-	merc.equipped_weapon = _light_melee()
-	target.equipped_weapon = _light_melee()
 	target.stats["fly"] = 2
-	var state := TestFixtures.duel(merc, target)
+	var state := _duel(merc, target)
 	state.set_height(target, 3)
 	var lines := CalledShotSystem.apply_effect(merc, target, "wing", {}, state)
 	TestFixtures.check(res, "a called shot to the wing grounds the flyer",
@@ -287,14 +270,12 @@ static func _case_wing(res: Dictionary) -> void:
 static func _case_wound(res: Dictionary) -> void:
 	var merc := _probe("Wounder")
 	var target := _probe("Wounded")
-	merc.equipped_weapon = _light_melee()
-	target.equipped_weapon = _light_melee()
-	var state := TestFixtures.duel(merc, target)
+	var state := _duel(merc, target)
 	var lines := CalledShotSystem.apply_effect(merc, target, "wound", {}, state)
 	TestFixtures.check(res, "a called shot to a wound narrates the grievous hit",
 		TestFixtures.has_line(lines, "strikes a grievous wound!"), "%d lines" % lines.size())
 	var plain := CalledShotOdds.effect_value(merc, target, "wound", state)
-	var ballista := _armed("Ballista", "Hand Ballista", "Hand Ballista|Hand Ballista Critical")
+	var ballista := TestFixtures.arm(_probe("Ballista"), "Hand Ballista", "Hand Ballista|Hand Ballista Critical", true)
 	var armed_worth := CalledShotOdds.effect_value(ballista, target, "wound", state)
 	TestFixtures.check(res, "the wound is worth nothing without an on_crit perk",
 		is_zero_approx(plain) and is_equal_approx(armed_worth, CalledShotSystem.WOUND_VALUE),
@@ -304,9 +285,7 @@ static func _case_wound(res: Dictionary) -> void:
 static func _case_face(res: Dictionary) -> void:
 	var merc := _probe("Scarrer")
 	var target := _probe("Unmarred")
-	merc.equipped_weapon = _light_melee()
-	target.equipped_weapon = _light_melee()
-	var state := TestFixtures.duel(merc, target)
+	var state := _duel(merc, target)
 	var open := CalledShotSystem.is_valid(merc, target, "face", state)
 	var lines := CalledShotSystem.apply_effect(merc, target, "face", {}, state)
 	TestFixtures.check(res, "a called shot to the face scars the target",
@@ -320,30 +299,28 @@ static func _case_face(res: Dictionary) -> void:
 static func _case_hobbled(res: Dictionary) -> void:
 	var m := _probe("Limper")
 	m.stats["pace"] = 5
-	var base := MovementExecutor.pace_per_move(m)
-	ConstStates.apply_state(m, "Hobbled", null, "", "test")
+	var base := PaceBudget.pace_per_move(m)
+	StateCascade.apply_state(m, "Hobbled", null, "", "test")
 	TestFixtures.check(res, "Hobbled takes two paces off every Move",
-		ConstStates.pace_modifier(m) == -2 and MovementExecutor.pace_per_move(m) == base - 2,
-		"%d paces to %d" % [base, MovementExecutor.pace_per_move(m)])
+		StateEffects.pace_modifier(m) == -2 and PaceBudget.pace_per_move(m) == base - 2,
+		"%d paces to %d" % [base, PaceBudget.pace_per_move(m)])
 	var slow := _probe("Crawler")
 	slow.stats["pace"] = 2
-	ConstStates.apply_state(slow, "Hobbled", null, "", "test")
+	StateCascade.apply_state(slow, "Hobbled", null, "", "test")
 	TestFixtures.check(res, "a hobbled Move never drops below one pace",
-		MovementExecutor.pace_per_move(slow) == 1,
-		"%d paces" % MovementExecutor.pace_per_move(slow))
+		PaceBudget.pace_per_move(slow) == 1,
+		"%d paces" % PaceBudget.pace_per_move(slow))
 
 
 static func _case_shock_gate(res: Dictionary) -> void:
 	var merc := _probe("Shockee")
 	var foe := _probe("Onlooker")
-	merc.equipped_weapon = _light_melee()
-	foe.equipped_weapon = _light_melee()
-	var state := TestFixtures.duel(merc, foe)
+	var state := _duel(merc, foe)
 	var clear_lines: Array[String] = []
-	var acts := AutoBattle._process_start_of_turn_states(merc, state, clear_lines)
-	ConstStates.apply_state(merc, "Shocked", foe, "", "test")
+	var acts := AutoBattle.process_start_of_turn_states(merc, state, clear_lines)
+	StateCascade.apply_state(merc, "Shocked", foe, "", "test")
 	var lines: Array[String] = []
-	var blocked := AutoBattle._process_start_of_turn_states(merc, state, lines)
+	var blocked := AutoBattle.process_start_of_turn_states(merc, state, lines)
 	TestFixtures.check(res, "a state that blocks every action skips the turn",
 		not acts and blocked, "clear %s shocked %s" % [str(acts), str(blocked)])
 	TestFixtures.check(res, "the skipped turn names the state that blocked it",
@@ -353,9 +330,7 @@ static func _case_shock_gate(res: Dictionary) -> void:
 static func _case_escalation(res: Dictionary) -> void:
 	var merc := _probe("Spender")
 	var foe := _probe("Priced")
-	merc.equipped_weapon = _light_melee()
-	foe.equipped_weapon = _light_melee()
-	var state := TestFixtures.duel(merc, foe)
+	var state := _duel(merc, foe)
 	var base := state.get_cost(merc, "CalledShot", AutoBattle.ATTACK_BASE_AP)
 	state.record_action(merc, "CalledShot")
 	var second := state.get_cost(merc, "CalledShot", AutoBattle.ATTACK_BASE_AP)
@@ -371,14 +346,12 @@ static func _case_attack_arm(res: Dictionary) -> void:
 	CheckSystem.forced_rolls.clear()
 	var merc := _probe("Armer")
 	var foe := _probe("Struck")
-	merc.equipped_weapon = _light_melee()
-	foe.equipped_weapon = _light_melee()
-	var state := TestFixtures.duel(merc, foe)
+	var state := _duel(merc, foe)
 	merc.current_ap = 6
 	merc.excess_ap = 0
 	var turn := {}
 	var decision := {"type": "attack", "action_name": "Attack", "target": foe, "called_shot": "eye"}
-	var lines := CombatApplicator.run_attack_arm(merc, decision, state, 0, 0, turn)
+	var lines := AttackArm.run_attack_arm(merc, decision, state, 0, 0, turn)
 	TestFixtures.check(res, "the attack arm announces the call it was given",
 		TestFixtures.has_line(lines, "calls the shot: Eye (2)!"), "%d lines" % lines.size())
 	TestFixtures.check(res, "the attack arm charges the called shot bucket",
@@ -391,9 +364,7 @@ static func _case_ai(res: Dictionary) -> void:
 	var was_force := CalledShotSystem.force_every
 	var merc := _probe("Picker")
 	var foe := _probe("Picked")
-	merc.equipped_weapon = _light_melee()
-	foe.equipped_weapon = _light_melee()
-	var state := TestFixtures.duel(merc, foe)
+	var state := _duel(merc, foe)
 	merc.current_ap = 6
 	merc.excess_ap = 0
 	var move := {"type": "move", "action_name": "Move Close", "target": foe}
@@ -428,12 +399,8 @@ static func _case_binomial(res: Dictionary) -> void:
 	var attack_def := PerkValuation.attack_check_def(dist_merc, null, dist_merc.equipped_weapon, 0, 0, null)
 	var dist := CheckSystem.success_distribution(dist_merc, attack_def)
 	var pmf: Array[float] = dist["pmf"]
-	var total := 0.0
-	for entry: float in pmf:
-		total += entry
-	var tail := 0.0
-	for k: int in range(2, pmf.size()):
-		tail += pmf[k]
+	var total := _sum(pmf)
+	var tail := _sum(pmf, 2)
 	TestFixtures.check(res, "the success spread sums to one and matches the trial chance",
 		pmf.size() == int(dist["dice"]) + 1 and absf(total - 1.0) < 1e-6
 			and absf(tail - CheckSystem.expected_success_chance(dist_merc, attack_def, 2)) < 1e-6,
@@ -465,16 +432,12 @@ static func _case_weapon_dice(res: Dictionary) -> void:
 #The marked context of an undefended swing; the marker, the dummy and the context carry on.
 static func _case_marked_context(res: Dictionary) -> Dictionary:
 	var marker := _probe("Marker")
-	marker.equipped_weapon = _light_melee()
 	var dummy := _probe("Dummy")
-	dummy.equipped_weapon = _light_melee()
-	var open_state := TestFixtures.duel(marker, dummy)
+	var open_state := _duel(marker, dummy)
 	_drained(dummy, 30, 0)
 	var ctx := CalledShotOdds.marked_context(marker, dummy, open_state, 0)
 	var core: Array[float] = ctx["core"]
-	var core_tail := 0.0
-	for k: int in range(2, core.size()):
-		core_tail += core[k]
+	var core_tail := _sum(core, 2)
 	var l0 := float(CalledShotOdds.expected_marked(ctx, 0)["land"])
 	var l1 := float(CalledShotOdds.expected_marked(ctx, 1)["land"])
 	var l2 := float(CalledShotOdds.expected_marked(ctx, 2)["land"])
@@ -492,13 +455,11 @@ static func _case_marked_context(res: Dictionary) -> Dictionary:
 static func _case_reduction_split(res: Dictionary, marked: Dictionary) -> void:
 	var l0: float = marked["land"]
 	var striker := _probe("Striker")
-	striker.equipped_weapon = _light_melee()
 	var guard := _probe("Guard")
-	guard.equipped_weapon = _light_melee()
 	guard.stats["defend_reduction"] = 3
 	guard.stats["dodge_reduction"] = 0
 	guard.stats["maximum_hit_points"] = 10
-	var guard_state := TestFixtures.duel(striker, guard)
+	var guard_state := _duel(striker, guard)
 	guard.current_hp = 3
 	guard.excess_hp = 0
 	var guard_ctx := CalledShotOdds.marked_context(striker, guard, guard_state, 0)
@@ -511,12 +472,8 @@ static func _case_reduction_split(res: Dictionary, marked: Dictionary) -> void:
 		WeaponArmorPerkLibrary.defense_flaws_against(striker, guard))
 	var defend_won: Array[float] = split["defend"]
 	var dodge_won: Array[float] = split["dodge"]
-	var defend_mass := 0.0
-	for entry: float in defend_won:
-		defend_mass += entry
-	var dodge_mass := 0.0
-	for entry: float in dodge_won:
-		dodge_mass += entry
+	var defend_mass := _sum(defend_won)
+	var dodge_mass := _sum(dodge_won)
 	TestFixtures.check(res, "the split reduction sums to one and a tie goes to the defend roll",
 		absf(defend_mass + dodge_mass - 1.0) < 1e-6 and dodge_won[0] < 1e-9 and defend_won[0] > 0.0,
 		"defend %.4f dodge %.4f" % [defend_mass, dodge_mass])
@@ -558,9 +515,7 @@ static func _case_reduction_dodge(res: Dictionary) -> void:
 		WeaponArmorPerkLibrary.defense_flaws_against(slasher, dodger))
 	var dodge_wins: Array[float] = dodge_split["dodge"]
 	var defend_wins: Array[float] = dodge_split["defend"]
-	var dodge_win_mass := 0.0
-	for entry: float in dodge_wins:
-		dodge_win_mass += entry
+	var dodge_win_mass := _sum(dodge_wins)
 	var dodge_land: Array[float] = dodge_ctx["land_by_d"]
 	TestFixtures.check(res, "a lacerate hit dodged fully away marks 1 hp and does not land",
 		dodge_land.size() > 1 and dodge_win_mass > 0.0
@@ -596,9 +551,7 @@ static func _case_estimate_ammo(res: Dictionary, marked: Dictionary) -> void:
 	var shot_split := CalledShotOdds._reduction_distribution(plate, "Impale",
 		WeaponArmorPerkLibrary.defense_flaws_against(shooter, plate))
 	var shot_defend: Array[float] = shot_split["defend"]
-	var shot_defend_mass := 0.0
-	for entry: float in shot_defend:
-		shot_defend_mass += entry
+	var shot_defend_mass := _sum(shot_defend)
 	var shot_land: Array[float] = shot_ctx["land_by_d"]
 	var shot_land_1 := shot_land[1] if shot_land.size() > 1 else -1.0
 	TestFixtures.check(res, "a ranged varies weapon takes the loaded ammo's type in the estimate",
@@ -665,10 +618,8 @@ static func _case_option_pick(res: Dictionary, marked: Dictionary) -> void:
 	var was_force := CalledShotSystem.force_every
 	CalledShotSystem.force_every = false
 	var picker := _probe("Estimator")
-	picker.equipped_weapon = _light_melee()
 	var picked := _probe("Estimated")
-	picked.equipped_weapon = _light_melee()
-	var pick_state := TestFixtures.duel(picker, picked)
+	var pick_state := _duel(picker, picked)
 	picker.current_ap = 6
 	picker.excess_ap = 0
 	var key := CalledShotOdds.choose(picker, picked, pick_state, 0)
@@ -685,7 +636,7 @@ static func _case_facing(res: Dictionary) -> void:
 	target.equipped_weapon = _light_melee()
 	other.equipped_weapon = _light_melee()
 	var foes: Array[MercenaryData] = [target, other]
-	var state := _crowd(merc, foes, [Vector2i(5, 4), Vector2i(6, 4)])
+	var state := TestFixtures.crowd(merc, foes, [Vector2i(5, 4), Vector2i(6, 4)], true)
 	TestFixtures.check(res, "a target that has done nothing faces nowhere",
 		not CalledShotSystem.faces_away(target, merc, state), "no facing")
 	state.last_attacked[target] = other
@@ -726,11 +677,10 @@ static func _case_perk_rows(res: Dictionary) -> void:
 
 
 static func _case_atlas(res: Dictionary) -> void:
-	var mallet: TraitData = TestFixtures.weapon_row("Mallet|Mallet Called Shot (Atlas Vertebra)")
+	var mallet := _row_or_fail(res, "Mallet|Mallet Called Shot (Atlas Vertebra)", "the Atlas Vertebra row loads")
 	if mallet == null:
-		TestFixtures.check(res, "the Atlas Vertebra row loads", false, "missing")
 		return
-	var merc := _armed("Atlas", "Mallet", "Mallet|Mallet Called Shot (Atlas Vertebra)")
+	var merc := TestFixtures.arm(_probe("Atlas"), "Mallet", "Mallet|Mallet Called Shot (Atlas Vertebra)", true)
 	var target := _probe("Necked")
 	target.equipped_weapon = _light_melee()
 	var state := TestFixtures.duel(merc, target)
@@ -743,11 +693,10 @@ static func _case_atlas(res: Dictionary) -> void:
 
 
 static func _case_skull(res: Dictionary) -> void:
-	var halberd: TraitData = TestFixtures.weapon_row("Halberd|Halberd Called Shot (Skull Splitter)")
+	var halberd := _row_or_fail(res, "Halberd|Halberd Called Shot (Skull Splitter)", "the Skull Splitter row loads")
 	if halberd == null:
-		TestFixtures.check(res, "the Skull Splitter row loads", false, "missing")
 		return
-	var merc := _armed("Splitter", "Halberd", "Halberd|Halberd Called Shot (Skull Splitter)")
+	var merc := TestFixtures.arm(_probe("Splitter"), "Halberd", "Halberd|Halberd Called Shot (Skull Splitter)", true)
 	var target := _probe("Skulled")
 	target.equipped_weapon = _light_melee()
 	var state := TestFixtures.duel(merc, target)
@@ -765,11 +714,10 @@ static func _case_skull(res: Dictionary) -> void:
 
 
 static func _case_atlas_effects(res: Dictionary) -> void:
-	var mallet: TraitData = TestFixtures.weapon_row("Mallet|Mallet Called Shot (Atlas Vertebra)")
+	var mallet := _row_or_fail(res, "Mallet|Mallet Called Shot (Atlas Vertebra)", "the Atlas Vertebra row loads for its effects")
 	if mallet == null:
-		TestFixtures.check(res, "the Atlas Vertebra row loads for its effects", false, "missing")
 		return
-	var merc := _armed("Atlas", "Mallet", "Mallet|Mallet Called Shot (Atlas Vertebra)")
+	var merc := TestFixtures.arm(_probe("Atlas"), "Mallet", "Mallet|Mallet Called Shot (Atlas Vertebra)", true)
 	merc.offhand_weapon = null
 	var target := _probe("Necked")
 	target.equipped_weapon = _light_melee()
@@ -777,11 +725,8 @@ static func _case_atlas_effects(res: Dictionary) -> void:
 	state.escalation[target] = {"last_move_from": Vector3i(4, 4, 0)}
 	_drained(target, 60, 40)
 	var info := PerkValuation.parse_action(mallet)
-	var was_banking := CriticalSuccessSystem.banking
-	CriticalSuccessSystem.banking = true
-	CheckSystem.forced_rolls.assign([15, 15, 15] as Array[int])
-	var lines := CalledShotSystem.perk_called_shot(merc, mallet, target, info, state, 0)
-	CheckSystem.forced_rolls.clear()
+	var lines: Array[String] = _with_rolls([15, 15, 15],
+		func() -> Array[String]: return CalledShotSystem.perk_called_shot(merc, mallet, target, info, state, 0))
 	TestFixtures.check(res, "a called shot perk announces its call",
 		TestFixtures.has_line(lines, "calls the shot: Atlas Vertebra (6)!"), "%d lines" % lines.size())
 	TestFixtures.check(res, "Atlas Vertebra tops the damage up to the pain limit",
@@ -791,32 +736,27 @@ static func _case_atlas_effects(res: Dictionary) -> void:
 	var state2 := TestFixtures.duel(merc, frail)
 	state2.escalation[frail] = {"last_move_from": Vector3i(4, 4, 0)}
 	_drained(frail, 20, 19)
-	CheckSystem.forced_rolls.assign([15, 15, 15] as Array[int])
-	CalledShotSystem.perk_called_shot(merc, mallet, frail, info, state2, 0)
-	CheckSystem.forced_rolls.clear()
-	CriticalSuccessSystem.banking = was_banking
+	_with_rolls([15, 15, 15],
+		func() -> Array[String]: return CalledShotSystem.perk_called_shot(merc, mallet, frail, info, state2, 0))
 	TestFixtures.check(res, "Atlas Vertebra debilitates a target left at one hit point",
 		ConstStates.has_state(frail, "Debilitated") and CalledShotSystem.hp_total(frail) == 1,
 		"%d hp" % CalledShotSystem.hp_total(frail))
 
 
 static func _case_skull_effects(res: Dictionary) -> void:
-	var halberd: TraitData = TestFixtures.weapon_row("Halberd|Halberd Called Shot (Skull Splitter)")
+	var halberd := _row_or_fail(res, "Halberd|Halberd Called Shot (Skull Splitter)",
+		"the Skull Splitter row loads for its effects")
 	if halberd == null:
-		TestFixtures.check(res, "the Skull Splitter row loads for its effects", false, "missing")
 		return
-	var merc := _armed("Splitter", "Halberd", "Halberd|Halberd Called Shot (Skull Splitter)")
+	var merc := TestFixtures.arm(_probe("Splitter"), "Halberd", "Halberd|Halberd Called Shot (Skull Splitter)", true)
 	merc.offhand_weapon = null
 	var target := _probe("Skulled")
 	target.equipped_weapon = _light_melee()
 	var state := TestFixtures.duel(merc, target)
 	_drained(target, 30, 1)
 	var info := PerkValuation.parse_action(halberd)
-	var was_banking := CriticalSuccessSystem.banking
-	CriticalSuccessSystem.banking = true
-	CheckSystem.forced_rolls.assign([15, 15, 15] as Array[int])
-	var lines := CalledShotSystem.perk_called_shot(merc, halberd, target, info, state, 0)
-	CheckSystem.forced_rolls.clear()
+	var lines: Array[String] = _with_rolls([15, 15, 15],
+		func() -> Array[String]: return CalledShotSystem.perk_called_shot(merc, halberd, target, info, state, 0))
 	TestFixtures.check(res, "Skull Splitter kills a target whose pain response fired",
 		target.is_dead and TestFixtures.has_line(lines, "splits the skull of"), "%d lines" % lines.size())
 	var headless := _probe("Headless")
@@ -824,10 +764,8 @@ static func _case_skull_effects(res: Dictionary) -> void:
 	headless.stats["needs_head"] = false
 	var state2 := TestFixtures.duel(merc, headless)
 	_drained(headless, 30, 1)
-	CheckSystem.forced_rolls.assign([15, 15, 15] as Array[int])
-	var lines2 := CalledShotSystem.perk_called_shot(merc, halberd, headless, info, state2, 0)
-	CheckSystem.forced_rolls.clear()
-	CriticalSuccessSystem.banking = was_banking
+	var lines2: Array[String] = _with_rolls([15, 15, 15],
+		func() -> Array[String]: return CalledShotSystem.perk_called_shot(merc, halberd, headless, info, state2, 0))
 	TestFixtures.check(res, "a creature that needs no head survives Skull Splitter",
 		not headless.is_dead and TestFixtures.has_line(lines2, "survives without a head!"),
 		"%d lines" % lines2.size())
@@ -836,9 +774,7 @@ static func _case_skull_effects(res: Dictionary) -> void:
 static func _case_counters(res: Dictionary) -> void:
 	var merc := _probe("Tally")
 	var foe := _probe("Tallied")
-	merc.equipped_weapon = _light_melee()
-	foe.equipped_weapon = _light_melee()
-	var state := TestFixtures.duel(merc, foe)
+	var state := _duel(merc, foe)
 	var landed_before := CalledShotSystem.calls_landed
 	var hp_before := CalledShotSystem.hp_total(foe)
 	var missed := CalledShotSystem.after_hit(merc, foe, "eye", {}, hp_before, state)
@@ -899,6 +835,40 @@ static func _drained(m: MercenaryData, hp: int, pain: int) -> void:
 	m.stats["pain_limit"] = pain
 
 
+#The sum of values from index start on.
+static func _sum(values: Array, start: int = 0) -> float:
+	var total := 0.0
+	for i: int in range(start, values.size()):
+		total += float(values[i])
+	return total
+
+
+#The weapon library row with this name, or null after a FAIL under label.
+static func _row_or_fail(res: Dictionary, trait_name: String, label: String) -> TraitData:
+	var row: TraitData = TestFixtures.weapon_row(trait_name)
+	if row == null:
+		TestFixtures.check(res, label, false, "missing")
+	return row
+
+
+#Calls body with critical banking on and these rolls forced, then restores banking and empties the queue.
+static func _with_rolls(rolls: Array[int], body: Callable) -> Variant:
+	var was_banking := CriticalSuccessSystem.banking
+	CriticalSuccessSystem.banking = true
+	CheckSystem.forced_rolls.assign(rolls)
+	var out: Variant = body.call()
+	CheckSystem.forced_rolls.clear()
+	CriticalSuccessSystem.banking = was_banking
+	return out
+
+
+#Both mercs hold a light melee weapon on a flat field one pace apart.
+static func _duel(a: MercenaryData, b: MercenaryData) -> BattleState:
+	a.equipped_weapon = _light_melee()
+	b.equipped_weapon = _light_melee()
+	return TestFixtures.duel(a, b)
+
+
 static func _light_melee() -> WeaponData:
 	var w := TestFixtures.weapon("Dagger")
 	w.has_light = true
@@ -914,30 +884,3 @@ static func _ranged() -> WeaponData:
 	w.misfire = 2
 	w.damage_types_1 = ["Impale"] as Array[String]
 	return w
-
-
-#A probe holding a drawn weapon of weapon_type and owning one of its library perks.
-static func _armed(merc_name: String, weapon_type: String, perk_name: String) -> MercenaryData:
-	var m := _probe(merc_name)
-	m.equipped_weapon = TestFixtures.weapon(weapon_type)
-	m.equipped_weapon.has_light = true
-	m.weapon_drawn = true
-	var row: TraitData = TestFixtures.weapon_row(perk_name)
-	if row != null:
-		WeaponArmorPerkLibrary.grant_weapon_perk(m, row, "test")
-	return m
-
-
-#A flat field with the merc at (4,4) and one enemy per cell given.
-static func _crowd(a: MercenaryData, foes: Array[MercenaryData], cells: Array) -> BattleState:
-	var team_a: Array[MercenaryData] = [a]
-	var state := BattleState.create(team_a, foes, null)
-	state.battlefield = TestFixtures.exterior_field()
-	TestFixtures.place(state, a, Vector2i(4, 4))
-	for i: int in range(foes.size()):
-		TestFixtures.place(state, foes[i], cells[i])
-	a.weapon_drawn = a.equipped_weapon != null
-	for foe: MercenaryData in foes:
-		foe.weapon_drawn = foe.equipped_weapon != null
-	return state
-

@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Promotions/CampaignList.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Promotions/ModeLock.tscn" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_AdsTab.tres" id="4"]
 
 [node name="CampaignList" type="VBoxContainer"]
 script = ExtResource("1")
@@ -42,3 +44,7 @@ layout_mode = 2
 [node name="Actions" type="HBoxContainer" parent="."]
 layout_mode = 2
 alignment = 2
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("3")
+hint = ExtResource("4")

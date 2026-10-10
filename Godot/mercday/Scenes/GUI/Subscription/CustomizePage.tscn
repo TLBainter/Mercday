@@ -1,9 +1,11 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Subscription/CustomizePage.gd" id="1"]
 [ext_resource type="StyleBox" path="res://Resources/GUI/Theme/Styles/subs_tree_frame.tres" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Subscription/SpendReadout.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LockedPage.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_CustomizeTab.tres" id="6"]
 
 [node name="CustomizePage" type="Control"]
 anchors_preset = 15
@@ -64,17 +66,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="MissingLabel" type="Label" parent="Pad/Rows/TreeFrame"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-theme_type_variation = &"DescriptionLabel"
-text = "Customize tree is not available yet"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="Lock" parent="." instance=ExtResource("4")]
 visible = false
 layout_mode = 1
@@ -84,3 +75,7 @@ anchor_bottom = 1.0
 feature = "Plan Customization"
 plan = "Mercday Enterprise"
 verb = "use"
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("5")
+hint = ExtResource("6")

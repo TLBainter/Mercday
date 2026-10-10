@@ -1,0 +1,150 @@
+id	type	ctx	label	text	next	face
+ctx_hud	ctx	hud	the Guild Hall			
+ctx_mail	ctx	mail	Mail			
+ctx_calendar	ctx	calendar	the Calendar			
+ctx_contracts	ctx	contracts	My Contracts			
+ctx_mercs	ctx	mercs	My Mercs			
+ctx_finance	ctx	finance	My Finance			
+ctx_clients	ctx	clients	My Clients			
+ctx_metrics	ctx	metrics	My Metrics			
+ctx_legal	ctx	legal	My Legal			
+ctx_bazaar	ctx	bazaar	My Bazaar			
+ctx_promotions	ctx	promotions	My Promotions			
+ctx_mercday	ctx	mercday	My Mercday			
+chip_ok	sys		Ok			
+chip_next	sys		Next Hint			
+chip_tell	sys		Tell Me More			
+sys_none	sys		Mercdave	[Placeholder: no new hints on this screen]		
+menu_mercs	help		My Mercs	[Placeholder: My Mercs hint]		
+menu_contracts	help		My Contracts	[Placeholder: My Contracts hint]		
+menu_clients	help		My Clients	[Placeholder: My Clients hint]		
+menu_promotions	help		My Promotions	[Placeholder: My Promotions hint]		
+menu_mercday	help		My Mercday	[Placeholder: My Mercday hint]	more_menu_mercday	
+menu_finance	help		My Finance	[Placeholder: My Finance hint]		
+menu_legal	help		My Legal	[Placeholder: My Legal hint]		
+menu_bazaar	help		My Bazaar	[Placeholder: My Bazaar hint]		
+menu_metrics	help		My Metrics	[Placeholder: My Metrics hint]		
+hud_money	help		Notes	[Placeholder: Notes hint]		
+hud_expenses	help		End of Month Expenses	[Placeholder: End of Month Expenses hint]	more_hud_expenses	
+hud_time	help		Date and Time	[Placeholder: Date and Time hint]		
+hud_calendar	help		Calendar	[Placeholder: Calendar hint]		
+hud_speed	help		Game Speed	[Placeholder: Game Speed hint]		
+hud_mail	help		Mail	[Placeholder: Mail hint]		
+hud_bell	help		Notifications	[Placeholder: Notifications hint]		
+hud_settings	help		Settings	[Placeholder: Settings hint]		
+hud_mercdave	help		Mercdave	[Placeholder: Mercdave hint]	more_hud_mercdave	
+more_hud_expenses	more		End of Month Expenses	[Placeholder: End of Month Expenses, more detail]		
+more_hud_mercdave	more		Mercdave	[Placeholder: Mercdave, more detail]		
+more_menu_mercday	more		My Mercday	[Placeholder: My Mercday, more detail]		
+mail_tabs	help		Mail Folders	[Placeholder: Mail Folders hint]		
+mail_list	help		Email List	[Placeholder: Email List hint]		
+mail_sender	help		Sender	[Placeholder: Sender hint]		
+mail_options	help		Replies	[Placeholder: Replies hint]	more_mail_options	
+more_mail_options	more		Replies	[Placeholder: Replies, more detail]		
+mail_vac	help		Vacation Request	[Placeholder: Vacation Request hint]	more_mail_vac	
+more_mail_vac	more		Vacation Request	[Placeholder: Vacation Request, more detail]		
+mail_bill	help		Bill	[Placeholder: Bill hint]		
+cal_nav	help		Month	[Placeholder: Month hint]		
+cal_grid	help		Month Grid	[Placeholder: Month Grid hint]	more_cal_grid	
+more_cal_grid	more		Month Grid	[Placeholder: Month Grid, more detail]		
+cal_detail	help		Day Details	[Placeholder: Day Details hint]		
+cal_filter	help		Show	[Placeholder: Show hint]		
+scene_NotificationPanel	help		Notifications	[Placeholder: Notifications hint]		
+scene_NotificationFilterPanel	help		Notification Filters	[Placeholder: Notification Filters hint]		
+scene_FilterPanel	help		Shop Filters	[Placeholder: Shop Filters hint]		
+scene_ItemCard	help		Item	[Placeholder: Item hint]	more_scene_ItemCard	
+more_scene_ItemCard	more		Item	[Placeholder: Item, more detail]		
+scene_CartList	help		Cart	[Placeholder: Cart hint]		
+scene_OrderSummary	help		Order Summary	[Placeholder: Order Summary hint]		
+scene_OrderCard	help		Order	[Placeholder: Order hint]		
+scene_LockedPage	help		Locked Feature	[Placeholder: Locked Feature hint]	more_scene_LockedPage	
+more_scene_LockedPage	more		Locked Feature	[Placeholder: Locked Feature, more detail]		
+scene_CheckoutDialog	help		Checkout	[Placeholder: Checkout hint]		
+scene_ClientList	help		Client List	[Placeholder: Client List hint]		
+scene_ClientOverview	help		Client Overview	[Placeholder: Client Overview hint]	more_scene_ClientOverview	
+more_scene_ClientOverview	more		Client Overview	[Placeholder: Client Overview, more detail]		
+scene_ContractList	help		Contract List	[Placeholder: Contract List hint]	more_scene_ContractList	
+more_scene_ContractList	more		Contract List	[Placeholder: Contract List, more detail]		
+scene_ContractFilterPanel	help		Contract Filters	[Placeholder: Contract Filters hint]		
+scene_ContractListItem	help		Contract	[Placeholder: Contract hint]	more_scene_ContractListItem	
+more_scene_ContractListItem	more		Contract	[Placeholder: Contract, more detail]		
+scene_ContractDetail	help		Contract Details	[Placeholder: Contract Details hint]	more_scene_ContractDetail	
+more_scene_ContractDetail	more		Contract Details	[Placeholder: Contract Details, more detail]		
+scene_RecommendedList	help		Recommended Mercs	[Placeholder: Recommended Mercs hint]		
+scene_DecisionButtons	help		Accept or Decline	[Placeholder: Accept or Decline hint]		
+scene_NotesEarned	help		Notes Earned	[Placeholder: Notes Earned hint]		
+scene_ResultRow	help		Result	[Placeholder: Result hint]		
+scene_ConfirmDialog	help		Confirm	[Placeholder: Confirm hint]		
+scene_DispatchRoster	help		Roster	[Placeholder: Roster hint]		
+scene_ContractSummary	help		Contract Summary	[Placeholder: Contract Summary hint]		
+scene_TravelSelector	help		Travel	[Placeholder: Travel hint]		
+scene_TeamSlot	help		Crew Slot	[Placeholder: Crew Slot hint]		
+scene_ContractPreview	help		Odds Preview	[Placeholder: Odds Preview hint]		
+scene_MercPicker	help		Merc Picker	[Placeholder: Merc Picker hint]		
+scene_BenefitDialog	help		Benefits	[Placeholder: Benefits hint]		
+scene_VacationPolicyDialog	help		Vacation Policy	[Placeholder: Vacation Policy hint]		
+scene_SalaryDialog	help		Salary	[Placeholder: Salary hint]		
+scene_FireConfirmDialog	help		Fire Merc	[Placeholder: Fire Merc hint]		
+scene_ProjectionPanel	help		Projection	[Placeholder: Projection hint]	more_scene_ProjectionPanel	
+more_scene_ProjectionPanel	more		Projection	[Placeholder: Projection, more detail]		
+scene_ExpenseBreakdown	help		Expenses	[Placeholder: Expenses hint]		
+scene_LoanCard	help		Loan	[Placeholder: Loan hint]		
+scene_PortfolioWidget	help		Portfolio	[Placeholder: Portfolio hint]		
+scene_TradePanel	help		Trade	[Placeholder: Trade hint]	more_scene_TradePanel	
+more_scene_TradePanel	more		Trade	[Placeholder: Trade, more detail]		
+scene_PayrollItem	help		Payroll	[Placeholder: Payroll hint]		
+scene_LoanRequestWindow	help		Loan Request	[Placeholder: Loan Request hint]		
+scene_LoanPreview	help		Loan Preview	[Placeholder: Loan Preview hint]		
+scene_OddJobPay	help		Odd Job Pay	[Placeholder: Odd Job Pay hint]		
+scene_LoanOfferDialog	help		Loan Offer	[Placeholder: Loan Offer hint]		
+scene_LoanRequestConfirm	help		Confirm Request	[Placeholder: Confirm Request hint]		
+scene_TraitFilterList	help		Trait Filters	[Placeholder: Trait Filters hint]		
+scene_ApplicantCard	help		Applicant	[Placeholder: Applicant hint]	more_scene_ApplicantCard	
+more_scene_ApplicantCard	more		Applicant	[Placeholder: Applicant, more detail]		
+scene_HireOfferDialog	help		Hire Offer	[Placeholder: Hire Offer hint]		
+scene_LocationCard	help		Location	[Placeholder: Location hint]	more_scene_LocationCard	
+more_scene_LocationCard	more		Location	[Placeholder: Location, more detail]		
+scene_FineRow	help		Fine	[Placeholder: Fine hint]		
+scene_CapturedRow	help		Captured Merc	[Placeholder: Captured Merc hint]		
+scene_PermitRequestDialog	help		Permit Request	[Placeholder: Permit Request hint]		
+scene_CoachDialog	help		Coaching	[Placeholder: Coaching hint]		
+scene_MercList	help		Merc List	[Placeholder: Merc List hint]		
+scene_FilterSortButton	help		Filter and Sort	[Placeholder: Filter and Sort hint]		
+scene_MercStatusFilter	help		Status Filter	[Placeholder: Status Filter hint]		
+scene_MercListItem	help		Merc	[Placeholder: Merc hint]		
+scene_MercHeader	help		Merc Header	[Placeholder: Merc Header hint]		
+scene_CharacterScene	help		Character	[Placeholder: Character hint]		
+scene_SalaryModule	help		Salary	[Placeholder: Salary hint]	more_scene_SalaryModule	
+more_scene_SalaryModule	more		Salary	[Placeholder: Salary, more detail]		
+scene_InfoField	help		Details	[Placeholder: Details hint]		
+scene_TraditionSigil	help		Tradition	[Placeholder: Tradition hint]		
+scene_AttributeBox	help		Attributes	[Placeholder: Attributes hint]		
+scene_PhysicalStats	help		Physical Stats	[Placeholder: Physical Stats hint]		
+scene_LevelBadge	help		Level	[Placeholder: Level hint]		
+scene_LevelModeList	help		Level Mode	[Placeholder: Level Mode hint]		
+scene_ResourceBar	help		Resources	[Placeholder: Resources hint]		
+scene_ActionRow	help		Actions	[Placeholder: Actions hint]		
+scene_TraitListPanel	help		Traits	[Placeholder: Traits hint]		
+scene_TraitCard	help		Trait	[Placeholder: Trait hint]		
+scene_TraitDetail	help		Trait Details	[Placeholder: Trait Details hint]		
+scene_RelationshipPanel	help		Relationships	[Placeholder: Relationships hint]		
+scene_GuildRelationshipCard	help		Guild Opinion	[Placeholder: Guild Opinion hint]	more_scene_GuildRelationshipCard	
+more_scene_GuildRelationshipCard	more		Guild Opinion	[Placeholder: Guild Opinion, more detail]		
+scene_RelationshipCard	help		Relationship	[Placeholder: Relationship hint]		
+scene_MoodMeter	help		Mood	[Placeholder: Mood hint]		
+scene_EquipSlot	help		Equipment	[Placeholder: Equipment hint]		
+scene_WeightBar	help		Carry Weight	[Placeholder: Carry Weight hint]		
+scene_MercSelector	help		Merc Selector	[Placeholder: Merc Selector hint]		
+scene_TypeSelector	help		Contract Type	[Placeholder: Contract Type hint]		
+scene_MetricToggle	help		Metric Toggle	[Placeholder: Metric Toggle hint]		
+scene_GraphTabs	help		Chart Tabs	[Placeholder: Chart Tabs hint]		
+scene_LineChart	help		Chart	[Placeholder: Chart hint]	more_scene_LineChart	
+more_scene_LineChart	more		Chart	[Placeholder: Chart, more detail]		
+scene_AdsTab	help		Campaigns	[Placeholder: Campaigns hint]		
+scene_CampaignCard	help		Campaign	[Placeholder: Campaign hint]		
+scene_CampaignBuilder	help		Campaign Builder	[Placeholder: Campaign Builder hint]		
+scene_PlansTab	help		Plans	[Placeholder: Plans hint]	more_scene_PlansTab	
+more_scene_PlansTab	more		Plans	[Placeholder: Plans, more detail]		
+scene_CustomizeTab	help		Customize	[Placeholder: Customize hint]		
+scene_TierPopup	help		Upgrade	[Placeholder: Upgrade hint]		
+scene_PlanSwitchDialog	help		Switch Plan	[Placeholder: Switch Plan hint]		

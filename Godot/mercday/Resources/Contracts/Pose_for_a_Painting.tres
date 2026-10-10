@@ -1,0 +1,61 @@
+[gd_resource type="Resource" script_class="ContractData" format=3]
+
+[ext_resource type="Script" uid="uid://da43dc1r0v65k" path="res://Scripts/Resources/ContractData.gd" id="1_ContractData"]
+
+[resource]
+script = ExtResource("1_ContractData")
+contract_type = "Help"
+contract_name = "Pose for a Painting"
+level_min = 0
+level_max = 4
+issuer_type = "person"
+issuer = "Commoner"
+difficulty_min = 0.5
+difficulty_max = 0.5
+story = false
+style = "check"
+roles = Array[String]([])
+target = ""
+completion = "check:Pose for a Painting"
+event_config = ""
+time_minutes = 0
+consequence = ""
+descriptions = Array[String](["I am painting a portrait of a bold adventurer and need someone to stand still in armor for an afternoon.", "My patron wants a heroic canvas. Hold the pose, look fierce and do not sneeze on the easel."])
+primary_event_pool = Array[String]([])
+mishap_pool = Array[String]([])
+stat_boosts = {}
+circumstance_boosts = {}
+tool_boosts = {}
+knowledge_boosts = {}
+tradition_boosts = {}
+penalties = Array[Dictionary]([])
+description_template = ""
+target_categories = Array[String]([])
+possible_traits = Array[String]([])
+possible_locations = Array[String](["Aerdis", "Aldurstein", "Miliim", "Zukei", "Kathaya", "Copari", "Suorr", "Rossade", "Buern", "Vaernebo", "Cyfrolaef"])
+terrain_odds = Array[Dictionary]([{
+"area": "Urban",
+"percent": 70
+}, {
+"area": "Forest",
+"percent": 30
+}])
+reward_notes = 0
+max_mercs = 1
+min_mercs = 1
+local = true
+difficulty = 0.0
+contract_level = 0
+unsavory = false
+assigned_primary_event = ""
+rolled_mishaps = Array[String]([])
+location_a = ""
+location_b = ""
+description = ""
+target_name = ""
+requestor_name = ""
+team_uids = Array[int]([])
+status = "Type"
+rescue_merc_uid = 0
+rescue_kind = ""
+rescue_merc_name = ""

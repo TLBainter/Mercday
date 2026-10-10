@@ -1,0 +1,127 @@
+[gd_scene load_steps=30 format=3]
+
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ModalDialog.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/CalendarDialog.gd" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/CalendarSource.gd" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/Sources/DividendSource.gd" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/Sources/LoanSource.gd" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/Sources/DeliverySource.gd" id="6"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/Sources/ContractSource.gd" id="7"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/Sources/LedgerBillSource.gd" id="8"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/MonthNav.gd" id="9"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/MonthGrid.gd" id="10"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/CalendarFilter.gd" id="11"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Calendar/DayDetail.tscn" id="12"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Calendar/ReturningCrewTooltip.tscn" id="13"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Calendar/OrderDialog.tscn" id="14"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/Sources/BillSource.gd" id="15"]
+[ext_resource type="Script" path="res://Scripts/GUI/Calendar/Sources/VacationSource.gd" id="16"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Calendar/MailDialog.tscn" id="17"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="18"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/cal_nav.tres" id="19"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/cal_grid.tres" id="20"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/cal_detail.tres" id="21"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/cal_filter.tres" id="22"]
+
+[sub_resource type="Resource" id="Resource_dividend"]
+script = ExtResource("4")
+type = &"dividend"
+label = "Dividends"
+icon_id = "coin"
+color = Color(0.94902, 0.701961, 0.239216, 1)
+
+[sub_resource type="Resource" id="Resource_loan"]
+script = ExtResource("5")
+type = &"loan"
+label = "Loans"
+icon_id = "money_bag"
+color = Color(0.901961, 0.827451, 0.635294, 1)
+
+[sub_resource type="Resource" id="Resource_delivery"]
+script = ExtResource("6")
+type = &"delivery"
+label = "Deliveries"
+icon_id = "parcel"
+color = Color(0.901961, 0.827451, 0.635294, 1)
+
+[sub_resource type="Resource" id="Resource_contract"]
+script = ExtResource("7")
+type = &"contract"
+label = "Contracts"
+icon_id = "contracts"
+color = Color(0.94902, 0.54902, 0.156863, 1)
+
+[sub_resource type="Resource" id="Resource_ledger_bill"]
+script = ExtResource("8")
+type = &"bill"
+label = "Bills Due"
+icon_id = "bill"
+color = Color(0.909804, 0.345098, 0.247059, 1)
+
+[sub_resource type="Resource" id="Resource_mail_bill"]
+script = ExtResource("15")
+type = &"bill"
+label = "Bills Due"
+icon_id = "bill"
+color = Color(0.909804, 0.345098, 0.247059, 1)
+
+[sub_resource type="Resource" id="Resource_vacation"]
+script = ExtResource("16")
+type = &"vacation"
+label = "Vacations"
+icon_id = "sun_rising"
+color = Color(0.352941, 0.65098, 0.909804, 1)
+
+[node name="CalendarDialog" instance=ExtResource("1")]
+script = ExtResource("2")
+sources = Array[ExtResource("3")]([SubResource("Resource_vacation"), SubResource("Resource_dividend"), SubResource("Resource_loan"), SubResource("Resource_delivery"), SubResource("Resource_contract"), SubResource("Resource_ledger_bill"), SubResource("Resource_mail_bill")])
+kicker = "Calendar"
+box_width = 1088.0
+
+[node name="Body" type="HBoxContainer" parent="Box/Pad/Rows"]
+theme_override_constants/separation = 14
+
+[node name="Left" type="VBoxContainer" parent="Box/Pad/Rows/Body"]
+theme_override_constants/separation = 10
+
+[node name="MonthNav" type="HBoxContainer" parent="Box/Pad/Rows/Body/Left"]
+script = ExtResource("9")
+
+[node name="MonthGrid" type="VBoxContainer" parent="Box/Pad/Rows/Body/Left"]
+script = ExtResource("10")
+
+[node name="Right" type="VBoxContainer" parent="Box/Pad/Rows/Body"]
+custom_minimum_size = Vector2(328, 0)
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="DayDetail" parent="Box/Pad/Rows/Body/Right" instance=ExtResource("12")]
+
+[node name="Filter" type="GridContainer" parent="Box/Pad/Rows/Body/Right"]
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+columns = 2
+script = ExtResource("11")
+
+[node name="Tip" parent="." instance=ExtResource("13")]
+
+[node name="Order" parent="." instance=ExtResource("14")]
+
+[node name="Mail" parent="." instance=ExtResource("17")]
+
+[node name="HelpTarget" type="Node" parent="Box/Pad/Rows/Body/Left/MonthNav"]
+script = ExtResource("18")
+hint = ExtResource("19")
+
+[node name="HelpTarget" type="Node" parent="Box/Pad/Rows/Body/Left/MonthGrid"]
+script = ExtResource("18")
+hint = ExtResource("20")
+
+[node name="HelpTarget" type="Node" parent="Box/Pad/Rows/Body/Right/DayDetail"]
+script = ExtResource("18")
+hint = ExtResource("21")
+
+[node name="HelpTarget" type="Node" parent="Box/Pad/Rows/Body/Right"]
+script = ExtResource("18")
+hint = ExtResource("22")
+target = NodePath("../Filter")

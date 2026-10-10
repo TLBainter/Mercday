@@ -1,10 +1,8 @@
-class_name InvestCompanyItem extends Button
+class_name InvestCompanyItem extends BevelButton
 
 #One company row of the Invest roster: the hatch logo with its one day change strip, the name,
 #the price in its change colour and the owned line. The unread dot sits on the top right corner.
 
-const LOGO_BOX: Vector2i = Vector2i(40, 48)
-const RING_WIDTH: float = 3.0
 const STRIP_ALPHA: float = 0.8
 
 @onready var hatch: TextureRect = $Row/LogoBox/Hatch
@@ -17,19 +15,30 @@ const STRIP_ALPHA: float = 0.8
 var company_id: int = -1
 
 var _selected: bool = false
-var _hovered: bool = false
 var _dot: NotificationDot = null
 
 
+func _init() -> void:
+	pressed_fill = InvestText.NAVY2
+	click_move = ButtonFx.ClickMove.NONE
+	click_shade = ButtonFx.ClickShade.FLASH
+	hover_move = ButtonFx.HoverMove.NONE
+	hover_shade = ButtonFx.HoverShade.LIGHTEN
+	stay_move = ButtonFx.StayMove.NONE
+	stay_shade = ButtonFx.StayShade.NONE
+	active_move = ButtonFx.HoverMove.NONE
+	active_shade = ButtonFx.HoverShade.RING
+	_paint_selection()
+
+
 func _ready() -> void:
+	super()
 	focus_mode = Control.FOCUS_NONE
 	custom_minimum_size.y = 60.0
-	hatch.texture = InvestGlyphs.hatch(LOGO_BOX)
+	hatch.texture = InvestGlyphs.hatch(InvestGlyphs.LOGO_LARGE)
 	strip.color = Color(InvestText.INK.r, InvestText.INK.g, InvestText.INK.b, STRIP_ALPHA)
 	_dot = NotificationDot.attach(self)
 	_dot.on = false
-	mouse_entered.connect(_on_hover_in)
-	mouse_exited.connect(_on_hover_out)
 	refresh()
 
 
@@ -41,6 +50,7 @@ func setup(k: int) -> void:
 
 func set_selected(on: bool) -> void:
 	_selected = on
+	_paint_selection()
 	if is_node_ready():
 		refresh()
 	queue_redraw()
@@ -108,21 +118,13 @@ func is_selected() -> bool:
 	return _selected
 
 
-func _on_hover_in() -> void:
-	_hovered = true
-	queue_redraw()
+func fx_active() -> bool:
+	return super() or _selected
 
 
-func _on_hover_out() -> void:
-	_hovered = false
-	queue_redraw()
-
-
-func _draw() -> void:
-	var body: Color = InvestText.NAVY2 if (_selected or _hovered) else InvestText.NAVY
-	draw_rect(Rect2(Vector2.ZERO, size), body, true)
-	var ring: Color = InvestText.ORANGE if _selected else InvestText.INK
-	var half: float = RING_WIDTH / 2.0
-	var inner := Rect2(half, half, maxf(0.0, size.x - RING_WIDTH),
-		maxf(0.0, size.y - RING_WIDTH))
-	draw_rect(inner, ring, false, RING_WIDTH)
+#The selected row takes the pressed fill with its orange ring on both bands; an idle row keeps the ink edge low.
+func _paint_selection() -> void:
+	if _selected:
+		set_colors(InvestText.NAVY2, InvestText.ORANGE, InvestText.ORANGE, text_color)
+	else:
+		set_colors(InvestText.NAVY, InvestText.NAVY.lightened(0.18), InvestText.INK, text_color)

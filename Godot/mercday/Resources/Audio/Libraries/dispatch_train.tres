@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Train/FF_MT_train_foley_tracks_steady.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Train/SteamEngineTractor_BW.60861.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Train/TrainPassBySteady_SFXB.4341.wav" id="4_s3"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Train/TrainPassBy_S08TT.27.wav" id="5_s4"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3"), ExtResource("5_s4")])

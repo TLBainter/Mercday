@@ -2,10 +2,13 @@ class_name GuiNotifyTests
 extends RefCounted
 
 #The HUD notification bell and its panel: the bell face and unread dot, the Unread and Read tabs,
-#the sort and filter popups, the three item bodies, mark as read and the opened signal the HUD
-#routes. NotificationCenter is the only row source; the bell never marks a row read by itself.
+#the sort and filter popups, the three item bodies, the daily postings row, mark as read and the opened
+#signal the HUD routes. NotificationCenter is the only row source; the bell never marks a row read by itself.
 
 const BELL_SCENE: String = "res://Scenes/GUI/Notifications/NotificationBell.tscn"
+const SETTINGS_SCENE: String = "res://Scenes/GUI/HUD/SettingsButton.tscn"
+const FX_SLOTS: Array[StringName] = [&"click_move", &"click_shade", &"hover_move", &"hover_shade",
+	&"stay_move", &"stay_shade", &"active_move", &"active_shade"]
 const FRAME_SIZE: Vector2 = Vector2(1280, 720)
 const BELL_AT: Vector2 = Vector2(1140.0, 16.0)
 const PANEL_AT: Vector2 = Vector2(756.0, 86.0)
@@ -24,7 +27,7 @@ const OFFER_TERM: int = 6
 const DIFFICULTY: float = 3.5
 const STOCK_UP_PCT: float = 3.2
 const STOCK_DOWN_PCT: float = -4.0
-#An id FinanceManager never holds, and the id its SEED_OFFERS seeds live on every reset().
+#An id FinanceManager never holds, and the id of the live offer _lay_offer files.
 const NO_OFFER_ID: int = 9901
 const LIVE_OFFER_ID: int = 101
 
@@ -34,11 +37,13 @@ static func run(host: Node) -> bool:
 	_fresh()
 	await host.get_tree().process_frame
 	await _case_bell_face(res, host)
+	await _case_bell_fx(res, host)
 	await _case_bell_dot(res, host)
 	await _case_tabs(res, host)
 	await _case_sort(res, host)
 	await _case_filter(res, host)
 	await _case_popups(res, host)
+	await _case_reopen_bell(res, host)
 	await _case_open_item(res, host)
 	await _case_mark_read(res, host)
 	await _case_item_style(res, host)
@@ -53,6 +58,9 @@ static func run(host: Node) -> bool:
 	_case_dot_pulse_math(res)
 	await _case_dot_lifecycle(res, host)
 	await _case_dot_placements(res, host)
+	await _case_body_hover(res, host)
+	await _case_new_postings(res, host)
+	await _case_postings_route(res, host)
 	LoanOfferBody.hours_override = Callable()
 	NotificationCenter.reset()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
@@ -68,23 +76,25 @@ static func _fresh() -> void:
 	GameState.start_new_game()
 
 
-static func _bell(host: Node) -> NotificationBell:
+static func _bell(host: Node, parent: Node = null) -> NotificationBell:
 	NotificationCenter.reset()
 	var scene: PackedScene = load(BELL_SCENE) as PackedScene
 	var bell: NotificationBell = scene.instantiate() as NotificationBell
-	host.add_child(bell)
+	(parent if parent != null else host).add_child(bell)
 	await host.get_tree().process_frame
 	return bell
+
+
+#The Face layer of a glyph plate, the second child after the Shadow; a bare TextureRect is its own face.
+static func _face(plate: Control) -> TextureRect:
+	if plate is TextureRect:
+		return plate as TextureRect
+	return plate.get_child(1) as TextureRect
 
 
 static func _drop(bell: NotificationBell, host: Node) -> void:
 	bell.queue_free()
 	await host.get_tree().process_frame
-
-
-static func _brighter(base: Color, gain: float) -> Color:
-	return Color(minf(base.r * gain, 1.0), minf(base.g * gain, 1.0), minf(base.b * gain, 1.0),
-		base.a)
 
 
 static func _contract_row(row_name: String, failed: bool = false) -> NotificationData:
@@ -101,24 +111,28 @@ static func _loan_row(urgency: int = NotificationData.Urgency.IMPORTANT,
 		"offer_term": OFFER_TERM}, urgency)
 
 
+#A reset seeds no offer, so the live offer is filed straight into FinanceManager.offers.
+static func _lay_offer(id: int) -> void:
+	var row: Dictionary = {"id": id, "lender": LOAN_LENDER, "amount": OFFER_AMOUNT, "rate": OFFER_RATE,
+		"term": OFFER_TERM, "first_due": 2, "team": [], "odds": 71, "outcome": "exact", "approved": true,
+		"offer_amount": OFFER_AMOUNT, "offer_rate": OFFER_RATE, "offer_term": OFFER_TERM,
+		"offer_first_due": 2, "unseen": true, "rate_pct": roundi(OFFER_RATE * 100.0), "months": OFFER_TERM,
+		"expires_minute": CampaignClock.now() + FinanceManager.OFFER_HOURS * CampaignClock.MINUTES_PER_HOUR}
+	FinanceManager.offers.append(row)
+	FinanceManager.offers_changed.emit()
+
+
 static func _stock_row(pct: float, band: int) -> NotificationData:
 	return NotificationCenter.push(NotificationData.TYPE_STOCK_MOVE, 7,
 		{"company_id": 7, "company": STOCK_COMPANY, "pct": pct, "band": band})
 
 
-static func _ids_of(rows: Array[NotificationData]) -> Array[int]:
-	var out: Array[int] = []
-	for row: NotificationData in rows:
-		out.append(row.id)
-	return out
-
-
 static func _box_fill(btn: Button) -> Color:
-	var box: StyleBoxFlat = btn.get_theme_stylebox("normal") as StyleBoxFlat
-	return Color(0.0, 0.0, 0.0, 0.0) if box == null else box.bg_color
+	var bevel: BevelButton = btn as BevelButton
+	return Color(0.0, 0.0, 0.0, 0.0) if bevel == null else bevel.fill
 
 
-#Case 1: the bell frame, the two faces, the glyph and where the panel hangs.
+#The bell frame, the two faces, the glyph and where the panel hangs.
 static func _case_bell_face(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -133,17 +147,13 @@ static func _case_bell_face(res: Dictionary, host: Node) -> void:
 			and bell.glyph_color() == NotificationBell.GLYPH_IDLE,
 		"%s %s %s" % [str(bell.bevel_hi()), str(bell.bevel_lo()), str(bell.glyph_color())])
 	var glyph: Control = bell.glyph()
-	var want_glyph: Vector2 = Vector2(32.0, 32.0) + Vector2(NotifyGlyphs.SHADOW_STEP,
-		NotifyGlyphs.SHADOW_STEP)
-	TestFixtures.check(res, "the bell glyph is the 16 x 16 bell at 2 px over its shadow",
-		glyph != null and glyph.custom_minimum_size == want_glyph,
-		"glyph %s" % ("null" if glyph == null else str(glyph.custom_minimum_size)))
-	var bell_face: TextureRect = glyph.get_child(1) as TextureRect if glyph != null else null
+	var bell_face: TextureRect = _face(glyph) if glyph != null else null
 	var bell_plain: Texture2D = Icons.baked("bell", NotificationBell.GLYPH_SCALE, Icons.MODE_PLAIN)
-	var face_ok: bool = bell_face != null and bell_face.name == "Face"
+	var face_ok: bool = bell_face != null and bell_face == bell.icon_rect
 	face_ok = face_ok and bell_face.texture == bell_plain
 	face_ok = face_ok and bell_face.texture.get_size() == Vector2(32.0, 32.0)
-	TestFixtures.check(res, "the closed bell face is the plain bell cell baked at 32 x 32",
+	face_ok = face_ok and bell.icon_rect.tint == NotificationBell.GLYPH_IDLE
+	TestFixtures.check(res, "the bell glyph is the 16 x 16 bell at 2 px, plain and cream",
 		face_ok, "face %s" % ("null" if bell_face == null else str(bell_face.texture.get_size())))
 	TestFixtures.check(res, "the panel is a 440 x 520 child of the bell",
 		panel != null and panel.size == NotificationPanel.PANEL_SIZE,
@@ -172,17 +182,13 @@ static func _case_bell_face(res: Dictionary, host: Node) -> void:
 			and bell.bevel_lo() == NotificationBell.BEVEL_LO_OPEN
 			and bell.glyph_color() == NotificationBell.GLYPH_OPEN,
 		"%s %s %s" % [str(bell.bevel_hi()), str(bell.bevel_lo()), str(bell.glyph_color())])
-	var open_face: TextureRect = bell.glyph().get_child(1) as TextureRect
+	var open_face: TextureRect = _face(bell.glyph())
 	var bell_two_tone: Texture2D = Icons.baked("bell", 2, Icons.MODE_TWO_TONE)
 	TestFixtures.check(res, "the open bell swaps the face to the two tone bell cell",
-		open_face != null and open_face.texture == bell_two_tone
+		open_face != null and bell.icon_rect.mode == Icons.MODE_TWO_TONE
+			and open_face.texture == bell_two_tone
 			and open_face.texture != bell_plain,
 		"open face %s" % ("null" if open_face == null else str(open_face.texture.get_size())))
-	bell.set_hovered(true)
-	TestFixtures.check(res, "hovering brightens the face by 15 percent",
-		bell.hovered() and bell.bg_color() == _brighter(NotificationBell.BG_OPEN,
-			NotificationBell.HOVER_GAIN), str(bell.bg_color()))
-	bell.set_hovered(false)
 	bell.close_panel()
 	TestFixtures.check(res, "close_panel hides the panel and restores the blue face",
 		not bell.panel_open() and not panel.visible
@@ -197,7 +203,61 @@ static func _case_bell_face(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 2: the unread dot follows the store and sits on the bell corner.
+#The bell plays the settings button fx: a hover tilts it shut, an open panel rings it in place, a press toggles.
+static func _case_bell_fx(res: Dictionary, host: Node) -> void:
+	var bell: NotificationBell = await _bell(host)
+	var gear: SettingsButton = (load(SETTINGS_SCENE) as PackedScene).instantiate() as SettingsButton
+	host.add_child(gear)
+	await host.get_tree().process_frame
+	var differ: Array[String] = []
+	for slot: StringName in FX_SLOTS:
+		if bell.fx_value(slot) != gear.fx_value(slot):
+			differ.append("%s %d vs %d" % [slot, bell.fx_value(slot), gear.fx_value(slot)])
+	TestFixtures.check(res, "the bell plays the same eight fx as the settings button", differ.is_empty(),
+		", ".join(differ))
+	gear.queue_free()
+	TestFixtures.check(res, "the bell acts on the press and never takes focus",
+		bell.action_mode == BaseButton.ACTION_MODE_BUTTON_PRESS and bell.focus_mode == Control.FOCUS_NONE,
+		"action %d focus %d" % [bell.action_mode, bell.focus_mode])
+	bell.notification(Control.NOTIFICATION_MOUSE_ENTER)
+	bell.mouse_entered.emit()
+	await host.get_tree().create_timer(0.25).timeout
+	var tilt: float = bell.rotation_degrees
+	var lit: Color = bell.modulate
+	TestFixtures.check(res, "hovering the closed bell tilts it 1.5 degrees and lightens it",
+		is_equal_approx(tilt, 1.5) and lit.is_equal_approx(Color(1.15, 1.15, 1.15, 1.0)),
+		"tilt %s modulate %s" % [tilt, lit])
+	bell.button_down.emit()
+	bell.pressed.emit()
+	await TestFixtures.frames(host, 2)
+	var rock: float = bell.rotation_degrees
+	var flash: Color = bell.modulate
+	TestFixtures.check(res, "the opening press drops the rock and the flash so the panel never swings",
+		is_zero_approx(rock) and flash.is_equal_approx(Color.WHITE), "tilt %s modulate %s" % [rock, flash])
+	await host.get_tree().create_timer(0.25).timeout
+	var panel: NotificationPanel = bell.panel()
+	TestFixtures.check(res, "a press under the cursor opens the panel and rings the bell without moving it",
+		bell.panel_open() and is_zero_approx(bell.rotation_degrees) and bell.scale.is_equal_approx(Vector2.ONE)
+			and is_equal_approx(bell._fx.ring().a, 0.8) and bell.modulate.is_equal_approx(Color.WHITE)
+			and panel.get_global_transform().get_rotation() == 0.0,
+		"open %s tilt %s ring %s modulate %s" % [bell.panel_open(), bell.rotation_degrees, bell._fx.ring().a,
+			bell.modulate])
+	bell.pressed.emit()
+	await host.get_tree().create_timer(0.25).timeout
+	TestFixtures.check(res, "a second press closes the panel and the bell tilts again under the cursor",
+		not bell.panel_open() and is_equal_approx(bell.rotation_degrees, 1.5)
+			and bell.bg_color() == NotificationBell.BG_IDLE,
+		"open %s tilt %s fill %s" % [bell.panel_open(), bell.rotation_degrees, bell.bg_color()])
+	bell.notification(Control.NOTIFICATION_MOUSE_EXIT)
+	bell.mouse_exited.emit()
+	await host.get_tree().create_timer(0.1).timeout
+	TestFixtures.check(res, "leaving the bell settles it back at rest",
+		is_zero_approx(bell.rotation_degrees) and bell.modulate.is_equal_approx(Color.WHITE) and not bell._fx.busy(),
+		"tilt %s modulate %s busy %s" % [bell.rotation_degrees, bell.modulate, bell._fx.busy()])
+	await _drop(bell, host)
+
+
+#The unread dot follows the store and sits on the bell corner.
 static func _case_bell_dot(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var dot: NotificationDot = bell.dot()
@@ -205,11 +265,7 @@ static func _case_bell_dot(res: Dictionary, host: Node) -> void:
 		dot != null and dot.mouse_filter == Control.MOUSE_FILTER_IGNORE,
 		"dot %s" % ("null" if dot == null else str(dot.mouse_filter)))
 	TestFixtures.check(res, "the bell hangs its whole dot frame off its top right corner",
-		dot.anchor_left == 1.0 and dot.anchor_right == 1.0 and dot.anchor_top == 0.0
-			and dot.offset_right == -NotificationBell.DOT_OFFSET.x
-			and dot.offset_left == dot.offset_right - NotificationDot.FRAME_SIZE.x
-			and dot.offset_top == NotificationBell.DOT_OFFSET.y
-			and dot.offset_bottom == dot.offset_top + NotificationDot.FRAME_SIZE.y,
+		dot_at(dot, CORNER_TOP_RIGHT, NotificationBell.DOT_OFFSET),
 		"anchors %.1f %.1f offsets %.1f %.1f %.1f %.1f" % [dot.anchor_left, dot.anchor_top,
 			dot.offset_left, dot.offset_top, dot.offset_right, dot.offset_bottom])
 	TestFixtures.check(res, "an empty store hides the dot",
@@ -226,7 +282,7 @@ static func _case_bell_dot(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 3: the tab texts, the tab switch and the two empty texts.
+#The tab texts, the tab switch and the two empty texts.
 static func _case_tabs(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -244,15 +300,15 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 		"%s / %s" % [panel.unread_tab().text, panel.read_tab().text])
 	TestFixtures.check(res, "the unread tab is the one the panel opens on",
 		panel.tab == NotificationPanel.TAB_UNREAD
-			and _ids_of(panel.rows()) == [second.id, first.id],
-		"tab %s ids %s" % [panel.tab, str(_ids_of(panel.rows()))])
+			and GuiNoticeTests.ids_of(panel.rows()) == [second.id, first.id],
+		"tab %s ids %s" % [panel.tab, str(GuiNoticeTests.ids_of(panel.rows()))])
 	TestFixtures.check(res, "the list builds one card per listed row",
 		panel.cards().size() == 2 and panel.card_for(first.id) != null
 			and panel.card_for(third.id) == null,
 		"cards %d" % panel.cards().size())
 	TestFixtures.check(res, "the active tab wears the orange fill and the idle tab the blue",
-		_box_fill(panel.unread_tab()) == NotificationPanel.ORANGE
-			and _box_fill(panel.read_tab()) == NotificationPanel.BLUE2,
+		_box_fill(panel.unread_tab()) == GuiColors.ORANGE
+			and _box_fill(panel.read_tab()) == GuiColors.BLUE,
 		"%s / %s" % [str(_box_fill(panel.unread_tab())), str(_box_fill(panel.read_tab()))])
 	var switches: Array[String] = []
 	panel.tab_changed.connect(func(value: String) -> void: switches.append(value))
@@ -281,7 +337,7 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 4: the two sort orders and the sort button text.
+#The two sort orders and the sort button text.
 static func _case_sort(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -293,8 +349,8 @@ static func _case_sort(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the panel sorts by urgency first",
 		panel.sort == NotificationCenter.SORT_URGENCY
-			and _ids_of(panel.rows()) == [loud.id, middle.id, quiet.id],
-		"ids %s" % str(_ids_of(panel.rows())))
+			and GuiNoticeTests.ids_of(panel.rows()) == [loud.id, middle.id, quiet.id],
+		"ids %s" % str(GuiNoticeTests.ids_of(panel.rows())))
 	TestFixtures.check(res, "the sort button prints the urgency order",
 		panel.sort_button().text == NotificationSortPanel.SORT_URGENCY_LABEL,
 		panel.sort_button().text)
@@ -303,8 +359,8 @@ static func _case_sort(res: Dictionary, host: Node) -> void:
 	panel.set_sort(NotificationCenter.SORT_RECENCY)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "recency sort puts the newest row first",
-		_ids_of(panel.rows()) == [middle.id, loud.id, quiet.id],
-		"ids %s" % str(_ids_of(panel.rows())))
+		GuiNoticeTests.ids_of(panel.rows()) == [middle.id, loud.id, quiet.id],
+		"ids %s" % str(GuiNoticeTests.ids_of(panel.rows())))
 	TestFixtures.check(res, "set_sort reports the order once and prints it",
 		orders == [NotificationCenter.SORT_RECENCY]
 			and panel.sort_button().text == NotificationSortPanel.SORT_RECENCY_LABEL,
@@ -313,13 +369,13 @@ static func _case_sort(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "setting the order it already uses reports nothing",
 		orders.size() == 1, "orders %s" % str(orders))
 	TestFixtures.check(res, "the cards follow the sorted rows",
-		_ids_of(panel.rows()) == [panel.cards()[0].row_id(), panel.cards()[1].row_id(),
+		GuiNoticeTests.ids_of(panel.rows()) == [panel.cards()[0].row_id(), panel.cards()[1].row_id(),
 			panel.cards()[2].row_id()], "cards %d" % panel.cards().size())
 	panel.set_sort(NotificationCenter.SORT_URGENCY)
 	await _drop(bell, host)
 
 
-#Case 5: every filter option, the button text and the orange style while a kind is picked.
+#Every filter option, the button text and the orange style while a kind is picked.
 static func _case_filter(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -338,25 +394,25 @@ static func _case_filter(res: Dictionary, host: Node) -> void:
 		got == want, "options %s" % str(got))
 	TestFixtures.check(res, "the All filter lists every row and prints Filter",
 		panel.rows().size() == 3 and panel.filter_label() == "Filter"
-			and _box_fill(panel.filter_button()) == NotificationPanel.BLUE2,
+			and _box_fill(panel.filter_button()) == GuiColors.BLUE,
 		"rows %d label %s" % [panel.rows().size(), panel.filter_label()])
 	var picks: Array[String] = []
 	panel.filter_changed.connect(func(value: String) -> void: picks.append(value))
 	panel.set_filter("Contract")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the Contract filter keeps the contract row alone",
-		_ids_of(panel.rows()) == [contract.id] and picks == ["Contract"],
-		"ids %s picks %s" % [str(_ids_of(panel.rows())), str(picks)])
+		GuiNoticeTests.ids_of(panel.rows()) == [contract.id] and picks == ["Contract"],
+		"ids %s picks %s" % [str(GuiNoticeTests.ids_of(panel.rows())), str(picks)])
 	TestFixtures.check(res, "a picked kind turns the filter button orange and prints the kind",
 		panel.filter_label() == "Contract"
-			and _box_fill(panel.filter_button()) == NotificationPanel.ORANGE,
+			and _box_fill(panel.filter_button()) == GuiColors.ORANGE,
 		"label %s fill %s" % [panel.filter_label(), str(_box_fill(panel.filter_button()))])
 	panel.set_filter("Finance")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the Finance filter keeps the loan and the stock rows",
-		_ids_of(panel.rows()) == [loan.id, stock.id]
-			or _ids_of(panel.rows()) == [stock.id, loan.id],
-		"ids %s" % str(_ids_of(panel.rows())))
+		GuiNoticeTests.ids_of(panel.rows()) == [loan.id, stock.id]
+			or GuiNoticeTests.ids_of(panel.rows()) == [stock.id, loan.id],
+		"ids %s" % str(GuiNoticeTests.ids_of(panel.rows())))
 	panel.set_filter("Mercenary")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the Mercenary filter lists nothing while no type uses that kind",
@@ -380,7 +436,7 @@ static func _case_filter(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 6: the two popups, their boxes, where they hang and how a pick closes them.
+#The two popups, their boxes, where they hang and how a pick closes them.
 static func _case_popups(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -453,12 +509,148 @@ static func _case_popups(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "closing the panel closes both popups",
 		not panel.sort_popup_open() and not panel.filter_popup_open() and not bell.panel_open(),
 		"sort %s filter %s" % [str(panel.sort_popup_open()), str(panel.filter_popup_open())])
-	panel.set_filter(NotificationCenter.FILTER_ALL)
-	panel.set_sort(NotificationCenter.SORT_URGENCY)
+	TestFixtures.check(res, "closing the panel puts the sort back to urgency and the filter back to All",
+		panel.sort == NotificationCenter.SORT_URGENCY and panel.filter == NotificationCenter.FILTER_ALL
+			and sorter.selected == NotificationSortPanel.SORT_URGENCY_LABEL
+			and shower.selected == NotificationCenter.FILTER_ALL,
+		"sort %s filter %s" % [String(panel.sort), panel.filter])
 	await _drop(bell, host)
 
 
-#Case 7: pressing an item routes the row out of the bell and never marks it read.
+#Designer rule 2026-10-04: the picks reset once the bell window is fully closed.
+static func _case_reopen_bell(res: Dictionary, host: Node) -> void:
+	var bell: NotificationBell = await _bell(host)
+	var panel: NotificationPanel = bell.panel()
+	var loan: NotificationData = _loan_row()
+	var contract: NotificationData = _contract_row(CONTRACT_NAME)
+	var stock: NotificationData = _stock_row(STOCK_UP_PCT, 2)
+	var read_contract: NotificationData = _contract_row(SECOND_NAME)
+	var read_stock: NotificationData = _stock_row(STOCK_DOWN_PCT, 1)
+	NotificationCenter.mark_read(read_contract.id)
+	NotificationCenter.mark_read(read_stock.id)
+	bell.open_panel()
+	await host.get_tree().process_frame
+	var first_ids: Array[int] = GuiNoticeTests.ids_of(panel.rows())
+	TestFixtures.check(res, "the bell first opens on the unread rows of every kind in urgency order",
+		first_ids == [loan.id, stock.id, contract.id] and _card_ids(panel) == first_ids,
+		"ids %s cards %s" % [str(first_ids), str(_card_ids(panel))])
+	var read_want: Array[int] = [read_stock.id]
+	var item_want: Array[int] = [stock.id, loan.id]
+	_move_bell_picks(panel, true)
+	await host.get_tree().process_frame
+	_check_bell_moved(res, panel, read_want, true, "close_panel")
+	bell.close_panel()
+	await host.get_tree().process_frame
+	_check_bell_reset(res, bell, "close_panel")
+	bell.open_panel()
+	await host.get_tree().process_frame
+	_check_bell_first(res, bell, first_ids, "close_panel")
+	_move_bell_picks(panel, true)
+	await host.get_tree().process_frame
+	_check_bell_moved(res, panel, read_want, true, "toggle_panel")
+	bell.toggle_panel()
+	await host.get_tree().process_frame
+	_check_bell_reset(res, bell, "toggle_panel")
+	bell.toggle_panel()
+	await host.get_tree().process_frame
+	_check_bell_first(res, bell, first_ids, "toggle_panel")
+	var opened: Array[NotificationData] = []
+	bell.notification_opened.connect(func(data: NotificationData) -> void: opened.append(data))
+	_move_bell_picks(panel, false)
+	await host.get_tree().process_frame
+	_check_bell_moved(res, panel, item_want, false, "item press")
+	bell.press_item(stock.id)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the item press opens that row once and closes the bell",
+		opened.size() == 1 and opened[0] == stock and not bell.panel_open(),
+		"opened %d open %s" % [opened.size(), str(bell.panel_open())])
+	_check_bell_reset(res, bell, "item press")
+	bell.open_panel()
+	await host.get_tree().process_frame
+	_check_bell_first(res, bell, first_ids, "item press")
+	_move_bell_picks(panel, true)
+	await host.get_tree().process_frame
+	_check_bell_moved(res, panel, read_want, true, "outside press")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = bell.get_global_rect().end + Vector2(240.0, 240.0)
+	bell._input(click)
+	await host.get_tree().process_frame
+	_check_bell_reset(res, bell, "outside press")
+	bell.open_panel()
+	await host.get_tree().process_frame
+	_check_bell_first(res, bell, first_ids, "outside press")
+	await _drop(bell, host)
+
+
+#The clicks a player makes: the Read tab when asked, then the Recency row and the Finance row of the two popups.
+static func _move_bell_picks(panel: NotificationPanel, read_tab: bool) -> void:
+	if read_tab:
+		panel.set_tab(NotificationPanel.TAB_READ)
+	panel.toggle_sort_popup()
+	panel.sort_popup().press(NotificationSortPanel.SORT_RECENCY_LABEL)
+	panel.toggle_filter_popup()
+	panel.filter_popup().press("Finance")
+
+
+static func _check_bell_moved(res: Dictionary, panel: NotificationPanel, want: Array[int], read_tab: bool,
+		via: String) -> void:
+	var tab: String = NotificationPanel.TAB_READ if read_tab else NotificationPanel.TAB_UNREAD
+	var ids: Array[int] = GuiNoticeTests.ids_of(panel.rows())
+	TestFixtures.check(res, "the picks under test moved before the %s close" % via,
+		panel.tab == tab and panel.sort == NotificationCenter.SORT_RECENCY and panel.filter == "Finance"
+			and ids == want and _card_ids(panel) == want,
+		"tab %s sort %s filter %s ids %s" % [panel.tab, String(panel.sort), panel.filter, str(ids)])
+
+
+static func _check_bell_reset(res: Dictionary, bell: NotificationBell, via: String) -> void:
+	var panel: NotificationPanel = bell.panel()
+	var sorter: NotificationSortPanel = panel.sort_popup()
+	var shower: NotificationFilterPanel = panel.filter_popup()
+	TestFixtures.check(res, "the %s close puts the tab, the sort and the filter back to their defaults" % via,
+		not bell.panel_open() and panel.tab == NotificationPanel.TAB_UNREAD
+			and panel.sort == NotificationCenter.SORT_URGENCY and panel.filter == NotificationCenter.FILTER_ALL,
+		"open %s tab %s sort %s filter %s" % [str(bell.panel_open()), panel.tab, String(panel.sort),
+			panel.filter])
+	TestFixtures.check(res, "the %s close leaves both popups highlighting their default row" % via,
+		sorter.selected == NotificationSortPanel.SORT_URGENCY_LABEL
+			and shower.selected == NotificationCenter.FILTER_ALL
+			and _row_fill(sorter, NotificationSortPanel.SORT_URGENCY_LABEL) == NotificationFilterPanel.ROW_SELECTED_BG
+			and _row_fill(sorter, NotificationSortPanel.SORT_RECENCY_LABEL) == NotificationFilterPanel.ROW_IDLE_BG
+			and _row_fill(shower, NotificationCenter.FILTER_ALL) == NotificationFilterPanel.ROW_SELECTED_BG
+			and _row_fill(shower, "Finance") == NotificationFilterPanel.ROW_IDLE_BG,
+		"sort %s filter %s" % [sorter.selected, shower.selected])
+
+
+static func _check_bell_first(res: Dictionary, bell: NotificationBell, first_ids: Array[int], via: String) -> void:
+	var panel: NotificationPanel = bell.panel()
+	var ids: Array[int] = GuiNoticeTests.ids_of(panel.rows())
+	TestFixtures.check(res, "the bell opens again after the %s close on the rows of a first open" % via,
+		bell.panel_open() and ids == first_ids and _card_ids(panel) == first_ids
+			and _box_fill(panel.unread_tab()) == GuiColors.ORANGE
+			and panel.sort_button().text == NotificationSortPanel.SORT_URGENCY_LABEL
+			and panel.filter_label() == "Filter" and _box_fill(panel.filter_button()) == GuiColors.BLUE,
+		"ids %s cards %s" % [str(ids), str(_card_ids(panel))])
+
+
+static func _card_ids(panel: NotificationPanel) -> Array[int]:
+	var out: Array[int] = []
+	for card: NotificationItem in panel.cards():
+		out.append(card.row_id())
+	return out
+
+
+#The normal fill a popup row wears, read from its style override.
+static func _row_fill(popup: NotificationFilterPanel, option: String) -> Color:
+	var row: Button = popup.row_for(option)
+	if row == null:
+		return Color(0.0, 0.0, 0.0, 0.0)
+	var box: StyleBoxFlat = row.get_theme_stylebox("normal") as StyleBoxFlat
+	return Color(0.0, 0.0, 0.0, 0.0) if box == null else box.bg_color
+
+
+#Pressing an item routes the row out of the bell and never marks it read.
 static func _case_open_item(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -490,7 +682,7 @@ static func _case_open_item(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 8: the X marks the row read inside the panel and opens nothing.
+#The X marks the row read inside the panel and opens nothing.
 static func _case_mark_read(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -534,7 +726,7 @@ static func _case_mark_read(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 9: the unread, hover and read styles of one card.
+#The unread, hover and read styles of one card.
 static func _case_item_style(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -574,7 +766,7 @@ static func _case_item_style(res: Dictionary, host: Node) -> void:
 		"cursor %d" % read_card.mouse_default_cursor_shape)
 	TestFixtures.check(res, "the icon box holds a glyph plate for a contract row",
 		read_card.icon_glyph() != null, "glyph %s" % str(read_card.icon_glyph() != null))
-	var card_face: TextureRect = read_card.icon_glyph().get_child(1) as TextureRect
+	var card_face: TextureRect = _face(read_card.icon_glyph())
 	TestFixtures.check(res, "a contract row faces the alert cell baked at 32 x 32",
 		card_face != null and card_face.texture == Icons.baked("alert", 2, Icons.MODE_PLAIN)
 			and card_face.texture.get_size() == Vector2(32.0, 32.0),
@@ -582,7 +774,7 @@ static func _case_item_style(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 10: the contract body, with the same title for a completed and a failed run.
+#The contract body, with the same title for a completed and a failed run.
 static func _case_contract_body(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -598,10 +790,10 @@ static func _case_contract_body(res: Dictionary, host: Node) -> void:
 			and done.title_color() == NotificationData.TITLE_CONTRACT,
 		"%s / %s" % [card.title_text(), card.name_text()])
 	TestFixtures.check(res, "the body shows the difficulty stars at 1 px per art pixel",
-		body.stars() != null and is_equal_approx(body.stars().rating, DIFFICULTY)
-			and body.stars().star_size == ContractCompletedBody.STAR_SIZE
+		body.stars() != null and is_equal_approx(body.stars().value, DIFFICULTY)
+			and body.stars().star_px == ContractCompletedBody.STAR_SIZE
 			and body.stars().custom_minimum_size == Vector2(Icons.stars_width(1), 16.0),
-		"rating %.1f" % (0.0 if body.stars() == null else body.stars().rating))
+		"rating %.1f" % (0.0 if body.stars() == null else body.stars().value))
 	TestFixtures.check(res, "the reward prints with thousands separators",
 		body.reward_text() == "1,250", body.reward_text())
 	var failed: NotificationData = _contract_row(CONTRACT_NAME, true)
@@ -627,7 +819,7 @@ static func _loan_body(panel: NotificationPanel, id: int) -> LoanOfferBody:
 	return card.body() as LoanOfferBody
 
 
-#Case 11: the loan offer body and its live countdown.
+#The loan offer body and its live countdown.
 static func _case_loan_body(res: Dictionary, host: Node) -> void:
 	LoanOfferBody.hours_override = Callable()
 	var bell: NotificationBell = await _bell(host)
@@ -650,13 +842,17 @@ static func _case_loan_body(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "without a live offer the countdown hides",
 		not body.remaining_visible() and body.remaining_text() == "",
 		"visible %s text %s" % [str(body.remaining_visible()), body.remaining_text()])
-	TestFixtures.check(res, "the finance layer still seeds the live offer id",
-		not FinanceManager.offer(LIVE_OFFER_ID).is_empty(),
+	TestFixtures.check(res, "a new game seeds no loan offer on the finance layer",
+		FinanceManager.offers.is_empty(), "offers %s" % str(FinanceManager.offers))
+	_lay_offer(LIVE_OFFER_ID)
+	TestFixtures.check(res, "the laid offer is live on the finance layer",
+		not FinanceManager.offer(LIVE_OFFER_ID).is_empty()
+			and FinanceManager.hours_left(LIVE_OFFER_ID) > 0.0,
 		"offer %s" % str(FinanceManager.offer(LIVE_OFFER_ID)))
 	var live_row: NotificationData = _loan_row(NotificationData.Urgency.IMPORTANT, LIVE_OFFER_ID)
 	await host.get_tree().process_frame
 	var live_offer_body: LoanOfferBody = _loan_body(panel, live_row.id)
-	TestFixtures.check(res, "a seeded live offer on the real finance layer shows its countdown",
+	TestFixtures.check(res, "a live offer on the real finance layer shows its countdown",
 		live_offer_body != null and live_offer_body.remaining_visible()
 			and live_offer_body.remaining_text() != "",
 		"body %s" % ("null" if live_offer_body == null else live_offer_body.remaining_text()))
@@ -697,7 +893,7 @@ static func _case_loan_body(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 12: the stock move body on a rise and on a fall.
+#The stock move body on a rise and on a fall.
 static func _case_stock_body(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -731,8 +927,8 @@ static func _case_stock_body(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the stock rows carry the icon glyph of their direction",
 		up_card != null and up_card.icon_glyph() != null and down_card.icon_glyph() != null,
 		"up %s down %s" % [str(up_card != null), str(down_card.icon_glyph() != null)])
-	var up_face: TextureRect = up_card.icon_glyph().get_child(1) as TextureRect
-	var down_face: TextureRect = down_card.icon_glyph().get_child(1) as TextureRect
+	var up_face: TextureRect = _face(up_card.icon_glyph())
+	var down_face: TextureRect = _face(down_card.icon_glyph())
 	var arrows_ok: bool = up_face.texture == Icons.baked("trend_up", 4, Icons.MODE_GRAY, true)
 	arrows_ok = arrows_ok and down_face.texture == Icons.baked("trend_down", 4, Icons.MODE_GRAY,
 		true)
@@ -747,7 +943,7 @@ static func _case_stock_body(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 13: a type the panel does not know renders without a body and never errors.
+#A type the panel does not know renders without a body and never errors.
 static func _case_unknown_type(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -773,7 +969,7 @@ static func _case_unknown_type(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 14: the footer date, time and urgency.
+#The footer date, time and urgency.
 static func _case_footer(res: Dictionary, host: Node) -> void:
 	var bell: NotificationBell = await _bell(host)
 	var panel: NotificationPanel = bell.panel()
@@ -799,7 +995,7 @@ static func _case_footer(res: Dictionary, host: Node) -> void:
 	await _drop(bell, host)
 
 
-#Case 15: the glyph sizes, the separate up and down arrows, the shadow plate and the cache.
+#The glyph sizes, the separate up and down arrows, the shadow plate and the cache.
 static func _case_glyphs(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	var bell_two: ImageTexture = Icons.baked("bell", NotificationBell.GLYPH_SCALE,
@@ -824,8 +1020,9 @@ static func _case_glyphs(res: Dictionary, host: Node) -> void:
 				mirrored = false
 	TestFixtures.check(res, "the fall arrow is separate art, not a flip of the rise arrow",
 		not same and not mirrored, "same %s mirrored %s" % [str(same), str(mirrored)])
-	var stripes: ImageTexture = NotifyGlyphs.stripes(NotificationItem.STRIPE_FILL,
-		NotificationItem.STRIPE_BACK)
+	var stripes: ImageTexture = GuiGlyphs.hatch(NotificationItem.STRIPE_FILL,
+		NotificationItem.STRIPE_BACK, NotifyGlyphs.STRIPE_BAND,
+		Vector2i(NotifyGlyphs.STRIPE_TILE, NotifyGlyphs.STRIPE_TILE))
 	TestFixtures.check(res, "the icon stripes tile in 8 px squares",
 		stripes.get_size() == Vector2(NotifyGlyphs.STRIPE_TILE, NotifyGlyphs.STRIPE_TILE),
 		str(stripes.get_size()))
@@ -834,7 +1031,7 @@ static func _case_glyphs(res: Dictionary, host: Node) -> void:
 		plate.custom_minimum_size == Vector2(34, 34) and plate.get_child_count() == 2,
 		"%s children %d" % [str(plate.custom_minimum_size), plate.get_child_count()])
 	var shadow: TextureRect = plate.get_child(0) as TextureRect
-	var face: TextureRect = plate.get_child(1) as TextureRect
+	var face: TextureRect = _face(plate)
 	TestFixtures.check(res, "the shadow sits behind the face in ink",
 		shadow.name == "Shadow" and face.name == "Face"
 			and shadow.modulate == NotifyGlyphs.SHADOW_COLOR
@@ -848,30 +1045,33 @@ static func _case_glyphs(res: Dictionary, host: Node) -> void:
 	var tinted_plate: Control = NotifyGlyphs.shadowed(bell_two, NotifyGlyphs.SHADOW_STEP,
 		NotificationItem.LOAN_GLYPH)
 	var tinted_shadow: TextureRect = tinted_plate.get_child(0) as TextureRect
-	var tinted_face: TextureRect = tinted_plate.get_child(1) as TextureRect
+	var tinted_face: TextureRect = _face(tinted_plate)
 	TestFixtures.check(res, "a face tint colours the face alone and leaves the shadow ink",
 		tinted_face.modulate == NotificationItem.LOAN_GLYPH
 			and tinted_shadow.modulate == NotifyGlyphs.SHADOW_COLOR,
 		"%s %s" % [str(tinted_face.modulate), str(tinted_shadow.modulate)])
 	tinted_plate.queue_free()
 	TestFixtures.check(res, "a stripe tile of the same colours comes from the cache",
-		NotifyGlyphs.stripes(NotificationItem.STRIPE_FILL, NotificationItem.STRIPE_BACK) == stripes,
-		"cache miss")
-	NotifyGlyphs.clear_cache()
-	TestFixtures.check(res, "clear_cache drops the built tiles",
-		NotifyGlyphs.stripes(NotificationItem.STRIPE_FILL, NotificationItem.STRIPE_BACK) != stripes,
-		"cache kept")
+		GuiGlyphs.hatch(NotificationItem.STRIPE_FILL, NotificationItem.STRIPE_BACK,
+			NotifyGlyphs.STRIPE_BAND, Vector2i(NotifyGlyphs.STRIPE_TILE, NotifyGlyphs.STRIPE_TILE))
+			== stripes, "cache miss")
+	var old_tile: Image = Image.create_empty(NotifyGlyphs.STRIPE_TILE, NotifyGlyphs.STRIPE_TILE, false,
+		Image.FORMAT_RGBA8)
+	for y: int in NotifyGlyphs.STRIPE_TILE:
+		for x: int in NotifyGlyphs.STRIPE_TILE:
+			var on: bool = (x + y) % NotifyGlyphs.STRIPE_TILE < NotifyGlyphs.STRIPE_BAND
+			var want: Color = NotificationItem.STRIPE_FILL if on else NotificationItem.STRIPE_BACK
+			old_tile.set_pixel(x, y, want)
+	TestFixtures.check(res, "the stripe tile keeps its 4 px bands at 45 degrees",
+		stripes.get_image().get_data() == old_tile.get_data(), "band pixels differ")
 
 
-#Case 16: the panel stays inside the 1280 x 720 frame with the bell at the top right.
+#The panel stays inside the 1280 x 720 frame with the bell at the top right.
 static func _case_frame_fit(res: Dictionary, host: Node) -> void:
-	NotificationCenter.reset()
 	var frame := Control.new()
 	frame.size = FRAME_SIZE
 	host.add_child(frame)
-	var scene: PackedScene = load(BELL_SCENE) as PackedScene
-	var bell: NotificationBell = scene.instantiate() as NotificationBell
-	frame.add_child(bell)
+	var bell: NotificationBell = await _bell(host, frame)
 	bell.position = BELL_AT
 	_contract_row(CONTRACT_NAME)
 	bell.open_panel()
@@ -893,7 +1093,7 @@ static func _case_frame_fit(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 
 
-#Case 17: the dot geometry and the paint constants the prototype fixes.
+#The dot geometry and the paint constants the prototype fixes.
 static func _case_dot_shape(res: Dictionary) -> void:
 	TestFixtures.check(res, "the dot art is the 8 x 8 atlas cell",
 		Icons.size("dot") == Vector2i(8, 8)
@@ -912,8 +1112,8 @@ static func _case_dot_shape(res: Dictionary) -> void:
 			and NotificationDot.CELL == 2, "dot %s frame %s cell %d"
 			% [str(NotificationDot.DOT_SIZE), str(NotificationDot.FRAME_SIZE), NotificationDot.CELL])
 	TestFixtures.check(res, "the fill, outline and outline width match the prototype",
-		NotificationDot.DOT_COLOR == Color("#e8583f")
-			and NotificationDot.OUTLINE_COLOR == Color("#0a0f1c")
+		NotificationDot.DOT_COLOR == GuiColors.RED
+			and NotificationDot.OUTLINE_COLOR == GuiColors.INK
 			and NotificationDot.OUTLINE_WIDTH == 2.0,
 		"fill %s outline %s width %.1f" % [str(NotificationDot.DOT_COLOR),
 			str(NotificationDot.OUTLINE_COLOR), NotificationDot.OUTLINE_WIDTH])
@@ -929,7 +1129,7 @@ static func _case_dot_shape(res: Dictionary) -> void:
 			and dot.frame_rect().encloses(dot.dot_rect()), str(dot.frame_rect()))
 
 
-#Case 18: the ring and blink timing the prototype's keyframes give in CSS percents.
+#The ring and blink timing the prototype's keyframes give in CSS percents.
 static func _case_dot_pulse_math(res: Dictionary) -> void:
 	TestFixtures.check(res, "a ring is dark at phase 0 and peaks right at its 8 percent rise",
 		is_equal_approx(NotificationDot.ring_alpha(0, 0.0), 0.0)
@@ -956,7 +1156,7 @@ static func _case_dot_pulse_math(res: Dictionary) -> void:
 		"%.3f" % NotificationDot.blink_gain(0.25))
 
 
-#Case 19: the clock connection lives only while the dot is in the tree, and attach() places it.
+#The clock connection lives only while the dot is in the tree, and attach() places it.
 static func _case_dot_lifecycle(res: Dictionary, host: Node) -> void:
 	var dot := NotificationDot.new()
 	host.add_child(dot)
@@ -973,74 +1173,69 @@ static func _case_dot_lifecycle(res: Dictionary, host: Node) -> void:
 	host.add_child(plain)
 	var default_dot: NotificationDot = NotificationDot.attach(plain)
 	TestFixtures.check(res, "attach() with no corner pins the dot 2 px inside the top right",
-		default_dot.anchor_left == 1.0 and default_dot.anchor_right == 1.0
-			and default_dot.anchor_top == 0.0 and default_dot.offset_right == -2.0
-			and default_dot.offset_left == -30.0 and default_dot.offset_top == 2.0
-			and default_dot.offset_bottom == 30.0,
+		dot_at(default_dot, CORNER_TOP_RIGHT, Vector2(2, 2)),
 		"anchor %.1f offsets %.1f %.1f" % [default_dot.anchor_left, default_dot.offset_left,
 			default_dot.offset_right])
 	var left_dot: NotificationDot = NotificationDot.attach(plain, Vector2(6, 2), CORNER_TOP_LEFT)
 	TestFixtures.check(res, "attach() with CORNER_TOP_LEFT pins inside the opposite corner",
-		left_dot.anchor_left == 0.0 and left_dot.anchor_right == 0.0
-			and left_dot.offset_left == 6.0 and left_dot.offset_right == 34.0
-			and left_dot.offset_top == 2.0 and left_dot.offset_bottom == 30.0,
+		dot_at(left_dot, CORNER_TOP_LEFT, Vector2(6, 2)),
 		"anchor %.1f offsets %.1f %.1f" % [left_dot.anchor_left, left_dot.offset_left,
 			left_dot.offset_right])
 	plain.queue_free()
 	await host.get_tree().process_frame
 
 
-#Case 20: every fixed caller puts its dot on the corner the prototype draws it on.
+#True when the dot hangs its whole frame off the given top corner, inset from the edge.
+static func dot_at(dot: NotificationDot, corner: int, inset: Vector2) -> bool:
+	if dot == null:
+		return false
+	var frame: Vector2 = NotificationDot.FRAME_SIZE
+	var on_right: bool = corner == CORNER_TOP_RIGHT
+	var anchor: float = 1.0 if on_right else 0.0
+	var left: float = -inset.x - frame.x if on_right else inset.x
+	var sides: bool = is_equal_approx(dot.anchor_left, anchor) and is_equal_approx(dot.anchor_right, anchor)
+	var horizontal: bool = is_equal_approx(dot.offset_left, left) and is_equal_approx(dot.offset_right, left + frame.x)
+	var vertical: bool = is_equal_approx(dot.offset_top, inset.y) and is_equal_approx(dot.offset_bottom, inset.y + frame.y)
+	return sides and is_equal_approx(dot.anchor_top, 0.0) and horizontal and vertical
+
+
+#Mounts one row type, lights its dot and checks the dot sits in the top right pin before and after
+#a child sort.
+static func _check_row_dot(res: Dictionary, host: Node, row: Control, lit_label: String,
+		sort_label: String) -> void:
+	host.add_child(row)
+	await host.get_tree().process_frame
+	if row is FineRow:
+		var fine_data := FineData.new()
+		fine_data.unread = true
+		(row as FineRow).entry = fine_data
+	elif row is CapturedRow:
+		var capture_data := CaptureData.new()
+		capture_data.unread = true
+		(row as CapturedRow).entry = capture_data
+	else:
+		(row as ViolationRow).dot.on = true
+	var dot: NotificationDot = row.get("dot") as NotificationDot
+	var detail: String = "anchor %.1f offset %.1f" % [dot.anchor_left, dot.offset_left]
+	TestFixtures.check(res, lit_label, dot.on and dot_at(dot, CORNER_TOP_RIGHT, Vector2(2, 2)), detail)
+	row.queue_sort()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, sort_label, dot_at(dot, CORNER_TOP_RIGHT, Vector2(2, 2)), detail)
+	row.queue_free()
+	await host.get_tree().process_frame
+
+
+#Every fixed caller puts its dot on the corner the prototype draws it on.
 static func _case_dot_placements(res: Dictionary, host: Node) -> void:
-	var fine := FineRow.new()
-	host.add_child(fine)
-	await host.get_tree().process_frame
-	var fine_data := FineData.new()
-	fine_data.unread = true
-	fine.entry = fine_data
-	TestFixtures.check(res, "an unread fine row centres its dot on the top left corner",
-		fine.dot.on and fine.dot.anchor_left == 0.0 and fine.dot.anchor_top == 0.0
-			and fine.dot.offset_left == 2.0 and fine.dot.offset_top == 2.0,
-		"anchor %.1f offset %.1f" % [fine.dot.anchor_left, fine.dot.offset_left])
-	fine.notification(Container.NOTIFICATION_SORT_CHILDREN)
-	TestFixtures.check(res, "a fine row's dot keeps its corner through the panel's own child sort",
-		fine.dot.anchor_left == 0.0 and fine.dot.offset_left == 2.0
-			and fine.dot.offset_top == 2.0,
-		"anchor %.1f offset %.1f" % [fine.dot.anchor_left, fine.dot.offset_left])
-	fine.queue_free()
-	await host.get_tree().process_frame
-	var captured := CapturedRow.new()
-	host.add_child(captured)
-	await host.get_tree().process_frame
-	var capture_data := CaptureData.new()
-	capture_data.unread = true
-	captured.entry = capture_data
-	TestFixtures.check(res, "an unread captured row centres its dot on the top left corner too",
-		captured.dot.on and captured.dot.anchor_left == 0.0 and captured.dot.offset_left == 2.0
-			and captured.dot.offset_top == 2.0,
-		"anchor %.1f offset %.1f" % [captured.dot.anchor_left, captured.dot.offset_left])
-	captured.notification(Container.NOTIFICATION_SORT_CHILDREN)
-	TestFixtures.check(res, "a captured row's dot keeps its corner through the panel's own sort",
-		captured.dot.anchor_left == 0.0 and captured.dot.offset_left == 2.0
-			and captured.dot.offset_top == 2.0,
-		"anchor %.1f offset %.1f" % [captured.dot.anchor_left, captured.dot.offset_left])
-	captured.queue_free()
-	await host.get_tree().process_frame
-	var violation := ViolationRow.new()
-	host.add_child(violation)
-	await host.get_tree().process_frame
-	violation.dot.on = true
-	TestFixtures.check(res, "an unread violation row centres its dot on the top left corner",
-		violation.dot.on and violation.dot.anchor_left == 0.0 and violation.dot.offset_left == 2.0
-			and violation.dot.offset_top == 2.0,
-		"anchor %.1f offset %.1f" % [violation.dot.anchor_left, violation.dot.offset_left])
-	violation.notification(Container.NOTIFICATION_SORT_CHILDREN)
-	TestFixtures.check(res, "a violation row's dot keeps its corner through the panel's own sort",
-		violation.dot.anchor_left == 0.0 and violation.dot.offset_left == 2.0
-			and violation.dot.offset_top == 2.0,
-		"anchor %.1f offset %.1f" % [violation.dot.anchor_left, violation.dot.offset_left])
-	violation.queue_free()
-	await host.get_tree().process_frame
+	await _check_row_dot(res, host, FineRow.new(),
+		"an unread fine row centres its dot on the top right corner",
+		"a fine row's dot keeps its corner through the panel's own child sort")
+	await _check_row_dot(res, host, CapturedRow.new(),
+		"an unread captured row centres its dot on the top right corner too",
+		"a captured row's dot keeps its corner through the panel's own sort")
+	await _check_row_dot(res, host, ViolationRow.new(),
+		"an unread violation row centres its dot on the top right corner",
+		"a violation row's dot keeps its corner through the panel's own sort")
 	var loan_scene: PackedScene = load(LoanCard.SCENE_PATH) as PackedScene
 	var loan: LoanCard = loan_scene.instantiate() as LoanCard
 	host.add_child(loan)
@@ -1052,18 +1247,12 @@ static func _case_dot_placements(res: Dictionary, host: Node) -> void:
 		loan.dot_on() and loan.dot().get_parent() == loan.action_button(),
 		"parent %s" % str(loan.dot().get_parent()))
 	TestFixtures.check(res, "the loan offer dot sits inside the button's own top right corner",
-		loan.dot().anchor_left == 1.0 and loan.dot().anchor_right == 1.0
-			and loan.dot().offset_right == -2.0
-			and loan.dot().offset_left == -2.0 - NotificationDot.FRAME_SIZE.x
-			and loan.dot().offset_top == 2.0
-			and loan.dot().offset_bottom == 2.0 + NotificationDot.FRAME_SIZE.y,
+		dot_at(loan.dot(), CORNER_TOP_RIGHT, Vector2(2, 2)),
 		"anchor %.1f offsets %.1f %.1f" % [loan.dot().anchor_left, loan.dot().offset_left,
 			loan.dot().offset_right])
 	loan.notification(Container.NOTIFICATION_SORT_CHILDREN)
 	TestFixtures.check(res, "a loan card's dot keeps its corner through the panel's own child sort",
-		loan.dot().anchor_left == 1.0 and loan.dot().offset_right == -2.0
-			and loan.dot().offset_left == -2.0 - NotificationDot.FRAME_SIZE.x
-			and loan.dot().offset_top == 2.0,
+		dot_at(loan.dot(), CORNER_TOP_RIGHT, Vector2(2, 2)),
 		"anchor %.1f offsets %.1f %.1f" % [loan.dot().anchor_left, loan.dot().offset_left,
 			loan.dot().offset_right])
 	loan.queue_free()
@@ -1074,20 +1263,147 @@ static func _case_dot_placements(res: Dictionary, host: Node) -> void:
 	host.add_child(item)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "an invest row pins its dot inside its own top right corner",
-		item.dot() != null and item.dot().anchor_left == 1.0 and item.dot().anchor_right == 1.0
-			and item.dot().offset_right == -2.0
-			and item.dot().offset_left == -2.0 - NotificationDot.FRAME_SIZE.x
-			and item.dot().offset_top == 2.0
-			and item.dot().offset_bottom == 2.0 + NotificationDot.FRAME_SIZE.y,
+		dot_at(item.dot(), CORNER_TOP_RIGHT, Vector2(2, 2)),
 		"anchor %.1f offsets %.1f %.1f" % [item.dot().anchor_left, item.dot().offset_left,
 			item.dot().offset_right])
 	item.queue_free()
 	await host.get_tree().process_frame
-	var hiring := HiringDot.new()
+	var hiring := NotificationDot.new()
 	host.add_child(hiring)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "the hiring dot keeps its own 28 x 28 box for the applicant card",
-		hiring.custom_minimum_size == HiringDot.DOT_SIZE and hiring.size == Vector2(28, 28),
+	TestFixtures.check(res, "the applicant card dot keeps its own 28 x 28 box",
+		hiring.custom_minimum_size == NotificationDot.FRAME_SIZE and hiring.size == Vector2(28, 28),
 		"box %s" % str(hiring.custom_minimum_size))
 	hiring.queue_free()
+	await host.get_tree().process_frame
+
+
+#The name of every STOP Control under a node that is not a button; a STOP child drops the row's hover.
+static func _stop_controls(node: Node, found: Array[String]) -> void:
+	for child: Node in node.get_children():
+		var control: Control = child as Control
+		if control == null:
+			continue
+		if control.mouse_filter == Control.MOUSE_FILTER_STOP and not (control is BaseButton):
+			found.append(str(control.name))
+		_stop_controls(control, found)
+
+
+#Only a button inside a contract or loan row may stop the pointer; any other STOP control would replay the card's hover.
+static func _case_body_hover(res: Dictionary, host: Node) -> void:
+	var bell: NotificationBell = await _bell(host)
+	var panel: NotificationPanel = bell.panel()
+	var contract_row: NotificationData = _contract_row(CONTRACT_NAME)
+	var loan_row: NotificationData = _loan_row()
+	bell.open_panel()
+	await host.get_tree().process_frame
+	var contract_card: NotificationItem = panel.card_for(contract_row.id)
+	var loan_card: NotificationItem = panel.card_for(loan_row.id)
+	var contract_body: ContractCompletedBody = null
+	if contract_card != null:
+		contract_body = contract_card.body() as ContractCompletedBody
+	var loan_body: LoanOfferBody = _loan_body(panel, loan_row.id)
+	var stops: Array[String] = []
+	if contract_card != null:
+		_stop_controls(contract_card, stops)
+	if loan_card != null:
+		_stop_controls(loan_card, stops)
+	TestFixtures.check(res, "no control inside a contract or loan row stops its hover",
+		contract_body != null and loan_body != null and stops.is_empty(), "stops %s" % [stops])
+	await _drop(bell, host)
+
+
+#Every row of the new postings type in the store, whatever its day.
+static func _postings_rows() -> Array[NotificationData]:
+	var out: Array[NotificationData] = []
+	for row: NotificationData in NotificationCenter.items:
+		if row.type == NotificationData.TYPE_NEW_POSTINGS:
+			out.append(row)
+	return out
+
+
+#One postings row per day: a same day posting raises its count in silence and unreads it, the next
+#day's postings replace it with a fresh alert, and its card is a bodiless contract row with a scroll.
+static func _case_new_postings(res: Dictionary, host: Node) -> void:
+	var bell: NotificationBell = await _bell(host)
+	var panel: NotificationPanel = bell.panel()
+	var alerts: Array[NotificationData] = []
+	var on_alert: Callable = func(row: NotificationData) -> void: alerts.append(row)
+	NotificationCenter.alerted.connect(on_alert)
+	var first: NotificationData = NotificationCenter.add_postings(5, 3)
+	TestFixtures.check(res, "the first postings of a day push one unread informational contract row",
+		first != null and _postings_rows().size() == 1 and not first.read and first.kind == "Contract"
+			and first.urgency == NotificationData.Urgency.INFORMATIONAL and first.trigger_id == 5
+			and first.count() == 3 and int(first.snap.get("day", -1)) == 5,
+		"rows %d" % _postings_rows().size())
+	TestFixtures.check(res, "the postings title counts the contracts in orange and alerts once",
+		first.title_text() == "3 new contracts on the board"
+			and first.title_color() == NotificationData.TITLE_CONTRACT
+			and alerts.size() == 1 and alerts[0] == first,
+		"%s alerts %d" % [first.title_text(), alerts.size()])
+	bell.open_panel()
+	await host.get_tree().process_frame
+	var card: NotificationItem = panel.card_for(first.id)
+	TestFixtures.check(res, "the postings card shows the count title over the guild board line",
+		card != null and card.title_text() == "3 new contracts on the board"
+			and card.name_text() == NotificationData.BOARD_NAME and card.body() == null,
+		"card %s" % ("null" if card == null else card.title_text() + " / " + card.name_text()))
+	var scroll_art: ImageTexture = Icons.tinted("scroll", NotificationData.TITLE_CONTRACT,
+		NotificationItem.MARK_SCALE, true)
+	TestFixtures.check(res, "the postings card wears the orange scroll at 24 x 28",
+		_face(card.icon_glyph()).texture == scroll_art and scroll_art.get_size() == Vector2(24.0, 28.0),
+		str(scroll_art.get_size()))
+	var pressed: Array[NotificationData] = []
+	card.item_pressed.connect(func(data: NotificationData) -> void: pressed.append(data))
+	card.press()
+	TestFixtures.check(res, "pressing the unread postings card raises item_pressed with its row",
+		pressed.size() == 1 and pressed[0] == first, "pressed %d" % pressed.size())
+	NotificationCenter.mark_read(first.id)
+	var changes: Array[int] = []
+	var on_change: Callable = func() -> void: changes.append(1)
+	NotificationCenter.changed.connect(on_change)
+	var raised: NotificationData = NotificationCenter.add_postings(5, 1)
+	NotificationCenter.changed.disconnect(on_change)
+	TestFixtures.check(res, "a same day posting raises the count on the one row without an alert",
+		raised == first and _postings_rows().size() == 1 and first.count() == 4
+			and first.title_text() == "4 new contracts on the board" and alerts.size() == 1,
+		"%s rows %d alerts %d" % [first.title_text(), _postings_rows().size(), alerts.size()])
+	TestFixtures.check(res, "a same day posting unreads the row it raised",
+		not first.read and NotificationCenter.unread_count() == 1,
+		"read %s unread %d" % [str(first.read), NotificationCenter.unread_count()])
+	TestFixtures.check(res, "a same day raise emits changed once and relights the bell dot",
+		changes.size() == 1 and bell.dot_visible(),
+		"changed %d dot %s" % [changes.size(), str(bell.dot_visible())])
+	var next_day: NotificationData = NotificationCenter.add_postings(6, 1)
+	var rows: Array[NotificationData] = _postings_rows()
+	TestFixtures.check(res, "the next day's postings replace the old row with one fresh alert",
+		next_day != null and next_day != first and rows.size() == 1 and rows[0] == next_day
+			and NotificationCenter.by_id(first.id) == null and next_day.trigger_id == 6
+			and alerts.size() == 2 and alerts[1] == next_day,
+		"rows %d alerts %d" % [rows.size(), alerts.size()])
+	TestFixtures.check(res, "one posting reads in the singular on an unread row",
+		next_day.title_text() == "1 new contract on the board" and not next_day.read,
+		next_day.title_text())
+	NotificationCenter.alerted.disconnect(on_alert)
+	await _drop(bell, host)
+
+
+#A postings row routes to the contract board with no entry point: the HUD opens the whole board.
+static func _case_postings_route(res: Dictionary, host: Node) -> void:
+	var route: Dictionary = GameHUD.NOTIFICATION_ROUTES.get(NotificationData.TYPE_NEW_POSTINGS, {})
+	TestFixtures.check(res, "the postings route opens the contracts viewer with no entry point",
+		route.get("key", &"") == &"contracts" and String(route.get("method", "?")) == "", str(route))
+	NotificationCenter.reset()
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var row: NotificationData = NotificationCenter.add_postings(7, 2)
+	var view: Node = hud.open_notification(row)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the hud opens the whole contract board from a postings row and reads it",
+		view is ContractViewer and (view as ContractViewer).campaign_filter == 0 and row.read
+			and hud.popup().is_open(),
+		"view %s read %s" % [view, str(row.read)])
+	hud.popup().close()
+	hud.queue_free()
+	NotificationCenter.reset()
 	await host.get_tree().process_frame

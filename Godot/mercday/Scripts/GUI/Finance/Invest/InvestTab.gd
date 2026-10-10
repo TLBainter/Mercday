@@ -1,15 +1,12 @@
-class_name InvestTab extends Control
+class_name InvestTab extends FinancePage
 
 #The Invest page: the company roster on the left, the header, the range row and the price chart
 #in the centre, the portfolio, the position and the trade panel on the right. Every number comes
 #from StockMarket; the page only reads it and asks it to buy or sell.
 
-const LIST_WIDTH: float = 272.0
 const RIGHT_WIDTH: float = 290.0
 const LOGO_SIZE: Vector2 = Vector2(40.0, 40.0)
 const PRICE_SIZE: int = 26
-const MODAL_GROUP: StringName = &"finance_modal_host"
-const MODAL_NAME: String = "ModalLayer"
 const RANGE_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Invest/InvestRangeButton.tscn")
 const POSITION_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Invest/InvestPosition.tscn")
 const CONFIRM_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Invest/InvestTradeConfirm.tscn")
@@ -40,11 +37,9 @@ var _ranges: Array[InvestRangeButton] = []
 var _position: InvestPosition = null
 var _tooltip: InvestCompanyTooltip = null
 var _confirm: InvestTradeConfirm = null
-var _dirty: bool = false
 
 
 func _ready() -> void:
-	company_list.custom_minimum_size.x = LIST_WIDTH
 	right_column.custom_minimum_size.x = RIGHT_WIDTH
 	price_notes.alignment = BoxContainer.ALIGNMENT_END
 	price_notes.font_size = PRICE_SIZE
@@ -66,7 +61,7 @@ func _ready() -> void:
 	company_id = _valid_id(company_id)
 	if not StockMarket.RANGES.has(range_key):
 		range_key = String(StockMarket.RANGES[0])
-	_refresh_all()
+	_refresh()
 	_apply_chart(false)
 
 
@@ -80,12 +75,12 @@ func _exit_tree() -> void:
 	_confirm = null
 
 
-#The shell calls this when the Invest tab opens: a full refresh, the selected row read and the
+#The shell calls this when the Invest tab opens: the selected row read, one full refresh and the
 #chart wiped in again.
 func page_shown() -> void:
-	_refresh_all()
+	company_id = _valid_id(company_id)
 	StockMarket.mark_viewed(company_id)
-	_refresh_all()
+	_refresh()
 	_apply_chart(true)
 
 
@@ -103,7 +98,7 @@ func select_company(id: int) -> void:
 	trade_panel.setup(company_id)
 	trade_panel.set_quantity(1)
 	StockMarket.mark_viewed(company_id)
-	_refresh_all()
+	_refresh()
 	_apply_chart(true)
 
 
@@ -154,38 +149,12 @@ func confirm_open() -> bool:
 
 func press_confirm_ok() -> void:
 	if _confirm != null:
-		_confirm.press_ok()
+		_confirm.press_confirm()
 
 
 func press_confirm_cancel() -> void:
 	if _confirm != null:
 		_confirm.press_cancel()
-
-
-#The node every modal is parented to: the ModalLayer of the viewer frame, or the page itself
-#when it runs alone.
-func modal_host() -> Control:
-	var at: Node = get_parent()
-	while at != null:
-		var layer: Node = at.get_node_or_null(MODAL_NAME)
-		if layer != null and layer is Control:
-			if layer.is_in_group(MODAL_GROUP) or at.is_in_group(MODAL_GROUP):
-				return layer as Control
-		at = at.get_parent()
-	return self
-
-
-func refresh() -> void:
-	if not is_node_ready():
-		return
-	if not is_visible_in_tree():
-		_dirty = true
-		return
-	_refresh_all()
-
-
-func is_dirty() -> bool:
-	return _dirty
 
 
 func header_name() -> String:
@@ -262,7 +231,7 @@ func confirm_node() -> InvestTradeConfirm:
 	return _confirm
 
 
-func _refresh_all() -> void:
+func _refresh() -> void:
 	if not is_node_ready():
 		return
 	_dirty = false
@@ -378,11 +347,11 @@ func _on_chart_hover(_sample: int) -> void:
 
 
 func _on_market_changed() -> void:
-	refresh()
+	mark_dirty()
 
 
 func _on_money_changed(_notes: int) -> void:
-	refresh()
+	mark_dirty()
 
 
 func _on_trade_touched(n: int) -> void:
@@ -397,9 +366,9 @@ func _on_side_changed(_new_side: StringName) -> void:
 
 func _on_trade_confirmed() -> void:
 	trade_panel.set_quantity(1)
-	_refresh_all()
+	_refresh()
 	_apply_chart(false)
 
 
 func _on_trade_cancelled() -> void:
-	_refresh_all()
+	_refresh()

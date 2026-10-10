@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Finance/Overview/FinanceExpenses.gd" id="1"]
-[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/finance_box.tres" id="2"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/dark_fill.tres" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_ExpenseBreakdown.tres" id="4"]
 
 [node name="FinanceExpenses" type="PanelContainer"]
 mouse_filter = 2
@@ -30,3 +32,7 @@ text = "Monthly Expenses"
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 10
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("3")
+hint = ExtResource("4")

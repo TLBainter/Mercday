@@ -20,7 +20,7 @@ static func grant_auto_immunity(merc: MercenaryData, index: int, total: int) -> 
 	var name := HarnessFlags.auto_immune_name()
 	if name == "" or index >= (total >> 1):
 		return
-	var token := "immune:" + ConstStates.normalize_token(name)
+	var token := _immune_token(name)
 	if not merc.passive_effects.has(token):
 		merc.passive_effects.append(token)
 
@@ -169,10 +169,11 @@ static func harness_restore(team: Array[MercenaryData]) -> void:
 		if merc == null:
 			continue
 		BattleState.restore_pools(merc)
-		for state_name: String in ConstStates.campaign_state_names():
+		for state_name: String in StateCampaign.campaign_state_names():
 			_hard_clear_state(merc, state_name)
 		merc.campaign_states.clear()
 		merc.rest_lockout_until = 0
+		merc.rest_lockout_start = -1
 		merc.rest_lockout_kind = ""
 		names.append(merc.merc_name)
 	if not names.is_empty():
@@ -183,7 +184,7 @@ static func harness_restore(team: Array[MercenaryData]) -> void:
 static func _hard_clear_state(merc: MercenaryData, state_name: String) -> void:
 	if not ConstStates.has_state(merc, state_name):
 		return
-	ConstStates.remove_state(merc, state_name)
+	StateCascade.remove_state(merc, state_name)
 	merc.active_states.erase(state_name)
 	var record: Variant = merc.active_states.get(ConstStates.APPLIED_BY_KEY)
 	if record is Dictionary:
@@ -195,12 +196,11 @@ static func log_auto_immune() -> void:
 	var name := HarnessFlags.auto_immune_name()
 	if name == "" or not EncounterLogger.is_active():
 		return
-	var token := "immune:" + ConstStates.normalize_token(name)
+	var token := _immune_token(name)
 	var names: Array[String] = []
-	for team: Array in [BattleHarness._battle_team_a, BattleHarness._battle_team_b]:
-		for merc: MercenaryData in team:
-			if merc.passive_effects.has(token):
-				names.append(merc.merc_name)
+	for merc: MercenaryData in _battle_mercs():
+		if merc.passive_effects.has(token):
+			names.append(merc.merc_name)
 	EncounterLogger.log_verbose("AUTO IMMUNE: %s %s" % [token, ",".join(names)])
 
 
@@ -213,29 +213,41 @@ static func inflict_auto_state() -> void:
 		EncounterLogger.log_verbose("STATE TEST: %s" % name)
 	var remove_spec := "Resist:Vigor:2:Interact" if name == ConstStates.BURNING else "Resist:Vigor:2:End Turn"
 	var inflict_spec := "Resist:Vigor:2"
-	if HarnessFlags.auto_spec("--auto-remove") != "":
-		remove_spec = HarnessFlags.auto_spec("--auto-remove")
-	if HarnessFlags.auto_spec("--auto-inflict") != "":
-		inflict_spec = HarnessFlags.auto_spec("--auto-inflict")
+	var remove_flag := HarnessFlags.auto_spec("--auto-remove")
+	if remove_flag != "":
+		remove_spec = remove_flag
+	var inflict_flag := HarnessFlags.auto_spec("--auto-inflict")
+	if inflict_flag != "":
+		inflict_spec = inflict_flag
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("STATE TEST SPECS: inflict=%s remove=%s" % [inflict_spec, remove_spec])
 	var immune_names: Array[String] = []
-	for im_team: Array in [BattleHarness._battle_team_a, BattleHarness._battle_team_b]:
-		for im_merc: MercenaryData in im_team:
-			if ConstStates.is_immune(im_merc, name):
-				immune_names.append(im_merc.merc_name)
+	for im_merc: MercenaryData in _battle_mercs():
+		if ConstStates.is_immune(im_merc, name):
+			immune_names.append(im_merc.merc_name)
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("STATE TEST IMMUNE: %s" % ",".join(immune_names))
-	for team: Array in [BattleHarness._battle_team_a, BattleHarness._battle_team_b]:
-		for merc: MercenaryData in team:
-			var foes := BattleHarness._battle_state.get_enemies(merc)
-			if foes.is_empty():
-				continue
-			var source: MercenaryData = foes[randi() % foes.size()]
-			var lines := StateInfliction.inflict(
-				merc, name, inflict_spec, "1 Minute", remove_spec, source, BattleHarness._battle_state)
-			for line: String in lines:
-				EncounterLogger.log_line(line)
-			if BattleHarness._battle_line_fn.is_valid() and not lines.is_empty():
-				BattleHarness._battle_line_fn.call("\n".join(lines))
+	for merc: MercenaryData in _battle_mercs():
+		var foes := BattleHarness.battle_state.get_enemies(merc)
+		if foes.is_empty():
+			continue
+		var source: MercenaryData = foes[randi() % foes.size()]
+		var lines := StateInfliction.inflict(
+			merc, name, inflict_spec, "1 Minute", remove_spec, source, BattleHarness.battle_state)
+		for line: String in lines:
+			EncounterLogger.log_line(line)
+		if BattleHarness.battle_line_fn.is_valid() and not lines.is_empty():
+			BattleHarness.battle_line_fn.call("\n".join(lines))
 	EncounterLogger.flush()
+
+
+static func _immune_token(name: String) -> String:
+	return "immune:" + StateTokens.normalize_token(name)
+
+
+#Team A then team B of the running harness battle.
+static func _battle_mercs() -> Array[MercenaryData]:
+	var out: Array[MercenaryData] = []
+	out.append_array(BattleHarness.battle_team_a)
+	out.append_array(BattleHarness.battle_team_b)
+	return out

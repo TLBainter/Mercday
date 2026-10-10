@@ -1,4 +1,4 @@
-class_name PromotionsViewer extends Control
+class_name PromotionsViewer extends TabbedViewer
 
 #The My Promotions screen: the Job Ads and Guild Ads tabs over one campaign panel. The viewer keeps
 #the filter and the sort the reader picked, asks PromotionsManager which campaigns those leave
@@ -6,17 +6,16 @@ class_name PromotionsViewer extends Control
 #bought yet puts its ModeLock block up in place of the grid, with no toolbar and no new button.
 
 signal view_applicants(campaign_id: int)
+signal view_contracts(campaign_id: int)
 signal campaign_launched(campaign: CampaignData)
 signal campaign_ended(campaign_id: int)
 
-enum Tab {JOB, GUILD}
-
-const FONT_BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const TITLE_COLOR: Color = Color("#f28c28")
-const DESC_COLOR: Color = Color("#9cc6ef")
-const NOTICE_BG: Color = Color("#0e1628")
-const NOTICE_GREEN: Color = Color("#6cc36a")
+const FONT_BOLD: FontVariation = GuiStyle.SILK_BOLD
+const FONT_BODY: FontVariation = GuiStyle.BODY
+const TITLE_COLOR: Color = GuiColors.ORANGE
+const DESC_COLOR: Color = GuiColors.SKY
+const NOTICE_BG: Color = GuiColors.ROW_FILL
+const NOTICE_GREEN: Color = GuiColors.GREEN
 const TITLE_SIZE: int = 16
 const DESC_SIZE: int = 14
 const NOTICE_SIZE: int = 14
@@ -25,8 +24,6 @@ const NOTICE_PAD_X: float = 14.0
 const NOTICE_PAD_Y: float = 8.0
 const NOTICE_SECONDS: float = 3.2
 const NOTICE_TOP: float = 10.0
-const TAB_ICON_SCALE: int = 2
-const TAB_GAP: int = 6
 const ROW_GAP: int = 12
 const HEAD_GAP: int = 14
 const JOB_KEY: StringName = &"job"
@@ -35,8 +32,6 @@ const JOB_TITLE: String = "Job Ads"
 const PROMO_TITLE: String = "Guild Ads"
 const JOB_DESC: String = "Post jobs to attract mercs to apply to your guild."
 const PROMO_DESC: String = "Promote your guild to attract new contracts."
-const JOB_TIP: String = "Ads that bring mercs to your door"
-const PROMO_TIP: String = "Ads that bring contracts to your door"
 const END_TITLE: String = "End %s?"
 const END_REFUND: String = "The campaign stops now. You get %s notes back for the %d unused %s%s."
 const END_WOM: String = "The campaign stops now. Odd Job pay already given to your mercs is not refunded."
@@ -50,12 +45,8 @@ const MONTH_TAIL: String = " left in this month"
 const LAUNCH_NOTICE: String = "%s launched."
 const ENDED_NOTICE: String = "%s ended. %s notes refunded."
 
-@export var start_tab: Tab = Tab.JOB
 @export var mode: StringName = JOB_KEY
 
-@onready var tabs: HBoxContainer = $Body/Rows/Tabs
-@onready var job_tab: TabButton = $Body/Rows/Tabs/Job
-@onready var guild_tab: TabButton = $Body/Rows/Tabs/Guild
 @onready var mode_title: Label = $Body/Rows/Head/Titles/ModeTitle
 @onready var mode_desc: Label = $Body/Rows/Head/Titles/ModeDesc
 @onready var toolbar_node: AdsToolbar = $Body/Rows/Head/Toolbar
@@ -76,14 +67,14 @@ var _pending_id: int = 0
 var _pending_refund: int = 0
 var _pending_name: String = ""
 
+#The View Applicants window over this screen while it is open.
+var _popup: ViewerPopup = null
+
 
 func _ready() -> void:
-	tabs.add_theme_constant_override(&"separation", TAB_GAP)
-	tabs.alignment = BoxContainer.ALIGNMENT_BEGIN
-	_setup_tab(job_tab, Tab.JOB, JOB_TITLE, JOB_TIP)
-	_setup_tab(guild_tab, Tab.GUILD, PROMO_TITLE, PROMO_TIP)
-	_style_label(mode_title, FONT_BOLD, TITLE_SIZE, TITLE_COLOR)
-	_style_label(mode_desc, FONT_BODY, DESC_SIZE, DESC_COLOR)
+	super()
+	GuiStyle.paint(mode_title, FONT_BOLD, TITLE_SIZE, TITLE_COLOR)
+	GuiStyle.paint(mode_desc, FONT_BODY, DESC_SIZE, DESC_COLOR)
 	_style_notice()
 	notice.visible = false
 	notice_timer.one_shot = true
@@ -94,7 +85,8 @@ func _ready() -> void:
 	toolbar_node.filter_changed.connect(_on_filter_changed)
 	toolbar_node.sort_changed.connect(_on_sort_changed)
 	toolbar_node.direction_changed.connect(_on_direction_changed)
-	list_node.view_applicants.connect(_on_view)
+	list_node.view_applicants.connect(_on_view_applicants)
+	list_node.view_contracts.connect(view_contracts.emit)
 	list_node.end_pressed.connect(press_end)
 	list_node.new_pressed.connect(press_new)
 	list_node.take_me_there.connect(_on_take_me_there)
@@ -104,21 +96,12 @@ func _ready() -> void:
 	PromotionsManager.campaigns_changed.connect(refresh)
 	SubscriptionManager.changed.connect(refresh)
 	GameState.day_changed.connect(_on_day_changed)
-	open_tab(key_of(start_tab))
+	open_tab(current_tab())
 
 
 #Moves to a tab by its PromotionsManager mode key, &"job" or &"promo".
 func open_tab(key: StringName) -> void:
-	mode = PROMO_KEY if key == PROMO_KEY else JOB_KEY
-	refresh()
-
-
-func current_tab() -> int:
-	return Tab.GUILD if mode == PROMO_KEY else Tab.JOB
-
-
-func key_of(tab: int) -> StringName:
-	return PROMO_KEY if tab == Tab.GUILD else JOB_KEY
+	_open_tab(PROMO_KEY if key == PROMO_KEY else JOB_KEY)
 
 
 func mode_key() -> String:
@@ -144,8 +127,6 @@ func refresh() -> void:
 	var key: String = mode_key()
 	mode_title.text = title_text()
 	mode_desc.text = desc_text()
-	job_tab.active = mode == JOB_KEY
-	guild_tab.active = mode == PROMO_KEY
 	if mode_locked():
 		toolbar_node.visible = false
 		list_node.show_lock(PromotionsManager.mode_lock(key))
@@ -161,18 +142,6 @@ func refresh() -> void:
 	list_node.set_new_label(CampaignList.NEW_PROMO if mode == PROMO_KEY else CampaignList.NEW_JOB)
 	list_node.set_new_visible(true)
 	list_node.set_cards(shown, _empty_line(total))
-
-
-func press_tab(key: StringName) -> void:
-	open_tab(key)
-
-
-func tab_button(tab: int) -> TabButton:
-	return guild_tab if tab == Tab.GUILD else job_tab
-
-
-func tab_active(tab: int) -> bool:
-	return tab_button(tab).active
 
 
 func toolbar() -> AdsToolbar:
@@ -193,6 +162,12 @@ func builder() -> CampaignBuilder:
 
 func confirm() -> ConfirmDialog:
 	return dialog
+
+
+func popup() -> ViewerPopup:
+	if _popup != null and is_instance_valid(_popup):
+		return _popup
+	return null
 
 
 func card_count() -> int:
@@ -273,7 +248,7 @@ func end_body(preview: Dictionary) -> String:
 		var unused: int = int(preview.get("unused", 0))
 		var word: String = DAY_WORD if unused == 1 else DAYS_WORD
 		var tail: String = MONTH_TAIL if bool(preview.get("infinite", false)) else ""
-		return END_REFUND % [NotesLabel.format_amount(refund), unused, word, tail]
+		return END_REFUND % [TransactionData.grouped(refund), unused, word, tail]
 	if bool(preview.get("crew_paid", false)):
 		return END_WOM
 	return END_PLAIN
@@ -283,7 +258,7 @@ func end_cta(preview: Dictionary) -> String:
 	var refund: int = int(preview.get("refund", 0))
 	if refund <= 0:
 		return END_CTA_PLAIN
-	return END_CTA_REFUND % NotesLabel.format_amount(refund)
+	return END_CTA_REFUND % TransactionData.grouped(refund)
 
 
 func press_confirm() -> void:
@@ -302,42 +277,22 @@ func notice_shown() -> bool:
 	return is_node_ready() and notice.visible
 
 
-func _setup_tab(button: TabButton, tab: int, caption: String, tip: String) -> void:
-	button.label = caption
-	button.description = tip
-	button.index = tab
-	button.icon_id = PromoGlyphs.tab_id(key_of(tab))
-	button.icon_scale = TAB_ICON_SCALE
-	button.tab_pressed.connect(_on_tab_pressed)
-
-
 func _empty_line(total: int) -> String:
 	if total > 0:
 		return CampaignList.EMPTY_FILTERS
 	return CampaignList.EMPTY_PROMO if mode == PROMO_KEY else CampaignList.EMPTY_JOB
 
 
-func _style_label(node: Label, font: FontVariation, font_size: int, tint: Color) -> void:
-	node.add_theme_font_override(&"font", font)
-	node.add_theme_font_size_override(&"font_size", font_size)
-	node.add_theme_color_override(&"font_color", tint)
-
-
 func _style_notice() -> void:
 	notice.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	notice.offset_top = NOTICE_TOP
 	notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	notice_label.add_theme_font_override(&"font", FONT_BODY)
-	notice_label.add_theme_font_size_override(&"font_size", NOTICE_SIZE)
-	notice_label.add_theme_color_override(&"font_color", NOTICE_GREEN)
+	GuiStyle.paint(notice_label, FONT_BODY, NOTICE_SIZE, NOTICE_GREEN)
 	notice.add_theme_stylebox_override(&"panel", _notice_box(NOTICE_GREEN))
 
 
 func _notice_box(tint: Color) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = NOTICE_BG
-	box.set_border_width_all(NOTICE_RING_PX)
-	box.border_color = tint
+	var box: StyleBoxFlat = GuiStyle.flat(NOTICE_BG, NOTICE_RING_PX, tint)
 	box.content_margin_left = NOTICE_PAD_X
 	box.content_margin_right = NOTICE_PAD_X
 	box.content_margin_top = NOTICE_PAD_Y
@@ -359,8 +314,9 @@ func _hide_notice() -> void:
 	notice.visible = false
 
 
-func _on_tab_pressed(tab: int) -> void:
-	open_tab(key_of(tab))
+func _show_tab(key: StringName) -> void:
+	mode = key
+	refresh()
 
 
 func _on_filter_changed(concluded: bool, infinite: bool) -> void:
@@ -377,10 +333,6 @@ func _on_sort_changed(key: StringName) -> void:
 func _on_direction_changed(up: bool) -> void:
 	ascending = up
 	refresh()
-
-
-func _on_view(campaign_id: int) -> void:
-	view_applicants.emit(campaign_id)
 
 
 func _on_launched(campaign: CampaignData) -> void:
@@ -403,7 +355,7 @@ func _on_end_confirmed() -> void:
 	if not PromotionsManager.end(campaign_id):
 		return
 	if refund > 0:
-		_flash(ENDED_NOTICE % [label, NotesLabel.format_amount(refund)], NOTICE_GREEN)
+		_flash(ENDED_NOTICE % [label, TransactionData.grouped(refund)], NOTICE_GREEN)
 	campaign_ended.emit(campaign_id)
 	refresh()
 
@@ -414,3 +366,17 @@ func _on_day_changed(_day_index: int) -> void:
 
 func _on_take_me_there(target: Dictionary) -> void:
 	GameState.go_to_plans(target)
+
+
+#One View Applicants window at a time: a press while one is open does nothing.
+func _on_view_applicants(campaign_id: int) -> void:
+	if popup() != null:
+		return
+	_popup = ViewerPopup.show_hiring(self, campaign_id)
+	if _popup != null:
+		_popup.closed.connect(_on_popup_closed)
+	view_applicants.emit(campaign_id)
+
+
+func _on_popup_closed() -> void:
+	_popup = null

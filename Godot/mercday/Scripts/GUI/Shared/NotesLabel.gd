@@ -1,11 +1,11 @@
 class_name NotesLabel extends HBoxContainer
 
-#A number (or an override string) followed by the note currency glyph, with an optional prefix
-#before it and an optional suffix after the glyph, at its own size when suffix_size is set. Every
-#node ignores the mouse so a host tooltip still reaches the row behind it.
+#A number (or an override string) followed by the note currency glyph, or led by it when glyph_first
+#is set, with an optional prefix before the number and an optional suffix last, at its own size when
+#suffix_size is set. Every node ignores the mouse so a host tooltip still reaches the row behind it.
 
-const FONT_BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
+const FONT_BOLD: FontVariation = GuiStyle.SILK_BOLD
+const FONT_REGULAR: FontVariation = GuiStyle.SILK
 
 @export var amount: int = 0:
 	set(value):
@@ -31,7 +31,7 @@ const FONT_REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/Sil
 	set(value):
 		signed = value
 		_refresh()
-@export var value_color: Color = Color("#f3ead7"):
+@export var value_color: Color = GuiColors.CREAM:
 	set(value):
 		value_color = value
 		_refresh()
@@ -50,6 +50,10 @@ const FONT_REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/Sil
 @export var show_glyph: bool = true:
 	set(value):
 		show_glyph = value
+		_refresh()
+@export var glyph_first: bool = false:
+	set(value):
+		glyph_first = value
 		_refresh()
 @export var separation: int = 4:
 	set(value):
@@ -75,10 +79,9 @@ func _refresh() -> void:
 	add_theme_constant_override("separation", separation)
 	var font: FontVariation = FONT_BOLD if bold else FONT_REGULAR
 	value_label.text = prefix + _core_text()
-	value_label.add_theme_color_override("font_color", value_color)
-	value_label.add_theme_font_size_override("font_size", font_size)
-	value_label.add_theme_font_override("font", font)
+	GuiStyle.paint(value_label, font, font_size, value_color)
 	glyph.visible = show_glyph
+	move_child(glyph, 0 if glyph_first else 1)
 	glyph.pixel_scale = glyph_scale
 	suffix_label.text = suffix
 	suffix_label.visible = suffix != ""
@@ -91,7 +94,7 @@ func _refresh() -> void:
 func _core_text() -> String:
 	if text_override != "":
 		return text_override
-	var body: String = format_amount(amount)
+	var body: String = TransactionData.grouped(amount)
 	if signed and amount > 0:
 		body = "+" + body
 	return body
@@ -100,16 +103,3 @@ func _core_text() -> String:
 #The whole shown text (prefix, number or override, suffix) with the glyph left out.
 func value_text() -> String:
 	return prefix + _core_text() + suffix
-
-
-static func format_amount(value: int) -> String:
-	var neg: bool = value < 0
-	var digits: String = str(absi(value))
-	var out: String = ""
-	var count: int = 0
-	for i: int in range(digits.length() - 1, -1, -1):
-		out = digits[i] + out
-		count += 1
-		if count % 3 == 0 and i != 0:
-			out = "," + out
-	return ("-" if neg else "") + out

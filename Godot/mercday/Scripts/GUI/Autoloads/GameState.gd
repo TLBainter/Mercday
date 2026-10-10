@@ -6,27 +6,23 @@ extends Node
 #A dispatch made between 22:00 and 6:00 is queued: the team waits in the tavern and leaves at 6:00.
 
 const START_BANK := 100
-const START_MERCS := 10
+const START_MERCS := 2
 const START_LEVEL := 1
+const LAUNCH_POSTINGS := 1
+const START_DIFFICULTY := 1.0
+const START_QUALITY := 0.9
+const START_FOOT_TRIES := 10
+const POSTING_NOTICE_KIND := "Contract"
 const SALARY_HOUR := 8
+const WISH_HOUR := 8
 const CLOCK_NAME := "ClockRunner"
 const QUEUED_TAG := "queued in the tavern"
 const DEFAULT_EXTRAS: Dictionary = {"level_mode": "Auto"}
-#Board states the contract list always shows; the rest are closed (B4).
+#Board states the contract list always shows; the rest are closed.
 const LISTED_STATUSES: Array[String] = [BoardEntry.STATUS_DRAFT, BoardEntry.STATUS_ACTIVE]
 #Closed states; each one stays on the list until the calendar month its closed_minute falls in ends.
 const CLOSED_STATUSES: Array[String] = [BoardEntry.STATUS_SUCCEEDED, BoardEntry.STATUS_FAILED,
 	BoardEntry.STATUS_EXPIRED, BoardEntry.STATUS_REJECTED]
-#PLACEHOLDER: the contract accounting a finance layer will own. Expenses run at a flat percent of
-#the reward, a failure pays a fraction of the experience and the experience itself is a flat draw.
-const RESULT_EXPENSE_PCT: int = 12
-const RESULT_FAIL_XP_PCT: int = 35
-const RESULT_XP_BASE: int = 40
-const RESULT_XP_PER_DIFF: int = 30
-#PLACEHOLDER: sample roles and bar levels for seed_results_preview; no real run reads them.
-const RESULT_PREVIEW_ROLES: Array[String] = ["Guide", "Escort", "Driver", "Assassin", "Support"]
-const RESULT_PREVIEW_AFTER_PCT: int = 55
-const RESULT_PREVIEW_GAP_PCT: int = 30
 #Reasons money_moved carries; a finance ledger reads these to sort its transaction list.
 const REASON_TRAVEL: String = "travel"
 const REASON_PAYROLL: String = "payroll"
@@ -38,15 +34,32 @@ const REASON_LOAN_PAYOFF: String = "loan_payoff"
 const REASON_ODD_JOB: String = "odd_job"
 const REASON_STOCK: String = "stock"
 const REASON_DIVIDEND: String = "dividend"
+const REASON_GUILD: String = "guild"
+const REASON_SUBSCRIPTION: String = "subscription"
+const REASON_UPGRADE: String = "upgrade"
+const REASON_ADS: String = "ads"
+const REASON_BAZAAR: String = "bazaar"
+const REASON_LEGAL: String = "legal"
+const REASON_FINE: String = "fine"
+const REASON_BAIL: String = "bail"
+const REASON_PERMIT: String = "permit"
+const REASON_HIRING: String = "hiring"
+const REASON_HIRE: String = "hire"
+const REASON_BENEFIT: String = "benefit"
+const REASON_BONUS: String = "bonus"
+const REASON_MAIL: String = "mail"
 #A credit carrying one of these reasons is income, so it never lowers the day's expenses.
-const INCOME_REASONS: Array[String] = [REASON_LOAN, REASON_STOCK, REASON_DIVIDEND]
+const INCOME_REASONS: Array[String] = [REASON_LOAN, REASON_STOCK, REASON_DIVIDEND, REASON_MAIL]
 #Ledger texts GameState writes itself; every other label comes from the caller.
 const LABEL_PAYROLL: String = "Payroll"
 const LABEL_REWARD: String = "%s - Reward"
+const LABEL_BONUS: String = "%s - Merc Bonus"
 const LABEL_TRAVEL: String = "Travel - %s (x%d)"
+#The removed queue reason for a merc who switched sides on a contract.
+const REMOVED_DEFECTED: String = "defected"
 #The autoloads that take a tick each time the clock moves, in the order they run.
 const TICK_ORDER: Array[String] = ["FinanceManager", "FinanceLedger", "BenefitsManager",
-	"StockMarket", "LegalManager", "PromotionsManager", "BazaarManager"]
+	"StockMarket", "LegalManager", "PromotionsManager", "BazaarManager", "MailCenter"]
 const TICK_METHOD: String = "tick"
 #The away registry takes the statuses from LOAN to ODD_JOB and nothing else.
 const AWAY_FIRST_STATUS: int = GuiTypes.MercStatus.LOAN
@@ -62,22 +75,39 @@ signal money_logged(delta: int, reason: String, label: String)
 signal day_changed(day_index: int)
 signal month_changed(year: int, month: int)
 signal speed_changed(level: int)
+signal time_hold_changed(held: bool)
 #A lock or an upsell asking for the Plans screen; target names the page and the row to open on.
 signal go_to_plans_requested(target: Dictionary)
 signal pip_modes_changed
 #Promotions handing one campaign's applicants to the Hiring tab.
 signal open_hiring_requested(campaign_id: int)
+#Promotions handing one campaign's contracts to the Contracts window.
+signal open_contracts_requested(campaign_id: int)
+#A View in Calendar link asking the calendar to open on that day index.
+signal open_calendar_requested(day: int)
 #The HUD money counter asked to fly a change the bank has already taken.
 signal money_fly_requested(amount: int)
+#The same fly when it should be heard; a result opened again flies in silence.
+signal money_fly_cued(amount: int)
 #One posting settled and its result is waiting to be opened.
 signal results_recorded(entry_id: int)
 signal results_seen(entry_id: int)
+#A team was sent out, or queued at night to leave at 6:00.
+signal dispatched(run: ActiveRun)
+signal contracts_posted(count: int)
+signal contract_rejected(entry_id: int)
 #One merc left the guild or came back to it (the away registry).
 signal away_changed(uid: int)
+#A new campaign is fully set up; the per-campaign managers reset on it.
+signal game_started
+#roster, captives and contracts were rebuilt; it fires on every clock step as well as on a change.
+signal views_refreshed
 
 var bank_notes: int = START_BANK
 var mercs: Array[MercenaryData] = []
 var roster: Array[MercView] = []
+#The captives' views, kept off roster; only the roster list shows them, when its filter asks.
+var captives: Array[MercView] = []
 var board: ContractBoard = null
 var contracts: Array[ContractView] = []
 var active_contracts: Dictionary = {}
@@ -88,6 +118,8 @@ var merc_extras: Dictionary = {}
 var pip_modes: Dictionary = {}
 #The applicant filter the Hiring tab picks up once; {} while nothing has asked for one.
 var hire_filter: Dictionary = {}
+#The contract filter the Contracts window picks up once; {} while nothing has asked for one.
+var contract_filter: Dictionary = {}
 #Entry id to ContractResultData: what every settled posting paid, kept for the results screen.
 var results: Dictionary = {}
 #Entry id to true once the player has opened that result.
@@ -105,8 +137,19 @@ var tick_root: String = "/root/"
 
 #Day counters for the metrics record; the guild source reads and clears them.
 var _day_expenses: int = 0
+#The travel mode and distance of the money movement being logged, for FinanceLedger to stamp on its
+#row; empty outside a travel charge or refund.
+var logged_mode: String = ""
+var logged_km: int = 0
 var _day_contracts: Dictionary = {}
 var _dead_counted: int = 0
+
+#Above zero while the clock settles time; money moved then is a clock deduction and plays no cue.
+var _clock_depth: int = 0
+#Every draw of the daily contract round; seed_round pins it for a test.
+var _round_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+#The day a new game started on; its 8:00 round is skipped (the opening board stands in for it).
+var _start_day: int = -1
 
 
 func _ready() -> void:
@@ -114,9 +157,10 @@ func _ready() -> void:
 	clock.name = CLOCK_NAME
 	clock.processor = process_until
 	add_child(clock)
-	clock.day_changed.connect(_relay_day)
-	clock.month_changed.connect(_relay_month)
-	clock.speed_changed.connect(_relay_speed)
+	clock.day_changed.connect(_on_clock_day)
+	clock.month_changed.connect(_on_clock_month)
+	clock.speed_changed.connect(speed_changed.emit)
+	clock.hold_changed.connect(time_hold_changed.emit)
 	day_changed.connect(MetricsHistory.record_day)
 	MetricsHistory.merc_source = _merc_metrics
 	MetricsHistory.contract_source = _contract_metrics
@@ -124,17 +168,21 @@ func _ready() -> void:
 	SubscriptionManager.changed.connect(prune_pip_modes)
 
 
-#A fresh guild: ten level 1 mercs hired in order and a full board, both dated to the start minute.
+#A fresh guild: START_MERCS level 1 mercs hired in order and the opening board, both dated to the start minute.
 func start_new_game() -> void:
 	ContractResourceBuilder.build_all()
 	CampaignClock.reset()
 	CampaignClock.advance_to(TrynnCalendar.START_MINUTE)
+	_round_rng.randomize()
+	_start_day = day()
 	mercs.clear()
 	roster.clear()
+	captives.clear()
 	contracts.clear()
 	merc_extras.clear()
 	pip_modes.clear()
 	hire_filter.clear()
+	contract_filter.clear()
 	active_contracts.clear()
 	queued.clear()
 	results.clear()
@@ -146,6 +194,8 @@ func start_new_game() -> void:
 	_day_expenses = 0
 	_day_contracts.clear()
 	_dead_counted = 0
+	GuildRecord.reset()
+	IssuerOpinion.reset(ClientRegistry.market_companies(), ClientRegistry.lender_relationships())
 	var previous_level: int = MercGenerator.forced_level
 	for i: int in range(START_MERCS):
 		MercGenerator.forced_level = START_LEVEL
@@ -154,13 +204,30 @@ func start_new_game() -> void:
 		hire(merc)
 	GuildRoster.set_roster(mercs)
 	BeauSystem.set_roster(mercs)
-	board = ContractBoard.new()
-	board.launch(CampaignClock.now())
 	SubscriptionManager.reset()
 	SubscriptionManager.apply_harness_flag()
-	_reset_notices()
+	board = ContractBoard.new()
+	_launch_opening_board(CampaignClock.now())
+	NotificationCenter.reset()
 	started = true
 	refresh_views()
+	game_started.emit()
+	if _expire_postings(CampaignClock.now()):
+		refresh_views()
+		contracts_changed.emit()
+
+
+#The opening posting at START_DIFFICULTY and START_QUALITY, redrawn up to START_FOOT_TRIES times until foot reaches it.
+func _launch_opening_board(now: int) -> void:
+	var previous: float = ContractGenerator.forced_difficulty
+	ContractGenerator.forced_difficulty = START_DIFFICULTY
+	for _try: int in range(START_FOOT_TRIES):
+		board.launch(now, LAUNCH_POSTINGS)
+		if board.entries.is_empty() or Reachability.can_reach(board.entries[0], Reachability.FOOT, now):
+			break
+	ContractGenerator.forced_difficulty = previous
+	for entry: BoardEntry in board.entries:
+		entry.quality = START_QUALITY
 
 
 #Signs one merc on at the current minute; their wage and opening opinion are fixed here.
@@ -170,14 +237,27 @@ func hire(merc: MercenaryData) -> void:
 	var earlier: Array[MercenaryData] = []
 	earlier.assign(mercs)
 	SalarySystem.hire(merc, earlier, CampaignClock.now())
+	merc.idle_since_minute = CampaignClock.now()
 	mercs.append(merc)
 	merc_extras[merc.merc_uid] = DEFAULT_EXTRAS.duplicate(true)
+	GuildRoster.set_roster(mercs)
 	refresh_views()
 	roster_changed.emit()
 
 
+#Pins the daily contract round's draws.
+func seed_round(seed_value: int) -> void:
+	_round_rng.seed = seed_value
+
+
+#True while the clock settles time: inside process_until and while the day and month signals run.
+func clock_moving() -> bool:
+	return _clock_depth > 0
+
+
 #Moves the campaign to a minute, settling everything due on the way in order (11.2). A tick may
 #jump over several due moments, so the earliest is fired one at a time until none is left.
+#The clock depth covers each synchronous step and is never held across a scheduler await.
 func process_until(target: int) -> void:
 	var contracts_dirty: bool = false
 	var roster_dirty: bool = false
@@ -186,30 +266,45 @@ func process_until(target: int) -> void:
 		var now: int = CampaignClock.now()
 		var salary_at: int = _next_salary_minute(now)
 		var expiry_at: int = board.next_expiry_minute(now) if board != null else -1
+		var warn_at: int = _next_warning_minute(now)
 		var refill_at: int = board.next_refill_minute(now) if board != null else -1
 		var depart_at: int = _next_depart_minute(now)
+		var wish_at: int = _next_wish_minute(now)
 		var due: int = -1
 		due = _earliest(due, salary_at, target)
 		due = _earliest(due, expiry_at, target)
+		due = _earliest(due, warn_at, target)
 		due = _earliest(due, refill_at, target)
 		due = _earliest(due, depart_at, target)
+		due = _earliest(due, wish_at, target)
 		for entry: BoardEntry in _active_entries():
 			due = _earliest(due, entry.scheduler.next_due(), target)
 		if due < 0:
 			break
+		_clock_depth += 1
 		CampaignClock.advance_to(due)
 		if salary_at == due:
 			_debit_salaries()
-		if board != null and expiry_at == due:
-			if not board.expire_due(due).is_empty():
+		if wish_at == due:
+			BenefitsManager.tick(due)
+			BenefitsManager.book.roll_wishes(due)
+		if _expire_postings(due):
+			contracts_dirty = true
+		if board != null and refill_at == due and day() != _start_day:
+			var posted: int = int(DailyContractRound.run(board, due, _round_rng)["provisioned"])
+			if posted > 0:
 				contracts_dirty = true
-		if board != null and refill_at == due:
-			if not board.refill(due).is_empty():
-				contracts_dirty = true
+				contracts_posted.emit(posted)
+				_note_postings(posted, due)
+			PromotionsManager.hire_round(due)
 		if depart_at == due:
+			BenefitsManager.tick(due)
 			_depart_queued(due)
 			contracts_dirty = true
 			roster_dirty = true
+		if (refill_at == due or depart_at == due) and _expire_postings(due):
+			contracts_dirty = true
+		_clock_depth -= 1
 		for entry: BoardEntry in _active_entries():
 			if entry.scheduler.next_due() != due:
 				continue
@@ -217,14 +312,21 @@ func process_until(target: int) -> void:
 			contracts_dirty = true
 			roster_dirty = true
 			if entry.scheduler.is_done():
+				_clock_depth += 1
 				_settle(entry)
+				_clock_depth -= 1
+	_clock_depth += 1
 	CampaignClock.advance_to(target)
 	if _clear_returned_away(CampaignClock.now()):
 		roster_dirty = true
 	_tick_managers(CampaignClock.now())
-	_escalate_notices()
+	NotificationCenter.escalate(CampaignClock.now())
 	if not RestSystem.complete_due_rests(mercs, target).is_empty():
 		roster_dirty = true
+	if not BenefitsManager.book.furlough_lines.is_empty():
+		roster_dirty = true
+	BenefitsManager.book.furlough_lines.clear()
+	_clock_depth -= 1
 	if _month_turned(start_month, CampaignClock.now()):
 		contracts_dirty = true
 	refresh_views()
@@ -244,7 +346,9 @@ func _clear_returned_away(now: int) -> bool:
 	if back.is_empty():
 		return false
 	for uid: int in back:
+		var returned: int = int((_away[uid] as Dictionary)["until"])
 		_away.erase(uid)
+		RestSystem.idle_restart(merc_by_uid(uid), returned)
 		away_changed.emit(uid)
 	return true
 
@@ -256,6 +360,30 @@ func _tick_managers(now: int) -> void:
 		var node: Node = get_node_or_null(tick_root + manager)
 		if node != null and node.has_method(TICK_METHOD):
 			node.call(TICK_METHOD, now)
+
+
+#The clock's day and month signals reach their listeners inside clock_moving(): their bills are clock deductions.
+func _on_clock_day(day_index: int) -> void:
+	_clock_depth += 1
+	day_changed.emit(day_index)
+	_clock_depth -= 1
+
+
+func _on_clock_month(year: int, month: int) -> void:
+	_clock_depth += 1
+	month_changed.emit(year, month)
+	_clock_depth -= 1
+
+
+#Calls on_day for each day after last_day up to the day of now and returns the new last day; under zero only records today.
+func for_each_new_day(last_day: int, now: int, on_day: Callable) -> int:
+	var today: int = TrynnCalendar.day_index(now)
+	if last_day < 0:
+		return today
+	while last_day < today:
+		last_day += 1
+		on_day.call(last_day)
+	return last_day
 
 
 #Sends a team out: the travel cost leaves the bank at once and the scheduler takes over the run.
@@ -276,13 +404,16 @@ func dispatch(entry_id: int, run: ActiveRun) -> bool:
 			return false
 		team.append(merc)
 	var now: int = CampaignClock.now()
+	if not _dispatch_allowed(entry, run, now):
+		return false
 	if ContractScheduler.is_night_minute(now):
 		return _queue_dispatch(entry, run, now)
 	var scheduler: ContractScheduler = board.activate(entry_id, team,
-		travel_minutes(run.travel_mode, entry.distance_km), now, _line_sink(entry))
+		travel_minutes(run.travel_mode, entry.distance_km), now, _line_sink(entry), run.leader_uid(), run.travel_mode,
+		run_roles(run))
 	if scheduler == null:
 		return false
-	_spend(run.travel_cost, REASON_TRAVEL, _travel_label(run))
+	_travel_money(run, entry.distance_km, false)
 	run.dispatched_minute = now
 	run.depart_minute = now
 	run.entry_id = entry_id
@@ -290,7 +421,22 @@ func dispatch(entry_id: int, run: ActiveRun) -> bool:
 	_snap_departure(entry_id, team)
 	refresh_views()
 	contracts_changed.emit()
+	dispatched.emit(run)
 	return true
+
+
+#The venture must make the deadline, in the red both legs walk, and each paid leg must fit the bank left when it is paid.
+func _dispatch_allowed(entry: BoardEntry, run: ActiveRun, now: int) -> bool:
+	if not Reachability.can_reach(entry, run.travel_mode, now):
+		return false
+	if is_in_red() and (run.travel_mode != Reachability.FOOT or run.return_mode != Reachability.FOOT):
+		return false
+	var venture: int = DispatchLogic.travel_cost(GuiTypes.travel_mode(run.travel_mode), run.uids().size(),
+		maxi(1, entry.merc_min), entry.distance_km)
+	var out_cost: int = clampi(venture, 0, run.travel_cost)
+	var back_cost: int = run.travel_cost - out_cost
+	return Reachability.fare_ok(run.travel_mode, out_cost, bank_notes) \
+		and Reachability.fare_ok(run.return_mode, back_cost, bank_notes - out_cost)
 
 
 #Calls a queued dispatch off before 6:00: the travel money comes back and the posting reopens.
@@ -298,33 +444,33 @@ func dispatch(entry_id: int, run: ActiveRun) -> bool:
 func cancel_dispatch(entry_id: int) -> bool:
 	if not queued.has(entry_id):
 		return false
-	var run: ActiveRun = queued[entry_id] as ActiveRun
-	if run != null:
-		_refund(run.travel_cost, REASON_TRAVEL_REFUND, _travel_label(run))
 	var entry: BoardEntry = board.entry(entry_id) if board != null else null
-	if entry != null:
-		entry.status = BoardEntry.STATUS_DRAFT
-		if entry.contract != null:
-			entry.contract.status = "Draft"
-		entry.log_lines.clear()
-	queued.erase(entry_id)
-	active_contracts.erase(entry_id)
+	_call_off_queued(entry_id, entry, queued[entry_id] as ActiveRun, -1)
 	refresh_views()
 	contracts_changed.emit()
 	roster_changed.emit()
 	return true
 
 
-#Turns a posting down; it stays listed as Rejected until the month ends (B4).
+#Turns a posting down; it stays listed as Rejected until the month ends and a dearer copy goes back to the pool.
 func reject(entry_id: int) -> bool:
-	if board == null or not board.reject(entry_id):
+	if board == null:
 		return false
+	var entry: BoardEntry = board.entry(entry_id)
+	if not board.reject(entry_id):
+		return false
+	if entry != null:
+		var face: int = IssuerOpinion.face(entry.issuer_id) if entry.issuer_id >= 0 else 0
+		if entry.issuer_id >= 0:
+			IssuerOpinion.on_reject(entry.issuer_id)
+		board.pool.return_rejected(entry, face, CampaignClock.now())
 	refresh_views()
 	contracts_changed.emit()
+	contract_rejected.emit(entry_id)
 	return true
 
 
-#Erases a posting a dispatch could not take; nothing was charged, so nothing comes back (B5).
+#Erases a posting a dispatch could not take; nothing was charged, so nothing comes back.
 func discard(entry_id: int) -> bool:
 	if board == null or active_contracts.has(entry_id) or queued.has(entry_id):
 		return false
@@ -357,7 +503,7 @@ func set_salary(uid: int, new_salary: int) -> int:
 	return opinion
 
 
-#The level-up preference the Merc Viewer stores per merc; unknown modes are ignored.
+#Test hook: the level-up preference the Merc Viewer stores per merc; unknown modes are ignored.
 func set_level_mode(uid: int, mode: String) -> bool:
 	if not merc_extras.has(uid) or not LEVEL_MODES.has(mode):
 		return false
@@ -372,29 +518,82 @@ func set_speed(level: int) -> void:
 		clock.set_speed(level)
 
 
-#What the merc is doing and how long is left of it, for the roster list (GuiTypes.MercStatus).
+func hold_time(holder: Object) -> void:
+	if clock != null:
+		clock.hold(holder)
+
+
+func release_time(holder: Object) -> void:
+	if clock != null:
+		clock.release(holder)
+
+
+func is_time_held() -> bool:
+	return clock != null and clock.is_held()
+
+
+#What the merc is doing, how long is left of it and the fraction of its span left (-1 = unknown), for
+#the roster list (GuiTypes.MercStatus).
 func merc_status(merc: MercenaryData) -> Dictionary:
 	if merc == null:
-		return {"status": GuiTypes.MercStatus.AVAILABLE, "hours_left": 0.0}
+		return _status_row(GuiTypes.MercStatus.AVAILABLE, 0.0, -1.0)
 	var now: int = CampaignClock.now()
+	if merc.is_dead:
+		return _status_row(GuiTypes.MercStatus.DEAD, 0.0, -1.0)
+	if SalarySystem.is_captive(merc):
+		return _status_row(GuiTypes.MercStatus.CAPTURED, 0.0, -1.0)
 	var sent: int = away_status(merc.merc_uid)
 	if sent >= 0:
 		var ends: int = away_until(merc.merc_uid)
-		return {"status": sent, "hours_left": _hours(ends - now) if ends >= 0 else 0.0}
+		return _status_row(sent, _hours(ends - now) if ends >= 0 else 0.0, -1.0)
+	if merc.missing_since >= 0:
+		return _status_row(GuiTypes.MercStatus.MISSING, 0.0, _missing_fraction(merc, now))
 	var waiting: ActiveRun = _queued_run_of(merc.merc_uid)
 	if waiting != null:
-		return {"status": GuiTypes.MercStatus.CONTRACT,
-			"hours_left": _hours(waiting.depart_minute - now)}
+		return _status_row(GuiTypes.MercStatus.PREPARING, _hours(waiting.depart_minute - now),
+			_span_fraction(waiting.dispatched_minute, waiting.depart_minute, now))
 	if merc.on_contract:
 		var entry: BoardEntry = _entry_of(merc)
 		var due: int = entry.scheduler.next_minute if entry != null else now
-		return {"status": GuiTypes.MercStatus.CONTRACT, "hours_left": _hours(due - now)}
+		return _status_row(GuiTypes.MercStatus.CONTRACT, _hours(due - now),
+			_contract_fraction(entry, now))
 	if RestSystem.is_resting(merc):
 		var kind: int = GuiTypes.MercStatus.RESTING
-		if merc.rest_lockout_kind == RestSystem.KIND_FURLOUGH:
+		if merc.rest_lockout_kind == RestSystem.KIND_FURLOUGH or merc.rest_lockout_kind == RestSystem.KIND_VACATION:
 			kind = GuiTypes.MercStatus.VACATION
-		return {"status": kind, "hours_left": _hours(merc.rest_lockout_until - now)}
-	return {"status": GuiTypes.MercStatus.AVAILABLE, "hours_left": 0.0}
+		return _status_row(kind, _hours(merc.rest_lockout_until - now),
+			_span_fraction(merc.rest_lockout_start, merc.rest_lockout_until, now))
+	return _status_row(GuiTypes.MercStatus.AVAILABLE, 0.0, -1.0)
+
+
+func _status_row(status: int, hours_left: float, fraction: float) -> Dictionary:
+	return {"status": status, "hours_left": hours_left, "fraction": fraction}
+
+
+#The share of start..end still ahead of now, 0..1; -1 when the span is unknown or empty.
+func _span_fraction(start: int, end: int, now: int) -> float:
+	if start < 0 or end <= start:
+		return -1.0
+	return clampf(float(end - now) / float(end - start), 0.0, 1.0)
+
+
+#The contract span runs from departure (else dispatch) to the run's return minute, as the payday reads it.
+func _contract_fraction(entry: BoardEntry, now: int) -> float:
+	if entry == null:
+		return -1.0
+	var run: ActiveRun = active_contracts.get(entry.id) as ActiveRun
+	if run == null or run.hours <= 0.0:
+		return -1.0
+	var start: int = run.depart_minute if run.depart_minute >= 0 else run.dispatched_minute
+	return _span_fraction(start, run.return_minute(), now)
+
+
+#Missing runs out over as long again as the merc served before going missing, at least a day.
+func _missing_fraction(merc: MercenaryData, now: int) -> float:
+	if merc.hired_minute < 0:
+		return -1.0
+	var tenure: int = maxi(merc.missing_since - merc.hired_minute, CampaignClock.MINUTES_PER_DAY)
+	return clampf(1.0 - float(now - merc.missing_since) / float(tenure), 0.0, 1.0)
 
 
 #Everyone who cannot be sent anywhere right now.
@@ -403,7 +602,7 @@ func busy_uids() -> Array[int]:
 	for merc: MercenaryData in mercs:
 		if merc == null:
 			continue
-		if merc.on_contract or not RestSystem.is_deployable(merc):
+		if merc.on_contract or merc.missing_since >= 0 or not RestSystem.is_deployable(merc):
 			out.append(merc.merc_uid)
 	for uid: int in _away:
 		if not out.has(uid):
@@ -424,6 +623,7 @@ func set_away(uid: int, status: int, until_minute: int = -1) -> bool:
 	if status < AWAY_FIRST_STATUS or status > AWAY_LAST_STATUS:
 		return false
 	_away[uid] = {"status": status, "until": until_minute}
+	RestSystem.idle_break(merc_by_uid(uid))
 	refresh_views()
 	roster_changed.emit()
 	away_changed.emit(uid)
@@ -434,6 +634,7 @@ func clear_away(uid: int) -> void:
 	if not _away.has(uid):
 		return
 	_away.erase(uid)
+	RestSystem.idle_restart(merc_by_uid(uid), CampaignClock.now())
 	refresh_views()
 	roster_changed.emit()
 	away_changed.emit(uid)
@@ -483,7 +684,16 @@ func remove_merc(uid: int, reason: String, status: int = -1) -> RemovedMercRecor
 	return record
 
 
-#The record of one removed merc, or null when the guild never lost that uid.
+#The mercs who switched sides on a contract, kept so a later system can bring them back.
+func defectors() -> Array[RemovedMercRecord]:
+	var out: Array[RemovedMercRecord] = []
+	for record: RemovedMercRecord in removed:
+		if record != null and record.reason == REMOVED_DEFECTED:
+			out.append(record)
+	return out
+
+
+#Test hook: the record of one removed merc, or null when the guild never lost that uid.
 func removed_by_uid(uid: int) -> RemovedMercRecord:
 	for record: RemovedMercRecord in removed:
 		if record != null and record.uid == uid:
@@ -491,6 +701,7 @@ func removed_by_uid(uid: int) -> RemovedMercRecord:
 	return null
 
 
+#Test hook.
 func removed_count() -> int:
 	return removed.size()
 
@@ -512,26 +723,46 @@ func merc_by_uid(uid: int) -> MercenaryData:
 	return null
 
 
+#The roster view of a merc, or null when no roster view carries that uid.
+func view_by_uid(uid: int) -> MercView:
+	return MercView.by_uid(roster, uid)
+
+
+#The uid of every merc on the roster, in roster order.
+func roster_uids() -> Array[int]:
+	var out: Array[int] = []
+	for view: MercView in roster:
+		if view != null:
+			out.append(view.uid)
+	return out
+
+
 #Rebuilds the two view lists the screens read; the dead and the captive are hidden for now.
 func refresh_views() -> void:
 	var now: int = CampaignClock.now()
 	roster.clear()
+	captives.clear()
 	for merc: MercenaryData in mercs:
-		if merc == null or merc.is_dead or SalarySystem.is_captive(merc):
+		if merc == null or merc.is_dead:
 			continue
 		var state: Dictionary = merc_status(merc)
-		roster.append(MercView.from_merc(merc, int(state["status"]), float(state["hours_left"]),
-			employment_months(merc), _extras_for(merc)))
+		var view: MercView = MercView.from_merc(merc, int(state["status"]), float(state["hours_left"]),
+			employment_months(merc), _extras_for(merc))
+		view.status_fraction_left = float(state["fraction"])
+		if SalarySystem.is_captive(merc):
+			captives.append(view)
+		else:
+			roster.append(view)
 	contracts.clear()
-	if board == null:
-		return
-	for entry: BoardEntry in board.entries:
-		if _is_listed(entry, now):
-			contracts.append(ContractView.from_entry(entry, now))
+	if board != null:
+		for entry: BoardEntry in board.entries:
+			if _is_listed(entry, now):
+				contracts.append(ContractView.from_entry(entry, now))
+	views_refreshed.emit()
 
 
-#Open and active postings always list; a closed one lists until its month ends (B4).
-#A closed entry with no stamp never got one, so it drops out the way it did before stage 4.
+#Open and active postings always list; a closed one lists until its month ends.
+#A closed entry with no close stamp drops out at once.
 func _is_listed(entry: BoardEntry, now: int) -> bool:
 	if entry == null:
 		return false
@@ -567,17 +798,42 @@ func employment_months(merc: MercenaryData) -> int:
 	return TrynnCalendar.months_between(merc.hired_minute, CampaignClock.now())
 
 
+#The run's dispatch roles, merc_uid to role; empty slots and blank roles are left out.
+func run_roles(run: ActiveRun) -> Dictionary:
+	var out: Dictionary = {}
+	for member: TeamMember in run.team:
+		if member == null or member.merc_uid == 0 or member.role == "":
+			continue
+		out[member.merc_uid] = member.role
+	return out
+
+
 #Minutes on the road for a travel mode over a distance; an unknown mode falls back to the
 #scheduler's own travel figure and a mode with no daily range arrives at once.
 func travel_minutes(mode_key: String, distance_km: int) -> int:
-	for mode: Dictionary in GuiTypes.TRAVEL_MODES:
-		if String(mode["key"]) != mode_key:
-			continue
-		var per_day: float = float(mode["km_per_day"])
-		if per_day <= 0.0:
-			return 0
-		return int(ceil(float(distance_km) / per_day * float(CampaignClock.MINUTES_PER_DAY)))
-	return CampaignClock.TRAVEL_MINUTES
+	return Reachability.base_minutes(mode_key, distance_km)
+
+
+#True when the contract's start location holds an active teleport permit; false for no contract or an unknown place.
+func tele_permit_for(entry: BoardEntry) -> bool:
+	if entry == null or entry.contract == null:
+		return false
+	var index: int = ClientRegistry.LOCATIONS.find(entry.contract.location_a)
+	if index < 0:
+		return false
+	return LegalManager.permit_state(index, LegalManager.PERMIT_TELE) == LegalManager.STATE_ACTIVE
+
+
+#Charges a run's fare, or hands it back, with its mode and distance stamped on the ledger row.
+func _travel_money(run: ActiveRun, km: int, back: bool) -> void:
+	logged_mode = run.travel_mode
+	logged_km = km
+	if back:
+		refund(run.travel_cost, REASON_TRAVEL_REFUND, _travel_label(run))
+	else:
+		_spend(run.travel_cost, REASON_TRAVEL, _travel_label(run))
+	logged_mode = ""
+	logged_km = 0
 
 
 #The ledger text of one travel charge: the mode and how many left on it.
@@ -596,6 +852,11 @@ func _next_salary_minute(now: int) -> int:
 		return at
 	var next: Dictionary = TrynnCalendar.date_of(TrynnCalendar.next_month_start(now))
 	return TrynnCalendar.first_weekday_minute(int(next["year"]), int(next["month"]), SALARY_HOUR)
+
+
+#The daily vacation wish roll (Mail plan 3.6): the next WISH_HOUR strictly after this minute.
+func _next_wish_minute(now: int) -> int:
+	return ContractScheduler.next_hour_after(now, WISH_HOUR)
 
 
 #The earlier of two due minutes, ignoring anything past the target or already behind.
@@ -632,21 +893,22 @@ func _line_sink(entry: BoardEntry) -> Callable:
 
 #A dispatch made at night: the crew and the travel money are committed now, the team leaves at 6:00.
 func _queue_dispatch(entry: BoardEntry, run: ActiveRun, now: int) -> bool:
+	if not Reachability.can_reach(entry, run.travel_mode, now):
+		return false
 	run.dispatched_minute = now
 	run.entry_id = entry.id
 	run.depart_minute = ContractScheduler.next_wake_minute(now)
 	entry.log_lines.clear()
 	entry.log_lines.append(_queued_line(now, run.depart_minute))
 	entry.verdict = ""
-	entry.status = BoardEntry.STATUS_ACTIVE
-	if entry.contract != null:
-		entry.contract.status = "Active"
-	_spend(run.travel_cost, REASON_TRAVEL, _travel_label(run))
+	set_entry_status(entry, BoardEntry.STATUS_ACTIVE)
+	_travel_money(run, entry.distance_km, false)
 	active_contracts[entry.id] = run
 	queued[entry.id] = run
 	refresh_views()
 	contracts_changed.emit()
 	roster_changed.emit()
+	dispatched.emit(run)
 	return true
 
 
@@ -668,6 +930,67 @@ func _next_depart_minute(now: int) -> int:
 	return soonest
 
 
+#The soonest minute after now that an unwarned bounded posting enters its last day; -1 when none is waiting.
+func _next_warning_minute(now: int) -> int:
+	if board == null:
+		return -1
+	var soonest: int = -1
+	for entry: BoardEntry in board.entries:
+		if not entry.is_open() or entry.reach_warned or entry.deadline_minute <= 0:
+			continue
+		var at: int = Reachability.warning_minute(entry.expires_minute)
+		if at > now and (soonest < 0 or at < soonest):
+			soonest = at
+	return soonest
+
+
+#Sweeps reach, then closes every posting whose time ran out with an expired notice; true when the board changed.
+func _expire_postings(now: int) -> bool:
+	if board == null:
+		return false
+	var moved: bool = _sweep_reach(now)
+	var gone: Array[BoardEntry] = board.expire_due(now)
+	for entry: BoardEntry in gone:
+		NotificationCenter.push(NotificationData.TYPE_EXPIRED, entry.id, _posting_snap(entry),
+			NotificationData.Urgency.INFORMATIONAL, POSTING_NOTICE_KIND)
+	return moved or not gone.is_empty()
+
+
+#Pulls each bounded open posting in to the last minute its best affordable mode makes the deadline, or to now
+#when no mode does, and warns once inside the last day; true when an expiry moved.
+func _sweep_reach(now: int) -> bool:
+	var moved: bool = false
+	for entry: BoardEntry in board.entries:
+		if not entry.is_open() or entry.deadline_minute <= 0:
+			continue
+		var best: String = Reachability.best_mode(entry, now, bank_notes, tele_permit_for(entry),
+			maxi(1, entry.merc_min))
+		entry.best_mode = best
+		var expires: int = now
+		if best != "":
+			var modes: Array[String] = [best]
+			expires = mini(entry.expires_minute, Reachability.auto_reject_minute(entry, modes, now))
+		if expires != entry.expires_minute:
+			entry.expires_minute = expires
+			moved = true
+		if entry.reach_warned or entry.expires_minute <= now:
+			continue
+		if entry.expires_minute - now <= Reachability.WARNING_MINUTES:
+			entry.reach_warned = true
+			NotificationCenter.push(NotificationData.TYPE_EXPIRY_WARNING, entry.id, _posting_snap(entry),
+				NotificationData.Urgency.IMPORTANT, POSTING_NOTICE_KIND)
+	return moved
+
+
+#The bell snap of a posting: the name, difficulty and reward keys a result notice carries.
+func _posting_snap(entry: BoardEntry) -> Dictionary:
+	var snap: Dictionary = {"name": entry_name(entry), "difficulty": 0.0, "reward": 0}
+	if entry.contract != null:
+		snap["difficulty"] = entry.contract.difficulty
+		snap["reward"] = entry.contract.reward_notes
+	return snap
+
+
 #6:00: every queued team still standing leaves; one with nobody left has its dispatch called off.
 func _depart_queued(due: int) -> void:
 	var ids: Array[int] = []
@@ -680,6 +1003,7 @@ func _depart_queued(due: int) -> void:
 		var run: ActiveRun = queued[id] as ActiveRun
 		var entry: BoardEntry = board.entry(id) if board != null else null
 		if entry == null:
+			BenefitsManager.book.release_held(run.uids(), due)
 			queued.erase(id)
 			active_contracts.erase(id)
 			continue
@@ -689,14 +1013,15 @@ func _depart_queued(due: int) -> void:
 			if merc != null and not merc.is_dead:
 				team.append(merc)
 		if team.is_empty():
-			_call_off_queued(entry, run, due)
+			_call_off_queued(id, entry, run, due)
 			continue
 		var held: String = entry.log_lines[0] if not entry.log_lines.is_empty() else ""
 		entry.status = BoardEntry.STATUS_DRAFT
 		var scheduler: ContractScheduler = board.activate(id, team,
-			travel_minutes(run.travel_mode, entry.distance_km), due, _line_sink(entry))
+			travel_minutes(run.travel_mode, entry.distance_km), due, _line_sink(entry), run.leader_uid(),
+			run.travel_mode, run_roles(run))
 		if scheduler == null:
-			_call_off_queued(entry, run, due)
+			_call_off_queued(id, entry, run, due)
 			continue
 		if held != "":
 			entry.log_lines.insert(0, held)
@@ -704,17 +1029,31 @@ func _depart_queued(due: int) -> void:
 		queued.erase(id)
 
 
-#A queued dispatch with nobody left to send: the money comes back and the posting reopens.
-func _call_off_queued(entry: BoardEntry, run: ActiveRun, due: int) -> void:
+#Calls a queued dispatch off: the money comes back and the posting reopens; due -1 logs no called-off line.
+func _call_off_queued(entry_id: int, entry: BoardEntry, run: ActiveRun, due: int) -> void:
 	if run != null:
-		_refund(run.travel_cost, REASON_TRAVEL_REFUND, _travel_label(run))
-	entry.status = BoardEntry.STATUS_DRAFT
+		_travel_money(run, entry.distance_km if entry != null else 0, true)
+		BenefitsManager.book.release_held(run.uids(), CampaignClock.now() if due < 0 else due)
+	if entry != null:
+		set_entry_status(entry, BoardEntry.STATUS_DRAFT)
+		entry.log_lines.clear()
+		if due >= 0:
+			entry.log_lines.append("%s CALLED OFF: nobody left to send" % CampaignClock.stamp(due))
+	queued.erase(entry_id)
+	active_contracts.erase(entry_id)
+	_expire_postings(CampaignClock.now())
+
+
+#The queue entry and its contract always carry the same status.
+func set_entry_status(entry: BoardEntry, status: String) -> void:
+	entry.status = status
 	if entry.contract != null:
-		entry.contract.status = "Draft"
-	entry.log_lines.clear()
-	entry.log_lines.append("%s CALLED OFF: nobody left to send" % CampaignClock.stamp(due))
-	queued.erase(entry.id)
-	active_contracts.erase(entry.id)
+		entry.contract.status = status
+
+
+#True while the merc waits in a queued dispatch that has not departed (N63).
+func is_queued(uid: int) -> bool:
+	return _queued_run_of(uid) != null
 
 
 #The queued run a merc is waiting on; null when they are not in one.
@@ -732,7 +1071,7 @@ func _debit_salaries() -> void:
 	_spend(int(result["total"]), REASON_PAYROLL, LABEL_PAYROLL)
 
 
-#Closes a finished run: the board decides the posting's fate and a success pays out (G13).
+#Closes a finished run: the board decides the posting's fate; a success banks the reward (G13), then pays the merc bonus.
 func _settle(entry: BoardEntry) -> void:
 	var run: ContractRun = entry.scheduler.run
 	var sent: ActiveRun = active_contracts.get(entry.id) as ActiveRun
@@ -744,10 +1083,72 @@ func _settle(entry: BoardEntry) -> void:
 			bank_notes += run.reward_paid
 			money_changed.emit(bank_notes)
 			money_moved.emit(run.reward_paid, REASON_CONTRACT)
-			money_logged.emit(run.reward_paid, REASON_CONTRACT, LABEL_REWARD % _entry_name(entry))
-		_record_result(entry, run, sent)
+			money_logged.emit(run.reward_paid, REASON_CONTRACT, LABEL_REWARD % entry_name(entry))
+		_record_standing(entry, run.verdict, CampaignClock.now())
+		_record_result(entry, run, sent, BenefitsManager.per_contract)
+		_fail_stress(result_of(entry.id))
+		_spend(result_of(entry.id).bonus(), REASON_BONUS, LABEL_BONUS % entry_name(entry))
+		_accrue_bonus_owed(result_of(entry.id))
 	active_contracts.erase(entry.id)
 	_departure.erase(entry.id)
+	if run != null:
+		_remove_defectors(result_of(entry.id))
+		_roll_returned(result_of(entry.id))
+
+
+#Each ALIVE member of a failed contract takes the failed-contract stress (Mail plan 3.6).
+func _fail_stress(result: ContractResultData) -> void:
+	if result == null or not result.failed:
+		return
+	for member: ResultMemberData in result.living():
+		var merc: MercenaryData = merc_by_uid(member.uid)
+		if merc != null:
+			VacationDesire.on_failed_contract(merc)
+
+
+#The returned team rolls its vacation wishes at once; an empty team would roll the whole guild, so it is skipped.
+func _roll_returned(result: ContractResultData) -> void:
+	if result == null:
+		return
+	var team: Array[MercenaryData] = []
+	for member: ResultMemberData in result.living():
+		if merc_by_uid(member.uid) != null:
+			team.append(merc_by_uid(member.uid))
+	if not team.is_empty():
+		BenefitsManager.book.roll_wishes(CampaignClock.now(), team)
+
+
+#A settled verdict feeds the guild record and the issuer's opinion, judged on the bank after the reward lands.
+func _record_standing(entry: BoardEntry, verdict: String, now: int) -> void:
+	var won: bool = verdict == BoardEntry.STATUS_SUCCEEDED
+	if not won and verdict != BoardEntry.STATUS_FAILED:
+		return
+	GuildRecord.guild.record(won, now)
+	if entry.issuer_id < 0:
+		return
+	if won:
+		IssuerOpinion.on_success(entry.issuer_id, now, is_in_red())
+	else:
+		IssuerOpinion.on_fail(entry.issuer_id, now)
+
+
+#A defector leaves the roster once the result rows exist; their record joins the defector pool.
+func _remove_defectors(result: ContractResultData) -> void:
+	if result == null:
+		return
+	for member: ResultMemberData in result.members:
+		if member != null and member.forfeits() and merc_by_uid(member.uid) != null:
+			remove_merc(member.uid, REMOVED_DEFECTED, GuiTypes.MercStatus.FIRED)
+
+
+#An away member's bonus share waits on the merc, like a captive's backpay: no bank move, no ledger row.
+func _accrue_bonus_owed(result: ContractResultData) -> void:
+	for member: ResultMemberData in result.members:
+		if member == null or member.owed <= 0:
+			continue
+		var merc: MercenaryData = merc_by_uid(member.uid)
+		if merc != null:
+			merc.bonus_owed += member.owed
 
 
 func _spend(amount: int, reason: String = "", label: String = "") -> void:
@@ -762,7 +1163,7 @@ func _spend(amount: int, reason: String = "", label: String = "") -> void:
 
 #Notes back in the bank: the travel debit of a dispatch that never left comes off the day's
 #expenses, while income (a loan, a share sale, a dividend) only raises the bank.
-func _refund(amount: int, reason: String = "", label: String = "") -> void:
+func refund(amount: int, reason: String = "", label: String = "") -> void:
 	if amount == 0:
 		return
 	bank_notes += amount
@@ -781,18 +1182,6 @@ func _extras_for(merc: MercenaryData) -> Dictionary:
 
 func _hours(minutes: int) -> float:
 	return maxf(0.0, float(minutes) / float(CampaignClock.MINUTES_PER_HOUR))
-
-
-func _relay_day(day_index: int) -> void:
-	day_changed.emit(day_index)
-
-
-func _relay_month(year: int, month: int) -> void:
-	month_changed.emit(year, month)
-
-
-func _relay_speed(level: int) -> void:
-	speed_changed.emit(level)
 
 
 #One day of per-merc samples; the dead drop out of the record.
@@ -838,7 +1227,7 @@ func _guild_metrics(_day_index: int) -> Dictionary:
 		"exp": float(_day_expenses),
 		"count": float(living),
 		"dead": float(maxi(0, dead - _dead_counted)),
-		#No investment system exists yet, so the portfolio stays flat at nothing.
+		#The live portfolio metric does not read the StockMarket holdings, so it stays flat at 0.
 		"port": 0.0,
 	}
 	_dead_counted = dead
@@ -865,15 +1254,73 @@ func take_hire_filter() -> Dictionary:
 	return filter
 
 
+#Opens the Contracts window filtered to the postings one Guild Ads campaign brought in.
+func open_contracts(campaign_id: int) -> void:
+	contract_filter = {"campaign": campaign_id}
+	open_contracts_requested.emit(campaign_id)
+
+
+#Opens the calendar on that day index (a View in Calendar link).
+func open_calendar(on_day: int) -> void:
+	open_calendar_requested.emit(on_day)
+
+
+#Hands the stored contract filter over once; the next caller gets nothing.
+func take_contract_filter() -> Dictionary:
+	var filter: Dictionary = contract_filter
+	contract_filter = {}
+	return filter
+
+
+#Every posting one Guild Ads campaign brought in, in board order, closed and past-month ones included.
+func campaign_contracts(campaign_id: int) -> Array[ContractView]:
+	var out: Array[ContractView] = []
+	if board == null or campaign_id <= 0:
+		return out
+	var now: int = CampaignClock.now()
+	for entry: BoardEntry in board.entries:
+		if entry != null and entry.campaign_id == campaign_id:
+			out.append(ContractView.from_entry(entry, now))
+	return out
+
+
+#Posts one contract a Guild Ads campaign brought in, tagged with its id and swept at once; quiet skips the new-postings notice.
+func post_campaign_contract(contract: ContractData, campaign_id: int, quiet: bool = false) -> BoardEntry:
+	if board == null or contract == null:
+		return null
+	var entry: BoardEntry = board.post(contract, CampaignClock.now())
+	entry.campaign_id = campaign_id
+	_expire_postings(CampaignClock.now())
+	refresh_views()
+	contracts_changed.emit()
+	if not quiet:
+		contracts_posted.emit(1)
+		_note_postings(1, CampaignClock.now())
+	return entry
+
+
+#Counts new postings on the bell: one row per day, and the next day's row replaces the last one.
+func _note_postings(count: int, minute: int) -> void:
+	if count > 0:
+		NotificationCenter.add_postings(TrynnCalendar.day_index(minute), count)
+
+
 #Asks the HUD to fly notes in or out of its counter; spend() or refund() moved them already.
-func fly_money(amount: int) -> void:
+#cue false flies them in silence.
+func fly_money(amount: int, cue: bool = true) -> void:
 	if amount == 0:
 		return
 	money_fly_requested.emit(amount)
+	if cue:
+		money_fly_cued.emit(amount)
 
 
 func can_afford(amount: int) -> bool:
 	return amount <= bank_notes
+
+
+func is_in_red() -> bool:
+	return bank_notes < 0
 
 
 #Debits the bank when the notes are there; a refusal leaves it untouched.
@@ -882,10 +1329,6 @@ func spend(amount: int, reason: String = "", label: String = "") -> bool:
 		return false
 	_spend(amount, reason, label)
 	return true
-
-
-func refund(amount: int, reason: String = "", label: String = "") -> void:
-	_refund(amount, reason, label)
 
 
 #The bill that always lands: payroll, a loan payment or a fine takes the notes whether they are
@@ -951,6 +1394,16 @@ func _mirror_level_mode(uid: int, mode: StringName) -> void:
 	_extras_for(merc)["level_mode"] = text if LEVEL_MODES.has(text) else "Auto"
 
 
+#The posted contract with that board entry id; null when none matches.
+func contract_view(entry_id: int) -> ContractView:
+	if entry_id < 0:
+		return null
+	for view: ContractView in contracts:
+		if view != null and view.entry_id == entry_id:
+			return view
+	return null
+
+
 #The result of one settled posting; null while the posting has none.
 func result_of(entry_id: int) -> ContractResultData:
 	return results.get(entry_id) as ContractResultData
@@ -979,46 +1432,10 @@ func mark_seen(entry_id: int) -> bool:
 	if not results.has(entry_id) or seen_results.has(entry_id):
 		return false
 	seen_results[entry_id] = true
-	var center: Node = _notices()
-	if center != null:
-		center.call("read_contract", entry_id)
+	NotificationCenter.read_contract(entry_id)
 	results_seen.emit(entry_id)
 	contracts_changed.emit()
 	return true
-
-
-#Two closed postings for the results click-through: one success, one failure, nobody really hurt.
-func seed_results_preview() -> Array[int]:
-	var out: Array[int] = []
-	if board == null:
-		return out
-	var now: int = CampaignClock.now()
-	if board.available().size() < 2:
-		board.refill(now)
-	var open_entries: Array[BoardEntry] = board.available()
-	if open_entries.size() < 2:
-		return out
-	out.append(_seed_preview(open_entries[0], false, now))
-	out.append(_seed_preview(open_entries[1], true, now))
-	refresh_views()
-	contracts_changed.emit()
-	return out
-
-
-func _notices() -> Node:
-	return get_node_or_null("/root/NotificationCenter")
-
-
-func _reset_notices() -> void:
-	var center: Node = _notices()
-	if center != null:
-		center.call("reset")
-
-
-func _escalate_notices() -> void:
-	var center: Node = _notices()
-	if center != null:
-		center.call("escalate", CampaignClock.now())
 
 
 #What each merc looked like when the team left, so the result can show the change.
@@ -1027,41 +1444,26 @@ func _snap_departure(entry_id: int, team: Array[MercenaryData]) -> void:
 	for merc: MercenaryData in team:
 		if merc == null:
 			continue
+		var top: Vector3i = _max_stats(merc)
 		rows[merc.merc_uid] = {
 			"hp": merc.current_hp,
 			"ep": merc.current_ep,
 			"mp": merc.current_mp,
-			"hp_max": int(merc.stats.get("maximum_hit_points", 0)),
-			"ep_max": int(merc.stats.get("maximum_endurance_points", 0)),
-			"mp_max": int(merc.stats.get("maximum_magic_points", 0)),
+			"hp_max": top.x,
+			"ep_max": top.y,
+			"mp_max": top.z,
 			"xp": merc.xp,
 			"level": ExperienceSystem.current_level(merc),
 		}
 	_departure[entry_id] = rows
 
 
-#Builds the result of a settled posting. A run the board sent back to Draft keeps no result.
-func _record_result(entry: BoardEntry, run: ContractRun, sent: ActiveRun) -> void:
+#Builds the result of a settled posting at the bonus percent settlement paid.
+func _record_result(entry: BoardEntry, run: ContractRun, sent: ActiveRun, pct: int) -> void:
 	var failed: bool = entry.status == BoardEntry.STATUS_FAILED
-	if not failed and entry.status != BoardEntry.STATUS_SUCCEEDED:
-		return
-	var result := ContractResultData.new()
-	result.entry_id = entry.id
-	result.name = _entry_name(entry)
-	result.failed = failed
-	result.closed_minute = entry.closed_minute
-	if entry.contract != null:
-		result.difficulty = entry.contract.difficulty
-		result.listed_reward = entry.contract.reward_notes
-	result.reward = 0 if failed else run.reward_paid
-	result.expenses = sent.travel_cost if sent != null else 0
-	#The finance layer writes result.bonus_pct before the results screen reads it.
-	result.bonus_pct = 0
-	result.members = _result_members(entry, run, sent)
-	result.pick_mvp()
-	result.assign_pay()
-	_store_result(result)
-	_push_result_notice(result)
+	var result := ContractResultData.from_entry(entry, entry_name(entry), failed, run.reward_paid,
+		sent.travel_cost if sent != null else 0, _result_members(entry, run, sent), pct)
+	publish_result(result)
 
 
 func _result_members(entry: BoardEntry, run: ContractRun,
@@ -1076,7 +1478,7 @@ func _result_members(entry: BoardEntry, run: ContractRun,
 			order.append(spot.merc_uid)
 			roles[spot.merc_uid] = spot.role
 	else:
-		for group: Array[MercenaryData] in [run.team, run.casualties, run.kidnapped]:
+		for group: Array[MercenaryData] in [run.team, run.casualties, run.kidnapped, run.defectors, run.departed]:
 			for merc: MercenaryData in group:
 				if merc != null and not order.has(merc.merc_uid):
 					order.append(merc.merc_uid)
@@ -1102,6 +1504,10 @@ func _result_member(merc: MercenaryData, role: String, run: ContractRun,
 		member.fate = ResultMemberData.Fate.DEAD
 	elif run.kidnapped.has(merc) or SalarySystem.is_captive(merc):
 		member.fate = ResultMemberData.Fate.CAPTURED
+	elif run.defectors.has(merc):
+		member.fate = ResultMemberData.Fate.DEFECTED
+	elif run.departed.has(merc):
+		member.fate = ResultMemberData.Fate.DEPARTED
 	member.level_after = ExperienceSystem.current_level(merc)
 	member.level_before = int(snap.get("level", member.level_after))
 	var before_total: int = int(snap.get("xp", merc.xp))
@@ -1109,13 +1515,27 @@ func _result_member(merc: MercenaryData, role: String, run: ContractRun,
 	member.xp_need = ExperienceSystem.xp_for_level(member.level_before + 1) - \
 		ExperienceSystem.xp_for_level(member.level_before)
 	member.xp_before = maxi(0, before_total - ExperienceSystem.xp_for_level(member.level_before))
-	member.hp = Vector2i(merc.current_hp, int(merc.stats.get("maximum_hit_points", 0)))
-	member.ep = Vector2i(merc.current_ep, int(merc.stats.get("maximum_endurance_points", 0)))
-	member.mp = Vector2i(merc.current_mp, int(merc.stats.get("maximum_magic_points", 0)))
+	var top: Vector3i = _max_stats(merc)
+	member.hp = Vector2i(merc.current_hp, top.x)
+	member.ep = Vector2i(merc.current_ep, top.y)
+	member.mp = Vector2i(merc.current_mp, top.z)
 	member.hp_before = int(snap.get("hp", member.hp.x))
 	member.ep_before = int(snap.get("ep", member.ep.x))
 	member.mp_before = int(snap.get("mp", member.mp.x))
 	return member
+
+
+#The merc's HP, EP and MP maximums as x, y and z.
+static func _max_stats(merc: MercenaryData) -> Vector3i:
+	return Vector3i(int(merc.stats.get("maximum_hit_points", 0)),
+		int(merc.stats.get("maximum_endurance_points", 0)),
+		int(merc.stats.get("maximum_magic_points", 0)))
+
+
+#Stores a result and rings the bell for it.
+func publish_result(result: ContractResultData) -> void:
+	_store_result(result)
+	_push_result_notice(result)
 
 
 func _store_result(result: ContractResultData) -> void:
@@ -1126,9 +1546,6 @@ func _store_result(result: ContractResultData) -> void:
 
 #One row on the bell per settled posting. The snap never names the outcome, only the posting.
 func _push_result_notice(result: ContractResultData) -> void:
-	var center: Node = _notices()
-	if center == null:
-		return
 	var notice_type: StringName = NotificationData.TYPE_CONTRACT_COMPLETED
 	if result.failed:
 		notice_type = NotificationData.TYPE_CONTRACT_FAILED
@@ -1137,90 +1554,11 @@ func _push_result_notice(result: ContractResultData) -> void:
 		"difficulty": result.difficulty,
 		"reward": result.listed_reward,
 	}
-	center.call("push", notice_type, result.entry_id, snap,
+	NotificationCenter.push(notice_type, result.entry_id, snap,
 		NotificationData.Urgency.INFORMATIONAL, "")
 
 
-func _entry_name(entry: BoardEntry) -> String:
+func entry_name(entry: BoardEntry) -> String:
 	if entry.contract == null:
 		return entry.contract_type()
-	return ContractView.contract_name(entry.contract.contract_type, entry.contract.location_a)
-
-
-#Closes one posting on paper only: no merc is touched and no money moves.
-func _seed_preview(entry: BoardEntry, failed: bool, now: int) -> int:
-	var status: String = BoardEntry.STATUS_FAILED if failed else BoardEntry.STATUS_SUCCEEDED
-	entry.status = status
-	entry.verdict = status
-	entry.closed_minute = now
-	var listed: int = 0
-	var difficulty: float = 0.0
-	if entry.contract != null:
-		entry.contract.status = status
-		listed = entry.contract.reward_notes
-		difficulty = entry.contract.difficulty
-	var result := ContractResultData.new()
-	result.entry_id = entry.id
-	result.name = _entry_name(entry)
-	result.difficulty = difficulty
-	result.failed = failed
-	result.listed_reward = listed
-	result.reward = 0 if failed else listed
-	result.expenses = int(round(float(listed) * float(RESULT_EXPENSE_PCT) / 100.0))
-	result.closed_minute = now
-	result.preview = true
-	result.bonus_pct = 0
-	for i: int in mini(4, roster.size()):
-		result.members.append(_preview_member(roster[i], i, failed, difficulty))
-	result.pick_mvp()
-	result.assign_pay()
-	_store_result(result)
-	_push_result_notice(result)
-	return entry.id
-
-
-func _preview_member(view: MercView, index: int, failed: bool,
-		difficulty: float) -> ResultMemberData:
-	var member := ResultMemberData.new()
-	member.uid = view.uid
-	member.name = view.name
-	member.tradition = view.tradition
-	member.role = ContractResultData.ROLE_LEADER
-	if index > 0:
-		member.role = RESULT_PREVIEW_ROLES[(index - 1) % RESULT_PREVIEW_ROLES.size()]
-	member.fate = ResultMemberData.Fate.ALIVE
-	if failed and index == 1:
-		member.fate = ResultMemberData.Fate.DEAD
-	elif failed and index == 2:
-		member.fate = ResultMemberData.Fate.CAPTURED
-	var earned: int = RESULT_XP_BASE + int(round(difficulty * float(RESULT_XP_PER_DIFF)))
-	if failed:
-		earned = int(round(float(earned) * float(RESULT_FAIL_XP_PCT) / 100.0))
-	member.xp_gained = earned if member.alive() else 0
-	member.xp_need = ExperienceSystem.XP_PER_LEVEL
-	member.level_before = view.level
-	if index == 0:
-		member.xp_before = maxi(0, member.xp_need - member.xp_gained)
-	member.level_after = member.level_before + \
-		int(floor(float(member.xp_before + member.xp_gained) / float(member.xp_need)))
-	var hp_bar: Vector2i = _preview_bar(view.hp_max)
-	var ep_bar: Vector2i = _preview_bar(view.ep_max)
-	var mp_bar: Vector2i = _preview_bar(view.mp_max)
-	member.hp = Vector2i(hp_bar.x, view.hp_max)
-	if member.fate == ResultMemberData.Fate.DEAD:
-		member.hp = Vector2i(0, view.hp_max)
-	member.ep = Vector2i(ep_bar.x, view.ep_max)
-	member.mp = Vector2i(mp_bar.x, view.mp_max)
-	member.hp_before = hp_bar.y
-	member.ep_before = ep_bar.y
-	member.mp_before = mp_bar.y
-	return member
-
-
-#A sample bar: (value at return, value at departure) with the departure value the higher one.
-func _preview_bar(maximum: int) -> Vector2i:
-	if maximum <= 0:
-		return Vector2i.ZERO
-	var after: int = maxi(1, int(round(float(maximum) * float(RESULT_PREVIEW_AFTER_PCT) / 100.0)))
-	var gap: int = int(round(float(maximum) * float(RESULT_PREVIEW_GAP_PCT) / 100.0))
-	return Vector2i(after, mini(maximum, after + maxi(1, gap)))
+	return ContractView.posting_title(entry.contract)

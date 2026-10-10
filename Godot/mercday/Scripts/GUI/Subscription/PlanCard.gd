@@ -1,6 +1,6 @@
 class_name PlanCard extends Control
 
-#One Mercday plan card. Every label, colour and disabled rule comes from the handoff prototype's
+#One Mercday plan card. Every label, colour and disabled rule comes from the design prototype's
 #planCards table: the card is dead while it is the current plan, while the roster is over the
 #plan's cap, or while the bank cannot cover one month of the fee. Enterprise is the exception; as
 #the current plan its button opens the Customize tab instead.
@@ -9,26 +9,26 @@ signal switch_requested(plan: int)
 signal customize_requested
 
 const ENTERPRISE_KEY: String = "enterprise"
-const RING_CURRENT: Color = Color("#6cc36a")
-const RING_IDLE: Color = Color("#1f3560")
-const OUTLINE: Color = Color("#0a0f1c")
+const RING_CURRENT: Color = GuiColors.GREEN
+const RING_IDLE: Color = GuiColors.BLUE_LO
+const OUTLINE: Color = GuiColors.INK
 const RING_PX: float = 3.0
 const OUTLINE_PX: float = 5.0
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
-const MUTED: Color = Color("#5e7699")
-const RED: Color = Color("#e8583f")
-const ORANGE: Color = Color("#f28c28")
-const PILL_BG: Color = Color("#6cc36a")
-const PILL_TEXT: Color = Color("#0a0f1c")
+const CREAM: Color = GuiColors.CREAM
+const SKY: Color = GuiColors.SKY
+const MUTED: Color = GuiColors.MUTED
+const RED: Color = GuiColors.RED
+const ORANGE: Color = GuiColors.ORANGE
+const PILL_BG: Color = GuiColors.GREEN
+const PILL_TEXT: Color = GuiColors.INK
 const PILL_RIGHT: float = 12.0
 const PILL_TOP: float = 10.0
 const DISABLED_ALPHA: float = 0.45
-const ORANGE_HI: Color = Color("#ffb266")
-const ORANGE_LO: Color = Color("#b85a12")
-const DEAD_FILL: Color = Color("#1a2b4d")
-const DEAD_HI: Color = Color("#28447a")
-const DEAD_LO: Color = Color("#111c33")
+const ORANGE_HI: Color = GuiColors.ORANGE_HI
+const ORANGE_LO: Color = GuiColors.ORANGE_LO
+const DEAD_FILL: Color = GuiColors.BOX_BG
+const DEAD_HI: Color = GuiColors.EDGE_HI
+const DEAD_LO: Color = GuiColors.EDGE_LO
 const ACCENT_HEIGHT: int = 6
 const BUTTON_HEIGHT: int = 42
 const TAGLINE_MIN_HEIGHT: int = 42
@@ -164,6 +164,7 @@ func press_switch() -> void:
 		customize_requested.emit()
 		return
 	if not _enabled:
+		UiSfx.reject_press(switch_button)
 		return
 	switch_requested.emit(plan_index())
 
@@ -211,9 +212,7 @@ func _on_money_changed(_bank_notes: int) -> void:
 
 
 func _build_features() -> void:
-	for child: Node in features_box.get_children():
-		child.queue_free()
-		features_box.remove_child(child)
+	GuiNodes.clear(features_box)
 	for line: String in features():
 		var row: CheckRow = _check_row.instantiate() as CheckRow
 		features_box.add_child(row)
@@ -240,11 +239,13 @@ func _style_button() -> void:
 	switch_button.modulate.a = 1.0 if live else DISABLED_ALPHA
 	switch_button.mouse_default_cursor_shape = (Control.CURSOR_POINTING_HAND if live
 		else Control.CURSOR_FORBIDDEN)
+	#A dead card's switch plays no fx.
+	for slot: StringName in ButtonFx.SLOTS:
+		switch_button.set(slot, ButtonFx.KIND if live else 0)
 
 
 func _pill_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = PILL_BG
+	var style: StyleBoxFlat = GuiStyle.flat(PILL_BG)
 	style.content_margin_left = 6.0
 	style.content_margin_right = 6.0
 	style.content_margin_top = 2.0

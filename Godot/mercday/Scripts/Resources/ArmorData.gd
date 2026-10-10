@@ -1,8 +1,6 @@
 class_name ArmorData extends ItemData
 
 var armor_type: String
-var weight: int
-var cost: int
 var armor_bonus: int
 var ep_cost: int
 var fatigue: int

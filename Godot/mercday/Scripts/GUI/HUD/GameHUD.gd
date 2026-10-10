@@ -1,6 +1,6 @@
 class_name GameHUD extends CanvasLayer
 
-#Root of the Game HUD: the 3 x 3 menu grid, the top-right cluster (bell slot and settings), the
+#Root of the Game HUD: the 3 x 3 menu grid, the top-right cluster (mail, bell slot and settings), the
 #bottom bar, the shared popup window and the money fly overlay. open_viewer is the one routing
 #entry point for every viewer; open_menu and open_notification both go through it.
 #autostart = true is the real launch path; tests set it false and call wire_for_test() instead.
@@ -15,28 +15,31 @@ const VIEWER_SCENES: Dictionary = {
 	&"legal": "res://Scenes/GUI/Legal/LegalViewer.tscn",
 	&"bazaar": "res://Scenes/GUI/Bazaar/BazaarViewer.tscn",
 	&"metrics": "res://Scenes/GUI/Metrics/MetricsViewer.tscn",
+	&"mail": "res://Scenes/GUI/Mail/MailViewer.tscn",
 }
 
-#Row-major tiles: key, label, id (an atlas cell), scale (whole screen pixels per art pixel) and
-#description (the hover line). Every tile draws its full 16 x 16 cell at 4 px per art pixel.
+#Whole screen pixels per art pixel; every tile draws its full 16 x 16 cell at this scale.
+const GRID_ICON_SCALE: int = 4
+
+#Row-major tiles: key, label, id (an atlas cell) and description (the hover line).
 const GRID_ENTRIES: Array[Dictionary] = [
-	{"key": &"mercs", "label": "My Mercs", "id": "mercs", "scale": 4,
+	{"key": &"mercs", "label": "My Mercs", "id": "mercs",
 		"description": "View and manage your mercenaries"},
-	{"key": &"contracts", "label": "My Contracts", "id": "contracts", "scale": 4,
+	{"key": &"contracts", "label": "My Contracts", "id": "contracts",
 		"description": "View and manage your contracts"},
-	{"key": &"clients", "label": "My Clients", "id": "clients", "scale": 4,
+	{"key": &"clients", "label": "My Clients", "id": "clients",
 		"description": "See the people, places, and orgs that send you contracts"},
-	{"key": &"promotions", "label": "My Promotions", "id": "promotions", "scale": 4,
+	{"key": &"promotions", "label": "My Promotions", "id": "promotions",
 		"description": "Run ad campaigns and hire mercs who apply"},
-	{"key": &"mercday", "label": "My Mercday", "id": "mercday", "scale": 4,
+	{"key": &"mercday", "label": "My Mercday", "id": "mercday",
 		"description": "Manage your guild plan and upgrades"},
-	{"key": &"finance", "label": "My Finance", "id": "finance", "scale": 4,
+	{"key": &"finance", "label": "My Finance", "id": "finance",
 		"description": "Manage notes, loans, and payroll"},
-	{"key": &"legal", "label": "My Legal", "id": "legal", "scale": 4,
+	{"key": &"legal", "label": "My Legal", "id": "legal",
 		"description": "Buy permits, pay fines, and bail out captured mercs"},
-	{"key": &"bazaar", "label": "My Bazaar", "id": "bazaar", "scale": 4,
+	{"key": &"bazaar", "label": "My Bazaar", "id": "bazaar",
 		"description": "Buy gear for your mercs and track your orders"},
-	{"key": &"metrics", "label": "My Metrics", "id": "metrics", "scale": 4,
+	{"key": &"metrics", "label": "My Metrics", "id": "metrics",
 		"description": "Review your guild's history"},
 ]
 
@@ -46,11 +49,11 @@ const LOCK_DEFS: Dictionary = {
 	&"promotions": {"entitlement": "promotions", "feature_plan": "Promotions",
 		"feature_upgrade": "Promotions", "upgrade_id": "promotions",
 		"tier": 1, "verb": "use", "upgrade_end": ".",
-		"tip": "Locked. Requires the Promotions upgrade (Mercday Enterprise > Customize)."},
+		"tip": "Locked. Requires the Promotions upgrade (%s > Customize)." % PLAN_NAME},
 	&"bazaar": {"entitlement": "bazaar", "feature_plan": "the Bazaar",
 		"feature_upgrade": "The Bazaar", "upgrade_id": "bazaar",
 		"tier": 1, "verb": "use", "upgrade_end": "!",
-		"tip": "Locked. Requires the Bazaar upgrade (Mercday Enterprise > Customize)."},
+		"tip": "Locked. Requires the Bazaar upgrade (%s > Customize)." % PLAN_NAME},
 }
 
 #One dot per tile, no counts. kind "any" reads a non-empty array, kind "flag" reads a bool.
@@ -74,30 +77,33 @@ const DOT_SIGNALS: Array[Dictionary] = [
 	{"node": "/root/LegalManager", "signal": "captures_changed", "args": 0},
 ]
 
-#NotificationData.type to the viewer it opens and the entry point it calls with trigger_id.
+#NotificationData.type to the viewer it opens and the entry point it calls with trigger_id. An empty
+#method opens the viewer on its default view.
 const NOTIFICATION_ROUTES: Dictionary = {
 	&"contractCompleted": {"key": &"contracts", "method": "select_entry"},
 	&"contractFailed": {"key": &"contracts", "method": "select_entry"},
+	&"newPostings": {"key": &"contracts", "method": ""},
+	&"expiryWarning": {"key": &"contracts", "method": "select_entry"},
+	&"postingExpired": {"key": &"contracts", "method": "select_entry"},
 	&"loanOffer": {"key": &"finance", "method": "open_offer"},
 	&"stockMove": {"key": &"finance", "method": "open_stock"},
 }
 
-const BELL_SCENE: String = "res://Scenes/GUI/Notifications/NotificationBell.tscn"
-const PLAN_NAME: String = "Mercday Enterprise"
-const PLAN_TIP: String = "Locked. Requires Mercday Enterprise."
+const PLAN_NAME: String = SubscriptionManager.PLAN_NAMES[SubscriptionManager.Plan.ENTERPRISE]
+const PLAN_TIP: String = "Locked. Requires %s." % PLAN_NAME
 const LOCK_DIALOG_Z: int = 150
 
 @export var autostart: bool = true
 
 var _wired: bool = false
 var _dialog: FeatureLockDialog = null
-var _bell: Node = null
 
 @onready var root: Control = $Root
 @onready var menu_grid: MenuGrid = $Root/MenuGrid
 @onready var top_right: Control = $Root/TopRight
-@onready var bell_slot: Control = $Root/TopRight/BellSlot
+@onready var bell_slot: NotificationBell = $Root/TopRight/BellSlot
 @onready var settings_button: SettingsButton = $Root/TopRight/SettingsButton
+@onready var mail_button: MailButton = $Root/TopRight/MailSlot
 @onready var bottom_bar: BottomBar = $Root/BottomBar
 @onready var popup_window: SubWindow = $Root/Popup
 @onready var description_label: Label = $Root/Description
@@ -106,26 +112,11 @@ var _bell: Node = null
 
 func _ready() -> void:
 	if autostart:
-		if await HarnessEntry.run_if_flagged(self):
-			return
-		if OS.get_cmdline_user_args().has("--harness"):
-			get_tree().change_scene_to_file.call_deferred("res://Scenes/GUI/testingArea.tscn")
+		if await HarnessHook.boot(self):
 			return
 		GameState.start_new_game()
-		if OS.get_cmdline_user_args().has("--results-preview"):
-			var seeded: Array[int] = GameState.seed_results_preview()
-			print("RESULTS PREVIEW entries=%d" % seeded.size())
-		if OS.get_cmdline_user_args().has("--metrics-preview"):
-			MetricsHistory.seed_preview(400, _roster_uids())
-			print("METRICS PREVIEW days=%d" % MetricsHistory.days())
+		HarnessHook.seed_previews()
 	_wire()
-
-
-func _roster_uids() -> Array[int]:
-	var uids: Array[int] = []
-	for view: MercView in GameState.roster:
-		uids.append(view.uid)
-	return uids
 
 
 #Public alias so a test can force wiring right after add_child, without waiting on deferred _ready.
@@ -148,9 +139,13 @@ func _wire() -> void:
 	GameState.money_fly_requested.connect(_on_money_fly_requested)
 	GameState.go_to_plans_requested.connect(_on_go_to_plans_requested)
 	GameState.open_hiring_requested.connect(_on_open_hiring_requested)
+	GameState.open_contracts_requested.connect(_on_open_contracts_requested)
 	SubscriptionManager.changed.connect(refresh_locks)
+	mail_button.toggled.connect(_on_mail_toggled)
+	MailCenter.open_requested.connect(open_mail)
 	_connect_dot_signals()
-	_load_bell()
+	if not bell_slot.notification_opened.is_connected(open_notification):
+		bell_slot.notification_opened.connect(open_notification)
 	refresh_locks()
 	refresh_dots()
 
@@ -169,7 +164,7 @@ func _wire_button(btn: GridMenuButton, entry: Dictionary) -> void:
 
 
 func _apply_icon(btn: GridMenuButton, entry: Dictionary) -> void:
-	btn.icon_rect.set_id(String(entry["id"]), int(entry["scale"]))
+	btn.icon_rect.set_id(String(entry["id"]), GRID_ICON_SCALE)
 
 
 func _scene_of(key: StringName) -> PackedScene:
@@ -213,14 +208,15 @@ func open_viewer(key: StringName, setup: Callable = Callable()) -> Node:
 		return null
 	var scene: PackedScene = _scene_of(key)
 	if scene == null:
-		return popup_window.open(_placeholder_scene("%s is not available yet" % label_of(key)))
+		return popup_window.open(SubWindow.placeholder("%s is not available yet" % label_of(key)))
 	var view: Node = popup_window.open(scene)
 	if view != null and setup.is_valid():
 		setup.call(view)
 	return view
 
 
-#Marks the notice read, then opens the viewer its type routes to with the trigger id.
+#Marks the notice read, then opens the viewer its type routes to with the trigger id, or on its default
+#view when the route names no method.
 func open_notification(data: NotificationData) -> Node:
 	if data == null:
 		return null
@@ -231,11 +227,43 @@ func open_notification(data: NotificationData) -> Node:
 	if route.is_empty():
 		return null
 	var method: String = String(route["method"])
+	if method.is_empty():
+		return open_viewer(route["key"])
 	var trigger: int = data.trigger_id
 	var setup: Callable = func(view: Node) -> void:
 		if view.has_method(method):
 			view.call(method, trigger)
 	return open_viewer(route["key"], setup)
+
+
+#Opens the Inbox, selecting id when given; MailViewer owns the folder, archive and read handling.
+func open_mail(id: StringName = &"") -> Node:
+	var setup: Callable = func(made: Node) -> void:
+		var mail_view: MailViewer = made as MailViewer
+		if mail_view != null and id != &"":
+			mail_view.select_mail(id)
+	var opened: Node = open_viewer(&"mail", setup)
+	if opened == null:
+		mail_button.set_open(false)
+		return null
+	mail_button.set_open(true)
+	opened.tree_exiting.connect(_on_mail_view_exiting.bind(opened), CONNECT_ONE_SHOT)
+	return opened
+
+
+#A mail view replaced by a newer mail view keeps the button pressed; any other exit unpresses it.
+func _on_mail_view_exiting(view: Node) -> void:
+	if not is_instance_valid(mail_button):
+		return
+	var now: Node = popup_window.current()
+	mail_button.set_open(now is MailViewer and now != view)
+
+
+func _on_mail_toggled(on: bool) -> void:
+	if on:
+		open_mail()
+	elif popup_window.current() is MailViewer:
+		popup_window.close()
 
 
 func _on_go_to_plans_requested(target: Dictionary) -> void:
@@ -252,6 +280,17 @@ func _on_open_hiring_requested(_campaign_id: int) -> void:
 		if view.has_method("open_hiring"):
 			view.call("open_hiring")
 	open_viewer(&"finance", setup)
+
+
+#The View Contracts button of a Guild Promo card: the contract board narrowed to that campaign's postings.
+func _on_open_contracts_requested(campaign_id: int) -> void:
+	popup_window.close()
+	var setup: Callable = func(view: Node) -> void:
+		if view.has_method("show_campaign"):
+			view.call("show_campaign", campaign_id)
+	open_viewer(&"contracts", setup)
+	#A locked or missing board never took the filter; the next board opened must not inherit it.
+	GameState.take_contract_filter()
 
 
 func _on_money_fly_requested(amount: int) -> void:
@@ -391,23 +430,8 @@ func _connect_dot_signals() -> void:
 		node.connect(sig, handler)
 
 
-func _load_bell() -> void:
-	if _bell != null:
-		return
-	if not ResourceLoader.exists(BELL_SCENE):
-		return
-	var scene: PackedScene = load(BELL_SCENE) as PackedScene
-	if scene == null:
-		return
-	var made: Node = scene.instantiate()
-	bell_slot.add_child(made)
-	if made.has_signal("notification_opened"):
-		made.connect("notification_opened", Callable(self, "open_notification"))
-	_bell = made
-
-
-func bell() -> Node:
-	return _bell
+func bell() -> NotificationBell:
+	return bell_slot
 
 
 func entry_key(index: int) -> StringName:
@@ -444,22 +468,3 @@ func popup() -> SubWindow:
 
 func button(index: int) -> GridMenuButton:
 	return menu_grid.button(index)
-
-
-#Builds a one-off placeholder scene in memory; no file is needed for a single DescriptionLabel.
-static func _placeholder_scene(text: String) -> PackedScene:
-	var root_node := Control.new()
-	root_node.name = "Placeholder"
-	root_node.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var label_node := Label.new()
-	label_node.name = "DescriptionLabel"
-	label_node.theme_type_variation = &"DescriptionLabel"
-	label_node.text = text
-	label_node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label_node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label_node.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root_node.add_child(label_node)
-	label_node.owner = root_node
-	var packed := PackedScene.new()
-	packed.pack(root_node)
-	return packed

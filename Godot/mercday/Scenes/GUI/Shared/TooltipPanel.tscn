@@ -12,7 +12,7 @@ layout_mode = 2
 
 [node name="Title" type="Label" parent="Rows"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.949, 0.549, 0.157, 1)
+theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
 theme_type_variation = &"TooltipLabel"
 
 [node name="Body" type="Label" parent="Rows"]

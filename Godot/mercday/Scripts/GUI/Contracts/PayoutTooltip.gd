@@ -6,11 +6,10 @@ class_name PayoutTooltip extends TooltipPanel
 
 const PAYOUT_TITLE: String = "Payout"
 const RESULT_TITLE: String = "Final Pay Results"
-const CREAM: Color = Color("#f3ead7")
-const TOTAL_COLOR: Color = Color("#f28c28")
-const LOSS_COLOR: Color = Color("#e8583f")
-const BONUS_COLOR: Color = Color("#f2d33d")
-const GAIN_COLOR: Color = Color("#6cc36a")
+const TOTAL_COLOR: Color = GuiColors.ORANGE
+const LOSS_COLOR: Color = GuiColors.RED
+const BONUS_COLOR: Color = GuiColors.RAMP_YELLOW
+const GAIN_COLOR: Color = GuiColors.GREEN
 #The row names of each mode, top to bottom.
 const PAYOUT_NAMES: Array[String] = ["Reward", "Expenses", "Expected Total", "Estimated Payday"]
 const RESULT_NAMES: Array[String] = ["Reward", "Expenses", "Merc Payment",
@@ -30,10 +29,10 @@ const RESULT_NAMES: Array[String] = ["Reward", "Expenses", "Merc Payment",
 func set_payout(reward: int, expenses: int, payday: String, days: int = 1) -> void:
 	set_text(PAYOUT_TITLE, "")
 	_name_rows(PAYOUT_NAMES)
-	_fill(reward_label, notes_text(reward), CREAM)
-	_fill(expenses_label, notes_text(expenses), CREAM)
+	_fill(reward_label, notes_text(reward), GuiColors.CREAM)
+	_fill(expenses_label, notes_text(expenses), GuiColors.CREAM)
 	_fill(total_label, notes_text(reward - expenses), TOTAL_COLOR)
-	_fill(payday_label, payday, CREAM)
+	_fill(payday_label, payday, GuiColors.CREAM)
 	relative_label.text = days_text(days)
 	relative_label.visible = true
 
@@ -45,7 +44,7 @@ func set_results(result: ContractResultData) -> void:
 		return
 	set_text(RESULT_TITLE, "")
 	_name_rows(RESULT_NAMES)
-	_fill(reward_label, notes_text(result.reward), CREAM)
+	_fill(reward_label, notes_text(result.reward), GuiColors.CREAM)
 	_fill(expenses_label, notes_text(-result.expenses), LOSS_COLOR)
 	_fill(total_label, notes_text(-result.bonus()), BONUS_COLOR)
 	var guild: int = result.guild_share()
@@ -72,8 +71,7 @@ static func notes_text(amount: int) -> String:
 
 #The payday read off today; anything that already landed still reads as one day out.
 static func days_text(days: int) -> String:
-	var left: int = maxi(1, days)
-	return "1 Day From Now" if left == 1 else "%d Days From Now" % left
+	return GuiDates.from_now_text(maxi(1, days))
 
 
 func title_text() -> String:

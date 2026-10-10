@@ -3,7 +3,7 @@ class_name GuiIconTests
 #The icon atlas engine: the id table, the atlas cuts, the tint passes, the star row and the
 #IconRect bake. Run with the gui-icon-tests harness flag.
 
-const ID_COUNT: int = 175
+const ID_COUNT: int = 199
 const LOOSE_ART: Vector2i = Vector2i(16, 16)
 const SETTINGS_SCENE: String = "res://Scenes/GUI/HUD/SettingsButton.tscn"
 const BELL_ORANGE: Color = Color("#f28c28")
@@ -26,32 +26,65 @@ class DrawProbe extends Control:
 
 static func run(host: Node) -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
-	await _case_ids(res, host)
-	await _case_atlas(res, host)
-	await _case_regions(res, host)
-	await _case_cache(res, host)
-	await _case_bbox(res, host)
-	await _case_gray(res, host)
-	await _case_two_tone(res, host)
-	await _case_solid(res, host)
-	await _case_stars(res, host)
-	await _case_star_color(res, host)
-	await _case_star_fills(res, host)
+	_case_ids(res, host)
+	_case_atlas(res, host)
+	_case_regions(res, host)
+	_case_cache(res, host)
+	_case_bbox(res, host)
+	_case_gray(res, host)
+	_case_two_tone(res, host)
+	_case_solid(res, host)
+	_case_stars(res, host)
+	_case_star_color(res, host)
+	_case_star_fills(res, host)
 	await _case_draw(res, host)
-	await _case_bake(res, host)
+	_case_bake(res, host)
 	await _case_icon_rect(res, host)
-	await _case_helpers(res, host)
+	_case_helpers(res, host)
 	await _case_close(res, host)
-	await _case_tinted(res, host)
+	_case_tinted(res, host)
 	return TestFixtures.summarize(res, "GUI ICON")
 
 
-static func _same_rgb(a: Color, b: Color) -> bool:
+static func same_rgb(a: Color, b: Color) -> bool:
 	return a.r8 == b.r8 and a.g8 == b.g8 and a.b8 == b.b8
 
 
 static func _same_image(a: Image, b: Image) -> bool:
 	return a.get_size() == b.get_size() and a.get_data() == b.get_data()
+
+
+static func is_opaque(_x: int, _y: int, px: Color) -> bool:
+	return px.a > 0.0
+
+
+static func _non_grey(_x: int, _y: int, px: Color) -> bool:
+	return px.a > 0.0 and (px.r8 != px.g8 or px.g8 != px.b8)
+
+
+#Counts the pixels of img that test(x, y, pixel) accepts.
+static func count_pixels(img: Image, test: Callable) -> int:
+	var total: int = 0
+	for y: int in img.get_height():
+		for x: int in img.get_width():
+			if test.call(x, y, img.get_pixel(x, y)):
+				total += 1
+	return total
+
+
+#The first pixel in row order that test accepts, or (-1, -1) when none does.
+static func _first_pixel(img: Image, test: Callable) -> Vector2i:
+	for y: int in img.get_height():
+		for x: int in img.get_width():
+			if test.call(x, y, img.get_pixel(x, y)):
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+
+#How many pixels are opaque in one image and clear in the other.
+static func _mask_misses(a: Image, b: Image) -> int:
+	var differs := func(x: int, y: int, px: Color) -> bool: return (px.a > 0.0) != (b.get_pixel(x, y).a > 0.0)
+	return count_pixels(a, differs)
 
 
 #A texture that never came from the atlas, so the legacy source path of Icons and IconRect has
@@ -112,12 +145,8 @@ static func _case_atlas(res: Dictionary, _host: Node) -> void:
 	TestFixtures.check(res, "the atlas image is 256 by 640",
 		img.get_width() == 256 and img.get_height() == 640,
 		"%d x %d" % [img.get_width(), img.get_height()])
-	var soft: int = 0
-	for y: int in img.get_height():
-		for x: int in img.get_width():
-			var a: int = img.get_pixel(x, y).a8
-			if a != 0 and a != 255:
-				soft += 1
+	var is_soft := func(_x: int, _y: int, px: Color) -> bool: return px.a8 != 0 and px.a8 != 255
+	var soft: int = count_pixels(img, is_soft)
 	TestFixtures.check(res, "every atlas pixel is fully clear or fully opaque", soft == 0,
 		"%d soft pixels" % soft)
 	TestFixtures.check(res, "the atlas texture is the sheet under Art GUI Icons",
@@ -193,21 +222,10 @@ static func _case_bbox(res: Dictionary, _host: Node) -> void:
 static func _case_gray(res: Dictionary, _host: Node) -> void:
 	var src: Image = Icons.image("bell")
 	var gray: Image = Icons.gray_image(src)
-	var bad: int = 0
-	var orange_gray: int = -1
-	for y: int in src.get_height():
-		for x: int in src.get_width():
-			var was: Color = src.get_pixel(x, y)
-			var now: Color = gray.get_pixel(x, y)
-			if (was.a > 0.0) != (now.a > 0.0):
-				bad += 1
-				continue
-			if was.a <= 0.0:
-				continue
-			if now.r8 != now.g8 or now.g8 != now.b8:
-				bad += 1
-			if _same_rgb(was, BELL_ORANGE):
-				orange_gray = now.r8
+	var bad: int = _mask_misses(src, gray) + count_pixels(gray, _non_grey)
+	var is_orange := func(_x: int, _y: int, px: Color) -> bool: return px.a > 0.0 and same_rgb(px, BELL_ORANGE)
+	var orange: Vector2i = _first_pixel(src, is_orange)
+	var orange_gray: int = gray.get_pixel(orange.x, orange.y).r8 if orange.x >= 0 else -1
 	TestFixtures.check(res, "the grey pass keeps the alpha mask and flattens every opaque pixel",
 		bad == 0, "%d offenders" % bad)
 	TestFixtures.check(res, "the grey pass weighs the channels of the bell orange",
@@ -217,23 +235,17 @@ static func _case_gray(res: Dictionary, _host: Node) -> void:
 static func _case_two_tone(res: Dictionary, _host: Node) -> void:
 	var src: Image = Icons.image("bell")
 	var tone: Image = Icons.two_tone_image(src)
-	var ink: int = 0
-	var bad: int = 0
-	for y: int in src.get_height():
-		for x: int in src.get_width():
-			var was: Color = src.get_pixel(x, y)
-			var now: Color = tone.get_pixel(x, y)
-			if (was.a > 0.0) != (now.a > 0.0):
-				bad += 1
-				continue
-			if was.a <= 0.0:
-				continue
-			if _same_rgb(now, Icons.TAB_ON_INK):
-				ink += 1
-			elif not _same_rgb(now, Icons.TAB_ON_LIGHT) and not _same_rgb(now, Icons.TAB_ON_MID):
-				bad += 1
-			if _same_rgb(was, Color.WHITE) and not _same_rgb(now, Icons.TAB_ON_LIGHT):
-				bad += 1
+	var is_ink := func(_x: int, _y: int, px: Color) -> bool: return px.a > 0.0 and same_rgb(px, Icons.TAB_ON_INK)
+	var ink: int = count_pixels(tone, is_ink)
+	var off_tone := func(x: int, y: int, was: Color) -> bool:
+		var now: Color = tone.get_pixel(x, y)
+		if was.a <= 0.0 or now.a <= 0.0:
+			return false
+		var on_ink: bool = same_rgb(now, Icons.TAB_ON_INK)
+		var on_tab: bool = same_rgb(now, Icons.TAB_ON_LIGHT) or same_rgb(now, Icons.TAB_ON_MID)
+		var painted: bool = on_ink or on_tab
+		return not painted or (same_rgb(was, Color.WHITE) and not same_rgb(now, Icons.TAB_ON_LIGHT))
+	var bad: int = _mask_misses(src, tone) + count_pixels(src, off_tone)
 	TestFixtures.check(res, "the tab pass paints only the three tab colours and keeps the mask",
 		bad == 0, "%d offenders" % bad)
 	TestFixtures.check(res, "the tab pass sinks every saturated pixel of the bell to ink",
@@ -244,11 +256,7 @@ static func _case_solid(res: Dictionary, _host: Node) -> void:
 	var made: ImageTexture = Icons.solid_outlined("x_sm", Color.WHITE, Color.BLACK, 1, true)
 	var img: Image = made.get_image()
 	var src: Image = Icons.image("x_sm", true)
-	var opaque: int = 0
-	for y: int in src.get_height():
-		for x: int in src.get_width():
-			if src.get_pixel(x, y).a > 0.0:
-				opaque += 1
+	var opaque: int = count_pixels(src, is_opaque)
 	var white: int = 0
 	var lonely: int = 0
 	for y: int in img.get_height():
@@ -256,7 +264,7 @@ static func _case_solid(res: Dictionary, _host: Node) -> void:
 			var px: Color = img.get_pixel(x, y)
 			if px.a <= 0.0:
 				continue
-			if _same_rgb(px, Color.WHITE):
+			if same_rgb(px, Color.WHITE):
 				white += 1
 				continue
 			var near: bool = false
@@ -264,7 +272,7 @@ static func _case_solid(res: Dictionary, _host: Node) -> void:
 				var at: Vector2i = Vector2i(x, y) + step
 				if at.x < 0 or at.y < 0 or at.x >= img.get_width() or at.y >= img.get_height():
 					continue
-				if _same_rgb(img.get_pixel(at.x, at.y), Color.WHITE) \
+				if same_rgb(img.get_pixel(at.x, at.y), Color.WHITE) \
 						and img.get_pixel(at.x, at.y).a > 0.0:
 					near = true
 			if not near:
@@ -286,11 +294,11 @@ static func _case_solid(res: Dictionary, _host: Node) -> void:
 			var px: Color = kept_img.get_pixel(x, y)
 			if px.a <= 0.0:
 				continue
-			if _same_rgb(px, Color.BLACK):
+			if same_rgb(px, Color.BLACK):
 				continue
 			var known: bool = false
 			for red: Color in X_REDS:
-				if _same_rgb(px, red):
+				if same_rgb(px, red):
 					known = true
 			if known:
 				reds += 1
@@ -307,15 +315,7 @@ static func _case_solid(res: Dictionary, _host: Node) -> void:
 static func _case_stars(res: Dictionary, _host: Node) -> void:
 	var set_src: Image = Icons.image("star_set")
 	var full: Image = Icons.star_image(1.0, Color.WHITE)
-	var bad: int = 0
-	for y: int in full.get_height():
-		for x: int in full.get_width():
-			var was: Color = set_src.get_pixel(x, y)
-			var now: Color = full.get_pixel(x, y)
-			if (was.a > 0.0) != (now.a > 0.0):
-				bad += 1
-			elif now.a > 0.0 and (now.r8 != now.g8 or now.g8 != now.b8):
-				bad += 1
+	var bad: int = _mask_misses(full, set_src) + count_pixels(full, _non_grey)
 	TestFixtures.check(res, "a set star keeps the mask of its art and is grey before the tint",
 		bad == 0, "%d offenders" % bad)
 	var empty: Image = Icons.star_image(0.0, Color.WHITE, Color.WHITE)
@@ -325,12 +325,10 @@ static func _case_stars(res: Dictionary, _host: Node) -> void:
 	var half: Image = Icons.star_image(0.5, Color.RED, Color.BLUE)
 	var red: Image = Icons.star_image(1.0, Color.RED)
 	var blue: Image = Icons.star_image(0.0, Color.WHITE, Color.BLUE)
-	bad = 0
-	for y: int in half.get_height():
-		for x: int in half.get_width():
-			var want: Color = red.get_pixel(x, y) if x < 8 else blue.get_pixel(x, y)
-			if not half.get_pixel(x, y).is_equal_approx(want):
-				bad += 1
+	var half_off := func(x: int, y: int, px: Color) -> bool:
+		var want: Color = red.get_pixel(x, y) if x < 8 else blue.get_pixel(x, y)
+		return not px.is_equal_approx(want)
+	bad = count_pixels(half, half_off)
 	TestFixtures.check(res, "a half star is the set art on the left and the unused art on the right",
 		bad == 0, "%d offenders" % bad)
 	var art: ImageTexture = Icons.star(1.0, Color.RED, Icons.UNUSED_STAR, 2)
@@ -400,11 +398,7 @@ static func _case_bake(res: Dictionary, _host: Node) -> void:
 		big.get_size() == Vector2(48, 48), str(big.get_size()))
 	var src: Image = Icons.image("mercs")
 	var out: Image = big.get_image()
-	var spot: Vector2i = Vector2i(-1, -1)
-	for y: int in src.get_height():
-		for x: int in src.get_width():
-			if spot.x < 0 and src.get_pixel(x, y).a > 0.0:
-				spot = Vector2i(x, y)
+	var spot: Vector2i = _first_pixel(src, is_opaque)
 	var want: Color = src.get_pixel(spot.x, spot.y)
 	TestFixtures.check(res, "every art pixel fills its whole block in the baked icon",
 		spot.x >= 0 and out.get_pixel(spot.x * 3, spot.y * 3).is_equal_approx(want)
@@ -414,12 +408,7 @@ static func _case_bake(res: Dictionary, _host: Node) -> void:
 		_same_image(Icons.baked("bell", 1, Icons.MODE_TWO_TONE).get_image(),
 			Icons.two_tone_image(Icons.image("bell"))), "two tone")
 	var gray: Image = Icons.baked("bell", 2, Icons.MODE_GRAY).get_image()
-	var flat: bool = gray.get_size() == Vector2i(32, 32)
-	for y: int in gray.get_height():
-		for x: int in gray.get_width():
-			var px: Color = gray.get_pixel(x, y)
-			if px.a > 0.0 and (px.r8 != px.g8 or px.g8 != px.b8):
-				flat = false
+	var flat: bool = gray.get_size() == Vector2i(32, 32) and count_pixels(gray, _non_grey) == 0
 	TestFixtures.check(res, "a baked grey icon scales and holds no colour", flat,
 		str(gray.get_size()))
 	TestFixtures.check(res, "a bake of nothing is nothing", Icons.bake(null, 2) == null, "null")
@@ -537,16 +526,16 @@ static func _case_close(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a styled close button lights up on hover",
 		btn.get_theme_color("icon_hover_color") == CloseX.HOVER,
 		str(btn.get_theme_color("icon_hover_color")))
-	var mini: Button = CloseX.make(1)
+	var small: Button = CloseX.make(1)
 	TestFixtures.check(res, "a mini close comes out at one pixel an art pixel",
-		mini.custom_minimum_size == Vector2(12, 12), str(mini.custom_minimum_size))
-	mini.free()
+		small.custom_minimum_size == Vector2(12, 12), str(small.custom_minimum_size))
+	small.free()
 	var img: Image = art.get_image()
 	var middle: Color = img.get_pixel(18, 18)
 	var edge: Color = img.get_pixel(1, 18)
 	TestFixtures.check(res, "the close art keeps its red heart inside an ink rim",
 		middle.r > 0.6 and middle.g < 0.6
-			and (edge.a <= 0.0 or _same_rgb(edge, Icons.TAB_ON_INK)),
+			and (edge.a <= 0.0 or same_rgb(edge, Icons.TAB_ON_INK)),
 		"middle %s edge %s" % [middle, edge])
 	btn.queue_free()
 
@@ -567,9 +556,9 @@ static func _case_tinted(res: Dictionary, _host: Node) -> void:
 			if px.a <= 0.0:
 				continue
 			lit += 1
-			if _same_rgb(px, Color.WHITE):
+			if same_rgb(px, Color.WHITE):
 				pure += 1
-			if not _same_rgb(px, art.get_pixel(x / 3, y / 3)):
+			if not same_rgb(px, art.get_pixel(int(x / 3.0), int(y / 3.0))):
 				bad.append("%d,%d %s" % [x, y, px.to_html(false)])
 	TestFixtures.check(res, "a white tint keeps the art and lights its full pixels",
 		lit > 0 and pure > 0 and bad.is_empty(), TestFixtures.detail(bad, lit, "pixels"))
@@ -581,18 +570,15 @@ static func _case_tinted(res: Dictionary, _host: Node) -> void:
 			var px: Color = red.get_pixel(x, y)
 			if px.a <= 0.0:
 				continue
-			if _same_rgb(px, Color(1.0, 0.0, 0.0)):
+			if same_rgb(px, Color(1.0, 0.0, 0.0)):
 				reds += 1
 			if px.g8 > 0 or px.b8 > 0:
 				spill += 1
 	TestFixtures.check(res, "a red tint multiplies every channel of the art",
 		reds > 0 and spill == 0, "%d red, %d spill" % [reds, spill])
 	var flat: Image = Icons.tinted("lock", Color.WHITE, 1, true).get_image()
-	var holes: int = 0
-	for y: int in art.get_height():
-		for x: int in art.get_width():
-			if flat.get_pixel(x, y).a8 != art.get_pixel(x, y).a8:
-				holes += 1
+	var alpha_differs := func(x: int, y: int, px: Color) -> bool: return flat.get_pixel(x, y).a8 != px.a8
+	var holes: int = count_pixels(art, alpha_differs)
 	TestFixtures.check(res, "a tint leaves the alpha of the art alone",
 		flat.get_size() == art.get_size() and holes == 0,
 		"%s, %d pixels differ" % [flat.get_size(), holes])

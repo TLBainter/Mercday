@@ -1,11 +1,13 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Finance/Payroll/PayrollItem.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPortrait.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercStatusStrip.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodFace.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="5"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/PayrollBadge.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LevelBadge.tscn" id="6"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="7"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_PayrollItem.tres" id="8"]
 
 [node name="PayrollItem" type="Button"]
 custom_minimum_size = Vector2(0, 68)
@@ -80,3 +82,8 @@ size_flags_vertical = 4
 [node name="Badge" parent="Body/Row" instance=ExtResource("6")]
 layout_mode = 2
 size_flags_vertical = 4
+size_mode = 3
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("7")
+hint = ExtResource("8")

@@ -2,24 +2,10 @@ class_name ReachSearch
 extends RefCounted
 
 #Flood from one cell with one mover's capabilities, grown on demand; walk costs are minimal.
-#create(from, field, passable, fall_tolerance, flying, can_climb, jump_range, merc_size, altitude)
 #result: Vector3i -> minimal pace cost; jump-only nodes cost >= JUMP_COST_OFFSET.
-#ensure_cost(limit): cost-ordered growth; settles every walk cell costing at most limit and publishes the
-#jumps from every settled cell costing at most limit.
-#ensure_cells(cells, limit, slack, max_settled): growth ordered by cost plus the 2D Chebyshev distance to
-#the box around the listed cells, until each is settled, the flood runs out, or the heap key passes limit
-#(or the first listed settle plus slack) by more than jump_range. Publishes no jumps while growing; a
-#listed cell still unsettled at the end gets the best jump onto it from the settled cells within jump
-#range. max_settled >= 0 stops the growth at that many settled cells and sets capped.
-#ensure_until(limit, stop): cost-ordered growth that returns true at the first settled result cell stop
-#takes, false once the cost limit or the flood runs out.
-#nearest_settled_to(cells): the walk-settled cell closest to the box around cells; box_distance measures
-#any cell against that box.
-#ensure_all(): settle the whole reachable component, cost-ordered.
-#walk_path(cell): the flood's walk path [from, ..., cell] once cell is walk-settled, else [].
 #settled_limit: every walk cell at or below it is settled. exhausted: the flood has no cells left.
 
-#Mirrors PathTargeter.JUMP_COST_OFFSET; held locally so the two classes stay one-directional.
+#Added to the cost of every jump-only result cell; PathTargeter reads this value as its JUMP_COST_OFFSET.
 const JUMP_COST_OFFSET := 1000
 
 var result: Dictionary = {}
@@ -46,10 +32,7 @@ var _parent: Dictionary = {}
 #Entries [key, cell, cost]; key is the cost plus the box distance while a box is set.
 var _heap: Array = []
 var _box_set: bool = false
-var _bx0: int = 0
-var _bx1: int = 0
-var _by0: int = 0
-var _by1: int = 0
+var _box: Rect2i = Rect2i()
 #Cells settled under a box; their jumps are published once ensure_cost or ensure_all reaches their cost.
 var _unpublished: Array[Vector3i] = []
 #The one cell the last _settle_top call settled, and whether that call settled one at all.
@@ -189,7 +172,7 @@ func nearest_settled_to(cells: Array) -> Vector3i:
 		var cost: int = result[cell] as int
 		if cost >= JUMP_COST_OFFSET or not _settled.has(cell):
 			continue
-		var gap := _box_gap(cell, box)
+		var gap := Pathfinder.box_gap(cell, box)
 		if best_gap < 0 or gap < best_gap or (gap == best_gap and cost < best_cost):
 			best = cell
 			best_gap = gap
@@ -201,7 +184,7 @@ func nearest_settled_to(cells: Array) -> Vector3i:
 func box_distance(cell: Vector3i, cells: Array) -> int:
 	if cells.is_empty():
 		return 0
-	return _box_gap(cell, _box_of(cells))
+	return Pathfinder.box_gap(cell, _box_of(cells))
 
 
 func walk_path(cell: Vector3i) -> Array[Vector3i]:
@@ -223,11 +206,7 @@ func _excluded(cell: Vector3i) -> bool:
 
 #2D Chebyshev distance from cell to the box; 0 without a box or inside it.
 func _h(cell: Vector3i) -> int:
-	if not _box_set:
-		return 0
-	var dx := maxi(0, maxi(_bx0 - cell.x, cell.x - _bx1))
-	var dy := maxi(0, maxi(_by0 - cell.y, cell.y - _by1))
-	return maxi(dx, dy)
+	return Pathfinder.box_gap(cell, _box) if _box_set else 0
 
 
 #The 2D box around cells, position and end inclusive; the caller checks for an empty list.
@@ -239,13 +218,6 @@ func _box_of(cells: Array) -> Rect2i:
 	return box
 
 
-#2D Chebyshev distance from cell to box; 0 inside it.
-func _box_gap(cell: Vector3i, box: Rect2i) -> int:
-	var dx := maxi(0, maxi(box.position.x - cell.x, cell.x - box.end.x))
-	var dy := maxi(0, maxi(box.position.y - cell.y, cell.y - box.end.y))
-	return maxi(dx, dy)
-
-
 #Sets the box around cells (none when empty) and re-keys the heap when the box changed.
 func _set_box(cells: Array) -> void:
 	if cells.is_empty():
@@ -255,14 +227,10 @@ func _set_box(cells: Array) -> void:
 		_rekey()
 		return
 	var box := _box_of(cells)
-	if _box_set and box.position.x == _bx0 and box.end.x == _bx1 \
-			and box.position.y == _by0 and box.end.y == _by1:
+	if _box_set and box == _box:
 		return
 	_box_set = true
-	_bx0 = box.position.x
-	_bx1 = box.end.x
-	_by0 = box.position.y
-	_by1 = box.end.y
+	_box = box
 	_rekey()
 
 
@@ -310,33 +278,10 @@ func _settle_top() -> void:
 	var curr_alt: int = _altitude
 	if _flying:
 		curr_alt = _alt_at.get(cell, _altitude) as int
-	var from_entry: Array = PathCost.static_entry(_field, cell, _merc_size)
-	for nb: Vector3i in PathCost.neighbors(cell, _field):
-		if _settled.has(nb):
-			continue
-		var edge := PathCost.cell_pace_cost(cell, nb, _field, _passable, _fall_tolerance, _flying, _can_climb, _merc_size, curr_alt, from_entry)
-		if edge < 0:
-			continue
-		var nc := cost + edge
-		if _tentative.has(nb) and (_tentative[nb] as int) <= nc:
-			continue
-		_tentative[nb] = nc
-		_parent[nb] = cell
-		if _flying:
-			_alt_at[nb] = PathCost.fly_arrival_altitude(cell, nb, _field, curr_alt, _merc_size)
-		Pathfinder.heap_insert(_heap, [nc + _h(nb), nb, nc])
-	if not _flying:
-		#Roof to roof leaps are walk edges, not terminal jump nodes: the route goes on from the landing.
-		for row: Array in PathCost.roof_jumps(cell, _field, _merc_size):
-			var jnb: Vector3i = row[0] as Vector3i
-			if _settled.has(jnb):
-				continue
-			var jc: int = cost + (row[1] as int)
-			if _tentative.has(jnb) and (_tentative[jnb] as int) <= jc:
-				continue
-			_tentative[jnb] = jc
-			_parent[jnb] = cell
-			Pathfinder.heap_insert(_heap, [jc + _h(jnb), jnb, jc])
+	#Roof to roof leaps are walk edges, not terminal jump nodes: the route goes on from the landing.
+	Pathfinder.relax_neighbors(cell, curr_alt, cost, PathCost.static_entry(_field, cell, _merc_size), _field, _box,
+		_box_set, _passable, _fall_tolerance, _flying, _can_climb, _merc_size, not _flying, _settled,
+		Pathfinder.NO_BLOCKED, _tentative, _parent, _alt_at, _heap)
 	if _jump_range > 0:
 		if _box_set:
 			_unpublished.append(cell)
@@ -346,14 +291,14 @@ func _settle_top() -> void:
 
 #Jump destinations are terminal: published, never expanded from, overwritten once a walk settles the cell.
 func _jump_from(cell: Vector3i, cost: int) -> void:
-	for dest: Array in PathCost.jump_dests(_field, cell, _jump_range, _merc_size):
+	for dest: Array in PathJump.jump_dests(_field, cell, _jump_range, _merc_size):
 		var jcell: Vector3i = dest[0] as Vector3i
 		if _settled.has(jcell):
 			continue
 		var jcost: int = cost + JUMP_COST_OFFSET + (dest[1] as int)
 		if result.has(jcell) and (result[jcell] as int) <= jcost:
 			continue
-		if PathCost.jump_row_blocked(dest):
+		if PathJump.jump_row_blocked(dest):
 			continue
 		if not _excluded(jcell):
 			result[jcell] = jcost
@@ -374,10 +319,10 @@ func _jump_onto(cells: Array[Vector3i]) -> void:
 				var src := Vector3i(target.x + dx, target.y + dy, target.z)
 				if not _settled.has(src):
 					continue
-				for dest: Array in PathCost.jump_dests(_field, src, _jump_range, _merc_size):
+				for dest: Array in PathJump.jump_dests(_field, src, _jump_range, _merc_size):
 					if (dest[0] as Vector3i) != target:
 						continue
-					if PathCost.jump_row_blocked(dest):
+					if PathJump.jump_row_blocked(dest):
 						continue
 					var jcost: int = (_tentative[src] as int) + JUMP_COST_OFFSET + (dest[1] as int)
 					if best < 0 or jcost < best:

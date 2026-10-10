@@ -2,80 +2,40 @@ extends Node
 
 #Campaigns and applicants for My Promotions and Finance > Hiring: the one place both screens read.
 #The tables live in CampaignTypeDefs and TraitFilterDefs, so nothing here branches per campaign
-#type or per trait. Everything the handoff marks PLACEHOLDER sits in the block below; the seed is
-#mercPromoSeed of promo-core.js re-based on today, and reset() reseeds it from RNG_SEED.
-#Real applicant generation, arrival timing and the campaign quality bias are open items.
+#type or per trait. Everything the design prototype marks PLACEHOLDER sits in the block below. Every applicant
+#is a full merc rolled the moment they appear; reset() rolls fresh draws each game unless a test pins fixed_seed.
+#Arrival timing and the campaign quality bias are open items.
 
 signal campaigns_changed
 signal applicants_changed
 signal applicant_arrived(applicant: ApplicantData)
 signal applicant_hired(applicant: ApplicantData, salary: int, opinion_delta: int)
 signal counter_resolved(applicant_id: int, accepted: bool)
-#One monthly charge of an Infinite campaign went through, or the bank could not cover it and the
-#campaign came down.
+#Test hooks: one monthly charge of an Infinite campaign went through, or the bank could not cover
+#it and the campaign came down.
 signal campaign_billed(id: int, amount: int)
 signal campaign_bill_failed(id: int, name: String)
 
 #PLACEHOLDER
-#Seeded campaigns and applicants, the arrival and counter delays, the Odd Job pay and the fit a
-#roster merc brings to a counter-offer. Every number here waits on a real system.
-const RNG_SEED: int = 7
+#The arrival and counter delays, the Odd Job pay and the fit a roster merc brings to a counter-offer.
+#Every number here waits on a real system.
 #The ledger reason every campaign charge and refund carries; Odd Job pay rides the one
 #GameState already keeps.
-const REASON_ADS: String = "ads"
+const REASON_ADS: String = GameState.REASON_ADS
 #The separator GuildTargeting joins several picked companies with.
 const TARGET_JOIN: String = ", "
 const ARRIVAL_DAYS: int = 3
+#Word of Mouth daily chance in percent (answer 55): per crew Wile point, the Speech and Knowledge bonuses, the cap.
+const WOM_PER_WILE: float = 2.0
+const WOM_BONUS: float = 5.0
+const WOM_CAP: float = 95.0
+const WOM_KNOWLEDGES: Array[String] = ["Salesmanship", "Diplomacy", "Business Operations", "Psychology"]
 const COUNTER_DAYS: int = 3
 const DEFAULT_ODD_JOB_PAY: int = 25
 const FIT_SEED: int = 7
 const FIT_STEP: int = 37
 const FIRST_APPLICANT_ID: int = 20
-const SEED_APPLICANTS: int = 8
-const SEED_LEVELS: Array[int] = [4, 9, 2, 12, 6, 15, 3, 8]
-const SEED_ASKS: Array[int] = [320, 540, 260, 780, 410, 960, 300, 600]
-const SEED_UNIQ: Array[int] = [0, 2, 1, 3, 1, 4, 0, 2]
-const SEED_RARITY: Array[int] = [0, 1, 0, 2, 1, 3, 0, 1]
-const SEED_FIT: Array[float] = [2.0, 3.5, 1.5, 4.0, 3.0, 4.5, 2.5, 3.0]
-const SEED_UNSEEN: Array[int] = [3, 5]
-#Which campaign sent each seeded applicant. A value under zero stands for ApplicantData.WALK_IN,
-#which a const cannot read off another class.
-const SEED_FROM: Array[int] = [1, 3, -1, 5, 6, 9, -1, 10]
-#The ten campaigns of mercPromoSeed, dated off today: age is how many days ago the campaign
-#started, days 0 with infinite on means it bills monthly instead, res is the arrivals it already
-#pulled, traditions and ctypes and locs and target are the picks it went out with, and crew with
-#pay is the Odd Job a Word of Mouth campaign paid for.
-const SEED_CAMPAIGNS: Array[Dictionary] = [
-	{"id": 1, "mode": "job", "type": &"flyers", "age": 12, "days": 30, "res": 2,
-		"traditions": [0, 5]},
-	{"id": 2, "mode": "promo", "type": &"wom", "age": 3, "days": 14, "res": 1, "ctypes": [1],
-		"locs": [0], "crew": [2, 5], "pay": 25},
-	{"id": 3, "mode": "job", "type": &"radio", "age": 40, "days": 0, "res": 9, "infinite": true},
-	{"id": 4, "mode": "job", "type": &"flyers", "age": 2, "days": 5, "res": 0,
-		"traditions": [9]},
-	{"id": 5, "mode": "job", "type": &"sponsor", "age": 20, "days": 30, "res": 5,
-		"traditions": [2, 4], "target": 2},
-	{"id": 6, "mode": "job", "type": &"radio", "age": 8, "days": 10, "res": 1,
-		"traditions": [6]},
-	{"id": 7, "mode": "job", "type": &"wom", "age": 5, "days": 7, "res": 1, "crew": [1, 4],
-		"pay": 25},
-	{"id": 8, "mode": "job", "type": &"flyers", "age": 45, "days": 30, "res": 4,
-		"traditions": [3]},
-	{"id": 9, "mode": "job", "type": &"sponsor", "age": 70, "days": 0, "res": 14,
-		"infinite": true, "target": 7},
-	{"id": 10, "mode": "job", "type": &"radio", "age": 1, "days": 25, "res": 0,
-		"traditions": [1, 8]},
-]
-#The level, salary, uniqueness and stat bands a placeholder arrival is drawn from.
-const NEW_LEVEL_LOW: int = 1
-const NEW_LEVEL_HIGH: int = 15
-#The asking rate is drawn in steps of NEW_ASK_STEP, so 10 to 50 steps is 200 to 1000 notes.
-const NEW_ASK_STEP: int = 20
-const NEW_ASK_LOW_STEPS: int = 10
-const NEW_ASK_HIGH_STEPS: int = 50
-const NEW_UNIQ_HIGH: int = 4
-const NEW_STAT_LOW: int = 1
-const NEW_STAT_HIGH: int = 9
+const RED_TEXT: String = "The guild is in the red."
 
 #Guild Opinion on hire, richest step first: at the asking rate and at each margin over it.
 const OPINION_STEPS: Array[Dictionary] = [{"over": 1.0, "delta": 5}, {"over": 0.5, "delta": 4},
@@ -124,16 +84,21 @@ var applicants: Array[ApplicantData] = []
 #Campaign id to name, kept for every campaign that ever ran so an applicant of an ended campaign
 #still shows where it came from.
 var campaign_names: Dictionary = {}
-#The Infinite campaigns the bank could not pay for, newest last: {id, name, day, amount}.
+#Test hook: the Infinite campaigns the bank could not pay for, newest last: {id, name, day, amount}.
 var billing_failures: Array[Dictionary] = []
 var next_campaign_id: int = 1
-var next_applicant_id: int = FIRST_APPLICANT_ID + SEED_APPLICANTS
+var next_applicant_id: int = FIRST_APPLICANT_ID
 #The merc the last hire signed on, for the screen that has to open their card; 0 = none yet.
 var last_hired_uid: int = 0
 
+#Test hook: zero or more seeds every reset with it so the applicant draws repeat; under zero each game rolls fresh.
+var fixed_seed: int = -1
+
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+#The merc behind each open applicant, by applicant id.
+var _applicant_mercs: Dictionary = {}
 var _seeded: bool = false
-#True while reset() lays the seed down and while this manager writes away rows itself: set_away
+#True while reset() runs and while this manager writes away rows itself: set_away
 #and clear_away both emit roster_changed, which calls this manager again. A crew coming home must
 #not be sent straight back out by the restore that signal runs.
 var _resetting: bool = false
@@ -146,32 +111,35 @@ var _last_day: int = -1
 
 
 func _ready() -> void:
-	GameState.roster_changed.connect(_on_roster_changed)
+	GameState.game_started.connect(_on_game_started)
+	GameState.roster_changed.connect(_restore_holds)
 	GameState.day_changed.connect(_on_day_changed)
 
 
-#Drops everything and lays the placeholder seed down again, dated off today.
+#A new game opens on an empty board of campaigns and the start pool of applicants.
+func _on_game_started() -> void:
+	reset()
+	fill_start_pool()
+
+
+#Drops every campaign, applicant and away row and reseeds the draws.
 func reset() -> void:
 	_seeded = true
 	_resetting = true
-	_rng.seed = RNG_SEED
+	if fixed_seed >= 0:
+		_rng.seed = fixed_seed
+	else:
+		_rng.randomize()
 	_last_day = -1
 	_clear_away_rows()
 	last_hired_uid = 0
 	campaigns.clear()
 	applicants.clear()
+	_applicant_mercs.clear()
 	campaign_names.clear()
 	billing_failures.clear()
-	next_applicant_id = FIRST_APPLICANT_ID + SEED_APPLICANTS
-	var today: int = GameState.day()
-	for row: Dictionary in SEED_CAMPAIGNS:
-		var campaign: CampaignData = _seed_campaign(row, today)
-		campaigns.append(campaign)
-		campaign_names[campaign.id] = campaign.name
-		_crew_away(campaign)
-	next_campaign_id = _next_id_after_seed()
-	for i: int in range(SEED_APPLICANTS):
-		applicants.append(_seed_applicant(i))
+	next_applicant_id = FIRST_APPLICANT_ID
+	next_campaign_id = 1
 	_resetting = false
 	campaigns_changed.emit()
 	applicants_changed.emit()
@@ -235,6 +203,16 @@ func applicant_of(id: int) -> ApplicantData:
 	return null
 
 
+#How many applicants could take an offer now: one mid counter-offer cannot until it settles.
+func open_applicants() -> int:
+	_ensure()
+	var total: int = 0
+	for applicant: ApplicantData in applicants:
+		if applicant != null and applicant.is_open():
+			total += 1
+	return total
+
+
 #One tab's campaigns, in list order. campaigns_filtered and campaigns_sorted do the rest.
 func campaigns_in(mode: String) -> Array[CampaignData]:
 	_ensure()
@@ -268,13 +246,19 @@ func campaigns_filtered(mode: String, show_concluded: bool, show_infinite: bool,
 func campaigns_sorted(list: Array[CampaignData], key: StringName, ascending: bool,
 		today: int) -> Array[CampaignData]:
 	var out: Array[CampaignData] = list.duplicate()
-	out.sort_custom(func(a: CampaignData, b: CampaignData) -> bool:
-		var left: float = campaign_sort_value(a, key, today)
-		var right: float = campaign_sort_value(b, key, today)
-		if is_equal_approx(left, right):
-			return a.id > b.id
-		return left < right if ascending else left > right)
+	out.sort_custom(_by_value(campaign_sort_value.bind(key, today), not ascending, true, true))
 	return out
+
+
+#A sort_custom comparator on value(row), larger first when high_first. Rows whose values match,
+#or nearly match when approx is set, order by id, the newest first when newer_first is set.
+func _by_value(value: Callable, high_first: bool, approx: bool, newer_first: bool) -> Callable:
+	return func(a: Variant, b: Variant) -> bool:
+		var left: float = value.call(a)
+		var right: float = value.call(b)
+		if left == right or (approx and is_equal_approx(left, right)):
+			return a.id > b.id if newer_first else a.id < b.id
+		return left > right if high_first else left < right
 
 
 #What one campaign sorts on. Campaign Method reads minus the type index, so the best method
@@ -295,14 +279,11 @@ func campaign_sort_value(campaign: CampaignData, key: StringName, today: int) ->
 
 
 func campaign_sort_label(key: StringName) -> String:
-	for row: Dictionary in CAMPAIGN_SORTS:
-		if StringName(row["key"]) == key:
-			return String(row["label"])
-	return ""
+	return TraitFilterDefs.label_of(CAMPAIGN_SORTS, key)
 
 
-#How many mercs a campaign has pulled in: the arrivals it still has on the list plus the ones
-#already dealt with.
+#A job ad's mercs pulled in: the arrivals still on the list plus the ones already dealt with.
+#A Guild Promo counts the contracts it has posted.
 func results_of(campaign: CampaignData) -> int:
 	if campaign == null:
 		return 0
@@ -324,12 +305,6 @@ func hiring_defs() -> Array[Dictionary]:
 	return TraitFilterDefs.merc_defs(true, campaigns_in(CampaignData.MODE_JOB))
 
 
-func builder_defs(mode: String, type_key: StringName) -> Array[Dictionary]:
-	if mode == CampaignData.MODE_JOB:
-		return TraitFilterDefs.merc_defs(false)
-	return TraitFilterDefs.contract_defs(type_key)
-
-
 func pay_per_of(campaign: CampaignData) -> int:
 	if campaign == null or campaign.pay_per <= 0:
 		return default_pay()
@@ -340,17 +315,26 @@ func default_pay() -> int:
 	return DEFAULT_ODD_JOB_PAY
 
 
-#What launching takes out of the bank now: a fixed run pays for all its days, an Infinite one
-#pays for its first month and a Word of Mouth campaign pays its crew.
+#What launching takes out of the bank now: the days up to the first bill date, or to the end of a
+#fixed run if sooner, and a Word of Mouth campaign pays its crew.
 func launch_cost(campaign: CampaignData) -> int:
 	if campaign == null:
 		return 0
 	if CampaignTypeDefs.is_crew_paid(campaign.type_key):
 		return CampaignTypeDefs.cost(campaign.type_key, 0, campaign.crew.size(),
 			pay_per_of(campaign))
-	if campaign.infinite:
-		return CampaignTypeDefs.monthly_cost(campaign.type_key)
-	return CampaignTypeDefs.cost(campaign.type_key, campaign.days)
+	return first_charge(campaign.type_key, GameState.day(), 0 if campaign.infinite else campaign.days)
+
+
+#Days a launch on that day pays for: up to its first bill date, capped at days for a fixed run (days > 0).
+func first_bill_days(day: int, days: int = 0) -> int:
+	var gap: int = TrynnCalendar.next_day_on(day, FinanceManager.bill_day_from(day)) - day
+	return gap if days <= 0 else mini(gap, days)
+
+
+#A launch on that day: per_day for each of its first_bill_days.
+func first_charge(key: StringName, day: int, days: int = 0) -> int:
+	return int(CampaignTypeDefs.find(key).get("per_day", 0)) * first_bill_days(day, days)
 
 
 func mode_unlocked(mode: String, ent: Dictionary) -> bool:
@@ -430,16 +414,18 @@ func launch(campaign: CampaignData) -> bool:
 	campaign.day_started = GameState.day()
 	campaign.results = 0
 	campaign.next_bill_day = -1
-	if campaign.infinite:
-		campaign.next_bill_day = campaign.day_started + CampaignTypeDefs.BILL_DAYS
+	campaign.bill_day = -1
+	if campaign.per_day > 0:
+		campaign.bill_day = FinanceManager.bill_day_from(campaign.day_started)
+		campaign.next_bill_day = campaign.bill_after(campaign.day_started)
 	campaign.next_arrival_day = -1
-	if campaign.mode == CampaignData.MODE_JOB:
+	if campaign.mode == CampaignData.MODE_PROMO:
 		campaign.next_arrival_day = campaign.day_started + ARRIVAL_DAYS
 	if CampaignTypeDefs.is_crew_paid(campaign.type_key):
-		_pay(campaign.total_cost, GameState.REASON_ODD_JOB,
+		GameState.spend(campaign.total_cost, GameState.REASON_ODD_JOB,
 			"%s - Word of Mouth" % campaign.name)
 	else:
-		_pay(campaign.total_cost, REASON_ADS, "%s - %s" % [campaign.name, String(row["name"])])
+		GameState.spend(campaign.total_cost, REASON_ADS, "%s - %s" % [campaign.name, String(row["name"])])
 	campaigns.append(campaign)
 	_crew_away(campaign)
 	campaigns_changed.emit()
@@ -468,21 +454,37 @@ func end(id: int) -> bool:
 		return false
 	var refund: int = campaign.budget_remaining(today)
 	if refund > 0:
-		_credit(refund, REASON_ADS, "%s - Refund" % campaign.name)
+		GameState.refund(refund, REASON_ADS, "%s - Refund" % campaign.name)
 	_bring_home(campaign.crew)
 	campaigns.erase(campaign)
 	campaigns_changed.emit()
 	return true
 
 
-#What the Infinite campaigns add to a month of outgoings.
+#What the next bill of every running campaign comes to: its days to the next bill date or its end.
 func monthly_ad_bill() -> int:
 	_ensure()
 	var total: int = 0
 	for campaign: CampaignData in campaigns:
-		if campaign.infinite:
-			total += CampaignTypeDefs.monthly_cost(campaign.type_key)
+		total += next_bill_amount(campaign)
 	return total
+
+
+#The campaign's next bill, or 0 when it has none left.
+func next_bill_amount(campaign: CampaignData) -> int:
+	if campaign == null or campaign.next_bill_day < 0:
+		return 0
+	return campaign.period_cost(campaign.next_bill_day)
+
+
+#The campaigns with a bill still to come.
+func billed_count() -> int:
+	_ensure()
+	var count: int = 0
+	for campaign: CampaignData in campaigns:
+		if campaign.next_bill_day >= 0:
+			count += 1
+	return count
 
 
 func infinite_count() -> int:
@@ -494,20 +496,17 @@ func infinite_count() -> int:
 	return count
 
 
-#Every monthly charge falling due inside the window, earliest first, for the Finance calendar.
+#Every bill falling due inside the window, earliest first, for the Finance calendar.
 func ad_bill_days(today: int, horizon: int) -> Array[Dictionary]:
 	_ensure()
 	var out: Array[Dictionary] = []
 	var limit: int = today + maxi(0, horizon)
 	for campaign: CampaignData in campaigns:
-		if not campaign.infinite or campaign.next_bill_day < 0:
-			continue
-		var amount: int = CampaignTypeDefs.monthly_cost(campaign.type_key)
 		var day: int = campaign.next_bill_day
-		while day < limit:
+		while day >= 0 and day < limit:
 			if day >= today:
-				out.append({"day": day, "amount": amount, "campaign_id": campaign.id})
-			day += CampaignTypeDefs.BILL_DAYS
+				out.append({"day": day, "amount": campaign.period_cost(day), "campaign_id": campaign.id})
+			day = campaign.bill_after(day)
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if int(a["day"]) == int(b["day"]):
 			return int(a["campaign_id"]) < int(b["campaign_id"])
@@ -519,6 +518,12 @@ func ad_bill_days(today: int, horizon: int) -> Array[Dictionary]:
 func view_applicants(id: int) -> void:
 	_ensure()
 	GameState.open_hiring(id)
+
+
+#Opens the contract board on one campaign's postings: the View Contracts button of a Guild Promo card.
+func view_contracts(id: int) -> void:
+	_ensure()
+	GameState.open_contracts(id)
 
 
 #The applicants a filter set leaves, sorted by one of the four Hiring keys. via holds the
@@ -534,21 +539,12 @@ func applicants_filtered(filters: Dictionary = {}, via: Array[int] = [],
 			continue
 		if _matches(applicant, filters, defs, ent):
 			out.append(applicant)
-	var key: StringName = sort
-	out.sort_custom(func(a: ApplicantData, b: ApplicantData) -> bool:
-		var left: float = _sort_value(a, key)
-		var right: float = _sort_value(b, key)
-		if left == right:
-			return a.id < b.id
-		return left > right if descending else left < right)
+	out.sort_custom(_by_value(_sort_value.bind(sort), descending, false, false))
 	return out
 
 
 func sort_label(key: StringName) -> String:
-	for row: Dictionary in SORTS:
-		if StringName(row["key"]) == key:
-			return String(row["label"])
-	return ""
+	return TraitFilterDefs.label_of(SORTS, key)
 
 
 #The roster cap the plan and the Seats tier hold; the key "seats" is a tier, never a seat count.
@@ -557,7 +553,7 @@ func max_mercs() -> int:
 
 
 func free_slots() -> int:
-	return maxi(0, max_mercs() - GameState.mercs.size())
+	return maxi(0, max_mercs() - SubscriptionManager.employed())
 
 
 #What hiring at this salary does to Guild Opinion: the asking rate is worth one step already.
@@ -583,13 +579,23 @@ func can_hire(id: int, salary: int) -> Dictionary:
 		return _refuse("This applicant is gone.")
 	if free_slots() <= 0:
 		return _refuse("No free merc slots.")
-	if not GameState.can_afford(salary):
+	if GameState.is_in_red():
+		return _refuse(RED_TEXT)
+	if not GameState.can_afford(hire_charge_for(salary)):
 		return _refuse("Not enough notes for their first month.")
 	return _allow()
 
 
+#The first pay a hire costs now: the salary pro-rated over the days left to the next payday.
+func hire_charge_for(salary: int) -> int:
+	var now: int = CampaignClock.now()
+	var days: int = TrynnCalendar.day_index(GameState.next_payday_minute()) - TrynnCalendar.day_index(now)
+	var month: int = int(TrynnCalendar.date_of(now)["month"])
+	return HirePool.hire_charge(salary, days, int(TrynnCalendar.MONTHS[month]["days"]))
+
+
 #Signs an applicant on. The roster addition is the hook: applicant_hired carries the salary and
-#the Guild Opinion the new merc starts with, and real merc generation is an open item.
+#the Guild Opinion the new merc starts with.
 func hire(id: int, salary: int) -> bool:
 	if not bool(can_hire(id, salary)["ok"]):
 		return false
@@ -597,22 +603,25 @@ func hire(id: int, salary: int) -> bool:
 	return _hire_at(applicant, salary, opinion_delta(applicant.ask, salary))
 
 
-#Signs one applicant on: a merc built at their level and tradition joins the roster on the agreed
-#salary, the opinion change lands on top of the opening opinion and the applicant leaves the list.
+#Signs one applicant on: the first pay leaves the bank, the merc rolled when they appeared joins the roster on the
+#agreed salary, the opinion change lands on top of the opening opinion and the applicant leaves the list.
 func _hire_at(applicant: ApplicantData, salary: int, delta: int) -> bool:
 	if applicant == null:
+		return false
+	var pay: int = hire_charge_for(maxi(1, salary))
+	if pay > 0 and not GameState.spend(pay, GameState.REASON_HIRE, "%s - First pay" % applicant.name):
 		return false
 	applicant.status = ApplicantData.STATUS_HIRED
 	applicant.unseen = false
 	_keep_result(applicant)
 	applicants.erase(applicant)
 	last_hired_uid = 0
-	var merc: MercenaryData = _new_merc(applicant)
+	var merc: MercenaryData = merc_of(applicant)
+	_applicant_mercs.erase(applicant.id)
 	if merc != null:
 		GameState.hire(merc)
 		merc.monthly_salary = maxi(1, salary)
-		merc.guild_opinion = clampi(merc.guild_opinion + delta, SalarySystem.OPINION_MIN,
-			SalarySystem.OPINION_MAX)
+		SalarySystem.adjust_opinion(merc, delta)
 		last_hired_uid = merc.merc_uid
 		GameState.refresh_views()
 		GameState.roster_changed.emit()
@@ -621,18 +630,48 @@ func _hire_at(applicant: ApplicantData, salary: int, delta: int) -> bool:
 	return true
 
 
-#The merc behind an applicant. DEFERRED: only the level and the tradition are carried over;
-#ancestry, heritage, traits and stats are whatever the generator rolls.
-func _new_merc(applicant: ApplicantData) -> MercenaryData:
+#The merc rolled for an applicant when they appeared; null for one this manager did not roll.
+func merc_of(applicant: ApplicantData) -> MercenaryData:
+	if applicant == null:
+		return null
+	return _applicant_mercs.get(applicant.id, null) as MercenaryData
+
+
+#Rolls the merc behind an applicant; the name, level, tradition, ancestry, stats and asking rate read off it. The ask
+#is stamped on the merc against the roster of this moment and stays frozen from then on.
+func _give_merc(applicant: ApplicantData, level: int) -> void:
+	applicant.level = level
+	var merc: MercenaryData = _generate_merc(level, applicant.tradition)
+	applicant.ancestry = _ancestry_of(merc, applicant.id)
+	if merc == null:
+		return
+	_applicant_mercs[applicant.id] = merc
+	applicant.name = merc.merc_name
+	applicant.level = ExperienceSystem.current_level(merc)
+	if merc.tradition != null:
+		applicant.tradition = merc.tradition.tradition_name
+	for key: String in ApplicantData.STAT_KEYS:
+		applicant.stats[key] = roundi(float(merc.stats.get(key, 0.0)))
+	merc.salary_ask = SalarySystem.asking_salary(merc, GameState.mercs)
+	applicant.ask = merc.salary_ask
+
+
+#The dominant ancestry name of a rolled merc; with none rolled, a real name picked by id so no draw is spent.
+func _ancestry_of(merc: MercenaryData, id: int) -> String:
+	if merc != null and merc.ancestry != null:
+		return merc.ancestry.ancestry_name
+	var known: Array[String] = TraitFilterDefs.ancestry_names()
+	return known[id % known.size()] if not known.is_empty() else ""
+
+
+func _generate_merc(level: int, tradition: String) -> MercenaryData:
 	var held_level: int = MercGenerator.forced_level
 	var held_tradition: String = MercGenerator.forced_tradition
-	MercGenerator.forced_level = maxi(1, applicant.level)
-	MercGenerator.forced_tradition = applicant.tradition
+	MercGenerator.forced_level = maxi(1, level)
+	MercGenerator.forced_tradition = tradition
 	var merc: MercenaryData = MercGenerator.generate(GameState.mercs.size())
 	MercGenerator.forced_level = held_level
 	MercGenerator.forced_tradition = held_tradition
-	if merc != null and applicant.name != "":
-		merc.merc_name = applicant.name
 	return merc
 
 
@@ -642,6 +681,7 @@ func reject(id: int) -> bool:
 		return false
 	applicant.status = ApplicantData.STATUS_REJECTED
 	applicant.unseen = false
+	_applicant_mercs.erase(applicant.id)
 	_keep_result(applicant)
 	applicants.erase(applicant)
 	applicants_changed.emit()
@@ -678,6 +718,8 @@ func can_counter(id: int, offer: int, team: Array[int] = [], pay_per: int = 0) -
 		return _refuse("That is their asking rate or better.")
 	if free_slots() <= 0:
 		return _refuse("No free merc slots.")
+	if GameState.is_in_red():
+		return _refuse(RED_TEXT)
 	var seats: int = TraitFilterDefs.tier_of(SubscriptionManager.entitlements(), "oddJobs")
 	if team.size() > seats:
 		return _refuse("Odd Jobs holds %d mercs." % seats)
@@ -702,7 +744,7 @@ func counter(id: int, offer: int, team: Array[int] = [], pay_per: int = 0) -> bo
 	applicant.refused_counter = false
 	applicant.unseen = false
 	applicant.counter_team.assign(team)
-	_pay(team.size() * maxi(0, pay_per), GameState.REASON_ODD_JOB,
+	GameState.spend(team.size() * maxi(0, pay_per), GameState.REASON_ODD_JOB,
 		"%s - Counter-offer" % applicant.name)
 	_send_away(team, applicant.counter_day + COUNTER_DAYS)
 	applicants_changed.emit()
@@ -727,35 +769,23 @@ func _keep_result(applicant: ApplicantData) -> void:
 		campaign.results += 1
 
 
-#Notes leave the bank only here, so every campaign charge reaches the ledger with a label.
-func _pay(amount: int, reason: String, label: String) -> bool:
-	if GameState.has_method("charge"):
-		return bool(GameState.call("spend", amount, reason, label))
-	return GameState.spend(amount, reason)
-
-
-func _credit(amount: int, reason: String, label: String) -> void:
-	if GameState.has_method("charge"):
-		GameState.call("refund", amount, reason, label)
-		return
-	GameState.refund(amount, reason)
-
-
 #The crew of a Word of Mouth campaign is out spreading the word until the campaign ends.
 func _crew_away(campaign: CampaignData) -> void:
 	if campaign == null or campaign.crew.is_empty():
 		return
 	if not CampaignTypeDefs.is_crew_paid(campaign.type_key):
 		return
-	var until_day: int = -1 if campaign.infinite else campaign.end_day()
-	_send_away(campaign.crew, until_day)
+	_send_away(campaign.crew, _until_day(campaign))
+
+
+#The last day a crew-paid campaign holds its crew, or -1 when an Infinite one holds it for good.
+func _until_day(campaign: CampaignData) -> int:
+	return -1 if campaign.infinite else campaign.end_day()
 
 
 #Marks a crew away on the Odd Job status until a day; a day under zero has no end. A uid the
 #roster does not hold is left alone, so no phantom row reaches the registry.
 func _send_away(team: Array[int], until_day: int) -> void:
-	if not GameState.has_method("set_away"):
-		return
 	var until: int = -1
 	if until_day >= 0:
 		until = until_day * CampaignClock.MINUTES_PER_DAY
@@ -792,8 +822,6 @@ func _holds_busy_merc(team: Array[int]) -> bool:
 
 #Brings back only the mercs this manager sent away.
 func _bring_home(team: Array[int]) -> void:
-	if not GameState.has_method("clear_away"):
-		return
 	var was_writing: bool = _restoring
 	_restoring = true
 	for uid: int in team:
@@ -807,19 +835,15 @@ func _bring_home(team: Array[int]) -> void:
 
 
 func _clear_away_rows() -> void:
-	if not GameState.has_method("clear_away"):
-		_away_uids.clear()
-		return
 	for uid: int in _away_uids.keys():
 		if GameState.away_status(int(uid)) == GuiTypes.MercStatus.ODD_JOB:
 			GameState.clear_away(int(uid))
 	_away_uids.clear()
 
 
-#Puts back the Odd Job rows this manager owns. The away registry is emptied by a new game, and a
-#seed laid down before a game started never found a merc to hold, so the cards would name crew
-#mercs the roster shows as free. on_day under zero reads the later of the clock and the last day
-#this manager settled.
+#Puts back the Odd Job rows this manager owns. The away registry is emptied by a new game, so the
+#cards would name crew mercs the roster shows as free. on_day under zero reads the later of the clock
+#and the last day this manager settled.
 func _restore_holds(on_day: int = -1) -> void:
 	if _resetting or _restoring or not _seeded:
 		return
@@ -833,7 +857,7 @@ func _restore_holds(on_day: int = -1) -> void:
 			continue
 		if campaign.is_concluded(today):
 			continue
-		var until_day: int = -1 if campaign.infinite else campaign.end_day()
+		var until_day: int = _until_day(campaign)
 		for uid: int in campaign.crew:
 			_restore_one(uid, until_day)
 	for applicant: ApplicantData in applicants:
@@ -858,22 +882,13 @@ func _restore_one(uid: int, until_day: int) -> void:
 
 
 #A place the permit book has never heard of cannot want a permit.
-func _known_place(legal: Node, index: int) -> bool:
-	if not legal.has_method("location"):
-		return true
-	return legal.call("location", index) != null
+func _known_place(index: int) -> bool:
+	return LegalManager.location(index) != null
 
 
 func _ensure() -> void:
 	if not _seeded:
 		reset()
-
-
-func _on_roster_changed() -> void:
-	if not _seeded and GameState.started:
-		reset()
-		return
-	_restore_holds()
 
 
 #A new day: every monthly bill goes out, every due arrival lands and every answer comes back.
@@ -886,8 +901,7 @@ func _on_day_changed(day_index: int) -> void:
 	for campaign: CampaignData in campaigns.duplicate():
 		if not _bill_campaign(campaign, day_index):
 			continue
-		if _land_arrivals(campaign, day_index):
-			applicants_dirty = true
+		_land_arrivals(campaign, day_index)
 		if campaign.is_concluded(day_index):
 			_bring_home(campaign.crew)
 	for applicant: ApplicantData in applicants.duplicate():
@@ -904,38 +918,33 @@ func _on_day_changed(day_index: int) -> void:
 		applicants_changed.emit()
 
 
-#Charges an Infinite campaign for every period it has passed. False once the campaign is gone:
-#a bill the bank cannot cover takes the campaign down and hands nothing back.
+#Charges a campaign for every bill date it has passed. False once the campaign is gone: a bill the
+#bank cannot cover takes the campaign down and hands nothing back.
 func _bill_campaign(campaign: CampaignData, day_index: int) -> bool:
-	if not campaign.infinite:
-		return true
 	while campaign.next_bill_day >= 0 and campaign.next_bill_day <= day_index:
-		var amount: int = CampaignTypeDefs.monthly_cost(campaign.type_key)
-		if not _pay(amount, REASON_ADS, "%s - Monthly bill" % campaign.name):
+		var amount: int = campaign.period_cost(campaign.next_bill_day)
+		if not GameState.spend(amount, REASON_ADS, "%s - Monthly bill" % campaign.name):
 			billing_failures.append({"id": campaign.id, "name": campaign.name, "day": day_index,
 				"amount": amount})
 			_bring_home(campaign.crew)
 			campaigns.erase(campaign)
 			campaign_bill_failed.emit(campaign.id, campaign.name)
 			return false
-		campaign.next_bill_day += CampaignTypeDefs.BILL_DAYS
+		campaign.next_bill_day = campaign.bill_after(campaign.next_bill_day)
 		campaign_billed.emit(campaign.id, amount)
 	return true
 
 
-#Lands every arrival the campaign owes. A fixed run stops pulling on its last day.
-func _land_arrivals(campaign: CampaignData, day_index: int) -> bool:
-	var landed: bool = false
+#Steps a Guild Promo's arrival day on; its contracts come from the daily round (contract_campaigns) and job ads
+#land through hire_round. A fixed run stops on its last day.
+func _land_arrivals(campaign: CampaignData, day_index: int) -> void:
 	var last: int = day_index
 	if not campaign.infinite:
 		last = mini(day_index, campaign.end_day() - 1)
 	while campaign.next_arrival_day >= 0 and campaign.next_arrival_day <= last:
-		_spawn_applicant(campaign)
 		campaign.next_arrival_day += ARRIVAL_DAYS
-		landed = true
 	if campaign.is_concluded(day_index):
 		campaign.next_arrival_day = -1
-	return landed
 
 
 #An accepted counter-offer becomes their new asking rate; a refusal leaves the old one standing.
@@ -990,14 +999,12 @@ func _duration_verdict(campaign: CampaignData, ent: Dictionary) -> Dictionary:
 
 func _location_verdict(campaign: CampaignData, row: Dictionary) -> Dictionary:
 	var type_name: String = String(row["name"])
-	var legal: Node = get_node_or_null("/root/LegalManager")
-	var can_ask: bool = legal != null and legal.has_method("has_permit")
 	for index: int in campaign.locations:
 		if not CampaignTypeDefs.location_allowed(campaign.type_key, index):
 			return _refuse("%s cannot reach %s." % [type_name,
 				CampaignTypeDefs.location_name(index)])
-		if can_ask and _known_place(legal, index):
-			if not bool(legal.call("has_permit", index, LegalManager.PERMIT_OPS)):
+		if _known_place(index):
+			if not LegalManager.has_permit(index, LegalManager.PERMIT_OPS):
 				return _refuse("No Operations Permit in %s."
 					% CampaignTypeDefs.location_name(index))
 	if bool(row["one_loc"]) and campaign.locations.size() > 1:
@@ -1083,35 +1090,290 @@ func _sort_value(applicant: ApplicantData, key: StringName) -> float:
 	return applicant.fit
 
 
-#One placeholder arrival through a job campaign. The campaign's quality stars do not bias the
-#draw yet: that waits on real generation.
 func _spawn_applicant(campaign: CampaignData) -> ApplicantData:
-	var applicant := ApplicantData.new()
-	applicant.id = next_applicant_id
-	next_applicant_id += 1
-	applicant.name = applicant_name(applicant.id)
-	var traditions: Array[String] = TraitFilterDefs.traditions()
-	applicant.tradition = traditions[_rng.randi_range(0, traditions.size() - 1)]
-	applicant.level = _rng.randi_range(NEW_LEVEL_LOW, NEW_LEVEL_HIGH)
-	applicant.ask = _rng.randi_range(NEW_ASK_LOW_STEPS, NEW_ASK_HIGH_STEPS) * NEW_ASK_STEP
-	applicant.uniq = float(_rng.randi_range(0, NEW_UNIQ_HIGH))
-	applicant.rarity = ApplicantData.RARITIES[mini(int(applicant.uniq),
-		ApplicantData.RARITIES.size() - 1)]
-	applicant.fit = float(_rng.randi_range(1, 10)) / 2.0
-	applicant.campaign_id = campaign.id
+	return land_applicant(campaign)
+
+
+#One arrival through a campaign. hit is one GenPromo.roll entry: its criteria are the filter keys that bind the card
+#and its match_pct lifts the draw count. No cap, no results write and no arrival day are touched here.
+func land_applicant(campaign: CampaignData, hit: Dictionary = {}) -> ApplicantData:
+	var applied: Array[String] = []
+	applied.assign(hit.get("criteria", []))
+	var quality: float = HirePool.job_quality(hire_opinion(), float(hit.get("match_pct", 0.0)))
+	var filters: Dictionary = campaign.filters if campaign != null else {}
+	var applicant: ApplicantData = _draw_card(HirePool.quality_draws(quality), filters, applied, _fit_targets())
+	applicant.campaign_id = campaign.id if campaign != null else ApplicantData.WALK_IN
+	_post_card(applicant)
+	return applicant
+
+
+#The daily 8:00 hire pass: the job posting rolls, then on a refresh day the pool refresh, then one list signal.
+func hire_round(now: int) -> void:
+	if not _seeded:
+		return
+	var changed: bool = _roll_job_postings()
+	if HirePool.is_refresh_day(TrynnCalendar.date_of(now)):
+		changed = _refresh_pool() or changed
+	if changed:
+		applicants_changed.emit()
+
+
+#The POOL_START applicants a new game opens with.
+func fill_start_pool() -> void:
+	_ensure()
+	var targets: Array[ContractData] = _fit_targets()
+	var draws: int = HirePool.quality_draws(hire_opinion())
+	for _i: int in HirePool.POOL_START:
+		_post_card(_pool_card(draws, targets))
+	applicants_changed.emit()
+
+
+#Every running, billed job posting as {id, effect, active}: active holds the filter keys off their default.
+func job_campaigns() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var today: int = maxi(GameState.day(), _last_day)
+	var ent: Dictionary = SubscriptionManager.entitlements()
+	var defs: Array[Dictionary] = TraitFilterDefs.merc_defs(false)
+	for campaign: CampaignData in campaigns:
+		if campaign.mode != CampaignData.MODE_JOB or not campaign.is_launched() or campaign.is_concluded(today):
+			continue
+		var effect: float = CampaignTypeDefs.effect_value(campaign.type_key, ent)
+		if effect < 0.0:
+			effect = word_of_mouth_effect(campaign.crew)
+		var active: Array[String] = []
+		for def: Dictionary in defs:
+			if TraitFilterDefs.active(def, _filter_value(campaign.filters, StringName(def["key"]))):
+				active.append(String(def["key"]))
+		out.append({"id": campaign.id, "effect": effect, "active": active})
+	return out
+
+
+#Guild Opinion for the pool: the roster's opinions of the guild beside the clients' satisfaction, 0..1.
+func hire_opinion() -> float:
+	var opinions: Array[int] = []
+	for merc: MercenaryData in GameState.mercs:
+		if merc != null and int(GameState.merc_status(merc)["status"]) != GuiTypes.MercStatus.DEAD:
+			opinions.append(merc.guild_opinion)
+	var satisfactions: Array[int] = []
+	for id: int in IssuerOpinion.ids():
+		satisfactions.append(IssuerOpinion.satisfaction(id))
+	return HirePool.overall_opinion(opinions, satisfactions)
+
+
+#The level centre of the live roster, weighted as the contract round weighs it.
+func hire_level_centre() -> float:
+	var living: Array[MercenaryData] = []
+	var available: Array[MercenaryData] = []
+	var resting: Array[MercenaryData] = []
+	for merc: MercenaryData in GameState.mercs:
+		if merc == null:
+			continue
+		var status: int = int(GameState.merc_status(merc)["status"])
+		if status != GuiTypes.MercStatus.DEAD:
+			living.append(merc)
+		if status == GuiTypes.MercStatus.AVAILABLE:
+			available.append(merc)
+		elif status == GuiTypes.MercStatus.RESTING:
+			resting.append(merc)
+	return GenLevel.centre(living, available, resting)
+
+
+func _roll_job_postings() -> bool:
+	var landed: bool = false
+	for row: Dictionary in job_campaigns():
+		if _pool_full():
+			break
+		var campaign: CampaignData = campaign_of(int(row["id"]))
+		var active: Array[String] = []
+		active.assign(row["active"])
+		for hit: Dictionary in GenPromo.roll(float(row["effect"]), active, _rng):
+			if _pool_full():
+				break
+			land_applicant(campaign, hit)
+			landed = true
+	return landed
+
+
+func _pool_full() -> bool:
+	return open_applicants() >= HirePool.pool_cap(free_slots(), max_mercs())
+
+
+#Drops the pool cards no counter-offer holds, then lands a fresh pool sized by opinion and the open seats.
+func _refresh_pool() -> bool:
+	var changed: bool = false
+	for applicant: ApplicantData in applicants.duplicate():
+		if applicant.pool and applicant.status != ApplicantData.STATUS_COUNTERED:
+			_applicant_mercs.erase(applicant.id)
+			applicants.erase(applicant)
+			changed = true
+	var opinion: float = hire_opinion()
+	var count: int = HirePool.pool_size(opinion, HirePool.pool_cap(free_slots(), max_mercs()))
+	var targets: Array[ContractData] = _fit_targets()
+	var draws: int = HirePool.quality_draws(opinion)
+	for _i: int in count:
+		_post_card(_pool_card(draws, targets))
+		changed = true
+	return changed
+
+
+func _pool_card(draws: int, targets: Array[ContractData]) -> ApplicantData:
+	var applicant: ApplicantData = _draw_card(draws, {}, [], targets)
+	applicant.campaign_id = ApplicantData.WALK_IN
+	applicant.pool = true
+	return applicant
+
+
+func _post_card(applicant: ApplicantData) -> void:
 	applicant.unseen = true
-	applicant.ancestry = _pick_name("Ancestry", TraitFilterDefs.ANCESTRY_COUNT)
-	applicant.bloodline = _pick_name("Bloodline", TraitFilterDefs.BLOODLINE_COUNT)
-	applicant.heritage = _pick_name("Heritage", TraitFilterDefs.HERITAGE_COUNT)
-	applicant.criminality = _pick_name("Criminality", TraitFilterDefs.CRIMINALITY_COUNT)
-	applicant.age = _rng.randi_range(int(TraitFilterDefs.AGE_MIN), int(TraitFilterDefs.AGE_MAX))
-	for key: String in ApplicantData.STAT_KEYS:
-		applicant.stats[key] = _rng.randi_range(NEW_STAT_LOW, NEW_STAT_HIGH)
-	applicant.tools = _one(_pick_name("Tool", TraitFilterDefs.TOOL_COUNT))
-	applicant.knowledges = _one(_pick_name("Knowledge", TraitFilterDefs.KNOWLEDGE_COUNT))
 	applicants.append(applicant)
 	applicant_arrived.emit(applicant)
-	return applicant
+
+
+#The open contracts a new merc is scored against: the ones the roster cannot cover, else every open one.
+func _fit_targets() -> Array[ContractData]:
+	var open: Array[ContractData] = []
+	if GameState.board != null:
+		for entry: BoardEntry in GameState.board.available():
+			if entry != null and entry.contract != null:
+				open.append(entry.contract)
+	var targets: Array[ContractData] = HirePool.needs(open, GameState.mercs)
+	return targets if not targets.is_empty() else open
+
+
+#Draws draws candidates under one new id and keeps the best fit; the first candidate wins a tie.
+func _draw_card(draws: int, filters: Dictionary, applied: Array[String],
+		targets: Array[ContractData]) -> ApplicantData:
+	var id: int = next_applicant_id
+	next_applicant_id += 1
+	var level: int = HirePool.level_for(hire_level_centre(), _rng)
+	var best: ApplicantData = null
+	var best_merc: MercenaryData = null
+	for _i: int in maxi(1, draws):
+		var card: ApplicantData = _candidate(id, level, filters, applied, targets)
+		if best == null or card.fit > best.fit:
+			best = card
+			best_merc = merc_of(card)
+	if best_merc != null:
+		_applicant_mercs[id] = best_merc
+	else:
+		_applicant_mercs.erase(id)
+	return best
+
+
+#One candidate card: tradition forced from an applied filter, the merc re-drawn up to FILTER_TRIES times until the
+#applied filters pass, the merc-read fields from the merc and the placeholder fields as _rng picks.
+func _candidate(id: int, level: int, filters: Dictionary, applied: Array[String],
+		targets: Array[ContractData]) -> ApplicantData:
+	var bound: Dictionary = {}
+	for key: String in applied:
+		var want: Variant = _filter_value(filters, StringName(key))
+		if want != null:
+			bound[StringName(key)] = want
+	var defs: Array[Dictionary] = TraitFilterDefs.merc_defs(false)
+	var ent: Dictionary = SubscriptionManager.entitlements()
+	var card: ApplicantData = null
+	for _try: int in HirePool.FILTER_TRIES:
+		card = ApplicantData.new()
+		card.id = id
+		card.tradition = _pick_tradition(bound.get(&"tradition", null))
+		_give_merc(card, level)
+		if bound.is_empty() or _matches(card, bound, defs, ent):
+			break
+	var merc: MercenaryData = merc_of(card)
+	if merc != null:
+		card.rarity = ApplicantData.RARITIES[clampi(SalarySystem.rarity_score(merc), 0, ApplicantData.RARITIES.size() - 1)]
+		card.uniq = float(SalarySystem.need_score(merc, GameState.mercs))
+		card.fit = HirePool.fit(merc, targets)
+	card.bloodline = _pick_name("Bloodline", TraitFilterDefs.BLOODLINE_COUNT)
+	card.heritage = _pick_name("Heritage", TraitFilterDefs.HERITAGE_COUNT)
+	card.criminality = _pick_name("Criminality", TraitFilterDefs.CRIMINALITY_COUNT)
+	card.age = _rng.randi_range(int(TraitFilterDefs.AGE_MIN), int(TraitFilterDefs.AGE_MAX))
+	card.tools = _one(_pick_name("Tool", TraitFilterDefs.TOOL_COUNT))
+	card.knowledges = _one(_pick_name("Knowledge", TraitFilterDefs.KNOWLEDGE_COUNT))
+	return card
+
+
+#A tradition from the applied filter's allowed set, else from every tradition.
+func _pick_tradition(allowed: Variant) -> String:
+	var pool: Array[String] = []
+	if allowed is Array:
+		for entry: Variant in allowed:
+			pool.append(String(entry))
+	elif allowed != null and String(allowed) != "":
+		pool.append(String(allowed))
+	if pool.is_empty():
+		pool = TraitFilterDefs.traditions()
+	return pool[_rng.randi_range(0, pool.size() - 1)]
+
+
+#Every running Guild Promo campaign in the GenPromo shape; an unset criterion is an empty list or a 0..0 band.
+func contract_campaigns() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var today: int = maxi(GameState.day(), _last_day)
+	var known: Array[String] = ContractLibrary.contract_type_names()
+	var ent: Dictionary = SubscriptionManager.entitlements()
+	for campaign: CampaignData in campaigns:
+		if campaign.mode != CampaignData.MODE_PROMO or not campaign.is_launched() or campaign.is_concluded(today):
+			continue
+		var types: Array[String] = []
+		for type_name: String in campaign.contract_types:
+			if known.has(type_name) and not types.has(type_name):
+				types.append(type_name)
+		var places: Array[String] = []
+		for index: int in campaign.locations:
+			var place: String = CampaignTypeDefs.location_name(index)
+			if place != "" and not places.has(place):
+				places.append(place)
+		var lo: float = minf(campaign.difficulty_lo, campaign.difficulty_hi)
+		var hi: float = maxf(campaign.difficulty_lo, campaign.difficulty_hi)
+		if lo <= GenConstants.DIFF_MIN and hi >= GenConstants.DIFF_MAX:
+			lo = 0.0
+			hi = 0.0
+		var effect: float = CampaignTypeDefs.effect_value(campaign.type_key, ent)
+		if effect < 0.0:
+			effect = word_of_mouth_effect(campaign.crew)
+		out.append({"id": campaign.id, "effect": effect, "types": types, "places": places,
+			"diff_lo": lo, "diff_hi": hi, "issuers": _issuer_seats(campaign)})
+	return out
+
+
+#One contract the round generated for this campaign.
+func credit_contract(campaign_id: int) -> void:
+	for campaign: CampaignData in campaigns:
+		if campaign.id == campaign_id:
+			campaign.results += 1
+			campaigns_changed.emit()
+			return
+
+
+#Word of Mouth percent: Wile summed over the crew, Speech once, one listed Knowledge once, capped.
+func word_of_mouth_effect(crew: Array[int]) -> float:
+	var wile: float = 0.0
+	var speech: bool = false
+	var knows: bool = false
+	for uid: int in crew:
+		var merc: MercenaryData = GameState.merc_by_uid(uid)
+		if merc == null:
+			continue
+		wile += float(merc.stats.get("wile", 0.0))
+		speech = speech or bool(merc.circumstance_flags.get(ConstCircumstances.SPEECH_WILE, false))
+		for knowledge: String in WOM_KNOWLEDGES:
+			knows = knows or ContractModifiers.knowledge_matches(merc, knowledge)
+	var pct: float = WOM_PER_WILE * wile + (WOM_BONUS if speech else 0.0) + (WOM_BONUS if knows else 0.0)
+	return minf(pct, WOM_CAP)
+
+
+#Company picks map to their org seats; an event pick has no seat.
+func _issuer_seats(campaign: CampaignData) -> Array[int]:
+	var picks: Array[int] = []
+	picks.assign(campaign.advertise_targets)
+	if picks.is_empty() and campaign.sponsor_index >= 0:
+		picks.append(campaign.sponsor_index)
+	var out: Array[int] = []
+	for index: int in picks:
+		if index >= 0 and index < mini(TraitFilterDefs.COMPANY_COUNT, IssuerOpinion.ORG_SEATS):
+			out.append(ContractIssuer.seat_id(IssuerOpinion.ORG_GROUP, index))
+	return out
 
 
 func _pick_name(prefix: String, count: int) -> String:
@@ -1122,147 +1384,6 @@ func _pick_name(prefix: String, count: int) -> String:
 func _one(value: String) -> Array[String]:
 	var out: Array[String] = [value]
 	return out
-
-
-#Placeholder applicant names, the mname() of promo-core.js.
-func applicant_name(id: int) -> String:
-	return "FirstName%d LastName%d" % [id + 1, id + 1]
-
-
-#The id the next launch takes, which is one past the highest seeded campaign.
-func _next_id_after_seed() -> int:
-	var top: int = 0
-	for row: Dictionary in SEED_CAMPAIGNS:
-		top = maxi(top, int(row["id"]))
-	return top + 1
-
-
-#One seeded campaign, dated off today and already carrying its results.
-func _seed_campaign(row: Dictionary, today: int) -> CampaignData:
-	var campaign := CampaignData.new()
-	campaign.id = int(row["id"])
-	campaign.name = "Campaign %d" % campaign.id
-	campaign.mode = String(row["mode"])
-	campaign.type_key = StringName(row["type"])
-	campaign.infinite = bool(row.get("infinite", false))
-	campaign.days = int(row.get("days", 0))
-	campaign.unit_key = CampaignTypeDefs.UNIT_DAYS
-	if campaign.infinite:
-		campaign.unit_key = CampaignTypeDefs.UNIT_INFINITE
-	campaign.day_started = today - int(row["age"])
-	campaign.results = int(row.get("res", 0))
-	campaign.per_day = int(CampaignTypeDefs.find(campaign.type_key)["per_day"])
-	campaign.crew.assign(row.get("crew", []))
-	campaign.pay_per = int(row.get("pay", 0))
-	campaign.contract_types.assign(row.get("ctypes", []))
-	campaign.locations.assign(row.get("locs", []))
-	campaign.sponsor_index = int(row.get("target", CampaignData.NO_PICK))
-	campaign.sponsor_target = _sponsor_name(campaign.type_key, campaign.sponsor_index)
-	campaign.filters = _seed_filters(row, campaign)
-	campaign.total_cost = launch_cost(campaign)
-	campaign.next_bill_day = _next_bill_after(campaign, today)
-	campaign.next_arrival_day = _next_arrival_after(campaign, today)
-	return campaign
-
-
-#The filter set a seeded campaign went out with, one entry per picked row.
-func _seed_filters(row: Dictionary, campaign: CampaignData) -> Dictionary:
-	var out: Dictionary = {}
-	var traditions: Array[String] = TraitFilterDefs.traditions()
-	var picked: Array[String] = []
-	for index: int in (row.get("traditions", []) as Array):
-		picked.append(traditions[index % traditions.size()])
-	if not picked.is_empty():
-		out[&"tradition"] = picked
-	if not campaign.contract_types.is_empty():
-		out[&"ctype"] = campaign.contract_types.duplicate()
-	if not campaign.locations.is_empty():
-		out[&"loc"] = campaign.locations.duplicate()
-	if campaign.sponsor_target != "":
-		out[&"target"] = _seed_target_value(campaign)
-	return out
-
-
-#A chips target row stores the picked names as a list; a pick-one row stores the one name.
-func _seed_target_value(campaign: CampaignData) -> Variant:
-	var defs: Array[Dictionary] = TraitFilterDefs.contract_defs(campaign.type_key)
-	var def: Dictionary = TraitFilterDefs.find(defs, &"target")
-	if String(def.get("kind", "")) != TraitFilterDefs.KIND_CHIPS:
-		return campaign.sponsor_target
-	var options: Array = def.get("options", [])
-	var out: Array[String] = []
-	for index: int in campaign.advertise_targets:
-		if index >= 0 and index < options.size():
-			out.append(String(options[index]))
-	if out.is_empty():
-		for piece: String in campaign.sponsor_target.split(TARGET_JOIN, false):
-			if options.has(piece):
-				out.append(piece)
-	return out
-
-
-#The company or event one index of the sponsor picker stands for.
-func _sponsor_name(type_key: StringName, index: int) -> String:
-	if index < 0:
-		return ""
-	var defs: Array[Dictionary] = TraitFilterDefs.contract_defs(type_key)
-	var target: Dictionary = TraitFilterDefs.find(defs, &"target")
-	if target.is_empty():
-		return ""
-	var options: Array = target["options"]
-	return String(options[index]) if index < options.size() else ""
-
-
-#The first arrival day of a running campaign that is still ahead of today.
-func _next_arrival_after(campaign: CampaignData, today: int) -> int:
-	if campaign.mode != CampaignData.MODE_JOB or campaign.is_concluded(today):
-		return -1
-	var day: int = campaign.day_started + ARRIVAL_DAYS
-	while day <= today:
-		day += ARRIVAL_DAYS
-	return day
-
-
-#The first monthly charge of an Infinite campaign that is still ahead of today.
-func _next_bill_after(campaign: CampaignData, today: int) -> int:
-	if not campaign.infinite:
-		return -1
-	var day: int = campaign.day_started + CampaignTypeDefs.BILL_DAYS
-	while day <= today:
-		day += CampaignTypeDefs.BILL_DAYS
-	return day
-
-
-func _seed_applicant(index: int) -> ApplicantData:
-	var applicant := ApplicantData.new()
-	applicant.id = FIRST_APPLICANT_ID + index
-	applicant.name = applicant_name(applicant.id)
-	var traditions: Array[String] = TraitFilterDefs.traditions()
-	applicant.tradition = traditions[(index * 3 + 1) % traditions.size()]
-	applicant.level = SEED_LEVELS[index]
-	applicant.ask = SEED_ASKS[index]
-	applicant.uniq = float(SEED_UNIQ[index])
-	applicant.rarity = ApplicantData.RARITIES[SEED_RARITY[index]]
-	applicant.fit = SEED_FIT[index]
-	var from: int = SEED_FROM[index]
-	applicant.campaign_id = ApplicantData.WALK_IN if from < 0 else from
-	applicant.unseen = SEED_UNSEEN.has(index)
-	applicant.ancestry = TraitFilterDefs.name_at("Ancestry",
-		index % TraitFilterDefs.ANCESTRY_COUNT)
-	applicant.bloodline = TraitFilterDefs.name_at("Bloodline",
-		(index + 2) % TraitFilterDefs.BLOODLINE_COUNT)
-	applicant.heritage = TraitFilterDefs.name_at("Heritage",
-		(index + 1) % TraitFilterDefs.HERITAGE_COUNT)
-	applicant.criminality = TraitFilterDefs.name_at("Criminality",
-		index % TraitFilterDefs.CRIMINALITY_COUNT)
-	applicant.age = 19 + index * 5
-	applicant.stats = {"speed": 3 + (index * 4) % 6, "cognition": 2 + (index * 2) % 6,
-		"vigor": 1 + (index * 3) % 7, "dexterity": 4 + index % 4, "wile": 2 + (index * 5) % 6}
-	applicant.tools = _one(TraitFilterDefs.name_at("Tool",
-		(index + 2) % TraitFilterDefs.TOOL_COUNT))
-	applicant.knowledges = _one(TraitFilterDefs.name_at("Knowledge",
-		index % TraitFilterDefs.KNOWLEDGE_COUNT))
-	return applicant
 
 
 func _allow() -> Dictionary:

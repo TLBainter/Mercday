@@ -15,12 +15,12 @@ static func hidden_moves(merc: MercenaryData, state: BattleState, goal: Vector3i
 	for _move: int in range(max_moves):
 		if state.pos3(merc) == goal:
 			break
-		if ConstStates.is_blocked(merc, "action:move") or MovementExecutor.pace_per_move(merc) <= 0:
+		if StateEffects.is_blocked(merc, "action:move") or PaceBudget.pace_per_move(merc) <= 0:
 			break
 		if state.get_pace_pool(merc) <= 0:
 			if not state.can_afford(merc, state.get_cost(merc, "Move Close", _CONFIG.move_base_ap)):
 				break
-			MovementExecutor._buy_move(merc, state, "Move Close")
+			PaceBudget.buy_move(merc, state, "Move Close")
 		var pace: int = state.get_pace_pool(merc)
 		if pace <= 0:
 			break
@@ -28,10 +28,7 @@ static func hidden_moves(merc: MercenaryData, state: BattleState, goal: Vector3i
 		if avoid:
 			path = detour_path(merc, state, goal)
 		if path.size() < 2:
-			path = PathTargeter.walk_path_for(merc, state, state.pos3(merc), goal)
-		if path.size() < 2:
-			PathTargeter.reachable_far_for(merc, state, [goal])
-			path = PathTargeter.walk_path_for(merc, state, state.pos3(merc), goal)
+			path = path_to(merc, state, goal)
 		if path.size() < 2:
 			if EncounterLogger.is_active():
 				EncounterLogger.log_verbose("RESCUE: %s finds no path to (%d,%d) F%d" % [
@@ -116,6 +113,16 @@ static func walk(merc: MercenaryData, state: BattleState, path: Array[Vector3i],
 	return stepped
 
 
+#The walk from the merc to the goal; the reachable field is widened once when the first try finds no path.
+static func path_to(merc: MercenaryData, state: BattleState, goal: Vector3i) -> Array[Vector3i]:
+	var from: Vector3i = state.pos3(merc)
+	var path: Array[Vector3i] = ReachCache.walk_path_for(merc, state, from, goal)
+	if path.size() < 2:
+		ReachCache.reachable_far_for(merc, state, [goal])
+		path = ReachCache.walk_path_for(merc, state, from, goal)
+	return path
+
+
 #A walk to the goal that steps on no enemy cell; empty when the enemies shut every way.
 static func detour_path(merc: MercenaryData, state: BattleState, goal: Vector3i) -> Array[Vector3i]:
 	var empty: Array[Vector3i] = []
@@ -151,3 +158,79 @@ static func path_blocker(state: BattleState, path: Array[Vector3i]) -> Mercenary
 		if spots.has(path[i]):
 			return spots[path[i]] as MercenaryData
 	return null
+
+
+#What a hidden merc does about an enemy on its path. Pure: every input is a plain flag.
+static func blocked_decision(has_detour: bool, free_before: bool, is_captive: bool, favored: bool,
+		fixed: bool, may_abort: bool) -> String:
+	if has_detour:
+		return RescueSystem.CALL_DETOUR
+	if free_before:
+		return RescueSystem.CALL_GO
+	if is_captive:
+		return RescueSystem.CALL_WAIT
+	if favored:
+		return RescueSystem.CALL_AMBUSH
+	if may_abort:
+		return RescueSystem.CALL_ABORT
+	if fixed:
+		return RescueSystem.CALL_AMBUSH
+	return RescueSystem.CALL_WAIT
+
+
+#Reads the way to the goal and settles wait, detour, ambush or abort; applies the wait and ambush itself.
+static func blocked_call(merc: MercenaryData, state: BattleState, goal: Vector3i,
+		lines: Array[String]) -> String:
+	var rescue: Dictionary = state.rescue
+	var counts: Dictionary = rescue["block_waits"]
+	var own: Vector3i = state.pos3(merc)
+	var path: Array[Vector3i] = RescueWalk.path_to(merc, state, goal)
+	var blocker: MercenaryData = RescueWalk.path_blocker(state, path)
+	if blocker == null:
+		counts.erase(merc)
+		return RescueSystem.CALL_GO
+	var used: int = int(counts.get(merc, 0))
+	var at: int = path.find(state.pos3(blocker))
+	var free_before: bool = false
+	for i: int in range(1, at):
+		if not state.is_position_occupied(Vector2i(path[i].x, path[i].y), merc, path[i].z):
+			free_before = true
+			break
+	if free_before and used < RescueSystem.BLOCK_WAITS:
+		return RescueSystem.CALL_GO
+	if used < RescueSystem.BLOCK_WAITS and RescueGrid.cell_seers(state, own, merc).is_empty():
+		counts[merc] = used + 1
+		rescue["block_wait_turns"] = int(rescue.get("block_wait_turns", 0)) + 1
+		lines.append("  %s waits for the way to clear (%d/%d)." % [
+			BattleState.colored_name(merc, state), used + 1, RescueSystem.BLOCK_WAITS])
+		return RescueSystem.CALL_WAIT
+	var captive: MercenaryData = rescue["captive"] as MercenaryData
+	var role: String = str((rescue["roles"] as Dictionary).get(blocker, ""))
+	var fixed: bool = role != RescueSystem.ROLE_WANDER and role != RescueSystem.ROLE_PATROL
+	var may_abort: bool = not bool(rescue["freed"]) and not bool(rescue.get("aborted", false)) \
+		and goal != (rescue["exit_cell"] as Vector3i)
+	var o: float = RescueTactics.odds(state)
+	var favored: bool = o >= RescueTune.tuned("ambush_odds")
+	var has_detour: bool = not RescueWalk.detour_path(merc, state, goal).is_empty()
+	var call_name: String = blocked_decision(has_detour, free_before, merc == captive, favored, fixed, may_abort)
+	if EncounterLogger.is_active():
+		EncounterLogger.log_verbose("RESCUE BLOCKED: %s by %s calls %s (detour %s, odds %d%%, fixed %s)" % [
+			merc.merc_name, blocker.merc_name, call_name, str(has_detour),
+			roundi(o * 100.0), str(fixed)])
+	if call_name == RescueSystem.CALL_DETOUR:
+		rescue["detours"] = int(rescue.get("detours", 0)) + 1
+	elif call_name == RescueSystem.CALL_WAIT:
+		rescue["block_wait_turns"] = int(rescue.get("block_wait_turns", 0)) + 1
+		lines.append("  %s waits for the way to clear." % BattleState.colored_name(merc, state))
+	elif call_name == RescueSystem.CALL_AMBUSH:
+		RescueStealth.spring_ambush(state, merc, blocker, lines)
+	return call_name
+
+
+#The party gives the captive up while still unseen and heads for the exit.
+static func abort(state: BattleState, lines: Array[String]) -> void:
+	var rescue: Dictionary = state.rescue
+	if bool(rescue.get("aborted", false)):
+		return
+	rescue["aborted"] = true
+	lines.append("RESCUE: the way is shut and the odds are poor; the party pulls out.")

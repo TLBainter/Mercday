@@ -38,11 +38,16 @@ static func average_level() -> float:
 	return float(total) / float(list.size())
 
 
-#Living mercs other than `except` holding the key: "knowledge:<name>", "tool:<name>" or "circumstance:<display>".
-static func holders(key: String, except: MercenaryData) -> int:
+#Mercs other than `except` holding the key: "knowledge:<name>", "tool:<name>" or "circumstance:<display>".
+#With no pool the living roster is searched; a pool is searched as given, dead mercs included.
+static func holders(key: String, except: MercenaryData, pool: Variant = null) -> int:
+	var roster: bool = not (pool is Array)
+	var list: Array = mercs
+	if not roster:
+		list = pool as Array
 	var count: int = 0
-	for merc: MercenaryData in mercs:
-		if merc == null or merc == except or merc.is_dead:
+	for merc: MercenaryData in list:
+		if merc == null or merc == except or (roster and merc.is_dead):
 			continue
 		if holds(merc, key):
 			count += 1
@@ -52,9 +57,7 @@ static func holders(key: String, except: MercenaryData) -> int:
 static func holds(merc: MercenaryData, key: String) -> bool:
 	if merc == null:
 		return false
-	var parts: PackedStringArray = key.split(":", true, 1)
-	if parts.size() < 2:
-		return false
+	var parts: PackedStringArray = split_key(key)
 	var name: String = parts[1]
 	match parts[0]:
 		"knowledge":
@@ -68,3 +71,22 @@ static func holds(merc: MercenaryData, key: String) -> bool:
 		"circumstance":
 			return bool(merc.circumstance_flags.get(name, false))
 	return false
+
+
+#A "kind:name" key as [kind, name]; a key with no colon comes back as ["", key].
+static func split_key(key: String) -> PackedStringArray:
+	var parts: PackedStringArray = key.split(":", true, 1)
+	if parts.size() > 1:
+		return parts
+	return PackedStringArray(["", key])
+
+
+#First merc in the list with this uid; null for a uid of 0 or below, or when none matches.
+static func by_uid(pool: Array, uid: int) -> MercenaryData:
+	if uid <= 0:
+		return null
+	for entry: Variant in pool:
+		var merc: MercenaryData = entry as MercenaryData
+		if merc != null and merc.merc_uid == uid:
+			return merc
+	return null

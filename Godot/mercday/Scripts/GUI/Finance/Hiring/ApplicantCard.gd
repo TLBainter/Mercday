@@ -9,27 +9,9 @@ signal view_pressed(id: int)
 signal reject_pressed(id: int)
 signal offer_pressed(id: int)
 
-const DOT_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Hiring/HiringDot.tscn")
+const BADGE_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/LevelBadge.tscn")
 const SIGIL_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/TraditionSigil.tscn")
 const PORTRAIT_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MercPortrait.tscn")
-
-const INK: Color = Color("#0a0f1c")
-const NAVY: Color = Color("#0e1628")
-const NAVY2: Color = Color("#15223d")
-const BLUE: Color = Color("#1f3560")
-const BLUE2: Color = Color("#2b4f8a")
-const BLUE3: Color = Color("#3b6fb6")
-const ORANGE: Color = Color("#f28c28")
-const ORANGE_HI: Color = Color("#ffb266")
-const ORANGE_LO: Color = Color("#b85a12")
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
-const GREEN: Color = Color("#6cc36a")
-const GREEN_HI: Color = Color("#9be29a")
-const GREEN_LO: Color = Color("#3f8a3e")
-const PENDING: Color = Color("#f2b33d")
-const RED_HI: Color = Color("#ff8a70")
-const RED_LO: Color = Color("#a33a28")
 
 const CARD_PAD: int = 12
 const CARD_GAP: int = 8
@@ -45,7 +27,8 @@ const PORTRAIT_RING_PX: int = 2
 const HATCH_SIDE: int = 48
 const SIGIL_SIDE: float = 20.0
 const BADGE_SIDE: float = 36.0
-const BADGE_BEVEL_PX: float = 3.0
+const BADGE_KICKER_SIZE: int = 7
+const BADGE_VALUE_SIZE: int = 14
 const BUTTON_H: float = 32.0
 const VIEW_W: float = 44.0
 const BUTTON_GAP: int = 8
@@ -88,19 +71,19 @@ var _name_label: Label = null
 var _sigil_box: PanelContainer = null
 var _sigil: TraditionSigil = null
 var _trad_label: Label = null
-var _badge: PanelContainer = null
-var _badge_value: Label = null
+var _badge: LevelBadge = null
 var _row_box: VBoxContainer = null
 var _status_label: Label = null
 var _reject: Button = null
 var _view: Button = null
 var _offer: Button = null
-var _dot: HiringDot = null
-var _fit_stars: FitStars = null
+var _dot: NotificationDot = null
+var _fit_stars: Stars = null
 
 
 func _ready() -> void:
-	add_theme_stylebox_override(&"panel", HiringStyle.box(NAVY, CARD_RING_PX, BLUE2))
+	add_theme_stylebox_override(&"panel", HiringStyle.box(GuiColors.ROW_FILL, CARD_RING_PX,
+		GuiColors.BLUE))
 	var pad := MarginContainer.new()
 	pad.add_theme_constant_override(&"margin_left", CARD_PAD)
 	pad.add_theme_constant_override(&"margin_right", CARD_PAD)
@@ -111,10 +94,12 @@ func _ready() -> void:
 	col.add_theme_constant_override(&"separation", CARD_GAP)
 	pad.add_child(col)
 	col.add_child(_build_top())
+	#An applicant has no XP to show, so the badge takes no hover and opens no tip.
+	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_row_box = VBoxContainer.new()
 	_row_box.add_theme_constant_override(&"separation", ROW_GAP)
 	col.add_child(_row_box)
-	_status_label = HiringStyle.label("", HiringStyle.FONT_BODY, 13, PENDING)
+	_status_label = HiringStyle.label("", GuiStyle.BODY, 13, GuiColors.AMBER)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.hide()
 	col.add_child(_status_label)
@@ -127,7 +112,7 @@ func _ready() -> void:
 func _build_top() -> Control:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override(&"separation", TOP_GAP)
-	_portrait_box = HiringStyle.panel(INK, PORTRAIT_RING_PX, BLUE2, 2.0, 2.0)
+	_portrait_box = HiringStyle.panel(GuiColors.INK, PORTRAIT_RING_PX, GuiColors.BLUE, 2.0, 2.0)
 	_portrait_box.custom_minimum_size = Vector2(PORTRAIT_SIDE, PORTRAIT_SIDE)
 	_portrait_box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_portrait = PORTRAIT_SCENE.instantiate() as MercPortrait
@@ -139,14 +124,15 @@ func _build_top() -> Control:
 	var mid := VBoxContainer.new()
 	mid.add_theme_constant_override(&"separation", 4)
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_name_label = HiringStyle.label("", HiringStyle.FONT_SILK_BOLD, 11, CREAM)
+	_name_label = HiringStyle.label("", GuiStyle.SILK_BOLD, 11, GuiColors.CREAM)
 	_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_name_label.max_lines_visible = NAME_LINES
+	_name_label.custom_minimum_size.y = _name_block_height()
 	_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_child(_name_label)
 	var trad_row := HBoxContainer.new()
 	trad_row.add_theme_constant_override(&"separation", 4)
-	_sigil_box = HiringStyle.panel(INK, 1, BLUE2, 1.0, 1.0)
+	_sigil_box = HiringStyle.panel(GuiColors.INK, 1, GuiColors.BLUE, 1.0, 1.0)
 	_sigil_box.custom_minimum_size = Vector2(SIGIL_SIDE, SIGIL_SIDE)
 	_sigil_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_sigil = SIGIL_SCENE.instantiate() as TraditionSigil
@@ -154,7 +140,7 @@ func _build_top() -> Control:
 		_sigil.pixel_scale = 1
 		_sigil_box.add_child(_sigil)
 	trad_row.add_child(_sigil_box)
-	_trad_label = HiringStyle.label("", HiringStyle.FONT_BODY, 13, CREAM)
+	_trad_label = HiringStyle.label("", GuiStyle.BODY, 13, GuiColors.CREAM)
 	_trad_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	trad_row.add_child(_trad_label)
 	mid.add_child(trad_row)
@@ -163,44 +149,47 @@ func _build_top() -> Control:
 	return top
 
 
+#Every card reserves the two-line name block, so a short name never shrinks the card.
+func _name_block_height() -> float:
+	var font: Font = _name_label.get_theme_font(&"font")
+	var font_size: int = _name_label.get_theme_font_size(&"font_size")
+	var spacing: int = _name_label.get_theme_constant(&"line_spacing")
+	return font.get_height(font_size) * NAME_LINES + spacing * (NAME_LINES - 1)
+
+
+#A TILE plate reads its row gap from the scene when it becomes ready, so the gap is closed first.
 func _build_badge() -> Control:
-	_badge = HiringStyle.panel(ORANGE, 0, HiringStyle.CLEAR)
-	_badge.custom_minimum_size = Vector2(BADGE_SIDE, BADGE_SIDE)
+	_badge = BADGE_SCENE.instantiate() as LevelBadge
+	(_badge.get_node(^"Row") as BoxContainer).add_theme_constant_override(&"separation", 0)
+	_badge.size_mode = LevelBadge.SizeMode.TILE
+	_badge.plate_size = Vector2(BADGE_SIDE, BADGE_SIDE)
+	_badge.kicker_size = BADGE_KICKER_SIZE
+	_badge.value_size = BADGE_VALUE_SIZE
 	_badge.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	HiringStyle.bevel(_badge, ORANGE_HI, ORANGE_LO, BADGE_BEVEL_PX)
-	var col := VBoxContainer.new()
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override(&"separation", 0)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var kicker: Label = HiringStyle.label("LVL", HiringStyle.FONT_SILK, 7, INK)
-	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(kicker)
-	_badge_value = HiringStyle.label("01", HiringStyle.FONT_SILK_BOLD, 14, INK)
-	_badge_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(_badge_value)
-	_badge.add_child(col)
 	return _badge
 
 
 func _build_buttons() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override(&"separation", BUTTON_GAP)
-	_reject = HiringStyle.button("Reject", HiringStyle.FONT_SILK, 10, INK, GuiColors.RAMP_RED,
-		RED_HI, RED_LO)
+	_reject = HiringStyle.button("Reject", GuiStyle.SILK, 10, GuiColors.INK, GuiColors.RAMP_RED,
+		HiringStyle.RED_HI, HiringStyle.RED_LO)
 	_reject.custom_minimum_size = Vector2(0.0, BUTTON_H)
 	_reject.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_reject.pressed.connect(press_reject)
 	row.add_child(_reject)
-	_view = HiringStyle.icon_button(HiringStyle.FONT_SILK, 10, CREAM, BLUE2, BLUE3, BLUE)
+	_view = HiringStyle.icon_button(GuiStyle.SILK, 10, GuiColors.CREAM, GuiColors.BLUE,
+		GuiColors.BLUE_HI, GuiColors.BLUE_LO)
 	_view.custom_minimum_size = Vector2(VIEW_W, BUTTON_H)
 	_view.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_view.icon = Icons.tex("eye", true)
 	_view.tooltip_text = VIEW_TIP
 	_view.pressed.connect(press_view)
-	HiringStyle.paint(_view, CREAM, BLUE2, BLUE3, BLUE, 0, BLUE3)
+	HiringStyle.paint(_view, GuiColors.CREAM, GuiColors.BLUE, GuiColors.BLUE_HI, GuiColors.BLUE_LO,
+		0, GuiColors.BLUE_HI)
 	row.add_child(_view)
-	_offer = HiringStyle.button("Offer", HiringStyle.FONT_SILK_BOLD, 10, INK, GREEN, GREEN_HI,
-		GREEN_LO)
+	_offer = HiringStyle.button("Offer", GuiStyle.SILK_BOLD, 10, GuiColors.INK, GuiColors.GREEN,
+		HiringStyle.GREEN_HI, HiringStyle.GREEN_LO)
 	_offer.custom_minimum_size = Vector2(0.0, BUTTON_H)
 	_offer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_offer.pressed.connect(press_offer)
@@ -208,22 +197,9 @@ func _build_buttons() -> Control:
 	return row
 
 
+#The unseen dot straddles the top right corner, DOT_INSET pixels out past each edge.
 func _build_dot() -> void:
-	var layer := Control.new()
-	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(layer)
-	_dot = DOT_SCENE.instantiate() as HiringDot
-	if _dot == null:
-		return
-	layer.add_child(_dot)
-	_dot.anchor_left = 1.0
-	_dot.anchor_right = 1.0
-	_dot.anchor_top = 0.0
-	_dot.anchor_bottom = 0.0
-	_dot.offset_left = DOT_INSET - HiringDot.DOT_SIZE.x
-	_dot.offset_top = -DOT_INSET
-	_dot.offset_right = DOT_INSET
-	_dot.offset_bottom = HiringDot.DOT_SIZE.y - DOT_INSET
+	_dot = NotificationDot.attach(self, Vector2(-DOT_INSET, -DOT_INSET))
 
 
 func set_applicant(a: ApplicantData, defs: Array[Dictionary], ents: Dictionary,
@@ -245,18 +221,18 @@ func _read_rows() -> void:
 	var a: ApplicantData = _applicant
 	if a == null:
 		return
-	_add_row("salary", "%s / mo" % NotesLabel.format_amount(a.ask), PENDING)
+	_add_row("salary", "%s / mo" % TransactionData.grouped(a.ask), GuiColors.AMBER)
 	if a.uniq <= 0.0:
-		_add_row("uniq", NONE_TEXT, SKY)
+		_add_row("uniq", NONE_TEXT, GuiColors.SKY)
 	else:
-		_add_row("uniq", "%d - %s" % [roundi(a.uniq), a.rarity], GREEN)
-	_add_row("fit", "%.1f" % a.fit, FitStars.color_of(a.fit))
+		_add_row("uniq", "%d - %s" % [roundi(a.uniq), a.rarity], GuiColors.GREEN)
+	_add_row("fit", "%.1f" % a.fit, Stars.color_of(a.fit, Stars.MATCH, true))
 	var via: String = PromotionsManager.campaign_name(a.campaign_id)
-	_add_row("via", ENDED_TEXT if via == "" else via, SKY)
+	_add_row("via", ENDED_TEXT if via == "" else via, GuiColors.SKY)
 	for key: String in IDENTITY_KEYS:
 		if _def_locked(key):
 			continue
-		_add_row(key, _identity_text(key), CREAM)
+		_add_row(key, _identity_text(key), GuiColors.CREAM)
 
 
 func _add_row(key: String, body: String, tint: Color) -> void:
@@ -289,9 +265,7 @@ func _identity_text(key: String) -> String:
 
 
 func _rebuild_rows() -> void:
-	for child: Node in _row_box.get_children():
-		_row_box.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(_row_box)
 	for key: String in _keys:
 		_row_box.add_child(_build_row(key))
 
@@ -300,7 +274,8 @@ func _build_row(key: String) -> Control:
 	#The fit row draws stars at cell 2 (98 x 18 px); FIT_ROW_PAD_Y takes the room the taller
 	#stars need from its own vertical gap, so the card keeps the outer size every other row set.
 	var pad_y: float = FIT_ROW_PAD_Y if key == "fit" else ROW_PAD_Y
-	var host: PanelContainer = HiringStyle.panel(NAVY2, 0, HiringStyle.CLEAR, ROW_PAD_X, pad_y)
+	var host: PanelContainer = HiringStyle.panel(GuiColors.ROW_HOVER, 0, GuiColors.CLEAR, ROW_PAD_X,
+		pad_y)
 	if key == "uniq":
 		host.tooltip_text = UNIQ_TIP
 	elif key == "fit":
@@ -308,19 +283,18 @@ func _build_row(key: String) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override(&"separation", 6)
 	host.add_child(row)
-	var tag: Label = HiringStyle.label(String(ROW_LABELS.get(key, key)), HiringStyle.FONT_SILK, 7,
-		SKY)
+	var tag: Label = HiringStyle.label(String(ROW_LABELS.get(key, key)), GuiStyle.SILK, 7,
+		GuiColors.SKY)
 	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(tag)
 	if key == "fit":
-		_fit_stars = FitStars.new()
-		_fit_stars.cell = FIT_STAR_CELL
+		_fit_stars = Stars.fit_stars(FIT_STAR_CELL)
 		_fit_stars.value = 0.5 if _applicant == null else _applicant.fit
 		_fit_stars.size_flags_horizontal = Control.SIZE_SHRINK_END | Control.SIZE_EXPAND
 		_fit_stars.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(_fit_stars)
 		return host
-	var value: Label = HiringStyle.label(row_text(key), HiringStyle.FONT_BODY, 12, row_color(key))
+	var value: Label = HiringStyle.label(row_text(key), GuiStyle.BODY, 12, row_color(key))
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	value.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	value.clip_text = true
@@ -343,7 +317,7 @@ func _paint() -> void:
 	if _sigil != null:
 		_sigil.tradition = trad
 		_sigil.tint = trad_tint
-	_badge_value.text = level_text()
+	_badge.level = 1 if a == null else maxi(0, a.level)
 	var status: String = status_text()
 	_status_label.text = status
 	_status_label.add_theme_color_override(&"font_color", status_color())
@@ -376,7 +350,7 @@ func row_text(key: String) -> String:
 
 
 func row_color(key: String) -> Color:
-	return _tints.get(key, CREAM) as Color
+	return _tints.get(key, GuiColors.CREAM) as Color
 
 
 func level_text() -> String:
@@ -409,25 +383,25 @@ func status_text() -> String:
 func status_color() -> Color:
 	var status: String = status_text()
 	if status == PENDING_TEXT:
-		return PENDING
+		return GuiColors.AMBER
 	if status == REFUSED_TEXT:
 		return GuiColors.RAMP_RED
 	if status == ACCEPTED_TEXT:
-		return GREEN
-	return SKY
+		return GuiColors.GREEN
+	return GuiColors.SKY
 
 
 func ring_color() -> Color:
 	var a: ApplicantData = _applicant
 	if a == null:
-		return BLUE2
+		return GuiColors.BLUE
 	if is_pending():
-		return PENDING
+		return GuiColors.AMBER
 	if a.refused_counter:
 		return GuiColors.RAMP_RED
 	if a.accepted_counter and a.is_open():
-		return GREEN
-	return BLUE2
+		return GuiColors.GREEN
+	return GuiColors.BLUE
 
 
 func dot_on() -> bool:
@@ -442,11 +416,11 @@ func offer_block() -> String:
 	return ""
 
 
-func dot() -> HiringDot:
+func dot() -> NotificationDot:
 	return _dot
 
 
-func fit_stars() -> FitStars:
+func fit_stars() -> Stars:
 	return _fit_stars
 
 
@@ -472,6 +446,7 @@ func press_view() -> void:
 
 func press_reject() -> void:
 	if is_pending():
+		UiSfx.reject_press(_reject)
 		return
 	reject_pressed.emit(applicant_id())
 

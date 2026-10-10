@@ -31,7 +31,6 @@ const EXPIRED_NOTE: String = "Offer expired"
 const EXPIRED_DEADLINE_TEXT: String = "Expired"
 const PAY_OFF_TEXT: String = "Pay Off"
 const CLOSE_NOTE: String = "to close"
-const HOURS_PER_DAY: int = 24
 
 
 #Every row of every view, keyed by the view name.
@@ -83,9 +82,18 @@ static func offer_row(row: Dictionary) -> Dictionary:
 		text["right"] = DISMISS_TEXT
 		text["note"] = EXPIRED_NOTE
 	else:
-		text["deadline"] = deadline_text(hours)
+		text["deadline"] = GuiDates.duration_text(hours)
 		text["right"] = REVIEW_TEXT
 		text["note"] = REVIEW_NOTE
+	return out
+
+
+#Every open offer but the one given: the offers that taking it throws away.
+static func other_offers(offer_id: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for row: Dictionary in FinanceManager.open_offers():
+		if int(row.get("id", -1)) != offer_id:
+			out.append(row)
 	return out
 
 
@@ -126,13 +134,12 @@ static func active_row(loan: LoanData) -> Dictionary:
 	out["can_pay"] = payoff <= GameState.bank_notes
 	out["metrics"] = _metrics(monthly, remaining, loan.rate, loan.paid, payoff, loan.months)
 	var text: Dictionary = out["text"] as Dictionary
-	text["remaining"] = NotesLabel.format_amount(remaining)
+	text["remaining"] = TransactionData.grouped(remaining)
 	text["due"] = due_text(loan.id)
 	text["due_rel"] = FinanceManager.next_due_text(loan.id)
-	text["payoff"] = NotesLabel.format_amount(payoff)
 	text["progress"] = "%d / %d paid" % [loan.paid, loan.months]
 	text["right"] = PAY_OFF_TEXT
-	text["note"] = "%s %s" % [NotesLabel.format_amount(payoff), CLOSE_NOTE]
+	text["note"] = "%s %s" % [TransactionData.grouped(payoff), CLOSE_NOTE]
 	return out
 
 
@@ -148,8 +155,8 @@ static func closed_row(loan: LoanData) -> Dictionary:
 	out["closed_as"] = loan.closed_as
 	out["metrics"] = _metrics(monthly, 0, loan.rate, loan.paid, 0, loan.months)
 	var text: Dictionary = out["text"] as Dictionary
-	text["total_paid"] = NotesLabel.format_amount(loan.paid_total)
-	text["interest"] = NotesLabel.format_amount(interest)
+	text["total_paid"] = TransactionData.grouped(loan.paid_total)
+	text["interest"] = TransactionData.grouped(interest)
 	text["progress"] = progress_text(loan)
 	text["closed_as"] = loan.closed_as
 	text["right"] = ""
@@ -170,13 +177,6 @@ static func due_text(loan_id: int) -> String:
 	return GuiDates.day_text(TrynnCalendar.day_index(minute))
 
 
-#The card cell; the offer dialog writes the longer LoanLogic.deadline_text.
-static func deadline_text(hours: float) -> String:
-	var whole: int = maxi(0, int(floor(hours)))
-	return "%d Days, %d Hours" % [floori(float(whole) / float(HOURS_PER_DAY)),
-		whole % HOURS_PER_DAY]
-
-
 static func team_rows(team: Array[int]) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for uid: int in team:
@@ -185,13 +185,9 @@ static func team_rows(team: Array[int]) -> Array[Dictionary]:
 
 
 static func merc_row(uid: int) -> Dictionary:
-	var merc_name: String = "Merc %d" % uid
-	var tradition: String = ""
-	for view: MercView in GameState.roster:
-		if view.uid == uid:
-			merc_name = view.name
-			tradition = view.tradition
-			break
+	var view: MercView = GameState.view_by_uid(uid)
+	var merc_name: String = "Merc %d" % uid if view == null else view.name
+	var tradition: String = "" if view == null else view.tradition
 	return {"uid": uid, "name": merc_name, "tradition": tradition,
 		"fit": FinanceManager.merc_fit(uid)}
 
@@ -284,7 +280,7 @@ static func value_text(key: String, value: float) -> String:
 	var def: Dictionary = filter_def(key)
 	var style: String = String(def.get("format", "plain"))
 	if style == "notes":
-		return NotesLabel.format_amount(roundi(value))
+		return TransactionData.grouped(roundi(value))
 	if style == "percent":
 		return "%d%%" % roundi(value)
 	return "%d" % roundi(value)
@@ -308,8 +304,8 @@ static func _base(kind: StringName, id: int, lender: String, amount: int, rate: 
 		monthly: int) -> Dictionary:
 	return {"kind": kind, "id": id, "lender": lender, "amount": amount, "rate": rate,
 		"term": term, "monthly": monthly,
-		"text": {"lender": lender, "amount": NotesLabel.format_amount(amount),
-			"terms": terms_text(rate, term), "monthly": NotesLabel.format_amount(monthly)}}
+		"text": {"lender": lender, "amount": TransactionData.grouped(amount),
+			"terms": terms_text(rate, term), "monthly": TransactionData.grouped(monthly)}}
 
 
 static func _metrics(monthly: int, remaining: int, rate: float, paid: int, payoff: int,

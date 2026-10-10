@@ -23,10 +23,15 @@ const CAT_TOTAL_DROP: float = 76.0
 const PAN_MARGIN: float = 500.0
 const DRAG_SLOP: float = 4.0
 
-const BASE_LINE: Color = Color("#f28c28")
-const BASE_LINE_OFF: Color = Color("#2b4f8a")
-const MUTED_ICON: Color = Color("#5e7699")
+const BASE_LINE: Color = GuiColors.ORANGE
+const BASE_LINE_OFF: Color = GuiColors.BLUE
+const MUTED_ICON: Color = GuiColors.MUTED
 const DIM: float = 0.5
+
+const BASE_NAME: String = "Base Plan"
+const BASE_DESC: String = "The root of your Enterprise customizations. Every branch starts here."
+const BASE_KIND: String = "Enterprise"
+const OWNED_SUFFIX: String = " upgrades owned"
 
 const GATE_LANE: float = 118.0
 const GATE_STEP: float = 59.0
@@ -217,22 +222,24 @@ static func cat_members(cat: String) -> Array[String]:
 	return out
 
 
-#Owned tiers and total tiers of one category box.
-static func category_counts(cat: String, tiers: Dictionary) -> Vector2i:
+#Owned tiers and total tiers over a list of upgrades.
+static func tier_counts(ids: Array[String], tiers: Dictionary) -> Vector2i:
 	var have: int = 0
 	var total: int = 0
-	for id: String in cat_members(cat):
+	for id: String in ids:
 		var top: int = UpgradeDefs.tier_count(id)
 		total += top
 		have += mini(top, int(tiers.get(id, 0)))
 	return Vector2i(have, total)
 
 
+#Owned tiers and total tiers of one category box.
+static func category_counts(cat: String, tiers: Dictionary) -> Vector2i:
+	return tier_counts(cat_members(cat), tiers)
+
+
 static func category_progress(cat: String, tiers: Dictionary) -> float:
-	var counts: Vector2i = category_counts(cat, tiers)
-	if counts.y <= 0:
-		return 0.0
-	return float(counts.x) / float(counts.y)
+	return _fraction(category_counts(cat, tiers))
 
 
 static func category_done(cat: String, tiers: Dictionary) -> bool:
@@ -250,17 +257,15 @@ static func category_fee(cat: String, tiers: Dictionary) -> int:
 
 
 static func base_counts(tiers: Dictionary) -> Vector2i:
-	var have: int = 0
-	var total: int = 0
-	for id: String in UpgradeDefs.ORDER:
-		var top: int = UpgradeDefs.tier_count(id)
-		total += top
-		have += mini(top, int(tiers.get(id, 0)))
-	return Vector2i(have, total)
+	return tier_counts(UpgradeDefs.ORDER, tiers)
 
 
 static func base_progress(tiers: Dictionary) -> float:
-	var counts: Vector2i = base_counts(tiers)
+	return _fraction(base_counts(tiers))
+
+
+#Owned over total, 0 while there is nothing to own.
+static func _fraction(counts: Vector2i) -> float:
 	if counts.y <= 0:
 		return 0.0
 	return float(counts.x) / float(counts.y)
@@ -300,10 +305,10 @@ static func gate_fraction(id: String, tiers: Dictionary) -> float:
 	return float(have) / float(need)
 
 
-#Every connector segment of one tree state, Base outward.
-static func build_connectors(tiers: Dictionary, enterprise: bool) -> Array[Dictionary]:
+#Every connector segment of one tree state, Base outward; gate_list collects the gates on the way.
+static func build_connectors(tiers: Dictionary, enterprise: bool,
+		gate_list: Array[Dictionary] = []) -> Array[Dictionary]:
 	var lines: Array[Dictionary] = []
-	var gate_list: Array[Dictionary] = []
 	_base_lines(lines, tiers, enterprise)
 	_kid_lines(lines, tiers, enterprise)
 	_gate_lines(lines, gate_list, tiers, enterprise)
@@ -311,20 +316,18 @@ static func build_connectors(tiers: Dictionary, enterprise: bool) -> Array[Dicti
 
 
 #Every requirement gate of one tree state, with its lane position.
-static func gates_for(tiers: Dictionary, enterprise: bool) -> Array[Dictionary]:
+static func gates_for(tiers: Dictionary, enterprise: bool = true) -> Array[Dictionary]:
 	var lines: Array[Dictionary] = []
 	var gate_list: Array[Dictionary] = []
 	_gate_lines(lines, gate_list, tiers, enterprise)
 	return gate_list
 
 
-static func gates(tiers: Dictionary) -> Array[Dictionary]:
-	return gates_for(tiers, true)
-
-
+#The lines and the gates of one tree state from a single routing pass.
 static func build(tiers: Dictionary, enterprise: bool) -> Dictionary:
-	return {"lines": build_connectors(tiers, enterprise),
-		"gates": gates_for(tiers, enterprise)}
+	var gate_list: Array[Dictionary] = []
+	var lines: Array[Dictionary] = build_connectors(tiers, enterprise, gate_list)
+	return {"lines": lines, "gates": gate_list}
 
 
 #The first view: the true bounding box of Base and every category box, centred in the frame.
@@ -366,9 +369,11 @@ static func _seg2(lines: Array[Dictionary], a: Vector2, b: Vector2, c: Color, o:
 	lines.append({"points": PackedVector2Array([a, b]), "color_a": c, "color_b": c2, "alpha": o})
 
 
-#Leaves the bottom of a box: a stub, a gap for the label, then the rest of the drop.
-static func _down(lines: Array[Dictionary], g: Dictionary, y: float, c: Color, o: float) -> void:
-	var cx: float = float(g["cx"])
+#Leaves the bottom of a box: a stub, a gap for the label, then the rest of the drop. The line
+#leaves at the box centre unless x names another column.
+static func _down(lines: Array[Dictionary], g: Dictionary, y: float, c: Color, o: float,
+		x: Variant = null) -> void:
+	var cx: float = float(g["cx"]) if x == null else float(x)
 	var b: float = float(g["b"])
 	var tb: float = float(g["tb"])
 	_seg(lines, Vector2(cx, b), Vector2(cx, b + float(g["stub"])), c, o)
@@ -465,7 +470,7 @@ static func _base_bottom(lines: Array[Dictionary], tiers: Dictionary,
 		var y2: float = top - BAR_LIFT
 		var stem: Color = done_col if all_done else base_col
 		if via == "bl":
-			_seg(lines, Vector2(ex, float(bg["b"])), Vector2(ex, y2), stem, 1.0)
+			_down(lines, bg, y2, stem, 1.0, ex)
 			for c: Dictionary in group:
 				var cat: String = String(c["id"])
 				var g: Dictionary = geo(cat)
@@ -476,7 +481,7 @@ static func _base_bottom(lines: Array[Dictionary], tiers: Dictionary,
 			var y1: float = float(bg["cy"]) + BR_DROP
 			var g0: Dictionary = geo(String(group[0]["id"]))
 			var xd: float = float(g0["l"]) - BR_BACK
-			_seg(lines, Vector2(ex, float(bg["b"])), Vector2(ex, y1), stem, 1.0)
+			_down(lines, bg, y1, stem, 1.0, ex)
 			_seg(lines, Vector2(ex, y1), Vector2(xd, y1), stem, 1.0)
 			_seg(lines, Vector2(xd, y1), Vector2(xd, float(g0["cy"])), stem, 1.0)
 			_seg(lines, Vector2(xd, float(g0["cy"])), Vector2(float(g0["l"]), float(g0["cy"])), stem, 1.0)
@@ -585,9 +590,6 @@ static func _gate_lines(lines: Array[Dictionary], gate_list: Array[Dictionary],
 static func _gate_route(lines: Array[Dictionary], t: Dictionary, srcs: Array[Dictionary],
 		ids: Array[String], cols: Array[Color], req: Dictionary, merged: Color, gate_col: Color,
 		in_alpha: float, out_alpha: float) -> Vector2:
-	var tops: Array = req.get("top_exit", []) as Array
-	var sides: Array = req.get("side_exit", []) as Array
-	var exit_dy: Dictionary = req.get("exit_dy", {}) as Dictionary
 	var tcx: float = float(t["cx"])
 	var tcy: float = float(t["cy"])
 	var right_of: bool = true
@@ -601,74 +603,109 @@ static func _gate_route(lines: Array[Dictionary], t: Dictionary, srcs: Array[Dic
 		if float(g["cy"]) <= tcy:
 			below = false
 	if right_of:
-		var cx: float = float(t["l"]) - GATE_LANE
-		var lane: Vector2 = Vector2(float(t["l"]) - GATE_STEP, tcy)
-		var merge: Vector2 = Vector2(cx, tcy)
-		for i: int in range(srcs.size()):
-			var g: Dictionary = srcs[i]
-			var pts: Array[Vector2] = []
-			if tops.has(ids[i]):
-				pts = [Vector2(float(g["cx"]), float(g["t"])), Vector2(float(g["cx"]), tcy), merge]
-			else:
-				var dy: float = float(exit_dy.get(ids[i], 0))
-				pts = [Vector2(float(g["r"]), float(g["cy"]) + dy),
-					Vector2(cx, float(g["cy"]) + dy), merge]
-			_leg(lines, pts, cols[i], in_alpha, merged)
-		_seg(lines, merge, Vector2(lane.x - GATE_BOX.x / 2.0, tcy), merged, in_alpha)
-		_seg(lines, Vector2(lane.x + GATE_BOX.x / 2.0, tcy), Vector2(float(t["l"]), tcy),
-			gate_col, out_alpha)
-		return lane
+		return _route_from_left(lines, t, srcs, ids, cols, req, merged, gate_col, in_alpha, out_alpha)
 	if left_of:
-		var cx2: float = float(t["r"]) + GATE_LANE
-		var lane2: Vector2 = Vector2(float(t["r"]) + GATE_STEP, tcy)
-		var merge2: Vector2 = Vector2(cx2, tcy)
-		for i: int in range(srcs.size()):
-			var g2: Dictionary = srcs[i]
-			_leg(lines, [Vector2(float(g2["l"]), float(g2["cy"])), Vector2(cx2, float(g2["cy"])), merge2],
-				cols[i], in_alpha, merged)
-		_seg(lines, merge2, Vector2(lane2.x + GATE_BOX.x / 2.0, tcy), merged, in_alpha)
-		_seg(lines, Vector2(lane2.x - GATE_BOX.x / 2.0, tcy), Vector2(float(t["r"]), tcy),
-			gate_col, out_alpha)
-		return lane2
+		return _route_from_right(lines, t, srcs, cols, merged, gate_col, in_alpha, out_alpha)
 	if below:
-		var cy: float = float(t["tb"]) + LANE_GAP
-		var lane3: Vector2 = Vector2(tcx, float(t["tb"]) + LANE_HALF)
-		var merge3: Vector2 = Vector2(tcx, cy)
-		for i: int in range(srcs.size()):
-			var g3: Dictionary = srcs[i]
-			_leg(lines, [Vector2(float(g3["cx"]), float(g3["t"])), Vector2(float(g3["cx"]), cy), merge3],
-				cols[i], in_alpha, merged)
-		_seg(lines, merge3, Vector2(tcx, lane3.y + GATE_BOX.y / 2.0), merged, in_alpha)
-		_up_into(lines, t, lane3.y - GATE_BOX.y / 2.0, gate_col, out_alpha)
-		return lane3
-	var cy4: float = float(t["t"]) - LANE_GAP
-	if not sides.is_empty():
-		cy4 = float(geo(String(sides[0]))["cy"])
-	var lane4: Vector2 = Vector2(tcx, float(t["t"]) - LANE_HALF)
-	var merge4: Vector2 = Vector2(tcx, cy4)
+		return _route_from_below(lines, t, srcs, cols, merged, gate_col, in_alpha, out_alpha)
+	return _route_from_above(lines, t, srcs, ids, cols, req, merged, gate_col, in_alpha, out_alpha)
+
+
+#Every source stands two or more columns left of the target: the legs merge in a lane on its left.
+static func _route_from_left(lines: Array[Dictionary], t: Dictionary, srcs: Array[Dictionary],
+		ids: Array[String], cols: Array[Color], req: Dictionary, merged: Color, gate_col: Color,
+		in_alpha: float, out_alpha: float) -> Vector2:
+	var tops: Array = req.get("top_exit", []) as Array
+	var exit_dy: Dictionary = req.get("exit_dy", {}) as Dictionary
+	var tcy: float = float(t["cy"])
+	var cx: float = float(t["l"]) - GATE_LANE
+	var lane: Vector2 = Vector2(float(t["l"]) - GATE_STEP, tcy)
+	var merge: Vector2 = Vector2(cx, tcy)
 	for i: int in range(srcs.size()):
-		var g4: Dictionary = srcs[i]
-		var left_side: bool = float(g4["cx"]) < tcx
-		var face: float = float(g4["r"]) if left_side else float(g4["l"])
-		if sides.has(ids[i]) or absf(float(g4["cy"]) - cy4) < 2.0:
-			_leg(lines, [Vector2(face, float(g4["cy"])), Vector2(tcx, float(g4["cy"])), merge4], cols[i],
+		var g: Dictionary = srcs[i]
+		var pts: Array[Vector2] = []
+		if tops.has(ids[i]):
+			pts = [Vector2(float(g["cx"]), float(g["t"])), Vector2(float(g["cx"]), tcy), merge]
+		else:
+			var dy: float = float(exit_dy.get(ids[i], 0))
+			pts = [Vector2(float(g["r"]), float(g["cy"]) + dy),
+				Vector2(cx, float(g["cy"]) + dy), merge]
+		_leg(lines, pts, cols[i], in_alpha, merged)
+	_seg(lines, merge, Vector2(lane.x - GATE_BOX.x / 2.0, tcy), merged, in_alpha)
+	_seg(lines, Vector2(lane.x + GATE_BOX.x / 2.0, tcy), Vector2(float(t["l"]), tcy),
+		gate_col, out_alpha)
+	return lane
+
+
+#Every source stands two or more columns right of the target: the legs merge in a lane on its right.
+static func _route_from_right(lines: Array[Dictionary], t: Dictionary, srcs: Array[Dictionary],
+		cols: Array[Color], merged: Color, gate_col: Color, in_alpha: float,
+		out_alpha: float) -> Vector2:
+	var tcy: float = float(t["cy"])
+	var cx: float = float(t["r"]) + GATE_LANE
+	var lane: Vector2 = Vector2(float(t["r"]) + GATE_STEP, tcy)
+	var merge: Vector2 = Vector2(cx, tcy)
+	for i: int in range(srcs.size()):
+		var g: Dictionary = srcs[i]
+		_leg(lines, [Vector2(float(g["l"]), float(g["cy"])), Vector2(cx, float(g["cy"])), merge],
+			cols[i], in_alpha, merged)
+	_seg(lines, merge, Vector2(lane.x + GATE_BOX.x / 2.0, tcy), merged, in_alpha)
+	_seg(lines, Vector2(lane.x - GATE_BOX.x / 2.0, tcy), Vector2(float(t["r"]), tcy),
+		gate_col, out_alpha)
+	return lane
+
+
+#Every source sits below the target: the legs merge in a lane under it and one line runs up into it.
+static func _route_from_below(lines: Array[Dictionary], t: Dictionary, srcs: Array[Dictionary],
+		cols: Array[Color], merged: Color, gate_col: Color, in_alpha: float,
+		out_alpha: float) -> Vector2:
+	var tcx: float = float(t["cx"])
+	var cy: float = float(t["tb"]) + LANE_GAP
+	var lane: Vector2 = Vector2(tcx, float(t["tb"]) + LANE_HALF)
+	var merge: Vector2 = Vector2(tcx, cy)
+	for i: int in range(srcs.size()):
+		var g: Dictionary = srcs[i]
+		_leg(lines, [Vector2(float(g["cx"]), float(g["t"])), Vector2(float(g["cx"]), cy), merge],
+			cols[i], in_alpha, merged)
+	_seg(lines, merge, Vector2(tcx, lane.y + GATE_BOX.y / 2.0), merged, in_alpha)
+	_up_into(lines, t, lane.y - GATE_BOX.y / 2.0, gate_col, out_alpha)
+	return lane
+
+
+#Any other spread of sources: the legs merge in a lane over the target and one line drops into it.
+static func _route_from_above(lines: Array[Dictionary], t: Dictionary, srcs: Array[Dictionary],
+		ids: Array[String], cols: Array[Color], req: Dictionary, merged: Color, gate_col: Color,
+		in_alpha: float, out_alpha: float) -> Vector2:
+	var sides: Array = req.get("side_exit", []) as Array
+	var tcx: float = float(t["cx"])
+	var cy: float = float(t["t"]) - LANE_GAP
+	if not sides.is_empty():
+		cy = float(geo(String(sides[0]))["cy"])
+	var lane: Vector2 = Vector2(tcx, float(t["t"]) - LANE_HALF)
+	var merge: Vector2 = Vector2(tcx, cy)
+	for i: int in range(srcs.size()):
+		var g: Dictionary = srcs[i]
+		var left_side: bool = float(g["cx"]) < tcx
+		var face: float = float(g["r"]) if left_side else float(g["l"])
+		if sides.has(ids[i]) or absf(float(g["cy"]) - cy) < 2.0:
+			_leg(lines, [Vector2(face, float(g["cy"])), Vector2(tcx, float(g["cy"])), merge], cols[i],
 				in_alpha, merged)
 			continue
-		if float(g4["b"]) + float(g4["stub"]) > cy4:
+		if float(g["b"]) + float(g["stub"]) > cy:
 			var side_lane: float = float(t["r"]) + GATE_LANE
 			if left_side:
 				side_lane = float(t["l"]) - GATE_LANE
-			_leg(lines, [Vector2(face, float(g4["cy"])), Vector2(side_lane, float(g4["cy"])),
-				Vector2(side_lane, cy4), merge4], cols[i], in_alpha, merged)
+			_leg(lines, [Vector2(face, float(g["cy"])), Vector2(side_lane, float(g["cy"])),
+				Vector2(side_lane, cy), merge], cols[i], in_alpha, merged)
 			continue
-		_seg(lines, Vector2(float(g4["cx"]), float(g4["b"])),
-			Vector2(float(g4["cx"]), float(g4["b"]) + float(g4["stub"])), cols[i], in_alpha)
-		_leg(lines, [Vector2(float(g4["cx"]), float(g4["tb"])), Vector2(float(g4["cx"]), cy4), merge4], cols[i],
+		_seg(lines, Vector2(float(g["cx"]), float(g["b"])),
+			Vector2(float(g["cx"]), float(g["b"]) + float(g["stub"])), cols[i], in_alpha)
+		_leg(lines, [Vector2(float(g["cx"]), float(g["tb"])), Vector2(float(g["cx"]), cy), merge], cols[i],
 			in_alpha, merged)
-	_seg(lines, merge4, Vector2(tcx, lane4.y - GATE_BOX.y / 2.0), merged, in_alpha)
-	_seg(lines, Vector2(tcx, lane4.y + GATE_BOX.y / 2.0), Vector2(tcx, float(t["t"])), gate_col,
+	_seg(lines, merge, Vector2(tcx, lane.y - GATE_BOX.y / 2.0), merged, in_alpha)
+	_seg(lines, Vector2(tcx, lane.y + GATE_BOX.y / 2.0), Vector2(tcx, float(t["t"])), gate_col,
 		out_alpha)
-	return lane4
+	return lane
 
 
 #One source leg: its own colour all the way, fading into the merged colour on its last segment.

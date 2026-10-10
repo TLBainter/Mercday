@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Promotions/CampaignBuilder.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Promotions/DurationControl.tscn" id="2"]
@@ -7,11 +7,15 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Promotions/GuildTargeting.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TextEntryDialog.tscn" id="7"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="8"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_CampaignBuilder.tres" id="9"]
 
 [node name="CampaignBuilder" type="Control"]
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 script = ExtResource("1")
+backdrop_closes = false
 
 [node name="Backdrop" type="ColorRect" parent="."]
 anchor_right = 1.0
@@ -111,6 +115,7 @@ layout_mode = 2
 
 [node name="Footer" type="HBoxContainer" parent="Center/Frame/Pad/Body"]
 layout_mode = 2
+alignment = 2
 theme_override_constants/separation = 10
 
 [node name="Reason" type="Label" parent="Center/Frame/Pad/Body/Footer"]
@@ -133,3 +138,7 @@ layout_mode = 2
 size_flags_vertical = 4
 
 [node name="NameDialog" parent="." instance=ExtResource("7")]
+
+[node name="HelpTarget" type="Node" parent="Center/Frame"]
+script = ExtResource("8")
+hint = ExtResource("9")

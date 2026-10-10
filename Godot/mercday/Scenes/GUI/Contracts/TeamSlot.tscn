@@ -1,13 +1,17 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/TeamSlot.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPortrait.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LevelBadge.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TraditionModule.tscn" id="4"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/DifficultyStars.tscn" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/Stars.gd" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/TraitRow.tscn" id="6"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="7"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/IconRect.tscn" id="8"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/BevelEdges.gd" id="9"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/OptionDropdown.tscn" id="10"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="11"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_TeamSlot.tres" id="12"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_band"]
 bg_color = Color(0.949020, 0.549020, 0.156863, 1)
@@ -15,18 +19,25 @@ bg_color = Color(0.949020, 0.549020, 0.156863, 1)
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_role"]
 content_margin_left = 6.0
 content_margin_top = 0.0
-content_margin_right = 6.0
+content_margin_right = 28.0
 content_margin_bottom = 0.0
 bg_color = Color(0.168627, 0.309804, 0.541176, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_role_hover"]
 content_margin_left = 6.0
 content_margin_top = 0.0
-content_margin_right = 6.0
+content_margin_right = 28.0
 content_margin_bottom = 0.0
 bg_color = Color(0.231373, 0.435294, 0.713725, 1)
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_flat"]
+
+[sub_resource type="Theme" id="Theme_role"]
+Button/styles/normal = SubResource("StyleBoxFlat_role")
+Button/styles/hover = SubResource("StyleBoxFlat_role_hover")
+Button/styles/pressed = SubResource("StyleBoxFlat_role")
+Button/styles/disabled = SubResource("StyleBoxFlat_role")
+Button/styles/focus = SubResource("StyleBoxEmpty_flat")
 
 [node name="TeamSlot" type="PanelContainer"]
 custom_minimum_size = Vector2(120, 0)
@@ -43,42 +54,35 @@ custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="Role" type="OptionButton" parent="Rows/Head"]
+[node name="Role" parent="Rows/Head" instance=ExtResource("10")]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="Toggle" parent="Rows/Head/Role"]
+custom_minimum_size = Vector2(0, 24)
+size_flags_horizontal = 3
+theme = SubResource("Theme_role")
 theme_override_font_sizes/font_size = 11
-theme_override_styles/normal = SubResource("StyleBoxFlat_role")
-theme_override_styles/hover = SubResource("StyleBoxFlat_role_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_role")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_role")
-theme_override_styles/focus = SubResource("StyleBoxEmpty_flat")
+alignment = 0
 
-[node name="BevelTop" type="ColorRect" parent="Rows/Head"]
+[node name="Bevel" type="Control" parent="Rows/Head"]
 visible = false
 layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_bottom = 2.0
-grow_horizontal = 2
-mouse_filter = 2
-color = Color(0.231373, 0.435294, 0.713725, 1)
-
-[node name="BevelBottom" type="ColorRect" parent="Rows/Head"]
-visible = false
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -2.0
 grow_horizontal = 2
-grow_vertical = 0
+grow_vertical = 2
 mouse_filter = 2
-color = Color(0.121569, 0.207843, 0.376471, 1)
+script = ExtResource("9")
+hi = Color(0.231373, 0.435294, 0.713725, 1)
+lo = Color(0.121569, 0.207843, 0.376471, 1)
+px = 2
+sides = 5
 
 [node name="Band" type="PanelContainer" parent="Rows/Head"]
 visible = false
@@ -233,11 +237,12 @@ size_flags_vertical = 4
 mouse_filter = 2
 size_mode = 2
 
-[node name="Stars" parent="Rows/Body/Filled" instance=ExtResource("5")]
+[node name="Stars" type="Control" parent="Rows/Body/Filled"]
 layout_mode = 2
 size_flags_horizontal = 4
-star_size = 1
-ramp = 1
+script = ExtResource("5")
+star_px = 1
+ramp = &"match"
 
 [node name="TraitsCaption" type="Label" parent="Rows/Body/Filled"]
 layout_mode = 2
@@ -284,3 +289,7 @@ layout_mode = 2
 [node name="SharedB" parent="Rows/Body/Filled/Traits/Pad/List" instance=ExtResource("6")]
 visible = false
 layout_mode = 2
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("11")
+hint = ExtResource("12")

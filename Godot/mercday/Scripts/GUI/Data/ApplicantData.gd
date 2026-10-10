@@ -23,6 +23,8 @@ var uniq: float = 0.0
 var rarity: String = "Common"
 var fit: float = 0.5
 var campaign_id: int = WALK_IN
+#True for a card the weekly hire pool landed; a refresh drops it unless a counter-offer holds it.
+var pool: bool = false
 var unseen: bool = true
 var ancestry: String = ""
 var bloodline: String = ""
@@ -69,7 +71,7 @@ func to_dict() -> Dictionary:
 		"tools": tools.duplicate(), "knowledges": knowledges.duplicate(), "status": status,
 		"counter_offer": counter_offer, "counter_day": counter_day,
 		"counter_odds": counter_odds, "accepted_counter": accepted_counter,
-		"refused_counter": refused_counter, "counter_team": counter_team.duplicate()}
+		"refused_counter": refused_counter, "counter_team": counter_team.duplicate(), "pool": pool}
 
 
 static func from_dict(d: Dictionary) -> ApplicantData:
@@ -99,4 +101,5 @@ static func from_dict(d: Dictionary) -> ApplicantData:
 	out.accepted_counter = bool(d.get("accepted_counter", false))
 	out.refused_counter = bool(d.get("refused_counter", false))
 	out.counter_team.assign(d.get("counter_team", []))
+	out.pool = bool(d.get("pool", false))
 	return out

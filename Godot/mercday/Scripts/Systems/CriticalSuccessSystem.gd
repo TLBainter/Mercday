@@ -45,9 +45,8 @@ static func build_option_pool(result: Dictionary, merc: MercenaryData, check_def
 				continue
 		elif not formula.contains(formula_req):
 			continue
-		if entry["frequency"] == "Once" and merc.acquired_critical_successes.has(_once_key(entry)):
-			continue
-		if entry["frequency"] == "Once" and _is_pending(merc, _once_key(entry)):
+		if entry["frequency"] == "Once" and (merc.acquired_critical_successes.has(_once_key(entry))
+				or _is_pending(merc, _once_key(entry))):
 			continue
 		if not _is_effect_feasible(merc, entry["effect_dsl"], check_def):
 			continue
@@ -178,11 +177,7 @@ static func _apply_critical_effect(merc: MercenaryData, dsl: String, weapon: Wea
 		if parts.size() == 5:
 			var filter_key: String = parts[3]
 			var count: int = int(parts[4])
-			var pool: Array[String] = _build_circumstance_pool(filter_key)
-			var available: Array[String] = []
-			for d: String in pool:
-				if not merc.blocked_circumstances.has(d) and not merc.circumstance_flags.get(d, false):
-					available.append(d)
+			var available: Array[String] = _available_circumstances(merc, filter_key)
 			available.shuffle()
 			var granted: Array[String] = []
 			for i: int in range(mini(count, available.size())):
@@ -201,7 +196,7 @@ static func _apply_critical_effect(merc: MercenaryData, dsl: String, weapon: Wea
 			pool.shuffle()
 			var granted: Array[String] = []
 			for i: int in range(mini(count, pool.size())):
-				WeaponArmorPerkLibrary.grant_weapon_perk(merc, pool[i], "critical success")
+				PerkGrants.grant_weapon_perk(merc, pool[i], "critical success")
 				granted.append(WeaponArmorPerkLibrary.perk_display_name(pool[i]))
 			return "Weapon Perk: %s" % ", ".join(granted)
 	return dsl
@@ -227,24 +222,32 @@ static func _used_weapon_perk_pool(merc: MercenaryData, weapon: WeaponData) -> A
 
 static func _build_circumstance_pool(filter_key: String) -> Array[String]:
 	var parts: PackedStringArray = filter_key.split("_")
-	var pool: Array[String] = []
+	var by_stat: bool = true
+	var stat_filter: String = ""
 	if parts.size() >= 2 and parts[-1].to_lower() == "all":
 		#e.g. "dexterity_all" means all circumstances whose stat is "Dexterity"
-		var stat_name_parts: PackedStringArray = parts.slice(0, parts.size() - 1)
-		var stat_filter: String = " ".join(stat_name_parts).capitalize()
-		for d: String in ConstCircumstances.ALL:
-			if (ConstCircumstances.DATA[d] as Dictionary).get("stat", "") == stat_filter:
-				pool.append(d)
+		stat_filter = " ".join(parts.slice(0, parts.size() - 1)).capitalize()
 	elif CORE_STAT_KEYS.has(filter_key.to_lower()):
-		var stat_filter: String = filter_key.capitalize()
-		for d: String in ConstCircumstances.ALL:
-			if (ConstCircumstances.DATA[d] as Dictionary).get("stat", "") == stat_filter:
-				pool.append(d)
+		stat_filter = filter_key.capitalize()
 	else:
-		for d: String in ConstCircumstances.ALL:
-			if (ConstCircumstances.DATA[d] as Dictionary).get("circumstance_name", "").to_lower() == filter_key.to_lower():
-				pool.append(d)
+		by_stat = false
+	var pool: Array[String] = []
+	for d: String in ConstCircumstances.ALL:
+		var row: Dictionary = ConstCircumstances.DATA[d]
+		if by_stat and row.get("stat", "") == stat_filter:
+			pool.append(d)
+		elif not by_stat and row.get("circumstance_name", "").to_lower() == filter_key.to_lower():
+			pool.append(d)
 	return pool
+
+
+#Circumstances of the filter the merc has neither blocked nor flagged already.
+static func _available_circumstances(merc: MercenaryData, filter_key: String) -> Array[String]:
+	var available: Array[String] = []
+	for d: String in _build_circumstance_pool(filter_key):
+		if not merc.blocked_circumstances.has(d) and not merc.circumstance_flags.get(d, false):
+			available.append(d)
+	return available
 
 
 static func _is_effect_feasible(merc: MercenaryData, dsl: String, check_def: Dictionary = {}) -> bool:
@@ -258,9 +261,5 @@ static func _is_effect_feasible(merc: MercenaryData, dsl: String, check_def: Dic
 	elif dsl.begins_with("grant:random:circumstance:"):
 		var parts: PackedStringArray = dsl.split(":")
 		if parts.size() == 5:
-			var pool: Array[String] = _build_circumstance_pool(parts[3])
-			for d: String in pool:
-				if not merc.blocked_circumstances.has(d) and not merc.circumstance_flags.get(d, false):
-					return true
-			return false
+			return not _available_circumstances(merc, parts[3]).is_empty()
 	return true

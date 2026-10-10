@@ -7,13 +7,6 @@ extends RefCounted
 #the coaching plan and the Customize tree. Every step is driven through the GameHUD and the real
 #viewer scenes with the public press helpers, because a synthetic click never lands headless.
 
-const HUD_SCENE: String = "res://Scenes/GUI/HUD/GameHUD.tscn"
-const PLAN_TIP: String = "Locked. Requires Mercday Enterprise."
-const UPGRADE_TIP: String = "Locked. Requires the Bazaar upgrade (Mercday Enterprise > Customize)."
-const PLAN_LINE1: String = "This feature of Mercday is not available on your plan!"
-const PLAN_LINE2: String = "Upgrade to Mercday Enterprise to use the Bazaar."
-const UPGRADE_LINE1: String = "The Bazaar is locked."
-const UPGRADE_LINE2: String = "It requires the Bazaar upgrade!"
 const CLEAR_TEXT: String = "Clear all filters"
 const TYPE_HEAD: String = "Weapons Type"
 const WEAPONS: String = "weapons"
@@ -67,7 +60,7 @@ static func run(host: Node) -> bool:
 	MetricsHistory.clear()
 	MetricsHistory.clear_preview()
 	GuildRoster.reset()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	BazaarManager.reset()
 	TestFixtures.reset_campaign()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
@@ -80,18 +73,10 @@ static func _fresh(tiers: Dictionary) -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, tiers)
 	BazaarManager.reset()
-
-
-static func _spawn(host: Node) -> GameHUD:
-	var scene: PackedScene = load(HUD_SCENE) as PackedScene
-	var hud: GameHUD = scene.instantiate() as GameHUD
-	hud.autostart = false
-	host.add_child(hud)
-	hud.wire_for_test()
-	return hud
+	TestFixtures.fund_budget(SubscriptionManager.BUDGET_FALLBACK)
 
 
 static func _drop(host: Node, hud: GameHUD) -> void:
@@ -99,28 +84,6 @@ static func _drop(host: Node, hud: GameHUD) -> void:
 	await host.get_tree().process_frame
 	hud.queue_free()
 	await host.get_tree().process_frame
-
-
-#The two lines the feature lock dialog prints, empty while it never opened.
-static func _lines(hud: GameHUD) -> Array[String]:
-	var dialog: FeatureLockDialog = hud.lock_dialog()
-	if dialog == null:
-		return ["", ""]
-	return [dialog.line1_label.text, dialog.line2_label.text]
-
-
-#Presses Take Me There and returns the target the dialog asked the HUD to open.
-static func _take_me_there(hud: GameHUD) -> Dictionary:
-	var dialog: FeatureLockDialog = hud.lock_dialog()
-	if dialog == null:
-		return {}
-	var seen: Array[Dictionary] = []
-	var catcher: Callable = func(target: Dictionary) -> void:
-		seen.append(target)
-	GameState.go_to_plans_requested.connect(catcher)
-	dialog.press_take_me_there()
-	GameState.go_to_plans_requested.disconnect(catcher)
-	return {} if seen.is_empty() else seen[0]
 
 
 #Opens one HUD tile the way the player does, by pressing its button.
@@ -136,10 +99,9 @@ static func _press_tile(host: Node, hud: GameHUD, key: StringName) -> Node:
 
 #The first roster merc that is free right now; Amendment 1 holds the seeded crews and captives.
 static func _free_view() -> MercView:
-	var busy: Array[int] = GameState.busy_uids()
-	for view: MercView in GameState.roster:
-		if not busy.has(view.uid):
-			return view
+	var idle: Array[MercView] = GuiManagerTests.idle_views(1)
+	if not idle.is_empty():
+		return idle[0]
 	return null if GameState.roster.is_empty() else GameState.roster[0]
 
 
@@ -154,17 +116,6 @@ static func _row_count(panel: FilterPanel, key: String) -> int:
 	return -1
 
 
-#The font colour of the first label under root whose text matches; a transparent colour when none.
-static func _text_color(root: Node, body_text: String) -> Color:
-	for child: Node in root.get_children():
-		if child is Label and (child as Label).text == body_text:
-			return (child as Label).get_theme_color(&"font_color")
-		var deeper: Color = _text_color(child, body_text)
-		if deeper.a > 0.0:
-			return deeper
-	return Color(0.0, 0.0, 0.0, 0.0)
-
-
 static func _total_of(cart: Dictionary) -> int:
 	var sum: int = 0
 	for id: Variant in cart:
@@ -172,11 +123,6 @@ static func _total_of(cart: Dictionary) -> int:
 		if found != null:
 			sum += found.price * int(cart[id])
 	return sum
-
-
-static func _advance_days(n: int) -> void:
-	CampaignClock.advance(n * CampaignClock.MINUTES_PER_DAY)
-	GameState.day_changed.emit(GameState.day())
 
 
 #Two catalog items the cart cases buy, taken from what the shop is showing.
@@ -221,7 +167,7 @@ static func _shown(shop: ShopPage) -> Array[int]:
 static func _case_d01_bazaar_locked(res: Dictionary, host: Node) -> void:
 	_fresh({})
 	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
-	var hud: GameHUD = _spawn(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "D1 the plan tile of the HUD reads My Mercday",
 		hud.label_of(&"mercday") == "My Mercday"
@@ -232,15 +178,15 @@ static func _case_d01_bazaar_locked(res: Dictionary, host: Node) -> void:
 		"'%s'" % hud.button_of(&"bazaar").label)
 	TestFixtures.check(res, "D1 My Bazaar is locked on Mercday Free",
 		hud.is_locked(&"bazaar") and hud.button_of(&"bazaar").locked
-		and hud.lock_tooltip(&"bazaar") == PLAN_TIP, "'%s'" % hud.lock_tooltip(&"bazaar"))
+		and hud.lock_tooltip(&"bazaar") == GuiHudTests.PLAN_TIP, "'%s'" % hud.lock_tooltip(&"bazaar"))
 	hud.button_of(&"bazaar").press()
 	await host.get_tree().process_frame
-	var free_lines: Array[String] = _lines(hud)
+	var free_lines: Array[String] = GuiHudTests.lock_lines(hud)
 	TestFixtures.check(res, "D1 the press on Free opens the lock dialog and no Bazaar window",
 		hud.lock_dialog() != null and hud.lock_dialog().visible and not hud.popup().is_open()
-		and free_lines[0] == PLAN_LINE1 and free_lines[1] == PLAN_LINE2,
+		and free_lines[0] == GuiHudTests.PLAN_LINE1 and free_lines[1] == GuiHudTests.BAZAAR_PLAN_LINE2,
 		"'%s' / '%s'" % [free_lines[0], free_lines[1]])
-	var free_target: Dictionary = _take_me_there(hud)
+	var free_target: Dictionary = GuiHudTests.press_take_me_there(hud.lock_dialog())
 	TestFixtures.check(res, "D1 Take Me There on Free lands on the Plans tab",
 		String(free_target.get("tab", "")) == "plans", str(free_target))
 	await host.get_tree().process_frame
@@ -250,25 +196,25 @@ static func _case_d01_bazaar_locked(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	hud.button_of(&"bazaar").press()
 	await host.get_tree().process_frame
-	var pro_lines: Array[String] = _lines(hud)
+	var pro_lines: Array[String] = GuiHudTests.lock_lines(hud)
 	TestFixtures.check(res, "D1 My Bazaar is locked on Mercday Pro with the same plan copy",
-		hud.is_locked(&"bazaar") and hud.lock_tooltip(&"bazaar") == PLAN_TIP
-		and not hud.popup().is_open() and pro_lines[0] == PLAN_LINE1
-		and pro_lines[1] == PLAN_LINE2, "'%s'" % pro_lines[1])
+		hud.is_locked(&"bazaar") and hud.lock_tooltip(&"bazaar") == GuiHudTests.PLAN_TIP
+		and not hud.popup().is_open() and pro_lines[0] == GuiHudTests.PLAN_LINE1
+		and pro_lines[1] == GuiHudTests.BAZAAR_PLAN_LINE2, "'%s'" % pro_lines[1])
 	hud.lock_dialog().press_close()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "D1 Enterprise without the upgrade keeps My Bazaar locked",
 		hud.is_locked(&"bazaar") and hud.button_of(&"bazaar").locked
-		and hud.lock_tooltip(&"bazaar") == UPGRADE_TIP, "'%s'" % hud.lock_tooltip(&"bazaar"))
+		and hud.lock_tooltip(&"bazaar") == GuiHudTests.BAZAAR_UP_TIP, "'%s'" % hud.lock_tooltip(&"bazaar"))
 	hud.button_of(&"bazaar").press()
 	await host.get_tree().process_frame
-	var ent_lines: Array[String] = _lines(hud)
+	var ent_lines: Array[String] = GuiHudTests.lock_lines(hud)
 	TestFixtures.check(res, "D1 the press on Enterprise names the missing upgrade, not the plan",
 		hud.lock_dialog().visible and not hud.popup().is_open()
-		and ent_lines[0] == UPGRADE_LINE1 and ent_lines[1] == UPGRADE_LINE2,
+		and ent_lines[0] == GuiHudTests.BAZAAR_UP_LINE1 and ent_lines[1] == GuiHudTests.BAZAAR_UP_LINE2,
 		"'%s' / '%s'" % [ent_lines[0], ent_lines[1]])
-	var target: Dictionary = _take_me_there(hud)
+	var target: Dictionary = GuiHudTests.press_take_me_there(hud.lock_dialog())
 	TestFixtures.check(res, "D1 Take Me There aims at the Bazaar upgrade of the Customize tree",
 		String(target.get("tab", "")) == "customize"
 		and String(target.get("upgrade", "")) == "bazaar" and int(target.get("tier", 0)) == 1,
@@ -289,11 +235,11 @@ static func _case_d01_bazaar_locked(res: Dictionary, host: Node) -> void:
 #D2: "Buy Bazaar I -> button unlocks -> window opens on Shop."
 static func _case_d02_buy_unlocks(res: Dictionary, host: Node) -> void:
 	_fresh({})
-	var hud: GameHUD = _spawn(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	hud.button_of(&"bazaar").press()
 	await host.get_tree().process_frame
-	var _aim: Dictionary = _take_me_there(hud)
+	var _aim: Dictionary = GuiHudTests.press_take_me_there(hud.lock_dialog())
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
 	var subs: SubscriptionViewer = hud.popup().current() as SubscriptionViewer
@@ -324,7 +270,7 @@ static func _case_d02_buy_unlocks(res: Dictionary, host: Node) -> void:
 		"opened %s" % ("nothing" if view == null else view.get_class()))
 	TestFixtures.check(res, "D2 the Bazaar window opens on the Shop tab",
 		bazaar != null and bazaar.current_tab() == BazaarViewer.TAB_KEYS[0]
-		and bazaar.shop_page().visible and not bazaar.locked_page().visible,
+		and bazaar.shop.visible and not bazaar.lock.visible,
 		"tab %s" % ("none" if bazaar == null else String(bazaar.current_tab())))
 	await _drop(host, hud)
 
@@ -333,10 +279,10 @@ static func _case_d02_buy_unlocks(res: Dictionary, host: Node) -> void:
 #results update; Clear all filters resets."
 static func _case_d03_shop_filters(res: Dictionary, host: Node) -> void:
 	_fresh({"bazaar": 1, "betteritems": UpgradeDefs.tier_count("betteritems")})
-	var hud: GameHUD = _spawn(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var bazaar: BazaarViewer = await _press_tile(host, hud, &"bazaar") as BazaarViewer
-	var shop: ShopPage = bazaar.shop_page()
+	var shop: ShopPage = bazaar.shop
 	var panel: FilterPanel = shop.filter_panel()
 	var opening: int = shop.result_count()
 	TestFixtures.check(res, "D3 the Shop opens on the whole catalogue with no filter active",
@@ -407,10 +353,10 @@ static func _case_d03_shop_filters(res: Dictionary, host: Node) -> void:
 static func _case_d04_rarity_locks(res: Dictionary, host: Node) -> void:
 	_fresh({"bazaar": 1, "betteritems": 2})
 	GameState.bank_notes = RICH
-	var hud: GameHUD = _spawn(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var bazaar: BazaarViewer = await _press_tile(host, hud, &"bazaar") as BazaarViewer
-	var shop: ShopPage = bazaar.shop_page()
+	var shop: ShopPage = bazaar.shop
 	var panel: FilterPanel = shop.filter_panel()
 	var rare_name: String = BazaarUi.rarity_name(RARE)
 	var top_name: String = BazaarUi.rarity_name(VERY_RARE)
@@ -455,14 +401,14 @@ static func _case_d04_rarity_locks(res: Dictionary, host: Node) -> void:
 
 
 #D5: "Cart: adding items raises the Cart tab badge by the quantity; a cart total above the bank
-#disables checkout and shows the red reason text of README C2."
+#disables checkout." The red total carries the warning; no reason line prints for it.
 static func _case_d05_cart_badge(res: Dictionary, host: Node) -> void:
 	_fresh({"bazaar": 1, "betteritems": 4})
 	GameState.bank_notes = RICH
-	var hud: GameHUD = _spawn(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var bazaar: BazaarViewer = await _press_tile(host, hud, &"bazaar") as BazaarViewer
-	var shop: ShopPage = bazaar.shop_page()
+	var shop: ShopPage = bazaar.shop
 	var picked: Array[BazaarItemData] = _two_items(shop)
 	TestFixtures.check(res, "D5 the shop holds two items to put in the cart",
 		picked.size() == 2, "the shop showed %d items" % picked.size())
@@ -471,14 +417,14 @@ static func _case_d05_cart_badge(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	shop.card_for(picked[0].id).press_plus()
 	await host.get_tree().process_frame
-	var cart_tab: TabButton = bazaar.tab_for(BazaarViewer.TAB_KEYS[1])
+	var cart_tab: TabButton = bazaar.tab_button(BazaarViewer.TAB_KEYS[1])
 	var counted: int = BazaarManager.cart_count()
 	TestFixtures.check(res, "D5 the Cart tab badge counts the items in the cart",
 		cart_tab.badge == counted,
 		"the badge reads %d for a cart of %d" % [cart_tab.badge, counted])
 	bazaar.press_tab(BazaarViewer.TAB_KEYS[1])
 	await host.get_tree().process_frame
-	var cart: CartPage = bazaar.cart_page()
+	var cart: CartPage = bazaar.cart
 	var total: int = BazaarManager.cart_total()
 	TestFixtures.check(res, "D5 the cart lists one row per item and counts the quantity",
 		cart.row_count() == picked.size()
@@ -489,17 +435,15 @@ static func _case_d05_cart_badge(res: Dictionary, host: Node) -> void:
 	GameState.bank_notes = total - 1
 	cart.refresh()
 	await host.get_tree().process_frame
-	var reason: String = "Not enough notes. Remove items or earn 1 more."
-	TestFixtures.check(res, "D5 a cart over the bank shuts checkout and prints the reason in red",
+	TestFixtures.check(res, "D5 a cart over the bank shuts checkout and prints no line under it",
 		summary.checkout_button().disabled
 		and is_equal_approx(summary.checkout_button().modulate.a, DIM_ALPHA)
-		and summary.reason_text() == reason
-		and _text_color(summary, reason).is_equal_approx(RED),
+		and summary.reason_text() == "",
 		"reason %s at alpha %f" % [summary.reason_text(), summary.checkout_button().modulate.a])
 	cart.press_checkout()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "D5 a shut checkout never opens the checkout dialog",
-		not bazaar.checkout_dialog().is_open(), "the dialog opened over a cart nobody can pay")
+		not bazaar.checkout.is_open(), "the dialog opened over a cart nobody can pay")
 	GameState.bank_notes = RICH
 	cart.refresh()
 	await host.get_tree().process_frame
@@ -515,10 +459,10 @@ static func _case_d05_cart_badge(res: Dictionary, host: Node) -> void:
 static func _case_d06_order_flow(res: Dictionary, host: Node) -> void:
 	_fresh({"bazaar": 1, "betteritems": 4})
 	GameState.bank_notes = RICH
-	var hud: GameHUD = _spawn(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var bazaar: BazaarViewer = await _press_tile(host, hud, &"bazaar") as BazaarViewer
-	var shop: ShopPage = bazaar.shop_page()
+	var shop: ShopPage = bazaar.shop
 	for found: BazaarItemData in _two_items(shop):
 		shop.card_for(found.id).press_add()
 	await host.get_tree().process_frame
@@ -527,9 +471,9 @@ static func _case_d06_order_flow(res: Dictionary, host: Node) -> void:
 	var bank: int = GameState.bank_notes
 	bazaar.press_tab(BazaarViewer.TAB_KEYS[1])
 	await host.get_tree().process_frame
-	bazaar.cart_page().press_checkout()
+	bazaar.cart.press_checkout()
 	await host.get_tree().process_frame
-	var checkout: CheckoutDialog = bazaar.checkout_dialog()
+	var checkout: CheckoutDialog = bazaar.checkout
 	TestFixtures.check(res, "D6 the cart hands the order to the checkout dialog",
 		checkout.is_open() and checkout.line_count() == lines,
 		"the dialog showed %d of %d lines" % [checkout.line_count(), lines])
@@ -540,20 +484,20 @@ static func _case_d06_order_flow(res: Dictionary, host: Node) -> void:
 		GameState.bank_notes == bank - total and BazaarManager.cart_count() == 0
 		and order.total == total, "the bank went %d to %d for a total of %d" % [bank,
 		GameState.bank_notes, total])
-	var placed: OrderPlacedDialog = bazaar.placed_dialog()
+	var placed: OrderPlacedDialog = bazaar.placed
 	TestFixtures.check(res, "D6 the order placed dialog names the order and its delivery",
 		placed.is_open() and placed.message_text().begins_with("Order #%d will arrive" % order.id)
 		and placed.message_text().ends_with(" (%d days)." % order.days),
 		"the dialog read %s" % placed.message_text())
 	placed.press_view()
 	await host.get_tree().process_frame
-	var orders: OrdersPage = bazaar.orders_page()
+	var orders: OrdersPage = bazaar.orders
 	var card: OrderCard = orders.card_for(order.id)
 	TestFixtures.check(res, "D6 View Orders lands on the Orders tab with the order as Arriving",
 		bazaar.current_tab() == BazaarViewer.TAB_KEYS[2] and card != null
 		and card.title_text().begins_with("Arriving ") and card.filled_cells() == 0
 		and card.chip_count() == lines, "the Orders tab showed %d cards" % orders.card_count())
-	_advance_days(int(floor(float(order.days) / 2.0)))
+	GuiManagerTests.advance_days(int(floor(float(order.days) / 2.0)))
 	await host.get_tree().process_frame
 	card = orders.card_for(order.id)
 	TestFixtures.check(res, "D6 the bar fills part way while the order is still on the road",
@@ -577,7 +521,7 @@ static func _case_d06_order_flow(res: Dictionary, host: Node) -> void:
 		"the card read %s" % shop.card_for(again.id).eta_label().text)
 	bazaar.press_tab(BazaarViewer.TAB_KEYS[1])
 	await host.get_tree().process_frame
-	bazaar.cart_page().press_checkout()
+	bazaar.cart.press_checkout()
 	await host.get_tree().process_frame
 	checkout.press_place()
 	await host.get_tree().process_frame
@@ -597,7 +541,7 @@ static func _case_d07_metrics_scales(res: Dictionary, host: Node) -> void:
 	for view: MercView in GameState.roster:
 		uids.append(view.uid)
 	MetricsHistory.seed_preview(DEEP_DAYS, uids)
-	var hud: GameHUD = _spawn(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var metrics: MetricsViewer = await _press_tile(host, hud, &"metrics") as MetricsViewer
 	metrics.period_drop.open_popup()
@@ -668,7 +612,7 @@ static func _lifepath_view() -> MercView:
 #back to Plan: Auto."
 static func _case_d08_coach_plan(res: Dictionary, host: Node) -> void:
 	_fresh({"background": 5, "pip": 1, "combatpip": 1})
-	var hud: GameHUD = _spawn(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var mercs: MercViewer = await _press_tile(host, hud, &"mercs") as MercViewer
 	var view: MercView = _lifepath_view()
@@ -784,7 +728,7 @@ static func _case_d09_customize_tree(res: Dictionary, host: Node) -> void:
 		tiers[id] = UpgradeDefs.tier_count(id)
 	_fresh(tiers)
 	GameState.bank_notes = RICH
-	var hud: GameHUD = _spawn(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var subs: SubscriptionViewer = await _press_tile(host, hud, &"mercday") as SubscriptionViewer
 	subs.open_tab(SubscriptionViewer.CUSTOMIZE_TAB)

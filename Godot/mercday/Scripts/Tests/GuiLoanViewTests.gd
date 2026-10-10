@@ -4,21 +4,21 @@ class_name GuiLoanViewTests
 #popup, the request window and the two offer dialogs. Headless, so nothing is clicked: every press
 #goes through the public helper the button of that control calls.
 
-const MONEY: int = 1000
 const RICH: int = 9000
 const OFFER_1: int = 101
 const OFFER_2: int = 102
 const OFFER_3: int = 103
 const OFFER_4: int = 104
-const LOAN_1: int = 1
-const LOAN_2: int = 2
-const CLOSED_1: int = 201
-const CLOSED_2: int = 202
+const LOAN_1: int = GuiLoanTests.LOAN_1
+const LOAN_2: int = GuiLoanTests.LOAN_2
+const CLOSED_1: int = GuiLoanTests.CLOSED_1
+const CLOSED_2: int = GuiLoanTests.CLOSED_2
+const CENTRE_TOLERANCE: float = 1.0
 
 
 static func run(host: Node) -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	_case_style(res)
 	_case_rows_offer(res)
 	_case_rows_request(res)
@@ -34,6 +34,7 @@ static func run(host: Node) -> bool:
 	await _case_card_request(res, host)
 	await _case_card_active(res, host)
 	await _case_card_closed(res, host)
+	await _case_card_column(res, host)
 	await _case_strip(res, host)
 	await _case_popup(res, host)
 	await _case_shell(res, host)
@@ -43,6 +44,7 @@ static func run(host: Node) -> bool:
 	await _case_tab_sort(res, host)
 	await _case_tab_filter(res, host)
 	await _case_tab_request(res, host)
+	await _case_request_time_hold(res, host)
 	await _case_tab_offer(res, host)
 	await _case_tab_expired(res, host)
 	await _case_tab_payoff(res, host)
@@ -52,6 +54,8 @@ static func run(host: Node) -> bool:
 	await _case_tab_crew(res, host)
 	await _case_tab_pay_cap(res, host)
 	await _case_odd_job_buttons(res, host)
+	await _case_bevel_buttons(res, host)
+	await _case_filter_rows(res, host)
 	await _case_tab_freed_host(res, host)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	FinanceManager.reset()
@@ -59,30 +63,9 @@ static func run(host: Node) -> bool:
 	return TestFixtures.summarize(res, "GUI LOANVIEW")
 
 
-static func _fresh() -> void:
-	TestFixtures.reset_generator_rolls()
-	seed(7)
-	GameState.set_speed(ClockRunner.Speed.PAUSE)
-	GameState.start_new_game()
-	_set_money(MONEY)
-	NotificationCenter.reset()
-	FinanceManager.reset()
-
-
-static func _set_money(amount: int) -> void:
-	if GameState.bank_notes > amount:
-		GameState.spend(GameState.bank_notes - amount)
-	elif GameState.bank_notes < amount:
-		GameState.refund(amount - GameState.bank_notes)
-
-
-static func _uids(count: int) -> Array[int]:
-	var out: Array[int] = []
-	for merc: MercenaryData in GameState.mercs:
-		if out.size() >= count:
-			break
-		out.append(merc.merc_uid)
-	return out
+#Moves the clock to one minute past the deadline of the offer and ticks the manager.
+static func _expire_offer(offer_id: int) -> void:
+	GuiLoanTests._tick_at(int(FinanceManager.offer(offer_id)["expires_minute"]) + 1)
 
 
 static func _spawn(host: Node, path: String) -> Node:
@@ -90,11 +73,6 @@ static func _spawn(host: Node, path: String) -> Node:
 	var node: Node = scene.instantiate()
 	host.add_child(node)
 	return node
-
-
-static func _frames(host: Node, count: int) -> void:
-	for _i: int in count:
-		await host.get_tree().process_frame
 
 
 static func _drop(host: Node, node: Node) -> void:
@@ -130,18 +108,19 @@ static func _snap() -> Dictionary:
 
 #Case 1: the shared style of the page and the glyphs it draws itself.
 static func _case_style(res: Dictionary) -> void:
-	var button: Button = LoanStyle.button("Pay Off", LoanStyle.GREEN, LoanStyle.INK, 38.0)
+	var button: Button = LoanStyle.button("Pay Off", GuiColors.GREEN, GuiColors.INK, 38.0)
 	TestFixtures.check(res, "a page button takes the height it is asked for",
 		is_equal_approx(button.custom_minimum_size.y, 38.0) and button.text == "Pay Off",
 		"%s at %f" % [button.text, button.custom_minimum_size.y])
-	var notes: NotesLabel = LoanStyle.notes(1500, LoanStyle.CREAM, 13)
+	var notes: NotesLabel = GuiStyle.notes(1500, 13, GuiColors.CREAM)
 	TestFixtures.check(res, "a notes label prints the amount with its separator",
-		notes.value_text() == NotesLabel.format_amount(1500), notes.value_text())
-	var ring: StyleBoxFlat = LoanStyle.window_style(LoanStyle.YELLOW)
-	TestFixtures.check(res, "a window frame takes the ring colour of its window",
-		ring.border_color == LoanStyle.YELLOW and ring.border_width_left == 4,
-		"%s at %d" % [ring.border_color, ring.border_width_left])
-	var cell: PanelContainer = LoanStyle.stat_cell("Monthly Payment", notes)
+		notes.value_text() == TransactionData.grouped(1500), notes.value_text())
+	var pad: StyleBoxFlat = LoanStyle.padded(GuiColors.BOX_BG, 22, 18, 22, 20)
+	TestFixtures.check(res, "a padded style takes the margins it is asked for",
+		pad.bg_color == GuiColors.BOX_BG and is_equal_approx(pad.content_margin_left, 22.0)
+			and is_equal_approx(pad.content_margin_top, 18.0),
+		"%s at %.0f/%.0f" % [pad.bg_color, pad.content_margin_left, pad.content_margin_top])
+	var cell: PanelContainer = GuiStyle.stat_cell("Monthly Payment", notes)
 	TestFixtures.check(res, "a stat cell holds its caption over its value",
 		cell.get_child_count() == 1 and (cell.get_child(0) as VBoxContainer).get_child_count() == 2,
 		"%d children" % cell.get_child_count())
@@ -168,7 +147,7 @@ static func _case_style(res: Dictionary) -> void:
 
 #Case 2: one offer as the list reads it.
 static func _case_rows_offer(res: Dictionary) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var pending: Array[Dictionary] = _rows_of(LoanRows.VIEW_PENDING, true)
 	TestFixtures.check(res, "the pending view holds one row per open offer",
 		pending.size() == 4, "%d rows" % pending.size())
@@ -199,13 +178,10 @@ static func _case_rows_offer(res: Dictionary) -> void:
 
 #Case 3: a request an envoy is still carrying.
 static func _case_rows_request(res: Dictionary) -> void:
-	_fresh()
-	var team: Array[int] = _uids(1)
-	var calc: Dictionary = FinanceManager.request_calc("Lender 5",
-		FinanceManager.fair_draft("Lender 5"), team)
-	var sent: bool = FinanceManager.request_loan({"lender": "Lender 5",
-		"amount": int(calc["amount"]), "rate": float(calc["rate"]), "term": int(calc["months"]),
-		"first_due": int(calc["first_due"]), "team": team, "odds": int(calc["odds"]), "per": 25})
+	GuiLoanTests._fresh_seeded()
+	var team: Array[int] = GuiLoanTests._uids(1)
+	var request: Dictionary = GuiLoanTests._request("Lender 5", team, 25)
+	var sent: bool = FinanceManager.request_loan(request)
 	TestFixtures.check(res, "a request the envoys carry joins the pending view",
 		sent and _rows_of(LoanRows.VIEW_PENDING, true).size() == 5,
 		"%d rows" % _rows_of(LoanRows.VIEW_PENDING, true).size())
@@ -219,7 +195,7 @@ static func _case_rows_request(res: Dictionary) -> void:
 			break
 	var text: Dictionary = row["text"] as Dictionary
 	TestFixtures.check(res, "a request row prints the approval odds it was sent with",
-		String(text["odds"]) == "%d%%" % int(calc["odds"]), String(text["odds"]))
+		String(text["odds"]) == "%d%%" % int(request["odds"]), String(text["odds"]))
 	TestFixtures.check(res, "a request row names the envoy that carries it",
 		(row["team_rows"] as Array).size() == 1 and String(text["team"]) != LoanRows.NO_TEAM_TEXT,
 		String(text["team"]))
@@ -234,7 +210,7 @@ static func _case_rows_request(res: Dictionary) -> void:
 
 #Case 4: a loan the guild is paying off.
 static func _case_rows_active(res: Dictionary) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var rows: Array[Dictionary] = _rows_of(LoanRows.VIEW_ACTIVE, true)
 	TestFixtures.check(res, "the active view holds one row per running loan",
 		rows.size() == 2, "%d rows" % rows.size())
@@ -255,7 +231,7 @@ static func _case_rows_active(res: Dictionary) -> void:
 		String(text["due"]) != "" and String(text["due_rel"]) != "",
 		"%s %s" % [text["due"], text["due_rel"]])
 	TestFixtures.check(res, "the note under the button prices closing the loan",
-		String(text["note"]) == "%s %s" % [NotesLabel.format_amount(1334), LoanRows.CLOSE_NOTE],
+		String(text["note"]) == "%s %s" % [TransactionData.grouped(1334), LoanRows.CLOSE_NOTE],
 		String(text["note"]))
 	var second: Dictionary = _row_for(LoanRows.VIEW_ACTIVE, LOAN_2)
 	TestFixtures.check(res, "a payoff the bank covers can be paid",
@@ -265,7 +241,7 @@ static func _case_rows_active(res: Dictionary) -> void:
 
 #Case 5: a loan that is over.
 static func _case_rows_closed(res: Dictionary) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var rows: Array[Dictionary] = _rows_of(LoanRows.VIEW_CLOSED, true)
 	TestFixtures.check(res, "the closed view holds one row per loan that ended",
 		rows.size() == 2, "%d rows" % rows.size())
@@ -287,10 +263,8 @@ static func _case_rows_closed(res: Dictionary) -> void:
 
 #Case 5b: an offer that has expired, as the row and the two-pass sort read it.
 static func _case_rows_expired(res: Dictionary) -> void:
-	_fresh()
-	var row_103: Dictionary = FinanceManager.offer(OFFER_3)
-	CampaignClock.advance_to(int(row_103["expires_minute"]) + 1)
-	FinanceManager.tick(CampaignClock.now())
+	GuiLoanTests._fresh_seeded()
+	_expire_offer(OFFER_3)
 	var row: Dictionary = _row_for(LoanRows.VIEW_PENDING, OFFER_3)
 	TestFixtures.check(res, "an expired offer row is marked expired",
 		bool(row["expired"]), "%s" % [row.get("expired", false)])
@@ -316,7 +290,7 @@ static func _case_rows_expired(res: Dictionary) -> void:
 
 #Case 6: the caps the filters take from the view they are shown over.
 static func _case_caps(res: Dictionary) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var caps: Dictionary = LoanRows.caps(_rows_of(LoanRows.VIEW_PENDING, true))
 	TestFixtures.check(res, "a cap is the highest value of the view rounded up to the step",
 		is_equal_approx(float(caps["monthly"]), 310.0)
@@ -341,7 +315,7 @@ static func _case_caps(res: Dictionary) -> void:
 
 #Case 7: what the filters keep and what the sort does with it.
 static func _case_filters(res: Dictionary) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var base: Array[Dictionary] = _rows_of(LoanRows.VIEW_PENDING, true)
 	var caps: Dictionary = LoanRows.caps(base)
 	var narrow: Dictionary = {"monthly": Vector2(0.0, 200.0)}
@@ -362,7 +336,7 @@ static func _case_filters(res: Dictionary) -> void:
 	TestFixtures.check(res, "hiding expired offers counts as a filter",
 		LoanRows.filters_active(true, false, {}, caps), "expired hidden")
 	TestFixtures.check(res, "a notes filter prints its bound as notes",
-		LoanRows.value_text("monthly", 1500.0) == NotesLabel.format_amount(1500),
+		LoanRows.value_text("monthly", 1500.0) == TransactionData.grouped(1500),
 		LoanRows.value_text("monthly", 1500.0))
 	TestFixtures.check(res, "an interest filter prints whole percent and a count prints plain",
 		LoanRows.value_text("rate", 12.0) == "12%" and LoanRows.value_text("paid", 4.0) == "4",
@@ -384,7 +358,7 @@ static func _case_filters(res: Dictionary) -> void:
 
 #Case 8: the three ways the list sorts.
 static func _case_sort(res: Dictionary) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var base: Array[Dictionary] = _rows_of(LoanRows.VIEW_PENDING, true)
 	var caps: Dictionary = LoanRows.caps(base)
 	var down: Array[Dictionary] = LoanRows.apply(base, {}, caps, "monthly", true)
@@ -454,10 +428,10 @@ static func _case_change(res: Dictionary) -> void:
 
 #Case 10: the card of an offer.
 static func _case_card_offer(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var card: LoanCard = _spawn(host, LoanCard.SCENE_PATH) as LoanCard
 	card.set_row(_row_for(LoanRows.VIEW_PENDING, OFFER_1))
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "an offer card knows the offer it draws",
 		card.kind() == LoanRows.KIND_OFFER and card.row_id() == OFFER_1,
 		"%s %d" % [card.kind(), card.row_id()])
@@ -465,11 +439,11 @@ static func _case_card_offer(res: Dictionary, host: Node) -> void:
 		card.cell_count() == 4 and card.cell_caption(0) == "Offered"
 		and card.cell_caption(3) == "Offer Expires In", "%d cells" % card.cell_count())
 	TestFixtures.check(res, "the offered amount is green",
-		card.cell_text(0) == NotesLabel.format_amount(1500)
-		and card.cell_color(0) == LoanStyle.GREEN, card.cell_text(0))
+		card.cell_text(0) == TransactionData.grouped(1500)
+		and card.cell_color(0) == GuiColors.GREEN, card.cell_text(0))
 	TestFixtures.check(res, "the monthly cell prices the offered terms",
 		card.cell_caption(1) == "Monthly Payment"
-		and card.cell_text(1) == NotesLabel.format_amount(270), card.cell_text(1))
+		and card.cell_text(1) == TransactionData.grouped(270), card.cell_text(1))
 	TestFixtures.check(res, "the deadline cell takes the colour of its urgency",
 		card.cell_color(3) == LoanLogic.deadline_color(FinanceManager.hours_left(OFFER_1)),
 		"%s" % [card.cell_color(3)])
@@ -490,7 +464,7 @@ static func _case_card_offer(res: Dictionary, host: Node) -> void:
 	FinanceManager.mark_offer_seen(OFFER_1)
 	NotificationCenter.read_offer(OFFER_1)
 	card.set_row(_row_for(LoanRows.VIEW_PENDING, OFFER_1))
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "an answered offer card drops its dot",
 		not card.dot_on(), "dot off")
 	await _drop(host, card)
@@ -498,13 +472,11 @@ static func _case_card_offer(res: Dictionary, host: Node) -> void:
 
 #Case 10b: the card of an offer that has expired.
 static func _case_card_expired(res: Dictionary, host: Node) -> void:
-	_fresh()
-	var row_103: Dictionary = FinanceManager.offer(OFFER_3)
-	CampaignClock.advance_to(int(row_103["expires_minute"]) + 1)
-	FinanceManager.tick(CampaignClock.now())
+	GuiLoanTests._fresh_seeded()
+	_expire_offer(OFFER_3)
 	var card: LoanCard = _spawn(host, LoanCard.SCENE_PATH) as LoanCard
 	card.set_row(_row_for(LoanRows.VIEW_PENDING, OFFER_3))
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "an expired card knows it is expired",
 		card.expired(), "expired")
 	TestFixtures.check(res, "an expired card dims its columns but keeps the card itself at full alpha",
@@ -512,7 +484,7 @@ static func _case_card_expired(res: Dictionary, host: Node) -> void:
 	var overlay: Label = card.overlay()
 	TestFixtures.check(res, "an expired card carries an EXPIRED overlay in red",
 		overlay != null and overlay.text == "EXPIRED"
-		and overlay.get_theme_color("font_color") == LoanStyle.RED, "%s" % [overlay])
+		and overlay.get_theme_color("font_color") == GuiColors.RED, "%s" % [overlay])
 	var button: Button = card.action_button()
 	TestFixtures.check(res, "an expired card offers Dismiss and it is always pressable",
 		button != null and button.text == "Dismiss" and card.can_press(),
@@ -529,25 +501,21 @@ static func _case_card_expired(res: Dictionary, host: Node) -> void:
 
 #Case 11: the card of a request.
 static func _case_card_request(res: Dictionary, host: Node) -> void:
-	_fresh()
-	var team: Array[int] = _uids(2)
-	var calc: Dictionary = FinanceManager.request_calc("Lender 5",
-		FinanceManager.fair_draft("Lender 5"), team)
-	FinanceManager.request_loan({"lender": "Lender 5", "amount": int(calc["amount"]),
-		"rate": float(calc["rate"]), "term": int(calc["months"]),
-		"first_due": int(calc["first_due"]), "team": team, "odds": int(calc["odds"]), "per": 25})
+	GuiLoanTests._fresh_seeded()
+	var team: Array[int] = GuiLoanTests._uids(2)
+	FinanceManager.request_loan(GuiLoanTests._request("Lender 5", team, 25))
 	var row: Dictionary = {}
 	for item: Dictionary in _rows_of(LoanRows.VIEW_PENDING, true):
 		if StringName(item["kind"]) == LoanRows.KIND_REQUEST:
 			row = item
 	var card: LoanCard = _spawn(host, LoanCard.SCENE_PATH) as LoanCard
 	card.set_row(row)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a request card carries three cells",
 		card.cell_count() == 3 and card.cell_caption(2) == "Approval Odds",
 		"%d cells" % card.cell_count())
 	TestFixtures.check(res, "the requested amount is yellow",
-		card.cell_color(0) == LoanStyle.YELLOW and card.cell_caption(0) == "Requested",
+		card.cell_color(0) == GuiColors.AMBER and card.cell_caption(0) == "Requested",
 		"%s" % [card.cell_color(0)])
 	TestFixtures.check(res, "the odds cell takes the colour of the odds",
 		card.cell_color(2) == LoanLogic.odds_color(int(row["odds"])), card.cell_text(2))
@@ -570,16 +538,16 @@ static func _case_card_request(res: Dictionary, host: Node) -> void:
 
 #Case 12: the card of a running loan.
 static func _case_card_active(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var card: LoanCard = _spawn(host, LoanCard.SCENE_PATH) as LoanCard
 	card.set_row(_row_for(LoanRows.VIEW_ACTIVE, LOAN_1))
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "an active card carries three cells",
 		card.cell_count() == 3 and card.cell_caption(0) == "Remaining"
 		and card.cell_caption(2) == "Next Due", "%d cells" % card.cell_count())
 	TestFixtures.check(res, "what is left to pay is red",
-		card.cell_color(0) == LoanStyle.RED
-		and card.cell_text(0) == NotesLabel.format_amount(1440), card.cell_text(0))
+		card.cell_color(0) == GuiColors.RED
+		and card.cell_text(0) == TransactionData.grouped(1440), card.cell_text(0))
 	var button: Button = card.action_button()
 	TestFixtures.check(res, "an active card offers the payoff button",
 		button != null and button.text == LoanRows.PAY_OFF_TEXT,
@@ -597,7 +565,7 @@ static func _case_card_active(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a blocked payoff button emits nothing",
 		seen.is_empty(), "%s" % [seen])
 	card.set_row(_row_for(LoanRows.VIEW_ACTIVE, LOAN_2))
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	card.press_action()
 	TestFixtures.check(res, "a payoff the bank covers names the loan to close",
 		card.can_press() and seen == [LOAN_2], "%s" % [seen])
@@ -606,15 +574,15 @@ static func _case_card_active(res: Dictionary, host: Node) -> void:
 
 #Case 13: the card of a loan that ended.
 static func _case_card_closed(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var card: LoanCard = _spawn(host, LoanCard.SCENE_PATH) as LoanCard
 	card.set_row(_row_for(LoanRows.VIEW_CLOSED, CLOSED_1))
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a closed card counts what was paid and what it cost",
 		card.cell_caption(0) == "Total Paid" and card.cell_caption(2) == "Interest Paid"
-		and card.cell_text(2) == NotesLabel.format_amount(72), card.cell_text(2))
+		and card.cell_text(2) == TransactionData.grouped(72), card.cell_text(2))
 	TestFixtures.check(res, "the interest of a closed loan is red",
-		card.cell_color(2) == LoanStyle.RED, "%s" % [card.cell_color(2)])
+		card.cell_color(2) == GuiColors.RED, "%s" % [card.cell_color(2)])
 	TestFixtures.check(res, "a closed card is dimmed and offers no button",
 		card.action_button() == null and not card.can_press()
 		and is_equal_approx(card.modulate.a, LoanCard.CLOSED_ALPHA), "%s" % [card.modulate])
@@ -625,12 +593,42 @@ static func _case_card_closed(res: Dictionary, host: Node) -> void:
 	await _drop(host, card)
 
 
+#Case 13b: the button column of a card centres on the content of the card.
+static func _case_card_column(res: Dictionary, host: Node) -> void:
+	GuiLoanTests._fresh_seeded()
+	var card: LoanCard = _spawn(host, LoanCard.SCENE_PATH) as LoanCard
+	card.set_row(_row_for(LoanRows.VIEW_ACTIVE, LOAN_1))
+	await TestFixtures.frames(host, 2)
+	var button: Button = card.action_button()
+	var col: VBoxContainer = button.get_parent() as VBoxContainer
+	TestFixtures.check(res, "the payoff column of an active card centres its children",
+		col != null and col.alignment == BoxContainer.ALIGNMENT_CENTER,
+		"%s" % [col.alignment if col != null else -1])
+	var note: Control = col.get_child(col.get_child_count() - 1) as Control
+	var group_top: float = button.global_position.y
+	var group_mid: float = (group_top + note.global_position.y + note.size.y) / 2.0
+	var content_mid: float = card.global_position.y + card.size.y / 2.0
+	TestFixtures.check(res, "the payoff button and its note sit on the vertical centre of the card",
+		absf(group_mid - content_mid) <= CENTRE_TOLERANCE,
+		"group %.1f content %.1f" % [group_mid, content_mid])
+	TestFixtures.check(res, "the payoff column is not pinned to the top of the card",
+		group_top - card.global_position.y > float(LoanCard.PAD_V) + CENTRE_TOLERANCE,
+		"button top %.1f card top %.1f" % [group_top, card.global_position.y])
+	card.set_row(_row_for(LoanRows.VIEW_PENDING, OFFER_1))
+	await TestFixtures.frames(host, 2)
+	var offer_col: VBoxContainer = card.action_button().get_parent() as VBoxContainer
+	TestFixtures.check(res, "the review column of an offer card centres its children",
+		offer_col != null and offer_col.alignment == BoxContainer.ALIGNMENT_CENTER,
+		"%s" % [offer_col.alignment if offer_col != null else -1])
+	await _drop(host, card)
+
+
 #Case 14: the payment strip and the panel it opens under the pointer.
 static func _case_strip(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var strip := LoanPaymentCells.new()
 	host.add_child(strip)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	strip.set_rows(FinanceManager.payment_rows(LOAN_1))
 	TestFixtures.check(res, "the strip holds one cell per payment of the loan",
 		strip.cell_count() == 12 and strip.hovered() == -1, "%d cells" % strip.cell_count())
@@ -644,7 +642,7 @@ static func _case_strip(res: Dictionary, host: Node) -> void:
 		== LoanPaymentCells.SENT_HOVER, "%f" % strip.cell_height(3))
 	TestFixtures.check(res, "the panel names the payment and what it cost",
 		strip.tip_open() and strip.tip_text("label") == "Payment 4 Sent"
-		and strip.tip_text("amount") == NotesLabel.format_amount(180),
+		and strip.tip_text("amount") == TransactionData.grouped(180),
 		"%s %s" % [strip.tip_text("label"), strip.tip_text("amount")])
 	TestFixtures.check(res, "a payment already sent reads as sent",
 		strip.tip_text("amount_label") == LoanPaymentCells.SENT_TEXT
@@ -652,8 +650,13 @@ static func _case_strip(res: Dictionary, host: Node) -> void:
 	strip.hover_cell(11)
 	TestFixtures.check(res, "a payment still to come reads as due and leaves nothing behind",
 		strip.tip_text("amount_label") == LoanPaymentCells.DUE_TEXT
-		and strip.tip_text("after") == NotesLabel.format_amount(0),
+		and strip.tip_text("after") == TransactionData.grouped(0),
 		"%s %s" % [strip.tip_text("amount_label"), strip.tip_text("after")])
+	var last_row: Dictionary = FinanceManager.payment_rows(LOAN_1)[11]
+	TestFixtures.check(res, "a due payment is dated on the bill day the loan keeps, the 2nd",
+		strip.tip_text("date") == String(last_row["date"])
+		and int(TrynnCalendar.date_of(int(last_row["minute"]))["day"]) == 2,
+		"%s on day %d" % [strip.tip_text("date"), int(TrynnCalendar.date_of(int(last_row["minute"]))["day"])])
 	strip.hover_cell(-1)
 	TestFixtures.check(res, "leaving the strip closes the panel",
 		not strip.tip_open() and strip.hovered() == -1 and strip.tip_text("label") == "",
@@ -663,9 +666,9 @@ static func _case_strip(res: Dictionary, host: Node) -> void:
 
 #Case 15: the filter popup.
 static func _case_popup(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var popup: LoanFilterPopup = _spawn(host, LoanFilterPopup.SCENE_PATH) as LoanFilterPopup
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	var caps: Dictionary = LoanRows.caps(_rows_of(LoanRows.VIEW_ACTIVE, true))
 	popup.set_state(true, true, {}, caps)
 	TestFixtures.check(res, "the popup holds one block per filter",
@@ -677,10 +680,10 @@ static func _case_popup(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "each block reads its whole span before it is touched",
 		popup.range_text("monthly") == LoanRows.range_text("monthly", 0.0, 180.0),
 		popup.range_text("monthly"))
-	TestFixtures.check(res, "both sliders of a block stop at the cap of the view",
-		is_equal_approx(popup.slider("monthly", true).max_value, 180.0)
-		and is_equal_approx(popup.slider("monthly", false).max_value, 180.0),
-		"%f" % popup.slider("monthly", true).max_value)
+	TestFixtures.check(res, "the slider of a block stops at the cap of the view",
+		is_equal_approx(popup.slider("monthly").max_value, 180.0)
+		and is_equal_approx(popup.slider("monthly").high, 180.0),
+		"%f" % popup.slider("monthly").max_value)
 	TestFixtures.check(res, "the switch starts on, with the requests shown",
 		popup.show_requests(), "requests shown")
 	var toggles: Array[bool] = []
@@ -702,34 +705,34 @@ static func _case_popup(res: Dictionary, host: Node) -> void:
 	popup.set_state(true, true, {"monthly": Vector2(20.0, 150.0)}, caps)
 	TestFixtures.check(res, "the page writes its ranges back into the popup",
 		popup.range_text("monthly") == LoanRows.range_text("monthly", 20.0, 150.0)
-		and is_equal_approx(popup.slider("monthly", false).value, 20.0),
+		and is_equal_approx(popup.slider("monthly").low, 20.0),
 		popup.range_text("monthly"))
 	await _drop(host, popup)
 
 
 #Case 16: the shared window shell, through the confirm of a request.
 static func _case_shell(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var window: LoanRequestConfirm = _spawn(host,
 		LoanRequestConfirm.SCENE_PATH) as LoanRequestConfirm
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a window starts closed and hidden",
 		not window.is_open() and not window.visible, "closed")
 	TestFixtures.check(res, "a window has a frame, a body and a close button",
-		window.frame_box() != null and window.body_box() != null
-		and window.close_button() != null, "built")
+		window.box != null and window.rows != null
+		and window.close_button != null, "built")
 	TestFixtures.check(res, "the close button of the confirm cancels",
-		window.close_button().tooltip_text == LoanRequestConfirm.CANCEL_TEXT,
-		window.close_button().tooltip_text)
+		window.close_button.tooltip_text == LoanRequestConfirm.CANCEL_TEXT,
+		window.close_button.tooltip_text)
 	TestFixtures.check(res, "the confirm is as wide as the prototype window",
-		is_equal_approx(window.frame_size().x, LoanRequestConfirm.WINDOW_WIDTH),
-		"%f wide" % window.frame_size().x)
+		is_equal_approx(window.box.custom_minimum_size.x, 600.0),
+		"%f wide" % window.box.custom_minimum_size.x)
 	window.open_for(_snap())
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "opening a window shows it",
 		window.is_open() and window.visible, "open")
 	var view: Vector2 = host.get_viewport().get_visible_rect().size
-	var shell: PanelContainer = window.frame_box()
+	var shell: PanelContainer = window.box
 	var shell_x: float = shell.global_position.x + shell.size.x / 2.0
 	var shell_y: float = shell.global_position.y + shell.size.y / 2.0
 	var shell_band: float = GuiFrameStack.band_height(view.y)
@@ -743,16 +746,16 @@ static func _case_shell(res: Dictionary, host: Node) -> void:
 		"top %s z %d" % [GuiFrameStack.top(), window.z_index])
 	TestFixtures.check(res, "the confirm names what is about to be sent",
 		window.kicker_text() == LoanRequestConfirm.KICKER
-		and window.lender_text() == "Lender 1", window.lender_text())
+		and window.title_text() == "Lender 1", window.title_text())
 	TestFixtures.check(res, "the confirm prints the rate of the draft",
 		window.rate_text() == "8.0%" + LoanRequestConfirm.INTEREST_SUFFIX, window.rate_text())
 	TestFixtures.check(res, "the confirm carries the six terms of the draft",
 		window.cell_count() == 6 and window.cell_caption(0) == "Amount"
 		and window.cell_caption(5) == "Total Repaid", "%d cells" % window.cell_count())
 	TestFixtures.check(res, "the confirm prices the amount, the interest and the total",
-		window.cell_text(0) == NotesLabel.format_amount(1500)
-		and window.cell_text(4) == NotesLabel.format_amount(120)
-		and window.cell_text(5) == NotesLabel.format_amount(1620), window.cell_text(5))
+		window.cell_text(0) == TransactionData.grouped(1500)
+		and window.cell_text(4) == TransactionData.grouped(120)
+		and window.cell_text(5) == TransactionData.grouped(1620), window.cell_text(5))
 	TestFixtures.check(res, "the confirm counts the term and the first payment in months",
 		window.cell_text(1) == LoanLogic.term_label(6)
 		and window.cell_text(3) == LoanLogic.months_label(2), window.cell_text(1))
@@ -763,26 +766,29 @@ static func _case_shell(res: Dictionary, host: Node) -> void:
 		window.no_team() and window.team_count() == 0 and window.away_text() != "",
 		window.away_text())
 	window.set_dimmed(true)
-	TestFixtures.check(res, "a window dims while a confirm of its own sits over it",
-		window.dimmed(), "dimmed")
+	var dim_on: bool = window.dimmed()
+	window.set_dimmed(false)
+	TestFixtures.check(res, "a window dims while a confirm of its own sits over it, then clears",
+		dim_on and not window.dimmed(), "dimmed %s" % dim_on)
 	var sends: Array[bool] = []
-	window.send_pressed.connect(func() -> void: sends.append(true))
-	window.press_send()
-	TestFixtures.check(res, "Send Request asks the page to send, and sends nothing itself",
-		sends.size() == 1 and FinanceManager.requests.is_empty(), "%s" % [sends])
+	window.confirmed.connect(func() -> void: sends.append(true))
+	window.press_confirm()
+	TestFixtures.check(res, "Send Request closes the confirm and asks the page to send, sending nothing",
+		sends.size() == 1 and not window.is_open() and FinanceManager.requests.is_empty(),
+		"%s" % [sends])
 	var closes: Array[bool] = []
 	window.closed.connect(func() -> void: closes.append(true))
+	window.present()
 	window.press_cancel()
-	TestFixtures.check(res, "cancelling closes the window and clears the dim",
-		not window.is_open() and not window.visible and not window.dimmed()
-		and closes.size() == 1, "%s" % [closes])
+	TestFixtures.check(res, "cancelling closes the window",
+		not window.is_open() and not window.visible and closes.size() == 1, "%s" % [closes])
 	TestFixtures.check(res, "a closed window is off the frame stack",
 		GuiFrameStack.top() != window, "top %s" % GuiFrameStack.top())
-	var team: Array[int] = _uids(2)
+	var team: Array[int] = GuiLoanTests._uids(2)
 	var snap: Dictionary = _snap()
 	snap["team"] = team
 	window.open_for(snap)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a request with envoys names them instead",
 		not window.no_team() and window.team_count() == 2, "%d envoys" % window.team_count())
 	var first: MercPortrait = window.team_portrait(0)
@@ -797,15 +803,15 @@ static func _case_shell(res: Dictionary, host: Node) -> void:
 
 #Case 17: the offer dialog.
 static func _case_offer_dialog(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var dialog: LoanOfferDialog = _spawn(host, LoanOfferDialog.SCENE_PATH) as LoanOfferDialog
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	dialog.open_for(OFFER_2)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the dialog opens on the offer it was given",
 		dialog.is_open() and dialog.offer_id() == OFFER_2, "%d" % dialog.offer_id())
 	TestFixtures.check(res, "the dialog names the lender and the deadline",
-		dialog.lender_text() == "Lender 2" and dialog.kicker_text() == LoanOfferDialog.KICKER
+		dialog.title_text() == "Lender 2" and dialog.kicker_text() == LoanOfferDialog.KICKER
 		and dialog.deadline_text() == LoanLogic.deadline_text(30.0), dialog.deadline_text())
 	TestFixtures.check(res, "the deadline takes the colour of its urgency",
 		dialog.deadline_color() == LoanLogic.deadline_color(30.0),
@@ -814,8 +820,8 @@ static func _case_offer_dialog(res: Dictionary, host: Node) -> void:
 		dialog.row_count() == 6 and dialog.row_label(0) == "Amount"
 		and dialog.row_label(4) == "First Payment Due", "%d rows" % dialog.row_count())
 	TestFixtures.check(res, "the amount row reads the ask beside the offer",
-		dialog.req_text(0) == NotesLabel.format_amount(1000)
-		and dialog.off_text(0) == NotesLabel.format_amount(1200),
+		dialog.req_text(0) == TransactionData.grouped(1000)
+		and dialog.off_text(0) == TransactionData.grouped(1200),
 		"%s %s" % [dialog.req_text(0), dialog.off_text(0)])
 	TestFixtures.check(res, "more notes than asked for is good news",
 		dialog.change_text(0) == "+20%"
@@ -829,8 +835,8 @@ static func _case_offer_dialog(res: Dictionary, host: Node) -> void:
 		dialog.req_text(2) == LoanLogic.months_label(6)
 		and dialog.change_text(2) == LoanLogic.CHANGE_NONE, dialog.change_text(2))
 	TestFixtures.check(res, "the monthly row prices both sets of terms",
-		dialog.req_text(3) == NotesLabel.format_amount(LoanLogic.payment(1000, 0.12, 6))
-		and dialog.off_text(3) == NotesLabel.format_amount(220), dialog.off_text(3))
+		dialog.req_text(3) == TransactionData.grouped(LoanLogic.payment(1000, 0.12, 6))
+		and dialog.off_text(3) == TransactionData.grouped(220), dialog.off_text(3))
 	TestFixtures.check(res, "a dearer month than asked for is bad news",
 		dialog.change_color(3) == LoanLogic.CHANGE_BAD_COLOR, dialog.change_text(3))
 	TestFixtures.check(res, "the first payment row prints its own wording",
@@ -839,31 +845,31 @@ static func _case_offer_dialog(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "a later first payment is good news",
 		dialog.change_color(4) == LoanLogic.CHANGE_GOOD_COLOR, dialog.change_text(4))
 	TestFixtures.check(res, "the total repaid counts the interest of the offer",
-		dialog.off_text(5) == NotesLabel.format_amount(1320)
+		dialog.off_text(5) == TransactionData.grouped(1320)
 		and dialog.change_color(5) == LoanLogic.CHANGE_BAD_COLOR, dialog.off_text(5))
 	TestFixtures.check(res, "a row that moved draws its arrow, one that did not draws none",
 		dialog.has_arrow(0) and not dialog.has_arrow(2), "arrows")
 	TestFixtures.check(res, "the dialog offers Decline and Accept",
-		dialog.decline_button() != null and dialog.accept_button() != null
-		and dialog.decline_button().text == LoanOfferDialog.DECLINE_TEXT,
-		dialog.accept_button().text)
+		dialog.cancel_button != null and dialog.confirm_button != null
+		and dialog.cancel_button.text == LoanOfferDialog.DECLINE_TEXT,
+		dialog.confirm_button.text)
 	TestFixtures.check(res, "another offer on the table means accepting is confirmed first",
-		dialog.needs_confirm() and dialog.other_offers().size() == 3,
-		"%d others" % dialog.other_offers().size())
+		dialog.needs_confirm() and LoanRows.other_offers(dialog.offer_id()).size() == 3,
+		"%d others" % LoanRows.other_offers(dialog.offer_id()).size())
 	var asked: Array[int] = []
 	dialog.accept_asked.connect(func(id: int) -> void: asked.append(id))
-	dialog.press_accept()
+	dialog.press_confirm()
 	TestFixtures.check(res, "Accept asks for the confirm instead of taking the offer",
 		asked == [OFFER_2] and FinanceManager.loans.size() == 2, "%s" % [asked])
 	var declined: Array[int] = []
 	dialog.declined.connect(func(id: int) -> void: declined.append(id))
-	dialog.press_decline()
+	dialog.press_cancel()
 	TestFixtures.check(res, "Decline turns the offer down and closes the dialog",
 		declined == [OFFER_2] and FinanceManager.offer(OFFER_2).is_empty()
 		and not dialog.is_open(), "%s" % [declined])
 	var before: int = GameState.bank_notes
 	dialog.open_for(OFFER_1)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	var taken: Array[int] = []
 	dialog.accepted.connect(func(id: int) -> void: taken.append(id))
 	TestFixtures.check(res, "taking an offer books the notes and closes the dialog",
@@ -876,17 +882,18 @@ static func _case_offer_dialog(res: Dictionary, host: Node) -> void:
 
 #Case 18: the confirm over the offer dialog.
 static func _case_accept_confirm(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var confirm: LoanAcceptConfirm = _spawn(host,
 		LoanAcceptConfirm.SCENE_PATH) as LoanAcceptConfirm
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	confirm.open_for(OFFER_1)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the confirm asks whether the guild is sure",
 		confirm.title_text() == LoanAcceptConfirm.TITLE
-		and confirm.title_label().text == LoanAcceptConfirm.TITLE, confirm.title_text())
+		and confirm.title_label.text == LoanAcceptConfirm.TITLE, confirm.title_text())
 	TestFixtures.check(res, "the confirm keeps the dialog under it visible",
-		confirm.backdrop_color() == LoanStyle.CLEAR, "%s" % [confirm.backdrop_color()])
+		confirm.backdrop.get_theme_stylebox(&"panel") is StyleBoxEmpty,
+		"%s" % [confirm.backdrop.get_theme_stylebox(&"panel")])
 	TestFixtures.check(res, "the confirm warns what accepting throws away",
 		confirm.line_text() == LoanAcceptConfirm.LINE_TEXT and confirm.base_id() == OFFER_1,
 		confirm.line_text())
@@ -900,8 +907,8 @@ static func _case_accept_confirm(res: Dictionary, host: Node) -> void:
 		confirm.cell_count(0) == 6 and confirm.cell_caption(0, 0) == "Amount"
 		and confirm.cell_caption(0, 4) == "First Due", "%d cells" % confirm.cell_count(0))
 	TestFixtures.check(res, "a card prices the alternate offer, not the one being taken",
-		confirm.cell_value(0, 0) == NotesLabel.format_amount(1200)
-		and confirm.cell_value(0, 3) == NotesLabel.format_amount(220), confirm.cell_value(0, 0))
+		confirm.cell_value(0, 0) == TransactionData.grouped(1200)
+		and confirm.cell_value(0, 3) == TransactionData.grouped(220), confirm.cell_value(0, 0))
 	TestFixtures.check(res, "a short cell counts months and percent",
 		confirm.cell_value(0, 1) == "10%" and confirm.cell_value(0, 2) == "6 mo",
 		"%s %s" % [confirm.cell_value(0, 1), confirm.cell_value(0, 2)])
@@ -926,8 +933,8 @@ static func _case_accept_confirm(res: Dictionary, host: Node) -> void:
 		confirm.list_box() != null and confirm.list_box().get_parent() is ScrollContainer,
 		"one scroll")
 	var taken: Array[int] = []
-	confirm.confirmed.connect(func(id: int) -> void: taken.append(id))
-	confirm.press_accept()
+	confirm.confirmed.connect(func() -> void: taken.append(confirm.base_id()))
+	confirm.press_confirm()
 	TestFixtures.check(res, "the confirm answers the dialog and books nothing itself",
 		taken == [OFFER_1] and FinanceManager.loans.size() == 2, "%s" % [taken])
 	confirm.press_cancel()
@@ -938,7 +945,7 @@ static func _case_accept_confirm(res: Dictionary, host: Node) -> void:
 	FinanceManager.reject_offer(OFFER_3)
 	FinanceManager.reject_offer(OFFER_4)
 	confirm.open_for(OFFER_1)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "with nothing to throw away the confirm says so",
 		confirm.card_count() == 0, "%d cards" % confirm.card_count())
 	await _drop(host, confirm)
@@ -946,9 +953,9 @@ static func _case_accept_confirm(res: Dictionary, host: Node) -> void:
 
 #Case 19: the three views of the page.
 static func _case_tab_views(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the page opens on the active loans",
 		tab.view() == LoanRows.VIEW_ACTIVE and tab.card_count() == 2,
 		"%s with %d cards" % [tab.view(), tab.card_count()])
@@ -992,29 +999,29 @@ static func _case_tab_views(res: Dictionary, host: Node) -> void:
 		tab.view_enabled(LoanRows.VIEW_ACTIVE)
 		and not tab.view_button(LoanRows.VIEW_ACTIVE).disabled, "active open")
 	tab.hide()
-	_set_money(2000)
+	GuiLoanTests._set_money(2000)
 	TestFixtures.check(res, "a hidden page only marks itself dirty",
-		tab.dirty(), "dirty")
+		tab.is_dirty(), "dirty")
 	tab.show()
 	TestFixtures.check(res, "showing the page again reads the finances over",
-		not tab.dirty(), "clean")
+		not tab.is_dirty(), "clean")
 	tab.hide()
-	_set_money(1500)
+	GuiLoanTests._set_money(1500)
 	tab.visibility_changed.disconnect(Callable(tab, "_on_visibility_changed"))
 	tab.show()
 	TestFixtures.check(res, "a page shown without its own signal stays dirty",
-		tab.dirty(), "dirty")
+		tab.is_dirty(), "dirty")
 	tab.page_shown()
 	TestFixtures.check(res, "page_shown writes the page the shell just opened",
-		not tab.dirty() and tab.card_count() > 0, "%d" % [tab.card_count()])
+		not tab.is_dirty() and tab.card_count() > 0, "%d" % [tab.card_count()])
 	await _drop(host, tab)
 
 
 #Case 20: the sort button, its popup and the direction toggle.
 static func _case_tab_sort(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	tab.press_view(LoanRows.VIEW_PENDING)
 	var drop: OptionDropdown = tab.sort_dropdown()
 	TestFixtures.check(res, "the sort control is the shared dropdown atom",
@@ -1024,8 +1031,8 @@ static func _case_tab_sort(res: Dictionary, host: Node) -> void:
 		and is_equal_approx(drop.custom_minimum_size.y, LoansTab.TOOL_HEIGHT),
 		"%s" % [drop.custom_minimum_size])
 	TestFixtures.check(res, "the dropdown holds the three sort keys in order",
-		_keys_of(drop) == ["monthly", "payoff", "duration"]
-		and drop.selected == &"monthly", "%s" % [_keys_of(drop)])
+		GuiFinanceDataTests._keys_of(drop.options) == ["monthly", "payoff", "duration"]
+		and drop.selected == &"monthly", "%s" % [GuiFinanceDataTests._keys_of(drop.options)])
 	TestFixtures.check(res, "the page sorts by the monthly payment first",
 		tab.sort_key() == "monthly" and tab.sort_label() == "Monthly Payment"
 		and tab.descending(), tab.sort_label())
@@ -1078,9 +1085,9 @@ static func _case_tab_sort(res: Dictionary, host: Node) -> void:
 
 #Case 21: the filters of the page.
 static func _case_tab_filter(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	tab.press_view(LoanRows.VIEW_PENDING)
 	TestFixtures.check(res, "nothing is filtered when the page opens",
 		not tab.filters_active() and tab.show_requests() and tab.ranges().is_empty(),
@@ -1099,7 +1106,7 @@ static func _case_tab_filter(res: Dictionary, host: Node) -> void:
 		and tab.empty_text() == LoanRows.EMPTY_FILTERED, tab.empty_text())
 	TestFixtures.check(res, "a bound over the cap is clamped into it",
 		is_equal_approx((tab.ranges()["monthly"] as Vector2).y, 320.0)
-		and is_equal_approx(tab.filter_popup().slider("monthly", true).value, 310.0),
+		and is_equal_approx(tab.filter_popup().slider("monthly").high, 310.0),
 		"%s" % [tab.ranges()["monthly"]])
 	tab.reset_filters()
 	TestFixtures.check(res, "Reset brings every row back",
@@ -1121,15 +1128,15 @@ static func _case_tab_filter(res: Dictionary, host: Node) -> void:
 
 #Case 22: the request window from the page, and the confirm in front of it.
 static func _case_tab_request(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the page offers the request button",
 		tab.request_button() != null
 		and tab.request_button().text == LoansTab.REQUEST_TEXT,
 		tab.request_button().text)
 	tab.press_request()
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	var window: LoanRequestWindow = tab.request_window()
 	TestFixtures.check(res, "the button opens the request window",
 		window != null and window.is_open(), "open")
@@ -1141,21 +1148,21 @@ static func _case_tab_request(res: Dictionary, host: Node) -> void:
 		and window.card_for("Lender 1").tag_visible(), "Lender 1 busy")
 	TestFixtures.check(res, "the window opens on the warmest lender that is free",
 		window.chosen_lender() == "Lender 8" and window.can_send(), window.chosen_lender())
-	window.press_request()
-	await host.get_tree().process_frame
+	window.press_confirm()
+	await TestFixtures.frames(host, 1)
 	var confirm: LoanRequestConfirm = tab.request_confirm()
 	TestFixtures.check(res, "Request opens the confirm and dims the window under it",
 		confirm.is_open() and window.dimmed() and window.is_open(), "dimmed")
 	TestFixtures.check(res, "the confirm reads the draft of the window",
-		confirm.lender_text() == "Lender 8" and confirm.odds() == window.odds(),
+		confirm.title_text() == "Lender 8" and confirm.odds() == window.odds(),
 		"%d per cent" % confirm.odds())
 	confirm.press_cancel()
 	TestFixtures.check(res, "cancelling the confirm clears the dim and keeps the window",
 		not confirm.is_open() and not window.dimmed() and window.is_open(), "back")
-	window.press_request()
-	await host.get_tree().process_frame
-	confirm.press_send()
-	await host.get_tree().process_frame
+	window.press_confirm()
+	await TestFixtures.frames(host, 1)
+	confirm.press_confirm()
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Send Request sends it and closes both windows",
 		FinanceManager.requests.size() == 1 and not confirm.is_open()
 		and not window.is_open(), "%d requests" % FinanceManager.requests.size())
@@ -1167,13 +1174,48 @@ static func _case_tab_request(res: Dictionary, host: Node) -> void:
 	await _drop(host, tab)
 
 
+#The request window holds campaign time while it is open: paused on open, the old speed back on close and on free.
+static func _case_request_time_hold(res: Dictionary, host: Node) -> void:
+	GuiLoanTests._fresh_seeded()
+	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
+	await TestFixtures.frames(host, 1)
+	var ticking: bool = GameState.clock.is_processing()
+	GameState.clock.set_process(false)
+	GameState.set_speed(ClockRunner.Speed.PLAY)
+	TestFixtures.check(res, "the closed request window holds no time",
+		not GameState.is_time_held() and GameState.clock.speed == ClockRunner.Speed.PLAY,
+		"held %s speed %d" % [GameState.is_time_held(), GameState.clock.speed])
+	tab.press_request()
+	await TestFixtures.frames(host, 1)
+	var window: LoanRequestWindow = tab.request_window()
+	TestFixtures.check(res, "the open request window pauses time",
+		window != null and window.is_open() and GameState.is_time_held()
+		and GameState.clock.speed == ClockRunner.Speed.PAUSE,
+		"held %s speed %d" % [GameState.is_time_held(), GameState.clock.speed])
+	window.press_close()
+	await TestFixtures.frames(host, 1)
+	TestFixtures.check(res, "closing the request window brings back the old speed",
+		not window.is_open() and not GameState.is_time_held()
+		and GameState.clock.speed == ClockRunner.Speed.PLAY,
+		"held %s speed %d" % [GameState.is_time_held(), GameState.clock.speed])
+	tab.press_request()
+	await TestFixtures.frames(host, 1)
+	var reopened: bool = GameState.is_time_held()
+	await _drop(host, tab)
+	TestFixtures.check(res, "freeing the page with the window open brings back the old speed",
+		reopened and not GameState.is_time_held() and GameState.clock.speed == ClockRunner.Speed.PLAY,
+		"reopened %s held %s speed %d" % [reopened, GameState.is_time_held(), GameState.clock.speed])
+	GameState.set_speed(ClockRunner.Speed.PAUSE)
+	GameState.clock.set_process(ticking)
+
+
 #Case 23: reviewing an offer from the page and taking it.
 static func _case_tab_offer(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	tab.open_offer(OFFER_1)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	var dialog: LoanOfferDialog = tab.offer_dialog()
 	TestFixtures.check(res, "opening an offer switches to the pending view",
 		tab.view() == LoanRows.VIEW_PENDING and dialog.is_open()
@@ -1182,18 +1224,18 @@ static func _case_tab_offer(res: Dictionary, host: Node) -> void:
 		not FinanceManager.offer_unread(OFFER_1), "read")
 	TestFixtures.check(res, "an offer nobody has opens nothing",
 		not _opens(tab, 999), "no such offer")
-	dialog.press_accept()
-	await host.get_tree().process_frame
+	dialog.press_confirm()
+	await TestFixtures.frames(host, 1)
 	var confirm: LoanAcceptConfirm = tab.accept_confirm()
 	TestFixtures.check(res, "Accept opens the confirm and dims the dialog under it",
-		confirm.is_open() and dialog.dimmed() and not dialog.close_button().visible,
+		confirm.is_open() and dialog.dimmed() and not dialog.close_button.visible,
 		"dimmed")
 	TestFixtures.check(res, "the confirm lists the offers that accepting throws away",
 		confirm.base_id() == OFFER_1 and confirm.card_count() == 3,
 		"%d cards" % confirm.card_count())
 	var before: int = GameState.bank_notes
-	confirm.press_accept()
-	await host.get_tree().process_frame
+	confirm.press_confirm()
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the confirm books the loan and closes both windows",
 		GameState.bank_notes == before + 1500 and not confirm.is_open()
 		and not dialog.is_open(), "%d notes" % GameState.bank_notes)
@@ -1204,7 +1246,7 @@ static func _case_tab_offer(res: Dictionary, host: Node) -> void:
 		tab.view() == LoanRows.VIEW_ACTIVE and tab.card_count() == 3,
 		"%d cards" % tab.card_count())
 	TestFixtures.check(res, "the dialog is undimmed once the confirm is answered",
-		not dialog.dimmed() and dialog.close_button().visible, "undimmed")
+		not dialog.dimmed() and dialog.close_button.visible, "undimmed")
 	await _drop(host, tab)
 
 
@@ -1215,12 +1257,10 @@ static func _opens(tab: LoansTab, offer_id: int) -> bool:
 
 #Case 23b: an expired offer on the page: hidden by the filter, dismissed by its own button.
 static func _case_tab_expired(res: Dictionary, host: Node) -> void:
-	_fresh()
-	var row_103: Dictionary = FinanceManager.offer(OFFER_3)
-	CampaignClock.advance_to(int(row_103["expires_minute"]) + 1)
-	FinanceManager.tick(CampaignClock.now())
+	GuiLoanTests._fresh_seeded()
+	_expire_offer(OFFER_3)
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	tab.press_view(LoanRows.VIEW_PENDING)
 	TestFixtures.check(res, "the expired offer still lists by default, sorted last",
 		tab.card_count() == 4 and tab.row_ids()[3] == OFFER_3 and tab.show_expired(),
@@ -1242,7 +1282,7 @@ static func _case_tab_expired(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the expired card presses Dismiss, not Review",
 		card != null and card.expired() and card.action_button().text == "Dismiss", "found card")
 	card.press_action()
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Dismiss removes the offer and its card",
 		FinanceManager.offer(OFFER_3).is_empty() and not tab.row_ids().has(OFFER_3),
 		"%s" % [tab.row_ids()])
@@ -1251,14 +1291,14 @@ static func _case_tab_expired(res: Dictionary, host: Node) -> void:
 
 #Case 24: paying a loan off from the page.
 static func _case_tab_payoff(res: Dictionary, host: Node) -> void:
-	_fresh()
-	_set_money(RICH)
+	GuiLoanTests._fresh_seeded()
+	GuiLoanTests._set_money(RICH)
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a payoff the bank covers can be pressed",
 		tab.card_count() == 2 and tab.card(0).can_press(), "%d cards" % tab.card_count())
 	tab.ask_payoff(LOAN_2)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	var dialog: ConfirmDialog = tab.payoff_dialog()
 	TestFixtures.check(res, "the payoff button asks before it spends",
 		dialog != null and dialog.visible and tab.payoff_id() == LOAN_2,
@@ -1267,14 +1307,14 @@ static func _case_tab_payoff(res: Dictionary, host: Node) -> void:
 		dialog.button_labels() == [LoansTab.PAYOFF_NO, LoansTab.PAYOFF_YES],
 		"%s" % [dialog.button_labels()])
 	dialog.press(0)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "cancelling the question pays nothing",
 		FinanceManager.loan_by_id(LOAN_2) != null and GameState.bank_notes == RICH,
 		"%d notes" % GameState.bank_notes)
 	tab.ask_payoff(LOAN_2)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	dialog.press(1)
-	await host.get_tree().process_frame
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "answering it closes the loan and takes the payoff",
 		FinanceManager.loan_by_id(LOAN_2) == null and GameState.bank_notes == RICH - 667,
 		"%d notes" % GameState.bank_notes)
@@ -1292,13 +1332,6 @@ static func _case_tab_payoff(res: Dictionary, host: Node) -> void:
 	await _drop(host, tab)
 
 
-static func _keys_of(drop: OptionDropdown) -> Array[String]:
-	var out: Array[String] = []
-	for opt: Dictionary in drop.options:
-		out.append(String(opt.get("key", "")))
-	return out
-
-
 static func _range_is(tab: LoansTab, key: String, low: float, high: float) -> bool:
 	if not tab.ranges().has(key):
 		return false
@@ -1307,19 +1340,19 @@ static func _range_is(tab: LoansTab, key: String, low: float, high: float) -> bo
 
 
 static func _slider_at(tab: LoansTab, key: String, top: bool, value: float) -> bool:
-	var node: LoanSlider = tab.filter_popup().slider(key, top)
-	return node != null and is_equal_approx(node.value, value)
+	var node: DualSlider = tab.filter_popup().slider(key)
+	return node != null and is_equal_approx(node.high if top else node.low, value)
 
 
 #Case 25: an offer the bank no longer holds. The view still turns, the dialog stays shut.
 static func _case_tab_unknown_offer(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the page opens on the active view",
 		tab.view() == LoanRows.VIEW_ACTIVE, "%s" % [tab.view()])
 	tab.open_offer(999)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "an id the bank does not hold still shows the pending view",
 		tab.view() == LoanRows.VIEW_PENDING and not tab.offer_dialog().is_open(),
 		"%s" % [tab.view()])
@@ -1327,19 +1360,19 @@ static func _case_tab_unknown_offer(res: Dictionary, host: Node) -> void:
 		FinanceManager.offer_unread(OFFER_1) and FinanceManager.offer_unread(OFFER_2),
 		"unread")
 	tab.open_offer(OFFER_2)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a known id opens the dialog and answers its row",
 		tab.offer_dialog().is_open() and tab.offer_dialog().offer_id() == OFFER_2
 		and not FinanceManager.offer_unread(OFFER_2), "%d" % tab.offer_dialog().offer_id())
-	tab.offer_dialog().close_window()
+	tab.offer_dialog().close()
 	var ids: Array[int] = []
 	for row: Dictionary in FinanceManager.offers:
 		ids.append(int(row.get("id", -1)))
 	for oid: int in ids:
 		FinanceManager.reject_offer(oid)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	tab.open_offer(999)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "an empty pending view falls back to the active one",
 		tab.view() == LoanRows.VIEW_ACTIVE and not tab.offer_dialog().is_open(),
 		"%s" % [tab.view()])
@@ -1348,35 +1381,35 @@ static func _case_tab_unknown_offer(res: Dictionary, host: Node) -> void:
 
 #Case 26: the modals hang off a host above the page, so the page takes them with it.
 static func _case_tab_modal_exit(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var shell: Control = Control.new()
 	host.add_child(shell)
 	var layer: Control = Control.new()
-	layer.name = LoansTab.HOST_CHILD
-	layer.add_to_group(LoansTab.HOST_GROUP)
+	layer.name = String(FinanceViewer.MODAL_LAYER)
+	layer.add_to_group(FinanceViewer.MODAL_GROUP)
 	shell.add_child(layer)
 	var pages: Control = Control.new()
 	shell.add_child(pages)
 	var scene: PackedScene = load(LoansTab.SCENE_PATH) as PackedScene
 	var tab: LoansTab = scene.instantiate() as LoansTab
 	pages.add_child(tab)
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	var window: LoanRequestWindow = tab.request_window()
 	TestFixtures.check(res, "the five modals of the page land on the layer above it",
 		layer.get_child_count() == 5 and window.get_parent() == layer,
 		"%d modals" % layer.get_child_count())
 	tab.press_request()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the request window is open while the page is in the tree",
 		window.is_open(), "open")
 	pages.remove_child(tab)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the page closes its modals when it leaves the tree",
 		not window.is_open() and not window.visible, "closed")
 	pages.add_child(tab)
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	tab.press_request()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "the same modals serve the page when it comes back",
 		window.is_open() and tab.request_window() == window
 		and layer.get_child_count() == 5, "%d modals" % layer.get_child_count())
@@ -1384,7 +1417,7 @@ static func _case_tab_modal_exit(res: Dictionary, host: Node) -> void:
 	for node: Node in layer.get_children():
 		modals.append(node)
 	tab.queue_free()
-	await _frames(host, 3)
+	await TestFixtures.frames(host, 3)
 	var left: int = 0
 	for node: Node in modals:
 		if is_instance_valid(node):
@@ -1396,9 +1429,9 @@ static func _case_tab_modal_exit(res: Dictionary, host: Node) -> void:
 
 #Case 27: a bound dragged past the other one. The side that moved keeps its value.
 static func _case_tab_push(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	tab.press_view(LoanRows.VIEW_PENDING)
 	tab.set_filter("monthly", 100.0, 200.0)
 	tab.set_filter("monthly", 250.0, 200.0)
@@ -1414,12 +1447,12 @@ static func _case_tab_push(res: Dictionary, host: Node) -> void:
 		_range_is(tab, "monthly", 120.0, 200.0), "%s" % [tab.ranges()])
 	tab.set_filter("monthly", 100.0, 200.0)
 	tab.filter_popup().set_slider("monthly", false, 250.0)
-	TestFixtures.check(res, "the Min slider carries the Max slider up with it",
+	TestFixtures.check(res, "the low thumb carries the high thumb up with it",
 		_range_is(tab, "monthly", 250.0, 250.0) and _slider_at(tab, "monthly", true, 250.0)
 		and _slider_at(tab, "monthly", false, 250.0), "%s" % [tab.ranges()])
 	tab.set_filter("monthly", 100.0, 200.0)
 	tab.filter_popup().set_slider("monthly", true, 50.0)
-	TestFixtures.check(res, "the Max slider carries the Min slider down with it",
+	TestFixtures.check(res, "the high thumb carries the low thumb down with it",
 		_range_is(tab, "monthly", 50.0, 50.0) and _slider_at(tab, "monthly", true, 50.0)
 		and _slider_at(tab, "monthly", false, 50.0), "%s" % [tab.ranges()])
 	tab.reset_filters()
@@ -1430,11 +1463,11 @@ static func _case_tab_push(res: Dictionary, host: Node) -> void:
 
 #Case 28: the envoy crew of the request window: its texts, its lock and its link.
 static func _case_tab_crew(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	tab.press_request()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var window: LoanRequestWindow = tab.request_window()
 	var crew: OddJobCrew = window.crew()
 	TestFixtures.check(res, "the crew names the odd job it sends",
@@ -1447,9 +1480,9 @@ static func _case_tab_crew(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the picker says what raises the approval odds",
 		crew.pick_desc == pick, crew.pick_desc)
 	SubscriptionManager.set_entitlements({"oddJobs": 0})
-	window.close_window()
+	window.close()
 	tab.press_request()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "no odd job slot locks the crew of the window",
 		window.locked_crew() and crew.locked and crew.max_mercs == 0, "locked")
 	var seen: Array[Dictionary] = []
@@ -1457,13 +1490,81 @@ static func _case_tab_crew(res: Dictionary, host: Node) -> void:
 		seen.append(target)
 	GameState.go_to_plans_requested.connect(grab)
 	crew.take_me_there.emit({"page": "plans", "row": "oddJobs"})
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "Take me there closes the window and asks for the Plans page",
 		not window.is_open() and seen.size() == 1
 		and String(seen[0].get("row", "")) == "oddJobs", "%s" % [seen])
 	GameState.go_to_plans_requested.disconnect(grab)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await _drop(host, tab)
+
+
+#The page button builder hands back the core action button, shaded as the caller asked.
+static func _case_bevel_buttons(res: Dictionary, host: Node) -> void:
+	var node: Button = LoanStyle.button("Accept", GuiColors.GREEN, GuiColors.CREAM, 26.0)
+	host.add_child(node)
+	await TestFixtures.frames(host, 1)
+	var core: BevelButton = node as BevelButton
+	TestFixtures.check(res, "a loans page button is the one core action button scene",
+		core != null and core.scene_file_path == BevelButton.SCENE_PATH,
+		"scene '%s'" % (core.scene_file_path if core != null else "not a BevelButton"))
+	if core == null:
+		await _drop(host, node)
+		return
+	TestFixtures.check(res, "the builder keeps the caller's text, height and label colour",
+		core.text == "Accept" and is_equal_approx(core.custom_minimum_size.y, 26.0)
+		and core.text_color == GuiColors.CREAM,
+		"'%s' %.1f %s" % [core.text, core.custom_minimum_size.y, core.text_color.to_html(false)])
+	TestFixtures.check(res, "the builder shades the button from the fill it was handed",
+		core.fill == GuiColors.GREEN and core.hi == GuiColors.GREEN.lightened(0.25)
+		and core.lo == GuiColors.GREEN.darkened(0.35),
+		"%s %s %s" % [core.fill.to_html(false), core.hi.to_html(false), core.lo.to_html(false)])
+	var empty: bool = true
+	for state: StringName in [&"normal", &"hover", &"pressed", &"disabled", &"focus"]:
+		if not (core.get_theme_stylebox(state) is StyleBoxEmpty):
+			empty = false
+	TestFixtures.check(res, "the button carries no style resource of its own any more",
+		empty, "a state still wears a StyleBoxFlat")
+	await _drop(host, node)
+
+
+#The filter switches are the shared check row, with no outline and no hover shift.
+static func _case_filter_rows(res: Dictionary, host: Node) -> void:
+	var popup: LoanFilterPopup = _spawn(host, LoanFilterPopup.SCENE_PATH) as LoanFilterPopup
+	await TestFixtures.frames(host, 1)
+	var row: FilterCheckRow = popup.request_row()
+	var expired: FilterCheckRow = popup.expired_row()
+	TestFixtures.check(res, "both filter switches are the shared filter check row",
+		row != null and expired != null, "requests %s expired %s" % [row != null, expired != null])
+	if row == null or expired == null:
+		await _drop(host, popup)
+		return
+	TestFixtures.check(res, "each row wears its own label and starts ticked",
+		row.label == LoanFilterPopup.CHECK_TEXT and row.text == LoanFilterPopup.CHECK_TEXT
+		and expired.label == LoanFilterPopup.EXPIRED_CHECK_TEXT and row.on and expired.on,
+		"'%s' '%s'" % [row.text, expired.text])
+	var static_look: bool = true
+	var left: float = row.get_theme_stylebox(&"normal").get_margin(SIDE_LEFT)
+	for state: StringName in [&"normal", &"hover", &"pressed", &"hover_pressed", &"focus"]:
+		var box: StyleBox = row.get_theme_stylebox(state)
+		if not (box is StyleBoxEmpty) or not is_equal_approx(box.get_margin(SIDE_LEFT), left):
+			static_look = false
+	TestFixtures.check(res, "the row holds its label still and draws no outline in any state",
+		static_look and is_equal_approx(left, FilterCheckRow.TEXT_MARGIN), "%.1f left" % left)
+	var toggles: Array[bool] = []
+	popup.requests_toggled.connect(func(on: bool) -> void: toggles.append(on))
+	var expiries: Array[bool] = []
+	popup.expired_toggled.connect(func(on: bool) -> void: expiries.append(on))
+	popup.toggle_requests(false)
+	popup.toggle_expired(false)
+	TestFixtures.check(res, "toggling a row once tells the page once and reads back off",
+		toggles == [false] and expiries == [false] and not popup.show_requests()
+		and not popup.show_expired(), "%s %s" % [toggles, expiries])
+	popup.set_state(true, true, {}, {})
+	TestFixtures.check(res, "set_state writes both rows back on without telling the page",
+		popup.show_requests() and popup.show_expired() and row.on and expired.on
+		and toggles == [false] and expiries == [false], "%s %s" % [toggles, expiries])
+	await _drop(host, popup)
 
 
 #Counts engine error lines that name a previously freed object; hears them through OS.add_logger.
@@ -1477,19 +1578,16 @@ class _FreedLogger extends Logger:
 			hits += 1
 
 
-#Builds root -> [page, ModalLayer] off the tree first (page as the first child, the layer as a
-#later one) so the layer already exists when the whole subtree enters the tree together and the
-#page's _ready() (called synchronously by that add_child) finds it: _ready() runs on add_child
-#when the parent is already inside a tree, so a layer added after the page would still be missing
-#when _build_modals() looks for it and the page would fall back to itself as its own host.
+#Builds root -> [page, ModalLayer] off the tree first, so the layer exists when the page's _ready()
+#runs on add_child and finds it; a layer added later would leave the page as its own host.
 static func _stub_host(host: Node) -> Array:
 	var root: Control = Control.new()
 	var scene: PackedScene = load(LoansTab.SCENE_PATH) as PackedScene
 	var tab: LoansTab = scene.instantiate() as LoansTab
 	root.add_child(tab)
 	var layer: Control = Control.new()
-	layer.name = LoansTab.HOST_CHILD
-	layer.add_to_group(LoansTab.HOST_GROUP)
+	layer.name = String(FinanceViewer.MODAL_LAYER)
+	layer.add_to_group(FinanceViewer.MODAL_GROUP)
 	root.add_child(layer)
 	host.add_child(root)
 	return [root, tab, layer]
@@ -1498,12 +1596,12 @@ static func _stub_host(host: Node) -> Array:
 #Case 29: the modal host is freed before the page gets NOTIFICATION_PREDELETE, so the five
 #members hold freed objects when _modals() runs; reading them must print no engine error line.
 static func _case_tab_freed_host(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var freed_log: _FreedLogger = _FreedLogger.new()
 	var built_a: Array = _stub_host(host)
 	var root_a: Control = built_a[0] as Control
 	var layer_a: Control = built_a[2] as Control
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "the stub host of case a holds the five modals",
 		layer_a.get_child_count() == 5, "%d modals" % layer_a.get_child_count())
 	OS.add_logger(freed_log)
@@ -1516,7 +1614,7 @@ static func _case_tab_freed_host(res: Dictionary, host: Node) -> void:
 	var root_b: Control = built_b[0] as Control
 	var tab_b: LoansTab = built_b[1] as LoansTab
 	var layer_b: Control = built_b[2] as Control
-	await _frames(host, 2)
+	await TestFixtures.frames(host, 2)
 	TestFixtures.check(res, "the stub host of case b holds the five modals",
 		layer_b.get_child_count() == 5, "%d modals" % layer_b.get_child_count())
 	OS.add_logger(freed_log)
@@ -1530,48 +1628,48 @@ static func _case_tab_freed_host(res: Dictionary, host: Node) -> void:
 
 #Case 30: an odd job pay total the guild cannot afford blocks the request.
 static func _case_tab_pay_cap(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var tab: LoansTab = _spawn(host, LoansTab.SCENE_PATH) as LoansTab
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	tab.press_request()
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var window: LoanRequestWindow = tab.request_window()
 	var crew: OddJobCrew = window.crew()
 	TestFixtures.check(res, "a request with no envoy to pay for can be sent",
-		window.can_send() and not window.request_button().disabled,
-		"disabled %s" % [window.request_button().disabled])
-	crew.per = MONEY + 500
-	crew.team = _uids(1)
-	await _frames(host, 1)
+		window.can_send() and not window.confirm_button.disabled,
+		"disabled %s" % [window.confirm_button.disabled])
+	crew.per = GuiLoanTests.MONEY + 500
+	crew.team = GuiLoanTests._uids(1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a pay total over the bank notes blocks the request",
-		not window.can_send() and window.request_button().disabled
+		not window.can_send() and window.confirm_button.disabled
 		and window.pay_total() > GameState.bank_notes,
 		"%d of %d, disabled %s" % [window.pay_total(), GameState.bank_notes,
-			window.request_button().disabled])
+			window.confirm_button.disabled])
 	TestFixtures.check(res, "the blocked request button says why it is blocked",
-		window.request_button().tooltip_text == LoanRequestWindow.MONEY_BLOCK,
-		window.request_button().tooltip_text)
-	window.press_request()
-	await _frames(host, 1)
+		window.confirm_button.tooltip_text == LoanRequestWindow.MONEY_BLOCK,
+		window.confirm_button.tooltip_text)
+	window.press_confirm()
+	await TestFixtures.frames(host, 1)
 	var confirm: LoanRequestConfirm = tab.request_confirm()
 	TestFixtures.check(res, "a blocked request opens no confirm at all",
 		confirm == null or not confirm.is_open(),
 		"open %s" % [confirm != null and confirm.is_open()])
 	crew.per = 10
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	TestFixtures.check(res, "a pay total back under the bank notes frees the request",
-		window.can_send() and not window.request_button().disabled
-		and window.request_button().tooltip_text == "",
+		window.can_send() and not window.confirm_button.disabled
+		and window.confirm_button.tooltip_text == "",
 		"%d of %d" % [window.pay_total(), GameState.bank_notes])
 	await _drop(host, tab)
 
 
 #Case 31: the odd job window commits and dismisses through the core action button.
 static func _case_odd_job_buttons(res: Dictionary, host: Node) -> void:
-	_fresh()
+	GuiLoanTests._fresh_seeded()
 	var window: OddJobWindow = _spawn(host,
 		"res://Scenes/GUI/Shared/OddJobWindow.tscn") as OddJobWindow
-	await _frames(host, 1)
+	await TestFixtures.frames(host, 1)
 	var send: BevelButton = window.send_button as BevelButton
 	var cancel: BevelButton = window.cancel_button as BevelButton
 	TestFixtures.check(res, "the odd job window sends through a core bevel button",

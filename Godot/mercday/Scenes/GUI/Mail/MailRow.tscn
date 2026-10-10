@@ -1,0 +1,61 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/GUI/Mail/MailRow.gd" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/IconRect.gd" id="2"]
+
+[node name="MailRow" type="Button"]
+custom_minimum_size = Vector2(0, 72)
+script = ExtResource("1")
+
+[node name="Row" type="HBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 6.0
+offset_right = -32.0
+offset_bottom = -6.0
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="Avatar" type="TextureRect" parent="Row"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+stretch_mode = 3
+script = ExtResource("2")
+pixel_scale = 2
+
+[node name="Texts" type="VBoxContainer" parent="Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 2
+
+[node name="Top" type="HBoxContainer" parent="Row/Texts"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Sender" type="Label" parent="Row/Texts/Top"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+text_overrun_behavior = 3
+
+[node name="Time" type="Label" parent="Row/Texts/Top"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"SmallLabel"
+
+[node name="Subject" type="Label" parent="Row/Texts"]
+layout_mode = 2
+mouse_filter = 2
+text_overrun_behavior = 3
+
+[node name="Preview" type="Label" parent="Row/Texts"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"SmallLabel"
+text_overrun_behavior = 3

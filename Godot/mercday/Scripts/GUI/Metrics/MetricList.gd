@@ -7,8 +7,9 @@ class_name MetricList extends VBoxContainer
 
 const TOGGLE_SCENE := preload("res://Scenes/GUI/Metrics/MetricToggle.tscn")
 #README metric line palette; the def index within the source picks the colour.
-const PALETTE: Array[String] = ["#f28c28", "#5aa6e8", "#6cc36a", "#e8583f", "#f2d33d", "#a36ce8",
-	"#3fc9c0", "#f07ab8", "#a0a8b8", "#ffb266", "#9cc6ef", "#3fae5a", "#c85a8a"]
+const PALETTE: Array[Color] = [GuiColors.ORANGE, GuiColors.LIGHT_BLUE, GuiColors.GREEN, GuiColors.RED,
+	GuiColors.RAMP_YELLOW, Color("#a36ce8"), Color("#3fc9c0"), Color("#f07ab8"), GuiColors.GRAY, GuiColors.ORANGE_HI,
+	GuiColors.SKY, GuiColors.DEEP_GREEN, Color("#c85a8a")]
 const DEFAULT_ACTIVE := 2
 const HEADER_SIZE := 9
 #The group each Contract key sits under, in row order; a source that is not listed stays flat.
@@ -138,7 +139,7 @@ static func row_order(source_name: String) -> Array[String]:
 
 
 static func color_for(index: int) -> Color:
-	return Color(PALETTE[index % PALETTE.size()])
+	return PALETTE[index % PALETTE.size()]
 
 
 #The group title one key sits under; an ungrouped source returns an empty string.
@@ -213,9 +214,7 @@ func _rebuild() -> void:
 	if not is_node_ready():
 		return
 	_ensure(source)
-	for child: Node in get_children():
-		remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(self)
 	var keys: Array[String] = _active[source]
 	var defs: Array[MetricDef] = defs_for(source)
 	var order: Array[String] = row_order(source)

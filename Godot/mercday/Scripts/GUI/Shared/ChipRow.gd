@@ -8,17 +8,17 @@ signal selection_changed(selected: Array)
 
 const CHIP_HEIGHT: float = 24.0
 const CHIP_FONT_SIZE: int = 12
-const ON_TEXT: Color = Color("#0a0f1c")
-const OFF_TEXT: Color = Color("#f3ead7")
-const OFF_TEXT_IDLE: Color = Color("#9cc6ef")
+const ON_TEXT: Color = GuiColors.INK
+const OFF_TEXT: Color = GuiColors.CREAM
+const OFF_TEXT_IDLE: Color = GuiColors.SKY
 const DISABLED_ALPHA: float = 0.45
 const DOT_PX: int = 8
-const DOT_RING: Color = Color("#0a0f1c")
+const DOT_RING: Color = GuiColors.INK
 const GAP_PX: int = 6
 const STATES: Array[StringName] = [&"normal", &"hover", &"pressed", &"focus", &"disabled"]
 const STYLE_ON: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/filter_chip_on.tres")
 const STYLE_OFF: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/filter_chip_off.tres")
-const CHIP_FONT: Font = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
+const CHIP_FONT: Font = GuiStyle.BODY
 
 #Every row is {key, label, enabled, note, color}: color adds the tradition dot, note is the
 #tooltip of a row that cannot be picked.

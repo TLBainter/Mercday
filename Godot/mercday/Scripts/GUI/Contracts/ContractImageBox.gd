@@ -4,9 +4,9 @@ class_name ContractImageBox extends Control
 #the roster row and at 150 px in the detail header. Whatever the scene hangs inside it (the status
 #band, the caption) draws on top. When a contract image file exists it is drawn over the stripes.
 
-const FILL: Color = Color("#0e1628")
+const FILL: Color = GuiColors.ROW_FILL
 
-@export var stripe_color: Color = Color("#1f3560"):
+@export var stripe_color: Color = GuiColors.BLUE_LO:
 	set(value):
 		stripe_color = value
 		queue_redraw()
@@ -14,7 +14,7 @@ const FILL: Color = Color("#0e1628")
 	set(value):
 		cadence = maxi(1, value)
 		queue_redraw()
-@export var ring_color: Color = Color("#3b6fb6"):
+@export var ring_color: Color = GuiColors.BLUE_HI:
 	set(value):
 		ring_color = value
 		queue_redraw()

@@ -3,14 +3,8 @@ class_name BenefitRow extends PanelContainer
 #One bonus line in the Employee Benefits panel: label and description on the left, the value in the
 #middle and the Adjust button that opens the benefit dialog on it.
 
-const FONT_LABEL: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_BUTTON: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const STYLE_ROW: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_row.tres")
+const STYLE_ROW: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/dark_box.tres")
 
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
-const OFF: Color = Color("#5e7699")
 const ADJUST_TEXT: String = "Adjust"
 const BUTTON_HEIGHT: float = 26.0
 
@@ -56,9 +50,7 @@ func text(field: String) -> String:
 
 
 func value_color() -> Color:
-	var raw: Variant = _row.get("color", OFF)
-	var out: Color = raw
-	return out
+	return _row.get("color", GuiColors.MUTED) as Color
 
 
 func press_adjust() -> void:
@@ -77,17 +69,13 @@ func _fill() -> void:
 
 func _style() -> void:
 	row.add_theme_constant_override("separation", 18)
-	label_text.add_theme_font_override("font", FONT_LABEL)
-	label_text.add_theme_font_size_override("font_size", 12)
-	label_text.add_theme_color_override("font_color", CREAM)
-	desc_text.add_theme_font_override("font", FONT_BODY)
-	desc_text.add_theme_font_size_override("font_size", 13)
-	desc_text.add_theme_color_override("font_color", SKY)
+	GuiStyle.paint(label_text, GuiStyle.SILK_BOLD, 12, GuiColors.CREAM)
+	GuiStyle.paint(desc_text, GuiStyle.BODY, 13, GuiColors.SKY)
 	value_row.bold = true
 	value_row.font_size = 20
 	value_row.glyph_scale = 2
 	adjust_button.text = ADJUST_TEXT
 	adjust_button.custom_minimum_size = Vector2(0.0, BUTTON_HEIGHT)
-	adjust_button.add_theme_font_override("font", FONT_BUTTON)
+	adjust_button.add_theme_font_override("font", GuiStyle.SILK)
 	adjust_button.add_theme_font_size_override("font_size", 10)
-	adjust_button.text_color = CREAM
+	adjust_button.text_color = GuiColors.CREAM

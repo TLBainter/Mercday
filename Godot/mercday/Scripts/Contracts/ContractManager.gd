@@ -4,16 +4,15 @@ class_name ContractManager
 #Each stage is split into the half that spends campaign time and the half that settles it, so
 #ContractScheduler can drive the same code one game-clock step at a time.
 
+const LATE_EVENT := "(arrived after the deadline)"
+const LOCAL_LINE := "LOCAL CONTRACT: no travel, no field respite"
+
 
 #prelude holds what happened at the tavern before departure; it prints and lands in the contract log.
 static func run(contract: ContractData, team: Array[MercenaryData], line_fn: Callable,
 		prelude: Array[String] = []) -> ContractRun:
-	var r := ContractRun.new()
-	r.contract = contract
-	r.team.assign(team)
-	r.line_fn = line_fn
-	if contract != null and contract.location_a != "":
-		r.location = DataManager.locations.get(contract.location_a, null) as LocationData
+	var leader: MercenaryData = MatchScore.default_leader(contract, team)
+	var r := ContractRun.make(contract, team, line_fn, leader.merc_uid if leader != null else -1)
 	r.emit_all(prelude)
 	start(r)
 	await execute(r)
@@ -22,22 +21,30 @@ static func run(contract: ContractData, team: Array[MercenaryData], line_fn: Cal
 
 
 static func start(contract_run: ContractRun) -> void:
-	CampaignClock.advance(CampaignClock.TRAVEL_MINUTES)
-	contract_run.emit(CampaignClock.line("travel out", CampaignClock.TRAVEL_MINUTES))
+	if not is_local(contract_run):
+		CampaignClock.advance(CampaignClock.TRAVEL_MINUTES)
+		contract_run.emit(CampaignClock.line("travel out", CampaignClock.TRAVEL_MINUTES))
 	depart(contract_run)
+
+
+#A Local contract is worked at the guild: no travel, no field respite and no trigger roll at a rest.
+static func is_local(contract_run: ContractRun) -> bool:
+	return contract_run != null and contract_run.contract != null and contract_run.contract.local
 
 
 #What the party settles as it leaves: boosts, penalties, loadouts and the log header.
 static func depart(contract_run: ContractRun) -> void:
 	for merc: MercenaryData in contract_run.team:
 		merc.on_contract = true
+		contract_run.emit_all(RestSystem.idle_break(merc))
+	BenefitsManager.book.cancel_held(contract_run.team, GameState.day())
 	contract_run.expire_states(contract_run.team)
 	var contract: ContractData = contract_run.contract
 	if contract != null:
 		contract.team_uids.clear()
 		for merc: MercenaryData in contract_run.team:
 			contract.team_uids.append(merc.merc_uid)
-		contract.status = "Active"
+		contract.status = BoardEntry.STATUS_ACTIVE
 	contract_run.modifier_record = ContractModifiers.apply(contract, contract_run.team)
 	TraitRuntime.begin_contract(contract_run)
 	RelationshipSystem.begin_contract(contract_run)
@@ -48,6 +55,8 @@ static func depart(contract_run: ContractRun) -> void:
 		contract_run.penalties_by_merc[merc] = ContractPenalty.matching(contract, merc, contract_run.team.size())
 	_settle_loadouts(contract_run)
 	ContractLog.header(contract_run)
+	if is_local(contract_run):
+		contract_run.emit(LOCAL_LINE)
 
 
 #What the party puts down before it marches out, once any merc is at or over its Weight Limit.
@@ -57,7 +66,7 @@ static func _settle_loadouts(contract_run: ContractRun) -> void:
 		settled.append_array(LoadoutDecision.settle(merc))
 	if settled.is_empty():
 		return
-	contract_run.emit(Encumbrance.loadout_rules_line())
+	contract_run.emit(LoadoutDecision.loadout_rules_line())
 	contract_run.emit_all(settled)
 
 
@@ -70,34 +79,41 @@ static func execute(contract_run: ContractRun) -> void:
 		var step: Dictionary = next_event(contract_run, index)
 		var name: String = String(step["name"])
 		if bool(step["missing"]):
-			contract_run.emit("EVENT MISSING: %s" % name)
+			emit_missing(contract_run, name, false)
 			continue
 		if events_run > 0:
 			await between_events(contract_run)
 			if contract_run.living_team().is_empty():
 				return
 		if not await run_one_event(contract_run, step["event"] as EventData, name, false):
+			if not is_local(contract_run):
+				await party_rest(contract_run, RestSystem.KIND_RESPITE, "respite")
 			return
 		events_run += 1
 	var last: Dictionary = next_event(contract_run, contract.rolled_mishaps.size())
 	var primary_name: String = String(last["name"])
 	if bool(last["missing"]):
-		contract_run.failed_event = primary_name if primary_name != "" else "(no primary event)"
-		contract_run.emit("EVENT MISSING: %s" % contract_run.failed_event)
+		emit_missing(contract_run, primary_name, true)
 		return
 	if events_run > 0:
 		await between_events(contract_run)
 		if contract_run.living_team().is_empty():
 			return
 	await run_one_event(contract_run, last["event"] as EventData, primary_name, true)
-	await party_rest(contract_run, RestSystem.KIND_RESPITE, "respite")
+	if not is_local(contract_run):
+		await party_rest(contract_run, RestSystem.KIND_RESPITE, "respite")
 
 
 #The event at this place in the chain: the rolled mishaps in order, then the assigned primary.
+#A chain a failed event already ended reads as a missing primary, so a stepped run heads home.
 static func next_event(contract_run: ContractRun, index: int) -> Dictionary:
 	var out: Dictionary = {"event": null, "name": "", "is_primary": false, "missing": true}
 	var contract: ContractData = contract_run.contract
 	if contract == null:
+		return out
+	if contract_run.failed_event != "":
+		out["name"] = contract_run.failed_event
+		out["is_primary"] = true
 		return out
 	var name: String = ""
 	if index < contract.rolled_mishaps.size():
@@ -112,28 +128,85 @@ static func next_event(contract_run: ContractRun, index: int) -> Dictionary:
 	return out
 
 
-#One event and the hour it costs; false once the event left nobody standing.
+#Reports an event the library lacks; a missing primary also fails the run.
+static func emit_missing(contract_run: ContractRun, name: String, is_primary: bool) -> void:
+	if contract_run.failed_event != "":
+		return
+	if is_primary:
+		contract_run.failed_event = name if name != "" else "(no primary event)"
+		name = contract_run.failed_event
+	contract_run.emit("EVENT MISSING: %s" % name)
+
+
+#A party that arrives too late to finish by the deadline fails the run without starting the work.
+static func fail_late(contract_run: ContractRun) -> void:
+	contract_run.failed_event = LATE_EVENT
+	contract_run.emit("LATE: arrived after the deadline")
+
+
+#One event and the hour it costs; false once the event left nobody standing or a flagged mishap failed.
 static func run_one_event(contract_run: ContractRun, event: EventData, name: String, is_primary: bool) -> bool:
 	var outcome: Dictionary = await EventRunner.run(event, contract_run)
 	contract_run.outcomes.append(outcome)
-	_event_elapsed(contract_run, name)
+	if is_primary and event != null and contract_run.contract != null and contract_run.contract.style == "event" \
+			and event.event_name == contract_run.contract.assigned_primary_event \
+			and not CheckStore.is_check_name(event.event_name):
+		_event_style_primary(contract_run, outcome)
+	var minutes: int = int(outcome.get("minutes", 0))
+	if not bool(outcome.get("clocked", false)):
+		_event_elapsed(contract_run, name, minutes if minutes > 0 else CampaignClock.EVENT_MINUTES)
+	var failed: bool = not bool(outcome.get("success", false))
 	if is_primary:
-		if not bool(outcome.get("success", false)):
+		if failed and contract_run.failed_event == "":
 			contract_run.failed_event = name
 		return not contract_run.living_team().is_empty()
-	if not bool(outcome.get("success", false)):
+	var wiped: bool = contract_run.living_team().is_empty()
+	if failed and not wiped and event != null and event.fail_ends_contract:
+		contract_run.failed_event = name
+		contract_run.emit("CONTRACT FAILED: %s ended the contract" % name)
+		return false
+	if failed:
 		contract_run.emit("MISHAP FAILED: %s" % name)
-	if contract_run.living_team().is_empty():
+	if wiped:
 		contract_run.failed_event = name
 		contract_run.emit("CONTRACT ABORTED: no mercs left after %s" % name)
 		return false
 	return true
 
 
-#One contract event costs an hour of campaign time.
-static func _event_elapsed(contract_run: ContractRun, event_name: String) -> void:
-	CampaignClock.advance(CampaignClock.EVENT_MINUTES)
-	contract_run.emit(CampaignClock.line(event_name, CampaignClock.EVENT_MINUTES))
+#Event style primaries take the row's Time and fire the row's Consequence on failure; check rows fire their own.
+static func _event_style_primary(contract_run: ContractRun, outcome: Dictionary) -> void:
+	var contract: ContractData = contract_run.contract
+	if contract.time_minutes > 0 and int(outcome.get("minutes", 0)) <= 0:
+		outcome["minutes"] = contract.time_minutes
+	var roller: MercenaryData = contract_run.leader()
+	if roller == null and not contract_run.living_team().is_empty():
+		roller = contract_run.living_team()[0]
+	event_consequence(contract_run, outcome, contract.consequence, roller, "CONTRACT CONSEQUENCE:")
+
+
+#A failed event's consequence cell fired on the roller; the fired lines join outcome consequences and return.
+static func event_consequence(contract_run: ContractRun, outcome: Dictionary, cell: String,
+		roller: MercenaryData, prefix: String) -> Array[String]:
+	var fired: Array[String] = []
+	if bool(outcome.get("success", false)) or cell == "":
+		return fired
+	var values: Dictionary = CheckSheet.parse_consequence(cell)
+	if int(values.get("retry", 0)) != 0:
+		contract_run.emit("%s retry has no meaning for an event, ignored" % prefix)
+	CheckEventResolver.fire_consequences(contract_run, roller, values, prefix, fired)
+	var all: Array[String] = []
+	all.assign(outcome.get("consequences", []))
+	all.append_array(fired)
+	outcome["consequences"] = all
+	return fired
+
+
+#One contract event costs an hour of campaign time unless the caller passes its own minutes.
+static func _event_elapsed(contract_run: ContractRun, event_name: String,
+		minutes: int = CampaignClock.EVENT_MINUTES) -> void:
+	CampaignClock.advance(minutes)
+	contract_run.emit(CampaignClock.line(event_name, minutes))
 
 
 #The gap between two events is the rest the party's wounds call for, at the slowest merc's pace; no rest, six flat hours.
@@ -172,7 +245,7 @@ static func settle_gap(contract_run: ContractRun, kind: String) -> void:
 	if kind == "":
 		contract_run.expire_states(contract_run.living_team())
 		return
-	await settle_rest(contract_run, kind, gap_tag(kind), _rest_base(kind))
+	await settle_rest(contract_run, kind, _rest_base(kind), not is_local(contract_run))
 
 
 #One party rest: the slowest merc's time passes, due campaign states end, then the rest lands.
@@ -182,7 +255,7 @@ static func party_rest(contract_run: ContractRun, kind: String, tag: String, all
 		return
 	CampaignClock.advance(minutes)
 	contract_run.emit(CampaignClock.line(tag, minutes))
-	await settle_rest(contract_run, kind, tag, _rest_base(kind), allow_trigger)
+	await settle_rest(contract_run, kind, _rest_base(kind), allow_trigger)
 
 
 #Minutes this rest costs the party; 0 when nobody is left to rest.
@@ -194,7 +267,7 @@ static func rest_minutes(contract_run: ContractRun, kind: String) -> int:
 
 
 #What lands once the rest's minutes have passed: the respite trigger, the rest itself and state expiry.
-static func settle_rest(contract_run: ContractRun, kind: String, _tag: String, base: int,
+static func settle_rest(contract_run: ContractRun, kind: String, base: int,
 		allow_trigger: bool = true) -> void:
 	var party: Array[MercenaryData] = contract_run.living_team()
 	if party.is_empty():
@@ -243,8 +316,9 @@ static func _gathered(pools: Array) -> Array[MercenaryData]:
 
 
 static func end(contract_run: ContractRun) -> void:
-	CampaignClock.advance(CampaignClock.TRAVEL_MINUTES)
-	contract_run.emit(CampaignClock.line("travel back", CampaignClock.TRAVEL_MINUTES))
+	if not is_local(contract_run):
+		CampaignClock.advance(CampaignClock.TRAVEL_MINUTES)
+		contract_run.emit(CampaignClock.line("travel back", CampaignClock.TRAVEL_MINUTES))
 	arrive_home(contract_run)
 
 
@@ -262,7 +336,7 @@ static func arrive_home(contract_run: ContractRun) -> void:
 				continue
 			if bool(outcome.get("success", false)):
 				primary_ok = true
-	contract_run.verdict = "Succeeded" if primary_ok else "Failed"
+	contract_run.verdict = BoardEntry.STATUS_SUCCEEDED if primary_ok else BoardEntry.STATUS_FAILED
 	contract_run.reward_paid = contract.reward_notes if primary_ok else 0
 	if contract != null:
 		contract.status = contract_run.verdict
@@ -281,6 +355,7 @@ static func arrive_home(contract_run: ContractRun) -> void:
 	contract_run.emit_all(RestSystem.respite_start(contract_run.living_team(), contract_run))
 	for merc: MercenaryData in _gathered(pools):
 		merc.on_contract = false
+		RestSystem.idle_restart(merc, CampaignClock.now())
 	contract_run.emit_all(BeauSystem.tick(CampaignClock.now()))
 	ContractLog.verdict(contract_run)
 	var path: String = ContractLog.write(contract_run)

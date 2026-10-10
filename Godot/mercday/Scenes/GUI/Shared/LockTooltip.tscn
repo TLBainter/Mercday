@@ -5,3 +5,4 @@
 
 [node name="LockTooltip" instance=ExtResource("1")]
 script = ExtResource("2")
+body_width = 260.0

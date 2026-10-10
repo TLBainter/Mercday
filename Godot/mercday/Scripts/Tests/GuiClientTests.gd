@@ -39,7 +39,9 @@ static func run(host: Node) -> bool:
 	await _case_signals(res, host)
 	await _case_show_client(res, host)
 	await _case_from_game(res, host)
-	SubscriptionManager.reset()
+	await _case_window_fit(res, host)
+	await _case_reopen_clients(res, host)
+	SubscriptionManager.max_out()
 	return TestFixtures.summarize(res, "GUI CLIENT")
 
 
@@ -288,13 +290,13 @@ static func _case_seed(res: Dictionary) -> void:
 		reg.client(ORGS, 0).relationship == 5 and reg.client(ORGS, 1).relationship == 4,
 		"got %d and %d" % [reg.client(ORGS, 0).relationship, reg.client(ORGS, 1).relationship])
 	TestFixtures.check(res, "the org locations follow the seat walk",
-		reg.client(ORGS, 0).location == "Umbra" and reg.client(ORGS, 1).location == "Zukei",
+		reg.client(ORGS, 0).location == "Miliim" and reg.client(ORGS, 1).location == "Weird",
 		"got %s and %s" % [reg.client(ORGS, 0).location, reg.client(ORGS, 1).location])
 	TestFixtures.check(res, "the kind line names the kind and the sub type",
 		reg.client(ORGS, 1).kind_line() == "Org - Issuer Type 2",
 		"got %s" % reg.client(ORGS, 1).kind_line())
 	TestFixtures.check(res, "the where line names the place and the distance",
-		reg.client(ORGS, 1).where_text() == "Zukei - %d km away" % reg.client(ORGS, 1).km,
+		reg.client(ORGS, 1).where_text() == "Weird - %d km away" % reg.client(ORGS, 1).km,
 		"got %s" % reg.client(ORGS, 1).where_text())
 	TestFixtures.check(res, "a client key joins the kind and the seat",
 		reg.client(PLACES, 3).key() == "places:3", "got %s" % reg.client(PLACES, 3).key())
@@ -309,45 +311,53 @@ static func _case_sorted(res: Dictionary) -> void:
 	TestFixtures.check(res, "an index past the sort list reads as recent",
 		ClientRegistry.sort_key_at(9) == &"recent",
 		"got %s" % str(ClientRegistry.sort_key_at(9)))
+	var recent_down: String = _order(reg, &"recent", true)
+	var recent_up: String = _order(reg, &"recent", false)
 	TestFixtures.check(res, "most recent descending puts the newest contract first",
-		_order(reg, &"recent", true) == "1,0,2", "got %s" % _order(reg, &"recent", true))
+		recent_down == "1,0,2", "got %s" % recent_down)
 	TestFixtures.check(res, "most recent ascending reverses that order",
-		_order(reg, &"recent", false) == "2,0,1", "got %s" % _order(reg, &"recent", false))
+		recent_up == "2,0,1", "got %s" % recent_up)
+	var offered_down: String = _order(reg, &"offered", true)
+	var offered_up: String = _order(reg, &"offered", false)
 	TestFixtures.check(res, "an all tied key falls back to the seat order",
-		_order(reg, &"offered", true) == "0,1,2" and _order(reg, &"offered", false) == "0,1,2",
-		"got %s and %s" % [_order(reg, &"offered", true), _order(reg, &"offered", false)])
+		offered_down == "0,1,2" and offered_up == "0,1,2",
+		"got %s and %s" % [offered_down, offered_up])
+	var accepted_down: String = _order(reg, &"accepted", true)
+	var accepted_up: String = _order(reg, &"accepted", false)
 	TestFixtures.check(res, "accepted descending keeps the tie in seat order",
-		_order(reg, &"accepted", true) == "0,1,2", "got %s" % _order(reg, &"accepted", true))
+		accepted_down == "0,1,2", "got %s" % accepted_down)
 	TestFixtures.check(res, "accepted ascending puts the single job first",
-		_order(reg, &"accepted", false) == "2,0,1", "got %s" % _order(reg, &"accepted", false))
+		accepted_up == "2,0,1", "got %s" % accepted_up)
+	var paid_down: String = _order(reg, &"paid", true)
+	var paid_up: String = _order(reg, &"paid", false)
 	TestFixtures.check(res, "notes earned descending puts the richest client first",
-		_order(reg, &"paid", true) == "1,0,2", "got %s" % _order(reg, &"paid", true))
+		paid_down == "1,0,2", "got %s" % paid_down)
 	TestFixtures.check(res, "notes earned ascending puts the unpaid client first",
-		_order(reg, &"paid", false) == "2,0,1", "got %s" % _order(reg, &"paid", false))
+		paid_up == "2,0,1", "got %s" % paid_up)
+	var stars_down: String = _order(reg, &"stars", true)
 	TestFixtures.check(res, "an unknown sort key sorts by recency",
-		_order(reg, &"stars", true) == _order(reg, &"recent", true),
-		"got %s" % _order(reg, &"stars", true))
+		stars_down == recent_down, "got %s" % stars_down)
 	var none: Array[String] = []
+	var orgs_recent_down: String = _ids(reg.sorted(ORGS, &"recent", true, none, none, 3))
 	TestFixtures.check(res, "a pinned company joins the sorted rows and sorts last",
-		_ids(reg.sorted(ORGS, &"recent", true, none, none, 3)) == "1,0,2,3",
-		"got %s" % _ids(reg.sorted(ORGS, &"recent", true, none, none, 3)))
+		orgs_recent_down == "1,0,2,3", "got %s" % orgs_recent_down)
+	var people_paid_down: String = _ids(reg.sorted(PEOPLE, &"paid", true))
 	TestFixtures.check(res, "people sort by their own tallies",
-		_ids(reg.sorted(PEOPLE, &"paid", true)) == "1,0,2,3",
-		"got %s" % _ids(reg.sorted(PEOPLE, &"paid", true)))
+		people_paid_down == "1,0,2,3", "got %s" % people_paid_down)
+	var orgs_recent_up: String = _ids(reg.sorted(ORGS, &"recent", false, none, none, 3))
 	TestFixtures.check(res, "most recent ascending still puts the pinned company last",
-		_ids(reg.sorted(ORGS, &"recent", false, none, none, 3)) == "2,0,1,3",
-		"got %s" % _ids(reg.sorted(ORGS, &"recent", false, none, none, 3)))
+		orgs_recent_up == "2,0,1,3", "got %s" % orgs_recent_up)
+	var people_recent_up: String = _ids(reg.sorted(PEOPLE, &"recent", false))
 	TestFixtures.check(res, "a person with no accepted contract sorts last going up",
-		_ids(reg.sorted(PEOPLE, &"recent", false)) == "0,1,3,2",
-		"got %s" % _ids(reg.sorted(PEOPLE, &"recent", false)))
+		people_recent_up == "0,1,3,2", "got %s" % people_recent_up)
+	var people_recent_down: String = _ids(reg.sorted(PEOPLE, &"recent", true))
 	TestFixtures.check(res, "a person with no accepted contract sorts last going down",
-		_ids(reg.sorted(PEOPLE, &"recent", true)) == "3,1,0,2",
-		"got %s" % _ids(reg.sorted(PEOPLE, &"recent", true)))
+		people_recent_down == "3,1,0,2", "got %s" % people_recent_down)
+	var people_stars_up: String = _ids(reg.sorted(PEOPLE, &"stars", false))
+	var people_stars_down: String = _ids(reg.sorted(PEOPLE, &"stars", true))
 	TestFixtures.check(res, "an unknown key puts the same person last both ways",
-		_ids(reg.sorted(PEOPLE, &"stars", false)) == "0,1,3,2"
-			and _ids(reg.sorted(PEOPLE, &"stars", true)) == "3,1,0,2",
-		"got %s and %s" % [_ids(reg.sorted(PEOPLE, &"stars", false)),
-			_ids(reg.sorted(PEOPLE, &"stars", true))])
+		people_stars_up == "0,1,3,2" and people_stars_down == "3,1,0,2",
+		"got %s and %s" % [people_stars_up, people_stars_down])
 	var pinned_people: Array[ClientData] = reg.sorted(PEOPLE, &"recent", true, none, none, 5)
 	var no_offer: Array[String] = []
 	for row: ClientData in pinned_people:
@@ -374,12 +384,15 @@ static func _case_filters(res: Dictionary) -> void:
 		reg.sub_types(PEOPLE).size() == 4
 			and reg.sub_types(PEOPLE)[0] == ClientRegistry.PEOPLE_SUBS[0],
 		"got %s" % str(reg.sub_types(PEOPLE)))
+	TestFixtures.check(res, "the people sub types are the builder person classes",
+		ClientRegistry.PEOPLE_SUBS == ContractDataValidator.PERSON_ISSUERS,
+		"got %s" % str(ClientRegistry.PEOPLE_SUBS))
 	var places: Array[String] = reg.location_names(ORGS)
-	var wanted: Array[String] = ["Cyfrolaef", "Umbra", "Zukei"]
+	var wanted: Array[String] = ["Aldurstein", "Miliim", "Weird"]
 	TestFixtures.check(res, "the org locations are the listed ones sorted",
 		places == wanted, "got %s" % str(places))
 	TestFixtures.check(res, "a pinned company adds its own location",
-		reg.location_names(ORGS, 3).size() == 4 and reg.location_names(ORGS, 3).has("Hel"),
+		reg.location_names(ORGS, 3).size() == 4 and reg.location_names(ORGS, 3).has("Vaernebo"),
 		"got %s" % str(reg.location_names(ORGS, 3)))
 	var sorted_names: Array[String] = reg.location_names(PEOPLE)
 	var copy: Array[String] = sorted_names.duplicate()
@@ -391,7 +404,7 @@ static func _case_filters(res: Dictionary) -> void:
 	TestFixtures.check(res, "hiding a sub type drops its clients",
 		_ids(reg.sorted(ORGS, &"recent", true, hide_one, none)) == "1",
 		"got %s" % _ids(reg.sorted(ORGS, &"recent", true, hide_one, none)))
-	var hide_place: Array[String] = ["Zukei"]
+	var hide_place: Array[String] = ["Weird"]
 	TestFixtures.check(res, "hiding a location drops its clients",
 		_ids(reg.sorted(ORGS, &"recent", true, none, hide_place)) == "0,2",
 		"got %s" % _ids(reg.sorted(ORGS, &"recent", true, none, hide_place)))
@@ -403,7 +416,7 @@ static func _case_filters(res: Dictionary) -> void:
 		reg.total(ORGS) == 3 and reg.sorted(ORGS, &"recent", true, hide_one, none).size() == 1,
 		"got %d of %d" % [reg.sorted(ORGS, &"recent", true, hide_one, none).size(),
 			reg.total(ORGS)])
-	var hide_pin: Array[String] = ["Hel"]
+	var hide_pin: Array[String] = ["Vaernebo"]
 	TestFixtures.check(res, "a hidden filter still drops a pinned company",
 		reg.sorted(ORGS, &"recent", true, none, hide_pin, 3).size() == 3,
 		"got %d" % reg.sorted(ORGS, &"recent", true, none, hide_pin, 3).size())
@@ -420,7 +433,7 @@ static func _open(host: Node, tab: StringName) -> ClientViewer:
 	return screen
 
 
-static func _shut(host: Node, screen: ClientViewer) -> void:
+static func _shut(host: Node, screen: Node) -> void:
 	screen.queue_free()
 	await host.get_tree().process_frame
 
@@ -430,6 +443,69 @@ static func _row_names(screen: ClientViewer) -> String:
 	for row: ClientListItem in screen.list.rows():
 		out.append(row.name_text())
 	return " | ".join(out)
+
+
+#The sort, the direction and the Type and Location picks of the open My Clients tab.
+static func _client_picks(screen: ClientViewer) -> Dictionary:
+	var filter: ClientFilterButton = screen.list.filter_button()
+	return {"key": screen.sort_key(), "descending": screen.descending(), "list_key": screen.list.sort_key(),
+		"list_descending": screen.list.descending(), "subs": filter.hidden_subs(),
+		"locations": filter.hidden_locations(), "changed": filter.is_changed()}
+
+
+#Designer rule 2026-10-04: the picks reset once the My Clients window is fully closed.
+static func _case_reopen_clients(res: Dictionary, host: Node) -> void:
+	GameState.set_speed(ClockRunner.Speed.PAUSE)
+	GameState.start_new_game()
+	GuiSortTests._fill_board()
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var screen: ClientViewer = hud.open_viewer(&"clients") as ClientViewer
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var subs: Array[String] = [] if screen == null else screen.registry().sub_types(ORGS, -1)
+	var places: Array[String] = [] if screen == null else screen.registry().location_names(ORGS, -1)
+	TestFixtures.check(res, "the HUD opens My Clients with orgs of two sub types and two places",
+		screen != null and screen.current_tab() == ORGS and screen.list.rows().size() > 2
+		and subs.size() > 1 and places.size() > 1,
+		"rows %d subs %d places %d" % [screen.list.rows().size() if screen != null else -1, subs.size(),
+		places.size()])
+	if screen == null or subs.size() < 2 or places.size() < 2:
+		await GuiClickJBTests._close(host, hud)
+		return
+	var first: Dictionary = _client_picks(screen)
+	var first_names: String = _row_names(screen)
+	var first_rows: int = screen.list.rows().size()
+	screen.list.sort_control().pick(2)
+	screen.list.dir_control().toggle()
+	var filter: ClientFilterButton = screen.list.filter_button()
+	filter.toggle_sub(subs[0])
+	filter.toggle_location(places[places.size() - 1])
+	await host.get_tree().process_frame
+	var moved: Dictionary = _client_picks(screen)
+	var all_moved: bool = true
+	for key: String in first.keys():
+		if moved[key] == first[key]:
+			all_moved = false
+	TestFixtures.check(res, "the My Clients picks under test moved",
+		all_moved and _row_names(screen) != first_names and screen.list.rows().size() < first_rows,
+		"picks %s rows %d of %d" % [str(moved), screen.list.rows().size(), first_rows])
+	hud.popup().close()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "closing My Clients frees its content", not is_instance_valid(screen),
+		"valid %s" % is_instance_valid(screen))
+	var again: ClientViewer = hud.open_viewer(&"clients") as ClientViewer
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	var picks: Dictionary = {} if again == null else _client_picks(again)
+	TestFixtures.check(res, "a fully closed My Clients opens again with its sort and filter reset",
+		again != null and picks == first and first["key"] == &"recent" and bool(first["descending"])
+		and not bool(first["changed"]), "picks %s" % str(picks))
+	TestFixtures.check(res, "a fully closed My Clients opens again with its first list",
+		again != null and again.list.rows().size() == first_rows and _row_names(again) == first_names,
+		"rows %d of %d" % [again.list.rows().size() if again != null else -1, first_rows])
+	await GuiClickJBTests._close(host, hud)
 
 
 static func _case_tabs(res: Dictionary, host: Node) -> void:
@@ -447,13 +523,13 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 		and tabs[2].active and not tabs[0].active,
 		"got %s active %s" % [str(screen.current_tab()), str(tabs[2].active)])
 	TestFixtures.check(res, "the tab row keeps the prototype height",
-		int(screen.tab_row.custom_minimum_size.y) == TabButton.ACTIVE_HEIGHT,
-		"got %d" % int(screen.tab_row.custom_minimum_size.y))
+		int(screen.tab_strip.custom_minimum_size.y) == TabButton.ACTIVE_HEIGHT,
+		"got %d" % int(screen.tab_strip.custom_minimum_size.y))
 	tabs[0].pressed.emit()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "pressing a tab opens that kind",
-		screen.current_tab() == PEOPLE and screen.list.title_text() == "People",
-		"got %s titled %s" % [str(screen.current_tab()), screen.list.title_text()])
+		screen.current_tab() == PEOPLE and screen.list.head.caption == "People",
+		"got %s titled %s" % [str(screen.current_tab()), screen.list.head.caption])
 	TestFixtures.check(res, "the pressed tab is the only active one",
 		tabs[0].active and not tabs[2].active,
 		"got %s and %s" % [str(tabs[0].active), str(tabs[2].active)])
@@ -481,9 +557,9 @@ static func _case_list(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the list shows every client with a contract",
 		screen.list.rows().size() == 3, "got %d rows" % screen.list.rows().size())
 	TestFixtures.check(res, "the count reads shown over total",
-		screen.list.count_text() == "3/3", "got %s" % screen.list.count_text())
+		screen.list.head.count_text == "3/3", "got %s" % screen.list.head.count_text)
 	TestFixtures.check(res, "the list is titled after the open tab",
-		screen.list.title_text() == "Orgs", "got %s" % screen.list.title_text())
+		screen.list.head.caption == "Orgs", "got %s" % screen.list.head.caption)
 	TestFixtures.check(res, "the rows follow the sorted order",
 		_row_names(screen) == "Beta Mining | Alpha Trading | Gamma Ferry",
 		"got %s" % _row_names(screen))
@@ -503,8 +579,8 @@ static func _case_list(res: Dictionary, host: Node) -> void:
 	screen.open_tab(PEOPLE)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the people tab lists its own clients",
-		screen.list.rows().size() == 4 and screen.list.count_text() == "4/4",
-		"got %d rows reading %s" % [screen.list.rows().size(), screen.list.count_text()])
+		screen.list.rows().size() == 4 and screen.list.head.count_text == "4/4",
+		"got %d rows reading %s" % [screen.list.rows().size(), screen.list.head.count_text])
 	screen.set_registry(ClientRegistry.new())
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "an empty registry shows the empty text",
@@ -521,8 +597,8 @@ static func _case_selection(res: Dictionary, host: Node) -> void:
 		screen.selected() != null and screen.selected().index == 1,
 		"got %s" % str(screen.selected()))
 	TestFixtures.check(res, "the selected row carries the orange edge",
-		screen.list.rows()[0].edge_color() == ClientListItem.SELECTED_EDGE
-			and screen.list.rows()[1].edge_color() == ClientListItem.NORMAL_EDGE,
+		screen.list.rows()[0].edge_color() == GuiColors.ORANGE
+			and screen.list.rows()[1].edge_color() == GuiColors.ROW_EDGE_LO,
 		"got %s and %s" % [str(screen.list.rows()[0].edge_color()),
 			str(screen.list.rows()[1].edge_color())])
 	var seen: Array[int] = []
@@ -535,7 +611,7 @@ static func _case_selection(res: Dictionary, host: Node) -> void:
 		seen.size() == 1 and seen[0] == 2, "got %s" % str(seen))
 	TestFixtures.check(res, "the pressed row is the selected one",
 		screen.selected().index == 2
-			and screen.list.row_for("orgs:2").edge_color() == ClientListItem.SELECTED_EDGE,
+			and screen.list.row_for("orgs:2").edge_color() == GuiColors.ORANGE,
 		"got %s" % str(screen.selected().index))
 	TestFixtures.check(res, "a missing row key presses nothing",
 		not screen.list.press_row("orgs:9"), "the row answered")
@@ -590,17 +666,17 @@ static func _case_query(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the filter offers a row per sub type and location",
 		filter.row_count() == 5, "got %d rows" % filter.row_count())
 	TestFixtures.check(res, "an untouched filter looks plain",
-		not filter.is_changed() and filter.fill_color() == ClientFilterButton.PLAIN_FILL
-			and filter.text_color() == ClientFilterButton.PLAIN_TEXT,
+		not filter.is_changed() and filter.fill_color() == GuiColors.BLUE
+			and filter.caption_color() == GuiColors.CREAM,
 		"got %s" % str(filter.fill_color()))
 	filter.toggle_sub(TYPE_ONE)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "hiding a sub type drops its rows from the list",
-		screen.list.rows().size() == 1 and screen.list.count_text() == "1/3",
-		"got %d rows reading %s" % [screen.list.rows().size(), screen.list.count_text()])
+		screen.list.rows().size() == 1 and screen.list.head.count_text == "1/3",
+		"got %d rows reading %s" % [screen.list.rows().size(), screen.list.head.count_text])
 	TestFixtures.check(res, "a touched filter turns orange",
-		filter.is_changed() and filter.fill_color() == ClientFilterButton.CHANGED_FILL
-			and filter.text_color() == ClientFilterButton.CHANGED_TEXT,
+		filter.is_changed() and filter.fill_color() == GuiColors.ORANGE
+			and filter.caption_color() == GuiColors.INK,
 		"got %s" % str(filter.fill_color()))
 	TestFixtures.check(res, "the hidden sub type is the one that was pressed",
 		filter.hidden_subs().size() == 1 and filter.hidden_subs()[0] == TYPE_ONE,
@@ -619,7 +695,7 @@ static func _case_query(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a filter that hides every client says so",
 		screen.list.empty_shown() and screen.list.empty_text() == ClientList.FILTERED_TEXT
-			and screen.list.count_text() == "0/3",
+			and screen.list.head.count_text == "0/3",
 		"got %s reading %s" % [str(screen.list.empty_shown()), screen.list.empty_text()])
 	TestFixtures.check(res, "an empty list clears the overview",
 		screen.selected() == null and screen.overview.empty_shown(),
@@ -629,7 +705,7 @@ static func _case_query(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the reset button brings every client back",
 		screen.list.rows().size() == 3 and not filter.is_changed(),
 		"got %d rows" % screen.list.rows().size())
-	filter.toggle_location("Zukei")
+	filter.toggle_location("Weird")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "hiding a location drops the clients that live there",
 		screen.list.rows().size() == 2 and filter.hidden_locations().size() == 1,
@@ -659,9 +735,9 @@ static func _case_overview(res: Dictionary, host: Node) -> void:
 		"got %d rows" % over.recent_rows().size())
 	var rows: Array[ClientRecentRow] = over.recent_rows()
 	TestFixtures.check(res, "a history row names the contract and its result",
-		rows[0].name_text() == "Beta Claim" and rows[0].result_text() == ContractView.UNCLAIMED_TEXT
+		rows[0].name_text() == "Beta Claim" and rows[0].sub_text() == ContractView.UNCLAIMED_TEXT
 			and rows[0].result_color() == ContractView.UNCLAIMED_COLOR,
-		"got %s reading %s" % [rows[0].name_text(), rows[0].result_text()])
+		"got %s reading %s" % [rows[0].name_text(), rows[0].sub_text()])
 	TestFixtures.check(res, "the history is newest first",
 		rows[1].entry_id == 3 and rows[0].entry_id == 15,
 		"got %d then %d" % [rows[0].entry_id, rows[1].entry_id])
@@ -670,12 +746,11 @@ static func _case_overview(res: Dictionary, host: Node) -> void:
 		"got %s and %s" % [str(rows[1].link_shown()), str(rows[0].link_shown())])
 	TestFixtures.check(res, "the view link sits in the names column under the result",
 		rows[1].link_box.get_parent() == rows[1].name_label.get_parent()
-			and rows[1].link_box.get_index() == rows[1].result_label.get_index() + 1,
+			and rows[1].link_box.get_index() == rows[1].sub_label.get_index() + 1,
 		"got %s at %d" % [str(rows[1].link_box.get_parent()), rows[1].link_box.get_index()])
 	TestFixtures.check(res, "the row height clears the stacked lines and the padding",
-		float(ClientRecentRow.ROW_HEIGHT)
-			>= rows[1].inner_min_height() + 2.0 * ClientRecentRow.PAD_PX,
-		"got %d for %f" % [ClientRecentRow.ROW_HEIGHT, rows[1].inner_min_height()])
+		rows[1].custom_minimum_size.y >= rows[1].inner_min_height() + 2.0 * rows[1].content_margin,
+		"got %f for %f" % [rows[1].custom_minimum_size.y, rows[1].inner_min_height()])
 	screen.select_client(PEOPLE, 2)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a person reads Details",
@@ -744,8 +819,8 @@ static func _case_stats(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "every stat cell is 45 px tall and shares the column width",
 		cell_bad.is_empty(), TestFixtures.detail(cell_bad, 10, "cell"))
 	TestFixtures.check(res, "the average difficulty shows stars",
-		over.stars_shown() and is_equal_approx(over.stars().rating, 3.5),
-		"got shown %s at %f" % [str(over.stars_shown()), over.stars().rating])
+		over.stars_shown() and is_equal_approx(over.stars().value, 3.5),
+		"got shown %s at %f" % [str(over.stars_shown()), over.stars().value])
 	screen.select_client(PEOPLE, 2)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a client with no accepted contract shows a dash",
@@ -847,7 +922,7 @@ static func _case_chart_view(res: Dictionary, host: Node) -> void:
 
 
 static func _case_relationship(res: Dictionary, host: Node) -> void:
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var screen: ClientViewer = await _open(host, ORGS)
 	var over: ClientOverview = screen.overview
 	TestFixtures.check(res, "a paid guild sees the client opinion",
@@ -915,7 +990,7 @@ static func _case_locked(res: Dictionary, host: Node) -> void:
 		sent.size() == 1 and String(sent[0].get("upgrade", "")) == "customer",
 		"got %s" % str(sent))
 	GameState.go_to_plans_requested.disconnect(relay)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "buying the upgrade opens the opinion at once",
 		not over.lock_shown() and over.rel_value.visible,
@@ -989,7 +1064,7 @@ static func _case_show_client(res: Dictionary, host: Node) -> void:
 		"got %s at %d" % [str(screen.current_tab()), screen.selected().index])
 	TestFixtures.check(res, "a company with no contract is pinned into the list",
 		screen.pinned() == 3 and screen.list.rows().size() == 4
-			and screen.list.count_text() == "4/4",
+			and screen.list.head.count_text == "4/4",
 		"got pin %d with %d rows" % [screen.pinned(), screen.list.rows().size()])
 	var filter: ClientFilterButton = screen.list.filter_button()
 	TestFixtures.check(res, "the pinned company adds its own filter rows",
@@ -997,8 +1072,8 @@ static func _case_show_client(res: Dictionary, host: Node) -> void:
 	filter.toggle_sub(ClientRegistry.ORG_SUB)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "hiding the pinned sub type drops it again",
-		screen.list.rows().size() == 3 and screen.list.count_text() == "3/4",
-		"got %d rows reading %s" % [screen.list.rows().size(), screen.list.count_text()])
+		screen.list.rows().size() == 3 and screen.list.head.count_text == "3/4",
+		"got %d rows reading %s" % [screen.list.rows().size(), screen.list.head.count_text])
 	TestFixtures.check(res, "showing the company again clears the filter that hid it",
 		screen.show_client(3), "the call refused")
 	await host.get_tree().process_frame
@@ -1015,6 +1090,7 @@ static func _case_show_client(res: Dictionary, host: Node) -> void:
 static func _case_from_game(res: Dictionary, host: Node) -> void:
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
+	GuiSortTests._fill_board()
 	var reg: ClientRegistry = ClientRegistry.from_game()
 	TestFixtures.check(res, "the live registry seeds one org per stock company",
 		reg.count(ORGS) == StockMarket.company_count(),
@@ -1050,4 +1126,42 @@ static func _case_from_game(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a board change rebuilds the registry",
 		screen.list.rows().size() > 0, "got %d rows" % screen.list.rows().size())
+	await _shut(host, screen)
+
+
+#Every client tab fits the 1280 x 644 band and clears the close X, on a new game, whose one posting leaves tabs
+#empty, and on a board filled so each tab lists clients.
+static func _case_window_fit(res: Dictionary, host: Node) -> void:
+	var kinds: Callable = func(_screen: Control) -> Array: return ClientRegistry.KINDS
+	var open_kind: Callable = func(screen: Control, kind: StringName) -> void:
+		(screen as ClientViewer).open_tab(kind)
+	await check_tabs_fit(res, host, VIEWER,
+		"the %s tab of a new game fits the window and clears the close X", kinds, open_kind)
+	await check_tabs_fit(res, host, VIEWER,
+		"the %s tab with clients fits the window and clears the close X", kinds, open_kind,
+		func() -> void: GuiSortTests._fill_board())
+
+
+#Opens the scene on a fresh game, then checks each tab key leaves the window report clean in the band.
+#A valid prepare runs on the fresh game before the scene opens.
+static func check_tabs_fit(res: Dictionary, host: Node, scene: PackedScene, label_fmt: String,
+		keys_of: Callable, open_tab: Callable, prepare: Callable = Callable()) -> void:
+	TestFixtures.reset_generator_rolls()
+	seed(7)
+	GameState.set_speed(ClockRunner.Speed.PAUSE)
+	GameState.start_new_game()
+	SubscriptionManager.max_out()
+	if prepare.is_valid():
+		prepare.call()
+	var screen: Control = scene.instantiate() as Control
+	host.add_child(screen)
+	await host.get_tree().process_frame
+	screen.position = Vector2.ZERO
+	screen.size = GuiAcceptTests.BAND_SIZE
+	for key: Variant in keys_of.call(screen):
+		open_tab.call(screen, key)
+		await host.get_tree().process_frame
+		await host.get_tree().process_frame
+		var bad: PackedStringArray = GuiAcceptTests.window_report(screen)
+		TestFixtures.check(res, label_fmt % key, bad.is_empty(), "; ".join(bad))
 	await _shut(host, screen)

@@ -1,33 +1,26 @@
 class_name ConnectivityVerifier
 
-const DIRS8: Array[Vector2i] = [
-	Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
-	Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1),
-]
-const DIRS4: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
-
-
 static func spawns_connected(area: BattlefieldArea) -> bool:
 	var visited: Dictionary = {}
 	var queue: Array[Vector2i] = []
 	for seed_cell: Vector2i in area.spawn_zone_a.keys():
 		if not area.is_obstacle(seed_cell) and not visited.has(seed_cell) \
-				and _spawn_cell_has_exit(area, seed_cell, DIRS8):
+				and _spawn_cell_has_exit(area, seed_cell, PathCost.DIRS8):
 			visited[seed_cell] = true
 			queue.append(seed_cell)
 	while not queue.is_empty():
 		var curr: Vector2i = queue.pop_front()
 		if area.spawn_zone_b.has(curr):
 			return true
-		for d: Vector2i in DIRS8:
+		for d: Vector2i in PathCost.DIRS8:
 			var nxt: Vector2i = curr + d
-			if nxt.x < 0 or nxt.x >= area.width or nxt.y < 0 or nxt.y >= area.length:
+			if not area.in_bounds(nxt):
 				continue
 			if visited.has(nxt):
 				continue
 			if not _spawn_step_ok(area, curr, nxt):
 				continue
-			if not area.spawn_zone_b.has(nxt) and not _spawn_cell_has_exit(area, nxt, DIRS8):
+			if not area.spawn_zone_b.has(nxt) and not _spawn_cell_has_exit(area, nxt, PathCost.DIRS8):
 				continue
 			visited[nxt] = true
 			queue.append(nxt)
@@ -37,37 +30,24 @@ static func spawns_connected(area: BattlefieldArea) -> bool:
 static func carve_corridor(area: BattlefieldArea) -> void:
 	var max_carve: int = (area.width + area.length) * 4
 	var passes := 0
-	while not spawns_connected(area) and passes < max_carve:
+	var connected: bool = spawns_connected(area)
+	while not connected and passes < max_carve:
 		var step_log: Array[String] = _carve_spawn_corridor_step(area)
 		for entry: String in step_log:
 			area.generation_log.append("Carve step %d: %s" % [passes + 1, entry.strip_edges()])
 		passes += 1
-	if not spawns_connected(area):
+		connected = spawns_connected(area)
+	if not connected:
 		push_warning("Hard guarantee pass: direct corridor carve between spawns")
-		_carve_direct_corridor(area, area.spawn_center_a, area.spawn_center_b)
+		connected = _carve_direct_corridor(area, area.spawn_center_a, area.spawn_center_b)
 	area.generation_log.append("Connectivity: %s after %d carve step(s)" % [
-		"CONNECTED" if spawns_connected(area) else "DISCONNECTED", passes])
+		"CONNECTED" if connected else "DISCONNECTED", passes])
 
 
 static func remove_pockets(area: BattlefieldArea) -> void:
-	var reachable: Dictionary = {}
-	var queue: Array[Vector2i] = []
-	for seed_cell: Vector2i in area.spawn_zone_a.keys():
-		if not area.is_obstacle(seed_cell) and not reachable.has(seed_cell):
-			reachable[seed_cell] = true
-			queue.append(seed_cell)
-	while not queue.is_empty():
-		var curr: Vector2i = queue.pop_front()
-		for d: Vector2i in DIRS8:
-			var nxt: Vector2i = curr + d
-			if nxt.x < 0 or nxt.x >= area.width or nxt.y < 0 or nxt.y >= area.length:
-				continue
-			if reachable.has(nxt):
-				continue
-			if not _spawn_step_ok(area, curr, nxt):
-				continue
-			reachable[nxt] = true
-			queue.append(nxt)
+	var step_ok := func(from: Vector2i, to: Vector2i) -> bool:
+		return _spawn_step_ok(area, from, to)
+	var reachable: Dictionary = _flood(area, _open_cells(area, area.spawn_zone_a), step_ok)
 
 	var pockets: Array[Vector2i] = []
 	for y: int in range(area.length):
@@ -96,14 +76,7 @@ static func remove_pockets(area: BattlefieldArea) -> void:
 				best = rc
 		if best == Vector2i(-1, -1):
 			continue
-		var cx := best.x
-		var cy := best.y
-		while Vector2i(cx, cy) != pc:
-			if cx != pc.x:
-				cx += signi(pc.x - cx)
-			elif cy != pc.y:
-				cy += signi(pc.y - cy)
-			var step := Vector2i(cx, cy)
+		for step: Vector2i in _walk(best, pc):
 			_erase_cell(area, step)
 			area.terrain_heights[step] = 0.0
 			area.reserved_corridor_cells[step] = true
@@ -115,7 +88,7 @@ static func remove_pockets(area: BattlefieldArea) -> void:
 
 
 static func _spawn_step_ok(area: BattlefieldArea, from: Vector2i, to: Vector2i) -> bool:
-	if to.x < 0 or to.x >= area.width or to.y < 0 or to.y >= area.length:
+	if not area.in_bounds(to):
 		return false
 	if area.jagged_cells.has(to):
 		return false
@@ -141,25 +114,46 @@ static func _spawn_cell_has_exit(area: BattlefieldArea, cell: Vector2i, dirs: Ar
 	return false
 
 
+#Breadth-first flood over PathCost.DIRS8 from the seeds; step_ok(from, to) admits a step. Keys keep the visit order.
+static func _flood(area: BattlefieldArea, seeds: Array[Vector2i], step_ok: Callable) -> Dictionary:
+	var reached: Dictionary = {}
+	var queue: Array[Vector2i] = []
+	for s: Vector2i in seeds:
+		if not reached.has(s):
+			reached[s] = true
+			queue.append(s)
+	var qi := 0
+	while qi < queue.size():
+		var curr: Vector2i = queue[qi]
+		qi += 1
+		for d: Vector2i in PathCost.DIRS8:
+			var nxt: Vector2i = curr + d
+			if not area.in_bounds(nxt) or reached.has(nxt):
+				continue
+			if not step_ok.call(curr, nxt):
+				continue
+			reached[nxt] = true
+			queue.append(nxt)
+	return reached
+
+
+#Zone cells that hold no obstacle, in key order.
+static func _open_cells(area: BattlefieldArea, zone: Dictionary) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for c: Vector2i in zone.keys():
+		if not area.is_obstacle(c):
+			out.append(c)
+	return out
+
+
 static func _carve_spawn_corridor_step(area: BattlefieldArea) -> Array[String]:
 	var spawn_a: Vector2i = area.spawn_center_a
 	var spawn_b: Vector2i = area.spawn_center_b
 
-	var visited: Dictionary = {}
-	var queue: Array[Vector2i] = [spawn_a]
-	visited[spawn_a] = true
-	while not queue.is_empty():
-		var curr: Vector2i = queue.pop_front()
-		for d: Vector2i in DIRS8:
-			var nxt: Vector2i = curr + d
-			if visited.has(nxt):
-				continue
-			if not _spawn_step_ok(area, curr, nxt):
-				continue
-			if not _spawn_cell_has_exit(area, nxt, DIRS8):
-				continue
-			visited[nxt] = true
-			queue.append(nxt)
+	var seeds: Array[Vector2i] = [spawn_a]
+	var step_ok := func(from: Vector2i, to: Vector2i) -> bool:
+		return _spawn_step_ok(area, from, to) and _spawn_cell_has_exit(area, to, PathCost.DIRS8)
+	var visited: Dictionary = _flood(area, seeds, step_ok)
 
 	var best_pos := Vector2i(-1, -1)
 	var best_score := INF
@@ -170,7 +164,7 @@ static func _carve_spawn_corridor_step(area: BattlefieldArea) -> Array[String]:
 			var obs: Dictionary = area.get_obs(pos, 0)
 			var is_blocking: bool = _blocking_type(obs) != ""
 			if not is_blocking:
-				if not _spawn_cell_has_exit(area, pos, DIRS8):
+				if not _spawn_cell_has_exit(area, pos, PathCost.DIRS8):
 					is_blocking = true
 				elif _terrain_blocks(area, pos):
 					is_blocking = true
@@ -178,7 +172,7 @@ static func _carve_spawn_corridor_step(area: BattlefieldArea) -> Array[String]:
 					continue
 
 			var adj_to_frontier := false
-			for d: Vector2i in DIRS8:
+			for d: Vector2i in PathCost.DIRS8:
 				if visited.has(pos + d):
 					adj_to_frontier = true
 					break
@@ -209,18 +203,12 @@ static func _carve_spawn_corridor_step(area: BattlefieldArea) -> Array[String]:
 	if best_pos == Vector2i(-1, -1):
 		return carved_log
 
-	var delta: Vector2i = spawn_b - spawn_a
-	var perp: Vector2i
-	if abs(delta.y) >= abs(delta.x):
-		perp = Vector2i(1, 0)
-	else:
-		perp = Vector2i(0, 1)
-
+	var perp: Vector2i = _perp(spawn_b - spawn_a)
 	var half_w: int = area.path_width >> 1
 	var carve_candidates: Array[Vector2i] = _widen(best_pos, perp, half_w)
 
 	for cp: Vector2i in carve_candidates:
-		if cp.x < 0 or cp.x >= area.width or cp.y < 0 or cp.y >= area.length:
+		if not area.in_bounds(cp):
 			continue
 		if area.jagged_cells.has(cp):
 			continue
@@ -229,7 +217,7 @@ static func _carve_spawn_corridor_step(area: BattlefieldArea) -> Array[String]:
 		var cp_blocking: bool = cp_label != ""
 		var cp_prev_type: String = cp_label if cp_blocking else "terrain"
 		if not cp_blocking:
-			if not _spawn_cell_has_exit(area, cp, DIRS8) or _terrain_blocks(area, cp):
+			if not _spawn_cell_has_exit(area, cp, PathCost.DIRS8) or _terrain_blocks(area, cp):
 				cp_blocking = true
 				cp_prev_type = "steep-terrain"
 		if not cp_blocking:
@@ -238,7 +226,7 @@ static func _carve_spawn_corridor_step(area: BattlefieldArea) -> Array[String]:
 		_erase_cell(area, cp)
 		if cp_prev_type == "steep-terrain":
 			var matched := false
-			for d: Vector2i in DIRS4:
+			for d: Vector2i in PathCost.DIRS4:
 				var nb: Vector2i = cp + d
 				if visited.has(nb):
 					area.terrain_heights[cp] = area.terrain_heights.get(nb, 0.0)
@@ -255,24 +243,15 @@ static func _carve_spawn_corridor_step(area: BattlefieldArea) -> Array[String]:
 	return carved_log
 
 
-static func _carve_direct_corridor(area: BattlefieldArea, from: Vector2i, to: Vector2i) -> void:
+#Carves an x-first corridor from "from" to "to"; returns whether the spawns connect afterwards.
+static func _carve_direct_corridor(area: BattlefieldArea, from: Vector2i, to: Vector2i) -> bool:
 	var half_w: int = area.path_width >> 1
-	var delta := to - from
-	var perp: Vector2i
-	if abs(delta.y) >= abs(delta.x):
-		perp = Vector2i(1, 0)
-	else:
-		perp = Vector2i(0, 1)
-
-	var cx: int = from.x
-	var cy: int = from.y
-	var steps: int = absi(to.y - from.y) + absi(to.x - from.x)
-	for _s: int in range(steps + 1):
-		var center := Vector2i(cx, cy)
-		var candidates: Array[Vector2i] = _widen(center, perp, half_w)
-
-		for cell: Vector2i in candidates:
-			if cell.x < 0 or cell.x >= area.width or cell.y < 0 or cell.y >= area.length:
+	var perp: Vector2i = _perp(to - from)
+	var centers: Array[Vector2i] = [from]
+	centers.append_array(_walk(from, to))
+	for center: Vector2i in centers:
+		for cell: Vector2i in _widen(center, perp, half_w):
+			if not area.in_bounds(cell):
 				continue
 			if area.jagged_cells.has(cell):
 				continue
@@ -281,15 +260,11 @@ static func _carve_direct_corridor(area: BattlefieldArea, from: Vector2i, to: Ve
 			area.reserved_corridor_cells[cell] = true
 			area.generation_log.append("Direct corridor carve (%d,%d)" % [cell.x, cell.y])
 
-		if cx != to.x:
-			cx += signi(to.x - cx)
-		elif cy != to.y:
-			cy += signi(to.y - cy)
-
 	var final_connected: bool = spawns_connected(area)
 	area.generation_log.append("Direct corridor result: %s" % ["CONNECTED" if final_connected else "STILL DISCONNECTED"])
 	if not final_connected:
 		push_warning("_carve_direct_corridor: spawns STILL disconnected after hard guarantee pass")
+	return final_connected
 
 
 static func verify_spawn_approaches(area: BattlefieldArea) -> void:
@@ -301,43 +276,26 @@ static func verify_spawn_approaches(area: BattlefieldArea) -> void:
 	for pair: Array in zone_pairs:
 		var source_zone: Dictionary = pair[0] as Dictionary
 		var target_zone: Dictionary = pair[1] as Dictionary
-		var reachable: Dictionary = {}
-		var queue: Array[Vector2i] = []
-		var qi := 0
-		for sz_cell: Vector2i in source_zone.keys():
-			if not area.is_obstacle(sz_cell) and not reachable.has(sz_cell):
-				reachable[sz_cell] = true
-				queue.append(sz_cell)
-		while qi < queue.size():
-			var curr: Vector2i = queue[qi]
-			qi += 1
-			for d: Vector2i in DIRS8:
-				var nb: Vector2i = curr + d
-				if nb.x < 0 or nb.x >= area.width or nb.y < 0 or nb.y >= area.length:
-					continue
-				if reachable.has(nb):
-					continue
-				if PathCost.cell_pace_cost(
-						Vector3i(curr.x, curr.y, 0), Vector3i(nb.x, nb.y, 0),
-						area, {}, 1.0, false, true, 1) < 0:
-					continue
-				reachable[nb] = true
-				queue.append(nb)
+		var pace_ok := func(from: Vector2i, to: Vector2i) -> bool:
+			return PathCost.cell_pace_cost(Vector3i(from.x, from.y, 0), Vector3i(to.x, to.y, 0),
+				area, {}, 1.0, false, true, 1) >= 0
+		var reachable: Dictionary = _flood(area, _open_cells(area, source_zone), pace_ok)
 		for cell: Vector2i in target_zone.keys():
 			if area.is_obstacle(cell):
 				continue
 			var has_reachable_nb := false
-			for d: Vector2i in DIRS8:
+			for d: Vector2i in PathCost.DIRS8:
 				if reachable.has(cell + d):
 					has_reachable_nb = true
 					break
 			if has_reachable_nb:
 				continue
 			var best_nb := Vector2i(-1, -1)
+			var best_rc := Vector2i(-1, -1)
 			var best_dist := 9999
-			for d: Vector2i in DIRS8:
+			for d: Vector2i in PathCost.DIRS8:
 				var nb: Vector2i = cell + d
-				if nb.x < 0 or nb.x >= area.width or nb.y < 0 or nb.y >= area.length:
+				if not area.in_bounds(nb):
 					continue
 				if area.jagged_cells.has(nb):
 					continue
@@ -346,26 +304,11 @@ static func verify_spawn_approaches(area: BattlefieldArea) -> void:
 					if cheby < best_dist:
 						best_dist = cheby
 						best_nb = nb
-			if best_nb == Vector2i(-1, -1):
+						best_rc = rc
+			if best_rc == Vector2i(-1, -1):
 				continue
-			var nearest_rc := Vector2i(-1, -1)
-			var nearest_d := 9999
-			for rc: Vector2i in reachable.keys():
-				var cheby := maxi(absi(best_nb.x - rc.x), absi(best_nb.y - rc.y))
-				if cheby < nearest_d:
-					nearest_d = cheby
-					nearest_rc = rc
-			if nearest_rc == Vector2i(-1, -1):
-				continue
-			var carve_h: float = area.terrain_heights.get(nearest_rc, 0.0)
-			var cx := nearest_rc.x
-			var cy := nearest_rc.y
-			while Vector2i(cx, cy) != best_nb:
-				if cx != best_nb.x:
-					cx += signi(best_nb.x - cx)
-				elif cy != best_nb.y:
-					cy += signi(best_nb.y - cy)
-				var step := Vector2i(cx, cy)
+			var carve_h: float = area.terrain_heights.get(best_rc, 0.0)
+			for step: Vector2i in _walk(best_rc, best_nb):
 				if not area.jagged_cells.has(step) and not reachable.has(step):
 					_erase_cell(area, step)
 					area.terrain_heights[step] = carve_h
@@ -398,6 +341,26 @@ static func _widen(center: Vector2i, perp: Vector2i, half_w: int) -> Array[Vecto
 	return out
 
 
+#Cells of the x-first walk from "from" to "to", without "from" and with "to".
+static func _walk(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var c := from
+	while c != to:
+		if c.x != to.x:
+			c.x += signi(to.x - c.x)
+		else:
+			c.y += signi(to.y - c.y)
+		out.append(c)
+	return out
+
+
+#Widening axis for a carve heading along delta.
+static func _perp(delta: Vector2i) -> Vector2i:
+	if absi(delta.y) >= absi(delta.x):
+		return Vector2i(1, 0)
+	return Vector2i(0, 1)
+
+
 #Blocking label for an obstacle dict, or "" when the obstacle does not block movement.
 static func _blocking_type(obs: Dictionary) -> String:
 	if obs.is_empty():
@@ -415,9 +378,9 @@ static func _blocking_type(obs: Dictionary) -> String:
 
 #True when the height step to any orthogonal neighbour is impassable.
 static func _terrain_blocks(area: BattlefieldArea, pos: Vector2i) -> bool:
-	for d: Vector2i in DIRS4:
+	for d: Vector2i in PathCost.DIRS4:
 		var nb: Vector2i = pos + d
-		if nb.x < 0 or nb.x >= area.width or nb.y < 0 or nb.y >= area.length:
+		if not area.in_bounds(nb):
 			continue
 		if _step_blocked(area, nb, pos):
 			return true

@@ -37,12 +37,7 @@ static func interact(merc: MercenaryData, obs: Dictionary, state: BattleState, l
 		return false
 	var now_open := OpenCloseState.toggle(obs)
 	lines.append("  %s %s the %s." % [BattleState.colored_name(merc, state), "opens" if now_open else "closes", oname])
-	#Opacity and door passability changed: sight lines and floods are stale, the geometry tables are not.
-	if state.battlefield != null:
-		state.battlefield.los_version += 1
-		state.battlefield.bump_door_version()
-	state.los_cache.clear()
-	MovementExecutor.clear_caches()
+	state.on_door_changed()
 	if now_open and RescueSystem.is_gate(state, obs):
 		RescueSystem.on_gate_opened(state, lines)
 	return true
@@ -52,7 +47,7 @@ static func interact(merc: MercenaryData, obs: Dictionary, state: BattleState, l
 static func _loot(merc: MercenaryData, obs: Dictionary, state: BattleState, lines: Array[String]) -> bool:
 	var index := ChestLoot.pick_index(merc, obs)
 	if index < 0:
-		lines.append("  %s finds the %s empty." % [BattleState.colored_name(merc, state), obstacle_name(obs)])
+		_log_empty(merc, obs, state, lines)
 		return false
 	var entry := ChestLoot.take(obs, index)
 	if entry.is_empty():
@@ -60,6 +55,10 @@ static func _loot(merc: MercenaryData, obs: Dictionary, state: BattleState, line
 	ChestLoot.give(merc, entry, state, lines)
 	RescueSystem.on_gear_taken(merc, state, lines)
 	return true
+
+
+static func _log_empty(merc: MercenaryData, obs: Dictionary, state: BattleState, lines: Array[String]) -> void:
+	lines.append("  %s finds the %s empty." % [BattleState.colored_name(merc, state), obstacle_name(obs)])
 
 
 #Charges the Interact AP, runs the obstacle's interaction and logs it. `suffix` marks
@@ -71,7 +70,7 @@ static func perform(merc: MercenaryData, obs: Dictionary, cell: Vector3i, state:
 	var looting := result_of(obs) == RESULT_LOOT
 	#Reaching into an empty container costs nothing.
 	if looting and ChestLoot.is_empty(obs):
-		lines.append("  %s finds the %s empty." % [BattleState.colored_name(merc, state), obstacle_name(obs)])
+		_log_empty(merc, obs, state, lines)
 		return false
 	var cost := state.get_cost(merc, "Interact", 2)
 	state.spend_ap(merc, cost)

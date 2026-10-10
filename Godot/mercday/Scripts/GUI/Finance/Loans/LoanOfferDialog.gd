@@ -1,4 +1,4 @@
-class_name LoanOfferDialog extends LoanModal
+class_name LoanOfferDialog extends ModalDialog
 
 #The window a Review Offer button opens: what the guild asked for beside what the lender wrote
 #back, row by row, with the change of each term, then Decline and Accept.
@@ -7,18 +7,13 @@ signal accept_asked(offer_id: int)
 signal declined(offer_id: int)
 signal accepted(offer_id: int)
 
-const WINDOW_WIDTH: float = 760.0
-const WINDOW_HEIGHT: float = 450.0
 const KICKER: String = "Loan Offer"
 const DECLINE_TEXT: String = "Decline"
 const ACCEPT_TEXT: String = "Accept"
 const CLOSE_TIP: String = "Decide later"
-const BUTTON_HEIGHT: float = 38.0
-const BUTTON_GAP: int = 12
 const ROW_GAP: int = 4
 const CELL_GAP: int = 10
 const COLUMN_WIDTH: float = 150.0
-const ARROW_BOX: Vector2 = LoanGlyphs.ARROW_BOX_PX
 const HEAD_REQUESTED: String = "Requested"
 const HEAD_OFFERED: String = "Offered"
 const HEAD_CHANGE: String = "Change"
@@ -36,33 +31,21 @@ const SCENE_PATH: String = "res://Scenes/GUI/Finance/Loans/LoanOfferDialog.tscn"
 
 var _offer_id: int = -1
 var _snap: Dictionary = {}
-var _kicker: Label = null
-var _lender_label: Label = null
 var _deadline_label: Label = null
 var _rows: Array[Dictionary] = []
-var _decline: Button = null
-var _accept: Button = null
 
 
-func ring_color() -> Color:
-	return LoanStyle.YELLOW
-
-
-func frame_size() -> Vector2:
-	return Vector2(WINDOW_WIDTH, WINDOW_HEIGHT)
-
-
-func close_tip() -> String:
-	return CLOSE_TIP
-
-
-func _fill(col: VBoxContainer) -> void:
-	col.add_child(_head_block())
-	col.add_child(_table())
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(spacer)
-	col.add_child(_buttons_row())
+func _ready() -> void:
+	kicker = KICKER
+	cancel_text = DECLINE_TEXT
+	confirm_text = ACCEPT_TEXT
+	_deadline_label = GuiStyle.label("", GuiStyle.BODY, 13, GuiColors.SKY)
+	head.add_child(_deadline_label)
+	rows.add_child(_table())
+	rows.add_child(GuiStyle.spacer(true))
+	super()
+	ring_color = GuiColors.AMBER
+	LoanStyle.dress(self, CLOSE_TIP)
 
 
 #Opens the dialog on one offer; the row is read again every time so a tick cannot stale it.
@@ -71,11 +54,11 @@ func open_for(id: int) -> void:
 	if FinanceManager.offer(id).is_empty() or FinanceManager.offer_expired(id):
 		return
 	_offer_id = id
-	open_window()
+	present()
 
 
-func _on_open() -> void:
-	_snap = _offer_row()
+func _on_present() -> void:
+	_snap = FinanceManager.offer(_offer_id)
 	_write()
 
 
@@ -87,21 +70,13 @@ func snapshot() -> Dictionary:
 	return _snap
 
 
-func kicker_text() -> String:
-	return _kicker.text if _kicker != null else ""
-
-
-func lender_text() -> String:
-	return _lender_label.text if _lender_label != null else ""
-
-
 func deadline_text() -> String:
 	return _deadline_label.text if _deadline_label != null else ""
 
 
 func deadline_color() -> Color:
 	if _deadline_label == null:
-		return LoanStyle.CREAM
+		return GuiColors.CREAM
 	return _deadline_label.get_theme_color("font_color")
 
 
@@ -129,7 +104,7 @@ func change_text(index: int) -> String:
 
 func change_color(index: int) -> Color:
 	if index < 0 or index >= _rows.size():
-		return LoanStyle.CREAM
+		return GuiColors.CREAM
 	return (_rows[index]["change"] as Label).get_theme_color("font_color")
 
 
@@ -139,79 +114,52 @@ func has_arrow(index: int) -> bool:
 	return (_rows[index]["arrow"] as TextureRect).texture != null
 
 
-func decline_button() -> Button:
-	return _decline
-
-
-func accept_button() -> Button:
-	return _accept
-
-
 #True when another offer still stands, so accepting has to be confirmed first.
 func needs_confirm() -> bool:
-	return other_offers().size() > 0
+	return not LoanRows.other_offers(_offer_id).is_empty()
 
 
-func other_offers() -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	var bank: Node = get_node_or_null("/root/FinanceManager")
-	if bank == null or not bank.has_method("open_offers"):
-		return out
-	for row: Variant in bank.call("open_offers") as Array:
-		var item: Dictionary = row as Dictionary
-		if int(item.get("id", -1)) != _offer_id:
-			out.append(item)
-	return out
-
-
-func press_decline() -> void:
-	var bank: Node = get_node_or_null("/root/FinanceManager")
-	if bank != null and bank.has_method("reject_offer"):
-		bank.call("reject_offer", _offer_id)
+func press_cancel() -> void:
+	FinanceManager.reject_offer(_offer_id)
+	GameSfx.play_reject()
 	declined.emit(_offer_id)
-	close_window()
+	super()
 
 
-func press_accept() -> void:
+#The X and Esc only put the offer aside; Decline is the one way to turn it down.
+func press_close() -> void:
+	close()
+
+
+func press_confirm() -> void:
 	if needs_confirm():
 		accept_asked.emit(_offer_id)
 		return
-	accept_now()
+	accept_now(confirm_button)
 
 
 #Takes the offer. FinanceManager books the notes and drops every other offer.
-func accept_now() -> bool:
-	var bank: Node = get_node_or_null("/root/FinanceManager")
-	if bank == null or not bank.has_method("accept_offer"):
-		return false
-	if not bool(bank.call("accept_offer", _offer_id)):
+#A refused press passes its button, so the reject plays without that press's click.
+func accept_now(pressed: Control = null) -> bool:
+	if not FinanceManager.accept_offer(_offer_id):
+		if pressed != null:
+			UiSfx.reject_press(pressed)
+		else:
+			GameSfx.play_reject()
 		return false
 	accepted.emit(_offer_id)
-	close_window()
+	close()
 	return true
 
 
 #Dims the dialog while the accept confirm sits over it; the X goes with it.
 func dim_for_confirm(on: bool) -> void:
 	set_dimmed(on)
-	var close: Button = close_button()
-	if close != null:
-		close.visible = not on
-
-
-func _head_block() -> VBoxContainer:
-	var col: VBoxContainer = LoanStyle.vbox(4)
-	_kicker = LoanStyle.text(KICKER, 11, LoanStyle.SKY)
-	col.add_child(_kicker)
-	_lender_label = LoanStyle.text("", 18, LoanStyle.YELLOW, true)
-	col.add_child(_lender_label)
-	_deadline_label = LoanStyle.body("", 13, LoanStyle.SKY)
-	col.add_child(_deadline_label)
-	return col
+	close_button.visible = not on
 
 
 func _table() -> VBoxContainer:
-	var col: VBoxContainer = LoanStyle.vbox(ROW_GAP)
+	var col: VBoxContainer = GuiStyle.vbox(ROW_GAP)
 	col.add_child(_head_row())
 	for i: int in LABELS.size():
 		col.add_child(_row_box(i))
@@ -219,20 +167,18 @@ func _table() -> VBoxContainer:
 
 
 func _head_row() -> PanelContainer:
-	var pad: PanelContainer = LoanStyle.panel(LoanStyle.CLEAR, CELL_GAP, 0)
-	var line: HBoxContainer = LoanStyle.hbox(CELL_GAP)
-	var lead := Control.new()
-	lead.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	line.add_child(lead)
-	line.add_child(_end_column(LoanStyle.text(HEAD_REQUESTED, 8, LoanStyle.SKY)))
-	line.add_child(_end_column(LoanStyle.text(HEAD_OFFERED, 8, LoanStyle.SKY)))
-	line.add_child(_end_column(LoanStyle.text(HEAD_CHANGE, 8, LoanStyle.SKY)))
+	var pad: PanelContainer = LoanStyle.panel(GuiColors.CLEAR, CELL_GAP, 0)
+	var line: HBoxContainer = GuiStyle.hbox(CELL_GAP)
+	line.add_child(GuiStyle.spacer())
+	line.add_child(_end_column(GuiStyle.label(HEAD_REQUESTED, GuiStyle.SILK, 8, GuiColors.SKY)))
+	line.add_child(_end_column(GuiStyle.label(HEAD_OFFERED, GuiStyle.SILK, 8, GuiColors.SKY)))
+	line.add_child(_end_column(GuiStyle.label(HEAD_CHANGE, GuiStyle.SILK, 8, GuiColors.SKY)))
 	pad.add_child(line)
 	return pad
 
 
 func _end_column(node: Control) -> HBoxContainer:
-	var line: HBoxContainer = LoanStyle.hbox(3)
+	var line: HBoxContainer = GuiStyle.hbox(3)
 	line.custom_minimum_size = Vector2(COLUMN_WIDTH, 0.0)
 	line.alignment = BoxContainer.ALIGNMENT_END
 	line.add_child(node)
@@ -240,72 +186,34 @@ func _end_column(node: Control) -> HBoxContainer:
 
 
 func _row_box(index: int) -> PanelContainer:
-	var box: PanelContainer = LoanStyle.panel(LoanStyle.NAVY, CELL_GAP, 7)
-	var line: HBoxContainer = LoanStyle.hbox(CELL_GAP)
-	var label: Label = LoanStyle.text(LABELS[index], 9, LoanStyle.SKY)
+	var strip: PanelContainer = LoanStyle.panel(GuiColors.ROW_FILL, CELL_GAP, 7)
+	var line: HBoxContainer = GuiStyle.hbox(CELL_GAP)
+	var label: Label = GuiStyle.label(LABELS[index], GuiStyle.SILK, 9, GuiColors.SKY)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(label)
 	var notes: bool = NOTES_ROWS[index]
 	var req: Control = null
-	var off: Control = null
 	if notes:
-		var req_notes: NotesLabel = LoanStyle.notes(0, LoanStyle.DIM_TEXT, 14)
+		var req_notes: NotesLabel = GuiStyle.notes(0, 14, GuiColors.DIM_TEXT)
 		req_notes.bold = false
 		req = req_notes
-		off = LoanStyle.notes(0, LoanStyle.CREAM, 13)
 	else:
-		req = LoanStyle.body("", 14, LoanStyle.DIM_TEXT)
-		off = LoanStyle.text("", 13, LoanStyle.CREAM, true)
+		req = GuiStyle.label("", GuiStyle.BODY, 14, GuiColors.DIM_TEXT)
+	var off: Control = LoanStyle.value_cell(notes, 13, GuiColors.CREAM)
 	line.add_child(_end_column(req))
 	line.add_child(_end_column(off))
-	var change: Label = LoanStyle.text(LoanLogic.CHANGE_NONE, 12, LoanStyle.MUTED, true)
-	var arrow_box := CenterContainer.new()
-	arrow_box.custom_minimum_size = ARROW_BOX
-	arrow_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	arrow_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var arrow := IconRect.new()
-	arrow.window = LoanGlyphs.ARROW_BOX
-	arrow.mode = Icons.MODE_GRAY
-	arrow.pixel_scale = LoanGlyphs.ARROW_SCALE
-	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	arrow_box.add_child(arrow)
-	var tail: HBoxContainer = LoanStyle.hbox(6)
+	var change: Label = GuiStyle.label(LoanLogic.CHANGE_NONE, GuiStyle.SILK_BOLD, 12, GuiColors.MUTED)
+	var holder: CenterContainer = LoanGlyphs.arrow_box()
+	var tail: HBoxContainer = GuiStyle.hbox(6)
 	tail.custom_minimum_size = Vector2(COLUMN_WIDTH, 0.0)
 	tail.alignment = BoxContainer.ALIGNMENT_END
 	tail.add_child(change)
-	tail.add_child(arrow_box)
+	tail.add_child(holder)
 	line.add_child(tail)
-	box.add_child(line)
+	strip.add_child(line)
 	_rows.append({"label": LABELS[index], "notes": notes, "req": req, "off": off,
-		"change": change, "arrow": arrow, "req_text": "", "off_text": ""})
-	return box
-
-
-func _buttons_row() -> HBoxContainer:
-	var line: HBoxContainer = LoanStyle.hbox(BUTTON_GAP)
-	_decline = LoanStyle.button(DECLINE_TEXT, LoanStyle.BLUE2, LoanStyle.CREAM, BUTTON_HEIGHT)
-	_decline.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_decline.pressed.connect(press_decline)
-	line.add_child(_decline)
-	_accept = LoanStyle.button(ACCEPT_TEXT, LoanStyle.GREEN, LoanStyle.INK, BUTTON_HEIGHT)
-	_accept.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_accept.pressed.connect(press_accept)
-	line.add_child(_accept)
-	return line
-
-
-func _offer_row() -> Dictionary:
-	var bank: Node = get_node_or_null("/root/FinanceManager")
-	if bank == null or not bank.has_method("offer"):
-		return {}
-	return bank.call("offer", _offer_id) as Dictionary
-
-
-func _hours_left() -> float:
-	var bank: Node = get_node_or_null("/root/FinanceManager")
-	if bank == null or not bank.has_method("hours_left"):
-		return float(LoanLogic.OFFER_HOURS)
-	return float(bank.call("hours_left", _offer_id))
+		"change": change, "arrow": holder.get_child(0) as IconRect, "req_text": "", "off_text": ""})
+	return strip
 
 
 func _write() -> void:
@@ -317,8 +225,8 @@ func _write() -> void:
 	var off_rate: float = float(_snap.get("offer_rate", rate))
 	var off_term: int = maxi(1, int(_snap.get("offer_term", term)))
 	var off_first: int = int(_snap.get("offer_first_due", first))
-	_lender_label.text = String(_snap.get("lender", ""))
-	var hours: float = _hours_left()
+	title = String(_snap.get("lender", ""))
+	var hours: float = FinanceManager.hours_left(_offer_id)
 	_deadline_label.text = LoanLogic.deadline_text(hours)
 	_deadline_label.add_theme_color_override("font_color", LoanLogic.deadline_color(hours))
 	_set_amount(ROW_AMOUNT, amount, off_amount)
@@ -348,8 +256,8 @@ func _set_amount(index: int, requested: int, offered: int) -> void:
 	var row: Dictionary = _rows[index]
 	(row["req"] as NotesLabel).amount = requested
 	(row["off"] as NotesLabel).amount = offered
-	row["req_text"] = NotesLabel.format_amount(requested)
-	row["off_text"] = NotesLabel.format_amount(offered)
+	row["req_text"] = TransactionData.grouped(requested)
+	row["off_text"] = TransactionData.grouped(offered)
 	_write_change(index, float(requested), float(offered))
 
 
@@ -372,12 +280,7 @@ func _write_change(index: int, requested: float, offered: float) -> void:
 	var label: Label = row["change"] as Label
 	label.text = String(change["text"])
 	label.add_theme_color_override("font_color", color)
-	var dir: StringName = change["arrow"] as StringName
-	var arrow: IconRect = row["arrow"] as IconRect
-	arrow.texture = null
-	if dir != &"":
-		arrow.set_id(LoanGlyphs.arrow_id(dir), LoanGlyphs.ARROW_SCALE, Icons.MODE_GRAY)
-		arrow.tint = color
+	LoanGlyphs.set_arrow(row["arrow"] as IconRect, change["arrow"] as StringName, color)
 
 
 #Keeps the written change text when a row prints its own wording, as the term rows do.

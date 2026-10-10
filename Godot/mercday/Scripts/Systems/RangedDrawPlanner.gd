@@ -47,7 +47,7 @@ static func plan(
 	_cache[key] = result
 	_log_plan(merc, weapon, result)
 	if from_cell == NO_CELL:
-		_store(merc, weapon, state, result)
+		RangedPlanStore.store(merc, weapon, state, result)
 	return result
 
 
@@ -75,38 +75,26 @@ static func _compute(
 		return _now_plan(start, enemies[0] as MercenaryData, attack_ap)
 	var flying := PathTargeter.is_flying(merc)
 	var height := state.get_height(merc) if flying else 0
-	var size := maxi(1, int(merc.stats.get("size", 1)))
+	var size := merc.unit_size()
 	var now_enemy := _visible_enemy_from(state, start, height, size, weapon, enemies)
 	if now_enemy != null:
 		return _now_plan(start, now_enemy, attack_ap)
 
-	var reach := PathTargeter.reachable_for(merc, state)
+	var reach := ReachCache.reachable_for(merc, state)
 	if reach.is_empty():
 		return none_plan()
-	var tp := MovementExecutor.turn_paces(merc, state, 0)
+	var tp := PaceBudget.turn_paces(merc, state, 0)
 	var t1 := int(tp["paces"])
-	var ppm := maxi(1, MovementExecutor.pace_per_move(merc))
+	var ppm := maxi(1, PaceBudget.pace_per_move(merc))
 	var horizon := t1 + ppm
 	var base_cost := 0
 	if from_cell != NO_CELL and reach.has(from_cell):
 		var fc := int(reach[from_cell])
 		if fc < PathTargeter.JUMP_COST_OFFSET:
 			base_cost = fc
-	var cells: Array[Vector3i] = []
-	for cell: Vector3i in reach:
-		var c := int(reach[cell])
-		if c <= 0 or c >= PathTargeter.JUMP_COST_OFFSET:
-			continue
-		if maxi(c, base_cost) > horizon:
-			continue
-		if state.is_position_occupied(Vector2i(cell.x, cell.y), merc, cell.z):
-			continue
-		cells.append(cell)
+	var cells := _candidate_cells(merc, state, reach, base_cost, horizon)
 	if cells.is_empty():
 		return none_plan()
-	cells.sort_custom(func(a: Vector3i, b: Vector3i) -> bool: return int(reach[a]) < int(reach[b]))
-	if cells.size() > MAX_CELLS:
-		cells.resize(MAX_CELLS)
 
 	var best_cell := NO_CELL
 	var best_cost := 0
@@ -119,7 +107,7 @@ static func _compute(
 		var seen := _visible_enemy_from(state, cell, height, size, weapon, enemies)
 		if seen == null:
 			continue
-		var gap := _cell_distance(state, cell, height, seen)
+		var gap := state.distance_from(cell, height, seen)
 		if best_enemy == null or gap < best_gap:
 			best_cell = cell
 			best_cost = c
@@ -127,7 +115,34 @@ static func _compute(
 			best_enemy = seen
 	if best_enemy == null:
 		return none_plan()
+	return _mode_for(merc, weapon, state, tp, ppm, best_cell, best_cost, best_enemy, attack_ap)
 
+
+#Free reachable cells within horizon paces, cheapest first, capped at MAX_CELLS.
+static func _candidate_cells(merc: MercenaryData, state: BattleState, reach: Dictionary, base_cost: int,
+		horizon: int) -> Array[Vector3i]:
+	var cells: Array[Vector3i] = []
+	for cell: Vector3i in reach:
+		var c := int(reach[cell])
+		if c <= 0 or c >= PathTargeter.JUMP_COST_OFFSET:
+			continue
+		if maxi(c, base_cost) > horizon:
+			continue
+		if state.is_position_occupied(Vector2i(cell.x, cell.y), merc, cell.z):
+			continue
+		cells.append(cell)
+	if cells.is_empty():
+		return cells
+	cells.sort_custom(func(a: Vector3i, b: Vector3i) -> bool: return int(reach[a]) < int(reach[b]))
+	if cells.size() > MAX_CELLS:
+		cells.resize(MAX_CELLS)
+	return cells
+
+
+#Plan mode, moves and AP for walking to best_cell, drawing, and shooting when the AP of this turn allows it.
+static func _mode_for(merc: MercenaryData, weapon: WeaponData, state: BattleState, tp: Dictionary, ppm: int,
+		best_cell: Vector3i, best_cost: int, best_enemy: MercenaryData, attack_ap: int) -> Dictionary:
+	var t1 := int(tp["paces"])
 	var pool := state.get_pace_pool(merc)
 	var moves := 0
 	if best_cost > pool:
@@ -173,25 +188,13 @@ static func _visible_enemy_from(
 	for enemy: MercenaryData in enemies:
 		if enemy == null or enemy.is_dead or enemy.current_hp <= 0 or enemy.off_field:
 			continue
-		var d := _cell_distance(state, cell, height, enemy)
+		var d := state.distance_from(cell, height, enemy)
 		if weapon.ranged_extended_range > 0 and d > weapon.ranged_extended_range:
 			continue
 		if not (LineOfSight.check_from(state, cell, height, size, enemy)["visible"] as bool):
 			continue
 		return enemy
 	return null
-
-
-#3D Chebyshev distance from a hypothetical stance to a merc, matching BattleState.distance_to.
-static func _cell_distance(state: BattleState, cell: Vector3i, height: int, target: MercenaryData) -> int:
-	var field := state.battlefield
-	if field == null:
-		return 0
-	var tp := state.get_position(target)
-	var ea := field.cell_base_elevation(Vector2i(cell.x, cell.y), cell.z) + float(height)
-	var eb := field.cell_base_elevation(tp, state.get_floor(target)) + float(state.get_height(target))
-	var dz := int(round(absf(ea - eb)))
-	return maxi(maxi(abs(cell.x - tp.x), abs(cell.y - tp.y)), dz)
 
 
 static func _log_plan(merc: MercenaryData, weapon: WeaponData, result: Dictionary) -> void:
@@ -212,39 +215,3 @@ static func _log_plan(merc: MercenaryData, weapon: WeaponData, result: Dictionar
 		EncounterLogger.log_verbose("DRAW PLAN NOSHOT: %s %s holds fire until next turn" % [
 			merc.merc_name, weapon.item_name])
 
-
-static func _store(merc: MercenaryData, weapon: WeaponData, state: BattleState, result: Dictionary) -> void:
-	if str(result.get("mode", "none")) == "none":
-		var held: Dictionary = merc.active_states.get("ranged_plan", {}) as Dictionary
-		if held.get("weapon") == weapon:
-			merc.active_states.erase("ranged_plan")
-		return
-	merc.active_states["ranged_plan"] = {
-		"weapon": weapon,
-		"cell": result.get("cell", NO_CELL),
-		"round": state.round_number,
-		"mode": str(result.get("mode", "none")),
-		"target": result.get("target"),
-	}
-
-
-static func clear_plan(merc: MercenaryData) -> void:
-	merc.active_states.erase("ranged_plan")
-
-
-#The stored plan, or an empty dictionary once it ages out or the weapon leaves the merc.
-static func stored_plan(merc: MercenaryData, state: BattleState) -> Dictionary:
-	var held: Dictionary = merc.active_states.get("ranged_plan", {}) as Dictionary
-	if held.is_empty():
-		return {}
-	var weapon: WeaponData = held.get("weapon")
-	if weapon == null:
-		merc.active_states.erase("ranged_plan")
-		return {}
-	if state != null and state.round_number - int(held.get("round", 0)) > 2:
-		merc.active_states.erase("ranged_plan")
-		return {}
-	if not WeaponEvaluator.get_available_weapons(merc).has(weapon):
-		merc.active_states.erase("ranged_plan")
-		return {}
-	return held

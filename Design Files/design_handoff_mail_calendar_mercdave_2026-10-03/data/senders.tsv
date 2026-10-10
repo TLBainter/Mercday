@@ -1,0 +1,45 @@
+id	kind	name	sub	location	km	rel	client	merc	about
+org1	Org	Company 1 Name	Company · Lender 1	Umbra	740	0	1		
+org2	Org	Company 2 Name	Company · Lender 2	Zukei	500	-3	1		
+org3	Org	Company 3 Name	Company · Lender 3	Cyfrolaef	585	3	1		
+org4	Org	Company 4 Name	Company · Lender 4	Hel	225	-2	1		
+org5	Org	Company 5 Name	Company · Lender 5	Rossade	660	-3	1		
+org6	Org	Company 6 Name	Company · Lender 6	Gledd Sea	569	1	1		
+org7	Org	Company 7 Name	Company · Lender 7	Buern	792	-3	1		
+org8	Org	Company 8 Name	Company · Lender 8	Copari	736	-4	1		
+org9	Org	Company 9 Name	Company · Lender 9	Marric Ocean	458	2	1		
+person1	Person	Person 1 Name	Artisan	Rossade	828	-2	1		
+person2	Person	Person 2 Name	Poorfolk	Gledd Sea	672	-4	1		
+person3	Person	Person 3 Name	Commoner	Buern	705	-1	1		
+person4	Person	Person 4 Name	Noble	Copari	818	3	1		
+person5	Person	Person 5 Name	Executive	Marric Ocean	582	-1	1		
+person6	Person	Person 6 Name	Mercenary	Aerdis	65	1	1		
+person7	Person	Person 7 Name	Artisan	Miliim	585	-1	1		
+person8	Person	Person 8 Name	Poorfolk	Weird	732	1	1		
+place1	Place	Place 1 Name	Town	Rossade	828	-2	1		
+place2	Place	Place 2 Name	Village	Gledd Sea	672	-4	1		
+place3	Place	Place 3 Name	Fort	Buern	705	-1	1		
+place4	Place	Place 4 Name	Port	Copari	818	3	1		
+place5	Place	Place 5 Name	Temple	Marric Ocean	582	-1	1		
+place6	Place	Place 6 Name	Mine	Aerdis	65	1	1		
+place7	Place	Place 7 Name	Keep	Miliim	585	-1	1		
+place8	Place	Place 8 Name	Outpost	Weird	732	1	1		
+merc0	Merc	FirstName1 LastName1	Mercenary	Guild Hall	0		0	0	
+merc1	Merc	FirstName2 LastName2	Mercenary	Guild Hall	0		0	1	
+merc2	Merc	FirstName3 LastName3	Mercenary	Guild Hall	0		0	2	
+merc3	Merc	FirstName4 LastName4	Mercenary	Guild Hall	0		0	3	
+merc4	Merc	FirstName5 LastName5	Mercenary	Guild Hall	0		0	4	
+merc5	Merc	FirstName6 LastName6	Mercenary	Guild Hall	0		0	5	
+merc6	Merc	FirstName7 LastName7	Mercenary	Guild Hall	0		0	6	
+merc7	Merc	FirstName8 LastName8	Mercenary	Guild Hall	0		0	7	
+merc8	Merc	FirstName9 LastName9	Mercenary	Guild Hall	0		0	8	
+merc9	Merc	FirstName10 LastName10	Mercenary	Guild Hall	0		0	9	
+mercday	Org	Mercday	Guild Service	Mercday Office			0		The guild management service your guild subscribes to.
+landlord	Person	Landlord Name	Landlord	Guild Hall	0		0		Owns the building your guild rents.
+healer	Org	Healer's House Name	Infirmary	Buern	12		0		Treats injured mercs and bills the guild.
+bazaar	Org	The Bazaar	Marketplace	Buern	3		0		Sells gear and ships orders to the guild.
+herald	Org	News Outlet 1 Name	News Outlet	Aerdis	140		0		Regional news, market reports and stock alerts.
+registry	Org	Guild Registry	Registry	Aldurstein	310		0		Keeps the official guild rankings.
+spam1	Unknown	Prize Office	Unknown	Unknown			0		Not a client. Sender could not be verified.
+spam2	Unknown	A Friend	Unknown	Unknown			0		Not a client. Sender could not be verified.
+spam3	Unknown	Royal Court of Umbra	Unknown	Umbra			0		Not a client. Sender could not be verified.

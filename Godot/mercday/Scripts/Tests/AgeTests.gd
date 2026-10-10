@@ -28,30 +28,16 @@ static func _merc(name: String) -> MercenaryData:
 	return TestFixtures.level_merc(name, true, true)
 
 
-#Rebuilds merc.stats after a direct max_stats or stat_bonuses write, the way _merc does.
-static func _recalc(m: MercenaryData) -> void:
-	m.stats = StatCalculator.calculate_all(m)
-	m.stats["pain_limit"] = 0
-	m.stats_baseline = StatCalculator.calculate_all(m)
-
-
 #Fills the event list so the Elder grant finds no room and leaves the stats untouched.
 static func _fill_lifepaths(m: MercenaryData) -> void:
 	for i: int in range(LifepathProgression.MAX_EVENTS):
-		var filler := LifepathData.new()
+		var filler := TestFixtures.lifepath_stub("Filler %d" % i, "Common")
 		filler.event_type = "Starting"
-		filler.event_name = "Filler %d" % i
-		filler.rarity = "Common"
 		m.lifepaths.append(filler)
 
 
 static func _lp(op: String, value: String) -> LifepathData:
-	var lp := LifepathData.new()
-	lp.event_type = "Experienced"
-	lp.event_name = "Age Probe"
-	lp.rarity = "Common"
-	lp.requirements.assign([{"subject": "Age", "op": op, "value": value, "conj": ""}])
-	return lp
+	return TestFixtures.lifepath_stub("Age Probe", "Common", [TestFixtures.req("Age", op, value)])
 
 
 static func _core(m: MercenaryData, key: String) -> int:
@@ -62,35 +48,34 @@ static func _cap(m: MercenaryData, key: String) -> int:
 	return int(m.max_stats.get(key, 0))
 
 
+#Vigor, dexterity, cognition and wile as the stats read them.
+static func _core_quad(m: MercenaryData) -> Array[int]:
+	return [_core(m, "vigor"), _core(m, "dexterity"), _core(m, "cognition"), _core(m, "wile")]
+
+
+static func _max_quad(m: MercenaryData) -> Array[int]:
+	return [_cap(m, "max_vigor"), _cap(m, "max_dexterity"), _cap(m, "max_cognition"), _cap(m, "max_wile")]
+
+
+#Checks the bands of this life expectancy and the category at both ends of each band.
+static func _band_check(res: Dictionary, le: int, want: Array[int]) -> void:
+	var bands: Dictionary = AgeSystem.age_bands(le)
+	var got: Array[int] = []
+	for key: String in ["young_lo", "young_hi", "adult_lo", "adult_hi", "elder_lo", "elder_hi"]:
+		got.append(int(bands[key]))
+	TestFixtures.check(res, "bands le %d" % le, got == want,
+		"expected young %d..%d adult %d..%d elder %d..%d, got young %d..%d adult %d..%d elder %d..%d"
+		% (want + got))
+	var names: Array[String] = ["Young", "Young", "Adult", "Adult", "Elder", "Elder"]
+	for i: int in range(want.size()):
+		var cat: String = AgeSystem.age_category_for(want[i], le)
+		TestFixtures.check(res, "category le %d age %d" % [le, want[i]], cat == names[i],
+			"expected %s, got %s" % [names[i], cat])
+
+
 static func _case_bands(res: Dictionary) -> void:
-	var b110: Dictionary = AgeSystem.age_bands(110)
-	TestFixtures.check(res, "bands le 110",
-		int(b110["young_lo"]) == 0 and int(b110["young_hi"]) == 35
-		and int(b110["adult_lo"]) == 36 and int(b110["adult_hi"]) == 88
-		and int(b110["elder_lo"]) == 89 and int(b110["elder_hi"]) == 110,
-		"expected young 0..35 adult 36..88 elder 89..110, got young %d..%d adult %d..%d elder %d..%d"
-		% [int(b110["young_lo"]), int(b110["young_hi"]), int(b110["adult_lo"]),
-			int(b110["adult_hi"]), int(b110["elder_lo"]), int(b110["elder_hi"])])
-	var cases110: Array = [[0, "Young"], [35, "Young"], [36, "Adult"], [88, "Adult"],
-		[89, "Elder"], [110, "Elder"]]
-	for c: Array in cases110:
-		var got: String = AgeSystem.age_category_for(int(c[0]), 110)
-		TestFixtures.check(res, "category le 110 age %d" % int(c[0]), got == str(c[1]),
-			"expected %s, got %s" % [str(c[1]), got])
-	var b20: Dictionary = AgeSystem.age_bands(20)
-	TestFixtures.check(res, "bands le 20",
-		int(b20["young_lo"]) == 0 and int(b20["young_hi"]) == 5
-		and int(b20["adult_lo"]) == 6 and int(b20["adult_hi"]) == 16
-		and int(b20["elder_lo"]) == 17 and int(b20["elder_hi"]) == 20,
-		"expected young 0..5 adult 6..16 elder 17..20, got young %d..%d adult %d..%d elder %d..%d"
-		% [int(b20["young_lo"]), int(b20["young_hi"]), int(b20["adult_lo"]),
-			int(b20["adult_hi"]), int(b20["elder_lo"]), int(b20["elder_hi"])])
-	var cases20: Array = [[0, "Young"], [5, "Young"], [6, "Adult"], [16, "Adult"],
-		[17, "Elder"], [20, "Elder"]]
-	for c: Array in cases20:
-		var got: String = AgeSystem.age_category_for(int(c[0]), 20)
-		TestFixtures.check(res, "category le 20 age %d" % int(c[0]), got == str(c[1]),
-			"expected %s, got %s" % [str(c[1]), got])
+	_band_check(res, 110, [0, 35, 36, 88, 89, 110])
+	_band_check(res, 20, [0, 5, 6, 16, 17, 20])
 	var zero_ok: bool = true
 	for age: int in [0, 5, 500]:
 		if AgeSystem.age_category_for(age, 0) != "Adult":
@@ -165,28 +150,21 @@ static func _case_elder_effects(res: Dictionary) -> void:
 	TestFixtures.reset_campaign()
 	var m := _merc("Elda")
 	_fill_lifepaths(m)
-	var v0: int = _core(m, "vigor")
-	var d0: int = _core(m, "dexterity")
-	var c0: int = _core(m, "cognition")
-	var w0: int = _core(m, "wile")
+	var s0: Array[int] = _core_quad(m)
 	AgeSystem.apply_age_effects(m, "Elder")
-	var v1: int = _core(m, "vigor")
-	var d1: int = _core(m, "dexterity")
-	var c1: int = _core(m, "cognition")
-	var w1: int = _core(m, "wile")
+	var s1: Array[int] = _core_quad(m)
+	var cap: Array[int] = _max_quad(m)
 	TestFixtures.check(res, "elder physical stats",
-		(v0 + d0) - (v1 + d1) == 3 and mini(v1, d1) == 2 and maxi(v1, d1) == 3,
+		(s0[0] + s0[1]) - (s1[0] + s1[1]) == 3 and mini(s1[0], s1[1]) == 2 and maxi(s1[0], s1[1]) == 3,
 		"expected %d and %d to become 2 and 3, a fall of 3 (one -1 bonus, both -1 as the maximum goes 8 to 7), got %d and %d"
-		% [v0, d0, v1, d1])
-	TestFixtures.check(res, "elder physical maxima",
-		_cap(m, "max_vigor") == 7 and _cap(m, "max_dexterity") == 7,
-		"expected 7 and 7, got %d and %d" % [_cap(m, "max_vigor"), _cap(m, "max_dexterity")])
-	TestFixtures.check(res, "elder mental stats", mini(c1, w1) == 4 and maxi(c1, w1) == 5,
+		% [s0[0], s0[1], s1[0], s1[1]])
+	TestFixtures.check(res, "elder physical maxima", cap[0] == 7 and cap[1] == 7,
+		"expected 7 and 7, got %d and %d" % [cap[0], cap[1]])
+	TestFixtures.check(res, "elder mental stats", mini(s1[2], s1[3]) == 4 and maxi(s1[2], s1[3]) == 5,
 		"expected %d and %d to become 4 and 5 (floor(9 / 2) with one +1 bonus), got %d and %d"
-		% [c0, w0, c1, w1])
-	TestFixtures.check(res, "elder mental maxima",
-		_cap(m, "max_cognition") == 9 and _cap(m, "max_wile") == 9,
-		"expected 9 and 9, got %d and %d" % [_cap(m, "max_cognition"), _cap(m, "max_wile")])
+		% [s0[2], s0[3], s1[2], s1[3]])
+	TestFixtures.check(res, "elder mental maxima", cap[2] == 9 and cap[3] == 9,
+		"expected 9 and 9, got %d and %d" % [cap[2], cap[3]])
 	TestFixtures.check(res, "elder xp and level", m.xp == 575 and _core(m, "level") == 5,
 		"expected 575 xp at level 5, got %d xp at level %d" % [m.xp, _core(m, "level")])
 	TestFixtures.reset_campaign()
@@ -203,7 +181,7 @@ static func _case_elder_floor(res: Dictionary) -> void:
 	_fill_lifepaths(m)
 	m.max_stats["max_vigor"] = 2
 	m.max_stats["max_dexterity"] = 2
-	_recalc(m)
+	TestFixtures.recalc(m)
 	var v0: int = _core(m, "vigor")
 	var d0: int = _core(m, "dexterity")
 	AgeSystem.apply_age_effects(m, "Elder")
@@ -220,7 +198,7 @@ static func _case_elder_cap(res: Dictionary) -> void:
 	_fill_lifepaths(m)
 	m.stat_bonuses["cognition"] = 4.0
 	m.stat_bonuses["wile"] = 4.0
-	_recalc(m)
+	TestFixtures.recalc(m)
 	var c0: int = _core(m, "cognition")
 	var w0: int = _core(m, "wile")
 	AgeSystem.apply_age_effects(m, "Elder")
@@ -235,30 +213,23 @@ static func _case_elder_cap(res: Dictionary) -> void:
 static func _case_young_effects(res: Dictionary) -> void:
 	TestFixtures.reset_campaign()
 	var m := _merc("Kit")
-	ContractModifiers.set_level(m, 10)
-	var v0: int = _core(m, "vigor")
-	var d0: int = _core(m, "dexterity")
-	var c0: int = _core(m, "cognition")
-	var w0: int = _core(m, "wile")
+	TestFixtures.set_level(m, 10)
+	var s0: Array[int] = _core_quad(m)
 	AgeSystem.apply_age_effects(m, "Young")
-	var v1: int = _core(m, "vigor")
-	var d1: int = _core(m, "dexterity")
-	var c1: int = _core(m, "cognition")
-	var w1: int = _core(m, "wile")
+	var s1: Array[int] = _core_quad(m)
+	var cap: Array[int] = _max_quad(m)
 	TestFixtures.check(res, "young xp and level", m.xp == 500 and _core(m, "level") == 5,
 		"expected 500 xp at level 5 from 1000 xp at level 10, got %d xp at level %d"
 		% [m.xp, _core(m, "level")])
-	TestFixtures.check(res, "young physical stats", mini(v1, d1) == 4 and maxi(v1, d1) == 5,
+	TestFixtures.check(res, "young physical stats", mini(s1[0], s1[1]) == 4 and maxi(s1[0], s1[1]) == 5,
 		"expected %d and %d to become 4 and 5 (floor(9 / 2) with one +1 bonus), got %d and %d"
-		% [v0, d0, v1, d1])
-	TestFixtures.check(res, "young physical maxima",
-		_cap(m, "max_vigor") == 9 and _cap(m, "max_dexterity") == 9,
-		"expected 9 and 9, got %d and %d" % [_cap(m, "max_vigor"), _cap(m, "max_dexterity")])
-	TestFixtures.check(res, "young mental stats", mini(c1, w1) == 3 and maxi(c1, w1) == 4,
-		"expected %d and %d to become 3 and 4 (one -1 bonus), got %d and %d" % [c0, w0, c1, w1])
-	TestFixtures.check(res, "young mental maxima",
-		_cap(m, "max_cognition") == 8 and _cap(m, "max_wile") == 8,
-		"expected 8 and 8, got %d and %d" % [_cap(m, "max_cognition"), _cap(m, "max_wile")])
+		% [s0[0], s0[1], s1[0], s1[1]])
+	TestFixtures.check(res, "young physical maxima", cap[0] == 9 and cap[1] == 9,
+		"expected 9 and 9, got %d and %d" % [cap[0], cap[1]])
+	TestFixtures.check(res, "young mental stats", mini(s1[2], s1[3]) == 3 and maxi(s1[2], s1[3]) == 4,
+		"expected %d and %d to become 3 and 4 (one -1 bonus), got %d and %d" % [s0[2], s0[3], s1[2], s1[3]])
+	TestFixtures.check(res, "young mental maxima", cap[2] == 8 and cap[3] == 8,
+		"expected 8 and 8, got %d and %d" % [cap[2], cap[3]])
 
 
 static func _case_adult_effects(res: Dictionary) -> void:
@@ -266,16 +237,12 @@ static func _case_adult_effects(res: Dictionary) -> void:
 	var m := _merc("Even")
 	var xp0: int = m.xp
 	var level0: int = _core(m, "level")
-	var stats0: Array[int] = [_core(m, "vigor"), _core(m, "dexterity"),
-		_core(m, "cognition"), _core(m, "wile")]
-	var max0: Array[int] = [_cap(m, "max_vigor"), _cap(m, "max_dexterity"),
-		_cap(m, "max_cognition"), _cap(m, "max_wile")]
+	var stats0: Array[int] = _core_quad(m)
+	var max0: Array[int] = _max_quad(m)
 	var lp0: int = m.lifepaths.size()
 	AgeSystem.apply_age_effects(m, "Adult")
-	var stats1: Array[int] = [_core(m, "vigor"), _core(m, "dexterity"),
-		_core(m, "cognition"), _core(m, "wile")]
-	var max1: Array[int] = [_cap(m, "max_vigor"), _cap(m, "max_dexterity"),
-		_cap(m, "max_cognition"), _cap(m, "max_wile")]
+	var stats1: Array[int] = _core_quad(m)
+	var max1: Array[int] = _max_quad(m)
 	TestFixtures.check(res, "adult changes nothing",
 		m.xp == xp0 and _core(m, "level") == level0 and stats1 == stats0
 		and max1 == max0 and m.lifepaths.size() == lp0,
@@ -409,10 +376,8 @@ static func _case_ageless(res: Dictionary) -> void:
 	m.is_hybrid = false
 	var xp0: int = m.xp
 	var lp0: int = m.lifepaths.size()
-	var stats0: Array[int] = [_core(m, "vigor"), _core(m, "dexterity"),
-		_core(m, "cognition"), _core(m, "wile")]
-	var max0: Array[int] = [_cap(m, "max_vigor"), _cap(m, "max_dexterity"),
-		_cap(m, "max_cognition"), _cap(m, "max_wile")]
+	var stats0: Array[int] = _core_quad(m)
+	var max0: Array[int] = _max_quad(m)
 	var rolls: int = 200
 	var bad_category: int = 0
 	var bad_age: int = 0
@@ -428,10 +393,8 @@ static func _case_ageless(res: Dictionary) -> void:
 			bad_age += 1
 		low_age = mini(low_age, m.age)
 		high_age = maxi(high_age, m.age)
-	var stats1: Array[int] = [_core(m, "vigor"), _core(m, "dexterity"),
-		_core(m, "cognition"), _core(m, "wile")]
-	var max1: Array[int] = [_cap(m, "max_vigor"), _cap(m, "max_dexterity"),
-		_cap(m, "max_cognition"), _cap(m, "max_wile")]
+	var stats1: Array[int] = _core_quad(m)
+	var max1: Array[int] = _max_quad(m)
 	TestFixtures.check(res, "ageless is always Adult", bad_category == 0,
 		"%d of %d rolls left a category other than Adult" % [bad_category, rolls])
 	TestFixtures.check(res, "ageless age range", bad_age == 0,
@@ -484,18 +447,13 @@ static func _case_elder_pool(res: Dictionary) -> void:
 	TestFixtures.check(res, "elder pool skips coded events",
 		not pool.has(LifepathProgression.BUDDY) and not pool.has(LifepathProgression.IN_LOVE),
 		"Buddy and In Love need a partner and stay out of the Elder draw")
-	var probe := LifepathData.new()
-	probe.event_type = "Experienced"
-	probe.event_name = "TEST Elder Probe"
-	probe.rarity = "Common"
+	var probe := TestFixtures.lifepath_stub("TEST Elder Probe", "Common",
+		[TestFixtures.req("TEST Unread Subject", "IS", "Yes")])
 	probe.perks = ["Another Miracle"] as Array[String]
-	probe.requirements.assign([{"subject": "TEST Unread Subject", "op": "IS", "value": "Yes", "conj": ""}])
-	if not DataManager.lifepaths_by_category.has("Experienced"):
-		DataManager.lifepaths_by_category["Experienced"] = []
-	(DataManager.lifepaths_by_category["Experienced"] as Array).append(probe)
+	TestFixtures.register_stub(probe)
 	var probe_pool: Array[String] = AgeSystem.elder_event_pool(m)
 	var probe_unsupported: bool = not LifepathRequirements.is_supported(probe)
-	(DataManager.lifepaths_by_category["Experienced"] as Array).erase(probe)
+	TestFixtures.unregister_stub(probe)
 	TestFixtures.check(res, "elder pool ignores requirements",
 		probe_unsupported and probe_pool.has(probe.event_name),
 		"row %s reads unsupported %s and sits in the pool %s"

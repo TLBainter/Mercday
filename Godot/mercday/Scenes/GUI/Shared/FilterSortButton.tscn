@@ -1,7 +1,10 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/FilterSortButton.gd" id="1"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/DropPanel.gd" id="dp"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_FilterSortButton.tres" id="4"]
 
 [node name="FilterSortButton" type="Button"]
 custom_minimum_size = Vector2(0, 26)
@@ -13,7 +16,9 @@ text = "FILTER / SORT"
 alignment = 0
 script = ExtResource("1")
 
-[node name="Menu" type="PopupPanel" parent="."]
+[node name="Menu" type="PanelContainer" parent="."]
+visible = false
+script = ExtResource("dp")
 
 [node name="Columns" type="HBoxContainer" parent="Menu"]
 theme_override_constants/separation = 12
@@ -23,9 +28,7 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
 [node name="Header" type="Label" parent="Menu/Columns/SortColumn"]
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("2")
-theme_override_font_sizes/font_size = 10
+theme_type_variation = &"CaptionLabel"
 text = "SORT BY"
 
 [node name="FilterColumn" type="VBoxContainer" parent="Menu/Columns"]
@@ -33,7 +36,9 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
 [node name="Header" type="Label" parent="Menu/Columns/FilterColumn"]
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("2")
-theme_override_font_sizes/font_size = 10
+theme_type_variation = &"CaptionLabel"
 text = "FILTER"
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("3")
+hint = ExtResource("4")

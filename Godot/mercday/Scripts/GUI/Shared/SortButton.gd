@@ -1,4 +1,4 @@
-class_name SortButton extends Button
+class_name SortButton extends PopupButton
 
 #Dropdown that picks one of a list of sort options; the button wears the picked option in upper
 #case behind a lines glyph and the popup fills the picked row orange.
@@ -8,15 +8,14 @@ signal sort_changed(index: int)
 const ROW_NORMAL: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/PopupRow.tres")
 const ROW_HOVER: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/PopupRowHover.tres")
 const ROW_PICKED: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/PopupRowSelected.tres")
-const ROW_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
+const ROW_FONT: FontVariation = GuiStyle.BODY
 const ROW_FONT_SIZE: int = 14
-const ROW_COLOR: Color = Color("#f3ead7")
-const ROW_PICKED_COLOR: Color = Color("#0a0f1c")
+const ROW_COLOR: Color = GuiColors.CREAM
+const ROW_PICKED_COLOR: Color = GuiColors.INK
 #A hovered row darkens and its label turns orange, so the row under the pointer stands out.
-const ROW_HOVER_COLOR: Color = Color(0.949020, 0.549020, 0.156863, 1.0)
-const GLYPH_COLOR: Color = Color("#f3ead7")
+const ROW_HOVER_COLOR: Color = GuiColors.ORANGE
+const GLYPH_COLOR: Color = GuiColors.CREAM
 const EMPTY_LABEL: String = "SORT"
-const MIN_POPUP_WIDTH: int = 210
 
 @export var options: Array[String] = []:
 	set(value):
@@ -27,7 +26,6 @@ const MIN_POPUP_WIDTH: int = 210
 		selected = value
 		_refresh()
 
-@onready var menu: PopupPanel = $Menu
 @onready var list: VBoxContainer = $Menu/Box/List
 
 
@@ -46,26 +44,14 @@ static func style_row(row: Button, picked: bool) -> void:
 
 
 func _ready() -> void:
+	super()
 	icon = GuiGlyphs.lines(GLYPH_COLOR)
-	pressed.connect(_on_pressed)
 	_refresh()
 
 
 func pick(i: int) -> void:
 	selected = i
 	sort_changed.emit(i)
-
-
-func open_popup() -> void:
-	var rect: Rect2 = get_global_rect()
-	var wanted: Vector2 = menu.get_contents_minimum_size()
-	var width: int = maxi(MIN_POPUP_WIDTH, maxi(int(rect.size.x), int(wanted.x)))
-	var pos := Vector2i(int(rect.position.x), int(rect.end.y))
-	menu.popup(Rect2i(pos, Vector2i(width, int(wanted.y))))
-
-
-func popup_open() -> bool:
-	return is_node_ready() and menu.visible
 
 
 func _refresh() -> void:
@@ -75,9 +61,7 @@ func _refresh() -> void:
 		text = EMPTY_LABEL
 	else:
 		text = options[selected].to_upper()
-	for child: Node in list.get_children():
-		list.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(list)
 	for i: int in options.size():
 		var b := Button.new()
 		b.text = options[i]
@@ -87,9 +71,5 @@ func _refresh() -> void:
 
 
 func _on_pick(i: int) -> void:
-	menu.hide()
+	close_popup()
 	pick(i)
-
-
-func _on_pressed() -> void:
-	open_popup()

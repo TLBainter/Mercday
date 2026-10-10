@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Finance/Invest/InvestTab.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Invest/InvestCompanyList.tscn" id="2"]
@@ -6,7 +6,6 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Invest/InvestPortfolio.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Invest/InvestTradePanel.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NotesLabel.tscn" id="6"]
-[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="7"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="8"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres" id="9"]
 
@@ -24,11 +23,10 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
-grow_vertical = 2
+grow_vertical = 1
 theme_override_constants/separation = 16
 
 [node name="CompanyList" parent="Row" instance=ExtResource("2")]
-custom_minimum_size = Vector2(272, 0)
 layout_mode = 2
 
 [node name="Centre" type="VBoxContainer" parent="Row"]
@@ -56,9 +54,7 @@ theme_override_constants/separation = 2
 [node name="NameLabel" type="Label" parent="Row/Centre/Header/NameCol"]
 layout_mode = 2
 clip_text = true
-theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
-theme_override_fonts/font = ExtResource("8")
-theme_override_font_sizes/font_size = 18
+theme_type_variation = &"TitleLabel"
 
 [node name="YieldLabel" type="Label" parent="Row/Centre/Header/NameCol"]
 layout_mode = 2
@@ -76,9 +72,7 @@ alignment = 2
 layout_mode = 2
 text = "Price / Share"
 horizontal_alignment = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("7")
-theme_override_font_sizes/font_size = 9
+theme_type_variation = &"KeySmall"
 
 [node name="PriceNotes" parent="Row/Centre/Header/PriceCol" instance=ExtResource("6")]
 layout_mode = 2
@@ -103,7 +97,7 @@ layout_mode = 2
 [node name="RightColumn" type="VBoxContainer" parent="Row"]
 custom_minimum_size = Vector2(290, 0)
 layout_mode = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 8
 
 [node name="Portfolio" parent="Row/RightColumn" instance=ExtResource("4")]
 layout_mode = 2

@@ -21,20 +21,20 @@ static func resolve(event: EventData, run: ContractRun, opts: Dictionary = {}) -
 		out["notes"] = no_crew
 		run.emit("EVENT FAILED: %s (no enemies generated)" % event.event_name)
 		return out
-	var target: MercenaryData = _pick_target(target_pool(run), crew_list)
+	var target: MercenaryData = _pick_target(target_pool(run), crew_list, run, event)
 	var pair: Array[MercenaryData] = best_pair(target, crew_list)
 	run.emit("RESPITE KIDNAP: %d bandits, %s targeted" % [crew_list.size(),
 		target.merc_name if target != null else "nobody"])
 	if target == null or pair.is_empty():
 		return crew_leaves(run, out, crew_list.size())
 	var lines: Array[String] = []
-	var spotter: MercenaryData = notice_interrupt(run, pair, lines)
+	var spotter: MercenaryData = notice_interrupt(run, pair, lines, event)
 	for line: String in lines:
 		run.emit(line)
 	if spotter != null:
 		return await to_battle(event, run, crew_list, pair, target, "notice", opts)
 	var roll_lines: Array[String] = []
-	var broke: bool = break_free_roll(target, pair, roll_lines)
+	var broke: bool = break_free_roll(target, pair, roll_lines, run, event)
 	for line: String in roll_lines:
 		run.emit(line)
 	if broke:
@@ -51,8 +51,6 @@ static func resolve(event: EventData, run: ContractRun, opts: Dictionary = {}) -
 
 #Nobody can be taken: the crew slips away and the rest goes on; the row still counts as fired.
 static func crew_leaves(run: ContractRun, out: Dictionary, crew_size: int) -> Dictionary:
-	if run == null:
-		return out
 	run.emit("RESPITE KIDNAP: no mark among %d resting mercs, %d bandits leave" % [
 		run.living_team().size(), crew_size])
 	var notes: Array[String] = ["kidnap no target"]
@@ -63,8 +61,6 @@ static func crew_leaves(run: ContractRun, out: Dictionary, crew_size: int) -> Di
 #The whole crew the row's Enemy and Enemy Counter cells build; only the pair acts before a battle.
 static func crew(event: EventData, run: ContractRun) -> Array[MercenaryData]:
 	var out: Array[MercenaryData] = []
-	if event == null or run == null:
-		return out
 	out.assign(EnemyTeamBuilder.build(event, run, 0))
 	return out
 
@@ -72,8 +68,6 @@ static func crew(event: EventData, run: ContractRun) -> Array[MercenaryData]:
 #Resting mercs a fresh crew would try for: Surprised immunity is the only bar.
 static func target_pool(run: ContractRun) -> Array[MercenaryData]:
 	var out: Array[MercenaryData] = []
-	if run == null:
-		return out
 	for merc: MercenaryData in run.living_team():
 		if ConstStates.is_immune(merc, ConstStates.SURPRISED):
 			continue
@@ -106,34 +100,49 @@ static func best_pair(target: MercenaryData, crew_list: Array[MercenaryData]) ->
 	return out
 
 
-#Ordering proxy only: the target's mean Break Free successes less both kidnappers' mean holds.
-static func break_free_odds(target: MercenaryData, pair: Array[MercenaryData]) -> float:
+#A party merc's Overall Success delta for this event inside the run; 0 without a run.
+static func party_delta(run: ContractRun, event: EventData, merc: MercenaryData) -> float:
+	if run == null or merc == null:
+		return 0.0
+	var info: Dictionary = OverallSuccess.for_merc(run.contract, run.living_team(), merc, event, run.leader())
+	return float(info["delta"])
+
+
+#Ordering proxy only: the target's mean Break Free successes, with its delta, less both kidnappers' mean holds.
+static func break_free_odds(target: MercenaryData, pair: Array[MercenaryData], run: ContractRun = null,
+		event: EventData = null) -> float:
 	if target == null:
 		return 0.0
-	var odds: float = CheckSystem.expected_successes(target,
-		SpecialActionSystem.break_free_def())
+	var check_def: Dictionary = SpecialActionSystem.break_free_def()
+	var delta: float = party_delta(run, event, target)
+	OverallSuccess.apply_delta(target, delta)
+	var odds: float = CheckSystem.expected_successes(target, check_def)
+	OverallSuccess.revert_event_delta({target: delta})
 	for member: MercenaryData in pair:
 		if member == null:
 			continue
-		odds -= CheckSystem.expected_successes(member,
-			SpecialActionSystem.break_free_def())
+		odds -= CheckSystem.expected_successes(member, check_def)
 	return odds
 
 
 #Every merc immune to Surprised watches; the kidnapper that rolls worst is the one it beats.
-static func notice_interrupt(run: ContractRun, pair: Array[MercenaryData], lines: Array[String]) -> MercenaryData:
+static func notice_interrupt(run: ContractRun, pair: Array[MercenaryData], lines: Array[String],
+		event: EventData = null) -> MercenaryData:
 	if run == null or pair.is_empty():
 		return null
 	for merc: MercenaryData in run.living_team():
 		if not ConstStates.is_immune(merc, ConstStates.SURPRISED):
 			continue
-		var watch: Dictionary = CheckSystem.make_check(merc, _notice_def())
+		var delta: float = party_delta(run, event, merc)
+		OverallSuccess.apply_delta(merc, delta)
+		var watch: Dictionary = CheckSystem.make_check(merc, CheckSystem.notice_def())
+		OverallSuccess.revert_event_delta({merc: delta})
 		var worst: Dictionary = {}
 		var worst_name: String = ""
 		for member: MercenaryData in pair:
 			if member == null:
 				continue
-			var guard: Dictionary = CheckSystem.make_check(member, _grace_def())
+			var guard: Dictionary = CheckSystem.make_check(member, CheckSystem.grace_def())
 			if worst.is_empty() or int(guard["successes"]) < int(worst["successes"]):
 				worst = guard
 				worst_name = member.merc_name
@@ -149,7 +158,8 @@ static func notice_interrupt(run: ContractRun, pair: Array[MercenaryData], lines
 
 
 #One roll against the summed Athletics or Power hold of both kidnappers; a target that cannot be held wins with no dice.
-static func break_free_roll(target: MercenaryData, pair: Array[MercenaryData], lines: Array[String]) -> bool:
+static func break_free_roll(target: MercenaryData, pair: Array[MercenaryData], lines: Array[String],
+		run: ContractRun = null, event: EventData = null) -> bool:
 	if target == null:
 		return true
 	if ConstStates.is_immune(target, ConstStates.GRAPPLED):
@@ -157,14 +167,16 @@ static func break_free_roll(target: MercenaryData, pair: Array[MercenaryData], l
 			% target.merc_name)
 		return true
 	var check_def: Dictionary = SpecialActionSystem.break_free_def()
+	var delta: float = party_delta(run, event, target)
+	OverallSuccess.apply_delta(target, delta)
 	var result: Dictionary = CheckSystem.make_check(target, check_def)
+	OverallSuccess.revert_event_delta({target: delta})
 	var combined: int = 0
 	var held_crit: bool = false
 	for member: MercenaryData in pair:
 		if member == null:
 			continue
-		var hold: Dictionary = CheckSystem.make_check(member,
-			SpecialActionSystem.break_free_def())
+		var hold: Dictionary = CheckSystem.make_check(member, check_def)
 		combined += int(hold["successes"])
 		if bool(hold.get("critical", false)):
 			held_crit = true
@@ -199,36 +211,16 @@ static func to_battle(event: EventData, run: ContractRun, crew_list: Array[Merce
 
 
 #The pool member the pair holds most easily; null when nobody may be taken.
-static func _pick_target(pool: Array[MercenaryData], crew_list: Array[MercenaryData]) -> MercenaryData:
+static func _pick_target(pool: Array[MercenaryData], crew_list: Array[MercenaryData], run: ContractRun = null,
+		event: EventData = null) -> MercenaryData:
 	var best: MercenaryData = null
 	var best_odds: float = 0.0
 	for merc: MercenaryData in pool:
 		if merc == null:
 			continue
-		var odds: float = break_free_odds(merc, best_pair(merc, crew_list))
+		var odds: float = break_free_odds(merc, best_pair(merc, crew_list), run, event)
 		if best == null or odds < best_odds:
 			best = merc
 			best_odds = odds
 	return best
 
-
-static func _notice_def() -> Dictionary:
-	return {
-		"stat_keys": ["cognition"],
-		"circumstances": [ConstCircumstances.NOTICE_COGNITION],
-		"knowledges": [],
-		"tools": [],
-		"formula": "luck",
-		"flat_threshold_bonus": 0.0,
-	}
-
-
-static func _grace_def() -> Dictionary:
-	return {
-		"stat_keys": ["dexterity"],
-		"circumstances": [ConstCircumstances.GRACE_DEXTERITY],
-		"knowledges": [],
-		"tools": [],
-		"formula": "luck",
-		"flat_threshold_bonus": 0.0,
-	}

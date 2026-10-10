@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Airship/ESM_PSBT_Cinematic_FX_ambience_airplane_interior_medium_plane_takeoff_taxi_01.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Airship/FNF_TPA_ambience_airplane_landing_overhead_turbine_roar_fast_airport.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Airship/HelicopterFlyBy_S08TA.70.wav" id="4_s3"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Airship/HelicopterPassBy_BW.60772.wav" id="5_s4"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Airship/JetKC135PassBy_S011TA.50.wav" id="6_s5"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/Event/Dispatch/Dispatch-Airship/SPLC-0832_FX-Oneshot-Propeller-Helicopter-Flight.wav" id="7_s6"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3"), ExtResource("5_s4"), ExtResource("6_s5"), ExtResource("7_s6")])

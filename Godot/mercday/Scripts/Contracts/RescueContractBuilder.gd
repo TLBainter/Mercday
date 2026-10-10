@@ -5,6 +5,8 @@ class_name RescueContractBuilder
 const CONTRACT_TYPE := "Rescue"
 const KIND_KIDNAPPED := "kidnapped"
 const KIND_FLED := "fled"
+const KIND_PRISONER := "prisoner"
+const PRISON_EVENT := "Prison Break"
 
 #uid to record for callers that cannot reach the ContractRun before ContractManager builds it.
 static var pending_records: Dictionary = {}
@@ -75,9 +77,30 @@ static func battle_setup(run: ContractRun, event: EventData = null) -> Dictionar
 	var enemies: Array[MercenaryData] = captors(row, run, record, kind)
 	if enemies.is_empty():
 		return {}
-	heal(captive)
+	captive.off_field = false
 	var mode: String = choose_mode(run.living_team(), enemies)
 	return {"captive": captive, "mode": mode, "enemies": enemies, "kind": kind, "record": record}
+
+
+#A generated prisoner, the event's captors and the mode for one prison break battle; {} when nothing was built.
+static func prison_setup(run: ContractRun, contract: ContractData, event: EventData) -> Dictionary:
+	if run == null or event == null:
+		return {}
+	var req: OpponentRequest = ContractTarget.request(contract.target if contract != null else "",
+		run.living_team(), contract)
+	req.count = 1
+	req.tag = PRISON_EVENT
+	var made: Array[MercenaryData] = OpponentGenerator.generate(req)
+	if made.is_empty():
+		return {}
+	var captive: MercenaryData = made[0]
+	var enemies: Array[MercenaryData] = EnemyTeamBuilder.build(event, run, 0)
+	if enemies.is_empty():
+		return {}
+	captive.off_field = false
+	var mode: String = choose_mode(run.living_team(), enemies)
+	run.emit("PRISON BREAK: %s held; %d captors, %s mode" % [captive.merc_name, enemies.size(), mode])
+	return {"captive": captive, "mode": mode, "enemies": enemies, "kind": KIND_PRISONER, "record": {}}
 
 
 #The pool first, then a pooled merc with that uid, then whatever the caller staged.
@@ -120,7 +143,7 @@ static func captors(event: EventData, run: ContractRun, record: Dictionary,
 	return out
 
 
-#Nobody fights a rescue half dead; campaign states are left where they are.
+#Kept captors fight fresh; campaign states are left where they are.
 static func heal(merc: MercenaryData) -> void:
 	if merc == null:
 		return
@@ -138,11 +161,19 @@ static func choose_mode(team: Array, enemies: Array) -> String:
 	return RescueSystem.MODE_COMBAT
 
 
-static func complete(run: ContractRun, ro: Dictionary) -> void:
+static func complete(run: ContractRun, ro: Dictionary, kind: String = "") -> void:
 	if run == null or ro.is_empty():
 		return
 	var captive: MercenaryData = ro.get("captive", null)
 	if captive == null:
+		return
+	if kind == KIND_PRISONER:
+		if bool(ro.get("success", false)):
+			run.emit("PRISONER FREED: %s" % captive.merc_name)
+		elif not bool(ro.get("captive_alive", true)):
+			run.emit("PRISONER LOST: %s died in the dungeon." % captive.merc_name)
+		else:
+			run.emit("PRISONER HELD: %s remains imprisoned." % captive.merc_name)
 		return
 	if bool(ro.get("success", false)):
 		release(captive.merc_uid)
@@ -160,7 +191,9 @@ static func complete(run: ContractRun, ro: Dictionary) -> void:
 #Off the missing lists either way; a harness record is in neither and that is no error.
 static func release(uid: int) -> void:
 	pending_records.erase(uid)
+	var back: MercenaryData = null
 	if MercPool.captive_record(uid).is_empty():
-		MercPool.take(uid)
+		back = MercPool.take(uid)
 	else:
-		MercPool.take_captive(uid)
+		back = MercPool.take_captive(uid)
+	RestSystem.idle_restart(back, CampaignClock.now())

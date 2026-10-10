@@ -5,6 +5,7 @@ class_name LevelUpSystem
 
 const LEVEL_CAP := 40
 const CASTING_TRADITIONS: PackedStringArray = ["Mage", "Sorcerer", "Divine", "Mystech"]
+#Own scale on purpose: rarer events score higher; _draw_entry on WeightedTable.roll would change seeded draws.
 const RARITY_RANK: Dictionary = {"Common": 1, "Uncommon": 2, "Rare": 3, "Very Rare": 4, "Legendary": 5}
 const EQUIPPED_GEAR_FACTOR := 3.0
 const TRADITION_PLUS_25_FACTOR := 2.0
@@ -26,6 +27,8 @@ static var _event_knowledges: Dictionary = {}
 static var _event_tools: Array[String] = []
 #Option keys with no handler, reported once each.
 static var _warned_options: Dictionary = {}
+
+
 static func is_experience_level(level: int) -> bool:
 	if level == 0 or level == 1:
 		return true
@@ -33,7 +36,7 @@ static func is_experience_level(level: int) -> bool:
 
 
 static func is_skill_level(level: int) -> bool:
-	return level >= 3 and level <= 39 and level % 2 == 1
+	return level >= 3 and level <= LEVEL_CAP - 1 and level % 2 == 1
 
 
 static func tier_rows(level: int) -> Array[Dictionary]:
@@ -276,9 +279,9 @@ static func _apply_gear_perk(merc: MercenaryData) -> Dictionary:
 	var perk: TraitData = perks[randi() % perks.size()]
 	var kind: String = str(pick.get("kind", ""))
 	if kind == "weapon":
-		WeaponArmorPerkLibrary.grant_weapon_perk(merc, perk, "level up")
+		PerkGrants.grant_weapon_perk(merc, perk, "level up")
 	else:
-		WeaponArmorPerkLibrary.grant_armor_perk(merc, perk, "level up")
+		PerkGrants.grant_armor_perk(merc, perk, "level up")
 	return _granted("%s %s perk %s" % [kind, str(pick.get("key", "")), perk.trait_name])
 
 
@@ -513,19 +516,11 @@ static func _lifepath_candidates(merc: MercenaryData) -> Array[LifepathData]:
 			continue
 		if LifepathProgression.has_event(merc, event_name):
 			continue
-		var lp: LifepathData = _find_experienced(event_name)
+		var lp: LifepathData = LifepathProgression.find_event(event_name, "Experienced")
 		if lp == null or lp.rarity == "Guaranteed":
 			continue
 		out.append(lp)
 	return out
-
-
-static func _find_experienced(event_name: String) -> LifepathData:
-	for entry: Variant in (DataManager.lifepaths_by_category.get("Experienced", []) as Array):
-		var lp: LifepathData = entry as LifepathData
-		if lp != null and lp.event_name == event_name:
-			return lp
-	return null
 
 
 #Pools the events a merc qualifies for only when this level can still spend a pick on one.

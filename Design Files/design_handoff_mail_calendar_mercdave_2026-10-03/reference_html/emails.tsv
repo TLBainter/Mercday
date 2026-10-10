@@ -1,0 +1,45 @@
+id	folder	sender	subject	body	start_day	start_time	read	delay_h	bill_id	amount	date	vac	opt1	next1	fx1	opt2	next2	fx2	opt3	next3	fx3
+I1	Inbox	mercday	Your Mercday Pro plan renews soon	Thanks for running your guild on Mercday Pro.\nYour plan renews on {date} for {amount} notes. No action is needed; the fee is added to your end of month expenses.	1295	09:00	1		mercday_renew	250	1319		Ok								
+I2	Inbox	org3	Thank you for your service	Your team completed Contract 14 Name ahead of schedule. Our board was impressed.\nWe will send your guild the first look at our next posting.	1296	08:20							Ok		rel:org3:1						
+I3	Inbox	person5	An invitation to the harvest banquet	My household hosts a banquet at the end of the month and your guild is invited.\nGuests usually bring a gift for the host.	1294	15:00		6					Attend	I3A	money:-100;rel:person5:1	Send Regrets	I3B				
+I3A	Inbox	person5	Re: An invitation to the harvest banquet	Wonderful. Your seat is reserved at the head table.				6					Ok								
+I3B	Inbox	person5	Re: An invitation to the harvest banquet	A pity. Perhaps next year.				6					Ok								
+I4	Inbox	place4	Bandits on the north road	Our watch reports bandits camped along the north road. We may post a contract to clear them out.\nWould your guild be interested?	1293	11:10		12					We're Interested	I4A	rel:place4:1	Not Right Now	I4B				
+I4A	Inbox	place4	Re: Bandits on the north road	Good. Watch the contract board; the posting will go up within the week.				12					Ok								
+I4B	Inbox	place4	Re: Bandits on the north road	Understood. We will ask another guild.				12					Ok								
+R1	Requests	merc3	Vacation request	I would like to take {vac_days} days off, from {vac_start} to {vac_end}. My family is visiting from Copari.	1296	07:45		2				3:1302:5	Approve	R1A	vac:approve	Deny	R1B	vac:deny;opinion:3:-1	Ask for Later Dates	R1C	vac:shift:10
+R1A	Requests	merc3	Re: Vacation request	Thank you! I will be back on {vac_end}.				2					Ok								
+R1B	Requests	merc3	Re: Vacation request	Understood. I will stay.				2					Ok								
+R1C	Requests	merc3	Re: Vacation request	{vac_start} to {vac_end} works for me. Thank you.				2					Ok								
+R2	Requests	merc1	A short break after Contract 6 Name	When I return from Contract 6 Name, could I take {vac_days} days to rest? From {vac_start} to {vac_end}.	1295	18:30		4				1:1300:3	Approve	R2A	vac:approve	Deny	R2B	vac:deny;opinion:1:-1			
+R2A	Requests	merc1	Re: A short break after Contract 6 Name	Much appreciated.				4					Ok								
+R2B	Requests	merc1	Re: A short break after Contract 6 Name	Fine. I will report in when I am back.				4					Ok								
+R3	Requests	person3	About the fee on our next contract	We have hired your guild many times. Would you lower the fee on our next contract by 10%?	1294	10:00		8					Agree to 10%	R3A	rel:person3:1	Counter at 5%	R3C		Decline	R3B	rel:person3:-1
+R3A	Requests	person3	Re: About the fee on our next contract	Thank you. We will post the contract soon.				8					Ok								
+R3B	Requests	person3	Re: About the fee on our next contract	That is disappointing.				8					Ok								
+R3C	Requests	person3	Re: About the fee on our next contract	5% is acceptable. We have a deal.				8					Ok								
+R4	Requests	merc8	Family emergency	My father has fallen ill. I need {vac_days} days, starting {vac_start}. I know it is short notice.	1296	09:30		1				8:1297:4	Approve	R4A	vac:approve;opinion:8:1	Deny	R4B	vac:deny;opinion:8:-2			
+R4A	Requests	merc8	Re: Family emergency	Thank you. I will not forget this.				1					Ok								
+R4B	Requests	merc8	Re: Family emergency	I see.				1					Ok								
+B1	Bills	landlord	Guild Hall rent, Month 8	Rent for Month 8 is {amount} notes, due {date}.	1291	09:00		48	rent_m8	400	1305		Pay Now	B1A	pay	Remind Me Later	B1R				
+B1R	Bills	landlord	Reminder: rent due {date}	This is a reminder that {amount} notes are due on {date}.				48	rent_m8	400	1305		Pay Now	B1A	pay						
+B1A	Bills	landlord	Payment received	Received {amount} notes for Month 8. Thank you.				1					Ok								
+B2	Bills	mercday	Invoice: Mercday Pro, Month 7	Your Month 7 invoice was paid with your end of month expenses.	1290	00:00	1			250			Ok								
+B3	Bills	healer	Treatment fees for FirstName3 LastName3	FirstName3 LastName3 was treated for wounds after their last contract. The fee is {amount} notes, due {date}.	1295	13:40		24	heal_m3	180	1301		Pay Now		pay	Dispute the Charge	B3D				
+B3D	Bills	healer	Re: Treatment fees for FirstName3 LastName3	We reviewed the charge and reduced it to {amount} notes. The new due date is {date}.				24	heal_m3	120	1303		Pay Now		pay						
+B4	Bills	registry	Guild license renewal	Your guild license expires soon. The renewal fee is {amount} notes, due {date}. Unlicensed guilds cannot accept new contracts.	1296	06:30		48	license	150	1312		Pay Now	B4A	pay	Remind Me Later	B4R				
+B4R	Bills	registry	Reminder: guild license renewal	Your renewal fee of {amount} notes is due {date}.				48	license	150	1312		Pay Now	B4A	pay						
+B4A	Bills	registry	License renewed	Your guild license is renewed for another year.				1					Ok								
+N1	News	herald	Company 4 Name to report earnings	Company 4 Name will report quarterly earnings on {date}. Analysts expect strong results after a busy contract season.	1296	06:00					1309		Ok								
+N2	News	herald	Dividend day approaches	Companies pay their quarterly dividends on {date}. Shareholders are paid automatically.	1295	07:00					1305		Ok								
+N3	News	herald	Storms close the Gledd Sea crossing	Ships are staying in port until the storms pass. Contracts that cross the Gledd Sea may take longer than usual.	1294	08:00	1						Ok								
+N4	News	registry	Guild rankings, Month 7	Your guild placed 14th of 60 registered guilds in Month 7, up 3 places.	1291	12:00	1						Ok								
+S1	Spam	spam1	YOU HAVE WON 10,000 NOTES!!!	Congratulations! Your guild was selected to receive 10,000 notes. Claim your prize today.	1296	03:13		2					Claim Prize	S1A		Delete		delete			
+S1A	Spam	spam1	Re: Your prize, one small fee	To release your prize, please send a processing fee of 50 notes.				2					Pay the Fee	S1B	money:-50	Delete		delete			
+S1B	Spam	spam1	Re: Your prize is processing	Your fee was received. Please allow 6 to 8 years for delivery.				2					Ok								
+S2	Spam	spam2	Discreet goods, no questions asked	Lockpicks. Permits. Things that fall off carts. A friend of a friend says you might be interested.	1295	23:50		6					Tell Me More	S2A		Delete		delete			
+S2A	Spam	spam2	Re: Discreet goods	Not by mail. A friend will find you.				6					Ok								
+S3	Spam	org8	Exclusive offer for valued guilds!	For a limited time, valued guilds receive 2% off select Company 8 Name services. Terms apply.	1293	09:00	1	1					Ok			Unsubscribe	S3A	delete			
+S3A	Spam	org8	You have been unsubscribed	You have been removed from 1 of our 14 mailing lists.				1					Ok								
+S4	Spam	spam3	Urgent help needed from royalty	A member of the royal court of Umbra is stranded abroad and needs 200 notes to return home. You will be repaid tenfold.	1292	14:00		3					Send Help	S4A	money:-200	Delete		delete			
+S4A	Spam	spam3	Undeliverable	This address no longer exists.				3					Ok								

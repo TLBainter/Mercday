@@ -15,9 +15,7 @@ static var _thresholds: Dictionary = {}
 
 #Plots, lots and ground surfaces of one block; appends to area.city["plots"] and area.city["lots"].
 static func build(area: BattlefieldArea, block: Dictionary) -> void:
-	if area == null or block.is_empty():
-		return
-	if not area.city.has("plots") or not area.city.has("lots"):
+	if block.is_empty():
 		return
 	var rect: Rect2i = block.get("rect", Rect2i())
 	if rect.size.x < 1 or rect.size.y < 1:
@@ -392,9 +390,9 @@ static func _front_of(area: BattlefieldArea, rect: Rect2i, cls: String) -> Dicti
 		var at: int = _best_side(open)
 		var entry: Dictionary = open[at]
 		open.remove_at(at)
-		var flat: bool = entry["side"] == "N" or entry["side"] == "S"
-		var frontage: int = rect.size.x if flat else rect.size.y
-		var depth: int = rect.size.y if flat else rect.size.x
+		var span: Vector2i = CityGrid.front_span(rect.size, String(entry["side"]))
+		var frontage: int = span.x
+		var depth: int = span.y
 		var rows: Array[String] = rows_that_fit(cls, frontage, depth)
 		if rows.is_empty():
 			continue

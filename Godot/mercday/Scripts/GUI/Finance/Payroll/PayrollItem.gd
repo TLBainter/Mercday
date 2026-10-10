@@ -1,25 +1,17 @@
-class_name PayrollItem extends Button
+class_name PayrollItem extends BevelButton
 
 #One merc row in the payroll list: portrait with the status band over it, name, tradition and the
 #guild face, the monthly wage and the level plate. Every value comes from one payroll_rows row.
 #A fired or dead row opens nothing, so it never emits row_pressed.
 
-const FONT_NAME: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const STYLE_NORMAL: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_item.tres")
-const STYLE_HOVER: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_item_hover.tres")
-const STYLE_PRESS: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_item_press.tres")
-
-const CREAM: Color = Color("#f3ead7")
-const BAND_AVAILABLE: Color = Color("#6cc36a")
-const BAND_GONE: Color = Color("#e8583f")
+const BAND_AVAILABLE: Color = GuiColors.GREEN
+const BAND_GONE: Color = GuiColors.RED
 const PLAIN_TINT: Color = Color(1.0, 1.0, 1.0, 1.0)
-const GREY_TINT: Color = Color(0.55, 0.55, 0.55, 1.0)
+const GREY_TINT: Color = GuiColors.GREY_TINT
 const SALARY_TIP: String = "Monthly salary"
 const ROW_HEIGHT: float = 68.0
 const PORTRAIT_PX: int = 56
 const BAND_HEIGHT: float = 14.0
-const BADGE_PX: int = 40
 
 signal row_pressed(uid: int)
 signal row_hovered(uid: int)
@@ -34,22 +26,34 @@ signal row_left(uid: int)
 @onready var tradition_label: Label = $Body/Row/Mid/TraditionLabel
 @onready var face: MoodFace = $Body/Row/Mid/Face
 @onready var salary_row: NotesLabel = $Body/Row/Salary
-@onready var badge: PayrollBadge = $Body/Row/Badge
+@onready var badge: LevelBadge = $Body/Row/Badge
 
 var _row: Dictionary = {}
 
 
+func _init() -> void:
+	fill = GuiColors.ROW_FILL
+	hi = fill.lightened(0.18)
+	lo = fill.darkened(0.25)
+	pressed_fill = GuiColors.INK
+	click_move = ButtonFx.ClickMove.NONE
+	click_shade = ButtonFx.ClickShade.FLASH
+	hover_move = ButtonFx.HoverMove.NONE
+	hover_shade = ButtonFx.HoverShade.LIGHTEN
+	stay_move = ButtonFx.StayMove.NONE
+	stay_shade = ButtonFx.StayShade.NONE
+	active_move = ButtonFx.HoverMove.NONE
+	active_shade = ButtonFx.HoverShade.RING
+
+
 func _ready() -> void:
+	super()
 	custom_minimum_size = Vector2(0.0, ROW_HEIGHT)
 	focus_mode = Control.FOCUS_NONE
-	for state: String in ["normal", "focus"]:
-		add_theme_stylebox_override(state, STYLE_NORMAL)
-	add_theme_stylebox_override("hover", STYLE_HOVER)
-	add_theme_stylebox_override("pressed", STYLE_PRESS)
 	pressed.connect(_on_pressed)
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
-	_ignore_mouse(body)
+	GuiNodes.ignore_mouse(body)
 	_refresh()
 
 
@@ -93,7 +97,7 @@ func text(key: String) -> String:
 		"salary":
 			return salary_row.value_text()
 		"level":
-			return badge.text()
+			return badge.number_label.text
 		_:
 			return ""
 
@@ -101,13 +105,11 @@ func text(key: String) -> String:
 func color(key: String) -> Color:
 	if key == "status":
 		return band_color(status())
-	var raw: Variant = CREAM
 	if key == "tradition":
-		raw = _row.get("tradition_color", CREAM)
-	elif key == "salary":
-		raw = _row.get("salary_color", CREAM)
-	var out: Color = raw
-	return out
+		return _row.get("tradition_color", GuiColors.CREAM) as Color
+	if key == "salary":
+		return _row.get("salary_color", GuiColors.CREAM) as Color
+	return GuiColors.CREAM
 
 
 #The band the row prints: green while the merc is available, red once fired or dead, cream for
@@ -117,7 +119,7 @@ static func band_color(status_value: int) -> Color:
 		return BAND_AVAILABLE
 	if status_value == GuiTypes.MercStatus.FIRED or status_value == GuiTypes.MercStatus.DEAD:
 		return BAND_GONE
-	return CREAM
+	return GuiColors.CREAM
 
 
 func _on_pressed() -> void:
@@ -147,17 +149,11 @@ func _refresh() -> void:
 	strip.band = true
 	strip.custom_minimum_size = Vector2(0.0, BAND_HEIGHT)
 	strip.status = status()
-	strip.add_theme_font_override("font", FONT_BODY)
-	strip.add_theme_font_size_override("font_size", 8)
-	strip.add_theme_color_override("font_color", color("status"))
+	GuiStyle.paint(strip, GuiStyle.BODY, 8, color("status"))
 	name_label.text = String(_row.get("name", ""))
-	name_label.add_theme_font_override("font", FONT_NAME)
-	name_label.add_theme_font_size_override("font_size", 11)
-	name_label.add_theme_color_override("font_color", CREAM)
+	GuiStyle.paint(name_label, GuiStyle.SILK_BOLD, 11, GuiColors.CREAM)
 	tradition_label.text = String(_row.get("tradition", ""))
-	tradition_label.add_theme_font_override("font", FONT_BODY)
-	tradition_label.add_theme_font_size_override("font_size", 12)
-	tradition_label.add_theme_color_override("font_color", color("tradition"))
+	GuiStyle.paint(tradition_label, GuiStyle.BODY, 12, color("tradition"))
 	face.guild = true
 	face.pixel_scale = 2
 	face.opinion = int(_row.get("opinion", 0))
@@ -168,16 +164,5 @@ func _refresh() -> void:
 	salary_row.value_color = color("salary")
 	salary_row.tooltip_text = SALARY_TIP
 	salary_row.mouse_filter = Control.MOUSE_FILTER_PASS
-	badge.plate = BADGE_PX
-	badge.kicker_size = 7
-	badge.value_size = 15
 	badge.level = int(_row.get("level", 0))
 	tooltip_text = ""
-
-
-func _ignore_mouse(node: Node) -> void:
-	var control: Control = node as Control
-	if control != null:
-		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for child: Node in node.get_children():
-		_ignore_mouse(child)

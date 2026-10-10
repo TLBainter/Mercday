@@ -23,6 +23,7 @@ static func run() -> bool:
 	_case_blocks(res, fields)
 	_case_entrance(res, fields)
 	_case_cells(res, fields)
+	_case_lock_table(res)
 	_case_reach(res, fields)
 	_case_halls(res, fields)
 	_case_room_locks(res, fields)
@@ -232,7 +233,7 @@ static func _case_entrance(res: Dictionary, fields: Array[BattlefieldArea]) -> v
 		var doors: int = 0
 		for fl: int in _floor_nums(f):
 			for cell: Vector3i in _shell_cells(f, fl):
-				var ct: String = String((f._obs_map.get(cell, {}) as Dictionary).get("cell_type", ""))
+				var ct: String = f.cell_type_at(cell)
 				if ct == "door":
 					doors += 1
 					if cell.z != 0:
@@ -298,6 +299,10 @@ static func _case_cells(res: Dictionary, fields: Array[BattlefieldArea]) -> void
 	TestFixtures.check(res, "the cell total matches the block count", off_block == 0,
 		"%d field(s) outside %d to %d per block" % [off_block, DungeonGenerator.CELLS_MIN,
 			DungeonGenerator.CELLS_MAX])
+
+
+#The lock difficulty table and the jam of a failed attempt, on hand-made lock dictionaries.
+static func _case_lock_table(res: Dictionary) -> void:
 	var table_bad: Array[String] = []
 	for step: int in range(1, 11):
 		var d: float = float(step) / 2.0
@@ -335,11 +340,7 @@ static func _case_reach(res: Dictionary, fields: Array[BattlefieldArea]) -> void
 		var start: Vector3i = _foyer_cell(f)
 		if start.x < 0:
 			continue
-		var all_dist: Dictionary = DungeonGenerator._walk_dist(f, start, true)
-		for key: Variant in f.footprint_cells.keys():
-			var c: Vector3i = key as Vector3i
-			if DungeonGenerator._passable(f, c, true) and not all_dist.has(c):
-				cut_off += 1
+		cut_off += GenFixtures.orphan_count(f, start, f.footprint_cells.keys())
 		var free_dist: Dictionary = DungeonGenerator._walk_dist(f, start, false)
 		for entry: Dictionary in f.interior_rooms:
 			var r: Rect2i = entry["rect"] as Rect2i
@@ -349,11 +350,11 @@ static func _case_reach(res: Dictionary, fields: Array[BattlefieldArea]) -> void
 				if reached:
 					open_cell += 1
 			elif not reached:
-				if DungeonGenerator._locked_room(f, r, fl2):
+				if DungeonGenerator.locked_room(f, r, fl2):
 					locked_chamber += 1
 				else:
 					gated_chamber += 1
-			if not InteriorGenerator._room_accessible_from_doors(f, r, fl2):
+			if not InteriorGenerator.room_accessible_from_doors(f, r, fl2):
 				blind_room += 1
 	TestFixtures.check(res, "every carved cell reaches the Foyer", cut_off == 0,
 		"%d orphan cell(s)" % cut_off)
@@ -414,8 +415,9 @@ static func _case_locked_runtime(res: Dictionary, fields: Array[BattlefieldArea]
 		TestFixtures.check(res, "a locked gate exists to test", false, "no locked door in any field")
 		return
 	_case_lock_routing(res, lock)
-	_case_lock_pick(res, lock)
-	_case_lock_key(res, lock)
+	var state: BattleState = _lock_state(lock["field"])
+	_case_lock_pick(res, lock, state)
+	_case_lock_key(res, lock, state)
 
 
 #The first locked door of the seeded fields as {"gate", "field", "cell"}; empty when none is locked.
@@ -463,50 +465,36 @@ static func _case_lock_routing(res: Dictionary, lock: Dictionary) -> void:
 
 
 #The picking failure path: a hopeless pick leaves the gate locked and reports the failure.
-static func _case_lock_pick(res: Dictionary, lock: Dictionary) -> void:
+static func _case_lock_pick(res: Dictionary, lock: Dictionary, state: BattleState) -> void:
 	var gate: Dictionary = lock["gate"]
-	var field: BattlefieldArea = lock["field"]
-	var team_a: Array[MercenaryData] = [_merc("Lockpick")]
-	var team_b: Array[MercenaryData] = [_merc("Warden")]
-	var state := BattleState.create(team_a, team_b, field)
-	lock["picker"] = team_a[0]
-	lock["warden"] = team_b[0]
-	lock["state"] = state
+	var picker: MercenaryData = _lead(state, 0)
 	var old_lock: int = DungeonLocks.lock_difficulty(gate)
 	gate[DungeonLocks.DIFFICULTY_KEY] = 99
 	gate[DungeonLocks.FAILS_KEY] = 0
-	team_a[0].stats["dexterity"] = 1
-	team_a[0].stats["luck"] = 0.0
+	picker.stats["dexterity"] = 1
+	picker.stats["luck"] = 0.0
 	var lines: Array[String] = []
-	var opened: bool = InteractionSystem.interact(team_a[0], gate, state, lines)
-	var said_pick: bool = false
-	for line: String in lines:
-		if line.contains("fails to pick"):
-			said_pick = true
+	var opened: bool = InteractionSystem.interact(picker, gate, state, lines)
 	TestFixtures.check(res, "a hopeless pick leaves the gate locked",
 		not opened and DungeonLocks.is_locked(gate) and not OpenCloseState.is_open(gate),
 		"interact returned true")
-	TestFixtures.check(res, "the failed pick is reported", said_pick,
+	TestFixtures.check(res, "the failed pick is reported", TestFixtures.has_line(lines, "fails to pick"),
 		"lines: %s" % ", ".join(lines))
 	gate[DungeonLocks.DIFFICULTY_KEY] = old_lock
 	gate[DungeonLocks.FAILS_KEY] = 0
 
 
 #The key path, the gate kept shut, the gate unlocked again and the reset the door penalty makes.
-static func _case_lock_key(res: Dictionary, lock: Dictionary) -> void:
+static func _case_lock_key(res: Dictionary, lock: Dictionary, state: BattleState) -> void:
 	var gate: Dictionary = lock["gate"]
 	var field: BattlefieldArea = lock["field"]
-	var picker: MercenaryData = lock["picker"]
-	var warden: MercenaryData = lock["warden"]
-	var state: BattleState = lock["state"]
+	var picker: MercenaryData = _lead(state, 0)
+	var warden: MercenaryData = _lead(state, 1)
 	var key_lines: Array[String] = []
 	var key_opened: bool = InteractionSystem.interact(warden, gate, state, key_lines)
-	var said_key: bool = false
-	for kline: String in key_lines:
-		if kline.contains("with a key"):
-			said_key = true
 	TestFixtures.check(res, "a captor unlocks the gate with a key",
-		key_opened and not DungeonLocks.is_locked(gate) and OpenCloseState.is_open(gate) and said_key,
+		key_opened and not DungeonLocks.is_locked(gate) and OpenCloseState.is_open(gate)
+			and TestFixtures.has_line(key_lines, "with a key"),
 		"opened %s lines: %s" % [str(key_opened), ", ".join(key_lines)])
 	gate[DungeonLocks.LOCKED_KEY] = true
 	OpenCloseState.set_open(gate, false)
@@ -514,14 +502,10 @@ static func _case_lock_key(res: Dictionary, lock: Dictionary) -> void:
 	gate[DungeonLocks.KEEP_SHUT_KEY] = true
 	var held_lines: Array[String] = []
 	var held: bool = InteractionSystem.interact(warden, gate, state, held_lines)
-	var said_locked: bool = false
-	for hline: String in held_lines:
-		if hline.contains("locked"):
-			said_locked = true
 	gate.erase(DungeonLocks.KEEP_SHUT_KEY)
 	TestFixtures.check(res, "a gate kept shut refuses the key",
 		not held and DungeonLocks.is_locked(gate), "interact returned true")
-	TestFixtures.check(res, "the locked gate reports its lock", said_locked,
+	TestFixtures.check(res, "the locked gate reports its lock", TestFixtures.has_line(held_lines, "locked"),
 		"lines: %s" % ", ".join(held_lines))
 	DungeonLocks.unlock(gate)
 	var lines2: Array[String] = []
@@ -583,11 +567,9 @@ static func _case_wanted_reasons(res: Dictionary) -> void:
 	var a_door: Dictionary = _locked_door(f, Vector3i(3, 5, 0), Rect2i(4, 4, 4, 4))
 	var b_door: Dictionary = _locked_door(f, Vector3i(11, 5, 0), Rect2i(12, 4, 4, 4))
 	var stray: Dictionary = _locked_door(f, Vector3i(20, 20, 0), Rect2i())
-	var team_a: Array[MercenaryData] = [_merc("Lockpick")]
-	var team_b: Array[MercenaryData] = [_merc("Warden")]
-	var picker: MercenaryData = team_a[0]
-	var warden: MercenaryData = team_b[0]
-	var state := BattleState.create(team_a, team_b, f)
+	var state: BattleState = _lock_state(f)
+	var picker: MercenaryData = _lead(state, 0)
+	var warden: MercenaryData = _lead(state, 1)
 	TestFixtures.place(state, picker, Vector2i(1, 1))
 	TestFixtures.place(state, warden, Vector2i(1, 2))
 	TestFixtures.check(res, "a quiet locked room is a wall",
@@ -626,11 +608,9 @@ static func _case_wanted_routing(res: Dictionary) -> void:
 	var f := _lock_field()
 	var a_door: Dictionary = _locked_door(f, Vector3i(3, 5, 0), Rect2i(4, 4, 4, 4))
 	var b_door: Dictionary = _locked_door(f, Vector3i(11, 5, 0), Rect2i(12, 4, 4, 4))
-	var team_a: Array[MercenaryData] = [_merc("Lockpick")]
-	var team_b: Array[MercenaryData] = [_merc("Warden")]
-	var picker: MercenaryData = team_a[0]
-	var warden: MercenaryData = team_b[0]
-	var state := BattleState.create(team_a, team_b, f)
+	var state: BattleState = _lock_state(f)
+	var picker: MercenaryData = _lead(state, 0)
+	var warden: MercenaryData = _lead(state, 1)
 	TestFixtures.place(state, picker, Vector2i(1, 1))
 	TestFixtures.place(state, warden, Vector2i(5, 5))
 	PathCost.set_mover_doors(picker, state)
@@ -652,11 +632,9 @@ static func _case_wanted_routing(res: Dictionary) -> void:
 static func _case_wanted_cache(res: Dictionary) -> void:
 	var f := _lock_field()
 	var a_door: Dictionary = _locked_door(f, Vector3i(3, 5, 0), Rect2i(4, 4, 4, 4))
-	var team_a: Array[MercenaryData] = [_merc("Lockpick")]
-	var team_b: Array[MercenaryData] = [_merc("Warden")]
-	var picker: MercenaryData = team_a[0]
-	var warden: MercenaryData = team_b[0]
-	var state := BattleState.create(team_a, team_b, f)
+	var state: BattleState = _lock_state(f)
+	var picker: MercenaryData = _lead(state, 0)
+	var warden: MercenaryData = _lead(state, 1)
 	TestFixtures.place(state, picker, Vector2i(1, 1))
 	TestFixtures.place(state, warden, Vector2i(1, 2))
 	PathCost.set_mover_doors(picker, state)
@@ -676,19 +654,15 @@ static func _case_wanted_cache(res: Dictionary) -> void:
 static func _case_warm_rng(res: Dictionary) -> void:
 	var f := _lock_field()
 	_locked_door(f, Vector3i(3, 5, 0), Rect2i(4, 4, 4, 4))
-	var team_a: Array[MercenaryData] = [_merc("Lockpick")]
-	var team_b: Array[MercenaryData] = [_merc("Warden")]
-	var picker: MercenaryData = team_a[0]
-	var warden: MercenaryData = team_b[0]
-	picker.stats["jump"] = 1
-	warden.stats["jump"] = 1
-	var state := BattleState.create(team_a, team_b, f)
+	var state: BattleState = _lock_state(f, 1)
+	var picker: MercenaryData = _lead(state, 0)
+	var warden: MercenaryData = _lead(state, 1)
 	TestFixtures.place(state, picker, Vector2i(1, 1))
 	TestFixtures.place(state, warden, Vector2i(5, 5))
 	seed(4242)
 	var bare: String = "%d|%d|%d" % [randi(), randi(), randi()]
 	seed(4242)
-	var jumpers: int = PathTargeter.warm_jumps(state)
+	var jumpers: int = ReachCache.warm_jumps(state)
 	var after: String = "%d|%d|%d" % [randi(), randi(), randi()]
 	TestFixtures.check(res, "warm-up draws no RNG", jumpers == 2 and bare == after,
 		"%d jumper(s), %s then %s" % [jumpers, bare, after])
@@ -698,17 +672,17 @@ static func _case_warm_rng(res: Dictionary) -> void:
 	TestFixtures.check(res, "warm-up plans without locks",
 		warm_mode == PathCost.LOCK_NONE and PathCost.lock_mode == PathCost.LOCK_PICK,
 		"warm %d, turn %d" % [warm_mode, PathCost.lock_mode])
-	PathTargeter.clear_caches()
-	PathTargeter.reachable_for(picker, state, true)
-	var warm_key: Array = ((PathTargeter._reach_slots[picker] as Dictionary)["key"] as Array).duplicate()
-	PathTargeter.reachable_for(picker, state)
-	var turn_key: Array = (PathTargeter._reach_slots[picker] as Dictionary)["key"] as Array
+	ReachCache.clear_caches()
+	ReachCache.reachable_for(picker, state, true)
+	var warm_key: Array = ((ReachCache.reach_slots[picker] as Dictionary)["key"] as Array).duplicate()
+	ReachCache.reachable_for(picker, state)
+	var turn_key: Array = (ReachCache.reach_slots[picker] as Dictionary)["key"] as Array
 	var wm: int = int(warm_key[warm_key.size() - 2])
 	var tm: int = int(turn_key[turn_key.size() - 2])
 	TestFixtures.check(res, "warm slot is not reused by the lock turn",
 		wm == PathCost.LOCK_NONE and tm == PathCost.LOCK_PICK and warm_key != turn_key,
 		"warm mode %d, turn mode %d" % [wm, tm])
-	PathTargeter.clear_caches()
+	ReachCache.clear_caches()
 	PathCost.set_door_penalty(-1)
 
 
@@ -723,39 +697,39 @@ static func _case_leaps(res: Dictionary) -> void:
 	TestFixtures.put(f, Vector3i(18, 10, 0), {"cell_type": "wall", "size": 4})
 	TestFixtures.put(f, Vector3i(19, 11, 0), {"cell_type": "wall", "size": 4})
 	TestFixtures.check(res, "open ground leaps clear",
-		not PathCost.leap_blocked(f, Vector3i(2, 2, 0), Vector3i(4, 2, 0)), "blocked")
+		not PathJump.leap_blocked(f, Vector3i(2, 2, 0), Vector3i(4, 2, 0)), "blocked")
 	TestFixtures.check(res, "a wall on the line stops a leap",
-		PathCost.leap_wall_blocked(f, Vector3i(9, 10, 0), Vector3i(11, 10, 0)), "not blocked")
+		PathJump.leap_wall_blocked(f, Vector3i(9, 10, 0), Vector3i(11, 10, 0)), "not blocked")
 	TestFixtures.check(res, "the landing cell is not tested as a wall",
-		not PathCost.leap_wall_blocked(f, Vector3i(9, 10, 0), Vector3i(10, 10, 0)), "blocked")
+		not PathJump.leap_wall_blocked(f, Vector3i(9, 10, 0), Vector3i(10, 10, 0)), "blocked")
 	TestFixtures.check(res, "an unbroken window stops a leap",
-		PathCost.leap_wall_blocked(f, Vector3i(11, 10, 0), Vector3i(13, 10, 0)), "not blocked")
+		PathJump.leap_wall_blocked(f, Vector3i(11, 10, 0), Vector3i(13, 10, 0)), "not blocked")
 	win["broken"] = true
 	TestFixtures.check(res, "a broken window is leapt through",
-		not PathCost.leap_wall_blocked(f, Vector3i(11, 10, 0), Vector3i(13, 10, 0)), "blocked")
+		not PathJump.leap_wall_blocked(f, Vector3i(11, 10, 0), Vector3i(13, 10, 0)), "blocked")
 	TestFixtures.check(res, "a low obstacle is leapt over",
-		not PathCost.leap_blocked(f, Vector3i(13, 10, 0), Vector3i(15, 10, 0)), "blocked")
+		not PathJump.leap_blocked(f, Vector3i(13, 10, 0), Vector3i(15, 10, 0)), "blocked")
 	TestFixtures.check(res, "a shut door stops a leap, walls aside",
-		PathCost.leap_blocked(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0))
-			and not PathCost.leap_wall_blocked(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0)),
+		PathJump.leap_blocked(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0))
+			and not PathJump.leap_wall_blocked(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0)),
 		"not blocked")
 	TestFixtures.check(res, "the crossed door is reported",
-		PathCost.leap_doors(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0)).size() == 1,
-		"%d door(s)" % PathCost.leap_doors(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0)).size())
+		PathJump.leap_doors(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0)).size() == 1,
+		"%d door(s)" % PathJump.leap_doors(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0)).size())
 	OpenCloseState.set_open(door, true)
 	TestFixtures.check(res, "an open door is leapt through",
-		not PathCost.leap_blocked(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0)), "blocked")
+		not PathJump.leap_blocked(f, Vector3i(15, 10, 0), Vector3i(17, 10, 0)), "blocked")
 	TestFixtures.check(res, "a diagonal wall corner cannot be squeezed through",
-		PathCost.leap_wall_blocked(f, Vector3i(18, 11, 0), Vector3i(19, 10, 0)), "not blocked")
+		PathJump.leap_wall_blocked(f, Vector3i(18, 11, 0), Vector3i(19, 10, 0)), "not blocked")
 	TestFixtures.check(res, "one corner wall leaves the diagonal open",
-		not PathCost.leap_wall_blocked(f, Vector3i(18, 9, 0), Vector3i(19, 8, 0)), "blocked")
+		not PathJump.leap_wall_blocked(f, Vector3i(18, 9, 0), Vector3i(19, 8, 0)), "blocked")
 	var row: Array = [Vector3i(17, 10, 0), 2, {}, [door]]
 	OpenCloseState.set_open(door, false)
 	TestFixtures.check(res, "a jump row with a shut door on the line is refused",
-		PathCost.jump_row_blocked(row), "not blocked")
+		PathJump.jump_row_blocked(row), "not blocked")
 	OpenCloseState.set_open(door, true)
 	TestFixtures.check(res, "a jump row with the door open is allowed",
-		not PathCost.jump_row_blocked(row), "blocked")
+		not PathJump.jump_row_blocked(row), "blocked")
 
 
 #A bare dungeon field with two rooms, for the locked door rules.
@@ -769,6 +743,20 @@ static func _lock_field() -> BattlefieldArea:
 	f.interior_rooms.append({"rect": Rect2i(12, 4, 4, 4), "floor": 0,
 		"name": DungeonGenerator.ARMORY_ROW})
 	return f
+
+
+#A Lockpick against a Warden on f; a jump of zero or more is set on both before the battle is built.
+static func _lock_state(f: BattlefieldArea, jump: int = -1) -> BattleState:
+	var team_a: Array[MercenaryData] = [_merc("Lockpick")]
+	var team_b: Array[MercenaryData] = [_merc("Warden")]
+	if jump >= 0:
+		team_a[0].stats["jump"] = jump
+		team_b[0].stats["jump"] = jump
+	return BattleState.create(team_a, team_b, f)
+
+
+static func _lead(state: BattleState, team: int) -> MercenaryData:
+	return (state.teams[team] as Array)[0] as MercenaryData
 
 
 #One locked door at cell, guarding rect when a rect is given.
@@ -845,10 +833,7 @@ static func _case_spawns(res: Dictionary, fields: Array[BattlefieldArea]) -> voi
 			empty_b += 1
 		if f.spawn_floor_b > f.spawn_floor_a or f.spawn_floor_a != 0:
 			wrong_floor += 1
-		var foyer := Rect2i()
-		for entry: Dictionary in f.interior_rooms:
-			if String(entry.get("name", "")) == DungeonGenerator.FOYER_ROW:
-				foyer = entry["rect"] as Rect2i
+		var foyer: Rect2i = _foyer_entry(f).get("rect", Rect2i()) as Rect2i
 		for key: Variant in f.spawn_zone_a.keys():
 			var p: Vector2i = key as Vector2i
 			if not foyer.has_point(p):
@@ -870,16 +855,12 @@ static func _case_spawns(res: Dictionary, fields: Array[BattlefieldArea]) -> voi
 		#A zone with fewer free cells than the team may legally overflow, so it is not measured.
 		if f2.spawn_zone_a.size() < 6 or f2.spawn_zone_b.size() < 6:
 			continue
-		var team_a: Array[MercenaryData] = []
-		var team_b: Array[MercenaryData] = []
-		for k: int in range(3):
-			team_a.append(_merc("A%d" % k))
-			team_b.append(_merc("B%d" % k))
-		var st := BattleState.create(team_a, team_b, f2)
-		for m: MercenaryData in team_a:
+		var teams: Array = GenFixtures.rival_teams("A", "B", 3, TestFixtures.flat_merc)
+		var st := BattleState.create(teams[0], teams[1], f2)
+		for m: MercenaryData in teams[0]:
 			if not f2.spawn_zone_a.has(st.get_position(m)):
 				stray_a += 1
-		for m2: MercenaryData in team_b:
+		for m2: MercenaryData in teams[1]:
 			if not f2.spawn_zone_b.has(st.get_position(m2)):
 				stray_b += 1
 	TestFixtures.check(res, "team A places inside its zone", stray_a == 0,
@@ -930,8 +911,8 @@ static func _case_routing(res: Dictionary) -> void:
 	TestFixtures.check(res, "the validator still rejects an unknown map", bad_count > 0,
 		"%d warning(s)" % bad_count)
 	var area: Dictionary = DataManager.get_random_area("Dungeon")
-	var top_names: Array[String] = _room_names(DataManager.get_dungeon_rooms_for_floor(area, 0))
-	var deep_names: Array[String] = _room_names(DataManager.get_dungeon_rooms_for_floor(area, -1))
+	var top_names: Array[String] = _room_names(RoomCatalog.get_dungeon_rooms_for_floor(area, 0))
+	var deep_names: Array[String] = _room_names(RoomCatalog.get_dungeon_rooms_for_floor(area, -1))
 	TestFixtures.check(res, "F0 rooms keep the Foyer and drop the deep rows",
 		top_names.has(DungeonGenerator.FOYER_ROW) and not top_names.has("Dungeon Torture Chamber"),
 		"F0 rows: %s" % ", ".join(top_names))
@@ -945,7 +926,8 @@ static func _case_determinism(res: Dictionary) -> void:
 	var b := _seeded(4242, 3.0)
 	var c := _seeded(4243, 3.0)
 	TestFixtures.check(res, "one seed gives one header and one obstacle set",
-		BattlefieldRender.to_header_string(a) == BattlefieldRender.to_header_string(b) and a.obstacles.size() == b.obstacles.size(),
+		BattlefieldRender.to_header_string(a) == BattlefieldRender.to_header_string(b) \
+			and a.obstacles.size() == b.obstacles.size(),
 		"%s / %s" % [BattlefieldRender.to_header_string(a), BattlefieldRender.to_header_string(b)])
 	TestFixtures.check(res, "one seed gives one room list", _rooms_text(a) == _rooms_text(b),
 		"A: %s" % _rooms_text(a).substr(0, 96))
@@ -1100,21 +1082,25 @@ static func _gate_of(field: BattlefieldArea, r: Rect2i, f: int) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
-static func _touches_foyer(field: BattlefieldArea, e: Vector2i) -> bool:
+#The interior_rooms entry of the Foyer; empty when the field has none.
+static func _foyer_entry(field: BattlefieldArea) -> Dictionary:
 	for entry: Dictionary in field.interior_rooms:
-		if String(entry.get("name", "")) != DungeonGenerator.FOYER_ROW:
-			continue
-		return (entry["rect"] as Rect2i).grow(1).has_point(e)
-	return false
+		if String(entry.get("name", "")) == DungeonGenerator.FOYER_ROW:
+			return entry
+	return {}
+
+
+static func _touches_foyer(field: BattlefieldArea, e: Vector2i) -> bool:
+	var foyer: Dictionary = _foyer_entry(field)
+	return not foyer.is_empty() and (foyer["rect"] as Rect2i).grow(1).has_point(e)
 
 
 static func _foyer_cell(field: BattlefieldArea) -> Vector3i:
-	for entry: Dictionary in field.interior_rooms:
-		if String(entry.get("name", "")) != DungeonGenerator.FOYER_ROW:
-			continue
-		var r: Rect2i = entry["rect"] as Rect2i
-		return Vector3i(r.position.x, r.position.y, int(entry.get("floor", 0)))
-	return Vector3i(-1, -1, 0)
+	var foyer: Dictionary = _foyer_entry(field)
+	if foyer.is_empty():
+		return Vector3i(-1, -1, 0)
+	var r: Rect2i = foyer["rect"] as Rect2i
+	return Vector3i(r.position.x, r.position.y, int(foyer.get("floor", 0)))
 
 
 static func _room_reached(dist: Dictionary, r: Rect2i, f: int) -> bool:

@@ -1,28 +1,7 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/MoodMeter.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodFace.tscn" id="2"]
 
 [node name="MoodMeter" type="HBoxContainer"]
 theme_override_constants/separation = 4
 script = ExtResource("1")
-
-[node name="Face0" parent="." instance=ExtResource("2")]
-layout_mode = 2
-mood = 0
-
-[node name="Face1" parent="." instance=ExtResource("2")]
-layout_mode = 2
-mood = 1
-
-[node name="Face2" parent="." instance=ExtResource("2")]
-layout_mode = 2
-mood = 2
-
-[node name="Face3" parent="." instance=ExtResource("2")]
-layout_mode = 2
-mood = 3
-
-[node name="Face4" parent="." instance=ExtResource("2")]
-layout_mode = 2
-mood = 4

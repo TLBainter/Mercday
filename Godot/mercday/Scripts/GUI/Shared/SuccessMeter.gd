@@ -6,7 +6,7 @@ class_name SuccessMeter extends Control
 const CELL_SIZE_PX: Vector2 = Vector2(5, 8)
 const GAP_PX: int = 1
 const CELL_COUNT: int = 20
-const EMPTY_COLOR: Color = Color("#1f3560")
+const EMPTY_COLOR: Color = GuiColors.BLUE_LO
 
 @export var odds: int = 0:
 	set(value):
@@ -45,17 +45,14 @@ func _notification(what: int) -> void:
 
 
 func _draw() -> void:
-	var filled: int = filled_cells(odds)
-	var fill_color: Color = GuiTypes.odds_color(odds)
 	var stride: float = (CELL_SIZE_PX.x + GAP_PX) * pixel_scale
 	var cell_size: Vector2 = CELL_SIZE_PX * pixel_scale
 	if stretch:
 		stride = size.x / float(CELL_COUNT)
 		cell_size = Vector2(maxf(1.0, stride - GAP_PX * pixel_scale),
 			CELL_SIZE_PX.y * pixel_scale)
-	for i: int in CELL_COUNT:
-		var cell_color: Color = fill_color if i < filled else EMPTY_COLOR
-		draw_rect(Rect2(i * stride, 0, cell_size.x, cell_size.y), cell_color)
+	CellBar.paint(self, Vector2.ZERO, cell_size, stride,
+		CellBar.split(CELL_COUNT, filled_cells(odds), GuiTypes.odds_color(odds), EMPTY_COLOR))
 
 
 static func filled_cells(odds_value: int) -> int:

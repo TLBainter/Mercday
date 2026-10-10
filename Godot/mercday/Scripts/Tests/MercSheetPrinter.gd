@@ -3,9 +3,9 @@ extends RefCounted
 
 #Formats and prints merc sheets, roll lines and the 100-merc batch analysis file.
 
-#Luck bucket rows of the batch analysis: the range label and the expected share, file and console alike.
-const LUCK_TABLE: Array[Array] = [[" 0- 5", "~45%"], [" 5-10", "~20%"], ["10-20", "~15%"],
-	["20-30", "~10%"], ["30-40", " ~9%"], ["40-50", " ~1%"], ["   50", "~0%"]]
+#Luck bucket rows of the batch analysis: range label, expected share and exclusive upper bound, file and console alike.
+const LUCK_TABLE: Array[Array] = [[" 0- 5", "~45%", 5.0], [" 5-10", "~20%", 10.0], ["10-20", "~15%", 20.0],
+	["20-30", "~10%", 30.0], ["30-40", " ~9%", 40.0], ["40-50", " ~1%", 50.0], ["   50", "~0%", INF]]
 
 
 static func print_merc(merc: MercenaryData) -> void:
@@ -122,10 +122,13 @@ static func merc_to_string(merc: MercenaryData) -> String:
 
 	lines.append("")
 	lines.append("======== STATS ===========================")
-	lines.append(("Current HP:").rpad(30) + " " + str(maxi(0, merc.current_hp)).lpad(3, "0") + " / " + str(int(merc.stats.get("maximum_hit_points", 0))).lpad(3, "0") + _excess_note(merc.excess_hp))
-	lines.append(("Current EP:").rpad(30) + " " + str(merc.current_ep).lpad(3, "0") + " / " + str(int(merc.stats.get("maximum_endurance_points", 0))).lpad(3, "0") + _excess_note(merc.excess_ep))
-	lines.append(("Current MP:").rpad(30) + " " + str(merc.current_mp).lpad(3, "0") + " / " + str(int(merc.stats.get("maximum_magic_points", 0))).lpad(3, "0") + _excess_note(merc.excess_mp))
-	lines.append(("Current AP:").rpad(30) + " " + str(merc.current_ap).lpad(3, "0") + " / " + str(int(merc.stats.get("action_points", 0))).lpad(3, "0"))
+	var hp_now: int = maxi(0, merc.current_hp)
+	for pool: Array in [["HP", hp_now, "maximum_hit_points", merc.excess_hp],
+			["EP", merc.current_ep, "maximum_endurance_points", merc.excess_ep],
+			["MP", merc.current_mp, "maximum_magic_points", merc.excess_mp],
+			["AP", merc.current_ap, "action_points", 0]]:
+		lines.append(("Current %s:" % pool[0]).rpad(30) + " " + str(pool[1]).lpad(3, "0") + " / "
+			+ str(int(merc.stats.get(pool[2], 0))).lpad(3, "0") + _excess_note(int(pool[3])))
 
 	for stat_def: Dictionary in DataManager.stat_definitions:
 		var var_name: String = stat_def["var_name"]
@@ -203,7 +206,7 @@ static func print_regional_names() -> void:
 	for region: String in NameGenerator.get_regions():
 		print("--- %s ---" % region)
 		for _i: int in range(10):
-			print("  " + NameGenerator.generate_for_region(region))
+			print("  " + NameGenerator.make_full_name(region))
 		print("")
 
 
@@ -217,21 +220,10 @@ static func batch_analysis() -> void:
 		var merc := MercGenerator.generate(i)
 		var trad_name: String = merc.tradition.tradition_name if merc.tradition else "(none)"
 		tally[trad_name] = tally.get(trad_name, 0) + 1
-		var lr: float = merc.luck_roll
-		if lr < 5.0:
-			luck_buckets[0] += 1
-		elif lr < 10.0:
-			luck_buckets[1] += 1
-		elif lr < 20.0:
-			luck_buckets[2] += 1
-		elif lr < 30.0:
-			luck_buckets[3] += 1
-		elif lr < 40.0:
-			luck_buckets[4] += 1
-		elif lr < 50.0:
-			luck_buckets[5] += 1
-		else:
-			luck_buckets[6] += 1
+		for b: int in range(LUCK_TABLE.size()):
+			if merc.luck_roll < float(LUCK_TABLE[b][2]):
+				luck_buckets[b] += 1
+				break
 		merc_blocks += merc_to_string(merc)
 
 	var sorted_keys: Array = tally.keys()

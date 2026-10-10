@@ -1,23 +1,18 @@
-class_name HiringTab extends Control
+class_name HiringTab extends FinancePage
 
 #The Hiring page of the Finance viewer: the shared filter column on the left, the applicant cards on
 #the right. The page filters and sorts through PromotionsManager.applicants_filtered and never by
 #itself; every card press marks the applicant seen and opens a modal on the modal host of the shell.
 #A refresh while the page is hidden only marks it dirty, so the shell can leave it built and cold.
+#A page held to fixed_campaign hides the filter column and lists that one campaign's applicants.
 
 const CARD_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Hiring/ApplicantCard.tscn")
 const DIALOG_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Hiring/HireOfferDialog.tscn")
 const NOTICE_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Hiring/HiringNotice.tscn")
-const PANEL_SCENE_PATH: String = "res://Scenes/GUI/Shared/TraitFilterPanel.tscn"
-const DROPDOWN_SCENE_PATH: String = "res://Scenes/GUI/Shared/OptionDropdown.tscn"
-const CONFIRM_SCENE_PATH: String = "res://Scenes/GUI/Shared/ConfirmDialog.tscn"
+const PANEL_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/TraitFilterPanel.tscn")
+const DROPDOWN_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/OptionDropdown.tscn")
+const CONFIRM_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/ConfirmDialog.tscn")
 const SORT_DIR_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/SortDirToggle.tscn")
-
-const INK: Color = Color("#0a0f1c")
-const NAVY: Color = Color("#0e1628")
-const ORANGE: Color = Color("#f28c28")
-const SKY: Color = Color("#9cc6ef")
-const GREEN: Color = Color("#6cc36a")
 
 const COLUMN_GAP: int = 16
 const RIGHT_GAP: int = 10
@@ -34,12 +29,17 @@ const LIST_MARGIN_RIGHT: int = 16
 const LIST_MARGIN_BOTTOM: int = 4
 const LIST_MARGIN_LEFT: int = 4
 const NOTICE_TOP: int = 10
+#How far the Finance window holds a page in from its edge: the window margin, page border and page pad.
+const SHELL_INSET: int = 32
 
 const TITLE_TEXT: String = "Applicants"
+const TITLE_FIXED_FMT: String = TITLE_TEXT + ": %s"
 const SORT_TEXT: String = "Sort"
 const COUNT_FMT: String = "%d of %d applicants shown"
+const COUNT_FIXED_FMT: String = "%d applicants"
 const EMPTY_FILTERED: String = "No applicants match your filters."
 const EMPTY_NONE: String = "No applicants yet. Run a Job Posting to attract mercs."
+const EMPTY_FIXED: String = "No applicants from this posting."
 const REJECT_TITLE: String = "Reject %s?"
 const REJECT_BODY: String = "Their application is removed."
 const REJECT_YES: String = "Reject"
@@ -52,14 +52,15 @@ const NOTICE_REFUSED: String = "%s refused your counter-offer."
 const NOTICE_ACCEPTED: String = "%s accepted your counter-offer."
 const VALUE_GROUP: String = "Value"
 const LOCK_VERB: String = "filter by"
-const MODAL_LAYER: String = "ModalLayer"
-const MODAL_GROUP: StringName = &"finance_modal_host"
 const KIND_REJECT: String = "reject"
 const KIND_HIRE: String = "hire"
+const NO_FIXED: int = FinanceViewer.NO_FIXED
+
+#Set before the page enters the tree; NO_FIXED lists every applicant.
+var fixed_campaign: int = NO_FIXED
 
 var _sort: StringName = &"fit"
 var _desc: bool = true
-var _dirty: bool = true
 var _shown: Array[int] = []
 var _pending: Dictionary = {}
 
@@ -93,12 +94,13 @@ func _ready() -> void:
 
 
 func _build_filter_column() -> Control:
-	_filter_column = HiringStyle.panel(NAVY, FILTER_RING_PX, INK, FILTER_PAD, FILTER_PAD)
+	_filter_column = HiringStyle.panel(GuiColors.ROW_FILL, FILTER_RING_PX, GuiColors.INK, FILTER_PAD,
+		FILTER_PAD)
 	_filter_column.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override(&"separation", FILTER_GAP)
 	_filter_column.add_child(col)
-	_panel = _load_panel()
+	_panel = PANEL_SCENE.instantiate() as TraitFilterPanel
 	if _panel != null:
 		_panel.panel_width = FILTER_WIDTH
 		_panel.show_clear = true
@@ -106,6 +108,7 @@ func _build_filter_column() -> Control:
 		_panel.footer_note = ""
 		_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		col.add_child(_panel)
+	_filter_column.visible = not is_fixed()
 	return _filter_column
 
 
@@ -118,21 +121,22 @@ func _build_right_column() -> Control:
 	return col
 
 
+#A fixed page has no tab row above it, so its header stops one close reserve short of the window edge.
 func _build_header() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override(&"separation", HEADER_GAP)
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override(&"separation", 2)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title = HiringStyle.label(TITLE_TEXT, HiringStyle.FONT_SILK_BOLD, 16, ORANGE)
+	_title = HiringStyle.label(title_text(), GuiStyle.SILK_BOLD, 16, GuiColors.ORANGE)
 	left.add_child(_title)
-	_count = HiringStyle.label("", HiringStyle.FONT_BODY, 14, SKY)
+	_count = HiringStyle.label("", GuiStyle.BODY, 14, GuiColors.SKY)
 	left.add_child(_count)
 	row.add_child(left)
-	var tag: Label = HiringStyle.label(SORT_TEXT, HiringStyle.FONT_SILK, 9, SKY)
+	var tag: Label = HiringStyle.label(SORT_TEXT, GuiStyle.SILK, 9, GuiColors.SKY)
 	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(tag)
-	_sort_pick = _load_dropdown()
+	_sort_pick = DROPDOWN_SCENE.instantiate() as OptionDropdown
 	if _sort_pick != null:
 		_sort_pick.custom_minimum_size = SORT_SIZE
 		_sort_pick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -141,7 +145,12 @@ func _build_header() -> Control:
 	_sort_dir.descending = _desc
 	_sort_dir.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_sort_dir)
-	return row
+	if not is_fixed():
+		return row
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override(&"margin_right", int(SubWindow.CLOSE_RESERVE) - SHELL_INSET)
+	pad.add_child(row)
+	return pad
 
 
 func _build_list() -> Control:
@@ -167,7 +176,7 @@ func _build_list() -> Control:
 	_grid.add_theme_constant_override(&"v_separation", GRID_GAP)
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_child(_grid)
-	_empty = HiringStyle.label("", HiringStyle.FONT_BODY, 15, SKY)
+	_empty = HiringStyle.label("", GuiStyle.BODY, 15, GuiColors.SKY)
 	_empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_empty.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_empty.hide()
@@ -196,9 +205,7 @@ func _build_modals() -> void:
 	_dialog = DIALOG_SCENE.instantiate() as HireOfferDialog
 	if _dialog != null:
 		host.add_child(_dialog)
-		_dialog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_dialog.hide()
-	_confirm = _load_confirm()
+	_confirm = CONFIRM_SCENE.instantiate() as ConfirmDialog
 	if _confirm != null:
 		host.add_child(_confirm)
 		_confirm.hide()
@@ -215,7 +222,6 @@ func _wire() -> void:
 	if _dialog != null:
 		_dialog.hire_requested.connect(_on_hire_requested)
 		_dialog.counter_sent.connect(_on_counter_sent)
-		_dialog.cancelled.connect(_on_dialog_cancelled)
 		_dialog.take_me_there.connect(_on_take_me_there)
 	if _confirm != null:
 		_confirm.confirmed.connect(_on_confirmed)
@@ -240,59 +246,34 @@ func _exit_tree() -> void:
 		_confirm = null
 
 
-func _load_panel() -> TraitFilterPanel:
-	if not ResourceLoader.exists(PANEL_SCENE_PATH):
-		return null
-	var packed: PackedScene = load(PANEL_SCENE_PATH) as PackedScene
-	if packed == null:
-		return null
-	return packed.instantiate() as TraitFilterPanel
-
-
-func _load_dropdown() -> OptionDropdown:
-	if not ResourceLoader.exists(DROPDOWN_SCENE_PATH):
-		return null
-	var packed: PackedScene = load(DROPDOWN_SCENE_PATH) as PackedScene
-	if packed == null:
-		return null
-	return packed.instantiate() as OptionDropdown
-
-
-func _load_confirm() -> ConfirmDialog:
-	if not ResourceLoader.exists(CONFIRM_SCENE_PATH):
-		return null
-	var packed: PackedScene = load(CONFIRM_SCENE_PATH) as PackedScene
-	if packed == null:
-		return null
-	return packed.instantiate() as ConfirmDialog
-
-
+#The filter a Plans hand-off asked for lands first, then the page redraws whether or not it was dirty.
+#A fixed page leaves the hand-off for the Finance window.
 func page_shown() -> void:
-	var wanted: Dictionary = GameState.take_hire_filter()
+	var wanted: Dictionary = {} if is_fixed() else GameState.take_hire_filter()
 	if not wanted.is_empty() and _panel != null:
 		_panel.clear()
 		for key: Variant in wanted.keys():
 			_panel.set_value(String(key), wanted[key])
 		_open_value_group()
-	_dirty = true
-	refresh()
+	mark_dirty()
 
 
 func refresh() -> void:
-	if not is_visible_in_tree():
-		_dirty = true
-		return
-	_rebuild()
+	mark_dirty()
 
 
-func _rebuild() -> void:
-	_dirty = false
+func _refresh() -> void:
+	super()
 	if _panel == null or _grid == null:
 		return
 	_sync_sort_options()
-	var none: Array[int] = []
-	var list: Array[ApplicantData] = PromotionsManager.applicants_filtered(_panel.filters(),
-		none, _sort, _desc)
+	var via: Array[int] = []
+	var picks: Dictionary = {}
+	if is_fixed():
+		via.append(fixed_campaign)
+	else:
+		picks = _panel.filters()
+	var list: Array[ApplicantData] = PromotionsManager.applicants_filtered(picks, via, _sort, _desc)
 	var defs: Array[Dictionary] = _panel.defs()
 	var ents: Dictionary = SubscriptionManager.entitlements()
 	var free: int = PromotionsManager.free_slots()
@@ -318,9 +299,7 @@ func _rebuild() -> void:
 
 
 func _clear_cards() -> void:
-	for child: Node in _grid.get_children():
-		_grid.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(_grid)
 	_cards.clear()
 
 
@@ -368,13 +347,27 @@ func total_count() -> int:
 
 
 func count_text() -> String:
+	if is_fixed():
+		return COUNT_FIXED_FMT % shown_count()
 	return COUNT_FMT % [shown_count(), total_count()]
 
 
 func empty_text() -> String:
 	if not _shown.is_empty():
 		return ""
+	if is_fixed():
+		return EMPTY_FIXED
 	return EMPTY_FILTERED if total_count() > 0 else EMPTY_NONE
+
+
+func is_fixed() -> bool:
+	return fixed_campaign != NO_FIXED
+
+
+func title_text() -> String:
+	if is_fixed():
+		return TITLE_FIXED_FMT % PromotionsManager.campaign_name(fixed_campaign)
+	return TITLE_TEXT
 
 
 func card_ids() -> Array[int]:
@@ -402,6 +395,8 @@ func press_view(id: int) -> void:
 func press_reject(id: int) -> void:
 	var a: ApplicantData = PromotionsManager.applicant_of(id)
 	if a == null or a.status == ApplicantData.STATUS_COUNTERED:
+		var card: ApplicantCard = card_of(id)
+		UiSfx.reject_press(card.reject_button() if card != null else null)
 		return
 	var who: String = a.name
 	PromotionsManager.mark_applicant_seen(id)
@@ -421,7 +416,11 @@ func press_offer(id: int) -> void:
 	if PromotionsManager.free_slots() <= 0:
 		blocked = true
 	PromotionsManager.mark_applicant_seen(id)
-	if blocked or _dialog == null:
+	if blocked:
+		var card: ApplicantCard = card_of(id)
+		UiSfx.reject_press(card.offer_button() if card != null else null)
+		return
+	if _dialog == null:
 		return
 	_close_modals()
 	_dialog.open_for(a)
@@ -478,23 +477,10 @@ func notice() -> HiringNotice:
 	return _notice
 
 
-func modal_host() -> Control:
-	var walk: Node = get_parent()
-	while walk != null:
-		var layer: Node = walk.get_node_or_null(MODAL_LAYER)
-		if layer is Control:
-			if layer.is_in_group(MODAL_GROUP) or walk.is_in_group(MODAL_GROUP):
-				return layer as Control
-		walk = walk.get_parent()
-	return self
-
-
 func _open_value_group() -> void:
 	if _panel == null:
 		return
-	var group: FilterGroup = _panel.group_for(VALUE_GROUP)
-	if group != null:
-		group.set_open(true)
+	_panel.open_group(VALUE_GROUP)
 
 
 func _reset_defs() -> void:
@@ -522,9 +508,15 @@ func _drop_popup() -> void:
 	_popup = null
 
 
-func _flash(body: String, tint: Color) -> void:
+#A red flash reports a refusal, so it carries the reject cue; a refused press passes its button so its click drops.
+func _flash(body: String, tint: Color, pressed: Control = null) -> void:
 	if _notice == null or not is_visible_in_tree():
 		return
+	if tint == GuiColors.RAMP_RED:
+		if pressed != null:
+			UiSfx.reject_press(pressed)
+		else:
+			GameSfx.play_reject()
 	_notice.flash(body, tint)
 
 
@@ -551,16 +543,6 @@ func _on_money_changed(_notes: int) -> void:
 	refresh()
 
 
-func _on_visibility_changed() -> void:
-	if is_visible_in_tree() and _dirty:
-		_rebuild()
-
-
-func _on_dialog_cancelled() -> void:
-	if _dialog != null:
-		_dialog.close()
-
-
 func _on_hire_requested(id: int, salary: int) -> void:
 	var a: ApplicantData = PromotionsManager.applicant_of(id)
 	if a == null or _confirm == null:
@@ -569,7 +551,7 @@ func _on_hire_requested(id: int, salary: int) -> void:
 	if _dialog != null:
 		_dialog.close()
 	_pending = {"kind": KIND_HIRE, "id": id, "amount": salary}
-	_confirm.ask(HIRE_TITLE % who, HIRE_BODY % NotesLabel.format_amount(salary), HIRE_YES,
+	_confirm.ask(HIRE_TITLE % who, HIRE_BODY % TransactionData.grouped(salary), HIRE_YES,
 		CANCEL_TEXT, ConfirmDialog.Severity.ORANGE, ConfirmDialog.Kind.GO)
 
 
@@ -582,7 +564,7 @@ func _on_counter_sent(id: int, offer: int) -> void:
 	if PromotionsManager.counter(id, offer, crew, per):
 		return
 	var verdict: Dictionary = PromotionsManager.can_counter(id, offer, crew, per)
-	_flash(String(verdict.get("reason", "")), GuiColors.RAMP_RED)
+	_flash(String(verdict.get("reason", "")), GuiColors.RAMP_RED, _dialog.action_button())
 
 
 func _on_confirm_cancelled() -> void:
@@ -596,19 +578,20 @@ func _on_confirmed() -> void:
 	_pending = {}
 	if kind == KIND_REJECT:
 		PromotionsManager.reject(id)
+		GameSfx.play_reject()
 		return
 	if kind != KIND_HIRE:
 		return
 	if PromotionsManager.hire(id, amount):
 		return
 	var verdict: Dictionary = PromotionsManager.can_hire(id, amount)
-	_flash(String(verdict.get("reason", "")), GuiColors.RAMP_RED)
+	_flash(String(verdict.get("reason", "")), GuiColors.RAMP_RED, _confirm.confirm_button)
 
 
 func _on_applicant_hired(a: ApplicantData, _salary: int, _delta: int) -> void:
 	if a == null:
 		return
-	_flash(NOTICE_HIRED % a.name, GREEN)
+	_flash(NOTICE_HIRED % a.name, GuiColors.GREEN)
 
 
 func _on_counter_resolved(id: int, accepted: bool) -> void:
@@ -616,6 +599,6 @@ func _on_counter_resolved(id: int, accepted: bool) -> void:
 	if a == null:
 		return
 	if accepted:
-		_flash(NOTICE_ACCEPTED % a.name, GREEN)
+		_flash(NOTICE_ACCEPTED % a.name, GuiColors.GREEN)
 		return
 	_flash(NOTICE_REFUSED % a.name, GuiColors.RAMP_RED)

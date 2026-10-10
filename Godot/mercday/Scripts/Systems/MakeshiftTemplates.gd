@@ -1,11 +1,13 @@
 class_name MakeshiftTemplates
 
+#Weapons.tsv rows that exist only as makeshift bases and must stay out of every loadout pool.
+const BASES: PackedStringArray = ["Basic Makeshift", "Specialized Makeshift", "Great Makeshift"]
 #Makeshift rows that also exist as a better class; each extra key is "<row name>:<first word of the base>".
 const MAKESHIFT_CLASS_VARIANTS := {"Rock Spike": ["Specialized Makeshift", "Great Makeshift"]}
 
 
 static func load_makeshift_weapons() -> void:
-	for row: PackedStringArray in DataManager._data_rows("res://TSVs/Makeshift Weapons.tsv", 0):
+	for row: PackedStringArray in TsvReader.data_rows("res://TSVs/Makeshift Weapons.tsv", 0):
 		var name_val: String = TsvReader.row_get(row, 0)
 		var base_type: String = TsvReader.row_get(row, 1)
 		var base: WeaponData = DataManager.weapons.get(base_type) as WeaponData
@@ -49,7 +51,7 @@ static func makeshift_template(row: PackedStringArray, name_val: String, base: W
 	if thrown_raw != "" and thrown_raw.to_upper() != "FALSE":
 		w.range_thrown = thrown_raw
 		w.is_throwable = true
-		var rt: Array[int] = DataManager._parse_range(thrown_raw)
+		var rt: Array[int] = TsvReader.parse_range(thrown_raw)
 		w.thrown_intended_range = rt[0]
 		w.thrown_extended_range = rt[1]
 	var extend_raw: String = TsvReader.row_get(row, 4)
@@ -62,6 +64,6 @@ static func makeshift_template(row: PackedStringArray, name_val: String, base: W
 		w.misc_properties.erase("Extend")
 		w.has_extend = false
 		w.melee_range = 1
-	w.fragility = DataManager._cell_int(row, 5, 0)
+	w.fragility = TsvReader.cell_int(row, 5, 0)
 	w.current_fragility = w.fragility
 	return w

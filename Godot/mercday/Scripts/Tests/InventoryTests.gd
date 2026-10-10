@@ -87,21 +87,17 @@ static func _install_heavy_pools() -> Dictionary:
 		"armor": DataManager.armor_ordinary_common,
 	}
 	var ordinary: Array[WeaponData] = []
-	for w: WeaponData in saved["ordinary_ranged"]:
-		if w.weight > 0:
-			ordinary.append(w)
+	ordinary.assign(_heavy_only(saved["ordinary_ranged"]))
 	var common: Array[WeaponData] = []
-	for w: WeaponData in saved["common_ranged"]:
-		if w.weight > 0:
-			common.append(w)
-	var armor: Array = []
-	for a: ArmorData in saved["armor"]:
-		if a.weight > 0:
-			armor.append(a)
+	common.assign(_heavy_only(saved["common_ranged"]))
 	DataManager.weapons_ordinary_ranged = ordinary
 	DataManager.weapons_common_ranged = common
-	DataManager.armor_ordinary_common = armor
+	DataManager.armor_ordinary_common = _heavy_only(saved["armor"])
 	return saved
+
+
+static func _heavy_only(items: Array) -> Array:
+	return items.filter(func(item: Variant) -> bool: return item.weight > 0)
 
 
 static func _restore_pools(saved: Dictionary) -> void:
@@ -128,6 +124,19 @@ static func _pop_overrides(saved: Array) -> void:
 	MercGenerator.forced_tradition = String(saved[1])
 
 
+#Seeds the generator rolls for a repeatable batch, without the harness overrides; returns them for _seeded_end.
+static func _seeded_begin() -> Array:
+	var saved: Array = _push_overrides()
+	seed(4242)
+	TestFixtures.reset_generator_rolls()
+	return saved
+
+
+static func _seeded_end(saved: Array) -> void:
+	randomize()
+	_pop_overrides(saved)
+
+
 #A merc straight out of the generator, taken without the harness level and tradition overrides.
 static func _generated(index: int) -> MercenaryData:
 	var saved: Array = _push_overrides()
@@ -138,10 +147,20 @@ static func _generated(index: int) -> MercenaryData:
 
 static func _tiny_limit_merc(index: int, limit: float = 1.0) -> MercenaryData:
 	var m: MercenaryData = _generated(index)
+	_set_limit(m, limit)
+	return m
+
+
+static func _set_limit(m: MercenaryData, limit: float) -> void:
 	m.stats["weight_limit"] = limit
 	if m.stats_baseline.has("weight_limit"):
 		m.stats_baseline["weight_limit"] = limit
-	return m
+
+
+#Clears the merc's starting gear without a log.
+static func _strip(m: MercenaryData) -> void:
+	var none: Array[String] = []
+	StartingGear.clear_gear(m, none)
 
 
 static func _packed_weapons(merc: MercenaryData) -> int:
@@ -320,7 +339,7 @@ static func _case_settle(res: Dictionary) -> void:
 		LoadoutDecision.settle(light).is_empty(),
 		"carried %d against a limit of %d" % [Encumbrance.carried_weight(light), Encumbrance.weight_limit(light)])
 	TestFixtures.check(res, "the rules line prints the burden constants",
-		Encumbrance.loadout_rules_line().contains("at limit 1.0"), Encumbrance.loadout_rules_line())
+		LoadoutDecision.loadout_rules_line().contains("at limit 1.0"), LoadoutDecision.loadout_rules_line())
 
 
 static func _case_pickup_burden(res: Dictionary) -> void:
@@ -376,9 +395,7 @@ static func _case_text(res: Dictionary) -> void:
 
 
 static func _case_generated_under_limit(res: Dictionary) -> void:
-	var saved: Array = _push_overrides()
-	seed(4242)
-	TestFixtures.reset_generator_rolls()
+	var saved: Array = _seeded_begin()
 	var over: Array[String] = []
 	var geared: Array[String] = []
 	for i: int in range(30):
@@ -389,8 +406,7 @@ static func _case_generated_under_limit(res: Dictionary) -> void:
 			over.append("%s %d/%d" % [m.merc_name, carried, limit])
 		if limit < 1 and (m.equipped_armor != null or _has_ranged(m)):
 			geared.append("%s %d/%d" % [m.merc_name, carried, limit])
-	randomize()
-	_pop_overrides(saved)
+	_seeded_end(saved)
 	TestFixtures.check(res, "every generated merc carries less than its weight limit, or nothing at a limit of 0",
 		over.is_empty(), "over the limit: %s" % " | ".join(over))
 	TestFixtures.check(res, "a merc with a weight limit of 0 gets no armor and no ranged weapon",
@@ -401,8 +417,7 @@ static func _case_tiny_limit_pools(res: Dictionary) -> void:
 	var m: MercenaryData = _tiny_limit_merc(0)
 	var pools: Dictionary = _install_heavy_pools()
 	var heavy_ranged: int = DataManager.weapons_ordinary_ranged.size() + DataManager.weapons_common_ranged.size()
-	var none: Array[String] = []
-	StartingGear.clear_gear(m, none)
+	_strip(m)
 	var before: Array[String] = m.passive_effects.duplicate()
 	var drawn: Array[String] = StartingGear.step_gear(m)
 	_restore_pools(pools)
@@ -423,8 +438,7 @@ static func _case_tiny_limit_pools(res: Dictionary) -> void:
 static func _case_drop_order(res: Dictionary) -> void:
 	var m: MercenaryData = _tiny_limit_merc(2, 2.0)
 	var pools: Dictionary = _install_heavy_pools()
-	var none: Array[String] = []
-	StartingGear.clear_gear(m, none)
+	_strip(m)
 	var drawn: Array[String] = StartingGear.step_gear(m)
 	_restore_pools(pools)
 	TestFixtures.check(res, "the ranged weapon is dropped before the armor",
@@ -438,20 +452,15 @@ static func _case_drop_order(res: Dictionary) -> void:
 
 
 static func _case_pool_draws(res: Dictionary) -> void:
-	var saved: Array = _push_overrides()
-	seed(4242)
-	TestFixtures.reset_generator_rolls()
+	var saved: Array = _seeded_begin()
 	var heavy: Array[String] = []
 	var with_armor: int = 0
 	var with_ranged: int = 0
 	var with_all: int = 0
 	for i: int in range(40):
 		var m: MercenaryData = MercGenerator.generate(i)
-		var none: Array[String] = []
-		StartingGear.clear_gear(m, none)
-		m.stats["weight_limit"] = 4.0
-		if m.stats_baseline.has("weight_limit"):
-			m.stats_baseline["weight_limit"] = 4.0
+		_strip(m)
+		_set_limit(m, 4.0)
 		var drawn: Array[String] = StartingGear.step_gear(m)
 		var carried: int = Encumbrance.carried_weight(m)
 		if carried > 3:
@@ -462,8 +471,7 @@ static func _case_pool_draws(res: Dictionary) -> void:
 			with_ranged += 1
 		if drawn.size() == 3:
 			with_all += 1
-	randomize()
-	_pop_overrides(saved)
+	_seeded_end(saved)
 	TestFixtures.check(res, "a weight limit of four keeps every drawn loadout at three or less",
 		heavy.is_empty(), "over the budget: %s" % " | ".join(heavy))
 	TestFixtures.check(res, "the fitted draw still reaches the armor pool", with_armor > 0,
@@ -477,8 +485,7 @@ static func _case_pool_draws(res: Dictionary) -> void:
 static func _case_tiny_limit_leaves_no_reserve(res: Dictionary) -> void:
 	var m: MercenaryData = _tiny_limit_merc(1)
 	var pools: Dictionary = _install_heavy_pools()
-	var none: Array[String] = []
-	StartingGear.clear_gear(m, none)
+	_strip(m)
 	StartingGear.step_gear(m)
 	_restore_pools(pools)
 	TestFixtures.check(res, "a tiny limit leaves no weapon in the pack",

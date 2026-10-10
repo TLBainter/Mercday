@@ -1,6 +1,6 @@
 class_name LoanFilterPopup extends PanelContainer
 
-#The filter popup of the loan toolbar: the Show Loan Requests switch and a Min and a Max slider
+#The filter popup of the loan toolbar: the Show Loan Requests switch and a two-thumb range slider
 #for each of the five loan filters. The popup holds no state; the page feeds it and hears back.
 
 signal requests_toggled(on: bool)
@@ -13,14 +13,12 @@ const PAD: int = 14
 const GAP: int = 14
 const ROW_GAP: int = 6
 const RING_PX: int = 4
-const SIDE_WIDTH: float = 30.0
 const CHECK_TEXT: String = "Show Loan Requests"
 const EXPIRED_CHECK_TEXT: String = "Show Expired Offers"
 const RESET_TEXT: String = "Reset"
-const MIN_TEXT: String = "Min"
-const MAX_TEXT: String = "Max"
 const SCENE_PATH: String = "res://Scenes/GUI/Finance/Loans/LoanFilterPopup.tscn"
-const CHECK_SCENE: String = "res://Scenes/GUI/Shared/FilterCheckRow.tscn"
+const CHECK_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FilterCheckRow.tscn")
+const DUAL_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/DualSlider.tscn")
 
 var _rows: Dictionary = {}
 var _check: FilterCheckRow = null
@@ -30,17 +28,17 @@ var _quiet: bool = false
 
 
 func _ready() -> void:
-	var style: StyleBoxFlat = LoanStyle.padded(LoanStyle.BLUE, PAD, PAD, PAD, PAD)
-	style.border_color = LoanStyle.ORANGE
+	var style: StyleBoxFlat = LoanStyle.padded(GuiColors.BLUE_LO, PAD, PAD, PAD, PAD)
+	style.border_color = GuiColors.ORANGE
 	style.set_border_width_all(RING_PX)
 	add_theme_stylebox_override("panel", style)
 	custom_minimum_size = Vector2(WIDTH, 0.0)
-	var col: VBoxContainer = LoanStyle.vbox(GAP)
-	col.add_child(_check_row())
-	col.add_child(_expired_check_row())
+	var col: VBoxContainer = GuiStyle.vbox(GAP)
+	_check = _check_row(col, CHECK_TEXT)
+	_expired_check = _check_row(col, EXPIRED_CHECK_TEXT)
 	for def: Dictionary in LoanRows.FILTER_DEFS:
 		col.add_child(_filter_block(def))
-	_reset = LoanStyle.button(RESET_TEXT, LoanStyle.BLUE2, LoanStyle.CREAM, 26.0)
+	_reset = LoanStyle.button(RESET_TEXT, GuiColors.BLUE, GuiColors.CREAM, 26.0)
 	_reset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_reset.pressed.connect(press_reset)
 	col.add_child(_reset)
@@ -51,21 +49,17 @@ func _ready() -> void:
 
 
 #Writes the switches, the caps and the ranges the page holds into every control.
-func set_state(show_on: bool, show_expired: bool, ranges: Dictionary, cap_rows: Dictionary) -> void:
+func set_state(show_on: bool, expired_on: bool, ranges: Dictionary, cap_rows: Dictionary) -> void:
 	_quiet = true
 	_check.on = show_on
-	_expired_check.on = show_expired
+	_expired_check.on = expired_on
 	for def: Dictionary in LoanRows.FILTER_DEFS:
 		var key: String = String(def["key"])
-		var cap: float = float(cap_rows.get(key, float(def["step"])))
 		var span: Vector2 = LoanRows.range_of(key, ranges, cap_rows)
 		var row: Dictionary = _rows[key] as Dictionary
-		var low: LoanSlider = row["min"] as LoanSlider
-		var high: LoanSlider = row["max"] as LoanSlider
-		low.max_value = cap
-		high.max_value = cap
-		low.set_value_silent(span.x)
-		high.set_value_silent(span.y)
+		var pair: DualSlider = row["pair"] as DualSlider
+		pair.max_value = float(cap_rows.get(key, float(def["step"])))
+		pair.set_range_silent(span.x, span.y)
 		(row["range"] as Label).text = LoanRows.range_text(key, span.x, span.y)
 	_quiet = false
 
@@ -98,18 +92,21 @@ func expired_row() -> FilterCheckRow:
 	return _expired_check
 
 
-func slider(key: String, top: bool) -> LoanSlider:
+func slider(key: String) -> DualSlider:
 	if not _rows.has(key):
 		return null
-	var field: String = "max" if top else "min"
-	return (_rows[key] as Dictionary)[field] as LoanSlider
+	return (_rows[key] as Dictionary)["pair"] as DualSlider
 
 
+#Moves one thumb of a filter as a drag does; a thumb taken past the other carries it along.
 func set_slider(key: String, top: bool, value: float) -> void:
-	var node: LoanSlider = slider(key, top)
-	if node == null:
+	var pair: DualSlider = slider(key)
+	if pair == null:
 		return
-	node.set_value_silent(value)
+	if top:
+		pair.high = value
+	else:
+		pair.low = value
 	_emit(key)
 
 
@@ -137,71 +134,42 @@ func press_reset() -> void:
 	reset_pressed.emit()
 
 
-func _check_row() -> HBoxContainer:
-	var line: HBoxContainer = LoanStyle.hbox(10)
-	_check = _make_check(CHECK_TEXT)
-	line.add_child(_check)
-	return line
-
-
-func _expired_check_row() -> HBoxContainer:
-	var line: HBoxContainer = LoanStyle.hbox(10)
-	_expired_check = _make_check(EXPIRED_CHECK_TEXT)
-	line.add_child(_expired_check)
-	return line
-
-
-#The shared filter check row: a flat box and a static label, with no focus ring and no hover
-#shift of its own.
-func _make_check(caption: String) -> FilterCheckRow:
-	var scene: PackedScene = load(CHECK_SCENE) as PackedScene
-	var node: FilterCheckRow = scene.instantiate() as FilterCheckRow
+#One switch on a line of its own: the shared filter check row, ticked until the page says otherwise.
+func _check_row(col: VBoxContainer, caption: String) -> FilterCheckRow:
+	var line: HBoxContainer = GuiStyle.hbox(10)
+	var node: FilterCheckRow = CHECK_SCENE.instantiate() as FilterCheckRow
 	node.label = caption
 	node.on = true
+	line.add_child(node)
+	col.add_child(line)
 	return node
 
 
+#One filter: its name and the range it holds over a two-thumb slider that stops at the cap.
 func _filter_block(def: Dictionary) -> VBoxContainer:
 	var key: String = String(def["key"])
-	var block: VBoxContainer = LoanStyle.vbox(ROW_GAP)
-	var head: HBoxContainer = LoanStyle.hbox(8)
-	var label: Label = LoanStyle.text(String(def["label"]), 10, LoanStyle.SKY)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var value: Label = LoanStyle.text("", 10, LoanStyle.YELLOW)
+	var block: VBoxContainer = GuiStyle.vbox(ROW_GAP)
+	var head: HBoxContainer = GuiStyle.hbox(8)
+	var label: Label = GuiStyle.label(String(def["label"]), GuiStyle.SILK, 10, GuiColors.SKY)
+	var value: Label = GuiStyle.label("", GuiStyle.SILK, 10, GuiColors.AMBER)
 	head.add_child(label)
-	head.add_child(spacer)
+	head.add_child(GuiStyle.spacer())
 	head.add_child(value)
 	block.add_child(head)
-	var low: LoanSlider = _slider_row(block, MIN_TEXT, def)
-	var high: LoanSlider = _slider_row(block, MAX_TEXT, def)
-	low.value_changed.connect(func(_v: float) -> void: _emit(key))
-	high.value_changed.connect(func(_v: float) -> void: _emit(key))
-	_rows[key] = {"label": label, "range": value, "min": low, "max": high}
+	var pair: DualSlider = DUAL_SCENE.instantiate() as DualSlider
+	pair.step = float(def["step"])
+	pair.max_value = pair.step
+	pair.range_changed.connect(func(_low: float, _high: float) -> void: _emit(key))
+	block.add_child(pair)
+	_rows[key] = {"label": label, "range": value, "pair": pair}
 	return block
 
 
-func _slider_row(block: VBoxContainer, caption: String, def: Dictionary) -> LoanSlider:
-	var line: HBoxContainer = LoanStyle.hbox(8)
-	var side: Label = LoanStyle.text(caption, 9, LoanStyle.SKY)
-	side.custom_minimum_size = Vector2(SIDE_WIDTH, 0.0)
-	line.add_child(side)
-	var node := LoanSlider.new()
-	node.min_value = 0.0
-	node.max_value = float(def["step"])
-	node.step = float(def["step"])
-	node.fill = LoanStyle.BLUE2
-	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	line.add_child(node)
-	block.add_child(line)
-	return node
-
-
 func _emit(key: String) -> void:
-	if _quiet or not _rows.has(key):
+	var pair: DualSlider = slider(key)
+	if _quiet or pair == null:
 		return
-	var row: Dictionary = _rows[key] as Dictionary
-	range_changed.emit(key, (row["min"] as LoanSlider).value, (row["max"] as LoanSlider).value)
+	range_changed.emit(key, pair.low, pair.high)
 
 
 func _on_check_toggled(on: bool) -> void:

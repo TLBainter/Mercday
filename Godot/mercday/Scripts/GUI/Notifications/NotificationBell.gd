@@ -1,45 +1,34 @@
-class_name NotificationBell extends Control
+class_name NotificationBell extends SettingsButton
 
-#The HUD notification bell: a 56 x 56 button with the unread dot that opens the notification panel
-#below it. The HUD connects notification_opened and marks the row read; the bell only routes it.
+#The HUD bell: a SettingsButton with the bell icon, the unread dot and the notification panel below it.
+#An open panel is the active state (orange palette, two-tone icon); the HUD connects notification_opened.
 
 signal notification_opened(data: NotificationData)
 
 const BELL_SIZE: Vector2 = Vector2(56, 56)
 const PANEL_GAP: float = 14.0
 const PANEL_Z: int = 40
-const PANEL_SCENE: String = "res://Scenes/GUI/Notifications/NotificationPanel.tscn"
-const BG_IDLE: Color = Color("#2b4f8a")
-const BG_OPEN: Color = Color("#f28c28")
-const BEVEL_HI_IDLE: Color = Color("#3b6fb6")
-const BEVEL_LO_IDLE: Color = Color("#111c33")
-const BEVEL_HI_OPEN: Color = Color("#ffb266")
-const BEVEL_LO_OPEN: Color = Color("#b85a12")
-const OUTLINE_COLOR: Color = Color("#0a0f1c")
-const OUTLINE_WIDTH: float = 4.0
-const BEVEL_WIDTH: float = 4.0
-const GLYPH_IDLE: Color = Color("#f3ead7")
-const GLYPH_OPEN: Color = Color("#0a0f1c")
-const GLYPH_SCALE: int = 2
-const HOVER_GAIN: float = 1.15
-const DOT_OFFSET: Vector2 = Vector2(2, 2)
-const TOOLTIP: String = "Notifications"
+const PANEL_SCENE: PackedScene = preload("res://Scenes/GUI/Notifications/NotificationPanel.tscn")
+const BELL_TIP: String = "Notifications"
 
-@export var center_path: NodePath = ^"Center"
 @export var panel_path: NodePath = ^"Panel"
 
-var _center: CenterContainer = null
 var _panel: NotificationPanel = null
 var _dot: NotificationDot = null
-var _hovered: bool = false
+
+
+func _init() -> void:
+	super()
+	action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	focus_mode = Control.FOCUS_NONE
 
 
 func _ready() -> void:
+	super()
 	custom_minimum_size = BELL_SIZE
 	size = BELL_SIZE
-	tooltip_text = TOOLTIP
-	mouse_filter = Control.MOUSE_FILTER_STOP
-	_center = get_node_or_null(center_path) as CenterContainer
+	tooltip_text = BELL_TIP
+	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_panel = get_node_or_null(panel_path) as NotificationPanel
 	if _panel == null:
 		_panel = _load_panel()
@@ -50,8 +39,7 @@ func _ready() -> void:
 			_panel.item_pressed.connect(_on_item_pressed)
 		_place_panel()
 	_dot = NotificationDot.attach(self, DOT_OFFSET)
-	mouse_entered.connect(set_hovered.bind(true))
-	mouse_exited.connect(set_hovered.bind(false))
+	pressed.connect(toggle_panel)
 	if not NotificationCenter.changed.is_connected(refresh):
 		NotificationCenter.changed.connect(refresh)
 	refresh()
@@ -59,14 +47,7 @@ func _ready() -> void:
 
 #The panel normally comes from the scene; a bell built in code gets one from the scene file.
 func _load_panel() -> NotificationPanel:
-	if not ResourceLoader.exists(PANEL_SCENE):
-		return null
-	var scene: PackedScene = load(PANEL_SCENE) as PackedScene
-	if scene == null:
-		return null
-	var made: NotificationPanel = scene.instantiate() as NotificationPanel
-	if made == null:
-		return null
+	var made: NotificationPanel = PANEL_SCENE.instantiate() as NotificationPanel
 	made.name = "Panel"
 	add_child(made)
 	return made
@@ -86,6 +67,9 @@ func open_panel() -> void:
 	_place_panel()
 	_panel.visible = true
 	_panel.refresh()
+	#The panel is a child, so a click or hover move still playing would swing it with the bell.
+	if _fx != null:
+		_fx.stop()
 	refresh()
 
 
@@ -93,6 +77,7 @@ func close_panel() -> void:
 	if _panel == null or not _panel.visible:
 		return
 	_panel.close_popups()
+	_panel.reset_picks()
 	_panel.visible = false
 	refresh()
 
@@ -123,54 +108,35 @@ func dot_visible() -> bool:
 	return _dot != null and _dot.visible
 
 
+func fx_active() -> bool:
+	return panel_open() or super()
+
+
 func bg_color() -> Color:
-	var base: Color = BG_OPEN if panel_open() else BG_IDLE
-	return _brighter(base, HOVER_GAIN) if _hovered else base
+	return _pal()["fill"]
 
 
 func bevel_hi() -> Color:
-	return BEVEL_HI_OPEN if panel_open() else BEVEL_HI_IDLE
+	return _pal()["hi"]
 
 
 func bevel_lo() -> Color:
-	return BEVEL_LO_OPEN if panel_open() else BEVEL_LO_IDLE
+	return _pal()["lo"]
 
 
 func glyph_color() -> Color:
-	return GLYPH_OPEN if panel_open() else GLYPH_IDLE
+	return _pal()["text"]
 
 
 func glyph() -> Control:
-	if _center == null or _center.get_child_count() == 0:
-		return null
-	return _center.get_child(0) as Control
-
-
-func set_hovered(on: bool) -> void:
-	if _hovered == on:
-		return
-	_hovered = on
-	queue_redraw()
-
-
-func hovered() -> bool:
-	return _hovered
+	return icon_rect
 
 
 #Repaints the bell, the glyph colour and the unread dot from the store.
 func refresh() -> void:
 	if _dot != null:
 		_dot.on = NotificationCenter.has_unread()
-	_fill_glyph()
-	queue_redraw()
-
-
-func _gui_input(event: InputEvent) -> void:
-	var click := event as InputEventMouseButton
-	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
-		return
-	accept_event()
-	toggle_panel()
+	_on_toggled(panel_open())
 
 
 #A press outside the bell, the panel and its popups closes the panel.
@@ -180,7 +146,7 @@ func _input(event: InputEvent) -> void:
 	var click := event as InputEventMouseButton
 	if click == null or not click.pressed:
 		return
-	if _inside(click.position):
+	if _inside(click.position) or MercdaveLayer.has_point(click.position):
 		return
 	close_panel()
 
@@ -216,36 +182,13 @@ func _place_panel() -> void:
 		BELL_SIZE.y + PANEL_GAP)
 
 
-#The art is the whole bell cell; an open panel swaps in the two-tone image, never a flat tint.
-func _fill_glyph() -> void:
-	if _center == null:
-		return
-	for child: Node in _center.get_children():
-		_center.remove_child(child)
-		child.queue_free()
-	var mode: StringName = Icons.MODE_TWO_TONE if panel_open() else Icons.MODE_PLAIN
-	_center.add_child(NotifyGlyphs.shadowed(Icons.baked("bell", GLYPH_SCALE, mode)))
-
-
 func _on_item_pressed(data: NotificationData) -> void:
 	close_panel()
 	notification_opened.emit(data)
 
 
-static func _brighter(base: Color, gain: float) -> Color:
-	return Color(minf(base.r * gain, 1.0), minf(base.g * gain, 1.0), minf(base.b * gain, 1.0),
-		base.a)
-
-
-#The face: the ink outline outside the button, the fill, then the inset bevel bars.
-func _draw() -> void:
-	var w: float = size.x
-	var h: float = size.y
-	var o: float = OUTLINE_WIDTH
-	draw_rect(Rect2(-o, -o, w + o * 2.0, h + o * 2.0), OUTLINE_COLOR)
-	draw_rect(Rect2(0.0, 0.0, w, h), bg_color())
-	var e: float = BEVEL_WIDTH
-	draw_rect(Rect2(0.0, 0.0, w, e), bevel_hi())
-	draw_rect(Rect2(0.0, 0.0, e, h), bevel_hi())
-	draw_rect(Rect2(w - e, 0.0, e, h), bevel_lo())
-	draw_rect(Rect2(0.0, h - e, w, e), bevel_lo())
+#The two-tone image is the open look, never a flat ink tint; the idle icon is cream like the gear.
+func _on_toggled(on: bool) -> void:
+	icon_rect.mode = Icons.MODE_TWO_TONE if on else Icons.MODE_PLAIN
+	icon_rect.tint = Color.WHITE if on else GLYPH_IDLE
+	queue_redraw()

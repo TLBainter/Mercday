@@ -14,7 +14,7 @@ const DEFAULT_SEED := 4242
 static func run(count: int) -> bool:
 	var n: int = maxi(1, count)
 	ContractResourceBuilder.build_all()
-	var base: int = _seed_base()
+	var base: int = HarnessFlags.auto_seed(DEFAULT_SEED)
 	var types: Array[String] = ContractLibrary.contract_type_names()
 	var rows: Array[Dictionary] = []
 	for i: int in range(BUCKETS):
@@ -58,14 +58,8 @@ static func _trial(seed_value: int, types: Array[String]) -> Dictionary:
 	var size: int = randi_range(TEAM_MIN, TEAM_MAX)
 	var level: int = randi_range(LEVEL_MIN, LEVEL_MAX)
 	var type_name: String = types[randi() % types.size()]
-	var team: Array[MercenaryData] = []
-	for i: int in range(size):
-		var merc: MercenaryData = MercGenerator.generate(i)
-		ContractModifiers.set_level(merc, level)
-		LevelUpSystem.catch_up(merc)
-		team.append(merc)
-	BeauSystem.set_roster(team)
-	GuildRoster.set_roster(team)
+	var team: Array[MercenaryData] = TestFixtures.generated_team(size, level, true)
+	TestFixtures.set_roster(team)
 	var contract: ContractData = ContractGenerator.generate(type_name)
 	if contract == null:
 		return {}
@@ -99,9 +93,3 @@ static func _filled(rows: Array[Dictionary]) -> int:
 		if int(row["runs"]) > 0:
 			count += 1
 	return count
-
-
-#Reads S from an "--auto-seed=S" user arg so a probe run can be repeated.
-static func _seed_base() -> int:
-	var spec: String = HarnessFlags.auto_spec("--auto-seed")
-	return DEFAULT_SEED if spec == "" else int(spec)

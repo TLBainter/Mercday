@@ -13,7 +13,7 @@ static func find_target(merc: MercenaryData, state: BattleState) -> Vector3i:
 	PathCost.set_mover_doors(merc, state)
 	var pos := state.pos3(merc)
 	var pending: Vector3i = state.pending_interact.get(merc, PathTargeter.NO_CELL) as Vector3i
-	if pending != PathTargeter.NO_CELL and _adjacent(pos, pending) and _is_shut_door(field, pending):
+	if pending != PathTargeter.NO_CELL and _adjacent(pos, pending) and PathCost.is_shut_door(field, pending):
 		return pending
 	var gate: Vector3i = RescueSystem.gate_target(merc, state)
 	if gate != PathTargeter.NO_CELL:
@@ -27,17 +27,13 @@ static func find_target(merc: MercenaryData, state: BattleState) -> Vector3i:
 		var nb := Vector3i(pos.x + d.x, pos.y + d.y, pos.z)
 		if not on_path.has(nb):
 			continue
-		if _is_shut_door(field, nb):
+		if PathCost.is_shut_door(field, nb):
 			return nb
 	return PathTargeter.NO_CELL
 
 
 static func _adjacent(a: Vector3i, b: Vector3i) -> bool:
 	return a.z == b.z and maxi(absi(a.x - b.x), absi(a.y - b.y)) <= 1
-
-
-static func _is_shut_door(field: BattlefieldArea, cell: Vector3i) -> bool:
-	return PathCost.is_shut_door(field, cell)
 
 
 func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:

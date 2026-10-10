@@ -1,11 +1,8 @@
 class_name BuildingGenerator
 
-static var _door_template: ObstacleData
-
-
 static func generate_buildings(area: BattlefieldArea, config: BuildingConfig = null) -> void:
 	var forced: ObstacleData = config.forced_template if config != null else null
-	var pool: Array = _filtered_pool(config)
+	var pool: Array = DataManager.building_pool
 	if forced == null and pool.is_empty():
 		return
 	var max_b: int
@@ -18,19 +15,13 @@ static func generate_buildings(area: BattlefieldArea, config: BuildingConfig = n
 		place_building(area, template)
 
 
-static func _filtered_pool(_config: BuildingConfig) -> Array:
-	return DataManager.building_pool.duplicate()
-
-
 static func place_building(area: BattlefieldArea, template: ObstacleData) -> bool:
-	var _fw: int = maxi(2, ceili(template.size_x))
-	var _fh: int = maxi(2, ceili(template.size_y))
-	if _fw != _fh and randi() % 2 == 0:
-		var _tmp: int = _fw
-		_fw = _fh
-		_fh = _tmp
-	var floor_w: int = _fw
-	var floor_h: int = _fh
+	var floor_w: int = maxi(2, ceili(template.size_x))
+	var floor_h: int = maxi(2, ceili(template.size_y))
+	if floor_w != floor_h and randi() % 2 == 0:
+		var tmp: int = floor_w
+		floor_w = floor_h
+		floor_h = tmp
 	var outer_w: int = floor_w + 2
 	var outer_h: int = floor_h + 2
 
@@ -45,7 +36,7 @@ static func place_building(area: BattlefieldArea, template: ObstacleData) -> boo
 		var doors_valid := true
 		for dp: Vector2i in door_positions:
 			var ext: Vector2i = dp + door_facing
-			if ext.x < 0 or ext.x >= area.width or ext.y < 0 or ext.y >= area.length:
+			if not area.in_bounds_xy(ext.x, ext.y):
 				doors_valid = false
 				break
 			if area.is_obstacle(ext) or area.building_interiors.has(ext):
@@ -100,10 +91,6 @@ static func _find_footprint(area: BattlefieldArea, outer_w: int, outer_h: int) -
 		return Vector2i(-1, -1)
 	if _footprint_in_keep_clear(area, tl, outer_w, outer_h):
 		return Vector2i(-1, -1)
-	for bx: int in range(outer_w):
-		for by: int in range(outer_h):
-			if area.reserved_corridor_cells.has(tl + Vector2i(bx, by)):
-				return Vector2i(-1, -1)
 	return tl
 
 
@@ -141,7 +128,7 @@ static func _build_perimeter(area: BattlefieldArea, tl: Vector2i, outer_w: int, 
 			var is_perim: bool = (bx == 0 or bx == outer_w - 1 or by == 0 or by == outer_h - 1)
 			if is_perim:
 				if door_positions.has(cell):
-					_add_perimeter_obstacle(area, cell, 2, _get_door_template(), "door",
+					_add_perimeter_obstacle(area, cell, 2, DataManager.door_data(), "door",
 						wall_height, {OpenCloseState.KEY: false})
 				elif window_positions.has(cell):
 					_add_perimeter_obstacle(area, cell, 2, window_data, "window", wall_height, {})
@@ -180,8 +167,7 @@ static func _add_perimeter_obstacle(area: BattlefieldArea, cell: Vector2i, size:
 	obs["floor"] = 0
 	for k: Variant in extra:
 		obs[k] = extra[k]
-	area.obstacles.append(obs)
-	area._obs_map[cell] = obs
+	area.add_obstacle(obs, cell)
 
 
 static func _place_guaranteed_structures(area: BattlefieldArea, b: Dictionary) -> void:
@@ -196,15 +182,11 @@ static func _place_guaranteed_structures(area: BattlefieldArea, b: Dictionary) -
 		entry_cells[dp - door_facing] = true
 	var preferred: Array[Vector2i] = []
 	var fallback: Array[Vector2i] = []
-	for ix: int in range(rect.position.x + 1, rect.end.x - 1):
-		for iy: int in range(rect.position.y + 1, rect.end.y - 1):
-			var p := Vector2i(ix, iy)
-			if area.is_obstacle(p):
-				continue
-			if entry_cells.has(p):
-				fallback.append(p)
-			else:
-				preferred.append(p)
+	for p: Vector2i in _free_interior(area, rect):
+		if entry_cells.has(p):
+			fallback.append(p)
+		else:
+			preferred.append(p)
 	preferred.shuffle()
 	fallback.shuffle()
 	var candidates: Array[Vector2i] = preferred + fallback
@@ -220,6 +202,17 @@ static func _place_guaranteed_structures(area: BattlefieldArea, b: Dictionary) -
 		_add_perimeter_obstacle(area, pos, struct_data.size, struct_data, "furniture", 0.0, {})
 
 
+#Interior cells of a building rect that hold no obstacle, column by column.
+static func _free_interior(area: BattlefieldArea, rect: Rect2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for ix: int in range(rect.position.x + 1, rect.end.x - 1):
+		for iy: int in range(rect.position.y + 1, rect.end.y - 1):
+			var p := Vector2i(ix, iy)
+			if not area.is_obstacle(p):
+				out.append(p)
+	return out
+
+
 static func place_furniture_in_buildings(area: BattlefieldArea) -> void:
 	var indoor_pool: Array = []
 	indoor_pool.append_array(DataManager.obstacles_by_type.get("Furniture", []))
@@ -231,12 +224,7 @@ static func place_furniture_in_buildings(area: BattlefieldArea) -> void:
 		if indoor_pool.is_empty():
 			continue
 		var rect: Rect2i = b["rect"] as Rect2i
-		var free_cells: Array[Vector2i] = []
-		for ix: int in range(rect.position.x + 1, rect.end.x - 1):
-			for iy: int in range(rect.position.y + 1, rect.end.y - 1):
-				var p := Vector2i(ix, iy)
-				if not area.is_obstacle(p):
-					free_cells.append(p)
+		var free_cells: Array[Vector2i] = _free_interior(area, rect)
 		if free_cells.is_empty():
 			continue
 		var count: int = randi_range(0, maxi(1, int(free_cells.size() / 3.0)))
@@ -250,7 +238,7 @@ static func _footprint_clear(area: BattlefieldArea, tl: Vector2i, w: int, h: int
 	for bx: int in range(w):
 		for by: int in range(h):
 			var cell: Vector2i = tl + Vector2i(bx, by)
-			if cell.x < 0 or cell.x >= area.width or cell.y < 0 or cell.y >= area.length:
+			if not area.in_bounds_xy(cell.x, cell.y):
 				return false
 			if area._in_spawn_zone(cell):
 				return false
@@ -337,19 +325,3 @@ static func _is_on_wall(pos: Vector2i, tl: Vector2i, outer_w: int, outer_h: int,
 		return rel.x == 0 and rel.y > 0 and rel.y < outer_h - 1
 	return rel.x == outer_w - 1 and rel.y > 0 and rel.y < outer_h - 1
 
-
-static func _get_door_template() -> ObstacleData:
-	if _door_template == null:
-		_door_template = ObstacleData.new()
-		_door_template.obstacle_name = "Door"
-		_door_template.size_x = 1.0
-		_door_template.size_y = 0.25
-		_door_template.size_z = 2.0
-		_door_template.obstacle_type = "Structure"
-		_door_template.health = 4
-		_door_template.susceptible_to = "Strike"
-		_door_template.passthrough = false
-		#TODO: replace this code template with a Door row in Obstacles.tsv.
-		_door_template.interactable = true
-		_door_template.interaction_result = "Open/Close"
-	return _door_template

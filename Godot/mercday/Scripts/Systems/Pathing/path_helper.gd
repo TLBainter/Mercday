@@ -1,7 +1,5 @@
 class_name PathHelper
 
-const CARDINALS: Array[Vector2i] = [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]
-
 #True when a merc of merc_size may end a move standing on the cell.
 #Rejects walls, intact windows, closed doors, vault-only cells and solid furniture.
 static func is_standable(cell: Vector3i, field: BattlefieldArea, merc_size: int = 1) -> bool:
@@ -72,8 +70,9 @@ static func find_path_toward(from: Vector3i, to: Vector3i, field: BattlefieldAre
 	var g_of: Dictionary = {from: 0}
 	var parent_of: Dictionary = {}
 	var alt_of: Dictionary = {from: altitude}
-	var heap: Array = [[Pathfinder.chebyshev(from, to), from]]
+	var heap: Array = [[Pathfinder.chebyshev(from, to), from, 0]]
 	var closed: Dictionary = {}
+	var goal_box := Rect2i(to.x, to.y, 0, 0)
 
 	var best_reachable := from
 	var best_dz := absi(from.z - to.z)
@@ -83,17 +82,12 @@ static func find_path_toward(from: Vector3i, to: Vector3i, field: BattlefieldAre
 		var at_best: Array[Vector3i] = []
 		return at_best
 
-	while not heap.is_empty():
-		var top: Array = Pathfinder.heap_pop(heap)
-		var curr: Vector3i = top[1]
-		if closed.has(curr):
-			continue
-		closed[curr] = true
-
-		var curr_alt: int = altitude
-		if is_flying:
-			curr_alt = alt_of[curr] as int
-		var curr_g: int = g_of[curr] as int
+	while true:
+		var node: Array = Pathfinder.pop_node(heap, closed, g_of, alt_of, is_flying, altitude)
+		if node.is_empty():
+			break
+		var curr: Vector3i = node[0] as Vector3i
+		var curr_alt: int = node[1] as int
 		var curr_entry: Array = PathCost.static_entry(field, curr, merc_size)
 		var dz := absi(curr.z - to.z)
 		var dist := Pathfinder.chebyshev(curr, to)
@@ -117,9 +111,9 @@ static func find_path_toward(from: Vector3i, to: Vector3i, field: BattlefieldAre
 				if jump_range == 0 and best_dz == 0 and best_dist == 1:
 					break
 
-		Pathfinder.relax_neighbors(curr, curr_alt, curr_g, curr_entry, field, to, passable_cells,
-			merc_fall_tolerance, is_flying, can_climb, merc_size, closed, {},
-			g_of, parent_of, alt_of, heap)
+		Pathfinder.relax_neighbors(curr, curr_alt, node[2] as int, curr_entry, field, goal_box, true, passable_cells,
+			merc_fall_tolerance, is_flying, can_climb, merc_size, not is_flying and can_climb, closed,
+			Pathfinder.NO_BLOCKED, g_of, parent_of, alt_of, heap)
 
 	if jump_range > 0:
 		#The exit test left the expansion loop: a closed cell without one counts as unreached here, from and to exempt.
@@ -133,11 +127,11 @@ static func find_path_toward(from: Vector3i, to: Vector3i, field: BattlefieldAre
 				continue
 			if not _toward_reached(cell, from, to, exit_ok, field, passable_cells, merc_fall_tolerance, is_flying, can_climb, merc_size, altitude, alt_of):
 				continue
-			for dest: Array in PathCost.jump_dests(field, cell, jump_range, merc_size):
+			for dest: Array in PathJump.jump_dests(field, cell, jump_range, merc_size):
 				var jcell: Vector3i = dest[0] as Vector3i
 				if closed.has(jcell) and _toward_reached(jcell, from, to, exit_ok, field, passable_cells, merc_fall_tolerance, is_flying, can_climb, merc_size, altitude, alt_of):
 					continue
-				if PathCost.jump_row_blocked(dest):
+				if PathJump.jump_row_blocked(dest):
 					continue
 				var jdist := Pathfinder.chebyshev(jcell, to)
 				if cdz < best_dz or (cdz == best_dz and jdist < best_dist):
@@ -174,9 +168,9 @@ static func is_goal_passable(cell: Vector3i, field: BattlefieldArea, p_fall_tole
 		return false
 	if p_state != null and p_state.is_position_occupied(Vector2i(cell.x, cell.y), p_merc, cell.z):
 		return false
-	for cd: Vector2i in CARDINALS:
+	for cd: Vector2i in PathCost.DIRS4:
 		var nb := Vector3i(cell.x + cd.x, cell.y + cd.y, cell.z)
-		if nb.x < 0 or nb.x >= field.width or nb.y < 0 or nb.y >= field.length:
+		if not field.in_bounds_xy(nb.x, nb.y):
 			continue
 		if PathCost.cell_pace_cost(nb, cell, field, {}, p_fall_tolerance, p_is_flying, p_can_climb, p_merc_size, p_altitude) >= 0:
 			return true
@@ -213,7 +207,7 @@ static func nearest_passable_to(pos: Vector3i, field: BattlefieldArea, mover: Di
 		for dx: int in range(-3, 4):
 			for dy: int in range(-3, 4):
 				var cell := Vector3i(pos.x + dx, pos.y + dy, pos.z)
-				if cell.x < 0 or cell.x >= field.width or cell.y < 0 or cell.y >= field.length:
+				if not field.in_bounds_xy(cell.x, cell.y):
 					continue
 				if p_excluded.has(cell):
 					continue

@@ -96,27 +96,27 @@ func lock_visible() -> bool:
 func _build() -> void:
 	if title_label != null:
 		return
-	add_theme_stylebox_override(&"panel", LegalStyle.row_style(LegalStyle.BLUE))
-	var row: HBoxContainer = LegalStyle.hbox(14)
+	add_theme_stylebox_override(&"panel", LegalStyle.row_style(GuiColors.BLUE_LO))
+	var row: HBoxContainer = GuiStyle.hbox(14)
 	row.name = "Row"
-	var text_box: VBoxContainer = LegalStyle.vbox(3)
+	var text_box: VBoxContainer = GuiStyle.vbox(3)
 	text_box.name = "Text"
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_label = LegalStyle.pixel("", 12, LegalStyle.CREAM, true)
-	desc_label = LegalStyle.text("", 13, LegalStyle.SKY)
+	title_label = GuiStyle.label("", GuiStyle.SILK_BOLD, 12, GuiColors.CREAM)
+	desc_label = GuiStyle.label("", GuiStyle.BODY, 13, GuiColors.SKY)
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note_label = LegalStyle.text(INACTIVE_NOTE, 12, LegalStyle.SKY)
+	note_label = GuiStyle.label(INACTIVE_NOTE, GuiStyle.BODY, 12, GuiColors.SKY)
 	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note_label.visible = false
 	text_box.add_child(title_label)
 	text_box.add_child(desc_label)
 	text_box.add_child(note_label)
 	row.add_child(text_box)
-	var right: VBoxContainer = LegalStyle.vbox(4)
+	var right: VBoxContainer = GuiStyle.vbox(4)
 	right.name = "Right"
 	right.custom_minimum_size = Vector2(float(RIGHT_WIDTH), 0.0)
 	right.alignment = BoxContainer.ALIGNMENT_CENTER
-	owned_label = LegalStyle.pixel("", 10, LegalStyle.GREEN)
+	owned_label = GuiStyle.label("", GuiStyle.SILK, 10, GuiColors.GREEN)
 	owned_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	owned_label.visible = false
 	right.add_child(owned_label)
@@ -126,13 +126,13 @@ func _build() -> void:
 	price_notes.bold = true
 	price_notes.alignment = BoxContainer.ALIGNMENT_END
 	right.add_child(price_notes)
-	request_button = LegalStyle.button("Request", &"ButtonGo", BUTTON_HEIGHT, 11)
+	request_button = LegalStyle.button("Request", &"go", BUTTON_HEIGHT, 11)
 	request_button.name = "Request"
 	request_button.custom_minimum_size = Vector2(float(BUTTON_WIDTH), float(BUTTON_HEIGHT))
-	request_button.add_theme_color_override(&"font_color", LegalStyle.CREAM)
+	request_button.add_theme_color_override(&"font_color", GuiColors.CREAM)
 	request_button.pressed.connect(press_request)
 	right.add_child(request_button)
-	reason_label = LegalStyle.text("", 11, LegalStyle.RED)
+	reason_label = GuiStyle.label("", GuiStyle.BODY, 11, GuiColors.RED)
 	reason_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	reason_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	reason_label.visible = false
@@ -155,7 +155,7 @@ func _refresh() -> void:
 	if title_label == null:
 		return
 	var tele: bool = is_tele()
-	title_label.text = "Teleportation Permit" if tele else "Operations Permit"
+	title_label.text = LegalStyle.permit_name(kind)
 	desc_label.text = TELE_DESC if tele else OPS_DESC
 	var place: LegalLocationData = LegalManager.location(location_id)
 	if place == null or kind == &"":
@@ -168,18 +168,18 @@ func _refresh() -> void:
 		_show_only(true, false, false)
 		owned_label.text = _owned_text(state, home)
 		owned_label.add_theme_color_override(&"font_color",
-			LegalStyle.GREEN if state == LegalManager.STATE_ACTIVE else LegalStyle.YELLOW)
+			GuiColors.GREEN if state == LegalManager.STATE_ACTIVE else GuiColors.RAMP_YELLOW)
 		note_label.visible = state == LegalManager.STATE_INACTIVE
 		return
 	note_label.visible = false
 	if short:
 		_show_only(false, false, true)
 		lock.feature = "%ss in %s" % [title_label.text, scope_text(place.scope)]
-		lock.upgrade = "Teleportation Permit" if tele else "Operations Permits"
-		lock.upgrade_id = "teleport" if tele else "opspermit"
+		lock.upgrade = UpgradeDefs.name_of(LegalStyle.permit_upgrade(kind))
+		lock.upgrade_id = LegalStyle.permit_upgrade(kind)
 		lock.entitlement = TELE_KEY if tele else OPS_KEY
 		lock.tier = place.scope
-		lock.plan = "Mercday Enterprise"
+		lock.plan = SubscriptionManager.plan_name(SubscriptionManager.Plan.ENTERPRISE)
 		lock.required_plan = SubscriptionManager.Plan.ENTERPRISE
 		return
 	_show_only(false, true, false)
@@ -187,9 +187,9 @@ func _refresh() -> void:
 	var gate: Dictionary = LegalManager.can_request(location_id, kind)
 	var ok: bool = bool(gate.get("ok", false))
 	request_button.disabled = not ok
-	price_notes.value_color = LegalStyle.CREAM if ok else LegalStyle.RED
-	reason_label.visible = not ok
+	price_notes.value_color = GuiColors.CREAM if ok else GuiColors.RED
 	reason_label.text = str(gate.get("reason", ""))
+	reason_label.visible = not ok and reason_label.text != ""
 
 
 func _show_only(owned: bool, price: bool, locked: bool) -> void:
@@ -201,7 +201,7 @@ func _show_only(owned: bool, price: bool, locked: bool) -> void:
 		lock.upgrade_id = ""
 		lock.entitlement = ""
 		lock.required_plan = SubscriptionManager.Plan.FREE
-		lock.plan = "Mercday Free"
+		lock.plan = SubscriptionManager.plan_name(SubscriptionManager.Plan.FREE)
 	if not owned:
 		note_label.visible = false
 

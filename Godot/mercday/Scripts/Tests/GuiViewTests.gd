@@ -12,11 +12,14 @@ const SAMPLE_BANK: int = 1000
 
 static func run() -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
+	ContractResourceBuilder.build_all()
 	_case_gui_types(res)
 	_case_merc_view(res)
 	_case_relationships(res)
 	_case_relationship_dates(res)
 	_case_contract_view(res)
+	_case_local_view(res)
+	_case_check_row_lists(res)
 	_case_entry_status(res)
 	_case_sample_data(res)
 	_case_run_resources(res)
@@ -30,8 +33,8 @@ static func _reset() -> void:
 
 
 static func _case_gui_types(res: Dictionary) -> void:
-	TestFixtures.check(res, "six roles with the leader first",
-		GuiTypes.ROLES.size() == 6 and GuiTypes.ROLES[0] == "Leader",
+	TestFixtures.check(res, "seven roles with the leader first and Investigator last",
+		GuiTypes.ROLES.size() == 7 and GuiTypes.ROLES[0] == "Leader" and GuiTypes.ROLES.back() == "Investigator",
 		"got %d roles starting %s" % [GuiTypes.ROLES.size(), str(GuiTypes.ROLES.slice(0, 1))])
 	var foot: Dictionary = GuiTypes.travel_mode("foot")
 	TestFixtures.check(res, "six travel modes with the foot row intact",
@@ -271,19 +274,34 @@ static func _case_contract_view(res: Dictionary) -> void:
 	entry.distance_km = 48
 	entry.completion_hours = 12
 	entry.issuer = "Issuer 1 Name"
-	entry.issuer_type = 2
+	entry.issuer_type = "place"
 	entry.merc_min = 2
 	entry.image = "placeholder"
 	entry.status = "Draft"
 	var view: ContractView = ContractView.from_entry(entry, 0)
 	TestFixtures.check(res, "the entry id and the placeholders come off the entry",
 		view.entry_id == 4 and view.distance_km == 48 and view.completion_hours == 12
-			and view.issuer == "Issuer 1 Name" and view.issuer_type == 2 and view.image == "placeholder",
+			and view.issuer == "Issuer 1 Name" and view.issuer_type == "place" and view.image == "placeholder",
 		"id %d distance %d issuer %s" % [view.entry_id, view.distance_km, view.issuer])
-	TestFixtures.check(res, "the name is the type at the location",
-		view.name == "%s at %s" % [contract.contract_type, contract.location_a]
+	TestFixtures.check(res, "the name is the row's Contract Name, with no place",
+		view.name == (contract.contract_name if contract.contract_name != "" else contract.contract_type)
 			and view.location == contract.location_a,
 		"got %s" % view.name)
+	var probe := ContractData.new()
+	probe.contract_name = "TEST Named"
+	probe.contract_type = "TEST Kind"
+	probe.location_a = "Rossade"
+	TestFixtures.check(res, "a posting is titled by its Contract Name",
+		ContractView.posting_title(probe) == "TEST Named", "got %s" % ContractView.posting_title(probe))
+	probe.contract_name = ""
+	TestFixtures.check(res, "a row with no name is titled by its type, and no row gets a place",
+		ContractView.posting_title(probe) == "TEST Kind" and ContractView.posting_title(null) == "",
+		"got %s" % ContractView.posting_title(probe))
+	var named := BoardEntry.new()
+	probe.contract_name = "TEST Named"
+	named.contract = probe
+	TestFixtures.check(res, "the entry name is the posting title",
+		GameState.entry_name(named) == "TEST Named", "got %s" % GameState.entry_name(named))
 	TestFixtures.check(res, "the level, difficulty and reward come off the contract",
 		view.contract == contract and view.contract_level == contract.contract_level
 			and view.contract_level >= 1 and is_equal_approx(view.difficulty, contract.difficulty)
@@ -304,12 +322,104 @@ static func _case_contract_view(res: Dictionary) -> void:
 		"%d knowledges, %d tools, %d traditions" % [view.recommended_knowledges.size(),
 			view.recommended_tools.size(), view.recommended_traditions.size()])
 	TestFixtures.check(res, "the boosts fill the recommended lists",
-		view.recommended_knowledges.size() == contract.knowledge_boosts.size()
-			and view.recommended_traditions.size() == contract.tradition_boosts.size(),
+		_list_matches(view.recommended_knowledges, contract.knowledge_boosts, contract, "knowledges")
+			and _list_matches(view.recommended_traditions, contract.tradition_boosts, contract, "traditions"),
 		"expected %d and %d" % [contract.knowledge_boosts.size(), contract.tradition_boosts.size()])
 	var empty: ContractView = ContractView.from_entry(null, 0)
 	TestFixtures.check(res, "a null entry builds an empty view",
 		empty.contract == null and empty.entry_id == -1, "entry_id %d" % empty.entry_id)
+
+
+#Card 736: ContractView.local follows the ContractData and the sample key "local", false by default.
+static func _case_local_view(res: Dictionary) -> void:
+	var data := ContractData.new()
+	data.contract_name = "TEST Local"
+	data.local = true
+	var near: ContractView = ContractView.from_entry(_entry_for(data), 0)
+	var plain := ContractData.new()
+	plain.contract_name = "TEST Away"
+	var away: ContractView = ContractView.from_entry(_entry_for(plain), 0)
+	var sample_on: ContractView = ContractView.from_sample({"local": true})
+	var sample_off: ContractView = ContractView.from_sample({})
+	TestFixtures.check(res, "card736_view_local", near.local and not away.local and sample_on.local
+		and not sample_off.local and not ContractView.new().local,
+		"entry %s, plain %s, sample %s, sample default %s" % [near.local, away.local, sample_on.local,
+			sample_off.local])
+
+
+static func _case_check_row_lists(res: Dictionary) -> void:
+	_reset()
+	CheckStore.reset()
+	var row: Dictionary = {}
+	for key: String in CheckSheet.HEADER:
+		row[key] = ""
+	row[CheckSheet.HEADER[CheckSheet.NAME]] = "Get Cat from Tree"
+	row[CheckSheet.HEADER[CheckSheet.ATTRIBUTES]] = "Dexterity, Wile"
+	row[CheckSheet.HEADER[CheckSheet.CIRCUMSTANCES]] = (
+		"Finesse (Dexterity) 0, Grace (Dexterity) 0, Intuition (Wile) 0, Presence (Wile) 0")
+	row[CheckSheet.HEADER[CheckSheet.KNOWLEDGES]] = (
+		"Diplomacy 10, Hunting 5, Psychology 5, Salesmanship 5, Tactics 5, Zoology 15")
+	row[CheckSheet.HEADER[CheckSheet.TOOLS]] = "Scout's 5, Survivalist's 5, Tracker's 10, Trapper's 15"
+	row[CheckSheet.HEADER[CheckSheet.TRADITIONS]] = ("Brave -5, Chymist +5, Divine +5, Hellion +15, Honorable +5, "
+		+ "Mage -5, Mystech -15, Performer +15, Sorcerer -15, Warrior -10")
+	var rows: Array[Dictionary] = [row]
+	CheckStore.test_rows.assign(rows)
+	var data := ContractData.new()
+	data.style = "check"
+	data.completion = "check:Get Cat from Tree"
+	var view: ContractView = ContractView.from_entry(_entry_for(data), 0)
+	var knowledges: Array[String] = _entry_names(view.recommended_knowledges)
+	TestFixtures.check(res, "#721 empty contract knowledges fill from the Checks.tsv row, Zoology first",
+		knowledges == ["Zoology", "Diplomacy", "Hunting", "Psychology", "Salesmanship", "Tactics"]
+			and view.recommended_knowledges[0].hidden_bonus == 15 and _sorted_desc(view.recommended_knowledges),
+		"got %s" % str(knowledges))
+	var tools: Array[String] = _entry_names(view.recommended_tools)
+	TestFixtures.check(res, "#721 empty contract tools fill from the row with the short names, Trapper's first",
+		tools == ["Trapper's", "Tracker's", "Scout's", "Survivalist's"]
+			and view.recommended_tools[0].hidden_bonus == 15 and _sorted_desc(view.recommended_tools),
+		"got %s" % str(tools))
+	var traditions: Array[String] = _entry_names(view.recommended_traditions)
+	TestFixtures.check(res, "#721 the row fills traditions with positive values only",
+		traditions == ["Hellion", "Performer", "Chymist", "Divine", "Honorable"]
+			and view.recommended_traditions[0].hidden_bonus == 15
+			and view.recommended_traditions.back().hidden_bonus == 5,
+		"got %s" % str(traditions))
+	var circumstances: Array[String] = []
+	for entry: Dictionary in CheckStore.parse(row)["circumstances"]:
+		circumstances.append(String(entry.get("name", "")))
+	var leaked: Array[String] = []
+	for names: Array in [knowledges, tools, traditions]:
+		for name: String in names:
+			if circumstances.has(name):
+				leaked.append(name)
+	TestFixtures.check(res, "#721 circumstances are not shown in any list",
+		circumstances.size() == 4 and leaked.is_empty(),
+		"%d circumstances, leaked %s" % [circumstances.size(), str(leaked)])
+	data.knowledge_boosts = {"TEST Lore": 10}
+	var own: ContractView = ContractView.from_entry(_entry_for(data), 0)
+	TestFixtures.check(res, "#721 contract knowledge boosts win and the empty lists still fill per list",
+		_entry_names(own.recommended_knowledges) == ["TEST Lore"] and own.recommended_tools.size() == 4
+			and own.recommended_traditions.size() == 5,
+		"got %s, %d tools" % [str(_entry_names(own.recommended_knowledges)), own.recommended_tools.size()])
+	var event := ContractData.new()
+	event.style = "event"
+	event.completion = "check:Get Cat from Tree"
+	var missing := ContractData.new()
+	missing.style = "check"
+	missing.completion = "check:TEST No Row"
+	var event_view: ContractView = ContractView.from_entry(_entry_for(event), 0)
+	var missing_view: ContractView = ContractView.from_entry(_entry_for(missing), 0)
+	TestFixtures.check(res, "#721 an event style posting or a missing row leaves the lists empty",
+		_lists_empty(event_view) and _lists_empty(missing_view), "event %d, missing %d knowledges" % [
+			event_view.recommended_knowledges.size(), missing_view.recommended_knowledges.size()])
+	var sample: ContractView = ContractView.from_sample(
+		{"recommended": {"knowledges": [{"name": "TEST Lore", "hidden_bonus": 5}]}})
+	TestFixtures.check(res, "#721 a sample view never reads the Checks.tsv row",
+		_entry_names(sample.recommended_knowledges) == ["TEST Lore"] and sample.recommended_tools.is_empty()
+			and sample.recommended_traditions.is_empty(),
+		"got %s, %d tools, %d traditions" % [str(_entry_names(sample.recommended_knowledges)),
+			sample.recommended_tools.size(), sample.recommended_traditions.size()])
+	CheckStore.reset()
 
 
 static func _case_entry_status(res: Dictionary) -> void:
@@ -348,7 +458,7 @@ static func _case_sample_data(res: Dictionary) -> void:
 	if mercs.is_empty() or contracts.is_empty():
 		return
 	var first: MercView = mercs[0]
-	TestFixtures.check(res, "the first sample merc reads its handoff fields",
+	TestFixtures.check(res, "the first sample merc reads its design prototype fields",
 		first.uid == 0 and first.name == "Merc 1 Name" and first.level == 7
 			and first.tradition == "Brave" and first.age_group == "Adult"
 			and first.monthly_salary == 60 and first.employment_months == 14
@@ -372,7 +482,7 @@ static func _case_sample_data(res: Dictionary) -> void:
 			and first.status == GuiTypes.MercStatus.AVAILABLE,
 		"status %d hours %s" % [first.status, str(first.status_time_left_hours)])
 	var c0: ContractView = contracts[0]
-	TestFixtures.check(res, "the first sample contract reads its handoff fields",
+	TestFixtures.check(res, "the first sample contract reads its design prototype fields",
 		c0.entry_id == 0 and c0.name == "Contract 1 Name" and is_equal_approx(c0.difficulty, 3.0)
 			and c0.contract_level == 10 and c0.reward == 800 and c0.distance_km == 48
 			and c0.completion_hours == 48 and c0.location == "Location 1",
@@ -582,6 +692,37 @@ static func _equipment_ok(merc: MercenaryData, equipment: Array[Dictionary]) -> 
 		if String(equipment[i].get("name", "")) == "":
 			return false
 	return true
+
+
+#Empty boosts on a check posting with a Checks.tsv row expect the row's list for kind, as ContractView fills it.
+static func _list_matches(list: Array[BonusEntry], boosts: Dictionary, contract: ContractData, kind: String) -> bool:
+	if not boosts.is_empty():
+		return list.size() == boosts.size()
+	if contract.style != "check" or not contract.completion.begins_with(CheckStore.PREFIX):
+		return list.is_empty()
+	var parsed: Dictionary = CheckStore.parse(CheckStore.find(contract.completion))
+	if parsed.is_empty():
+		return list.is_empty()
+	var key: String = "value" if kind == "traditions" else "percent"
+	return list.size() == BonusEntry.from_parsed(parsed[kind], key, kind == "traditions").size()
+
+
+static func _entry_for(data: ContractData) -> BoardEntry:
+	var entry := BoardEntry.new()
+	entry.contract = data
+	return entry
+
+
+static func _entry_names(entries: Array[BonusEntry]) -> Array[String]:
+	var out: Array[String] = []
+	for entry: BonusEntry in entries:
+		out.append(entry.name)
+	return out
+
+
+static func _lists_empty(view: ContractView) -> bool:
+	return (view.recommended_knowledges.is_empty() and view.recommended_tools.is_empty()
+		and view.recommended_traditions.is_empty())
 
 
 static func _sorted_desc(entries: Array[BonusEntry]) -> bool:

@@ -7,10 +7,9 @@ class_name ItemCard extends PanelContainer
 signal add_pressed
 signal remove_pressed
 
-const CARD_FILL: Color = BazaarUi.NAVY
-const CARD_BORDER: Color = BazaarUi.BLUE
+const CARD_FILL: Color = GuiColors.ROW_FILL
+const CARD_BORDER: Color = GuiColors.BLUE_LO
 const SLOT_PX: float = 110.0
-const SLOT_STRIPE: Color = BazaarUi.BLUE
 const NAME_SIZE: int = 11
 const META_SIZE: int = 11
 const PRICE_SIZE: int = 16
@@ -43,7 +42,7 @@ var _stepper: QuantityStepper = null
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", BazaarUi.flat(CARD_FILL, 2, CARD_BORDER, 8.0))
+	add_theme_stylebox_override("panel", GuiStyle.flat(CARD_FILL, 2, CARD_BORDER, 8.0))
 	_build()
 	_refresh()
 
@@ -79,42 +78,38 @@ func eta_label() -> Label:
 
 
 func _build() -> void:
-	_rows = BazaarUi.vbox(ROW_GAP)
+	_rows = GuiStyle.vbox(ROW_GAP)
 	add_child(_rows)
 	var frame: AspectRatioContainer = AspectRatioContainer.new()
 	frame.ratio = 1.0
 	frame.custom_minimum_size = Vector2(0.0, SLOT_PX)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rows.add_child(frame)
-	_slot = ContractImageBox.new()
-	_slot.custom_minimum_size = Vector2(SLOT_PX, SLOT_PX)
-	_slot.stripe_color = SLOT_STRIPE
-	_slot.ring_px = 2
+	_slot = BazaarUi.image_slot(item, SLOT_PX)
 	frame.add_child(_slot)
-	_tag = BazaarUi.silk("", TAG_SIZE, BazaarUi.CREAM)
+	_tag = GuiStyle.label("", GuiStyle.SILK, TAG_SIZE, GuiColors.CREAM)
 	_tag.position = Vector2(5.0, 4.0)
 	_slot.add_child(_tag)
-	_name = BazaarUi.silk_bold("", NAME_SIZE, BazaarUi.CREAM)
+	_name = GuiStyle.label("", GuiStyle.SILK_BOLD, NAME_SIZE, GuiColors.CREAM)
 	_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rows.add_child(_name)
-	_meta = BazaarUi.body("", META_SIZE, BazaarUi.MUTED)
+	_meta = GuiStyle.label("", GuiStyle.BODY, META_SIZE, GuiColors.MUTED)
 	_meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rows.add_child(_meta)
-	_price = BazaarUi.notes(0, PRICE_SIZE, BazaarUi.CREAM)
+	_price = GuiStyle.notes(0, PRICE_SIZE, GuiColors.CREAM)
 	_price.bold = true
 	_rows.add_child(_price)
-	_eta = BazaarUi.body("", ETA_SIZE, BazaarUi.GREEN)
+	_eta = GuiStyle.label("", GuiStyle.BODY, ETA_SIZE, GuiColors.GREEN)
 	_eta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rows.add_child(_eta)
-	_add = BazaarUi.button(ADD_TEXT, &"ButtonOrange", ADD_HEIGHT, 10)
+	_add = BazaarUi.button(ADD_TEXT, &"orange", ADD_HEIGHT, 10)
 	_add.pressed.connect(_on_add_pressed)
 	_rows.add_child(_add)
-	_qty_box = BazaarUi.panel_box(BazaarUi.INK, 2, BazaarUi.GREEN, 2.0)
-	_rows.add_child(_qty_box)
 	_stepper = QUANTITY_SCENE.instantiate() as QuantityStepper
 	_stepper.min_value = 0
 	_stepper.value_changed.connect(_on_qty_changed)
-	_qty_box.add_child(_stepper)
+	_qty_box = BazaarUi.ringed_stepper(_stepper)
+	_rows.add_child(_qty_box)
 
 
 func _refresh() -> void:

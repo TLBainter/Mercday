@@ -17,8 +17,6 @@ const DY: Array[int] = [0, 1, 0, -1]
 
 #Paints the rings and the connectors and appends one street record for each; runs before the object passes.
 static func build(area: BattlefieldArea) -> void:
-	if area == null or not area.city.has("streets"):
-		return
 	var rings: Array[Dictionary] = _rings(area)
 	var links: Array[Dictionary] = _connect(area, rings)
 	area.city["alleys"] = {
@@ -72,9 +70,6 @@ static func _isolated_count(recs: Array[Dictionary]) -> int:
 	return out
 
 
-#### Rings.
-
-
 #One ring record per placed building; a ring cell that already carries a street or an object is skipped.
 static func _rings(area: BattlefieldArea) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -90,24 +85,12 @@ static func _rings(area: BattlefieldArea) -> Array[Dictionary]:
 			for c: Vector2i in _band(area, rect, d):
 				if not _ring_ok(area, c, bid, d):
 					continue
-				_paint(area, c, id)
+				CityGrid.paint_alley(area, c, id)
 				cells.append(c)
 		if cells.is_empty():
 			continue
-		var rec: Dictionary = {
-			"id": id,
-			"kind": "alley",
-			"ring": bid,
-			"width": w,
-			"axis": "x",
-			"dead_end": false,
-			"block": -1,
-			"mouth": Vector2i(-1, -1),
-			"cells": cells,
-			"segments": _row_segments(cells),
-		}
-		streets.append(rec)
-		out.append(rec)
+		out.append(CityGrid.add_street(streets, "alley", "x", _row_segments(cells), false, -1,
+			Vector2i(-1, -1), {"ring": bid, "width": w, "cells": cells}))
 	return out
 
 
@@ -149,7 +132,7 @@ static func _cheb(c: Vector2i, r: Rect2i) -> int:
 
 #True when the cell takes alley paint: open ground on floor 0 with no building, object, stair or roof.
 static func _ground_ok(area: BattlefieldArea, c: Vector2i) -> bool:
-	if not CityGrid.inside(area, c.x, c.y):
+	if not area.in_bounds_xy(c.x, c.y):
 		return false
 	var s: int = CityGrid.surf(area, c.x, c.y)
 	if s != BattlefieldArea.SURF_LOT and s != BattlefieldArea.SURF_NATURE \
@@ -160,11 +143,6 @@ static func _ground_ok(area: BattlefieldArea, c: Vector2i) -> bool:
 	if not area.get_obs(c, 0).is_empty():
 		return false
 	return not area.is_stair_cell(c, 0) and area.roof_level_at(c) < 0
-
-
-static func _paint(area: BattlefieldArea, c: Vector2i, id: int) -> void:
-	CityGrid.paint_force(area, c.x, c.y, BattlefieldArea.SURF_ALLEY, id)
-	area.terrain_heights[c] = CityGenerator.CURB
 
 
 #A ring is no single lane, so its segments are the maximal runs of one row each.
@@ -188,9 +166,6 @@ static func _row_segments(cells: Array[Vector2i]) -> Array[Dictionary]:
 				"width": 1})
 			start = i + 1
 	return out
-
-
-#### Connectors.
 
 
 #Joins every alley component that reaches no street to another one; returns the records it added.
@@ -324,7 +299,7 @@ static func _strip(area: BattlefieldArea, labels: Array[int], roots: Array[int],
 	var id: int = streets.size()
 	var mine: Array[int] = cells_of[lab]
 	for c: Vector2i in path:
-		_paint(area, c, id)
+		CityGrid.paint_alley(area, c, id)
 		var i: int = c.y * w + c.x
 		labels[i] = lab
 		mine.append(i)
@@ -335,21 +310,8 @@ static func _strip(area: BattlefieldArea, labels: Array[int], roots: Array[int],
 	roots[rb] = lab
 	open[lab] = open[lab] or open[rb]
 	var segments: Array[Dictionary] = CityAccess.lane_segments(path)
-	var rec: Dictionary = {
-		"id": id,
-		"kind": "alley",
-		"connector": true,
-		"ring": -1,
-		"width": 1,
-		"axis": String((segments[0] as Dictionary)["axis"]),
-		"dead_end": false,
-		"block": -1,
-		"mouth": Vector2i(-1, -1),
-		"cells": path,
-		"segments": segments,
-	}
-	streets.append(rec)
-	return rec
+	return CityGrid.add_street(streets, "alley", String((segments[0] as Dictionary)["axis"]), segments,
+		false, -1, Vector2i(-1, -1), {"connector": true, "ring": -1, "width": 1, "cells": path})
 
 
 #A ring no street reaches is kept as it is and marked, so the validator and the stats know of it.

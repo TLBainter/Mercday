@@ -5,7 +5,7 @@ class_name SlotTooltip extends TooltipPanel
 #hidden while it is empty, so every older caller keeps the three-row tooltip it asked for.
 
 const BODY_WIDTH: float = 240.0
-const FOOT_COLOR: Color = Color("#f3ead7")
+const FOOT_COLOR: Color = GuiColors.CREAM
 
 @export var kind_label: String = ""
 @export var title: String = ""

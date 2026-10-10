@@ -1,4 +1,4 @@
-class_name LegalViewer extends Control
+class_name LegalViewer extends TabbedViewer
 
 #The Legal window: the Permits, Fines and Bailout tabs over one page frame, plus the three modals
 #the tabs raise. The window itself never scrolls and it owns the one confirm the dialogs borrow.
@@ -7,8 +7,6 @@ class_name LegalViewer extends Control
 signal tab_changed(index: int)
 signal odd_job_started(job: OddJobData)
 
-enum Tab {PERMITS, FINES, BAILOUT}
-
 const PERMITS_SCENE: PackedScene = preload("res://Scenes/GUI/Legal/PermitsPage.tscn")
 const FINES_SCENE: PackedScene = preload("res://Scenes/GUI/Legal/FinesPage.tscn")
 const BAILOUT_SCENE: PackedScene = preload("res://Scenes/GUI/Legal/BailoutPage.tscn")
@@ -16,16 +14,17 @@ const REQUEST_SCENE: PackedScene = preload("res://Scenes/GUI/Legal/PermitRequest
 const REVIEW_SCENE: PackedScene = preload("res://Scenes/GUI/Legal/ReviewDialog.tscn")
 const CONFIRM_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/ConfirmDialog.tscn")
 const ODD_JOB_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/OddJobWindow.tscn")
-const TAB_BUTTON_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/TabButton.tscn")
 const TAB_KEYS: Array[StringName] = [&"permits", &"fines", &"bail"]
 const TAB_LABELS: Array[String] = ["Permits", "Fines", "Bailout"]
 const TAB_DESCS: Array[String] = ["Operations and teleportation permits",
 	"Fines the guild owes", "Mercs held by the law"]
-const TAB_GAP: int = 6
-const BODY_GAP: int = 10
+const TAB_ICON_IDS: Array[String] = ["permit", "coin", "bail_bars"]
+const TAB_GAP: int = 8
+const FRAME_MARGIN: int = 14
+const TAB_PAD_LEFT: int = 4
+const MARGIN_SIDES: Array[StringName] = [&"margin_left", &"margin_top", &"margin_right",
+	&"margin_bottom"]
 const PAGE_PAD: int = 0
-const TAB_ICON_IDS: Dictionary = {&"permits": "permit", &"fines": "coin", &"bail": "bail_bars"}
-const TAB_ICON_SCALE: int = 2
 const ODDS_LABEL: String = "Success Odds"
 const PICK_DESC: String = "Sorted by best fit for this Odd Job."
 const TIP_KIND: String = "Odd Job"
@@ -40,12 +39,7 @@ const BREAKOUT_TITLE: String = "Break Out"
 const BOOST_TEXT: String = "Advisory Counsel: +%d%% per merc"
 const ODD_BENEFIT: String = "odd"
 const DEFAULT_FIT: float = 2.5
-const BENEFITS_PATH: NodePath = ^"/root/BenefitsManager"
-const FINANCE_PATH: NodePath = ^"/root/FinanceManager"
 
-@export var start_tab: Tab = Tab.PERMITS
-
-var tabs: Array[TabButton] = []
 var pages: MarginContainer = null
 var permits: PermitsPage = null
 var fines: FinesPage = null
@@ -55,61 +49,24 @@ var review: ReviewDialog = null
 var confirm_dialog: ConfirmDialog = null
 var odd_job: OddJobWindow = null
 
-var tab: int = Tab.PERMITS
-
+var _pages: Dictionary = {}
 var _job_kind: StringName = LegalManager.TARGET_FINE
 var _job_id: int = -1
 
 
+#The page and its tab strip are built before the base looks the strip up by path.
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_build()
-	tab = clampi(int(start_tab), 0, TAB_KEYS.size() - 1)
+	super()
 	_apply_tab()
 	LegalManager.fines_changed.connect(_apply_dots)
 	LegalManager.captures_changed.connect(_apply_dots)
 
 
-func current_tab() -> int:
-	return tab
-
-
-func current_key() -> StringName:
-	return TAB_KEYS[tab]
-
-
 func open_tab(key: StringName) -> void:
-	var index: int = TAB_KEYS.find(key)
-	if index < 0:
-		return
-	if index == tab:
-		_apply_tab()
-		return
-	tab = index
-	_apply_tab()
-	tab_changed.emit(tab)
-
-
-func press_tab(key: StringName) -> void:
-	var index: int = TAB_KEYS.find(key)
-	if index < 0 or index >= tabs.size():
-		return
-	tabs[index].tab_pressed.emit(index)
-
-
-func tab_count() -> int:
-	return tabs.size()
-
-
-func tab_node(index: int) -> TabButton:
-	if index < 0 or index >= tabs.size():
-		return null
-	return tabs[index]
-
-
-func tab_dot(index: int) -> bool:
-	var node: TabButton = tab_node(index)
-	return node != null and node.dot
+	if TAB_KEYS.has(key):
+		_open_tab(key)
 
 
 func confirm() -> ConfirmDialog:
@@ -151,20 +108,34 @@ func open_review(kind: StringName, id: int) -> void:
 func _build() -> void:
 	if pages != null:
 		return
-	var page := PanelContainer.new()
-	page.name = "Page"
-	page.set_anchors_preset(Control.PRESET_FULL_RECT)
-	page.add_theme_stylebox_override(&"panel", LegalStyle.page_style())
-	add_child(page)
-	var body: VBoxContainer = LegalStyle.vbox(BODY_GAP)
-	body.name = "Body"
-	page.add_child(body)
-	body.add_child(_tab_row())
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side: StringName in MARGIN_SIDES:
+		margin.add_theme_constant_override(side, FRAME_MARGIN)
+	add_child(margin)
+	var rows: VBoxContainer = GuiStyle.vbox(0)
+	rows.name = "Rows"
+	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(rows)
+	rows.add_child(_tab_pad())
+	tab_strip_path = get_path_to(tab_strip)
+	#A left tab draws over its neighbour, so its unread dot is never covered.
+	for button: TabButton in tab_strip.buttons():
+		button.z_index = TAB_KEYS.size() - button.index
+	#The tab row sits above the panel, so the panel's orange top line runs under the tabs.
+	var panel := PanelContainer.new()
+	panel.name = "PagePanel"
+	panel.theme_type_variation = &"PageContent"
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rows.add_child(panel)
 	pages = MarginContainer.new()
 	pages.name = "Pages"
 	pages.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	pages.add_theme_constant_override(&"margin_top", PAGE_PAD)
-	body.add_child(pages)
+	panel.add_child(pages)
 	permits = PERMITS_SCENE.instantiate() as PermitsPage
 	permits.name = "Permits"
 	permits.request_pressed.connect(_on_permit_request)
@@ -177,28 +148,29 @@ func _build() -> void:
 	bailout.name = "Bailout"
 	bailout.review_pressed.connect(_on_capture_review)
 	pages.add_child(bailout)
+	_pages = {TAB_KEYS[0]: permits, TAB_KEYS[1]: fines, TAB_KEYS[2]: bailout}
 	_build_modals()
 
 
-func _tab_row() -> HBoxContainer:
-	var row: HBoxContainer = LegalStyle.hbox(TAB_GAP)
-	row.name = "Tabs"
-	for i: int in range(TAB_KEYS.size()):
-		var button: TabButton = TAB_BUTTON_SCENE.instantiate() as TabButton
-		button.name = "Tab%d" % i
-		row.add_child(button)
-		button.label = TAB_LABELS[i]
-		button.description = TAB_DESCS[i]
-		button.index = i
-		button.icon_id = String(TAB_ICON_IDS[TAB_KEYS[i]])
-		button.icon_scale = TAB_ICON_SCALE
-		button.idle_mode = Icons.MODE_PLAIN
-		#A left tab draws over its neighbour, so its unread dot is never covered.
-		button.z_index = TAB_KEYS.size() - i
-		button.tab_pressed.connect(_on_tab_pressed)
-		tabs.append(button)
-	row.add_child(LegalStyle.spacer())
-	return row
+func _tab_pad() -> MarginContainer:
+	var pad := MarginContainer.new()
+	pad.name = "TabRowPad"
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.add_theme_constant_override(&"margin_left", TAB_PAD_LEFT)
+	#With the window margin this leaves SubWindow.CLOSE_RESERVE free for the close X.
+	pad.add_theme_constant_override(&"margin_right", int(SubWindow.CLOSE_RESERVE) - FRAME_MARGIN)
+	tab_strip = TabStrip.new()
+	tab_strip.name = "Strip"
+	tab_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	#The other viewers set the height and the gap in their scene; Legal builds the strip in code.
+	tab_strip.custom_minimum_size.y = TabButton.ACTIVE_HEIGHT
+	tab_strip.add_theme_constant_override(&"separation", TAB_GAP)
+	tab_strip.keys = TAB_KEYS
+	tab_strip.labels = TAB_LABELS
+	tab_strip.tips = TAB_DESCS
+	tab_strip.icon_ids = TAB_ICON_IDS
+	pad.add_child(tab_strip)
+	return pad
 
 
 func _build_modals() -> void:
@@ -222,31 +194,29 @@ func _build_modals() -> void:
 	add_child(odd_job)
 
 
+func _open_tab(key: StringName) -> void:
+	var moved: bool = current_tab() != key
+	super(key)
+	if moved:
+		tab_changed.emit(current_index())
+
+
+func _show_tab(_key: StringName) -> void:
+	_apply_tab()
+
+
 func _apply_tab() -> void:
-	if pages == null:
-		return
-	permits.visible = tab == Tab.PERMITS
-	fines.visible = tab == Tab.FINES
-	bailout.visible = tab == Tab.BAILOUT
-	for i: int in range(tabs.size()):
-		var button: TabButton = tabs[i]
-		button.active = i == tab
+	for key: StringName in _pages:
+		(_pages[key] as Control).visible = key == current_tab()
 	_apply_dots()
 
 
 #A tab change never marks a row seen: the dots follow the rows themselves.
 func _apply_dots() -> void:
-	if tabs.size() < TAB_KEYS.size():
+	if tab_strip == null:
 		return
-	tabs[Tab.PERMITS].dot = false
-	tabs[Tab.FINES].dot = LegalManager.has_unread_fine()
-	tabs[Tab.BAILOUT].dot = LegalManager.has_unread_capture()
-
-
-func _on_tab_pressed(index: int) -> void:
-	if index < 0 or index >= TAB_KEYS.size():
-		return
-	open_tab(TAB_KEYS[index])
+	tab_strip.set_dot(TAB_KEYS[1], LegalManager.has_unread_fine())
+	tab_strip.set_dot(TAB_KEYS[2], LegalManager.has_unread_capture())
 
 
 func _on_permit_request(loc_id: int) -> void:
@@ -317,9 +287,9 @@ func _job_facts(kind: StringName, id: int) -> Array:
 			return out
 		out.append({"label": "Location", "value": LegalStyle.location_name(f.location_id)})
 		out.append({"label": "Crime", "value": f.crime})
-		out.append({"label": "Total Due",
-			"value": NotesLabel.format_amount(LegalManager.fine_due(f)),
-			"color": LegalStyle.ORANGE})
+		var due: int = LegalManager.fine_due(f)
+		out.append({"label": "Total Due", "value": TransactionData.grouped(due),
+			"color": GuiColors.CREAM if GameState.can_afford(due) else GuiColors.RED})
 		out.append({"label": "Duration", "value": span})
 		return out
 	var c: CaptureData = LegalManager.capture(id)
@@ -328,7 +298,7 @@ func _job_facts(kind: StringName, id: int) -> Array:
 	out.append({"label": "Held At", "value": LegalStyle.location_name(c.location_id)})
 	out.append({"label": "Crime", "value": c.crime})
 	out.append({"label": "Time Remaining", "value": GuiDates.days_text(c.remaining(today)),
-		"color": LegalStyle.AMBER})
+		"color": GuiColors.AMBER})
 	out.append({"label": "Duration", "value": span})
 	return out
 
@@ -341,21 +311,14 @@ func _boost_text(fine_case: bool) -> String:
 	return BOOST_TEXT % pct if pct > 0 else ""
 
 
-#Both reads sit behind a guard: the wave that owns the autoload may not be on this copy.
 func _default_pay() -> int:
-	var node: Node = get_node_or_null(BENEFITS_PATH)
-	if node == null or not node.has_method(&"benefit"):
-		return 0
-	return int(node.call(&"benefit", ODD_BENEFIT))
+	return BenefitsManager.benefit(ODD_BENEFIT)
 
 
 func _fit_of(uid: int) -> float:
 	if GameState.merc_by_uid(uid) == null:
 		return DEFAULT_FIT
-	var node: Node = get_node_or_null(FINANCE_PATH)
-	if node == null or not node.has_method(&"merc_fit"):
-		return DEFAULT_FIT
-	return float(node.call(&"merc_fit", uid))
+	return FinanceManager.merc_fit(uid)
 
 
 #The window asks the odds of the crew it holds; the case is the one it opened on.

@@ -23,34 +23,55 @@ static func relevance_percent(merc: MercenaryData, event: EventData) -> float:
 	return 0.0
 
 
-static func for_merc(contract: ContractData, team: Array[MercenaryData], merc: MercenaryData, event: EventData) -> Dictionary:
-	var base_value: float = base(merc)
-	var boost: float = ContractModifiers.boost_percent(contract, merc)
+#The leader's shared rows count only while the leader stands in the team passed.
+static func _parts(contract: ContractData, team: Array[MercenaryData], merc: MercenaryData, event: EventData,
+		leader: MercenaryData) -> Dictionary:
+	var shared: Array[Dictionary] = []
+	if leader != null and not leader.is_dead and team.has(leader):
+		shared = MatchScore.leader_rows(contract, leader)
+	var boost: float = ContractModifiers.boost_percent(contract, merc, shared)
 	var relevance: float = relevance_percent(merc, event)
 	var penalty: float = ContractPenalty.percent_for(contract, merc, team.size())
-	var net: float = boost + relevance - penalty
+	return {"boost": boost, "relevance": relevance, "penalty": penalty, "net": boost + relevance - penalty}
+
+
+static func net_percent(contract: ContractData, team: Array[MercenaryData], merc: MercenaryData, event: EventData,
+		leader: MercenaryData = null) -> float:
+	return float(_parts(contract, team, merc, event, leader)["net"])
+
+
+static func for_merc(contract: ContractData, team: Array[MercenaryData], merc: MercenaryData, event: EventData,
+		leader: MercenaryData = null) -> Dictionary:
+	var base_value: float = base(merc)
+	var parts: Dictionary = _parts(contract, team, merc, event, leader)
+	var net: float = float(parts["net"])
 	var value: float = maxf(0.0, base_value * (1.0 + net / 100.0))
 	return {
 		"base": base_value,
-		"boost_percent": boost,
-		"relevance_percent": relevance,
-		"penalty_percent": penalty,
+		"boost_percent": float(parts["boost"]),
+		"relevance_percent": float(parts["relevance"]),
+		"penalty_percent": float(parts["penalty"]),
 		"net_percent": net,
 		"value": value,
 		"delta": value - base_value,
 	}
 
 
-static func apply_event_delta(contract: ContractData, team: Array[MercenaryData], event: EventData) -> Dictionary:
+static func apply_event_delta(contract: ContractData, team: Array[MercenaryData], event: EventData,
+		leader: MercenaryData = null) -> Dictionary:
 	var record: Dictionary = {}
 	for merc: MercenaryData in team:
 		if merc == null:
 			continue
-		var info: Dictionary = for_merc(contract, team, merc, event)
+		var info: Dictionary = for_merc(contract, team, merc, event, leader)
 		var delta: float = float(info["delta"])
 		record[merc] = delta
-		merc.stats[STAT_KEY] = float(merc.stats.get(STAT_KEY, 0.0)) + delta
+		apply_delta(merc, delta)
 	return record
+
+
+static func apply_delta(merc: MercenaryData, delta: float) -> void:
+	merc.stats[STAT_KEY] = float(merc.stats.get(STAT_KEY, 0.0)) + delta
 
 
 #Subtracts the stored delta so stat changes made during the event survive the revert.

@@ -3,15 +3,10 @@ class_name BenefitsPanel extends PanelContainer
 #The right column of the Payroll page: the bonus rows the guild pays on top of wages and the six
 #vacation cells the policy dialog edits. Every value is read back from BenefitsManager.
 
-const FONT_TITLE: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_KICKER: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const STYLE_PANEL: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_panel_pad.tres")
-const STYLE_BOX: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_row_pad.tres")
+const STYLE_PANEL: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/PanelContent.tres")
+const STYLE_BOX: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/dark_box_padded.tres")
 const ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Payroll/BenefitRow.tscn")
 
-const ORANGE: Color = Color("#f28c28")
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
 const TITLE_TEXT: String = "Employee Benefits"
 const BONUS_TEXT: String = "Bonuses"
 const VACATION_TEXT: String = "Vacation Days"
@@ -63,7 +58,7 @@ func row_text(index: int, field: String) -> String:
 
 func row_color(index: int) -> Color:
 	if index < 0 or index >= _items.size():
-		return CREAM
+		return GuiColors.CREAM
 	return _items[index].value_color()
 
 
@@ -113,31 +108,16 @@ func _build_rows() -> void:
 
 
 func _build_cells() -> void:
-	for child: Node in cell_grid.get_children():
-		cell_grid.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(cell_grid)
 	for row: Dictionary in _cells:
 		cell_grid.add_child(_cell(String(row.get("label", "")), String(row.get("value_text", ""))))
 
 
 func _cell(label: String, value: String) -> VBoxContainer:
-	var box: VBoxContainer = VBoxContainer.new()
+	var box: VBoxContainer = GuiStyle.vbox(3)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 3)
-	var caption: Label = Label.new()
-	caption.text = label
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	caption.add_theme_font_override("font", FONT_KICKER)
-	caption.add_theme_font_size_override("font_size", 9)
-	caption.add_theme_color_override("font_color", SKY)
-	var body: Label = Label.new()
-	body.text = value
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_theme_font_override("font", FONT_TITLE)
-	body.add_theme_font_size_override("font_size", 11)
-	body.add_theme_color_override("font_color", CREAM)
-	box.add_child(caption)
-	box.add_child(body)
+	box.add_child(GuiStyle.label(label, GuiStyle.SILK, 9, GuiColors.SKY))
+	box.add_child(GuiStyle.label(value, GuiStyle.SILK_BOLD, 11, GuiColors.CREAM))
 	return box
 
 
@@ -149,19 +129,13 @@ func _style() -> void:
 	cell_grid.add_theme_constant_override("v_separation", 10)
 	vacation_box.add_theme_stylebox_override("panel", STYLE_BOX)
 	title.text = TITLE_TEXT
-	title.add_theme_font_override("font", FONT_TITLE)
-	title.add_theme_font_size_override("font_size", 13)
-	title.add_theme_color_override("font_color", ORANGE)
+	GuiStyle.paint(title, GuiStyle.SILK_BOLD, 13, GuiColors.ORANGE)
 	bonus_head.text = BONUS_TEXT
-	bonus_head.add_theme_font_override("font", FONT_KICKER)
-	bonus_head.add_theme_font_size_override("font_size", 10)
-	bonus_head.add_theme_color_override("font_color", SKY)
+	GuiStyle.paint(bonus_head, GuiStyle.SILK, 10, GuiColors.SKY)
 	vacation_head.text = VACATION_TEXT
-	vacation_head.add_theme_font_override("font", FONT_KICKER)
-	vacation_head.add_theme_font_size_override("font_size", 10)
-	vacation_head.add_theme_color_override("font_color", SKY)
+	GuiStyle.paint(vacation_head, GuiStyle.SILK, 10, GuiColors.SKY)
 	edit_button.text = EDIT_TEXT
 	edit_button.custom_minimum_size = Vector2(0.0, BUTTON_HEIGHT)
-	edit_button.add_theme_font_override("font", FONT_KICKER)
+	edit_button.add_theme_font_override("font", GuiStyle.SILK)
 	edit_button.add_theme_font_size_override("font_size", 10)
-	edit_button.text_color = CREAM
+	edit_button.text_color = GuiColors.CREAM

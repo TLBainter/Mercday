@@ -41,10 +41,8 @@ static func carried_weight(merc: MercenaryData) -> int:
 	if merc == null:
 		return 0
 	var total: int = weapon_weight(merc.equipped_weapon) + weapon_weight(merc.offhand_weapon)
-	for entry: Dictionary in merc.inventory:
-		if entry.get("type") != "weapon":
-			continue
-		total += weapon_weight(entry.get("data") as WeaponData)
+	for w: WeaponData in merc.inventory_weapons():
+		total += weapon_weight(w)
 	if merc.equipped_armor != null and not _armor_weight_ignored(merc):
 		total += merc.equipped_armor.weight
 	return total + ammo_weight(merc)
@@ -107,20 +105,6 @@ static func line(merc: MercenaryData) -> String:
 	if merc == null:
 		return ""
 	return "LOADOUT: %s %s" % [merc.merc_name, detail_text(merc)]
-
-
-#The burden constants the loadout decision weighs a carried item against.
-static func loadout_rules_line() -> String:
-	return "LOADOUT RULES: at limit %.1f, per point %.1f, ammo bundle %.1f, no-ammo ranged x%.2f, makeshift x%.2f, equipped +%.1f" % [
-		LoadoutDecision.AT_LIMIT_BURDEN, LoadoutDecision.PER_POINT_BURDEN, LoadoutDecision.AMMO_BUNDLE_VALUE,
-		LoadoutDecision.NO_AMMO_RANGED_FACTOR, LoadoutDecision.MAKESHIFT_FACTOR, LoadoutDecision.EQUIPPED_BONUS]
-
-
-#One put-down reported as a line: the item, what it weighed and the load left after it.
-static func drop_line(merc: MercenaryData, pick: Dictionary) -> String:
-	return "LOADOUT DROP: %s drops %s (wt %d, value %.1f, relief %.1f) -> %d/%d" % [
-		merc.merc_name, str(pick["name"]), int(pick["weight"]), float(pick["value"]),
-		float(pick.get("relief", 0.0)), carried_weight(merc), weight_limit(merc)]
 
 
 static func short_text(merc: MercenaryData) -> String:

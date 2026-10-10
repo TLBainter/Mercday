@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MercdaveHint" format=3 uid="uid://dc3nkmwj5m8ih"]
+
+[ext_resource type="Script" uid="uid://dw22ul58vbfaj" path="res://Scripts/Resources/Hints/MercdaveHint.gd" id="1_hint"]
+[ext_resource type="Script" uid="uid://duifyn8po0ac2" path="res://Scripts/Resources/Hints/FirstViewTrigger.gd" id="2_first"]
+
+[sub_resource type="Resource" id="Resource_first"]
+script = ExtResource("2_first")
+
+[resource]
+script = ExtResource("1_hint")
+trigger = SubResource("Resource_first")
+face = 2

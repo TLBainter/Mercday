@@ -1,9 +1,12 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/OddJobCrew.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SendMercsPanel.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/PayMercsPanel.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/CrewMercPicker.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPicker.tscn" id="4"]
+[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="6"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_OddJobPay.tres" id="7"]
 
 [node name="OddJobCrew" type="Control"]
 size_flags_horizontal = 3
@@ -38,3 +41,27 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="Picker" parent="." instance=ExtResource("4")]
+backdrop_closes = false
+title = "Send a Merc"
+box_width = 400.0
+subtitle = "Sorted by best fit."
+list_height = 300.0
+max_height = 540.0
+
+[node name="Rows" parent="Picker/Box/Pad"]
+theme_override_constants/separation = 10
+
+[node name="Subtitle" parent="Picker/Box/Pad/Rows"]
+autowrap_mode = 3
+
+[node name="Remove" parent="Picker/Box/Pad/Rows"]
+min_size = Vector2(0, 30)
+theme_override_fonts/font = ExtResource("5")
+theme_override_font_sizes/font_size = 10
+text_color = Color(0.909804, 0.345098, 0.247059, 1)
+
+[node name="HelpTarget" type="Node" parent="Pad/Cols/PayCol"]
+script = ExtResource("6")
+hint = ExtResource("7")
+
+[editable path="Picker"]

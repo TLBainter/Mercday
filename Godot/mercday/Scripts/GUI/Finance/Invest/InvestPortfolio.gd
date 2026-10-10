@@ -1,14 +1,9 @@
-class_name InvestPortfolio extends PanelContainer
+class_name InvestPortfolio extends InvestValueCard
 
 #The Portfolio Value widget of the right column: the whole market value of every holding, the
 #all time gain against what was paid for it and the dividends already received.
 
-const VALUE_SIZE: int = 16
 const LINE_SIZE: int = 12
-
-@onready var value_notes: NotesLabel = $Pad/Col/ValueNotes
-@onready var gain_label: Label = $Pad/Col/GainLabel
-@onready var dividends_label: Label = $Pad/Col/DividendsLabel
 
 var _value: float = 0.0
 var _gain: float = 0.0
@@ -17,7 +12,7 @@ var _dividends: int = 0
 
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_PASS
+	super()
 	refresh()
 
 

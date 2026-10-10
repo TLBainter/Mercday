@@ -5,9 +5,9 @@ class_name TraitDetail extends PanelContainer
 #and are left out (Q21).
 
 const EMPTY_TEXT: String = "Select a card to read it."
-const BG_COLOR: Color = Color("#0e1628")
-const ICON_BG: Color = Color("#15223d")
-const HATCH_COLOR: Color = Color("#1f3560")
+const BG_COLOR: Color = GuiColors.ROW_FILL
+const ICON_BG: Color = GuiColors.ROW_HOVER
+const HATCH_COLOR: Color = GuiColors.BLUE_LO
 const HATCH_STEP: float = 6.0
 const EDGE_PX: int = 4
 
@@ -18,7 +18,7 @@ const EDGE_PX: int = 4
 @onready var pill_label: Label = $Rows/Pill/Text
 @onready var description_label: Label = $Rows/Description
 
-var accent: Color = Color("#f28c28")
+var accent: Color = GuiColors.ORANGE
 var _row_name: String = ""
 
 
@@ -69,24 +69,15 @@ func _refresh_style() -> void:
 
 
 func _panel_box() -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = BG_COLOR
-	box.border_color = accent
+	var box: StyleBoxFlat = GuiStyle.flat(BG_COLOR, 0, accent, 16.0)
 	box.border_width_top = EDGE_PX
-	box.content_margin_left = 16.0
-	box.content_margin_top = 16.0
-	box.content_margin_right = 16.0
-	box.content_margin_bottom = 16.0
 	return box
 
 
 func _pill_box() -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = accent
+	var box: StyleBoxFlat = GuiStyle.flat(accent, 0, GuiColors.CLEAR, 3.0)
 	box.content_margin_left = 8.0
-	box.content_margin_top = 3.0
 	box.content_margin_right = 8.0
-	box.content_margin_bottom = 3.0
 	return box
 
 

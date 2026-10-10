@@ -18,11 +18,11 @@ static func gen_outhouse_map() -> void:
 
 
 static func _write_outhouse_map(field: BattlefieldArea) -> void:
-	DirAccess.make_dir_absolute("user://encounter_logs")
+	EncounterLogger.ensure_dir()
 	var dt := Time.get_datetime_dict_from_system()
 	var date_str := "%04d-%02d-%02d" % [dt["year"], dt["month"], dt["day"]]
 	var time_str := "%02d-%02d-%02d" % [dt["hour"], dt["minute"], dt["second"]]
-	var path := "user://encounter_logs/outhouse_map_%s_%s.txt" % [date_str, time_str]
+	var path := "%s/outhouse_map_%s_%s.txt" % [EncounterLogger.LOG_DIR, date_str, time_str]
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		print("Could not write outhouse map.")
@@ -123,20 +123,16 @@ static func _building_report(field: BattlefieldArea) -> PackedStringArray:
 			rect.size.x, rect.size.y, df.x, df.y])
 		if not guaranteed.is_empty():
 			out.append("  Guaranteed: %s" % ", ".join(guaranteed))
+		var has_contents := false
 		for ix: int in range(rect.position.x + 1, rect.end.x - 1):
 			for iy: int in range(rect.position.y + 1, rect.end.y - 1):
 				var p := Vector2i(ix, iy)
 				if field._obs_map.has(p):
+					has_contents = true
 					var obs: Dictionary = field._obs_map[p]
 					var d: ObstacleData = obs.get("data") as ObstacleData
 					if d != null:
 						out.append("  (%d,%d) %s" % [p.x, p.y, d.obstacle_name])
-		if guaranteed.size() > 0:
-			var has_contents := false
-			for ix: int in range(rect.position.x + 1, rect.end.x - 1):
-				for iy: int in range(rect.position.y + 1, rect.end.y - 1):
-					if field._obs_map.has(Vector2i(ix, iy)):
-						has_contents = true
-			if not has_contents:
-				out.append("  (empty - placement failed)")
+		if not guaranteed.is_empty() and not has_contents:
+			out.append("  (empty - placement failed)")
 	return out

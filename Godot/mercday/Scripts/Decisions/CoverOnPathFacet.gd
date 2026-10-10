@@ -13,7 +13,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 		return 1.0
 
 	var merc_pos := state.get_position(merc)
-	var pace: int = maxi(1, int(MovementExecutor.turn_paces(merc, state, 0)["paces"]))
+	var pace: int = maxi(1, int(PaceBudget.turn_paces(merc, state, 0)["paces"]))
 
 	var nearest_enemy: MercenaryData = null
 	var nearest_dist: float = INF

@@ -12,12 +12,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var shoved_size := int(target.stats.get("size", 1))
 	var target_pos := state.get_position(target)
 	var target_floor := state.get_floor(target)
-	var shover_pos := state.get_position(merc)
-	var dx := target_pos.x - shover_pos.x
-	var dy := target_pos.y - shover_pos.y
-	var dir := Vector2i(signi(dx), signi(dy))
-	if dir == Vector2i.ZERO:
-		dir = Vector2i(1, 0)
+	var dir := _shove_dir(merc, target, state)
 
 	var field: BattlefieldArea = state.battlefield
 	var walk_limit := shover_size + 2
@@ -36,27 +31,61 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 				break
 		dest = next
 
-	var score := terrain_drop_score(field, target_pos, dest)
+	var value := terrain_drop_score(field, target_pos, dest)
 
 	#Slam damage bonus when an obstacle blocks before shover_size paces.
 	if blocked_at < shover_size:
-		score += 0.2
+		value += 0.2
 
 	var allies: Array = ctx.get("allies", [])
 	var dest3 := Vector3i(dest.x, dest.y, target_floor)
-	score += cover_break_score(state, target, allies, dest3, shoved_size)
-	score += flank_bonus(state, allies, dest)
+	value += cover_break_score(state, target, allies, dest3, shoved_size)
+	value += flank_bonus(state, allies, dest)
 
 	#Shoving breaks flanking pressure on an ally.
 	for ally: MercenaryData in allies:
 		if ConstStates.has_state(ally, ConstStates.FLANKED):
 			if state.distance_to(target, ally) <= 1:
-				score += 0.3
+				value += 0.3
 				break
 
-	score += deposed_setup_score(merc, target, state, allies, dest, shover_size, shoved_size)
+	value += deposed_setup_score(merc, target, state, allies, dest, shover_size, shoved_size)
 
-	return minf(score, 1.0)
+	return minf(value, 1.0)
+
+
+#Push direction from the shover to the target; east when they share a cell.
+static func _shove_dir(merc: MercenaryData, target: MercenaryData, state: BattleState) -> Vector2i:
+	var target_pos := state.get_position(target)
+	var shover_pos := state.get_position(merc)
+	var dir := Vector2i(signi(target_pos.x - shover_pos.x), signi(target_pos.y - shover_pos.y))
+	return Vector2i(1, 0) if dir == Vector2i.ZERO else dir
+
+
+#Scores a single-pace shove of the target: terrain drop, cover break, flanking, Deposed setup.
+static func single_pace_score(merc: MercenaryData, target: MercenaryData, state: BattleState, allies: Array) -> float:
+	if target == null or state == null or state.battlefield == null:
+		return 0.0
+	var field: BattlefieldArea = state.battlefield
+	var target_pos := state.get_position(target)
+	var dest := field.clamp_position(target_pos + _shove_dir(merc, target, state))
+	var target_floor := state.get_floor(target)
+	if dest == target_pos:
+		return 0.0
+	var obs := field.get_obs(dest, target_floor)
+	if not obs.is_empty():
+		var od: ObstacleData = obs.get("data") as ObstacleData
+		if od == null or not od.passthrough:
+			return 0.0
+	if state.is_position_occupied(dest, target, target_floor):
+		return 0.0
+	var dest3 := Vector3i(dest.x, dest.y, target_floor)
+	var value := terrain_drop_score(field, target_pos, dest)
+	value += cover_break_score(state, target, allies, dest3, int(target.stats.get("size", 1)))
+	value += flank_bonus(state, allies, dest)
+	value += deposed_setup_score(merc, target, state, allies, dest, int(merc.stats.get("size", 1)),
+			int(target.stats.get("size", 1)))
+	return clampf(value, 0.0, 1.0)
 
 
 #Height the shove drops the target: 0.4 for two paces or more, 0.2 for one.
@@ -87,7 +116,7 @@ static func flank_bonus(state: BattleState, allies: Array, dest: Vector2i) -> fl
 	var bonus := 0.0
 	for ally: MercenaryData in allies:
 		var ally_pos := state.get_position(ally)
-		if maxi(abs(ally_pos.x - dest.x), abs(ally_pos.y - dest.y)) <= 2:
+		if Pathfinder.chebyshev2(ally_pos, dest) <= 2:
 			var w: WeaponData = ally.equipped_weapon
 			if w == null or not w.is_ranged:
 				bonus = minf(bonus + 0.1, 0.2)
@@ -101,7 +130,7 @@ static func deposed_setup_score(merc: MercenaryData, target: MercenaryData, stat
 		return 0.0
 	for ally: MercenaryData in allies:
 		var ally_pos := state.get_position(ally)
-		if maxi(abs(ally_pos.x - dest.x), abs(ally_pos.y - dest.y)) <= 3:
+		if Pathfinder.chebyshev2(ally_pos, dest) <= 3:
 			var w: WeaponData = ally.equipped_weapon
 			if w == null or not w.is_ranged:
 				return 0.15

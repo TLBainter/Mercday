@@ -4,6 +4,8 @@ class_name ContractSummary extends PanelContainer
 #many mercs it takes. The meta line under the name carries the type, the distance and the
 #deadline.
 
+const DEADLINE_LINE: String = "Deadline %s"
+
 @onready var name_label: Label = $Pad/Rows/Text/Name
 @onready var level_badge: LevelBadge = $Pad/Rows/Level
 @onready var type_label: Label = $Pad/Rows/Text/Meta/Type
@@ -11,7 +13,7 @@ class_name ContractSummary extends PanelContainer
 @onready var deadline_label: Label = $Pad/Rows/Text/Meta/Deadline
 @onready var dot_one: ColorRect = $Pad/Rows/Text/Meta/Dot1
 @onready var dot_two: ColorRect = $Pad/Rows/Text/Meta/Dot2
-@onready var stars: DifficultyStars = $Pad/Rows/Line/Stars
+@onready var stars: Stars = $Pad/Rows/Line/Stars
 @onready var reward_label: Label = $Pad/Rows/Line/Reward
 @onready var merc_count: MercCount = $Pad/Rows/Line/Count
 
@@ -39,15 +41,27 @@ func meta_dots() -> Array[ColorRect]:
 func _refresh() -> void:
 	if not is_node_ready() or view == null:
 		return
-	name_label.text = view.name
-	type_label.text = view.type
+	fill_header(view, name_label, type_label, stars, reward_label, merc_count, level_badge)
 	km_label.text = "%d km" % view.distance_km
-	deadline_label.text = "Deadline %s" % TrynnCalendar.date_text(view.expires_minute)
-	stars.rating = view.difficulty
-	reward_label.text = "%d" % view.reward
-	merc_count.required = view.merc_min
-	merc_count.allowed = view.merc_max
-	level_badge.level = view.contract_level
+	deadline_label.text = deadline_line(view)
+
+
+#The posting fields this recap and the detail page header both show.
+static func fill_header(posting: ContractView, title: Label, kind: Label, rating: Stars, pay: Label,
+		count: MercCount, marker: LevelBadge) -> void:
+	title.text = posting.name
+	kind.text = posting.type
+	rating.value = posting.difficulty
+	pay.text = "%d" % posting.reward
+	count.required = posting.merc_min
+	count.allowed = posting.merc_max
+	marker.level = posting.contract_level
+	marker.current_xp = 0
+	marker.next_level_xp = 1
+
+
+static func deadline_line(posting: ContractView) -> String:
+	return DEADLINE_LINE % TrynnCalendar.date_text(posting.expires_minute)
 
 
 func badge() -> LevelBadge:

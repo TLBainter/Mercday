@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/Upgrade Click/ESM_Fantasy_Game_UI_Metal_Armory_Tab_1_Wet_Spell_Cast_Click_Switch_Lever_Latch.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/Upgrade Click/ESM_Fantasy_Game_UI_Metal_Armory_Tab_2_Wet_Spell_Cast_Click_Switch_Lever_Latch.wav" id="3_s2"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2")])

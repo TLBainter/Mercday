@@ -1,24 +1,21 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://d30xp715t1fhp"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/StateReliefFacet.gd" id="StateReliefFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_pbyml"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://cksurcu7jr418" path="res://Scripts/Decisions/StateReliefFacet.gd" id="StateReliefFacet"]
 
 [sub_resource type="Resource" id="facet_relief"]
 script = ExtResource("StateReliefFacet")
-weight = 1.0
 action_key = "aid_ally"
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_relief")]
-threshold = 0.5
+facets = Array[ExtResource("1_pbyml")]([SubResource("facet_relief")])
 
 [resource]
 script = ExtResource("ActionData")
 action_name = "aid_ally"
 ap_cost = 2
 priority = 25
-execution_type = "special"
-target_mode = "none"
 decision = SubResource("decision")

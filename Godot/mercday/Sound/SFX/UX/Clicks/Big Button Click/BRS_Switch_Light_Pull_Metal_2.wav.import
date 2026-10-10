@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://bph8smd0wo6vg"
+path="res://.godot/imported/BRS_Switch_Light_Pull_Metal_2.wav-1e3940b0560ae6f62c92ed5578224e88.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/UX/Clicks/Big Button Click/BRS_Switch_Light_Pull_Metal_2.wav"
+dest_files=["res://.godot/imported/BRS_Switch_Light_Pull_Metal_2.wav-1e3940b0560ae6f62c92ed5578224e88.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

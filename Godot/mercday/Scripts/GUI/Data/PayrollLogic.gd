@@ -4,18 +4,17 @@ class_name PayrollLogic
 #the opinion a firing costs, the hold-to-repeat rate of the steppers, the signed change text and
 #the rarest trait of a merc. BenefitsManager owns the state; this file only computes.
 
-const OVER_COLOR: Color = Color("#e8583f")
-const WARN_COLOR: Color = Color("#f28c28")
-const OK_COLOR: Color = Color("#6cc36a")
-const FLAT_COLOR: Color = Color("#9cc6ef")
-const OFF_COLOR: Color = Color("#5e7699")
-const NOTE_COLOR: Color = Color("#f2b33d")
+const OVER_COLOR: Color = GuiColors.RED
+const WARN_COLOR: Color = GuiColors.ORANGE
+const OK_COLOR: Color = GuiColors.GREEN
+const FLAT_COLOR: Color = GuiColors.SKY
+const OFF_COLOR: Color = GuiColors.MUTED
+const NOTE_COLOR: Color = GuiColors.AMBER
 
 #Above the bank the wage reads red, above this share of it orange, below it green.
 const WARN_SHARE: float = 0.1
-#A cut that leaves this wage or less drops the merc to the lowest opinion (prototype tank rule).
-const TANK_SALARY: int = 1
-const FIRE_DROP_SHARE: float = 0.75
+const TANK_SALARY: int = SalarySystem.TANK_SALARY
+const FIRE_DROP_SHARE: float = SalarySystem.FIRE_DROP_SHARE
 const HOLD_DELAY_SECONDS: float = 0.35
 const HOLD_RATE_BASE: float = 4.0
 const HOLD_RATE_RAMP: float = 48.0
@@ -47,13 +46,9 @@ static func salary_color(salary: int, money: int) -> Color:
 	return OK_COLOR
 
 
-#The opinion a wage change moves, kept inside the SalarySystem range for the opinion held now.
+#The opinion a wage change moves; SalarySystem.opinion_after owns the rule the commit also uses.
 static func opinion_shift(old_salary: int, new_salary: int, opinion: int) -> int:
-	var shift: int = SalarySystem.opinion_delta(old_salary, new_salary)
-	if new_salary < old_salary and new_salary <= TANK_SALARY:
-		shift = SalarySystem.OPINION_MIN - opinion
-	var after: int = clampi(opinion + shift, SalarySystem.OPINION_MIN, SalarySystem.OPINION_MAX)
-	return after - opinion
+	return SalarySystem.opinion_after(old_salary, new_salary, opinion) - opinion
 
 
 static func fire_drop(opinion: int) -> int:

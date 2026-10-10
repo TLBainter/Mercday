@@ -3,15 +3,6 @@ class_name CityAccessRules
 #Validator rules 4 and 6 of a city block map: every door reachable from both spawns, and no
 #blocking object cutting ground off or sitting on a cell it may not hold.
 
-#_hit here caps one rule only; the issues reach the MAX_ISSUES cap later, through CityValidator._note.
-
-
-static func _hit(out: Array[String], hits: int, text: String) -> int:
-	if hits < CityAccess.HITS_PER_RULE:
-		out.append(text)
-	return hits + 1
-
-
 #Every cell a blocking city object covers, anchors and reserved cells alike.
 static func _blocking_cells(area: BattlefieldArea) -> Dictionary:
 	var out: Dictionary = {}
@@ -42,14 +33,14 @@ static func check(area: BattlefieldArea) -> Array[String]:
 	for entry: Dictionary in (access.get("doors", []) as Array):
 		var o: Vector2i = entry.get("outside", Vector2i(-1, -1))
 		var i: int = -1
-		if CityGrid.inside(area, o.x, o.y):
+		if area.in_bounds_xy(o.x, o.y):
 			i = o.y * area.width + o.x
 		var id: int = int(entry.get("building", -1))
 		var kind: String = String(entry.get("kind", ""))
 		if i < 0 or reach_a[i] == 0:
-			hits = _hit(out, hits, "door of building %d (%s) not reachable from spawn a" % [id, kind])
+			hits = CityValidator._hit(out, hits, "door of building %d (%s) not reachable from spawn a" % [id, kind])
 		if i < 0 or reach_b[i] == 0:
-			hits = _hit(out, hits, "door of building %d (%s) not reachable from spawn b" % [id, kind])
+			hits = CityValidator._hit(out, hits, "door of building %d (%s) not reachable from spawn b" % [id, kind])
 	var blocked: Dictionary = _blocking_cells(area)
 	_check_cut(area, access, open_mask, blocked, out)
 	_check_legal(area, access, blocked, out)
@@ -72,7 +63,7 @@ static func _check_cut(area: BattlefieldArea, access: Dictionary, open_mask: Pac
 				continue
 			if blocked.has(Vector2i(x, y)):
 				continue
-			hits = _hit(out, hits, "ground %d,%d cut off by objects" % [x, y])
+			hits = CityValidator._hit(out, hits, "ground %d,%d cut off by objects" % [x, y])
 
 
 static func _check_legal(area: BattlefieldArea, access: Dictionary, blocked: Dictionary,
@@ -91,4 +82,4 @@ static func _check_legal(area: BattlefieldArea, access: Dictionary, blocked: Dic
 		elif CityAccess.narrow_gap(area, c):
 			why = "a narrow gap"
 		if why != "":
-			hits = _hit(out, hits, "blocking object at %d,%d on %s" % [c.x, c.y, why])
+			hits = CityValidator._hit(out, hits, "blocking object at %d,%d on %s" % [c.x, c.y, why])

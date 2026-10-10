@@ -4,13 +4,8 @@ class_name NotesEarned extends PanelContainer
 #counting from the one clock. The net row is where the flying notes leave from.
 
 const TILE_SIZE: Vector2 = Vector2(16.0, 20.0)
-const TILE_BEVEL: float = 2.0
-const TILE_COLOR: Color = Color("#f28c28")
-const TILE_HI: Color = Color("#ffb266")
-const TILE_LO: Color = Color("#b85a12")
 const DIVIDER_PX: float = 2.0
-const DIVIDER_COLOR: Color = Color("#1f3560")
-const GLYPH_INK: Color = Color("#0a0f1c")
+const DIVIDER_COLOR: Color = GuiColors.BLUE_LO
 const MINUS: String = "-"
 
 @onready var reward_label: Label = $Rows/RewardRow/Key
@@ -34,9 +29,9 @@ var _bonus_shown: bool = false
 func _ready() -> void:
 	net_box.draw.connect(_on_net_box_draw)
 	net_tile.draw.connect(_on_tile_draw)
-	expense_glyph.texture = ResultsGlyphs.note(ResultsTimeline.FAILURE)
-	bonus_glyph.texture = ResultsGlyphs.note(ResultsTimeline.GOLD)
-	reward_glyph.texture = ResultsGlyphs.note(ResultsTimeline.CREAM)
+	expense_glyph.texture = CrewGlyphs.note(ResultsTimeline.FAILURE)
+	bonus_glyph.texture = CrewGlyphs.note(GuiColors.RAMP_YELLOW)
+	reward_glyph.texture = CrewGlyphs.note(GuiColors.CREAM)
 	apply_time(0.0)
 
 
@@ -53,7 +48,7 @@ func apply_time(t: float) -> void:
 	reward_label.text = String(state["reward_label"])
 	reward_value.text = "%d" % int(state["reward"])
 	reward_value.add_theme_color_override("font_color", reward_color)
-	reward_glyph.texture = ResultsGlyphs.note(reward_color)
+	reward_glyph.texture = CrewGlyphs.note(reward_color)
 	expense_value.text = MINUS + "%d" % int(state["expenses"])
 	net_label.text = String(state["net_label"])
 	net_value.text = "%d" % int(state["net"])
@@ -110,13 +105,4 @@ func _on_net_box_draw() -> void:
 
 
 func _on_tile_draw() -> void:
-	var rect := Rect2(Vector2.ZERO, TILE_SIZE)
-	net_tile.draw_rect(rect, TILE_COLOR)
-	net_tile.draw_rect(Rect2(0.0, 0.0, rect.size.x, TILE_BEVEL), TILE_HI)
-	net_tile.draw_rect(Rect2(0.0, 0.0, TILE_BEVEL, rect.size.y), TILE_HI)
-	net_tile.draw_rect(Rect2(0.0, rect.size.y - TILE_BEVEL, rect.size.x, TILE_BEVEL), TILE_LO)
-	net_tile.draw_rect(Rect2(rect.size.x - TILE_BEVEL, 0.0, TILE_BEVEL, rect.size.y), TILE_LO)
-	var glyph: Texture2D = ResultsGlyphs.note(GLYPH_INK)
-	var glyph_size: Vector2 = ResultsGlyphs.note_size()
-	var origin: Vector2 = ((TILE_SIZE - glyph_size) / 2.0).floor()
-	net_tile.draw_texture_rect(glyph, Rect2(origin, glyph_size), false)
+	NoteIcon.draw_tile(net_tile, Rect2(Vector2.ZERO, TILE_SIZE), true)

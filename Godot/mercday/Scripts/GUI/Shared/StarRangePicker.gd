@@ -6,6 +6,9 @@ class_name StarRangePicker extends Control
 
 signal range_changed(low: float, high: float)
 signal take_me_there(target: Dictionary)
+#UiSfx clicks on pressed. The null override set on every tree entry silences its generic hover; the picker
+#plays its own hover cue instead, one per star.
+signal pressed
 
 const ROW_MIN: int = 0
 const ROW_MAX: int = 1
@@ -14,6 +17,7 @@ const MIN_VALUE: float = 0.5
 const MAX_VALUE: float = 5.0
 const STEP: float = 0.5
 const STAR_COUNT: int = 5
+const NO_STAR: Vector2i = Vector2i(-1, -1)
 #The filter column is 290 px wide and its pad leaves 262, so its stars draw at the 16 px scale;
 #a host with room for 468 px hands the picker star_scale 2.
 const DEFAULT_STAR_SCALE: int = 1
@@ -23,10 +27,10 @@ const BLOCK_GAP: float = 24.0
 const LOCK_W: float = 150.0
 const LOCK_H: float = 30.0
 const LABEL_SIZE: int = 9
-const LABEL_COLOR: Color = Color("#9cc6ef")
-const EMPTY_COLOR: Color = Color("#1f3560")
+const LABEL_COLOR: Color = GuiColors.SKY
+const EMPTY_COLOR: Color = GuiColors.BLUE_LO
 const LOCK_FONT_SIZE: int = 9
-const FONT_LABEL: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
+const FONT_LABEL: Font = GuiStyle.SILK
 
 @export var low: float = MIN_VALUE
 @export var high: float = MAX_VALUE
@@ -45,6 +49,13 @@ const FONT_LABEL: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegu
 @onready var min_lock: FeatureLock = $MinLock
 @onready var max_lock: FeatureLock = $MaxLock
 
+#The row and star under the pointer, so a star cues once however the pointer moves inside it.
+var _hover_star: Vector2i = NO_STAR
+
+
+func _enter_tree() -> void:
+	UiSfx.override_hover(self, null)
+
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -55,6 +66,11 @@ func _ready() -> void:
 	refresh()
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_MOUSE_EXIT:
+		_hover_star = NO_STAR
+
+
 #Sets both ends without emitting, the path a section's set_value() takes.
 func set_range(new_low: float, new_high: float) -> void:
 	low = _snap(new_low)
@@ -63,6 +79,7 @@ func set_range(new_low: float, new_high: float) -> void:
 	_redraw_safe()
 
 
+#Test probe: replaces the per-row locks and redraws.
 func set_row_locks(rows: Array[Dictionary]) -> void:
 	row_locks = rows
 	refresh()
@@ -97,6 +114,7 @@ func row_color(row: int) -> Color:
 func press_star(row: int, value: float) -> void:
 	if is_row_locked(row):
 		return
+	pressed.emit()
 	var picked: float = _snap(value)
 	if row == ROW_MIN:
 		low = picked
@@ -153,6 +171,9 @@ func _draw_row(row: int) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		_track_pointer((event as InputEventMouseMotion).position)
+		return
 	if not (event is InputEventMouseButton):
 		return
 	var click: InputEventMouseButton = event
@@ -165,6 +186,20 @@ func _gui_input(event: InputEvent) -> void:
 	accept_event()
 
 
+#The cursor follows the pointer; the hover cue plays as it enters a star and not between its two halves.
+func _track_pointer(pos: Vector2) -> void:
+	var hit: Vector2 = _hit(pos)
+	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if hit.x >= 0.0 else Control.CURSOR_ARROW
+	if hit.x < 0.0:
+		_hover_star = NO_STAR
+		return
+	var star: Vector2i = Vector2i(int(hit.x), ceili(hit.y))
+	if star == _hover_star:
+		return
+	_hover_star = star
+	UiSfx.play_hover_cue()
+
+
 #Which row and value the pointer sits on: the left half of a star reads n - 0.5.
 func _hit(pos: Vector2) -> Vector2:
 	for row: int in range(ROW_LABELS.size()):
@@ -174,7 +209,7 @@ func _hit(pos: Vector2) -> Vector2:
 			var left: float = _stars_x(row) + float(n - 1) * (_star_px() + _star_gap())
 			if pos.x < left or pos.x >= left + _star_px():
 				continue
-			var half: bool = pos.x < left + float(Icons.CELL / 2 * star_scale)
+			var half: bool = pos.x < left + float(int(Icons.CELL / 2.0) * star_scale)
 			return Vector2(float(row), float(n) - (STEP if half else 0.0))
 	return Vector2(-1.0, 0.0)
 

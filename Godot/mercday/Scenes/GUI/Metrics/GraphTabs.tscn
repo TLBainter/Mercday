@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Metrics/GraphTabs.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/TabButton.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TabButton.tscn" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_GraphTabs.tres" id="4"]
 
 [node name="GraphTabs" type="HBoxContainer"]
 custom_minimum_size = Vector2(0, 44)
@@ -31,3 +33,7 @@ description = "Merc"
 index = 2
 icon_id = "mercs"
 icon_scale = 2
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("3")
+hint = ExtResource("4")

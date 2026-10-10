@@ -1,6 +1,41 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=6 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Finance/Loans/LoanAcceptConfirm.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ModalDialog.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Finance/Loans/LoanAcceptConfirm.gd" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_LoanAcceptConfirm.tres" id="4"]
 
-[node name="LoanAcceptConfirm" type="Control"]
-script = ExtResource("1")
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_1"]
+
+[node name="LoanAcceptConfirm" instance=ExtResource("1")]
+mouse_filter = 0
+script = ExtResource("2")
+backdrop_closes = false
+box_width = 760.0
+backdrop_style = SubResource("StyleBoxEmpty_1")
+edge_px = 0
+
+[node name="Box" parent="."]
+custom_minimum_size = Vector2(0, 450)
+
+[node name="Pad" parent="Box"]
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="Cancel" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 38)
+size_flags_horizontal = 3
+min_size = Vector2(0, 38)
+
+[node name="Confirm" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 38)
+size_flags_horizontal = 3
+min_size = Vector2(0, 38)
+
+[node name="Close" parent="."]
+focus_mode = 0
+
+[node name="HelpTarget" type="Node" parent="Box"]
+script = ExtResource("3")
+hint = ExtResource("4")

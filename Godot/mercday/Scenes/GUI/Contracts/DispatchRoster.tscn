@@ -1,59 +1,43 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Contracts/DispatchRoster.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortButton.tscn" id="2"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortDirToggle.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ListPanel.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Contracts/DispatchRoster.gd" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortButton.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortDirToggle.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_DispatchRoster.tres" id="6"]
 
-[node name="DispatchRoster" type="PanelContainer"]
+[node name="DispatchRoster" instance=ExtResource("1")]
 custom_minimum_size = Vector2(250, 0)
 theme_type_variation = &"InsetPanel"
-script = ExtResource("1")
+script = ExtResource("2")
 
-[node name="Rows" type="VBoxContainer" parent="."]
-layout_mode = 2
+[node name="Rows" parent="Pad"]
 theme_override_constants/separation = 8
 
-[node name="Header" type="HBoxContainer" parent="Rows"]
-layout_mode = 2
+[node name="Head" parent="Pad/Rows"]
 theme_override_constants/separation = 8
+caption = "Available Mercs"
+count_text = "0"
 
-[node name="Title" type="Label" parent="Rows/Header"]
-layout_mode = 2
+[node name="Caption" parent="Pad/Rows/Head"]
 theme_type_variation = &"TitleLabel"
-text = "Available Mercs"
 
-[node name="Count" type="Label" parent="Rows/Header"]
-layout_mode = 2
-size_flags_horizontal = 10
-size_flags_vertical = 4
-theme_type_variation = &"SmallLabel"
-text = "0"
-
-[node name="Controls" type="HBoxContainer" parent="Rows"]
-layout_mode = 2
+[node name="Tools" parent="Pad/Rows"]
 theme_override_constants/separation = 6
 
-[node name="Sort" parent="Rows/Controls" instance=ExtResource("2")]
+[node name="Sort" parent="Pad/Rows/Tools" instance=ExtResource("3")]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Dir" parent="Rows/Controls" instance=ExtResource("3")]
+[node name="Dir" parent="Pad/Rows/Tools" instance=ExtResource("4")]
 layout_mode = 2
 
-[node name="Scroll" type="ScrollContainer" parent="Rows"]
-layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
+[node name="Scroll" parent="Pad/Rows"]
+separation = 4
 
-[node name="Pad" type="MarginContainer" parent="Rows/Scroll"]
-size_flags_horizontal = 3
-layout_mode = 2
-theme_override_constants/margin_left = 0
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 14
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("5")
+hint = ExtResource("6")
 
-[node name="Items" type="VBoxContainer" parent="Rows/Scroll/Pad"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 4
+[editable path="Pad/Rows/Head"]

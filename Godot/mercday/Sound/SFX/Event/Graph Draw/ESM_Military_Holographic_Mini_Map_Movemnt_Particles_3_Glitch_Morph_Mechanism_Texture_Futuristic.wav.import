@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://cniwelk6jge7v"
+path="res://.godot/imported/ESM_Military_Holographic_Mini_Map_Movemnt_Particles_3_Glitch_Morph_Mechanism_Texture_Futuristic.wav-ae882095ea8f9defa47752e40e20e918.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/Event/Graph Draw/ESM_Military_Holographic_Mini_Map_Movemnt_Particles_3_Glitch_Morph_Mechanism_Texture_Futuristic.wav"
+dest_files=["res://.godot/imported/ESM_Military_Holographic_Mini_Map_Movemnt_Particles_3_Glitch_Morph_Mechanism_Texture_Futuristic.wav-ae882095ea8f9defa47752e40e20e918.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

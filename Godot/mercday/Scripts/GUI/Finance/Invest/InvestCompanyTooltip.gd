@@ -44,7 +44,7 @@ func _ready() -> void:
 	custom_minimum_size.x = CARD_WIDTH
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
-	contract_hatch.texture = InvestGlyphs.hatch(Vector2i(40, 40))
+	contract_hatch.texture = InvestGlyphs.hatch(InvestGlyphs.LOGO_SMALL)
 	hide_timer.one_shot = true
 	hide_timer.timeout.connect(hide_now)
 	contract_row.pressed.connect(press_contract)
@@ -136,19 +136,12 @@ func face() -> MoodFace:
 	return _face
 
 
-#The lender relationship behind FinanceManager, 0 when the manager or the row is missing.
+#The lender relationship behind FinanceManager, 0 when the company names no lender row.
 func relationship() -> int:
-	var manager: Node = get_node_or_null("/root/FinanceManager")
-	if manager == null or not manager.has_method("lenders"):
-		return 0
 	var key: String = String(StockMarket.company(company_id).get("lender", ""))
 	if key == "":
 		return 0
-	var rows: Array = manager.call("lenders")
-	for row: Variant in rows:
-		if not (row is Dictionary):
-			continue
-		var lender: Dictionary = row as Dictionary
+	for lender: Dictionary in FinanceManager.lenders():
 		if String(lender.get("name", "")) == key:
 			return clampi(int(lender.get("rel", 0)), -REL_LIMIT, REL_LIMIT)
 	return 0
@@ -173,7 +166,7 @@ func _refresh() -> void:
 		contract_name.text = String(accepted.get("name", ""))
 		contract_status.text = String(accepted.get("status", ""))
 		contract_status.add_theme_color_override("font_color",
-			Color(String(accepted.get("color", "#f3ead7"))))
+			accepted.get("color", InvestText.CREAM) as Color)
 
 
 func _fill_tile(tile: StatTile, caption: String, amount: int, tint: Color) -> void:
@@ -219,10 +212,7 @@ func _draw() -> void:
 	var body := Rect2(Vector2.ZERO, size)
 	draw_rect(Rect2(body.position + Vector2(SHADOW_STEP, SHADOW_STEP), body.size),
 		Color(0.0, 0.0, 0.0, 0.5), true)
-	draw_rect(body, InvestText.PANEL, true)
-	var half: float = RING_WIDTH / 2.0
-	draw_rect(Rect2(half, half, maxf(0.0, size.x - RING_WIDTH), maxf(0.0, size.y - RING_WIDTH)),
-		InvestText.ORANGE, false, RING_WIDTH)
+	BevelButton.paint_body(self, body, InvestText.PANEL, RING_WIDTH, InvestText.ORANGE)
 	if not empty_box.visible:
 		return
 	var box := Rect2(empty_box.global_position - global_position, empty_box.size)

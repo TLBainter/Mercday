@@ -15,6 +15,7 @@ const SCOPE_BOND       := "bond"
 
 const MAX_DEPTH := 4
 
+#Seeded picks index this order; StatCalculator.CORE_STATS keeps its alphabetical order for its own picks.
 const CORE_STATS: Array[String] = ["vigor", "dexterity", "cognition", "wile"]
 const SCOPES: Array[String] = [SCOPE_ROUND, SCOPE_TURN, SCOPE_ENCOUNTER, SCOPE_CONTRACT,
 	SCOPE_PERMANENT, SCOPE_BOND]
@@ -181,7 +182,7 @@ static func on_state_gained(merc: MercenaryData, state_name: String, state: Batt
 		lines: Array[String]) -> void:
 	if merc == null or state == null:
 		return
-	var key: String = ConstStates.normalize_token(state_name)
+	var key: String = StateTokens.normalize_token(state_name)
 	if has(merc, "state_gained:" + key):
 		fire("state_gained:" + key, merc, {"state": state, "lines": lines})
 	var ally_key: String = "ally_state_gained:" + key
@@ -307,7 +308,7 @@ static func _parse_clause(text: String, td: TraitData) -> Dictionary:
 		if ARG_TRIGGERS.has(trigger):
 			if i >= parts.size():
 				return {}
-			trigger += ":" + ConstStates.normalize_token(parts[i])
+			trigger += ":" + StateTokens.normalize_token(parts[i])
 			i += 1
 		var cond: Dictionary = _read_condition(parts, i)
 		if cond.is_empty():
@@ -401,10 +402,10 @@ static func _condition_passes(cond: String, merc: MercenaryData, ctx: Dictionary
 					return true
 			return false
 		"damage_type":
-			return ConstStates.normalize_token(str(ctx.get("damage_type", ""))) == arg.to_lower()
+			return StateTokens.normalize_token(str(ctx.get("damage_type", ""))) == arg.to_lower()
 		"contract_type":
 			var c: ContractData = _contract(ctx)
-			return c != null and ConstStates.normalize_token(c.contract_type) == arg.to_lower()
+			return c != null and StateTokens.normalize_token(c.contract_type) == arg.to_lower()
 		"contract_stat":
 			return _contract_core(ctx) == arg.to_lower()
 		"location":
@@ -431,17 +432,11 @@ static func _bond_present(merc: MercenaryData, uid: int, ctx: Dictionary) -> boo
 		return false
 	var run: ContractRun = ctx.get("run", null)
 	if run != null:
-		for other: MercenaryData in run.team:
-			if other != null and other.merc_uid == uid:
-				return true
-		return false
+		return GuildRoster.by_uid(run.team, uid) != null
 	var state: BattleState = ctx.get("state", null)
 	if state == null:
 		return false
-	for ally: MercenaryData in state.get_allies(merc):
-		if ally != null and ally.merc_uid == uid:
-			return true
-	return false
+	return GuildRoster.by_uid(state.get_allies(merc), uid) != null
 
 
 static func _wielding(merc: MercenaryData, tag: String) -> bool:
@@ -484,7 +479,7 @@ static func _contract_core(ctx: Dictionary) -> String:
 	var best: String = ""
 	var best_pct: float = -1.0
 	for display: String in c.stat_boosts:
-		var key: String = ConstStates.normalize_token(display)
+		var key: String = StateTokens.normalize_token(display)
 		if not CORE_STATS.has(key):
 			continue
 		var pct: float = float(c.stat_boosts[display])

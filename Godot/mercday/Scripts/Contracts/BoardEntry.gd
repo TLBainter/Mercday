@@ -10,6 +10,8 @@ const STATUS_SUCCEEDED := "Succeeded"
 const STATUS_FAILED := "Failed"
 const STATUS_EXPIRED := "Expired"
 const STATUS_REJECTED := "Rejected"
+#Held in the contract pool off the board; a pooled entry has id 0.
+const STATUS_POOLED := "Pooled"
 
 const URGENCY_NONE := 0
 const URGENCY_LOW := 1
@@ -25,18 +27,40 @@ var expires_minute: int = 0
 var distance_km: int = 0
 var completion_hours: int = 0
 var issuer: String = ""
-var issuer_type: int = 0
+#person, place or org: the row's Issuer Type, else the seat kind.
+var issuer_type: String = ""
 var merc_min: int = 1
 var image: String = ""
 var status: String = STATUS_DRAFT
 var scheduler: ContractScheduler = null
 var verdict: String = ""
 var log_lines: Array[String] = []
-#The minute the posting closed (Expired, Rejected or settled); -1 while it is open or active (B4).
+#The minute the posting closed (Expired, Rejected or settled); -1 while it is open or active.
 var closed_minute: int = -1
+#The Guild Ads campaign that brought the posting in; 0 for the board's own draws.
+var campaign_id: int = 0
+#Seat in IssuerOpinion; -1 before a seat is picked.
+var issuer_id: int = -1
+#Campaign minute the contract must be complete by; 0 = unbounded.
+var deadline_minute: int = 0
+#Score 0..1 from distance, completion time, issuer satisfaction and matched elements.
+var quality: float = 0.0
+#How closely the posting meets its promo campaign's criteria; 0 for a board draw or a criterion-free campaign.
+var match_pct: float = 0.0
+#The 24 h expiry warning went out.
+var reach_warned: bool = false
+#The fastest affordable mode that still reaches in time, written by the GameState sweep.
+var best_mode: String = ""
+#A story contract: a failure returns it to the pool instead of retiring it.
+var story: bool = false
+#The round's value for the posting; equals contract.reward_notes once the round has built the entry.
+var value: int = 0
+var reject_count: int = 0
+#Minute the entry entered the pool; -1 while it has never been pooled.
+var pooled_minute: int = -1
 
 
-#Hours before the posting runs out; negative once the deadline has passed.
+#Hours before the posting runs out; 0 once the deadline has passed.
 func hours_left(now: int) -> float:
 	return maxf(0.0, float(expires_minute - now) / float(CampaignClock.MINUTES_PER_HOUR))
 
@@ -49,11 +73,6 @@ func urgency(now: int) -> int:
 	if left < URGENCY_LOW_HOURS:
 		return URGENCY_LOW
 	return URGENCY_NONE
-
-
-#The most mercs this contract takes; 0 until the contract is generated.
-func merc_max() -> int:
-	return contract.max_mercs if contract != null else 0
 
 
 func is_open() -> bool:

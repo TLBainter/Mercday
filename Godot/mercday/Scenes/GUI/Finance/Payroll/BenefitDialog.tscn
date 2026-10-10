@@ -1,90 +1,51 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Finance/Payroll/BenefitDialog.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/PayrollStepper.tscn" id="2"]
-[ext_resource type="Script" path="res://Scripts/GUI/Shared/BevelButton.gd" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ModalDialog.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Finance/Payroll/BenefitDialog.gd" id="2"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/dialog_frame.tres" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/PayrollStepper.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_BenefitDialog.tres" id="6"]
 
-[node name="BenefitDialog" type="Control"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("1")
+[node name="BenefitDialog" instance=ExtResource("1")]
+mouse_filter = 0
+script = ExtResource("2")
+backdrop_closes = false
+box_style = ExtResource("3")
+edge_px = 0
+cancel_text = "Cancel"
+confirm_text = "Confirm"
 
-[node name="Backdrop" type="Panel" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Pad" parent="Box"]
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
 
-[node name="Center" type="CenterContainer" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="Box" type="PanelContainer" parent="Center"]
-custom_minimum_size = Vector2(520, 0)
-layout_mode = 2
-
-[node name="Rows" type="VBoxContainer" parent="Center/Box"]
-layout_mode = 2
-mouse_filter = 2
+[node name="Rows" parent="Box/Pad"]
 theme_override_constants/separation = 16
 
-[node name="Kicker" type="Label" parent="Center/Box/Rows"]
-layout_mode = 2
-mouse_filter = 2
+[node name="Head" parent="Box/Pad/Rows"]
+theme_override_constants/separation = 16
 
-[node name="Title" type="Label" parent="Center/Box/Rows"]
-layout_mode = 2
-mouse_filter = 2
+[node name="Cancel" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 36)
+size_flags_horizontal = 3
+min_size = Vector2(0, 36)
 
-[node name="Desc" type="Label" parent="Center/Box/Rows"]
+[node name="Confirm" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 36)
+size_flags_horizontal = 3
+min_size = Vector2(0, 36)
+
+[node name="Desc" type="Label" parent="Box/Pad/Rows"]
 layout_mode = 2
 mouse_filter = 2
 autowrap_mode = 3
 
-[node name="Step" parent="Center/Box/Rows" instance=ExtResource("2")]
+[node name="Step" parent="Box/Pad/Rows" instance=ExtResource("4")]
 layout_mode = 2
 
-[node name="Buttons" type="HBoxContainer" parent="Center/Box/Rows"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Cancel" type="Button" parent="Center/Box/Rows/Buttons"]
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-size_flags_horizontal = 3
-script = ExtResource("3")
-kind = &"blue"
-text = "Cancel"
-
-[node name="Confirm" type="Button" parent="Center/Box/Rows/Buttons"]
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-size_flags_horizontal = 3
-script = ExtResource("3")
-kind = &"orange"
-text = "Confirm"
-
-[node name="Overlay" type="Control" parent="Center/Box"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="Close" type="Button" parent="Center/Box/Overlay"]
-custom_minimum_size = Vector2(36, 36)
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -36.0
-offset_bottom = 36.0
-grow_horizontal = 0
+[node name="HelpTarget" type="Node" parent="Box"]
+script = ExtResource("5")
+hint = ExtResource("6")

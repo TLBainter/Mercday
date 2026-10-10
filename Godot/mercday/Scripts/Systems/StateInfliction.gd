@@ -160,7 +160,7 @@ static func inflict(merc: MercenaryData, state_name: String, inflict_spec: Strin
 			BattleState.colored_name(merc, state), state_name, stat_label, int(result["successes"])])
 	else:
 		var origin: String = "inflict:" + (source.merc_name if source != null else "none")
-		if ConstStates.apply_state(merc, state_name, source, "", origin) and source != null and source != merc:
+		if StateCascade.apply_state(merc, state_name, source, "", origin) and source != null and source != merc:
 			LifepathTally.record_inflicted(source, state_name)
 		if state != null:
 			state.set_state_timer(merc, state_name, expires, remove_spec)
@@ -197,7 +197,7 @@ static func end_of_turn(merc: MercenaryData, state: BattleState) -> Array[String
 	var lines: Array[String] = []
 	if merc.is_dead:
 		return lines
-	for state_name: String in state.get_timed_states(merc):
+	for state_name: String in CampaignTimers.get_timed_states(state, merc):
 		if not ConstStates.has_state(merc, state_name):
 			state.clear_state_timer(merc, state_name)
 			continue
@@ -258,8 +258,8 @@ static func remove_timed(merc: MercenaryData, state_name: String, state: BattleS
 	if state != null:
 		state.clear_state_timer(merc, state_name)
 	if state_name in ConstStates.STACKING_STATES:
-		ConstStates.reduce_state(merc, state_name)
-	elif not ConstStates.remove_state(merc, state_name)["removed"]:
+		StateCascade.reduce_state(merc, state_name)
+	elif not StateCascade.remove_state(merc, state_name)["removed"]:
 		lines.append("  %s is still %s. [%s]" % [BattleState.colored_name(merc, state), state_name, detail])
 		return lines
 	var text := narrate(merc, state_name, source, state, "remove_text")
@@ -277,6 +277,14 @@ static func note_removed(merc: MercenaryData, state_name: String, state: BattleS
 	_log_removed(merc, state_name, state, reason)
 
 
+#Removes the state; when it went, the timer drops and the STATE REMOVED line is logged. True when it went.
+static func remove_noted(merc: MercenaryData, state_name: String, state: BattleState, reason: String) -> bool:
+	if not StateCascade.remove_state(merc, state_name)["removed"]:
+		return false
+	note_removed(merc, state_name, state, reason)
+	return true
+
+
 #A dead source lets go: every Grappled that names it ends, and a registered kidnap pair with it.
 static func release_held_by(dead: MercenaryData, state: BattleState, lines: Array[String]) -> void:
 	if dead == null or state == null:
@@ -290,8 +298,7 @@ static func release_held_by(dead: MercenaryData, state: BattleState, lines: Arra
 				continue
 			if ConstStates.get_source(merc, ConstStates.GRAPPLED) != dead:
 				continue
-			if ConstStates.remove_state(merc, ConstStates.GRAPPLED)["removed"]:
-				note_removed(merc, ConstStates.GRAPPLED, state, "source_death")
+			if remove_noted(merc, ConstStates.GRAPPLED, state, "source_death"):
 				lines.append("  %s is no longer grappled: %s is dead" % [
 					BattleState.colored_name(merc, state), BattleState.colored_name(dead, state)])
 	KidnapSystem.unregister(dead, state)

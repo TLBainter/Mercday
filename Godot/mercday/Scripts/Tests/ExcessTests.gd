@@ -25,15 +25,6 @@ static func _merc(name: String) -> MercenaryData:
 	return m
 
 
-#Trait names must be unique: TraitRuntime caches parsed clauses by trait name.
-static func _trait(name: String, cell: String) -> TraitData:
-	var td := TraitData.new()
-	td.trait_name = name
-	td.trait_type = "Perk"
-	td.effect_dsl = cell
-	return td
-
-
 static func _case_add(res: Dictionary) -> void:
 	var m := _merc("Ada")
 	var first: int = ExcessPool.add(m, "hp", 2)
@@ -167,10 +158,10 @@ static func _case_dot(res: Dictionary) -> void:
 	var b := _merc("Foe")
 	var team_a: Array[MercenaryData] = [a]
 	var team_b: Array[MercenaryData] = [b]
-	var state: BattleState = BattleState.create(team_a, team_b, null, true)
+	var state: BattleState = BattleState.create(team_a, team_b, null)
 	a.current_hp = 10
 	a.excess_hp = 2
-	ConstStates.apply_state(a, ConstStates.BURNING)
+	StateCascade.apply_state(a, ConstStates.BURNING)
 	var lines: Array[String] = BattleStateUpdater.apply_dot_effects(a, state)
 	TestFixtures.check(res, "dot drains excess before hp",
 		a.excess_hp == 1 and a.current_hp == 10 and lines.size() == 1,
@@ -181,7 +172,7 @@ static func _case_dot(res: Dictionary) -> void:
 
 static func _case_trait_grant(res: Dictionary) -> void:
 	var m := _merc("Jorn")
-	m.perks.append(_trait("Excess Probe Grant", "on:contract_start:always:resource:excess_hp:+1"))
+	m.perks.append(TestFixtures.perk("Excess Probe Grant", "on:contract_start:always:resource:excess_hp:+1"))
 	var lines: Array[String] = []
 	TraitRuntime.fire("contract_start", m, {"lines": lines})
 	TestFixtures.check(res, "resource leaf grants one excess hp",
@@ -199,11 +190,10 @@ static func _case_trait_grant(res: Dictionary) -> void:
 static func _case_contract_grants(res: Dictionary) -> void:
 	var owner := _merc("Kael")
 	var ally := _merc("Mira")
-	owner.perks.append(_trait("Excess Probe Ally",
+	owner.perks.append(TestFixtures.perk("Excess Probe Ally",
 		"on:contract_start:always:to:random_ally:resource:excess_ep:+1"))
-	var contract_run := ContractRun.new()
 	var team: Array[MercenaryData] = [owner, ally]
-	contract_run.team.assign(team)
+	var contract_run := TestFixtures.run_for(team)
 	TraitRuntime.begin_contract(contract_run)
 	TestFixtures.check(res, "random_ally grants to the ally, not the owner",
 		ally.excess_ep == 1 and owner.excess_ep == 0,
@@ -212,11 +202,10 @@ static func _case_contract_grants(res: Dictionary) -> void:
 		TestFixtures.has_line(contract_run.log_lines, "Mira gains 1 Excess EP"),
 		"%d log lines: %s" % [contract_run.log_lines.size(), ", ".join(contract_run.log_lines)])
 	var vet := _merc("Nils")
-	vet.perks.append(_trait("Excess Probe Combat",
+	vet.perks.append(TestFixtures.perk("Excess Probe Combat",
 		"on:contract_complete_combat:always:resource:excess_hp:+1"))
-	var solo_run := ContractRun.new()
 	var solo: Array[MercenaryData] = [vet]
-	solo_run.team.assign(solo)
+	var solo_run := TestFixtures.run_for(solo)
 	TraitRuntime.on_combat_complete(solo_run, "Skirmish")
 	TestFixtures.check(res, "contract_complete_combat grants excess",
 		vet.excess_hp == 1 and TestFixtures.has_line(solo_run.log_lines, "Nils gains 1 Excess HP"),

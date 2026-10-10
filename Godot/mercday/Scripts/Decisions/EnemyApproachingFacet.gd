@@ -15,7 +15,6 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	for enemy: MercenaryData in enemies:
 		var enemy_pace: int = maxi(1, int(enemy.stats.get("pace", 1)))
 		var cur_dist := state.distance_to(merc, enemy)
-		#Only care about enemies that could reach this merc in at most 2 turns
 		if cur_dist > enemy_pace * 2:
 			continue
 		var hist: Array = state.position_history.get(enemy, []) as Array
@@ -23,8 +22,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 			#No prior position recorded (first round): proximity alone permits retreat
 			return 1.0
 		var prev_pos: Vector2i = hist[-1] as Vector2i
-		var prev_dist := maxi(absi(prev_pos.x - merc_pos.x), absi(prev_pos.y - merc_pos.y))
-		#Permit retreat when enemy closed 1 pace for every 3 paces of their speed
+		var prev_dist := Pathfinder.chebyshev2(prev_pos, merc_pos)
 		if (prev_dist - cur_dist) * 3 >= enemy_pace:
 			return 1.0
 	return 0.0

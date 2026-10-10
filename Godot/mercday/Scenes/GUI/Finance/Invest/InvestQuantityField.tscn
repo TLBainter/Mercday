@@ -1,24 +1,30 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Finance/Invest/InvestQuantityField.gd" id="1"]
 [ext_resource type="Script" path="res://Scripts/GUI/Finance/Invest/InvestBevelButton.gd" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="3"]
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/IconRect.gd" id="4"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/stepper_value_box.tres" id="5"]
 
 [node name="InvestQuantityField" type="HBoxContainer"]
 theme_override_constants/separation = 6
 script = ExtResource("1")
 
-[node name="MinusButton" type="Button" parent="."]
+[node name="Minus" type="Button" parent="."]
 custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("3")
 theme_override_font_sizes/font_size = 14
 script = ExtResource("2")
+fill = Color(0.121569, 0.207843, 0.376471, 1)
+lo = Color(0.0666667, 0.109804, 0.2, 1)
+hover_fill = Color(0.168627, 0.309804, 0.541176, 1)
 caption = ""
+hover_move = 0
+hover_shade = 7
 
-[node name="Glyph" type="TextureRect" parent="MinusButton"]
+[node name="Glyph" type="TextureRect" parent="Minus"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -32,7 +38,7 @@ pixel_scale = 2
 trimmed = true
 tint = Color(0.952941, 0.917647, 0.843137, 1)
 
-[node name="Field" type="LineEdit" parent="."]
+[node name="ValueBox" type="LineEdit" parent="."]
 custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -41,18 +47,29 @@ max_length = 7
 text = "1"
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("3")
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = ExtResource("5")
+theme_override_styles/focus = ExtResource("5")
 
-[node name="PlusButton" type="Button" parent="."]
+[node name="Value" type="Label" parent="ValueBox"]
+visible = false
+text = "1"
+
+[node name="Plus" type="Button" parent="."]
 custom_minimum_size = Vector2(28, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("3")
 theme_override_font_sizes/font_size = 14
 script = ExtResource("2")
+fill = Color(0.121569, 0.207843, 0.376471, 1)
+lo = Color(0.0666667, 0.109804, 0.2, 1)
+hover_fill = Color(0.168627, 0.309804, 0.541176, 1)
 caption = ""
+hover_move = 0
+hover_shade = 7
 
-[node name="Glyph" type="TextureRect" parent="PlusButton"]
+[node name="Glyph" type="TextureRect" parent="Plus"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -73,4 +90,9 @@ theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_fonts/font = ExtResource("3")
 theme_override_font_sizes/font_size = 11
 script = ExtResource("2")
+fill = Color(0.121569, 0.207843, 0.376471, 1)
+lo = Color(0.0666667, 0.109804, 0.2, 1)
+hover_fill = Color(0.168627, 0.309804, 0.541176, 1)
 caption = "Max"
+hover_move = 0
+hover_shade = 7

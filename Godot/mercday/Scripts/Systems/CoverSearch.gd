@@ -5,10 +5,18 @@ extends RefCounted
 #decision layer; holds no action execution.
 
 
+#Seek Cover and Move AP as the scan prices them; _scan_gate asks state.get_cost for the priced values.
+const SEEK_COVER_AP := 2
+const MOVE_AP := 2
+#Kinds returned by _los_cover_kind.
+const COVER_NONE := 0
+const COVER_PARTIAL := 1
+const COVER_FULL := 2
+
 static var _scan_cache: Dictionary = {}
 
 
-#Dropped at the start of every round by AutoBattle.
+#Cleared per battle by AutoBattle and after a cave-in; keys carry the round, so a new round never reads old scores.
 static func clear_scan_cache() -> void:
 	_scan_cache.clear()
 
@@ -18,12 +26,22 @@ static func cover_score(cell: Vector3i, p_size: int, ranged: Array, state: Battl
 	var full := 0
 	var partial := 0
 	for e: MercenaryData in ranged:
-		var los := LineOfSight.check_from(state, cell, 0, p_size, e)
-		if not (los["visible"] as bool):
+		var kind := _los_cover_kind(state, cell, p_size, e)
+		if kind == COVER_FULL:
 			full += 1
-		elif str(los["cover"]) == "partial":
+		elif kind == COVER_PARTIAL:
 			partial += 1
 	return {"full": full, "partial": partial}
+
+
+#COVER_FULL when enemy cannot see a unit of p_size on cell, COVER_PARTIAL when it sees one in partial cover.
+static func _los_cover_kind(state: BattleState, cell: Vector3i, p_size: int, enemy: MercenaryData) -> int:
+	var los := LineOfSight.check_from(state, cell, 0, p_size, enemy)
+	if not (los["visible"] as bool):
+		return COVER_FULL
+	if str(los["cover"]) == "partial":
+		return COVER_PARTIAL
+	return COVER_NONE
 
 
 #cover_score with the caller's running best as a bound; {} when this cell can no longer beat it.
@@ -41,10 +59,10 @@ static func _cover_score_bounded(cell: Vector3i, p_size: int, ranged: Array, sta
 		if full + rem == best_full and partial == best_partial and not tie_ok:
 			return {}
 		rem -= 1
-		var los := LineOfSight.check_from(state, cell, 0, p_size, e)
-		if not (los["visible"] as bool):
+		var kind := _los_cover_kind(state, cell, p_size, e)
+		if kind == COVER_FULL:
 			full += 1
-		elif str(los["cover"]) == "partial":
+		elif kind == COVER_PARTIAL:
 			partial += 1
 	return {"full": full, "partial": partial}
 
@@ -66,8 +84,8 @@ static func find_cover_cell(merc: MercenaryData, enemies: Array, state: BattleSt
 		return PathTargeter.NO_CELL
 	var here := state.pos3(merc)
 	var pace: int = maxi(1, int(merc.stats.get("pace", 1)))
-	var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
-	var reach: Dictionary = PathTargeter.reachable_for(merc, state)
+	var merc_size: int = merc.unit_size()
+	var reach: Dictionary = ReachCache.reachable_for(merc, state)
 	var base := cover_score(here, merc_size, ranged, state)
 	var best := PathTargeter.NO_CELL
 	var best_full: int = base["full"]
@@ -134,18 +152,16 @@ static func _threat_weights(merc: MercenaryData, ranged: Array, state: BattleSta
 
 
 #How far the scan may look, from AP, pace, hp ratio and Terrified; 0 when seek_cover is unaffordable.
-static func _search_range(merc: MercenaryData, ctx: Dictionary, pace: int, ap_available: int,
-		seek_cover_cost: int) -> int:
+static func _search_range(merc: MercenaryData, ctx: Dictionary, pace: int, hp_ratio: float, ap_available: int,
+		ap_after_move: int, ap_after_two_moves: int) -> int:
 	var state: BattleState = ctx.get("state")
-	var max_hp_g: int = maxi(1, int(merc.stats.get("maximum_hit_points", 1)))
-	var hp_ratio: float = float(merc.current_hp) / float(max_hp_g)
 	var is_injured: bool = hp_ratio < 0.5
 	var is_recently_targeted: bool = false
 	for e: MercenaryData in ctx.get("enemies", []):
 		if state.last_attacked.get(e) == merc:
 			is_recently_targeted = true
 			break
-	var base_range: int = maxi(2, floori(float(ap_available - seek_cover_cost) / 2.0))
+	var base_range: int = maxi(2, floori(float(ap_available - SEEK_COVER_AP) / 2.0))
 	var urgency_bonus: int = 0
 	if hp_ratio < 0.25:
 		urgency_bonus += 3
@@ -156,22 +172,20 @@ static func _search_range(merc: MercenaryData, ctx: Dictionary, pace: int, ap_av
 	if is_recently_targeted:
 		urgency_bonus += 2
 	var search_range: int = mini(base_range + urgency_bonus, mini(10, pace * 4))
-	var ap_after_move: int = ap_available - 2
-	var ap_after_two_moves: int = ap_available - 4
 
 	#Cap search_range to what the AP can reach so the scan skips cells the merc could never afford.
 	#The full range holds while two Moves are affordable.
-	if ap_after_two_moves < seek_cover_cost:
-		if ap_after_move >= seek_cover_cost:
+	if ap_after_two_moves < SEEK_COVER_AP:
+		if ap_after_move >= SEEK_COVER_AP:
 			search_range = mini(search_range, pace)  #one Move of distance only
-		elif ap_available >= seek_cover_cost:
+		elif ap_available >= SEEK_COVER_AP:
 			search_range = 1  #adjacent cover only
 		else:
 			return 0  #seek_cover is not affordable at all
 	return search_range
 
 
-#Cover scan for the Seek Cover decision: caches one score per merc, cell and LOS version,
+#Cover scan for the Seek Cover decision: caches one score per merc, round, floor, cell and LOS version,
 #and emits the COVER SCAN log line.
 static func cover_scan_score(merc: MercenaryData, ctx: Dictionary) -> float:
 	var state: BattleState = ctx.get("state")
@@ -192,12 +206,10 @@ static func cover_scan_score(merc: MercenaryData, ctx: Dictionary) -> float:
 	if total_threat <= 0.0:
 		return 0.0
 
-	var pace: int = maxi(1, int(MovementExecutor.turn_paces(merc, state, 0)["paces"]))
-	var merc_size: int = maxi(1, int(merc.stats.get("size", 1)))
+	var pace: int = maxi(1, int(PaceBudget.turn_paces(merc, state, 0)["paces"]))
 	var ap_available: int = merc.current_ap + merc.excess_ap
-	var ap_after_move: int = ap_available - 2
-	var ap_after_two_moves: int = ap_available - 4
-	var seek_cover_cost: int = 2
+	var ap_after_move: int = ap_available - MOVE_AP
+	var ap_after_two_moves: int = ap_available - 2 * MOVE_AP
 
 	var max_hp_g: int = maxi(1, int(merc.stats.get("maximum_hit_points", 1)))
 	var hp_ratio: float = float(merc.current_hp) / float(max_hp_g)
@@ -206,10 +218,55 @@ static func cover_scan_score(merc: MercenaryData, ctx: Dictionary) -> float:
 	var is_retreating: bool = ConstStates.has_state(merc, ConstStates.TERRIFIED) \
 			or hp_ratio <= 0.25
 
-	var search_range: int = _search_range(merc, ctx, pace, ap_available, seek_cover_cost)
+	var search_range: int = _search_range(merc, ctx, pace, hp_ratio, ap_available, ap_after_move,
+		ap_after_two_moves)
 	if search_range <= 0:
 		return 0.0
 
+	var has_moved: bool = ctx.get("has_moved", false)
+	var cache_key: String = "%d_%d_%d_%d_%d_%d" % [merc.get_instance_id(), state.round_number, state.get_floor(merc),
+		pos.x, pos.y, state.battlefield.los_version]
+	if _scan_cache.has(cache_key):
+		var _cached: float = _scan_cache[cache_key]
+		return minf(_cached + 0.05, 1.0) if (has_moved and _cached > 0.0) else _cached
+	var scan_candidates: Array = []
+
+	var reach: Dictionary = ReachCache.reachable_for(merc, state)
+	var best_score := _scan_cells(merc, state, pos, reach, ranged_foes, enemy_weights, total_threat, pace,
+		search_range, ap_available, ap_after_move, ap_after_two_moves, is_retreating, scan_candidates)
+
+	if best_score <= 0.0:
+		EncounterLogger.log_cover_scan(merc.merc_name, search_range, scan_candidates, 0.0)
+		_scan_cache[cache_key] = 0.0
+		return 0.0
+
+	var move_budget: int = floori(float(merc.current_ap) / float(MOVE_AP))
+	var any_chebyshev_reachable := false
+	for c: Dictionary in scan_candidates:
+		if not c.has("score"):
+			continue
+		var cpos: Vector2i = c["pos"] as Vector2i
+		if maxi(absi(cpos.x - pos.x), absi(cpos.y - pos.y)) <= move_budget:
+			any_chebyshev_reachable = true
+			break
+	if not any_chebyshev_reachable:
+		EncounterLogger.log_cover_scan(merc.merc_name, search_range, scan_candidates, 0.0)
+		_scan_cache[cache_key] = 0.0
+		return 0.0
+
+	EncounterLogger.log_cover_scan(merc.merc_name, search_range, scan_candidates, best_score)
+	var final_score: float = clampf(best_score, 0.0, 1.0)
+	_scan_cache[cache_key] = final_score
+	#Bonus for a merc that already spent AP moving this turn, because stopping for cover is cheaper.
+	return minf(final_score + 0.05, 1.0) if (has_moved and final_score > 0.0) else final_score
+
+
+#Scores every reachable cell within search_range into scan_candidates and returns the best score.
+static func _scan_cells(merc: MercenaryData, state: BattleState, pos: Vector2i, reach: Dictionary,
+		ranged_foes: Array, enemy_weights: Dictionary, total_threat: float, pace: int, search_range: int,
+		ap_available: int, ap_after_move: int, ap_after_two_moves: int, is_retreating: bool,
+		scan_candidates: Array) -> float:
+	var merc_size: int = merc.unit_size()
 	#Movement direction toward the nearest ranged enemy; the alignment bonus reads it.
 	var nearest_enemy_dir := Vector2.ZERO
 	var move_dir := Vector2.ZERO
@@ -225,16 +282,7 @@ static func cover_scan_score(merc: MercenaryData, ctx: Dictionary) -> float:
 		if nearest_enemy_dir != Vector2.ZERO:
 			move_dir = nearest_enemy_dir.normalized()
 
-	var has_moved: bool = ctx.get("has_moved", false)
-	var cache_key: String = "%s_%d_%d_%d" % [merc.merc_name, pos.x, pos.y, state.battlefield.los_version]
-	if _scan_cache.has(cache_key):
-		var _cached: float = _scan_cache[cache_key]
-		return minf(_cached + 0.05, 1.0) if (has_moved and _cached > 0.0) else _cached
 	var best_score := 0.0
-	var scan_candidates: Array = []
-
-	var reach: Dictionary = PathTargeter.reachable_for(merc, state)
-
 	for cell: Vector3i in reach.keys():
 		var cost: int = reach[cell] as int
 		var cpos := Vector2i(cell.x, cell.y)
@@ -243,11 +291,11 @@ static func cover_scan_score(merc: MercenaryData, ctx: Dictionary) -> float:
 			continue
 		var can_reach: bool
 		if cost <= 1:
-			can_reach = ap_available >= seek_cover_cost
+			can_reach = ap_available >= SEEK_COVER_AP
 		elif cost <= pace:
-			can_reach = ap_after_move >= seek_cover_cost
+			can_reach = ap_after_move >= SEEK_COVER_AP
 		else:
-			can_reach = ap_after_two_moves >= seek_cover_cost
+			can_reach = ap_after_two_moves >= SEEK_COVER_AP
 		if not can_reach:
 			scan_candidates.append({"pos": cpos, "dist": dist, "skip": "no-ap"})
 			continue
@@ -257,11 +305,11 @@ static func cover_scan_score(merc: MercenaryData, ctx: Dictionary) -> float:
 		var full_w := 0.0
 		var part_w := 0.0
 		for e: MercenaryData in ranged_foes:
-			var los := LineOfSight.check_from(state, cell, 0, merc_size, e)
+			var kind := _los_cover_kind(state, cell, merc_size, e)
 			var ew: float = float(enemy_weights.get(e, 0.0))
-			if not (los["visible"] as bool):
+			if kind == COVER_FULL:
 				full_w += ew
-			elif str(los["cover"]) == "partial":
+			elif kind == COVER_PARTIAL:
 				part_w += ew
 		if full_w <= 0.0 and part_w <= 0.0:
 			scan_candidates.append({"pos": cpos, "dist": dist, "skip": "no-threat-coverage"})
@@ -285,32 +333,4 @@ static func cover_scan_score(merc: MercenaryData, ctx: Dictionary) -> float:
 		var candidate_score: float = (base + alignment_bonus) * (1.0 - ap_cost_penalty)
 		scan_candidates.append({"pos": cpos, "dist": dist, "score": candidate_score})
 		best_score = maxf(best_score, candidate_score)
-
-	if best_score <= 0.0:
-		EncounterLogger.log_cover_scan(merc.merc_name, search_range, scan_candidates, 0.0)
-		_scan_cache[cache_key] = 0.0
-		return 0.0
-
-	var move_ap_cost := 2
-	var move_budget: int = floori(float(merc.current_ap) / float(move_ap_cost))
-	var any_chebyshev_reachable := false
-	for c: Dictionary in scan_candidates:
-		if not c.has("score"):
-			continue
-		var cpos: Vector2i = c["pos"] as Vector2i
-		if maxi(absi(cpos.x - pos.x), absi(cpos.y - pos.y)) <= move_budget:
-			any_chebyshev_reachable = true
-			break
-	if not any_chebyshev_reachable:
-		EncounterLogger.log_cover_scan(merc.merc_name, search_range, scan_candidates, 0.0)
-		_scan_cache[cache_key] = 0.0
-		return 0.0
-
-	#Bonus for a merc that already spent AP moving this turn, because stopping for cover is cheaper.
-	if has_moved:
-		best_score = minf(best_score + 0.05, 1.0)
-
-	EncounterLogger.log_cover_scan(merc.merc_name, search_range, scan_candidates, best_score)
-	var final_score: float = clampf(best_score, 0.0, 1.0)
-	_scan_cache[cache_key] = final_score
-	return minf(final_score + 0.05, 1.0) if (has_moved and final_score > 0.0) else final_score
+	return best_score

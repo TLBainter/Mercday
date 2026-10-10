@@ -22,8 +22,6 @@ const SAFE_STEPS := 12
 
 static var force_every: bool = false      #harness: every cavern battle queues a cave-in at start
 static var triggered_total: int = 0       #harness: cave-ins fired since launch
-static var _rubble_warned: bool = false
-static var _rubble_fallback: ObstacleData = null
 
 
 static func is_cavern(state: BattleState) -> bool:
@@ -108,12 +106,12 @@ static func trigger(state: BattleState) -> Array[String]:
 		return lines
 	state.cave_in_count += 1
 	triggered_total += 1
-	var points: int = CavernGenerator._weighted_pick(POINT_WEIGHTS) + 1
+	var points: int = WeightedTable.pick_index(POINT_WEIGHTS) + 1
 	var tunnel_index: Dictionary = {}
 	for i: int in range(field.cavern_tunnels.size()):
 		for cell: Vector2i in (field.cavern_tunnels[i]["cells"] as Array):
 			tunnel_index[cell] = i
-	var chamber_index: Dictionary = CavernGenerator._chamber_index(field)
+	var chamber_index: Dictionary = CavernGenerator.chamber_index(field)
 	var footprint: Dictionary = {}
 	for _p: int in range(points):
 		_point_footprint(field, tunnel_index, chamber_index, footprint)
@@ -140,7 +138,7 @@ static func _point_footprint(field: BattlefieldArea, tunnel_index: Dictionary, c
 	var anchor := cell
 	var t: int = int(tunnel_index.get(cell, -1))
 	if t < 0:
-		for d: Vector2i in CavernGenerator.DIRS8:
+		for d: Vector2i in PathCost.DIRS8:
 			var nb: Vector2i = cell + d
 			if tunnel_index.has(nb):
 				t = int(tunnel_index[nb])
@@ -174,7 +172,7 @@ static func _seal(field: BattlefieldArea, t: int, anchor: Vector2i, out: Diction
 		cells[cell] = true
 	if not cells.has(anchor):
 		return 0
-	var chambers: Dictionary = CavernGenerator._chamber_index(field)
+	var chambers: Dictionary = CavernGenerator.chamber_index(field)
 	var rows: int = 0
 	var cols: int = 0
 	for cell: Vector2i in cells.keys():
@@ -208,7 +206,7 @@ static func _seal(field: BattlefieldArea, t: int, anchor: Vector2i, out: Diction
 		if not out.has(curr):
 			out[curr] = true
 			added += 1
-		for d: Vector2i in CavernGenerator.DIRS8:
+		for d: Vector2i in PathCost.DIRS8:
 			var nb: Vector2i = curr + d
 			if seen.has(nb) or not candidates.has(nb):
 				continue
@@ -224,7 +222,7 @@ static func _block(field: BattlefieldArea, cell: Vector2i, out: Dictionary) -> v
 	for dy: int in range(l):
 		for dx: int in range(w):
 			var c := Vector2i(origin.x + dx, origin.y + dy)
-			if c.x < 0 or c.x >= field.width or c.y < 0 or c.y >= field.length:
+			if not field.in_bounds_xy(c.x, c.y):
 				continue
 			if field.rock_cells.has(c) or not field.cavern_ceiling.has(c):
 				continue
@@ -264,12 +262,14 @@ static func is_submerged(field: BattlefieldArea, cell: Vector2i) -> bool:
 static func _spawn_rubble(state: BattleState, footprint: Dictionary) -> int:
 	var field := state.battlefield
 	var data := _rubble_data()
+	if data == null:
+		return 0
 	var count: int = 0
 	for cell: Vector2i in footprint.keys():
 		var existing: Dictionary = field.get_obs(cell, 0)
 		if not existing.is_empty():
 			var raw_pos: Variant = existing.get("pos", cell)
-			ObstacleUtils._remove_obstacle(existing, raw_pos, cell, 0,
+			ObstacleUtils.remove_obstacle(existing, raw_pos, cell, 0,
 				existing.get("data") as ObstacleData, state)
 		var depth: int = field.water_depth(cell)
 		var n: int = cube_count(field, cell)
@@ -290,8 +290,7 @@ static func _spawn_rubble(state: BattleState, footprint: Dictionary) -> int:
 			if depth > 0:
 				obs["water_depth"] = depth
 				field.water_cells.erase(cell)
-			field.obstacles.append(obs)
-			field._obs_map[field.obs_key(cell, 0)] = obs
+			field.add_obstacle(obs, field.obs_key(cell, 0))
 		count += 1
 		if EncounterLogger.is_active():
 			EncounterLogger.log_verbose("CAVE-IN CELL: (%d,%d) cubes=%d hp=%s water=%d" % [
@@ -311,26 +310,9 @@ static func _cube_hp() -> int:
 
 static func _rubble_data() -> ObstacleData:
 	var sheet: ObstacleData = DataManager.obstacles_by_name.get(RUBBLE_NAME) as ObstacleData
-	if sheet != null:
-		return sheet
-	if _rubble_fallback == null:
-		if not _rubble_warned:
-			_rubble_warned = true
-			push_warning("CaveInSystem: no '%s' row in Obstacles.tsv; using built-in values" % RUBBLE_NAME)
-		var d := ObstacleData.new()
-		d.obstacle_name = RUBBLE_NAME
-		d.obstacle_type = "Terrain"
-		d.size_x = 1.0
-		d.size_y = 1.0
-		d.size_z = 1.0
-		d.height = 1.0
-		d.health = 35
-		d.susceptible_to = "Strike, Acid"
-		d.immune_to = "Lacerate, Impale, Esoteric, Toxic"
-		d.climbable = false
-		d.moveable = false
-		_rubble_fallback = d
-	return _rubble_fallback
+	if sheet == null:
+		push_error("CaveInSystem: no '%s' row in Obstacles.tsv" % RUBBLE_NAME)
+	return sheet
 
 
 #Runs before the rubble lands: positions, water flags and sunk depths are still the original ones.
@@ -359,7 +341,7 @@ static func _crush_attempt(merc: MercenaryData, state: BattleState, footprint: D
 	var can_try: bool = ExcessPool.available_ep(merc) >= CRUSH_EP \
 		and not ConstStates.has_state(merc, ConstStates.DYING) \
 		and not ConstStates.has_state(merc, ConstStates.UNCONSCIOUS) \
-		and not ConstStates.is_blocked(merc, "action:move")
+		and not StateEffects.is_blocked(merc, "action:move")
 	if not can_try:
 		return _resolve_crush(merc, state, footprint, false, lines)
 	ExcessPool.pay_ep(merc, CRUSH_EP)
@@ -412,16 +394,16 @@ static func _bury(merc: MercenaryData, state: BattleState, cell: Vector2i,
 
 
 static func _hold(merc: MercenaryData, state_name: String) -> void:
-	if CavernRules._apply(merc, state_name, CavernRules.RUBBLE_SOURCE):
+	if CavernRules.apply(merc, state_name, CavernRules.RUBBLE_SOURCE):
 		return
 	if EncounterLogger.is_active():
 		EncounterLogger.log_verbose("STATE REFUSED: %s %s" % [merc.merc_name, state_name])
 
 
 static func _free(merc: MercenaryData, state: BattleState) -> void:
-	CavernRules._release(merc, ConstStates.GRAPPLED, CavernRules.RUBBLE_SOURCE, state, "rubble cleared")
-	CavernRules._release(merc, ConstStates.INHIBITED, CavernRules.RUBBLE_SOURCE, state, "rubble cleared")
-	CavernRules._release(merc, ConstStates.SUFFOCATING, CavernRules.RUBBLE_SOURCE, state, "rubble cleared")
+	CavernRules.release(merc, ConstStates.GRAPPLED, CavernRules.RUBBLE_SOURCE, state, "rubble cleared")
+	CavernRules.release(merc, ConstStates.INHIBITED, CavernRules.RUBBLE_SOURCE, state, "rubble cleared")
+	CavernRules.release(merc, ConstStates.SUFFOCATING, CavernRules.RUBBLE_SOURCE, state, "rubble cleared")
 
 
 #Nearest cell outside the whole footprint; the walk may cross footprint cells to get there.
@@ -442,12 +424,12 @@ static func _nearest_safe_cell(state: BattleState, from: Vector2i, footprint: Di
 		steps += 1
 		var next: Array[Vector2i] = []
 		for curr: Vector2i in frontier:
-			for d: Vector2i in CavernGenerator.DIRS8:
+			for d: Vector2i in PathCost.DIRS8:
 				var nb: Vector2i = curr + d
 				if seen.has(nb):
 					continue
 				seen[nb] = true
-				if nb.x < 0 or nb.x >= field.width or nb.y < 0 or nb.y >= field.length:
+				if not field.in_bounds_xy(nb.x, nb.y):
 					continue
 				if field.rock_cells.has(nb) or not field.cavern_ceiling.has(nb):
 					continue

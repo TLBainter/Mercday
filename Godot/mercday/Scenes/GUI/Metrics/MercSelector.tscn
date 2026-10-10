@@ -1,11 +1,15 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Metrics/MercSelector.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPortrait.tscn" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/DropPanel.gd" id="dp"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_MercSelector.tres" id="4"]
 
 [node name="MercSelector" type="Button"]
 custom_minimum_size = Vector2(0, 60)
 script = ExtResource("1")
+popup_width = 300
 
 [node name="Row" type="HBoxContainer" parent="."]
 layout_mode = 1
@@ -76,8 +80,9 @@ clip_text = true
 text_overrun_behavior = 3
 text = ""
 
-[node name="Menu" type="PopupPanel" parent="."]
-size = Vector2i(300, 160)
+[node name="Menu" type="PanelContainer" parent="."]
+visible = false
+script = ExtResource("dp")
 
 [node name="Margin" type="MarginContainer" parent="Menu"]
 theme_override_constants/margin_left = 8
@@ -88,3 +93,7 @@ theme_override_constants/margin_bottom = 8
 [node name="List" type="VBoxContainer" parent="Menu/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 2
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("3")
+hint = ExtResource("4")

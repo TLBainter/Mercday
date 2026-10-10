@@ -1,0 +1,94 @@
+[gd_resource type="Resource" script_class="ContractData" format=3]
+
+[ext_resource type="Script" uid="uid://da43dc1r0v65k" path="res://Scripts/Resources/ContractData.gd" id="1_ContractData"]
+
+[resource]
+script = ExtResource("1_ContractData")
+contract_type = "Escort"
+contract_name = "Escort"
+level_min = 0
+level_max = 0
+issuer_type = ""
+issuer = ""
+difficulty_min = 0.0
+difficulty_max = 0.0
+story = false
+style = ""
+roles = Array[String]([])
+target = ""
+completion = ""
+event_config = ""
+time_minutes = 0
+consequence = ""
+descriptions = Array[String]([])
+primary_event_pool = Array[String](["Deliver the Prisoner"])
+mishap_pool = Array[String](["Tavern Brawl"])
+stat_boosts = {
+"Avoid": 10.0,
+"Escort": 15.0,
+"Rescue": 10.0,
+"Social": 15.0,
+"Support": 5.0
+}
+circumstance_boosts = {
+"Athletics (Vigor)": 15.0,
+"Grace (Dexterity)": 15.0,
+"Notice (Cognition)": 5.0,
+"Presence (Vigor)": 5.0,
+"Presence (Wile)": 5.0,
+"Speech (Wile)": 10.0
+}
+tool_boosts = {
+"Air Vehicles": 10.0,
+"Cosmic Vehicles": 10.0,
+"Falconer's": 5.0,
+"Infiltrator's": 5.0,
+"Interrogator's": 5.0,
+"Land Vehicles": 10.0,
+"Military Vehicles": 10.0,
+"Navigator's": 15.0,
+"Survivalist's": 15.0,
+"Water Vehicles": 10.0
+}
+knowledge_boosts = {
+"Reconnaissance": 15.0,
+"Tactics": 5.0,
+"Travel": 10.0
+}
+tradition_boosts = {
+"Brave": 5.0,
+"Performer": 15.0,
+"Warrior": 10.0
+}
+penalties = Array[Dictionary]([{
+"expr": "tradition = divine",
+"percent": 15.0
+}, {
+"expr": "1 >= wile",
+"percent": 10.0
+}, {
+"expr": "1 >= size",
+"percent": 5.0
+}])
+description_template = "Escort [target.name] from [location_a.name] to [location_b.name]"
+target_categories = Array[String](["Powerless"])
+possible_traits = Array[String]([])
+possible_locations = Array[String]([])
+terrain_odds = Array[Dictionary]([])
+reward_notes = 0
+max_mercs = 0
+difficulty = 0.0
+contract_level = 0
+unsavory = false
+assigned_primary_event = ""
+rolled_mishaps = Array[String]([])
+location_a = ""
+location_b = ""
+description = ""
+target_name = ""
+requestor_name = ""
+team_uids = Array[int]([])
+status = "Type"
+rescue_merc_uid = 0
+rescue_kind = ""
+rescue_merc_name = ""

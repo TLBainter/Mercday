@@ -10,5 +10,7 @@ var seen: float = 0.0
 #The 5% step band since seen; 0 means no unread stockMove alert is owed.
 var band: int = 0
 var dividends: int = 0
+#How many dividend payments the holding has drawn; the notes above are their sum.
+var payouts: int = 0
 #The campaign day of the first buy that opened this holding; stamped once and never moved.
 var since_day: int = 0

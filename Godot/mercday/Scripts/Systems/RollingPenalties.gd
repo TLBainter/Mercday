@@ -1,22 +1,50 @@
 class_name RollingPenalties
 
-static var rolling_penalties: Dictionary = {
-	"location": {}, "ancestry": {}, "bloodline": {},
-	"heritage": {}, "lifepath": {}, "tradition": {},
-}
+const CATEGORIES: PackedStringArray = ["location", "ancestry", "bloodline", "heritage", "lifepath", "tradition"]
+const STAT_CATEGORIES: PackedStringArray = ["ancestry", "bloodline", "heritage"]
 
-static var rolling_penalty_age: Dictionary = {
-	"location": {}, "ancestry": {}, "bloodline": {},
-	"heritage": {}, "lifepath": {}, "tradition": {},
-}
-
-static var rolling_stat_penalties: Dictionary = {
-	"ancestry": {}, "bloodline": {}, "heritage": {},
-}
-static var rolling_stat_penalty_age: Dictionary = {
-	"ancestry": {}, "bloodline": {}, "heritage": {},
-}
+static var rolling_penalties: Dictionary = new_table(CATEGORIES)
+static var rolling_penalty_age: Dictionary = new_table(CATEGORIES)
+static var rolling_stat_penalties: Dictionary = new_table(STAT_CATEGORIES)
+static var rolling_stat_penalty_age: Dictionary = new_table(STAT_CATEGORIES)
 static var tradition_batch_counts: Dictionary = {}
+#NPCs roll against their own store, so an NPC never shifts the merc odds.
+static var npc_penalties: Dictionary = new_table(CATEGORIES)
+static var npc_penalty_age: Dictionary = new_table(CATEGORIES)
+
+
+static func new_table(categories: PackedStringArray) -> Dictionary:
+	var t: Dictionary = {}
+	for c: String in categories:
+		t[c] = {}
+	return t
+
+
+#The merc store and batch counts; restore() puts them back so a probe leaves no trace on later rolls.
+static func snapshot() -> Dictionary:
+	return {
+		"counts": tradition_batch_counts.duplicate(true),
+		"penalties": rolling_penalties.duplicate(true),
+		"age": rolling_penalty_age.duplicate(true),
+		"stat": rolling_stat_penalties.duplicate(true),
+		"stat_age": rolling_stat_penalty_age.duplicate(true),
+	}
+
+
+static func restore(snap: Dictionary) -> void:
+	tradition_batch_counts = snap["counts"]
+	rolling_penalties = snap["penalties"]
+	rolling_penalty_age = snap["age"]
+	rolling_stat_penalties = snap["stat"]
+	rolling_stat_penalty_age = snap["stat_age"]
+
+
+static func clear_all() -> void:
+	for table: Dictionary in [rolling_penalties, rolling_penalty_age, rolling_stat_penalties,
+			rolling_stat_penalty_age, npc_penalties, npc_penalty_age]:
+		for cat: Variant in table:
+			(table[cat] as Dictionary).clear()
+	tradition_batch_counts.clear()
 
 
 static func dominant_physical_stat(data: AncestryData) -> String:
@@ -39,13 +67,20 @@ static func dominant_mental_stat(data: HeritageData) -> String:
 	return ""
 
 
-static func get_penalty_boosts(category: String) -> Dictionary:
+static func get_penalty_boosts(category: String, npc: bool = false) -> Dictionary:
+	var table: Dictionary = npc_penalties if npc else rolling_penalties
 	var boosts: Dictionary = {}
-	for name: String in rolling_penalties.get(category, {}):
-		var penalty: float = rolling_penalties[category][name] as float
+	for name: String in table.get(category, {}):
+		var penalty: float = table[category][name] as float
 		if penalty > 0.0:
 			boosts[name] = -penalty
 	return boosts
+
+
+#Subtracts each rolling penalty of the category in table from the matching flat boost.
+static func subtract_into(flat: Dictionary, table: Dictionary, category: String) -> void:
+	for pen_name: String in table[category]:
+		flat[pen_name] = (flat.get(pen_name, 0.0) as float) - (table[category][pen_name] as float)
 
 
 #Ages one penalty table: a rolled key doubles, an unrolled one decays by 1.0 and drops at age 10 or zero.
@@ -74,21 +109,19 @@ static func step_rolling_penalties(penalties: Dictionary, ages: Dictionary, roll
 			ages[key] = 0
 
 
-static func update_rolling_penalties(merc: MercenaryData) -> void:
-	var rolled: Dictionary = {
-		"location": {}, "ancestry": {}, "bloodline": {},
-		"heritage": {}, "lifepath": {}, "tradition": {},
-	}
+#An NPC steps only its own store and skips the recessive and stat entries.
+static func update_rolling_penalties(merc: MercenaryData, npc: bool = false) -> void:
+	var rolled: Dictionary = new_table(CATEGORIES)
 
 	if merc.starting_location:
 		rolled["location"][merc.starting_location.location_name] = true
 	if merc.ancestry:
 		rolled["ancestry"][merc.ancestry.ancestry_name] = true
-	if merc.recessive_ancestry:
+	if merc.recessive_ancestry and not npc:
 		rolled["ancestry"][merc.recessive_ancestry.ancestry_name] = true
 	if merc.bloodline:
 		rolled["bloodline"][merc.bloodline.ancestry_name] = true
-	if merc.recessive_bloodline:
+	if merc.recessive_bloodline and not npc:
 		rolled["bloodline"][merc.recessive_bloodline.ancestry_name] = true
 	if merc.heritage:
 		rolled["heritage"][merc.heritage.heritage_name] = true
@@ -97,9 +130,12 @@ static func update_rolling_penalties(merc: MercenaryData) -> void:
 	if merc.tradition:
 		rolled["tradition"][merc.tradition.tradition_name] = true
 
-	for category: String in rolling_penalties:
-		step_rolling_penalties(rolling_penalties[category], rolling_penalty_age[category],
-				rolled.get(category, {}))
+	var penalties: Dictionary = npc_penalties if npc else rolling_penalties
+	var ages: Dictionary = npc_penalty_age if npc else rolling_penalty_age
+	for category: String in penalties:
+		step_rolling_penalties(penalties[category], ages[category], rolled.get(category, {}))
+	if npc:
+		return
 
 	var dom_ancestry := dominant_physical_stat(merc.ancestry) if merc.ancestry else ""
 	var dom_rec_ancestry := dominant_physical_stat(merc.recessive_ancestry) if merc.recessive_ancestry else ""

@@ -5,9 +5,7 @@ class_name MercCount extends Control
 const SIL_SIZE_PX: Vector2 = Vector2(14, 14)
 const GAP_PX: int = 2
 const COUNT: int = 5
-const ORANGE: Color = Color("#f28c28")
-const CREAM: Color = Color("#f3ead7")
-const HOLLOW_COLOR: Color = Color("#3b6fb6")
+const HOLLOW_COLOR: Color = GuiColors.BLUE_HI
 
 @export var required: int = 1:
 	set(value):
@@ -47,7 +45,7 @@ func _draw() -> void:
 
 static func color_at(i: int, required_value: int, allowed_value: int) -> Color:
 	if i < required_value:
-		return ORANGE
+		return GuiColors.ORANGE
 	if i < allowed_value:
-		return CREAM
+		return GuiColors.CREAM
 	return HOLLOW_COLOR

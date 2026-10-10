@@ -14,10 +14,10 @@ const TURN_UNIT: String = "AP"
 const REACTIVE_UNIT: String = "EP"
 
 @onready var sort_button: SortButton = $Head/Sort
-@onready var turn_list: VBoxContainer = $Columns/Turn/Scroll/Pad/List
-@onready var reactive_list: VBoxContainer = $Columns/Reactive/Scroll/Pad/List
-@onready var turn_group: VBoxContainer = $Columns/Turn
-@onready var reactive_group: VBoxContainer = $Columns/Reactive
+@onready var turn_list: VBoxContainer = $Columns/Turn/Scroll/Pad/Items
+@onready var reactive_list: VBoxContainer = $Columns/Reactive/Scroll/Pad/Items
+@onready var turn_group: ActionColumn = $Columns/Turn
+@onready var reactive_group: ActionColumn = $Columns/Reactive
 @onready var turn_unit: Label = $Columns/Turn/GroupHead/Unit
 @onready var reactive_unit: Label = $Columns/Reactive/GroupHead/Unit
 
@@ -28,8 +28,8 @@ func _ready() -> void:
 	sort_button.options = SORT_OPTIONS.duplicate()
 	sort_button.selected = SORT_NAME
 	sort_button.sort_changed.connect(_on_sort_changed)
-	turn_unit.text = unit_text(false)
-	reactive_unit.text = unit_text(true)
+	turn_group.unit = unit_text(false)
+	reactive_group.unit = unit_text(true)
 
 
 func set_view(new_view: MercView) -> void:
@@ -66,17 +66,15 @@ func _rows_of(list: VBoxContainer) -> Array[ActionRow]:
 	var out: Array[ActionRow] = []
 	if not is_node_ready():
 		return out
-	for child: Node in list.get_children():
-		if child is ActionRow:
-			out.append(child as ActionRow)
+	out.assign(GuiNodes.children_of(list, ActionRow))
 	return out
 
 
 func _rebuild() -> void:
 	if not is_node_ready():
 		return
-	_clear(turn_list)
-	_clear(reactive_list)
+	GuiNodes.clear(turn_list)
+	GuiNodes.clear(reactive_list)
 	if view == null:
 		return
 	var turn: Array[Dictionary] = []
@@ -102,12 +100,6 @@ static func _cost_of(data: ActionData, reactive: bool) -> int:
 	if data == null:
 		return 0
 	return data.ep_cost if reactive else data.ap_cost
-
-
-func _clear(list: VBoxContainer) -> void:
-	for child: Node in list.get_children():
-		list.remove_child(child)
-		child.queue_free()
 
 
 func _fill(list: VBoxContainer, entries: Array[Dictionary], reactive: bool) -> void:

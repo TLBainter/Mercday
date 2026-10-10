@@ -22,11 +22,6 @@ static func execute_attack(
 		if attacker.weapon_misfired:
 			return _empty_attack_result(_pick_damage_type(weapon.damage_types_1), false, true, is_throw)
 
-	var stat_keys: Array[String] = attack_stat_keys(weapon)
-	var circumstances: Array[String] = []
-	for key: String in stat_keys:
-		circumstances.append(attack_circumstance(key))
-
 	var total_enhancements := extra_enhancements
 
 	var los_windows: Array[Vector3i] = []
@@ -55,7 +50,7 @@ static func execute_attack(
 		total_flaws += WeaponReactiveSystem.incoming_attack_flaws(attacker, target, state)
 
 	var kind := "thrown" if is_throw else ("ranged" if is_ranged else "melee")
-	var atk_mod := ConstStates.attack_modifier(attacker, kind)
+	var atk_mod := StateEffects.attack_modifier(attacker, kind)
 	var atk_states: Array = atk_mod["states"]
 	#A weapon perk exempts its wielder from the Threatened flaw.
 	if atk_states.has(ConstStates.THREATENED) \
@@ -70,7 +65,7 @@ static func execute_attack(
 			attacker.merc_name, kind, int(atk_mod["flaws"]), int(atk_mod["enhancements"]), atk_states_text])
 
 	if target != null:
-		var tgt_mod := ConstStates.attack_vs_modifier(target, kind)
+		var tgt_mod := StateEffects.attack_vs_modifier(target, kind)
 		total_flaws += int(tgt_mod["flaws"])
 		total_enhancements += int(tgt_mod["enhancements"])
 		var tgt_states_text := CheckSystem.states_text(tgt_mod["states"])
@@ -81,8 +76,7 @@ static func execute_attack(
 	#A weapon perk raises the threshold of every attack made with the weapon it belongs to.
 	flat_threshold_bonus += WeaponArmorPerkLibrary.attack_threshold_bonus(attacker)
 
-	var check_def := _build_attack_check(stat_keys, circumstances, weapon, is_throw, is_ranged,
-		total_enhancements, total_flaws, flat_threshold_bonus)
+	var check_def := attack_check_def(weapon, is_throw, is_ranged, total_enhancements, total_flaws, flat_threshold_bonus)
 
 	var check_result := CheckSystem.make_check(attacker, check_def)
 	var core_successes := int(check_result["successes"])
@@ -100,7 +94,7 @@ static func execute_attack(
 			var ammo_data: AmmoData = DataManager.ammo.get(attacker.ammo_loaded_type)
 			if ammo_data != null and not ammo_data.damage_types_1.is_empty():
 				damage_type = _pick_damage_type(ammo_data.damage_types_1)
-		var parsed := _parse_damage_formula(dmg_formula)
+		var parsed := parse_damage_formula(dmg_formula)
 		flat_bonus = parsed["flat_bonus"]
 		if not parsed["is_todo"]:
 			var num_dice: int = parsed["num_dice"]
@@ -138,19 +132,21 @@ static func execute_attack(
 
 	var ammo_name: String = attacker.ammo_loaded_type if is_ranged else ""
 
+	var result := _empty_attack_result(damage_type, false, false, is_throw)
+	result["dmg_formula"] = dmg_formula
+	result["check_result"] = check_result
+	result["check_def"] = check_def
+	result["stat_used"] = check_result["stat_used"]
+	result["threshold"] = check_result["threshold"]
+	result["enhancements"] = total_enhancements
+	result["flaws"] = total_flaws
+	result["critical"] = critical
+	result["ammo_name"] = ammo_name
+	result["called_shot"] = success_penalty > 0
+
 	if is_ranged and _spend_ammo_and_check_misfire(attacker, weapon, core_successes, critical):
-		var misfire_result := _empty_attack_result(damage_type, false, true, is_throw)
-		misfire_result["dmg_formula"] = dmg_formula
-		misfire_result["check_result"] = check_result
-		misfire_result["check_def"] = check_def
-		misfire_result["stat_used"] = check_result["stat_used"]
-		misfire_result["threshold"] = check_result["threshold"]
-		misfire_result["enhancements"] = total_enhancements
-		misfire_result["flaws"] = total_flaws
-		misfire_result["critical"] = critical
-		misfire_result["ammo_name"] = ammo_name
-		misfire_result["called_shot"] = success_penalty > 0
-		return misfire_result
+		result["misfired"] = true
+		return result
 
 	var window_lines: Array[String] = []
 	for wp: Vector3i in los_windows:
@@ -174,33 +170,25 @@ static func execute_attack(
 		penalty_applied = mini(success_penalty, core_successes)
 		core_successes -= penalty_applied
 
-	var result := _empty_attack_result(damage_type, false, false, is_throw)
 	result["damage"] = core_successes + weapon_die_successes + flat_bonus
 	if not makeshift.is_empty():
 		result["damage"] = int(makeshift["amount"]) if core_successes > 0 else 0
 	result["core_successes"] = core_successes
 	result["weapon_die_successes"] = weapon_die_successes
 	result["flat_bonus"] = flat_bonus
-	result["dmg_formula"] = dmg_formula
-	result["check_result"] = check_result
-	result["check_def"] = check_def
-	result["stat_used"] = check_result["stat_used"]
-	result["threshold"] = check_result["threshold"]
 	result["weapon_broke"] = weapon_broke
 	result["window_lines"] = window_lines
-	result["enhancements"] = total_enhancements
-	result["flaws"] = total_flaws
-	result["critical"] = critical
-	result["ammo_name"] = ammo_name
 	result["success_penalty"] = penalty_applied
-	result["called_shot"] = success_penalty > 0
 	return result
 
 
 #The accuracy check an attack rolls; the formula follows the throw, the shot or the swing being made.
-static func _build_attack_check(stat_keys: Array[String], circumstances: Array[String], weapon: WeaponData,
-		is_throw: bool, is_ranged: bool, enhancements: int, flaws: int,
+static func attack_check_def(weapon: WeaponData, is_throw: bool, is_ranged: bool, enhancements: int, flaws: int,
 		flat_threshold_bonus: float) -> Dictionary:
+	var stat_keys: Array[String] = attack_stat_keys(weapon)
+	var circumstances: Array[String] = []
+	for key: String in stat_keys:
+		circumstances.append(attack_circumstance(key))
 	var accuracy_formula: String
 	if is_throw:
 		accuracy_formula = "thrown_accuracy"
@@ -335,7 +323,7 @@ static func attack_circumstance(stat_key: String) -> String:
 	return ConstCircumstances.ATTACK_DEXTERITY
 
 
-static func _parse_damage_formula(formula: String) -> Dictionary:
+static func parse_damage_formula(formula: String) -> Dictionary:
 	var result := {"num_dice": 0, "die_sides": 0, "flat_bonus": 0, "is_todo": false}
 	var f: String = formula.strip_edges()
 	if f == "0" or f == "Varies" or f == "":

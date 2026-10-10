@@ -23,7 +23,7 @@ func _run(merc: MercenaryData, ctx: Dictionary, details: Variant) -> Dictionary:
 		return {"passed": true, "score": 1.0, "facets": details}
 	for f: DecisionFacet in facets:
 		if f.is_required:
-			var s := f.evaluate(merc, ctx)
+			var s := f.score(merc, ctx)
 			if details != null:
 				details.append({"name": _facet_name(f), "required": true, "weight": f.weight, "score": s})
 			if s == 0.0:
@@ -38,7 +38,7 @@ func _run(merc: MercenaryData, ctx: Dictionary, details: Variant) -> Dictionary:
 	var w_sum := 0.0
 	for i: int in nonfixed.size():
 		var f: DecisionFacet = nonfixed[i]
-		var s := f.evaluate(merc, ctx)
+		var s := f.score(merc, ctx)
 		if details != null:
 			details.append({"name": _facet_name(f), "required": false, "weight": f.weight, "score": s})
 		w_sum += s * f.weight

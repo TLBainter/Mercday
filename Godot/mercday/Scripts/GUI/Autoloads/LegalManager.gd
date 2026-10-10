@@ -5,13 +5,14 @@ extends Node
 #SubscriptionManager.entitlements(); nothing here branches on a plan name.
 
 signal permits_changed
+signal permit_granted(loc_id: int, kind: StringName)
 signal fines_changed
 signal captures_changed
 signal odd_jobs_changed
 signal odd_job_resolved(target: Dictionary, success: bool)
 
 #scope is the permit tier a location needs: 1 most nations, 2 restricted, 3 another domain.
-#The place name is not held here: CampaignTypeDefs.LOCATIONS is the one source of the nine.
+#The place name is not held here: CampaignTypeDefs.permit_places() is the one source of the names.
 const LOCATIONS: Array[Dictionary] = [
 	{"id": 0, "nation": "Nation 1", "scope": 1, "ops_cost": 0,
 		"tele_cost": 300, "avg_difficulty": 1.5, "relationship": 2},
@@ -31,6 +32,15 @@ const LOCATIONS: Array[Dictionary] = [
 		"ops_cost": 2600, "tele_cost": 1600, "avg_difficulty": 4.5, "relationship": 0},
 	{"id": 8, "nation": "Domain 2, Nation 7", "scope": 3,
 		"ops_cost": 3400, "tele_cost": 2000, "avg_difficulty": 5.0, "relationship": -1},
+	#PLACEHOLDER: the costs of ids 9 to 12 stand in until the designer tunes them.
+	{"id": 9, "nation": "Domain 3, Nation 8", "scope": 3,
+		"ops_cost": 4200, "tele_cost": 2400, "avg_difficulty": 5.0, "relationship": 0},
+	{"id": 10, "nation": "Domain 3, Nation 9", "scope": 3,
+		"ops_cost": 5000, "tele_cost": 2800, "avg_difficulty": 5.0, "relationship": 0},
+	{"id": 11, "nation": "Domain 3, Nation 10", "scope": 3,
+		"ops_cost": 5800, "tele_cost": 3200, "avg_difficulty": 5.0, "relationship": 0},
+	{"id": 12, "nation": "Domain 3, Nation 11", "scope": 3,
+		"ops_cost": 6600, "tele_cost": 3600, "avg_difficulty": 5.0, "relationship": 0},
 ]
 const LOCATION_RULES: Array[String] = ["Rule 1", "Rule 2", "Rule 3"]
 const PERMIT_OPS := &"ops"
@@ -49,11 +59,14 @@ const STATE_INACTIVE: int = 2
 const HOME_LOCATION: int = 0
 #The separator every ledger label of this manager uses.
 const LABEL_JOIN: String = " - "
+#The whoKnows percentages by owned tier, 0 to 8; a tier past either end reads the nearest entry.
+const WHO_KNOWS_MONEY_PCT: Array[int] = [0, 5, 5, 20, 20, 25, 25, 25, 25]
+const WHO_KNOWS_PRISON_PCT: Array[int] = [0, 0, 5, 5, 15, 15, 20, 20, 20]
+const WHO_KNOWS_FEE_PCT: Array[int] = [0, 0, 0, 0, 0, 0, 0, 50, 100]
 
-#PLACEHOLDER: every figure below, and the seeded permits, fines and captures, stand in until the
-#real legal data exists. Replace the block whole.
+#PLACEHOLDER: every figure below, and the starting permit, stand in until the real legal data exists.
+#Replace the block whole.
 const MANAGER_SEED := 7
-const COUNSEL_PCT: Array[int] = [0, 5, 7, 9, 13, 15]
 const JOB_DAYS := 12
 const LATE_PCT := 2
 const CUSTODY_FEE := 5
@@ -63,26 +76,8 @@ const ODDS_CAP := 95
 const RENEGOTIATE_WIN := 0.5
 const RENEGOTIATE_LOSS := 1.25
 const BREAKOUT_LOSS := 1.5
-const SEED_TODAY := 540
-const SEED_PERMITS: Array[Dictionary] = [
+const START_PERMITS: Array[Dictionary] = [
 	{"loc": 0, "ops": true, "tele": false},
-	{"loc": 2, "ops": true, "tele": true},
-]
-const SEED_FINES: Array[Dictionary] = [
-	{"id": 1, "loc": 2, "crime": "Crime 1", "mercs": [3, 6], "contract": 11, "issued": 530,
-		"due": 548, "amount": 180, "unread": true},
-	{"id": 2, "loc": 0, "crime": "Crime 2", "mercs": [1], "contract": 12, "issued": 520,
-		"due": 535, "amount": 450, "unread": false},
-	{"id": 3, "loc": 3, "crime": "Crime 3", "mercs": [2, 7, 8], "contract": 13, "issued": 538,
-		"due": 561, "amount": 900, "unread": true},
-	{"id": 4, "loc": 0, "crime": "Crime 4", "mercs": [5], "contract": 11, "issued": 500,
-		"due": 520, "amount": 60, "paid": 60, "paid_day": 517, "unread": false},
-]
-const SEED_CAPTURES: Array[Dictionary] = [
-	{"id": 1, "merc": 4, "loc": 3, "crime": "Crime 5", "contract": 13, "since": 536,
-		"sentence": 30, "bail": 350, "unread": true},
-	{"id": 2, "merc": 9, "loc": 2, "crime": "Crime 6", "contract": 11, "since": 530,
-		"sentence": 20, "bail": 220, "unread": false},
 ]
 
 var permits: Dictionary = {}
@@ -95,7 +90,6 @@ var next_job_id: int = 1
 
 var _locations: Array[LegalLocationData] = []
 var _rng := RandomNumberGenerator.new()
-var _seeded: bool = false
 var _resetting: bool = false
 var _restoring: bool = false
 var _away_uids: Dictionary = {}
@@ -103,12 +97,13 @@ var _away_uids: Dictionary = {}
 
 func _ready() -> void:
 	_build_locations()
-	GameState.roster_changed.connect(_on_roster_changed)
+	GameState.game_started.connect(reset)
+	GameState.roster_changed.connect(_restore_holds)
 	GameState.day_changed.connect(_on_day_changed)
 	reset()
 
 
-#Rebuilds the seeded permits, fines and captures around today and drops every odd job.
+#Grants the starting permit and drops every fine, capture and odd job.
 func reset() -> void:
 	if _locations.is_empty():
 		_build_locations()
@@ -116,25 +111,15 @@ func reset() -> void:
 	_clear_away_rows()
 	_rng = RandomNumberGenerator.new()
 	_rng.seed = MANAGER_SEED
-	var today: int = GameState.day()
 	permits.clear()
-	for row: Dictionary in SEED_PERMITS:
+	for row: Dictionary in START_PERMITS:
 		permits[int(row["loc"])] = {"ops": bool(row["ops"]), "tele": bool(row["tele"])}
 	fines.clear()
 	next_fine_id = 1
-	for row: Dictionary in SEED_FINES:
-		fines.append(_fine_from_seed(row, today))
-		next_fine_id = maxi(next_fine_id, int(row["id"]) + 1)
 	captured.clear()
 	next_capture_id = 1
-	for row: Dictionary in SEED_CAPTURES:
-		captured.append(_capture_from_seed(row, today))
-		next_capture_id = maxi(next_capture_id, int(row["id"]) + 1)
 	odd_jobs.clear()
 	next_job_id = 1
-	_seeded = GameState.started
-	for row: CaptureData in captured:
-		_hold_merc(row.merc_uid, GuiTypes.MercStatus.CAPTURED, -1)
 	_resetting = false
 	permits_changed.emit()
 	fines_changed.emit()
@@ -144,10 +129,11 @@ func reset() -> void:
 
 func _build_locations() -> void:
 	_locations.clear()
+	var names: Array[String] = CampaignTypeDefs.permit_places()
 	for row: Dictionary in LOCATIONS:
 		var made := LegalLocationData.new()
 		made.id = int(row["id"])
-		made.name = CampaignTypeDefs.location_name(made.id)
+		made.name = names[made.id] if made.id < names.size() else ""
 		made.nation = str(row["nation"])
 		made.scope = int(row["scope"])
 		made.ops_cost = int(row["ops_cost"])
@@ -158,62 +144,9 @@ func _build_locations() -> void:
 		_locations.append(made)
 
 
-#The seeds are written against a fixed prototype day; each one keeps its age around today.
-func _fine_from_seed(row: Dictionary, today: int) -> FineData:
-	var made := FineData.new()
-	made.id = int(row["id"])
-	made.location_id = int(row["loc"])
-	made.crime = str(row["crime"])
-	made.mercs.assign(row["mercs"] as Array)
-	made.contract_id = int(row["contract"])
-	made.day_issued = today - (SEED_TODAY - int(row["issued"]))
-	made.day_due = made.day_issued + (int(row["due"]) - int(row["issued"]))
-	made.amount = int(row["amount"])
-	made.paid = int(row.get("paid", 0))
-	made.day_paid = -1
-	if row.has("paid_day"):
-		made.day_paid = today - (SEED_TODAY - int(row["paid_day"]))
-	made.unread = bool(row.get("unread", false))
-	return made
-
-
-func _capture_from_seed(row: Dictionary, today: int) -> CaptureData:
-	var made := CaptureData.new()
-	made.id = int(row["id"])
-	made.merc_uid = int(row["merc"])
-	made.location_id = int(row["loc"])
-	made.crime = str(row["crime"])
-	made.contract_id = int(row["contract"])
-	made.day_captured = today - (SEED_TODAY - int(row["since"]))
-	made.sentence_days = int(row["sentence"])
-	made.bail = int(row["bail"])
-	made.unread = bool(row.get("unread", false))
-	return made
-
-
-func _on_roster_changed() -> void:
-	if _seed_if_started():
-		return
-	_restore_holds()
-
-
 func _on_day_changed(_day_index: int) -> void:
-	if _seed_if_started():
-		return
 	_resolve_due_jobs()
 	_restore_holds()
-
-
-#Reseeds once, on the first signal after a campaign starts; true when this call did it.
-func _seed_if_started() -> bool:
-	if _resetting or _seeded or not GameState.started:
-		return false
-	reset()
-	return true
-
-
-func _ent() -> Dictionary:
-	return SubscriptionManager.entitlements()
 
 
 func locations() -> Array[LegalLocationData]:
@@ -242,10 +175,11 @@ func permit_cost(loc_id: int, kind: StringName) -> int:
 #The permit tier the plan grants for this kind of permit.
 func permit_tier(kind: StringName) -> int:
 	var key: String = "teleport" if kind == PERMIT_TELE else "opsPermits"
-	return int(_ent().get(key, 0))
+	return int(SubscriptionManager.entitlements().get(key, 0))
 
 
-#Whether the permit may be bought right now, and the line the button prints when it may not.
+#Whether the permit may be bought right now, and the line the button prints when it may not. A
+#bank that cannot cover the price closes the request without a line and reports the shortfall.
 func can_request(loc_id: int, kind: StringName) -> Dictionary:
 	var place: LegalLocationData = location(loc_id)
 	if place == null or not PERMIT_KINDS.has(kind):
@@ -258,8 +192,7 @@ func can_request(loc_id: int, kind: StringName) -> Dictionary:
 		return {"ok": false, "reason": "An operating permit comes first."}
 	var cost: int = permit_cost(loc_id, kind)
 	if not GameState.can_afford(cost):
-		return {"ok": false, "reason": "Not enough notes. You need %d more."
-			% (cost - GameState.bank_notes)}
+		return {"ok": false, "reason": "", "short": cost - GameState.bank_notes}
 	return {"ok": true, "reason": ""}
 
 
@@ -267,55 +200,44 @@ func request_permit(loc_id: int, kind: StringName) -> bool:
 	if not bool(can_request(loc_id, kind)["ok"]):
 		return false
 	var tail: String = "Teleportation Permit" if kind == PERMIT_TELE else "Operations Permit"
-	if not _pay(permit_cost(loc_id, kind), "permit", _ledger_label(loc_id, tail)):
+	if not GameState.spend(permit_cost(loc_id, kind), GameState.REASON_PERMIT,
+			_ledger_label(loc_id, tail)):
 		return false
 	var held: Dictionary = permits.get(loc_id, {"ops": false, "tele": false}) as Dictionary
 	held[String(kind)] = true
 	permits[loc_id] = held
 	permits_changed.emit()
+	permit_granted.emit(loc_id, kind)
 	return true
 
 
 #The percentage whoKnows takes off every new fine and bail; the highest owned tier applies.
 func money_reduction() -> int:
-	var tier: int = int(_ent().get("whoKnows", 0))
-	if tier >= 5:
-		return 25
-	if tier >= 3:
-		return 20
-	if tier >= 1:
-		return 5
-	return 0
+	return _who_knows_pct(WHO_KNOWS_MONEY_PCT)
 
 
 #The percentage whoKnows takes off a sentence. No prison time model exists yet, so nothing
 #reads this: CaptureData.sentence_days is set by whoever files the capture.
 func prison_reduction() -> int:
-	var tier: int = int(_ent().get("whoKnows", 0))
-	if tier >= 6:
-		return 20
-	if tier >= 4:
-		return 15
-	if tier >= 2:
-		return 5
-	return 0
+	return _who_knows_pct(WHO_KNOWS_PRISON_PCT)
 
 
 #The percentage whoKnows takes off the late fee: tier 7 halves it, tier 8 drops it.
 func fee_reduction() -> int:
-	var tier: int = int(_ent().get("whoKnows", 0))
-	if tier >= 8:
-		return 100
-	if tier >= 7:
-		return 50
-	return 0
+	return _who_knows_pct(WHO_KNOWS_FEE_PCT)
+
+
+#The entry of a whoKnows table for the tier the guild owns.
+func _who_knows_pct(table: Array[int]) -> int:
+	var tier: int = int(SubscriptionManager.entitlements().get("whoKnows", 0))
+	return table[clampi(tier, 0, table.size() - 1)]
 
 
 func _less(amount: int, reduction_pct: int) -> int:
 	return int(round(float(amount) * float(100 - reduction_pct) / 100.0))
 
 
-#Files a new fine. whoKnows cuts new fines, so the reduction lands here, not on the seeds.
+#Files a new fine. whoKnows cuts new fines, so the reduction lands here.
 func add_fine(loc_id: int, crime: String, mercs: Array[int], contract_id: int, amount: int,
 		days_until_due: int) -> FineData:
 	var made := FineData.new()
@@ -440,7 +362,7 @@ func pay_fine(id: int) -> bool:
 	if f == null or f.is_paid():
 		return false
 	var total: int = fine_due(f)
-	if not _pay(total, "fine", _ledger_label(f.location_id, "Fine")):
+	if not GameState.spend(total, GameState.REASON_FINE, _ledger_label(f.location_id, "Fine")):
 		return false
 	f.paid = total
 	f.day_paid = GameState.day()
@@ -453,7 +375,8 @@ func pay_bail(id: int) -> bool:
 	var c: CaptureData = capture(id)
 	if c == null:
 		return false
-	if not _pay(bail_due(c), "bail", _ledger_label(c.location_id, "Bail")):
+	if not GameState.spend(bail_due(c), GameState.REASON_BAIL,
+			_ledger_label(c.location_id, "Bail")):
 		return false
 	_release(c)
 	return true
@@ -462,9 +385,13 @@ func pay_bail(id: int) -> bool:
 #Hands the merc back when MercPool is holding one. Nothing else tracks a released merc yet, so
 #for a capture MercPool never took, dropping the row is the whole of the release.
 func _release(c: CaptureData) -> void:
+	var back: MercenaryData = null
 	if MercPool.has_method("take_captive"):
-		MercPool.take_captive(c.merc_uid)
+		back = MercPool.take_captive(c.merc_uid)
 	_free_merc(c.merc_uid)
+	if back == null:
+		back = GameState.merc_by_uid(c.merc_uid)
+	RestSystem.idle_restart(back, CampaignClock.now())
 	captured.erase(c)
 	captures_changed.emit()
 
@@ -506,18 +433,14 @@ func mark_captures_seen() -> void:
 
 
 #The percentage counsel adds per merc on a Renegotiate. The entitlement carries the percentage
-#itself; COUNSEL_PCT is the tier table it comes from.
+#itself, taken from the SubscriptionManager.COUNSEL_PCT tier table.
 func counsel_pct() -> int:
-	return maxi(0, int(_ent().get("counselPct", 0)))
-
-
-func has_counsel() -> bool:
-	return bool(_ent().get("counsel", false)) or counsel_pct() > 0
+	return maxi(0, int(SubscriptionManager.entitlements().get("counselPct", 0)))
 
 
 #How many mercs the plan lets an odd job carry.
 func odd_job_slots() -> int:
-	return maxi(0, int(_ent().get("oddJobs", 0)))
+	return maxi(0, int(SubscriptionManager.entitlements().get("oddJobs", 0)))
 
 
 func odd_job_odds(team_size: int, kind: StringName) -> int:
@@ -571,8 +494,7 @@ func can_start_odd_job(target_kind: StringName, target_id: int, team: Array[int]
 		return {"ok": false, "reason": "Pay cannot be negative."}
 	var cost: int = pay_per * team.size()
 	if not GameState.can_afford(cost):
-		return {"ok": false, "reason": "Not enough notes. You need %d more."
-			% (cost - GameState.bank_notes)}
+		return {"ok": false, "reason": "", "short": cost - GameState.bank_notes}
 	return {"ok": true, "reason": ""}
 
 
@@ -592,7 +514,8 @@ func start_odd_job(target_kind: StringName, target_id: int, kind: StringName, te
 		return null
 	var tail: String = "Renegotiate" if kind == JOB_RENEGOTIATE else "Break Out"
 	var loc_id: int = _target_location(target_kind, target_id)
-	if not _pay(pay_per * team.size(), "odd_job", _ledger_label(loc_id, tail)):
+	if not GameState.spend(pay_per * team.size(), GameState.REASON_ODD_JOB,
+			_ledger_label(loc_id, tail)):
 		return null
 	var job := OddJobData.new()
 	job.id = next_job_id
@@ -654,12 +577,6 @@ func _apply_odd_job(job: OddJobData, success: bool) -> void:
 	c.note = "Break out failed."
 	c.unread = true
 	captures_changed.emit()
-
-
-#Every notes movement of this manager goes through here, so no screen spends for it and every
-#ledger row carries a reason and a short label.
-func _pay(amount: int, reason: String, label: String) -> bool:
-	return GameState.spend(amount, reason, label)
 
 
 func _ledger_label(loc_id: int, tail_text: String) -> String:
@@ -736,6 +653,24 @@ func permit_state(loc_id: int, kind: StringName) -> int:
 	if place == null:
 		return STATE_ACTIVE
 	return STATE_ACTIVE if permit_tier(kind) >= place.scope else STATE_INACTIVE
+
+
+#The permit location id of a country name, or -1 for any other name.
+func loc_id_of(place: String) -> int:
+	return CampaignTypeDefs.permit_places().find(place)
+
+
+func ops_held_at(place: String) -> bool:
+	return _held_at(place, PERMIT_OPS)
+
+
+func tele_held_at(place: String) -> bool:
+	return _held_at(place, PERMIT_TELE)
+
+
+func _held_at(place: String, kind: StringName) -> bool:
+	var loc_id: int = loc_id_of(place)
+	return loc_id >= 0 and permit_state(loc_id, kind) == STATE_ACTIVE
 
 
 #Every open case at one location: the unpaid fines first, then the mercs held there. days counts

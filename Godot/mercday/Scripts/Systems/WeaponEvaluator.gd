@@ -3,13 +3,6 @@ class_name WeaponEvaluator
 const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
 
 
-static func _pace_per_move(merc: MercenaryData) -> int:
-	var pace := maxi(1, int(merc.stats.get("pace", 1)))
-	if ConstStates.has_state(merc, ConstStates.DEPOSED):
-		pace = mini(pace, 1)
-	return pace
-
-
 static func melee_reach_for(merc: MercenaryData, weapon: WeaponData) -> int:
 	if weapon == null:
 		return 1
@@ -24,11 +17,7 @@ static func has_backup_weapon(merc: MercenaryData, thrown: WeaponData) -> bool:
 	var pool: Array[WeaponData] = []
 	if merc.offhand_weapon != null:
 		pool.append(merc.offhand_weapon)
-	for entry: Dictionary in merc.inventory:
-		if entry.get("type") == "weapon":
-			var w: WeaponData = entry.get("data") as WeaponData
-			if w != null:
-				pool.append(w)
+	pool.append_array(merc.inventory_weapons())
 	for w: WeaponData in pool:
 		if w == thrown or w == fight or w.is_virtual:
 			continue
@@ -56,13 +45,7 @@ static func is_ranged_usable(merc: MercenaryData, weapon: WeaponData) -> bool:
 		has_ammo = merc.ammo_loaded > 0 \
 				or int(merc.ammo_inventory.get(merc.ammo_loaded_type, 0)) > 0
 	else:
-		for ammo_type: String in merc.ammo_inventory:
-			if (merc.ammo_inventory[ammo_type] as int) <= 0:
-				continue
-			var ammo_data: AmmoData = DataManager.ammo.get(ammo_type)
-			if ammo_data != null and ammo_data.compatible.has(weapon.weapon_type):
-				has_ammo = true
-				break
+		has_ammo = has_compatible_ammo(merc, weapon)
 	if not has_ammo:
 		return false
 	if weapon.misfire > 0 and _reliability_of(merc, weapon) < 0.50:
@@ -78,7 +61,7 @@ static func is_ranged_focused(merc: MercenaryData) -> bool:
 		return false
 	if not is_ranged_usable(merc, merc.equipped_weapon):
 		return false
-	return not CombatDecision.is_melee_preferred(merc)
+	return not is_melee_preferred(merc)
 
 
 static func _reliability_of(merc: MercenaryData, weapon: WeaponData) -> float:
@@ -124,16 +107,13 @@ static func score_weapon(
 				score += 2.0
 			if avg_dmg > 0.0:
 				var acc := clampf(float(merc.stats.get("melee_accuracy", 50.0)) / 100.0, 0.01, 1.0)
-				var max_dmg := avg_dmg * 2.0
-				var weighted_per_use := 0.85 * (acc * avg_dmg) + 0.15 * max_dmg
+				var flex_extra := 0.0
 				if allow_two_hand_die and WeaponArmorPerkLibrary.is_flex_grip(weapon, merc) \
 						and _offhand_free_for(merc, weapon):
-					var flex := AttackSystem._parse_damage_formula(weapon.damage_formula_1)
+					var flex := AttackSystem.parse_damage_formula(weapon.damage_formula_1)
 					if not bool(flex["is_todo"]):
-						weighted_per_use += 0.85 * acc * (float(flex["die_sides"]) + 1.0) / 2.0
-				var uses := 6.0 if weapon.fragility <= 0 \
-						else clampf(float(weapon.current_fragility), 1.0, 6.0)
-				score += clampf(weighted_per_use * uses / 2.5, 0.0, 2.0)
+						flex_extra = 0.85 * acc * (float(flex["die_sides"]) + 1.0) / 2.0
+				score += _per_use_score(acc, avg_dmg, weapon, flex_extra)
 				damage_fragility_handled = true
 		else:
 			#Within 2 paces the shot carries the Threatened Flaw; it scores by what it yields over the merc's punch.
@@ -209,15 +189,19 @@ static func _score_ranged(weapon: WeaponData, merc: MercenaryData, enemies: Arra
 	return score
 
 
+#Hit-weighted damage per use plus extra, over the uses the weapon has left, clamped to 0..2.
+static func _per_use_score(acc: float, avg: float, weapon: WeaponData, extra: float) -> float:
+	var weighted := 0.85 * (acc * avg) + 0.15 * (avg * 2.0) + extra
+	var uses := 6.0 if weapon.fragility <= 0 else clampf(float(weapon.current_fragility), 1.0, 6.0)
+	return clampf(weighted * uses / 2.5, 0.0, 2.0)
+
+
 #What a throw is worth beyond melee reach: its damage over the uses it has, fading past the intended range.
 static func _score_thrown(weapon: WeaponData, merc: MercenaryData, enemies: Array, state: BattleState) -> float:
 	var score := 0.0
 	var throw_avg := parse_formula_for_avg(weapon.damage_formula_1)
-	var throw_acc := clampf(ThrownWeaponRules.compute_thrown_accuracy(merc, weapon) / 100.0, 0.01, 1.0)
-	var weighted_throw := 0.85 * (throw_acc * throw_avg) + 0.15 * (throw_avg * 2.0)
-	var throw_uses := 6.0 if weapon.fragility <= 0 \
-			else clampf(float(weapon.current_fragility), 1.0, 6.0)
-	var throw_dmg_score: float = clampf(weighted_throw * throw_uses / 2.5, 0.0, 2.0) \
+	var throw_acc := clampf(ThrownWeaponRules.compute_thrown_accuracy(merc) / 100.0, 0.01, 1.0)
+	var throw_dmg_score: float = _per_use_score(throw_acc, throw_avg, weapon, 0.0) \
 			* ThrownWeaponRules._throw_replacement_factor(merc, weapon, state)
 	var t_ranges := ThrownWeaponRules.thrown_ranges(merc, weapon)
 	var ext_range: int = int(t_ranges["extended"])
@@ -269,10 +253,8 @@ static func expected_attack_damage(merc: MercenaryData, weapon: WeaponData, flaw
 	var ranged := weapon != null and weapon.is_ranged
 	var acc_key := "ranged_accuracy" if ranged else "melee_accuracy"
 	var acc := clampf(float(merc.stats.get(acc_key, 0)) / 100.0, 0.0, 1.0)
-	var core := maxi(0, AttackSystem.attack_pool_size(merc, weapon) - flaws)
-	var parsed := AttackSystem._parse_damage_formula(weapon.damage_formula_1 if weapon != null else "")
-	var dice := 0 if bool(parsed["is_todo"]) else int(parsed["num_dice"])
-	return (float(core) + float(dice)) * acc + float(parsed["flat_bonus"])
+	var parts := PerkValuation.damage_dice(merc, weapon, flaws)
+	return parts[0] * acc + parts[1]
 
 
 #True for a carried ranged weapon that is not already in the main hand.
@@ -287,25 +269,7 @@ static func _needs_draw_plan(merc: MercenaryData, weapon: WeaponData) -> bool:
 	return merc.equipped_weapon == weapon
 
 
-#A Thrown-property off-hand weapon earns its place when it can answer an enemy out of melee reach.
-static func _thrown_complement(merc: MercenaryData, candidate: WeaponData, enemies: Array,
-		state: BattleState) -> bool:
-	if candidate == null or not candidate.is_throwable or state == null or state.battlefield == null:
-		return false
-	var reach := melee_reach_for(merc, candidate)
-	var ext: int = int(ThrownWeaponRules.thrown_ranges(merc, candidate)["extended"])
-	for e: MercenaryData in enemies:
-		if not BattleState._is_alive(e):
-			continue
-		var d := state.distance_to(merc, e)
-		if d > reach and d <= ext and (LineOfSight.check(state, merc, e)["visible"] as bool):
-			return true
-		if bool(ThrownWeaponRules.should_throw(merc, candidate, e, enemies, state, false)["throw"]):
-			return true
-	return false
-
-
-static func _best_available_weapon(
+static func best_available_weapon(
 		merc: MercenaryData,
 		enemies: Array,
 		state: BattleState,
@@ -323,25 +287,19 @@ static func _best_available_weapon(
 	return best
 
 
-static func _has_reserve_for(merc: MercenaryData, weapon: WeaponData) -> bool:
-	if not weapon.is_ranged:
-		return false
-	if merc.ammo_loaded_type != "" and int(merc.ammo_inventory.get(merc.ammo_loaded_type, 0)) > 0:
-		return true
+#Score of the best weapon already on hand, or -9999.0 when there is none.
+static func best_on_hand_score(merc: MercenaryData, enemies: Array, state: BattleState) -> float:
+	var best := best_available_weapon(merc, enemies, state)
+	return score_weapon(best, merc, enemies, state) if best != null else -9999.0
+
+
+#True when the merc carries at least one round of any ammo type that fits the weapon.
+static func has_compatible_ammo(merc: MercenaryData, weapon: WeaponData) -> bool:
 	for ammo_type: String in merc.ammo_inventory:
 		if int(merc.ammo_inventory[ammo_type]) <= 0:
 			continue
 		var ammo_data: AmmoData = DataManager.ammo.get(ammo_type)
 		if ammo_data != null and ammo_data.compatible.has(weapon.weapon_type):
-			return true
-	return false
-
-
-static func _enemy_in_melee_reach(merc: MercenaryData, enemies: Array, state: BattleState) -> bool:
-	if state.battlefield == null:
-		return false
-	for enemy: MercenaryData in enemies:
-		if state.distance_to(merc, enemy) <= 1:
 			return true
 	return false
 
@@ -352,11 +310,7 @@ static func get_available_weapons(merc: MercenaryData) -> Array[WeaponData]:
 		result.append(merc.equipped_weapon)
 	if merc.offhand_weapon != null and not result.has(merc.offhand_weapon):
 		result.append(merc.offhand_weapon)
-	for entry: Dictionary in merc.inventory:
-		if entry.get("type") == "weapon":
-			var w: WeaponData = entry.get("data")
-			if w != null:
-				result.append(w)
+	result.append_array(merc.inventory_weapons())
 	var fight: WeaponData = DataManager.fight_weapon
 	if fight != null and not result.has(fight):
 		result.append(fight)
@@ -365,7 +319,7 @@ static func get_available_weapons(merc: MercenaryData) -> Array[WeaponData]:
 
 #Average damage of an "NdS + F" formula; 0.0 for an unauthored formula.
 static func parse_formula_for_avg(formula: String) -> float:
-	var parsed := AttackSystem._parse_damage_formula(formula)
+	var parsed := AttackSystem.parse_damage_formula(formula)
 	return float(parsed["flat_bonus"]) + float(parsed["num_dice"]) * float(parsed["die_sides"]) * 0.5
 
 
@@ -429,3 +383,48 @@ static func _score_single_type(dtype: String, enemy: MercenaryData, viewer: Merc
 			"Lacerate": score += 0.2  * dodge_ratio
 
 	return score
+
+
+#True when a ranged weapon has no usable shot: empty with no reload, or misfire-prone and not worth aiming.
+#any_reserve counts reserves of every ammo type and skips the misfire test on an empty weapon.
+static func drawn_ranged_useless(merc: MercenaryData, weapon: WeaponData, any_reserve: bool = false) -> bool:
+	if weapon == null or not weapon.is_ranged:
+		return false
+	if merc.ammo_loaded <= 0:
+		if any_reserve:
+			return not MercenaryData.has_reserve_ammo(merc)
+		if int(merc.ammo_inventory.get(merc.ammo_loaded_type, 0)) <= 0:
+			return true
+	return weapon.misfire > 0 and not FirearmReliabilityFacet.aimed_viable(merc)
+
+
+static func estimate_kill_likelihood(attacker: MercenaryData, target: MercenaryData) -> float:
+	var weapon := attacker.equipped_weapon
+	if weapon == null:
+		return 0.0
+	var avg_dmg := WeaponEvaluator.parse_formula_for_avg(weapon.damage_formula_1)
+	var weapon_key := "vigor" if (weapon.has_heavy and not weapon.has_light) else "dexterity"
+	avg_dmg += float(attacker.stats.get(weapon_key, 0)) * 0.4
+	return minf(1.0, avg_dmg / maxf(1.0, float(target.current_hp)))
+
+
+static func is_melee_preferred(merc: MercenaryData) -> bool:
+	var melee_acc := maxf(1.0, float(merc.stats.get("melee_accuracy", 1.0)))
+	var ranged_acc := maxf(0.0, float(merc.stats.get("ranged_accuracy", 0.0)))
+	var best_melee_dps := 0.0
+	var best_ranged_dps := 0.0
+	var all_weapons: Array[WeaponData] = []
+	if merc.equipped_weapon != null:
+		all_weapons.append(merc.equipped_weapon)
+	all_weapons.append_array(merc.inventory_weapons())
+	for w: WeaponData in all_weapons:
+		var avg := WeaponEvaluator.parse_formula_for_avg(w.damage_formula_1)
+		if w.is_ranged:
+			best_ranged_dps = maxf(best_ranged_dps, avg * ranged_acc)
+		elif w.is_throwable and not w.is_ranged:
+			var thrown_acc := ThrownWeaponRules.compute_thrown_accuracy(merc)
+			best_ranged_dps = maxf(best_ranged_dps, avg * thrown_acc)
+			best_melee_dps = maxf(best_melee_dps, avg * melee_acc)
+		else:
+			best_melee_dps = maxf(best_melee_dps, avg * melee_acc)
+	return best_melee_dps > best_ranged_dps

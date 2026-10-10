@@ -70,9 +70,7 @@ static func _case_level_ups(res: Dictionary) -> void:
 	TestFixtures.reset_campaign()
 	var m := _merc("Bran")
 	m.stat_bonuses["dexterity"] = 4.0
-	m.stats = StatCalculator.calculate_all(m)
-	m.stats["pain_limit"] = 0
-	m.stats_baseline = StatCalculator.calculate_all(m)
+	TestFixtures.recalc(m)
 	ExperienceSystem.award(m, 100, "test")
 	var speed_before: float = float(m.stats.get("speed", 0))
 	var bsc_before: float = float(m.stats.get("base_success_chance", 0))
@@ -199,7 +197,7 @@ static func _case_contract(res: Dictionary) -> void:
 static func _case_set_level_sync(res: Dictionary) -> void:
 	TestFixtures.reset_campaign()
 	var m := _merc("Dree")
-	ContractModifiers.set_level(m, 7)
+	TestFixtures.set_level(m, 7)
 	TestFixtures.check(res, "set_level syncs xp", m.xp == 700 and ExperienceSystem.current_level(m) == 7,
 		"xp %d, level %d" % [m.xp, ExperienceSystem.current_level(m)])
 
@@ -229,7 +227,7 @@ static func _case_battle_state_total(res: Dictionary) -> void:
 	TestFixtures.reset_campaign()
 	var a: Array[MercenaryData] = [_merc("A1"), _merc("A2")]
 	var b: Array[MercenaryData] = [_merc("B1"), _merc("B2")]
-	var state: BattleState = BattleState.create(a, b, null, true)
+	var state: BattleState = BattleState.create(a, b, null)
 	state.record_damage_dealt(a[0], b[0], 3)
 	state.record_damage_dealt(a[0], b[0], 2)
 	state.record_damage_dealt(a[0], a[1], 4)
@@ -290,9 +288,9 @@ static func _case_dot_credit(res: Dictionary) -> void:
 	var e := _merc("Foe")
 	var ta: Array[MercenaryData] = [a]
 	var te: Array[MercenaryData] = [e]
-	var state: BattleState = BattleState.create(ta, te, null, true)
+	var state: BattleState = BattleState.create(ta, te, null)
 	var hp_before: int = e.current_hp
-	ConstStates.apply_state(e, ConstStates.BURNING, a)
+	StateCascade.apply_state(e, ConstStates.BURNING, a)
 	BattleStateUpdater.apply_dot_effects(e, state)
 	var by_target: Dictionary = state.damage_dealt_total.get(a, {})
 	TestFixtures.check(res, "dot credits its source", int(by_target.get(e, 0)) == 1,
@@ -305,8 +303,8 @@ static func _case_dot_credit(res: Dictionary) -> void:
 		"%d lines, xp %d" % [lines.size(), a.xp])
 	var f := _merc("Foe Two")
 	var tf: Array[MercenaryData] = [f]
-	var state_two: BattleState = BattleState.create(ta, tf, null, true)
-	ConstStates.apply_state(f, ConstStates.BURNING)
+	var state_two: BattleState = BattleState.create(ta, tf, null)
+	StateCascade.apply_state(f, ConstStates.BURNING)
 	BattleStateUpdater.apply_dot_effects(f, state_two)
 	TestFixtures.check(res, "sourceless dot credits nobody", state_two.damage_dealt_total.is_empty(),
 		"%d attackers recorded" % state_two.damage_dealt_total.size())

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./fit-frame.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+</style>
+<script src="./merc-icons.js"></script>
+<script src="./mail-cal-core.js"></script>
+<script src="./mercdave-core.js"></script>
+</helmet>
+<div style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div ref="{{ frameRef }}" data-screen-label="Mercdave" style="position:relative;width:1280px;height:720px;flex:none;overflow:hidden;pointer-events:none;background:{{ frameBg }}">
+    <sc-if value="{{ standalone }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;bottom:0;height:76px;display:flex;align-items:center;justify-content:flex-end;padding:8px 16px 4px;background:#1a2b4d;border-top:4px solid #f28c28;box-shadow:inset 0 4px 0 #0a0f1c,inset 0 8px 0 #28447a;pointer-events:auto">
+        <button data-help="hud_mercdave" onMouseEnter="{{ faceIn }}" onMouseLeave="{{ faceOut }}" onClick="{{ toggle }}" title="Mercdave" style="position:relative;width:52px;height:40px;display:flex;align-items:center;justify-content:center;background:{{ tab.bg }};box-shadow:inset 0 3px 0 {{ tab.hi }},inset 0 -3px 0 {{ tab.lo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+          <sc-if value="{{ face }}" hint-placeholder-val="{{ false }}"><span style="display:block;width:32px;height:32px;image-rendering:pixelated;background:url({{ face }}) 0 0/100% 100% no-repeat"></span></sc-if>
+          <sc-if value="{{ count }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:-10px;min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:#f2b33d;color:#0a0f1c;font:700 10px Silkscreen;box-shadow:0 0 0 2px #0a0f1c">{{ count }}</span></sc-if>
+        </button>
+      </div>
+    </sc-if>
+
+    <sc-for list="{{ marks }}" as="m" hint-placeholder-count="0">
+      <button data-asst-ui="1" onClick="{{ m.onClick }}" title="{{ m.title }}" style="position:absolute;z-index:3;left:{{ m.x }};top:{{ m.y }};width:14px;height:14px;pointer-events:auto;background:#f2b33d;box-shadow:0 0 0 3px #0a0f1c,0 0 0 8px rgba(242,179,61,0.3)" style-hover="background:#f28c28"></button>
+    </sc-for>
+    <sc-if value="{{ outline }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;z-index:2;left:{{ outline.x }};top:{{ outline.y }};width:{{ outline.w }};height:{{ outline.h }};box-shadow:0 0 0 4px #f2b33d"></div>
+    </sc-if>
+
+    <sc-if value="{{ card }}" hint-placeholder-val="{{ false }}">
+      <div data-asst-ui="1" style="position:absolute;z-index:4;left:{{ card.x }};top:{{ card.y }};width:{{ card.w }};display:flex;gap:12px;padding:14px;pointer-events:auto;background:#1a2b4d;box-shadow:0 0 0 4px #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-18px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">HintCard.tscn</div></sc-if>
+        <sc-if value="{{ face }}" hint-placeholder-val="{{ false }}"><span onMouseEnter="{{ faceIn }}" onMouseLeave="{{ faceOut }}" style="display:block;flex:none;width:48px;height:48px;image-rendering:pixelated;background:url({{ face }}) 0 0/100% 100% no-repeat"></span></sc-if>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font:700 11px Silkscreen;color:#f28c28">{{ card.title }}</span><span style="font:400 9px Silkscreen;color:#9cc6ef;white-space:nowrap">{{ card.step }}</span></div>
+          <span style="font-size:15px;line-height:1.35;color:#f3ead7;text-wrap:pretty">{{ card.text }}</span>
+          <div style="display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px">
+            <sc-for list="{{ card.btns }}" as="b" hint-placeholder-count="2">
+              <button onClick="{{ b.onClick }}" style="height:28px;padding:0 10px;font:400 9px Silkscreen;color:{{ b.fg }};background:{{ b.bg }};box-shadow:inset 0 3px 0 {{ b.hi }},inset 0 -3px 0 {{ b.lo }},0 0 0 3px #0a0f1c" style-hover="filter:brightness(1.15)">{{ b.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+      <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span><span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span></div>
+          <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+          <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7"><sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for></div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;},&quot;embedded&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { hov: false, view: null };
+  frameRef = React.createRef();
+  componentDidMount() {
+    this.onA = () => { this.forceUpdate(); clearTimeout(this._sc); this._sc = setTimeout(() => this.scan(), 30); };
+    const hook = () => { const A = window.MercdayAssistant; if (!A) return false; this._A = A; A.subs.add(this.onA); this.forceUpdate(); return true; };
+    if (!hook()) this._w = setInterval(() => { if (hook()) clearInterval(this._w); }, 50);
+    this._s = setInterval(() => this.scan(), 400);
+  }
+  componentWillUnmount() { this._dead = true; clearTimeout(this._lt); clearInterval(this._w); clearInterval(this._s); clearTimeout(this._sc); if (this._A) this._A.subs.delete(this.onA); }
+  // Topmost scope = deepest visible [data-help-scope] (window root or dialog); none → HUD. Collect its visible, unoccluded help targets.
+  scan() { const A = this._A, fr = this.frameRef.current; if (!A || !A.ready || !fr) return;
+    const f = fr.getBoundingClientRect(), k = f.width / (fr.offsetWidth || f.width), SKIP = '[data-asst-ui]';
+    const topAt = (x, y) => document.elementsFromPoint(x, y).find(h => !h.closest(SKIP));
+    const probe = (el, r) => { const l = Math.max(r.left, f.left), t = Math.max(r.top, f.top), rr = Math.min(r.right, f.right), b = Math.min(r.bottom, f.bottom); if (rr - l < 4 || b - t < 4) return false; const h = topAt((l + rr) / 2, (t + b) / 2); return !!h && el.contains(h); };
+    const depth = el => { let d = 0, p = el.parentElement; while (p) { if (p.hasAttribute && p.hasAttribute('data-help-scope')) d++; p = p.parentElement; } return d; };
+    const top = [...document.querySelectorAll('[data-help-scope]')].filter(el => probe(el, el.getBoundingClientRect())).sort((a, b) => depth(b) - depth(a))[0] || null;
+    const rects = {};
+    document.querySelectorAll('[data-help]').forEach(el => { const key = el.getAttribute('data-help'); if (rects[key] || !A.rows[key] || el.closest('[data-help-scope]') !== top) return;
+      const r = el.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return;
+      const hit = topAt(r.left + Math.min(r.width / 2, 24), r.top + Math.min(r.height / 2, 18)); if (!hit || !el.contains(hit)) return;
+      const x = Math.max(0, (r.left - f.left) / k), y = Math.max(0, (r.top - f.top) / k), w = Math.min(1280, (r.right - f.left) / k) - x, h = Math.min(720, (r.bottom - f.top) / k) - y;
+      if (w > 4 && h > 4) rects[key] = { x, y, w, h }; });
+    let sr = null; if (top && top.getAttribute('data-help-scope') === 'dialog') { const r = top.getBoundingClientRect(); sr = { x: (r.left - f.left) / k, y: (r.top - f.top) / k, w: r.width / k, h: r.height / k }; }
+    // Controls of the top scope (buttons, inputs): the card avoids covering them.
+    const ctrls = []; (top || document).querySelectorAll('button,input,select,[role="button"]').forEach(el => { if (ctrls.length > 300 || el.closest(SKIP) || (!top && el.closest('[data-help-scope]'))) return; const q = el.getBoundingClientRect(); if (q.width < 6 || q.height < 6) return;
+      const x = (q.left - f.left) / k, y = (q.top - f.top) / k; if (x > -8 && y > -8 && x < 1280 && y < 644) ctrls.push({ x, y, w: q.width / k, h: q.height / k }); });
+    const id = top ? (top.getAttribute('data-help') || 'win_' + A.ctx) : 'hud';
+    A.setScope(id, Object.keys(rects));
+    const view = { rects, dialog: sr, ctrls }, sig = JSON.stringify(view); if (sig !== this._sig) { this._sig = sig; this.setState({ view }); } }
+  // Card: beside a dialog (right, then left); otherwise the window corner that covers the fewest marked parts (current one weighs 3×).
+  placeCard(cur, marks, dialog, ctrls) { const CH = 150;
+    if (dialog) { const CW = 344; if (dialog.x + dialog.w + 16 + CW < 1276) return [dialog.x + dialog.w + 16, dialog.y, CW]; if (dialog.x - 16 - CW > 4) return [dialog.x - 16 - CW, dialog.y, CW]; }
+    const CW = 384, spots = [[880, 474], [16, 474], [880, 16], [16, 16], [448, 474], [448, 16]];
+    const cov = ([px, py]) => marks.reduce((s, r) => s + Math.max(0, Math.min(px + CW, r.x + r.w) - Math.max(px, r.x)) * Math.max(0, Math.min(py + CH, r.y + r.h) - Math.max(py, r.y)) / Math.max(1, r.w * r.h) * (r === cur ? 3 : 1), 0)
+      + 0.5 * (ctrls || []).reduce((s, c) => s + (c.x + c.w > px && c.x < px + CW && c.y + c.h > py && c.y < py + CH ? 1 : 0), 0);
+    const p = spots.reduce((b, q) => cov(q) < cov(b) - 0.01 ? q : b, spots[0]); return [p[0], p[1], CW]; }
+  sceneMap = [
+    { name: 'MercdaveTab.tscn', uses: 'BottomBar, far right (after TimeMenu)', root: 'Button 52×40 › Mercdave screen @2× (mercdave_screen + face_* overlay) + count badge 20×20', vars: ['# click toggles the hint card (first unread hint of the top window)', '# badge = unread hints on the top window (all, not just the 3 marked)', '# hover → happy face (+5)'] },
+    { name: 'HintMarker.tscn', uses: 'x ≤ 3 on the top window', root: 'Button 14×14 #f2b33d, 3 px #0a0f1c ring + 8 px glow', vars: ['# top-left corner of its target (−7, −7); fixed, never moves', '# only unread hints of the topmost scope, by TSV row order', '# click → open the card on that hint'] },
+    { name: 'HintCard.tscn', uses: 'x1', root: 'PanelContainer 384 (344 beside a dialog) › Face 48, Title "New: <label>", step "n of m", Text, Buttons', vars: ['# placement: beside the dialog (right, then left); else 1 of 6 spots covering the fewest marked parts + controls', '# current hint target gets a 4 px #f2b33d outline', '# Ok = mark read + close · Next Hint (if ≥ 2) · Tell Me More (if row has next)', '# auto-opens once per scope the first time it has unread hints'] },
+    { name: 'Mercdave (autoload)', uses: 'data', root: 'Node', vars: ['var read: Dictionary  # saved; hint ids already read', 'func set_scope(id, keys)', 'func show(id) / ok() / next() / tell_more() / close()', '# scopes: window roots + every *Dialog/*Window/*Confirm (meta help_scope)'] },
+  ];
+  renderVals() {
+    // Self-healing scan loop (the scan must keep running while windows open/close underneath).
+    if (window.MercdayAssistant) window.MercdayAssistant.scanner = this; // core's global loop calls scanner.scan() every 400 ms
+    const A = window.MercdayAssistant, show = this.props.showScenes ?? false, emb = !!this.props.embedded, v = this.state.view || { rects: {} }, px = n => Math.round(n) + 'px';
+    const btn = b => ({ bg: b ? '#f28c28' : '#2b4f8a', fg: b ? '#0a0f1c' : '#f3ead7', hi: b ? '#ffb266' : '#3b6fb6', lo: b ? '#b85a12' : '#1f3560' });
+    const on = !!(A && A.card), markKeys = A ? A.marks.filter(k => v.rects[k]) : [], cur = A && A.hint && v.rects[A.hint];
+    let card = null;
+    if (on) { const row = A.hint ? A.rows[A.hint] : A.rows.sys_none, moreRow = A.more && row && A.rows[row.next];
+      const [x, y, w] = this.placeCard(cur, markKeys.map(k => v.rects[k]), v.dialog, v.ctrls), i = A.marks.indexOf(A.hint);
+      const btns = [{ label: A.label('chip_ok'), ...btn(false), onClick: () => A.ok() }];
+      if (A.hint && A.marks.length > 1) btns.push({ label: A.label('chip_next'), ...btn(false), onClick: () => A.next() });
+      if (row && row.next && !A.more && A.rows[row.next]) btns.push({ label: A.label('chip_tell'), ...btn(true), onClick: () => A.tellMore() });
+      card = { x: px(x), y: px(Math.min(y, 644 - 158)), w: (w - 4) + 'px', title: A.hint ? 'New: ' + (row ? row.label : '') : (row ? row.label : ''), step: A.hint && i >= 0 ? (i + 1) + ' of ' + A.marks.length : '',
+        text: (moreRow || row || {}).text || '', btns }; }
+    return {
+      showScenes: show, sceneMap: this.sceneMap, standalone: !emb, frameBg: emb ? 'transparent' : '#101a30', frameRef: this.frameRef,
+      face: A ? A.faceUrl(this.state.hov ? 5 : A.shownFace()) : '', faceIn: () => this.setState({ hov: true }), faceOut: () => this.setState({ hov: false }),
+      tab: btn(on), count: A && A.unread.length ? A.unread.length : 0, toggle: () => A && A.toggle(),
+      marks: markKeys.map(k => ({ x: px(v.rects[k].x - 7), y: px(v.rects[k].y - 7), title: 'New: ' + A.label(k), onClick: () => A.show(k) })),
+      outline: cur ? { x: px(cur.x), y: px(cur.y), w: px(cur.w), h: px(cur.h) } : null,
+      card,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./fit-frame.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+</style>
+<style>@keyframes pPop0{0%{transform:scale(1)}22%{transform:scale(1.3) rotate(-7deg)}40%{transform:scale(1.18) rotate(6deg)}58%{transform:scale(1.1) rotate(-4deg)}76%{transform:scale(1.04) rotate(2deg)}100%{transform:scale(1)}}
+@keyframes pPop1{0%{transform:scale(1)}22%{transform:scale(1.3) rotate(-7deg)}40%{transform:scale(1.18) rotate(6deg)}58%{transform:scale(1.1) rotate(-4deg)}76%{transform:scale(1.04) rotate(2deg)}100%{transform:scale(1)}}
+@keyframes mPop0{0%{transform:scale(1)}35%{transform:scale(1.12);background:#e8583f}100%{transform:scale(1)}}
+@keyframes mPop1{0%{transform:scale(1)}35%{transform:scale(1.12);background:#e8583f}100%{transform:scale(1)}}
+@keyframes barUp0{0%{filter:brightness(1)}25%{filter:brightness(1.9);box-shadow:0 0 18px #f2d33d,0 0 0 2px #fff08a}100%{filter:brightness(1)}}
+@keyframes barUp1{0%{filter:brightness(1)}25%{filter:brightness(1.9);box-shadow:0 0 18px #f2d33d,0 0 0 2px #fff08a}100%{filter:brightness(1)}}
+@keyframes barDn0{0%{filter:brightness(1);transform:translateX(0)}20%{filter:brightness(0.45);transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-2px)}100%{filter:brightness(1);transform:translateX(0)}}
+@keyframes barDn1{0%{filter:brightness(1);transform:translateX(0)}20%{filter:brightness(0.45);transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-2px)}100%{filter:brightness(1);transform:translateX(0)}}
+@keyframes rej0{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px);background:#e8583f}40%{transform:translateX(6px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@keyframes rej1{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px);background:#e8583f}40%{transform:translateX(6px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@keyframes subShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 2px 0 0 #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-thumb:hover{background:#ffa040}
+::-webkit-scrollbar-button{display:none}
+::-webkit-scrollbar-button:single-button:vertical{display:block;height:12px;background-color:#2b4f8a;box-shadow:inset 2px 2px 0 #3b6fb6,inset -2px -2px 0 #1f3560;background-repeat:no-repeat;background-position:center}
+::-webkit-scrollbar-button:single-button:vertical:decrement{background-image:linear-gradient(#f3ead7,#f3ead7),linear-gradient(#f3ead7,#f3ead7);background-size:2px 2px,6px 2px;background-position:5px 4px,3px 6px}
+::-webkit-scrollbar-button:single-button:vertical:increment{background-image:linear-gradient(#f3ead7,#f3ead7),linear-gradient(#f3ead7,#f3ead7);background-size:6px 2px,2px 2px;background-position:3px 4px,5px 6px}
+::-webkit-scrollbar-corner{background:#0a0f1c}
+</style>
+<script src="./merc-icons.js"></script>
+</helmet>
+<div style="display:none" aria-hidden="true"><dc-import name="Locked Page" hint-size="0px,0px"></dc-import><dc-import name="Feature Lock" hint-size="0px,0px"></dc-import></div>
+<div data-help-scope="window" style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Subscription Viewer" ref="{{ frameRef }}" style="position:relative;width:1280px;height:{{ frameH }};flex:none;background:#101a30;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px);padding:20px;display:flex;flex-direction:column;gap:0;box-shadow:0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000">
+
+    <div style="position:relative;display:flex;gap:8px;height:44px;flex:none;padding:0 4px">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">TabButton.tscn (shared, lockable)</div></sc-if>
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+        <dc-import name="Tab Button" label="{{ t.label }}" icon="{{ t.icon }}" active="{{ t.active }}" locked="{{ t.locked }}" title="{{ t.title }}" on-click="{{ t.onClick }}" style="flex:{{ t.flex }};align-self:flex-end" hint-size="52px,38px"></dc-import>
+      </sc-for>
+    </div>
+
+    <div style="position:relative;flex:1;min-height:0;padding:18px;display:flex;flex-direction:column;background:#1a2b4d;box-shadow:inset 4px 0 0 #28447a,inset -4px -4px 0 #111c33,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,0 -4px 0 #f28c28">
+      <sc-if value="{{ isPlans }}" hint-placeholder-val="{{ true }}">
+        <div data-help="scene_PlansTab" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:18px;padding:6px 12px 10px 6px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <sc-if value="{{ logo.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;background:url({{ logo.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+            <span style="font:700 20px Silkscreen;color:#f3ead7">Mercday Plans:</span>
+          </div>
+          <div style="position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:0 5px">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">PlanCard.tscn ×3</div></sc-if>
+            <sc-for list="{{ planCards }}" as="pc" hint-placeholder-count="3">
+              <div style="position:relative;display:flex;flex-direction:column;gap:12px;padding:18px 18px 26px;background:#0e1628;box-shadow:0 0 0 3px {{ pc.ring }},0 0 0 5px #0a0f1c">
+                <sc-if value="{{ pc.current }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;right:12px;padding:2px 6px;background:#6cc36a;color:#0a0f1c;font:400 9px Silkscreen">Current Plan</span></sc-if>
+                <span style="font:700 17px Silkscreen;color:#f3ead7;white-space:nowrap">{{ pc.name }}</span>
+                <div style="display:flex;flex-direction:column;gap:3px">
+                  <span style="font-size:14px;color:#9cc6ef">{{ pc.price }}</span>
+                  <span style="font-size:12px;color:#5e7699">{{ pc.estimate }}</span>
+                </div>
+                <span style="min-height:42px;font-size:15px;line-height:1.35;color:#f3ead7;text-wrap:pretty">{{ pc.tagline }}</span>
+                <span style="min-height:15px;margin-bottom:-6px;font-size:12px;line-height:1.2;color:#e8583f;text-wrap:pretty">{{ pc.reason }}</span>
+                <button onClick="{{ pc.onSwitch }}" title="{{ pc.switchTitle }}" style="height:42px;flex:none;font:700 12px Silkscreen;opacity:{{ pc.opacity }};cursor:{{ pc.cursor }};color:{{ pc.fg }};background:{{ pc.bg }};box-shadow:inset 0 3px 0 {{ pc.hi }},inset 0 -3px 0 {{ pc.lo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">{{ pc.switchLabel }}</button>
+                <div style="height:2px;background:#1f3560"></div>
+                <span style="font:400 10px Silkscreen;color:#9cc6ef;letter-spacing:1px">Includes</span>
+                <div style="display:flex;flex-direction:column;gap:9px">
+                  <sc-for list="{{ pc.features }}" as="ft" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:flex-start;gap:10px">
+                      <sc-if value="{{ checkCells.px12 }}" hint-placeholder-val="{{ false }}"><span style="flex:none;margin-top:3px;display:block;width:12px;height:12px;image-rendering:pixelated;background:url({{ checkCells.px12 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+                      <span style="font-size:14px;line-height:1.3;color:#f3ead7">{{ ft }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="position:absolute;left:0;right:0;bottom:0;height:6px;background:{{ pc.accent }}"></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isCustomize }}" hint-placeholder-val="{{ false }}">
+        <div data-help="scene_CustomizeTab" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font:400 13px Silkscreen;color:#f28c28;letter-spacing:1px">Customize</span>
+            <span style="display:flex;align-items:center;gap:6px;font:700 18px Silkscreen;color:{{ spend.color }}" title="{{ spend.title }}">{{ spend.base }} + {{ spend.addon }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:10px;height:18px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if>/month</span>
+          </div>
+          <div ref="{{ viewRef }}" onPointerDown="{{ panDown }}" onPointerMove="{{ panMove }}" onPointerUp="{{ panUp }}" onPointerCancel="{{ panUp }}" style="position:relative;flex:1;min-height:0;overflow:hidden;cursor:{{ panCursor }};touch-action:none;user-select:none;background:#0e1628;box-shadow:inset 0 0 0 3px #1f3560,0 0 0 2px #0a0f1c">
+            <button onPointerDown="{{ stopEv }}" onClick="{{ debugMax }}" title="DEBUG: max every upgrade (ignores cost/income)" style="position:absolute;right:10px;bottom:10px;z-index:20;height:30px;padding:0 12px;background:#b25cff;color:#0a0f1c;font:700 10px Silkscreen;box-shadow:inset 0 3px 0 #d49aff,inset 0 -3px 0 #7a2fc0,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Fully Upgrade</button>
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">SkillTree.tscn (drag to pan) › CategoryBox + CustomizeBlock ×N</div></sc-if>
+            <div style="position:absolute;left:0;top:0;width:5200px;height:2900px;transform:translate({{ panX }},{{ panY }});background-image:repeating-linear-gradient(0deg,rgba(59,111,182,0.08) 0 2px,transparent 2px 24px),repeating-linear-gradient(90deg,rgba(59,111,182,0.08) 0 2px,transparent 2px 24px)">
+              <div style="position:absolute;left:0;top:780px;width:5200px;height:2120px">
+              <sc-for list="{{ lines }}" as="ln" hint-placeholder-count="12">
+                <div style="position:absolute;left:{{ ln.l }};top:{{ ln.t }};width:{{ ln.w }};height:{{ ln.h }};background:{{ ln.c }};opacity:{{ ln.o }}"></div>
+              </sc-for>
+              <sc-for list="{{ gates }}" as="gt" hint-placeholder-count="2">
+                <div onMouseEnter="{{ gt.onEnter }}" onMouseLeave="{{ hideTip }}" style="position:absolute;left:{{ gt.left }};top:{{ gt.top }};z-index:2;width:52px;height:26px;filter:{{ gt.anim }};outline:5px solid #0e1628;display:flex;align-items:center;justify-content:center;cursor:help;background:#0e1628;box-shadow:inset 0 0 0 2px {{ gt.ring }};font:700 10px Silkscreen;color:{{ gt.color }}">{{ gt.text }}</div>
+              </sc-for>
+              <sc-for list="{{ cats }}" as="ct" hint-placeholder-count="3">
+                <div style="position:absolute;left:{{ ct.totLeft }};top:{{ ct.totTop }};margin-top:8px;width:140px;display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:none">
+                  <span style="font:700 12px Silkscreen;color:#f3ead7">Total</span>
+                  <span style="display:flex;align-items:center;gap:3px;font-size:12px;color:#f3ead7;white-space:nowrap">{{ ct.total }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if>/month</span>
+                </div>
+              </sc-for>
+              <sc-for list="{{ cats }}" as="ct" hint-placeholder-count="3">
+                <div onMouseEnter="{{ ct.onEnter }}" onMouseLeave="{{ hideTip }}" style="position:absolute;left:{{ ct.left }};top:{{ ct.top }};width:140px;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;background:{{ ct.bg }};box-shadow:inset 0 0 0 2px {{ ct.ring }};font:400 11px Silkscreen;letter-spacing:1px;white-space:nowrap;color:#9cc6ef">
+                  <sc-if value="{{ ct.icon.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;filter:{{ ct.anim }};background:url({{ ct.icon.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>{{ ct.name }}
+                </div>
+              </sc-for>
+              <sc-for list="{{ nodes }}" as="nd" hint-placeholder-count="6">
+                <div style="position:absolute;left:{{ nd.left }};top:{{ nd.top }};width:{{ nd.size }};display:flex;flex-direction:column;align-items:center;gap:12px">
+                  <button onClick="{{ nd.onClick }}" onMouseEnter="{{ nd.onEnter }}" onMouseLeave="{{ hideTip }}" style="position:relative;width:{{ nd.size }};height:{{ nd.size }};display:flex;flex-direction:column;align-items:center;justify-content:{{ nd.justify }};padding-top:{{ nd.padTop }};gap:5px;opacity:{{ nd.opacity }};cursor:{{ nd.cursor }};background:{{ nd.bg }};animation:{{ nd.anim }};box-shadow:inset 0 3px 0 {{ nd.hi }},inset 0 -3px 0 {{ nd.lo }},0 0 0 3px {{ nd.ring }},0 0 0 5px #0a0f1c" style-hover="filter:brightness(1.15)">
+                    <sc-if value="{{ nd.icon.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:48px;height:48px;image-rendering:pixelated;filter:{{ nd.iconAnim }};background:url({{ nd.icon.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+                    <sc-if value="{{ nd.hasPips }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;left:50%;bottom:8px;transform:translateX(-50%);display:flex;align-items:stretch">
+                        <div style="width:2px;background:#3b6fb6;box-shadow:0 0 0 1px #0a0f1c"></div>
+                        <div style="position:relative;display:flex;gap:2px;padding:3px 2px;background:#05080f;box-shadow:inset 0 2px 0 #000,inset 0 -1px 0 #1f3560,0 0 0 1px #0a0f1c,0 2px 0 1px #3b6fb6">
+                          <sc-for list="{{ nd.pips }}" as="pp" hint-placeholder-count="3"><div style="width:{{ nd.pipW }};height:8px;background:{{ pp.bg }};box-shadow:inset 0 2px 0 {{ pp.hi }},inset 0 -2px 0 {{ pp.lo }},0 0 0 1px #000;filter:{{ pp.anim }};will-change:filter;transform:translateZ(0)"></div></sc-for>
+                          <div style="position:absolute;left:2px;right:2px;top:3px;height:1px;background:rgba(255,255,255,0.18);pointer-events:none"></div>
+                        </div>
+                        <div style="width:2px;background:#1f3560;box-shadow:0 0 0 1px #0a0f1c"></div>
+                      </div>
+                    </sc-if>
+                  </button>
+                  <span style="font:700 10px Silkscreen;color:#f3ead7;white-space:nowrap;text-align:center">{{ nd.name }}</span>
+                  <span style="margin-top:-4px;display:flex;align-items:center;gap:3px;font-size:12px;color:{{ nd.subColor }};white-space:nowrap">{{ nd.sub }}<sc-if value="{{ nd.hasFee }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if>/month</sc-if></span>
+                </div>
+              </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ custLocked }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:39;background:rgba(6,10,20,0.84);cursor:not-allowed"></div><dc-import name="Locked Page" feature="Customize" plan="Mercday Enterprise" on-go="{{ goPlans }}" style="position:absolute;inset:0;z-index:40" hint-size="100%,100%"></dc-import>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ tip.on }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:{{ tip.x }};top:{{ tip.y }};z-index:50;width:320px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+        <sc-if value="{{ tip.plain }}" hint-placeholder-val="{{ true }}">
+          <span style="font:400 10px Silkscreen;color:#f28c28">{{ tip.kind }}</span>
+          <span style="font:700 14px Silkscreen;color:#f3ead7">{{ tip.name }}</span>
+          <span style="font-size:14px;line-height:1.35;color:#9cc6ef">{{ tip.desc }}</span>
+          <span style="font-size:13px;color:{{ tip.nextColor }}">{{ tip.next }}</span>
+        </sc-if>
+        <sc-if value="{{ tip.rich }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="flex:none;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 2px {{ tip.iconRing }}"><sc-if value="{{ tip.icon.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;background:url({{ tip.icon.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if></div>
+            <div style="min-width:0;display:flex;flex-direction:column;gap:3px"><span style="font:400 9px Silkscreen;color:#f28c28">{{ tip.kind }}</span><span style="font:700 13px Silkscreen;color:#f3ead7">{{ tip.name }}</span></div>
+          </div>
+          <span style="font-size:13px;line-height:1.35;color:#9cc6ef">{{ tip.desc }}</span>
+          <div style="display:flex;gap:3px;padding:3px;background:#0a0f1c"><sc-for list="{{ tip.chunks }}" as="ck" hint-placeholder-count="4"><div style="flex:1;height:12px;background:{{ ck.bg }};box-shadow:inset 0 2px 0 {{ ck.hi }},inset 0 -2px 0 {{ ck.lo }}"></div></sc-for></div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 12px Silkscreen;color:#f3ead7">{{ tip.prog }}</span><span style="display:flex;align-items:center;gap:3px;font-size:13px;color:#f3ead7">{{ tip.fee }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if><span style="color:#9cc6ef">/month</span></span></div>
+          <sc-if value="{{ tip.hasNext }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:10px;align-items:center;padding:5px;background:#132038;box-shadow:0 0 0 2px #f28c28">
+              <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 2px #1f3560;opacity:0.5"><sc-if value="{{ tip.nextIcon.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;background:url({{ tip.nextIcon.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if></div>
+              <div style="min-width:0;display:flex;flex-direction:column;gap:3px"><span style="font:700 9px Silkscreen;color:#f28c28">Next Tier</span><span style="font-size:13px;line-height:1.25;color:#c8d3e6">{{ tip.nextText }}</span><span style="display:flex;align-items:center;gap:3px;font-size:12px;color:#f2d33d">+{{ tip.nextFee }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if><span style="color:#9cc6ef">/month</span></span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ tip.gatedNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#e8583f">{{ tip.gatedText }}</span></sc-if>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ tierOpen }}" hint-placeholder-val="{{ false }}">
+      <div data-help="scene_TierPopup" style="position:absolute;inset:0;z-index:70;background:transparent;pointer-events:none">
+        <div ref="{{ popRef }}" style="position:absolute;left:{{ td.px }};top:{{ td.py }};pointer-events:auto;width:400px;height:400px;box-sizing:border-box;padding:14px 16px 12px;display:flex;flex-direction:column;gap:10px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">UpgradeTierDialog.tscn (auto-applies on +/−)</div></sc-if>
+          <button onClick="{{ td.close }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 30px/1 Silkscreen;text-shadow:2px 0 0 #0a0f1c,-2px 0 0 #0a0f1c,0 2px 0 #0a0f1c,0 -2px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:20px;height:20px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -70px -70px / 512px 1280px;image-rendering:pixelated;filter:drop-shadow(2px 0 0 #0a0f1c) drop-shadow(-2px 0 0 #0a0f1c) drop-shadow(0 2px 0 #0a0f1c) drop-shadow(0 -2px 0 #0a0f1c)"></span></button>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <span style="font:400 8px Silkscreen;color:#9cc6ef;letter-spacing:1px">Enterprise Customization</span>
+              <span style="font:700 14px Silkscreen;color:#f28c28">{{ td.name }}</span>
+              <span style="font-size:12px;line-height:1.25;color:#9cc6ef">{{ td.desc }}</span>
+            </div>
+          </div>
+          <div style="flex:none;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <span style="font:700 11px Silkscreen;color:#f3ead7">{{ td.tierLabel }}</span>
+                <div style="display:flex;gap:4px;padding:4px;background:#0a0f1c;animation:{{ td.barAnim }}">
+                  <sc-for list="{{ td.chunks }}" as="ck" hint-placeholder-count="4">
+                    <div style="flex:1;height:18px;background:{{ ck.bg }};box-shadow:inset 0 3px 0 {{ ck.hi }},inset 0 -3px 0 {{ ck.lo }};filter:{{ ck.anim }}"></div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:56px minmax(0,1fr) 56px;gap:10px;align-items:center">
+                <button onClick="{{ td.minus }}" title="Lower one tier (no refund; stops billing next cycle)" style="width:56px;height:56px;padding:0;background:#e8583f;color:#0a0f1c;font:700 30px/1 Silkscreen;user-select:none;animation:{{ td.minusAnim }};box-shadow:inset 0 4px 0 #ff8a70,inset 0 -4px 0 #a83a28,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">−</button>
+                <div style="min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 8px;text-align:center;background:#0e1628;box-shadow:inset 0 0 0 2px #1f3560">
+                  <sc-if value="{{ td.canUp }}" hint-placeholder-val="{{ true }}">
+                    <span style="display:flex;align-items:center;gap:4px;font:700 13px Silkscreen;color:#f3ead7">{{ td.today }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if><span style="font:400 11px 'Pixelify Sans',monospace;color:#9cc6ef">today</span></span>
+                    <span style="display:flex;align-items:center;gap:4px;font:700 11px Silkscreen;color:#f2d33d">{{ td.monthly }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if><span style="font:400 11px 'Pixelify Sans',monospace;color:#9cc6ef">/month starting {{ td.billDate }}</span></span>
+                  </sc-if>
+                  <sc-if value="{{ td.isMax }}" hint-placeholder-val="{{ false }}"><span style="font:700 14px Silkscreen;color:#6cc36a">Fully Upgraded</span><span style="display:flex;align-items:center;gap:3px;font-size:12px;color:#9cc6ef">{{ td.maxNote }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if>/month</span></sc-if>
+                </div>
+                <button onClick="{{ td.plus }}" title="Raise one tier" style="width:56px;height:56px;padding:0;background:{{ td.plusBg }};color:#0a0f1c;font:700 30px/1 Silkscreen;user-select:none;animation:{{ td.plusAnim }};box-shadow:inset 0 4px 0 {{ td.plusHi }},inset 0 -4px 0 {{ td.plusLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">+</button>
+              </div>
+              <sc-if value="{{ td.hasInUse }}" hint-placeholder-val="{{ false }}"><span style="margin-top:-6px;font-size:13px;line-height:1.35;color:#e8583f">{{ td.inUse }}</span></sc-if>
+          </div>
+          <div ref="{{ tierListRef }}" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:6px;padding:6px 6px 6px 8px;background:#0e1628;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+            <sc-for list="{{ td.tierList }}" as="tl" hint-placeholder-count="4">
+              <div data-next="{{ tl.nextAttr }}" data-tier="{{ tl.idx }}" style="flex:none;display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:center;padding:4px;background:{{ tl.bg }};box-shadow:0 0 0 2px {{ tl.ring }}">
+                <div style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 2px {{ tl.iconRing }};opacity:{{ tl.iconOpacity }};filter:{{ tl.iconFilter }}">
+                  <sc-if value="{{ tl.icon.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;filter:{{ tl.anim }};background:url({{ tl.icon.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+                </div>
+                <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+                  <span style="align-self:flex-start;font:700 10px Silkscreen;color:{{ tl.labelColor }};filter:{{ tl.anim }}">{{ tl.label }}</span>
+                  <span style="font-size:12px;line-height:1.2;color:{{ tl.color }}">{{ tl.text }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ td.close }}" style="align-self:center;height:28px;padding:0 24px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Exit</button>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ dlgOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div data-help="scene_PlanSwitchDialog" data-help-scope="dialog" style="position:relative;width:540px;padding:22px;display:flex;flex-direction:column;gap:14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 {{ dlg.ring }},0 4px 0 {{ dlg.ring }},-4px 0 0 {{ dlg.ring }},4px 0 0 {{ dlg.ring }},10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">PlanSwitchDialog.tscn</div></sc-if>
+          <button onClick="{{ closeDlg }}" title="Cancel" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 44px/1 Silkscreen;text-shadow:2px 0 0 #0a0f1c,-2px 0 0 #0a0f1c,0 2px 0 #0a0f1c,0 -2px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font:400 11px Silkscreen;color:#9cc6ef;letter-spacing:1px">{{ dlg.kind }}</span>
+            <span style="font:700 18px Silkscreen;color:#f28c28">{{ dlg.title }}</span>
+          </div>
+          <sc-for list="{{ dlg.sections }}" as="sec" hint-placeholder-count="1">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:15px;line-height:1.35;color:{{ sec.color }};text-wrap:pretty">{{ sec.text }}</span>
+              <sc-for list="{{ sec.list }}" as="li" hint-placeholder-count="0">
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:#0e1628"><span style="flex:none;width:6px;height:6px;background:{{ sec.dot }}"></span><span style="font-size:14px;color:#f3ead7">{{ li }}</span></div>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#0e1628">
+            <span style="font:400 9px Silkscreen;color:#9cc6ef">{{ dlg.costLabel }}</span>
+            <span style="display:flex;align-items:center;gap:3px;font:700 15px Silkscreen;color:{{ dlg.costColor }}">{{ dlg.cost }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if></span>
+          </div>
+          <span style="font-size:13px;line-height:1.35;color:{{ dlg.noteColor }}">{{ dlg.note }}</span>
+          <sc-if value="{{ dlg.isUp }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:22px">
+              <button onClick="{{ closeDlg }}" style="padding:4px 2px;background:none;font:400 12px Silkscreen;color:#f3ead7;text-decoration:underline;text-underline-offset:4px" style-hover="color:#9cc6ef">Back</button>
+              <button onClick="{{ dlg.onConfirm }}" style="height:40px;padding:0 28px;background:#6cc36a;color:#0a0f1c;font:700 12px Silkscreen;opacity:{{ dlg.okOpacity }};cursor:{{ dlg.okCursor }};box-shadow:inset 0 3px 0 #9be29a,inset 0 -3px 0 #3f8a3e,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">{{ dlg.okLabel }}</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ dlg.isDown }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:22px">
+              <button onClick="{{ dlg.onConfirm }}" style="padding:4px 2px;background:none;font:400 12px Silkscreen;color:#e8583f;opacity:{{ dlg.okOpacity }};cursor:{{ dlg.okCursor }};text-decoration:underline;text-underline-offset:4px" style-hover="color:#ff8a70;filter:brightness(1.3)">{{ dlg.okLabel }}</button>
+              <button onClick="{{ closeDlg }}" style="height:40px;padding:0 28px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Back</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <span style="font:700 18px Silkscreen;color:#f28c28">Scene map</span>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span><span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span></div>
+            <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+            <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7"><sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;}}">
+class Component extends DCLogic {
+  nodeIds = { promoCat: 'promo_cat', promotions: 'promo_node', promomethods: 'promo_methods', longpromos: 'long_promos', marketing: 'marketing', guildpromo: 'guild_promo', metricsCat: 'chart_arrow', contractmetrics: 'contract_metrics', mercmetrics: 'merc_metrics', coaching: 'coaching', pip: 'pip_plan', combatpip: 'combat_pip', skillpip: 'skill_pip', magicpip: 'magic_pip', peer: 'peer', customer: 'customer', fastmetrics: 'chart_arrow', criminal: 'criminal', testing: 'testing', aptitude: 'aptitude', brawn: 'brawn', readiness: 'readiness', personality: 'personality', skilltest: 'skill_test', education: 'education', contracts: 'limit_contracts', limits: 'limits', base: 'base_plan', seats: 'seats', insights: 'insights', bazaarCat: 'bazaar_cat', bazaar: 'bazaar_node', betteritems: 'better_items', fasteritems: 'faster_items', lessLegal: 'less_legal', legalCat: 'legal_cat', opspermit: 'ops_permit', teleport: 'teleport', representation: 'representation', counsel: 'counsel', whoknows: 'who_knows', oddjobs: 'odd_jobs', discrim: 'discrimination', background: 'magnifier', survey: 'survey' };
+  nodeIc(k, c) { return this.mi().cell16(this.nodeIds[k], c); } // Customize-tree icons are white; tinted with the tier / category color
+  mi() { const M = window.MercIcons; if (M) return M; if (!this._miWait) this._miWait = setInterval(() => { if (window.MercIcons) { clearInterval(this._miWait); this.forceUpdate(); } }, 50); return { cells: () => [], cell16: () => [], box: () => [], solid: () => [], diffStar: () => [], tabOn: () => [], mask: () => [''], w: () => 1, h: () => 1 }; }
+  state = { tab: null, tip: null, dlg: null };
+  // Shared session state (GameState + NotificationCenter autoloads in Godot). Keep identical in Game HUD, Contract Viewer, Merc Viewer.
+  gameStore() { const w = window; return w.__mercStore || (w.__mercStore = { subs: new Set(),
+    active: { 2: { name: 'Contract 3 Name', hours: 150, reward: 2400, travelCost: 300, odds: 62, team: [{ id: 6, role: 'Leader', match: 4 }, { id: 2, role: 'Guide', match: 3.5 }] },
+      5: { name: 'Contract 6 Name', hours: 80, reward: 1100, travelCost: 120, odds: 48, team: [{ id: 1, role: 'Leader', match: 3.5 }, { id: 7, role: 'Driver', match: 2.5 }] } },
+    notifs: [
+      { id: 1, kind: 'Contract', type: 'contractCompleted', contractId: 11, urgency: 'Informational', t: 1296 * 1440 + 9 * 60 + 40, read: false },
+      { id: 2, kind: 'Contract', type: 'contractCompleted', contractId: 12, urgency: 'Informational', t: 1294 * 1440 + 16 * 60 + 5, read: false },
+      { id: 3, kind: 'Contract', type: 'contractCompleted', contractId: 13, urgency: 'Informational', t: 1290 * 1440 + 7 * 60 + 30, read: true },
+      { id: 4, kind: 'Contract', type: 'contractFailed', contractId: 14, urgency: 'Informational', t: 1295 * 1440 + 21 * 60 + 15, read: false },
+      { id: 'o101', kind: 'Finance', type: 'loanOffer', offerId: 101, snap: { lender: 'Lender 1', amount: 1500, rate: 0.08, term: 6, team: [3], odds: 71, outcome: 'exact', expiresIn: 90, approved: true, offerAmount: 1500, offerRate: 0.08, offerTerm: 6, firstDue: 2, offerFirstDue: 2 }, urgency: 'Informational', t: 1296 * 1440 + 8 * 60 + 15, read: false },
+      { id: 'o102', kind: 'Finance', type: 'loanOffer', offerId: 102, snap: { lender: 'Lender 2', amount: 1000, rate: 0.12, term: 6, team: [3, 8], odds: 83, outcome: 'better', expiresIn: 30, approved: true, offerAmount: 1200, offerRate: 0.1, offerTerm: 6, firstDue: 2, offerFirstDue: 3 }, urgency: 'Urgent', t: 1295 * 1440 + 14 * 60 + 50, read: false },
+      { id: 'o103', kind: 'Finance', type: 'loanOffer', offerId: 103, snap: { lender: 'Lender 3', amount: 4000, rate: 0.25, term: 12, team: [5], odds: 34, outcome: 'worse', expiresIn: 8, approved: false, offerAmount: 2800, offerRate: 0.29, offerTerm: 12, firstDue: 3, offerFirstDue: 1 }, urgency: 'Urgent', t: 1293 * 1440 + 11 * 60 + 20, read: false } ],
+    seenResults: { 13: true },
+    completed: [11, 12, 13, 14],
+    fired: {},
+    money: 1000, salary: {}, guildAdj: {},
+    loans: [{ id: 1, lender: 'Lender 1', principal: 2000, rate: 0.08, months: 12, paid: 4 }, { id: 2, lender: 'Lender 2', principal: 800, rate: 0.12, months: 6, paid: 1 }],
+    closedLoans: [{ id: 201, lender: 'Lender 2', principal: 600, rate: 0.12, months: 6, paid: 6, closedAs: 'Paid in Full', paidTotal: 672 }, { id: 202, lender: 'Lender 1', principal: 1200, rate: 0.08, months: 12, paid: 7, closedAs: 'Paid Off Early', paidTotal: 1263 }],
+    sub: { plan: 'pro', owned: { free: true, pro: true, enterprise: false }, up: { seats: 0, contracts: 0, discrim: 0, background: 0, survey: 0, aptitude: 0, brawn: 0, readiness: 0, personality: 0, skilltest: 0, education: 0 } },
+    modals: {}, pursuits: {}, offers: { 101: { lender: 'Lender 1', amount: 1500, rate: 0.08, term: 6, team: [3], odds: 71, outcome: 'exact', expiresIn: 90, approved: true, offerAmount: 1500, offerRate: 0.08, offerTerm: 6, firstDue: 2, offerFirstDue: 2 }, 102: { lender: 'Lender 2', amount: 1000, rate: 0.12, term: 6, team: [3, 8], odds: 83, outcome: 'better', expiresIn: 30, approved: true, offerAmount: 1200, offerRate: 0.1, offerTerm: 6, firstDue: 2, offerFirstDue: 3 }, 103: { lender: 'Lender 3', amount: 4000, rate: 0.25, term: 12, team: [5], odds: 34, outcome: 'worse', expiresIn: 8, approved: false, offerAmount: 2800, offerRate: 0.29, offerTerm: 12, firstDue: 3, offerFirstDue: 1 }, 104: { lender: 'Lender 4', amount: 2000, rate: 0.14, term: 12, team: [], odds: 58, outcome: 'exact', expiresIn: 60, approved: true, offerAmount: 2000, offerRate: 0.14, offerTerm: 12, firstDue: 2, offerFirstDue: 2 }, 105: { lender: 'Lender 5', amount: 3000, rate: 0.18, term: 24, team: [1], odds: 49, outcome: 'worse', expiresIn: 20, approved: false, offerAmount: 2200, offerRate: 0.21, offerTerm: 24, firstDue: 4, offerFirstDue: 3 } }, now: 1296 * 1440 + 10 * 60,
+    emit() { this.subs.forEach(f => f()); },
+    dispatch(id, run) { this.active = { ...this.active, [id]: run }; this.emit(); },
+    markRead(nid) { this.notifs = this.notifs.map(n => n.id === nid ? { ...n, read: true } : n); this.emit(); },
+    readContract(cid) { if (this.notifs.some(n => n.contractId === cid && !n.read)) { this.notifs = this.notifs.map(n => n.contractId === cid ? { ...n, read: true } : n); this.emit(); } },
+    setSalary(id, v, shift) { this.salary = { ...this.salary, [id]: v }; this.guildAdj = { ...this.guildAdj, [id]: (this.guildAdj[id] || 0) + (shift || 0) }; this.emit(); },
+    adjOpinion(id, d) { this.guildAdj = { ...this.guildAdj, [id]: (this.guildAdj[id] || 0) + d }; this.emit(); },
+    addLoan(l) { this.loans = [...this.loans, { ...l, id: Date.now(), paid: 0 }]; this.money += l.principal; this.emit(); },
+    payOff(id, amt) { const l = this.loans.find(x => x.id === id); this.loans = this.loans.filter(x => x.id !== id); this.money -= amt;
+      if (l) this.closedLoans = [...this.closedLoans, { ...l, closedAs: 'Paid Off Early', paidTotal: Math.ceil(l.principal * (1 + l.rate) / l.months) * l.paid + amt }]; this.emit(); },
+    requestLoan(req) { const id = Date.now(); this.pursuits = { ...this.pursuits, [id]: req }; this.emit();
+      setTimeout(() => { const p = this.pursuits[id]; if (!p) return; const rest = { ...this.pursuits }; delete rest[id]; this.pursuits = rest;
+        const roll = Math.random() * 100, outcome = p.team.length && roll < p.odds * 0.3 ? 'better' : roll < p.odds ? 'exact' : 'worse';
+        const amt = outcome === 'better' ? p.amount * 1.2 : outcome === 'worse' ? p.amount * (0.55 + Math.random() * 0.3) : p.amount;
+        const rate = outcome === 'better' ? Math.max(0.02, p.rate - 0.02) : outcome === 'worse' ? p.rate + 0.03 + Math.round(Math.random() * 4) / 100 : p.rate;
+        const offer = { ...p, outcome, approved: outcome !== 'worse', offerAmount: Math.max(100, Math.round(amt / 100) * 100), offerRate: +rate.toFixed(2), offerTerm: p.term, offerFirstDue: Math.max(1, Math.min(6, (p.firstDue ?? 2) + (outcome === 'better' ? 1 : outcome === 'worse' ? -1 : 0))), expiresIn: 72 };
+        this.offers = { ...this.offers, [id]: offer }; this.now += 30;
+        this.notifs = [...this.notifs, { id: 'o' + id, kind: 'Finance', type: 'loanOffer', offerId: id, snap: offer, urgency: 'Informational', t: this.now, read: false }]; this.emit(); }, req.delay || 8000); return id; },
+    resolveOffer(id, accept) { const o = this.offers[id]; if (!o) return; const rest = { ...this.offers }; delete rest[id]; this.offers = rest;
+      this.notifs = this.notifs.map(n => n.offerId === id ? { ...n, read: true } : n);
+      if (accept) { this.loans = [...this.loans, { id, lender: o.lender, principal: o.offerAmount, rate: o.offerRate, months: o.offerTerm || o.term, firstDue: o.offerFirstDue ?? o.firstDue ?? 2, paid: 0 }]; this.money += o.offerAmount;
+        // Accepting one offer auto-rejects all other open offers.
+        const others = Object.keys(this.offers).map(Number); this.offers = {}; this.notifs = this.notifs.map(n => others.includes(n.offerId) ? { ...n, read: true } : n); } this.emit(); },
+    readOffer(id) { if (this.notifs.some(n => n.offerId === id && !n.read)) { this.notifs = this.notifs.map(n => n.offerId === id ? { ...n, read: true } : n); this.emit(); } },
+    setModal(k, v) { const m = { ...this.modals }; if (v) m[k] = true; else delete m[k]; this.modals = m; this.emit(); },
+    // Generic notification escalation (NotificationCenter in Godot). Each rule: which triggers are still open, hours left, and how to build the notification.
+    // >= 72h left → Informational (as created). < 72h → Urgent: replaces any older notif for that trigger (even if dismissed) and re-fires every 8h until the trigger is handled.
+    notifRules: {
+      loanOffer: { key: 'offerId', open: st => Object.keys(st.offers).map(Number), hoursLeft: (st, id) => st.offers[id].expiresIn ?? 72, make: (st, id) => ({ kind: 'Finance', type: 'loanOffer', offerId: id, snap: st.offers[id] }) },
+    },
+    escalate() { let changed = false;
+      for (const [type, rule] of Object.entries(this.notifRules)) for (const id of rule.open(this)) {
+        if (rule.hoursLeft(this, id) >= 72) continue;
+        const mine = this.notifs.filter(n => n.type === type && n[rule.key] === id), last = mine[mine.length - 1];
+        if (!last || last.urgency !== 'Urgent' || (last.read && this.now - last.t >= 8 * 60)) {
+          this.notifs = [...this.notifs.filter(n => !(n.type === type && n[rule.key] === id)), { id: type + ':' + id + ':' + this.now, ...rule.make(this, id), urgency: 'Urgent', t: this.now, read: false }]; changed = true; } }
+      if (changed) this.emit(); },
+    tick(minutes) { this.now += minutes; Object.values(this.offers).forEach(o => { o.expiresIn = Math.max(0, (o.expiresIn ?? 72) - minutes / 60); }); this.escalate(); this.emit(); }, // call from the game clock
+    // Money payout animation: Game HUD registers flyHandler (notes fly to the money readout). Without a HUD, money is added directly.
+    flyMoney(amount, done) { const fin = () => { this.money += amount; this.emit(); if (done) done(); };
+      if (this.flyHandler) this.flyHandler(amount, fin); else setTimeout(fin, 400); },
+    // Subscription (SubscriptionManager autoload). Upgrades persist; they only apply while plan === 'enterprise'.
+    buyPlan(k, cost) { this.money -= cost; this.sub = { ...this.sub, plan: k, owned: { ...this.sub.owned, [k]: true } }; this.emit(); },
+    // Leaving Enterprise forfeits all purchased upgrades (must be re-bought). Downgrading to Free trims the contract board to 5 on the next billing day (engine-side).
+    setPlan(k) { const up = this.sub.plan === 'enterprise' && k !== 'enterprise' ? { seats: 0, contracts: 0, discrim: 0, background: 0, survey: 0, aptitude: 0, brawn: 0, readiness: 0, personality: 0, skilltest: 0, education: 0 } : this.sub.up; this.sub = { ...this.sub, plan: k, owned: { ...this.sub.owned, [k]: true }, up }; this.emit(); },
+    // Locked Page › Take Me There: Game HUD registers navHandler (closes open windows, opens Subscription › Plans).
+    goToPlans(target) { if (this.navHandler) this.navHandler(target || { tab: 'plans' }); }, // target: { tab: 'plans' | 'customize', upgrade?, tier? }
+    setUpgrade(k, t) { this.sub = { ...this.sub, up: { ...this.sub.up, [k]: t } }; this.emit(); }, // monthly service tier (Enterprise); billing handled by caller
+    buyUpgrade(k, cost) { this.money -= cost; this.sub = { ...this.sub, up: { ...this.sub.up, [k]: this.sub.up[k] + 1 } }; this.emit(); },
+    entitlements() { const p = this.sub.plan, e = p === 'enterprise', u = e ? this.sub.up : { seats: 0, contracts: 0, discrim: 0, background: 0, survey: 0, aptitude: 0, brawn: 0, readiness: 0, personality: 0, skilltest: 0, education: 0 };
+      return { plan: p, perMerc: p === 'pro' ? 5 : e ? 15 : 0, maxMercs: p === 'free' ? 5 : Math.min(50, 20 + u.seats * 5), maxContracts: p === 'free' ? 5 : 12 + (u.contracts || 0) * 2, metrics: p !== 'free',
+        ancestry: u.discrim >= 1, bloodline: u.discrim >= 2, age: u.discrim >= 3, heritage: u.background >= 1, perks: u.background >= 2, drawbacks: u.background >= 3, skills: u.background >= 4, criminality: (u.criminal || 0) >= 1, lifepath: u.background >= 5, contractMetrics: (u.contractmetrics || 0) >= 1, mercMetrics: u.mercmetrics || 0, pip: (u.pip || 0) >= 1, lvSupport: (u.combatpip || 0) >= 1, lvDefensive: (u.combatpip || 0) >= 2, lvOffensive: (u.combatpip || 0) >= 3, lvExisting: (u.skillpip || 0) >= 1, lvNewSkills: (u.skillpip || 0) >= 2, lvUniversal: (u.skillpip || 0) >= 3, lvAncestral: (u.skillpip || 0) >= 4, lvTradition: (u.skillpip || 0) >= 5, lvSpell: (u.magicpip || 0) >= 1, physical: p !== 'free', cognition: (u.aptitude || 0) >= 1, vigor: (u.brawn || 0) >= 1, dexterity: (u.readiness || 0) >= 1, wile: (u.personality || 0) >= 1, tools: (u.skilltest || 0) >= 1, knowledges: (u.education || 0) >= 1,
+        guildOpinion: (u.survey || 0) >= 1, relationships: (u.peer || 0) >= 1, clientOpinion: (u.customer || 0) >= 1, surveyRefresh: (u.survey || 0) >= 1 ? ['quarterly', 'monthly', 'weekly', 'daily', 'instant', 'instant'][Math.min(5, u.fastmetrics || 0)] : 'none', predictive: (u.fastmetrics || 0) >= 5, /* Rapid Survey tiers set survey frequency; tier 5 = predictive previews */ veryFast: p !== 'free', oddJobs: (u.oddjobs || 0) /* max mercs on Odd Jobs (0 = locked); tier ≥ 1 also unlocks the Odd Job Default Bonus setting */, bazaar: (u.bazaar || 0) >= 1, bazaarRarity: u.betteritems || 0 /* 0 Ordinary only · 1 Common · 2 Uncommon · 3 Rare · 4 Very Rare */, bazaarSpeed: u.fasteritems || 0 /* delivery 20 → 15/14/11/10 days → 2 days */, opsPermits: u.opspermit || 0 /* 1 most nations · 2 all nations · 3 other Domains */, teleport: u.teleport || 0 /* 1 guild circle + most nations · 2 all nations · 3 other Domains */, representation: u.representation || 0 /* dismissal chance on incur */, whoKnows: u.whoknows || 0 /* future bail/fine/sentence/fee reductions */, counsel: u.counsel || 0 /* +5/7/9/13/15% Renegotiate odds per merc */, promotions: (u.promotions || 0) >= 1 /* Promotions upgrade: My Promotions window + Job Postings + Flyers */, jobPostings: (u.promotions || 0) >= 1, maxPromoDays: (u.promotions || 0) >= 1 ? [5, 10, 17, 25, 30, Infinity][Math.min(5, u.longpromos || 0)] : 0 /* Long Promos; Infinity = runs until ended, billed monthly */, adBoost: [0, 5, 7, 12, 15, 20, 25][Math.min(6, u.marketing || 0)] /* Marketing Agency: % ad effectiveness */, guildPromo: (u.guildpromo || 0) >= 1, gpMinDifficulty: (u.guildpromo || 0) >= 2, gpMaxDifficulty: (u.guildpromo || 0) >= 3, gpContractType: (u.guildpromo || 0) >= 4, hiringDiscrim: (u.discrim || 0) >= 4 /* Discrimination IV: see + filter ancestry/bloodline/age on applicants and job postings */, adDirect: (u.promomethods || 0) >= 1, adRadio: (u.promomethods || 0) >= 2, adSponsor: (u.promomethods || 0) >= 3 /* Promo Methods tiers I–III; Word of Mouth comes with Odd Jobs */ }; },
+    fire(id) { this.fired = { ...this.fired, [id]: true }; this.emit(); },
+    markSeen(cid) { if (!this.seenResults[cid]) { this.seenResults = { ...this.seenResults, [cid]: true }; this.emit(); } } }); }
+  get noteMap() { return this.mi().mask('note'); } /* Notes symbol */
+  checkMap = ['......#', '.....##', '#...##.', '##.##..', '.###...', '..#....', '.......'];
+  xMap = ['#.....#', '.#...#.', '..#.#..', '...#...', '..#.#..', '.#...#.', '#.....#'];
+  tabIcons = {
+    free: { pal: { g: '#6cc36a', '#': '#0a0f1c' }, map: ['............', '.....gg.....', '...gggg.....', '..ggggg.gg..', '..gggg.gggg.', '...gg.ggggg.', '.....gggg...', '.....gg.....', '.....gg.....', '.....gg.....', '...######...', '............'] },
+    pro: { pal: { y: '#f2d33d' }, map: ['.....yy.....', '.....yy.....', '....yyyy....', 'yyyyyyyyyyyy', '.yyyyyyyyyy.', '..yyyyyyyy..', '...yyyyyy...', '..yyyyyyyy..', '..yyy..yyy..', '.yyy....yyy.', '.yy......yy.', '............'] },
+    enterprise: { pal: { y: '#f2d33d', r: '#e8583f', '#': '#0a0f1c' }, map: ['............', 'y....yy....y', 'yy..yyyy..yy', 'yyy.yyyy.yyy', 'yyyyyyyyyyyy', 'yyyyyyyyyyyy', 'yrryyyyyrryy', 'yrryyyyyrryy', 'yyyyyyyyyyyy', '............', '############', '............'] },
+  };
+  nodeIcons = {
+    promoCat: ['..........#.', '........###.', '......##..#.', '.####.....#.', '.#..#.....#.', '.#..#.....#.', '.####.....#.', '..#...##..#.', '..#.....###.', '..##......#.', '............', '............'],
+    promotions: ['.....##.....', '..########..', '..#......#..', '..#.####.#..', '..#......#..', '..#.####.#..', '..#.##...#..', '..#......#..', '..#.###..#..', '..#......#..', '..########..', '............'],
+    promomethods: ['.....##.....', '..#..##..#..', '.#.#....#.#.', '.#..#..#..#.', '..#..##..#..', '.....##.....', '....#..#....', '....#..#....', '...#....#...', '...######...', '..#......#..', '..#......#..'],
+    longpromos: ['.##########.', '..#......#..', '..#......#..', '...#....#...', '....#..#....', '.....##.....', '.....##.....', '....#..#....', '...#.##.#...', '..#.####.#..', '..########..', '.##########.'],
+    marketing: ['............', '........####', '..........##', '.........#.#', '........#..#', '...#...#....', '..#.#.#.....', '.#...#......', '#...........', '............', '############', '............'],
+    guildpromo: ['.##########.', '.#........#.', '.#...##...#.', '.#...##...#.', '.#.######.#.', '.#..####..#.', '.#..#..#..#.', '.#........#.', '..#......#..', '...#....#...', '....#..#....', '.....##.....'],
+    metricsCat: ['............', '..........#.', '.........#..', '....#...#...', '...#.#.#....', '..#...#.....', '.#..........', '#...........', '............', '############', '............', '............'],
+    // Metrics hangs right of Background Check (on the bus row): Merc Metrics → Employee Survey → Peer Review; Contract Metrics + Employee Survey → Customer Satisfaction; Peer + Customer → Rapid Survey.
+    contractmetrics: ['............', '.########...', '.#......#...', '.#.####.#...', '.#......#.#.', '.#.###..#.#.', '.#......#.#.', '.########.#.', '...#......#.', '...########.', '............', '............'],
+    mercmetrics: ['....####....', '...#....#...', '...#....#...', '....####....', '..########..', '.#........#.', '............', '#.........#.', '#.#.......#.', '#.#.#...#.#.', '#.#.#.#.#.#.', '############'],
+    coaching: ['............', '.........##.', '........#..#', '.....####.#.', '....#....#..', '#######...#.', '#.........#.', '#######...#.', '....#....#..', '.....####...', '............', '............'], // whistle (mouthpiece + round chamber + lanyard ring)
+    pip: ['....####....', '.##########.', '.#........#.', '.#.#....#.#.', '.#..#..#..#.', '.#...##...#.', '.#........#.', '.#.######.#.', '.#........#.', '.#.####...#.', '.##########.', '............'],
+    combatpip: ['..........##', '.........###', '........###.', '.......###..', '......###...', '.##..###....', '..#####.....', '...###......', '..#####.....', '.##...##....', '##..........', '............'],
+    skillpip: ['.....##.....', '.....##.....', '....####....', '############', '.##########.', '..########..', '...######...', '..###..###..', '..##....##..', '.##......##.', '............', '............'],
+    magicpip: ['.........#..', '........###.', '.........#..', '......##....', '.....##.....', '....##......', '...##.......', '..##........', '.##.........', '##..........', '............', '.......#....'],
+    peer: ['............', '.###....###.', '#...#..#...#', '#...#..#...#', '.###....###.', '............', '###########.', '#.........#.', '#.###.###.#.', '#.........#.', '###########.', '............'],
+    customer: ['............', '....####....', '...#....#...', '...#....#...', '....####....', '............', '.##########.', '#..........#', '#.#.####.#.#', '#..........#', '############', '............'],
+    fastmetrics: ['............', '..........#.', '.........##.', '........#.#.', '.......#..#.', '..#...#.....', '.#.#.#......', '#...#.......', '............', '############', '............', '............'],
+    criminal: ['............', '.##########.', '.#.#.#.#.#..', '.#.#.#.#.#..', '.#.#.#.#.#..', '.#.#.#.#.#..', '.#.#.#.#.#..', '.#.#.#.#.#..', '.#.#.#.#.#..', '.##########.', '............', '............'],
+    testing: ['....####....', '.....##.....', '.....##.....', '.....##.....', '....#..#....', '...#....#...', '..#......#..', '.#.######.#.', '#.########.#', '#..........#', '.##########.', '............'],
+    aptitude: ['....####....', '..##....##..', '.#..#..#..#.', '#...#..#...#', '#..##..##..#', '#....##....#', '.#..#..#..#.', '..##....##..', '....####....', '.....##.....', '....####....', '............'],
+    brawn: ['............', '..##.##.##..', '.#########..', '.##########.', '.##########.', '.#########..', '..########..', '...######...', '...######...', '...######...', '............', '............'],
+    readiness: ['.......##...', '......##....', '.....##.....', '....##......', '...#######..', '......##....', '.....##.....', '....##......', '...##.......', '..##........', '............', '............'],
+    personality: ['............', '.##########.', '#..........#', '#..##..##..#', '#..##..##..#', '#..........#', '#..#....#..#', '#...####...#', '.#........#.', '..########..', '............', '............'],
+    skilltest: ['.........##.', '........#..#', '.......#..#.', '......#..#..', '.....#..#...', '....#..#....', '...##.#.....', '..####......', '.####.......', '####........', '.##.........', '............'],
+    education: ['............', '.####..####.', '#....##....#', '#.##.##.##.#', '#....##....#', '#.##.##.##.#', '#....##....#', '#.##.##.##.#', '#....##....#', '.####..####.', '............', '............'],
+    contracts: ['............', '..########..', '..#......#..', '..#.####.#..', '..#......#..', '..#.####.#..', '..#......#..', '..#.###..#..', '..#......#..', '..########..', '............', '............'],
+    limits: ['............', '..####......', '.#....#.....', '.#..####....', '.#..#.#.#...', '..####..#...', '....#..####.', '....#.#.#..#', '.....####..#', '......#....#', '.......####.', '............'],
+    base: ['............', '............', '..########..', '..#......#..', '..#......#..', '..#......#..', '..#......#..', '..#......#..', '..#......#..', '..########..', '............', '............'],
+    seats: ['....####....', '...######...', '...######...', '...######...', '....####....', '............', '..########..', '.##########.', '############', '############', '############', '............'],
+    insights: ['............', '...######...', '..#......#..', '.#..####..#.', '#..##..##..#', '#..##..##..#', '.#..####..#.', '..#......#..', '...######...', '............', '............', '............'],
+    bazaarCat: ['............', '############', '#.##.##.##.#', '############', '.#........#.', '.#.##..##.#.', '.#.##..##.#.', '.#........#.', '.#..####..#.', '.#..#..#..#.', '############', '............'], // market stall
+    bazaar: ['....####....', '...#....#...', '...#....#...', '.##########.', '.#........#.', '.#........#.', '.#..####..#.', '.#........#.', '.#........#.', '.#........#.', '.##########.', '............'], // shopping bag
+    betteritems: ['............', '...######...', '..#.#..#.#..', '.#..#..#..#.', '############', '.#..#..#..#.', '..#..#.#.#..', '...#..#.#...', '....#.##....', '.....##.....', '............', '............'], // gem
+    fasteritems: ['............', '.....######.', '.....#....#.', '####.#....#.', '.....#....#.', '.###.######.', '.....#....#.', '..##.#....#.', '.....######.', '............', '............', '............'], // speeding parcel
+    lessLegal: ['............', '............', '............', '.##########.', '############', '##..####..##', '#....##....#', '##..####..##', '############', '.####..####.', '............', '............'], // bandit mask
+    legalCat: ['............', '.####.......', '.####.......', '.####.#.....', '.####..#....', '.......#....', '........#...', '.........#..', '..........#.', '....######..', '...########.', '............'], // gavel
+    opspermit: ['............', '.########...', '.#......#...', '.#.####.#...', '.#......#...', '.#.###..#...', '.#......#...', '.#.##.####..', '.#....#..#..', '.######..#..', '......####..', '............'], // permit + seal
+    teleport: ['....####....', '..##....##..', '.#..####..#.', '#..#....#..#', '#.#..##..#.#', '#.#.#..#.#.#', '#.#.#..#.#.#', '#.#..##..#.#', '#..#....#..#', '.#..####..#.', '..##....##..', '....####....'], // circle
+    representation: ['............', '....####....', '....#..#....', '.##########.', '.#........#.', '.#........#.', '.####..####.', '.#...##...#.', '.#........#.', '.#........#.', '.##########.', '............'], // briefcase
+    counsel: ['.....##.....', '.....##.....', '.##########.', '.#...##...#.', '.#...##...#.', '###..##..###', '###..##..###', '.....##.....', '.....##.....', '....####....', '...######...', '............'], // scales
+    whoknows: ['............', '...######...', '...######...', '.##########.', '............', '...######...', '..#......#..', '..#.#..#.#..', '..#......#..', '...#.##.#...', '....####....', '............'], // hat + face
+    oddjobs: ['....####....', '.....##.....', '....####....', '...#....#...', '..#......#..', '.#...##...#.', '.#..#......#', '.#...##....#', '.#.....#...#', '.#..##.....#', '..#......#..', '...######...'], // coin pouch
+    discrim: ['............', '.....##.....', '.....##.....', '.....##.....', '..########..', '.#...##...#.', '#....##....#', '.#...##...#.', '..########..', '.....##.....', '.....##.....', '............'], // shushing mouth (finger over lips)
+    background: ['....####....', '...#....#...', '..#......#..', '..#......#..', '..#......#..', '...#....#...', '....####....', '.......##...', '........##..', '.........##.', '..........##', '............'],
+    survey: ['...######...', '.##..##..##.', '.#........#.', '.#.##.###.#.', '.#........#.', '.#.##.###.#.', '.#........#.', '.#.##.###.#.', '.#........#.', '.#........#.', '.##########.', '............'],
+  };
+  // Plans (SubscriptionManager). Service fee = perMerc × employed mercs, billed monthly with Loans & Services (15th). Switching needs ≥ 1 month of the fee in notes.
+  plans = {
+    free: { name: 'Mercday Free', short: 'Free', perMerc: 0, maxMercs: 5, accent: '#6cc36a', tagline: 'Run a small crew of mercenaries at no cost!', features: ['Up to 5 mercenaries', 'Up to 5 contracts', 'Advanced Merc Manager', 'Advanced Contract Manager', 'Advanced Finance Management'] },
+    pro: { name: 'Mercday Pro', short: 'Pro', perMerc: 5, maxMercs: 20, accent: '#f2d33d', tagline: 'Grow your guild with Mercday!', features: ['Up to 20 mercenaries', 'Up to 12 contracts', 'Advanced Merc Manager', 'Advanced Contract Manager', 'Advanced Finance Management', 'Guild Metrics', 'See some physical attributes of your mercenaries'] },
+    enterprise: { name: 'Mercday Enterprise', short: 'Enterprise', perMerc: 15, maxMercs: 50, accent: '#f28c28', tagline: 'Customize Mercday for your needs!', features: ['Everything in Pro', 'Access to Plan Customization'] },
+  };
+  logoMap = ['...oooooo...', '.oo......oo.', 'o..........o', '............', '.ww......ww.', '.www....www.', '.ww.w..w.ww.', '.ww..ww..ww.', '.ww......ww.', '.ww......ww.', '.ww......ww.', '............'];
+  customizeIcon = { pal: { o: '#f28c28', w: '#f3ead7' }, map: ['............', '..ww....ww..', '..ww....ww..', '.wwww..wwww.', '..ww....ww..', '..ww....ww..', '..ww....ww..', '..oo....ww..', '.oooo...ww..', '..oo....ww..', '..oo...wwww.', '............'] };
+  boardCount = 12; // sample: contracts currently on the board (ContractBoard in-engine)
+  // Customization blocks (CustomizeBlock.tscn). monthly[i] = MONTHLY cost of tier i+1 (cumulative: owning tier t costs sum of monthly[0..t-1] every month). PLACEHOLDER prices except Seats.
+  // Seats: tier 1 = 3/month, doubling each tier (3, 6, 12, 24, 48, 96). Mercs filling the added seats still pay the per-merc fee (5).
+  upgrades = {
+    seats: { name: 'Seats', cat: 'limits', monthly: [3, 6, 12, 24, 48, 96], tiers: ['+5 max mercenaries (25)', '+5 max mercenaries (30)', '+5 max mercenaries (35)', '+5 max mercenaries (40)', '+5 max mercenaries (45)', '+5 max mercenaries (50)'], desc: "Increase your merc roster's maximum size." },
+    contracts: { name: 'Contracts', cat: 'limits', monthly: [10, 20, 40, 80], tiers: ['+2 contract board slots (14)', '+2 contract board slots (16)', '+2 contract board slots (18)', '+2 contract board slots (20)'], desc: "Increase your contract board's maximum size." },
+    discrim: { name: 'Discrimination', cat: 'lessLegal', monthly: [20, 35, 50, 65], tiers: ['See merc ancestry', 'See merc bloodline', 'See merc age', 'Hiring Discrimination: see and filter for these traits on applicants and job postings'], desc: "Gain forbidden knowledge. You won't get sued!" },
+    background: { name: 'Background Check', cat: 'insights', monthly: [25, 40, 55, 70, 85], tiers: ['See merc heritage', 'See merc perks', 'See merc drawbacks', 'See merc skills', 'Lifepath: see each merc\'s Lifepath events'], desc: "A perfectly legal investigation into the history of your mercs." },
+    // Employee Survey family. Survey tier text is dynamic: frequency comes from Rapid Survey (see surveyFreq).
+    survey: { name: 'Employee Survey', cat: 'insights', req: { id: 'mercmetrics', tier: 1 }, monthly: [5], tiers: ['Get each merc\'s opinion of your guild in an "anonymous" survey (quarterly)'], desc: "\"Anonymously\" poll your mercs about the company." },
+    peer: { name: 'Peer Review', cat: 'insights', req: { id: 'survey', tier: 1 }, monthly: [5], tiers: ["See each merc's opinion of other mercs"], desc: "\"Anonymously\" poll your mercs about each other." },
+    customer: { name: 'Customer Satisfaction', cat: 'insights', req: { ids: ['contractmetrics', 'survey'], tier: 2 }, monthly: [5], tiers: ['See client and company opinions of your guild'], desc: "Poll your customers about your company." },
+    fastmetrics: { name: 'Rapid Survey', cat: 'insights', req: { ids: ['peer', 'customer'], tier: 2 }, monthly: [9, 9, 9, 9, 9], tiers: ['Surveys are conducted monthly (last weekday of the month)', 'Surveys are conducted weekly', 'Surveys are conducted daily', 'Survey data is instantaneous', 'Some survey data is predictive'], desc: "The same metrics, but faster!" },
+    aptitude: { name: 'Aptitude Test', cat: 'testing', monthly: [3], tiers: ['Reveal merc Cognition (CGN)'], desc: "Test the abilities of your mercs." },
+    brawn: { name: 'Brawn Test', cat: 'testing', monthly: [3], tiers: ['Reveal merc Vigor (VGR)'], desc: "Test the physicality of your mercs." },
+    readiness: { name: 'Readiness Test', cat: 'testing', monthly: [3], tiers: ['Reveal merc Dexterity (DEX)'], desc: "Test the reflexes of your mercs." },
+    personality: { name: 'Personality Test', cat: 'testing', monthly: [3], tiers: ['Reveal merc Wile (WIL)'], desc: "Learn more about the personalities of your mercs." },
+    skilltest: { name: 'Skill Test', cat: 'testing', req: { ids: ['readiness', 'aptitude'], tier: 2, exitDy: { aptitude: -18 } }, monthly: [5], tiers: ['Reveal merc Tools'], desc: "Learn the unique skills of your mercs." },
+    criminal: { name: 'Criminal Background Check', cat: 'insights', req: { ids: ['discrim', 'background'], tier: 6, sideExit: ['discrim'] }, monthly: [10], tiers: ["See each merc's Criminality rating"], desc: "A perfectly legal investigation into the misdeeds of your mercs." },
+    // Coaching › Performance Improvement Plan (level-up modes in Merc Viewer).
+    pip: { name: 'Performance Improvement Plan', cat: 'coaching', monthly: [10], tiers: ['Unlock Random, Utility, Skills, and Stats-based Performance Improvement Plans.'], desc: 'Put your mercs on a basic Performance Improvement Plan to direct them as they level up!' },
+    combatpip: { name: 'Combat PIP', cat: 'coaching', req: { id: 'pip', tier: 1 }, monthly: [2, 2, 2], tiers: ['Support: Have your merc focus on teamwork-based combat features as they level up!', 'Defensive: Have a merc focus on defensive abilities as they level up!', 'Offensive: Have a merc focus on offensive abilities as they level up!'], desc: 'Have a merc focus on their combat abilities as they level up!' },
+    skillpip: { name: 'Skill PIP', cat: 'coaching', req: { id: 'pip', tier: 1 }, monthly: [2, 2, 2, 2, 2], tiers: ['Existing Skills: Direct your merc to focus only on improving their existing skills, where possible.', 'New Skills: Direct your merc to always learn new skills, where possible.', 'Universal: Have a merc focus on broader skills as they level up!', 'Ancestral: Have a merc focus on their ancestry as they level up!', 'Tradition: Have a merc focus on their tradition as they level up!'], desc: 'Have a merc focus on their skills as they level up!' },
+    magicpip: { name: 'Magic PIP', cat: 'coaching', req: { ids: ['combatpip', 'skillpip'], tier: 4 }, monthly: [2], tiers: ['Spell: Have a merc focus on spellcasting as they level up!'], desc: 'Have a merc focus on their magical abilities as they level up!' },
+    // Insights › Metrics (subcategory). Contract Metrics = full Contract Graph. Merc Metrics I = merc averages, II = individual mercs, III = merc comparison.
+    contractmetrics: { name: 'Contract Metrics', cat: 'insights', req: { id: 'background', tier: 1 }, monthly: [1], tiers: ['View details metrics for your contracts via the Contract Graph'], desc: 'See how your contracts perform over time.' },
+    mercmetrics: { name: 'Merc Metrics', cat: 'insights', req: { id: 'background', tier: 3 }, monthly: [1, 1, 1], tiers: ['See Merc averages via the Merc Graph', 'Select individual mercs on the Merc Graph', 'Compare two mercs on the Merc Graph'], desc: 'See how your mercs perform over time.' },
+    // Less Legal (category). Discrimination + Criminal Background Check also belong here (alsoCat) while still stemming from Insights. PLACEHOLDER prices.
+    oddjobs: { name: 'Odd Jobs', cat: 'lessLegal', monthly: [15, 25, 40], tiers: ['Send 1 merc on Odd Jobs', 'Send up to 2 mercs on Odd Jobs', 'Send up to 3 mercs on Odd Jobs'], desc: 'Send your idle mercs out on Odd Jobs for a little extra coin.' },
+    // Legal (category). Permits are kept forever once bought; losing the upgrade only disables using/requesting them.
+    opspermit: { name: 'Operations Permits', cat: 'legalCat', monthly: [50, 50, 50], tiers: ['Request and use Operations Permits from most nations', 'Request and use Operations Permits from all nations', 'Request and use Operations Permits from other Domains'], desc: 'Operate in new locations. If you lose this upgrade you lose access to your permits and their benefits, but you keep them and never need to buy them again.' },
+    teleport: { name: 'Teleportation Permit', cat: 'legalCat', req: { id: 'opspermit', tier: 2 }, monthly: [50, 50, 50], tiers: ['Add a teleportation circle to your guild and use it', 'Request Teleportation Permits from all nations', 'Request Teleportation Permits from other Domains'], desc: 'Teleport your mercs to and from permitted locations.' },
+    // Representation: dismissal is rolled once, when a fine or charge is incurred. Baseline 1–10% by tier band, then flexed by the severity of the charge and the fine's reasoning (LegalManager).
+    representation: { name: 'Representation', cat: 'legalCat', req: { id: 'opspermit', tier: 1 }, monthly: [500, 500, 500], tiers: ['Very low chance for a fine or legal charge to be dismissed', 'Low chance for a fine or legal charge to be dismissed', 'Moderate chance for a fine or legal charge to be dismissed'], desc: 'Keep a lawyer on retainer.' },
+    counsel: { name: 'Advisory Counsel', cat: 'legalCat', req: { ids: ['representation', 'oddjobs'], tier: 5 }, monthly: [100, 100, 100, 100, 100], tiers: ['Boosts Renegotiate Odd Job success chances by 5% per merc', 'Boosts Renegotiate Odd Job success chances by 7% per merc', 'Boosts Renegotiate Odd Job success chances by 9% per merc', 'Boosts Renegotiate Odd Job success chances by 13% per merc', 'Boosts Renegotiate Odd Job success chances by 15% per merc'], desc: 'Your lawyer advises your mercs before they "renegotiate".' },
+    whoknows: { name: 'Who Knows a Guy', cat: 'lessLegal', monthly: [17, 17, 17, 17, 17, 17, 17, 17], tiers: ['Reduce future Bail and Fines by 5%', 'Reduce future Prison Time by 5%', 'Reduce future Bail and Fines by 20%', 'Reduce future Prison Time by 15%', 'Reduce future Bail and Fines by 25%', 'Reduce future Prison Time by 20%', 'Reduce future Fine Fees by 50%', 'Ignore future Fine Fees'], desc: 'It\'s not what you know. Only affects future fines, bail, and sentences.' },
+    // Bazaar (category). Orders take 20 days by default. PLACEHOLDER price on the unlock.
+    bazaar: { name: 'Bazaar', cat: 'bazaarCat', monthly: [10], tiers: ['Unlock the Bazaar (orders take 20 days to arrive)'], desc: 'Open an account at the Bazaar to buy gear for your mercs.' },
+    betteritems: { name: 'Better Items', cat: 'bazaarCat', req: { id: 'bazaar', tier: 1 }, monthly: [5, 5, 5, 5], tiers: ['Common items are available', 'Uncommon items are available', 'Rare items are available', 'Very Rare items are available'], desc: 'Increases the rarity of items available in the Bazaar.' },
+    fasteritems: { name: 'Faster Items', cat: 'bazaarCat', req: { id: 'bazaar', tier: 1 }, monthly: [2, 2, 2, 2, 2], tiers: ['Deliveries arrive 25% faster', 'Deliveries arrive 30% faster', 'Deliveries arrive 45% faster', 'Deliveries arrive 50% faster', '2-Day delivery on all items'], desc: 'Increases the delivery speed of Bazaar orders.' },
+    // Promotions (category). Odd Jobs already grants Word of Mouth, so Promo Methods covers the paid methods only. PLACEHOLDER prices on Promotions, Long Promos, Guild Promo.
+    promotions: { name: 'Promotions', cat: 'promoCat', monthly: [20], tiers: ['Unlock the Promotions tab and Job Postings, with Flyers ads (promos run up to 5 days)'], desc: 'Open a Promotions account to post jobs and advertise your guild.' },
+    promomethods: { name: 'Promo Methods', cat: 'promoCat', req: { id: 'promotions', tier: 1 }, monthly: [25, 25, 25], tiers: ['Unlock Direct Sale ads (Guild Promo only)', 'Unlock Radio ads', 'Unlock Sponsorship ads'], desc: 'Unlock additional advertising methods. Word of Mouth comes with Odd Jobs.' },
+    longpromos: { name: 'Long Promos', cat: 'promoCat', req: { id: 'promotions', tier: 1 }, monthly: [10, 10, 15, 15, 25], tiers: ['Promos can run up to 10 days', 'Promos can run up to 17 days', 'Promos can run up to 25 days', 'Promos can run up to 30 days', 'Promos can run indefinitely (billed monthly)'], desc: 'Increase the maximum duration of your advertisements (base 5 days).' },
+    marketing: { name: 'Marketing Agency', cat: 'promoCat', req: { id: 'promotions', tier: 1 }, monthly: [45, 45, 45, 45, 45, 45], tiers: ['Ads are 5% more effective', 'Ads are 7% more effective', 'Ads are 12% more effective', 'Ads are 15% more effective', 'Ads are 20% more effective', 'Ads are 25% more effective'], desc: 'Hire a marketing agency to make every ad more effective.' },
+    guildpromo: { name: 'Guild Promo', cat: 'promoCat', req: { ids: ['promomethods', 'marketing'], tier: 5 }, monthly: [30, 10, 10, 10], tiers: ['Unlock Guild Promotion', 'Guild Promotion: set a Minimum Difficulty', 'Guild Promotion: set a Maximum Difficulty', 'Guild Promotion: choose Contract Types'], desc: 'Promote your guild to attract new contracts.' },
+    education: { name: 'Education Exam', cat: 'testing', req: { ids: ['background', 'aptitude'], tier: 6, exitDy: { aptitude: 18 }, topExit: ['background'] }, monthly: [7], tiers: ['Reveal merc Knowledges'], desc: "Learn what your mercs have learned." },
+  };
+  // Sample budget from Finance (FinanceManager): monthly income and non-subscription expenses (payroll, loans, guild, travel).
+  budget = { income: 3200, otherExpenses: 1850 };
+  // Skill tree world (1600×1000, Base at center). Nodes by CENTER point. Categories are non-interactive boxes.
+  world = { w: 5200, h: 2900 }; OY = 780; X0 = 1900; // tree spans col −11 (Guild Promo, x 415) … col 16 (x 4060) // X0 = Base x in the world; content layer is offset by OY (Coaching uses negative y above Base)
+  // ===== Customize layout (grid-snapped; all connectors are derived from rules, nothing hand-routed) =====
+  // Grid: x = X0 + col·GX, y = 500 + row·GY. Siblings sit 2 rows apart; gated columns 2 cols apart.
+  GX = 135; GY = 76; // compact grid for 92px modules (siblings 2 rows = 152px; gated columns 2 cols = 270px)
+  BR = 6 - 62 / this.GY; // "bus row": the row of the line under Base (bus y = category top − 40). Insights + Background Check + Metrics sit on it.
+  // One bus under Base (left → right): Bazaar · Legal · Less Legal · Insights (bus ends in its left side) → Background Check → Metrics. Testing sits straight right of Base.
+  // Base → left: Limits (and a drop to Bazaar under it) · up: Coaching · right: Testing (raised) · bottom: two branches — left splits to Legal + Less Legal, right to Insights.
+  place = { base: [0, 0],
+    seats: [-5.5, -5.5], contracts: [-3.5, -5.5], /* Limits forks UP */
+    promotions: [-8, 0], promomethods: [-9, -4], longpromos: [-7, -4] /* 1.5 cols clear of Seats */, marketing: [-9, 4], guildpromo: [-11, 0], /* Promotions: branches up + down; Guild Promo gated left of Promo Methods + Marketing Agency */
+    pip: [0, -5.5], combatpip: [-1, -9.5], skillpip: [1, -9.5], magicpip: [0, -13.5],
+    personality: [4, -6], readiness: [4, -4], brawn: [4, -2], aptitude: [4, 0], skilltest: [6, -2], education: [8.5, 1],
+    bazaar: [-4.5, 5.5], betteritems: [-5.5, 10], fasteritems: [-3.5, 10], /* same row as Teleportation Permit + Representation */ /* Bazaar runs DOWN under its category, mirroring Limits (up) */
+    opspermit: [-1, 5.5], teleport: [-2, 10], representation: [0, 10],
+    whoknows: [0.25, 6.5], oddjobs: [1.75, 6.5], discrim: [3.25, 6.5], /* evenly spaced (1.5 cols) */
+    counsel: [1.75, 10 + 138 / 76], /* its join row (top − 92) = Representation's row, so Representation's line runs straight across */
+    criminal: [5.25, 10], /* right of Discrimination; Discrimination's line leaves its right side and drops in */
+    background: [6.5, 3.5],
+    // Metrics hangs right of Background Check: Merc Metrics → Employee Survey → Peer Review; Contract Metrics + Employee Survey → Customer Satisfaction; Peer + Customer → Rapid Survey.
+    contractmetrics: [10, 2.5], mercmetrics: [10, 4.5], survey: [12, 4.5], customer: [14, 2.5], peer: [14, 6.5], fastmetrics: [16, 4.5] }; // metrics upgrades are Insights upgrades gated by Background Check /* gated rows sit 4 rows below their sources so the join line clears the source labels */ // Criminal sits under Discrimination; Background Check's line joins Discrimination's drop above the gate
+  get tree() { if (!this._tree) this._tree = Object.entries(this.place).map(([id, [c, r]]) => ({ id, cx: this.X0 + c * this.GX, cy: 500 + r * this.GY, size: id === 'base' ? 100 : 92 })); /* 92 fits a 9-tier pip bar (9×7 + 8×2 + 4) with padding */ return this._tree; }
+
+  // Categories. side: where kids hang (left/right = spine; up/down = straight). via: how Base reaches it (left, top, bottom, trunk = right-hand trunk). parent: subcategory of.
+  // side: left/right = spine; up/down = straight; fork = one drop, then a bar to each kid; split = leftKids on a left spine, the rest on a right spine.
+  // via: left, top, bottom (the shared bus under Base), trunk (right of Base). link: extra line into another category's upgrade (enters its top).
+  // via: left (Base's left exit) · fork (drop off another category's incoming line, 'from') · top · trunk (right of Base) · bl / br (Base's bottom exit → left / right branch) · node (right of an upgrade, 'from').
+  catDefs = [{ id: 'limits', name: 'Limits', at: [-4.5, -2.5], via: 'leftHigh', side: 'upFork', kids: ['seats', 'contracts'], desc: 'Upgrades that raise your guild\'s caps.' },
+    { id: 'promoCat', name: 'Promotions', at: [-4.5, 0], via: 'left', side: 'left', kids: ['promotions'], desc: 'Advertise jobs and promote your guild.' },
+    { id: 'coaching', name: 'Coaching', at: [0, -2.5], via: 'top', side: 'up', kids: ['pip'], desc: 'Coach your mercs as they level up.' },
+    { id: 'testing', name: 'Testing', at: [2, 0], /* level with Base + Aptitude: one straight line */ via: 'trunk', side: 'right', kids: ['personality', 'readiness', 'brawn', 'aptitude'], desc: 'Tests that reveal your mercs\' core stats.' },
+    { id: 'bazaarCat', name: 'Bazaar', at: [-4.5, 2.5], via: 'leftLow', side: 'down', kids: ['bazaar'], desc: 'Buy gear for your mercs from the Bazaar.' },
+    { id: 'legalCat', name: 'Legal', at: [-1, 3.5], via: 'bl', side: 'down', kids: ['opspermit'], desc: 'Permits, representation, and counsel for your guild.' },
+    // Upgrades fed by several categories bill to exactly ONE (their cat): Advisory Counsel → Legal, Criminal Background Check → Insights, Education Exam → Testing.
+    { id: 'lessLegal', name: 'Less Legal', at: [1.75, 3.5], via: 'bl', side: 'fork', kids: ['whoknows', 'oddjobs', 'discrim'], desc: 'Upgrades of questionable legality.' },
+    { id: 'insights', name: 'Insights', at: [4.25, 3.5], via: 'br', side: 'right', kids: ['background'], desc: 'Upgrades that reveal hidden information about your mercs.' }];
+  get cats() { if (!this._cats) this._cats = this.catDefs.map(c => ({ ...c, cx: this.X0 + c.at[0] * this.GX, cy: 500 + c.at[1] * this.GY })); return this._cats; }
+  monthsN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // Standard red → yellow → green gradient sampled per tier (shared by the bar, tier modules, and tree icons/pips).
+  tierColor(i, max) { const f = max === 1 ? 1 : i / (max - 1), A = [0xe8, 0x58, 0x3f], B = [0xf2, 0xd3, 0x3d], C = [0x4e, 0xe0, 0x6a], [p, q, u] = f < 0.5 ? [A, B, f * 2] : [B, C, (f - 0.5) * 2]; return '#' + p.map((v, k) => Math.round(v + (q[k] - v) * u).toString(16).padStart(2, '0')).join(''); }
+  // Prerequisites: { id, tier } (single upgrade) or { ids: [...], tier } (combined points across several upgrades).
+  reqHave(r, up) { return (r.ids || [r.id]).reduce((a, k) => a + (up[k] || 0), 0); }
+  reqMet(r, up) { return !r || this.reqHave(r, up) >= r.tier; }
+  reqText(r) { const n = Math.max(0, r.tier - this.reqHave(r, this.gameStore().sub.up || {})); return n ? n + ' prior upgrade' + (n === 1 ? '' : 's') + ' still required' : 'Requirement met'; }
+  // Set a tier and cascade: any upgrade whose prerequisite is no longer met is removed (recursively).
+  setUp(id, t) { const st = this.gameStore(); st.setUpgrade(id, t);
+    Object.entries(this.upgrades).forEach(([k, U]) => { if (U.req && (U.req.ids || [U.req.id]).includes(id) && !this.reqMet(U.req, st.sub.up) && (st.sub.up[k] || 0) > 0) this.setUp(k, 0); }); }
+  upFee(up) { return Object.entries(this.upgrades).reduce((a, [k, U]) => a + U.monthly.slice(0, up[k] || 0).reduce((x, y) => x + y, 0), 0); }
+  // Lowest tier allowed while in use: Seats can't drop below what employed mercs fill; Contracts can't drop below the board's current count.
+  minTier(id, employed) { if (id === 'seats') return Math.max(0, Math.ceil((employed - 20) / 5)); if (id === 'contracts') return Math.max(0, Math.ceil((this.boardCount - 12) / 2)); return 0; }
+  viewRef = React.createRef(); tierListRef = React.createRef();
+  // Keep the "Next Tier" module in view (auto-scroll on open and after each +/−).
+  scrollNext() { const L = this.tierListRef.current; if (!L) return; const ts = this.state.tierScroll, el = (ts != null && L.querySelector('[data-tier="' + ts + '"]')) || L.querySelector('[data-next="1"]') || L.lastElementChild; if (!el) return; const k = `${this.state.tierDlg && this.state.tierDlg.id}:${(this.gameStore().sub.up || {})[this.state.tierDlg && this.state.tierDlg.id]}`; if (k === this._scK) return; const first = this._scK == null; this._scK = k;
+    const to = Math.max(0, Math.min(L.scrollHeight - L.clientHeight, el.offsetTop - L.offsetTop - 10)), from = L.scrollTop; cancelAnimationFrame(this._scRaf);
+    if (first) { L.scrollTop = to; return; } const t0 = performance.now(), dur = 260; // fast eased scroll, not a jump
+    const step = now => { const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3); L.scrollTop = from + (to - from) * e; if (p < 1) this._scRaf = requestAnimationFrame(step); }; this._scRaf = requestAnimationFrame(step); }
+  roman = n => ['I', 'II', 'III', 'IV', 'V', 'VI'][n - 1] || String(n);
+  sceneMap = [
+    { name: 'SubscriptionViewer.tscn', uses: 'root (HUD › My Mercday)', root: 'VBox › TabButton ×2 (Plans · Customize [locked unless Enterprise]) + (PlansPage | SkillTree + LockedPage)', vars: ['@export var start_tab: StringName  # plans | customize', 'func open_plans()  # from LockedPage › Take Me There (HUD closes other windows first)'] },
+    { name: 'TabButton.tscn', uses: 'shared: Finance, Merc, Subscription tab bars', root: 'Button › Icon(12×12) + Label(active only) + LockBadge + NotificationDot', vars: ['@export var label: String', '@export var icon: Texture2D', '@export var active: bool', '@export var locked: bool  # still clickable; host overlays LockedPage on the content', '@export var dot: bool'] },
+    { name: 'LockedPage.tscn', uses: 'shared overlay on any locked tab', root: 'ColorRect(dim, blocks input) › Panel › Lock + Label + TakeMeThere Button', vars: ['@export var feature: String', '@export var required_plan: String', '# text: "This feature of Mercday is not available on your plan!" / "Upgrade to [b]{plan}[/b] to use {feature}." (two lines)', 'signal take_me_there  # → GameState.go_to_plans(): close windows, open Subscription › Plans'] },
+    { name: 'PlansPage.tscn', uses: 'Plans tab', root: 'ScrollContainer › "Mercday Plans:" + PlanCard ×3 (reason Label in red above a disabled Switch button)', vars: ['# Switch disabled: current plan; Free/Pro if employed > max mercs (5/20); Pro/Enterprise if notes < 1 month fee (per_merc × employed)', '# Downgrade dialog: → Free: "N contracts will be removed from your board in X Days" (board − 5, days to 15th); leaving Enterprise: list of owned upgrades (reset to 0)'] },
+    { name: 'SubscriptionManager (autoload)', uses: 'data', root: 'Node', vars: ['var plan: Plan  # FREE, PRO, ENTERPRISE', 'var owned: Dictionary', 'var upgrades: Dictionary  # seats, discrim, background, survey → tier (kept forever)', 'func entitlements() -> Dictionary  # max_mercs, max_contracts, metrics, age, ancestry, bloodline, heritage, perks, drawbacks, skills, guild_opinion, relationships, survey_refresh, very_fast', 'signal changed  # screens read entitlements, never plan names'] },
+    { name: 'PlanCard.tscn', uses: 'x3', root: 'PanelContainer › VBox (name, price, tagline, Switch Button, "Includes", CheckRow ×N, accent strip)', vars: ['@export var plan: PlanData', '# service fee = per_merc × employed mercs, billed with Loans & Services (15th)'] },
+    { name: 'SkillTree.tscn', uses: 'x1 (Enterprise tab)', root: 'Control › Line ×N + CustomizeBlock ×N', vars: ['@export var nodes: Array[TreeNode]  # {id, parent, position}', '# Pannable world 1600×1000 (drag), Base Plan centered; Base → [Limits] → Seats, Contracts; Base → [Insights] → Discrimination, Background Check, Survey. [Category] boxes are NOT buttons'] },
+    { name: 'CustomizeBlock.tscn', uses: 'x N (repeating)', root: 'Button › Icon + TierPips', vars: ['@export var upgrade: UpgradeData  # name, costs[], tier_descriptions[]', '@export var tier: int', '# hover → tooltip; click → UpgradeTierDialog (always, Enterprise only): tier HSlider (snaps), You Have Now / After You Confirm, New Monthly Service Fee, Billed "X Notes today, Y Notes on Mon 15th" (pro-rated days_to_15th/30 on raise; no refund on lower, stops next cycle)', '# Monthly Income (top-right) = income − other expenses − new fees; raising past 0 or lowering below in-use min (Seats: employed mercs; Contracts: board count) → reject flash/shake', '# + (green, right) / − (red, left) auto-apply; center shows "N today" + "+N/month starting Mon 15th"; right box lists tiers (white = owned, gray = locked, "Next Tier" label); Exit button', '# prepaid[upgrade] = highest tier billed this cycle → re-upgrading to ≤ prepaid charges 0 today; reset on billing day', 'signal tier_changed(upgrade, tier)'] },
+    { name: 'CheckRow.tscn', uses: 'x N', root: 'HBox › Check icon + Label (included features only)', vars: ['@export var text: String'] },
+  ];
+  frameRef = React.createRef();
+  cells(map, pal) { return map.join('').split('').map(ch => ch === '.' ? 'transparent' : (pal[ch] || '#0a0f1c')); }
+  // First view of Customize: center the bounding box of Base + all top-level categories.
+  homePan(vw, vh) { const cs = this.cats.filter(c => !c.parentLabel), bx = [this.X0 - 50, this.X0 + 50, 450, 606];
+    cs.forEach(c => { bx[0] = Math.min(bx[0], c.cx - 70); bx[1] = Math.max(bx[1], c.cx + 70); bx[2] = Math.min(bx[2], c.cy - 22); bx[3] = Math.max(bx[3], c.cy + 76); }); // box edges + Total labels
+    return { x: vw / 2 - (bx[0] + bx[1]) / 2, y: vh / 2 - (bx[2] + bx[3]) / 2 - this.OY + 10 }; } // +10: small top inset
+  showTip(e, d) { if (this.state.tierDlg || this.state.dlg || this._focusing) return; /* no hover tooltips behind an open dialog/popover */ const fr = this.frameRef.current; if (!fr) return; const a = fr.getBoundingClientRect(), r = e.currentTarget.getBoundingClientRect(), k = a.width / (fr.offsetWidth || a.width), W = a.width / k, H = a.height / k;
+    const th = d.h || 150, x = Math.min((r.left - a.left) / k + 24, W - 340), below = (r.bottom - a.top) / k + 2, y = below + th > H ? Math.max(4, (r.top - a.top) / k - th) : below;
+    this.setState({ tip: { on: true, plain: !d.rich, x: x + 'px', y: y + 'px', ...d } }); }
+  syncModal() { const v = !!this.state.dlg || !!this.state.tierDlg; if (v !== !!this._mv) { this._mv = v; this.gameStore().setModal(this._mk || (this._mk = 'm' + Math.random()), v); } }
+  popRef = React.createRef();
+  // Click-outside closes the upgrade popover WITHOUT swallowing the click, so clicking another upgrade box switches straight to it.
+  onDocDown = e => { const P = this.popRef.current; if (this.state.tierDlg && P && !P.contains(e.target)) this.setState({ tierDlg: null, tierFx: null }); };
+  // Shared pulse clock: ONE requestAnimationFrame loop drives every glow/shine on this screen via CSS variables on the frame root
+  // (--g = whole-item pulse; --g0…--g7 = left→right sweep, 0.14s apart). Same 1.6s cycle and shape as the old keyframes (peak at 14%, rest from 50%).
+  pulseStart() { const shape = x => x < 0.14 ? x / 0.14 : x < 0.5 ? 1 - (x - 0.14) / 0.36 : 0, T = 1600;
+    const loop = now => { const el = this.frameRef && this.frameRef.current; if (el) { const t = (now % T) / T; el.style.setProperty('--g', shape(t).toFixed(3));
+        for (let i = 0; i < 8; i++) el.style.setProperty('--g' + i, shape(((now - i * 140) % T + T) % T / T).toFixed(3)); }
+      this._pulse = requestAnimationFrame(loop); };
+    cancelAnimationFrame(this._pulse); this._pulse = requestAnimationFrame(loop); }
+  componentDidMount() { this.pulseStart(); document.addEventListener('pointerdown', this.onDocDown, true); this.onStore = () => this.forceUpdate(); this.gameStore().subs.add(this.onStore); this.syncModal(); if (this.props.startTab) setTimeout(() => this.applyFocus(), 0); }
+  componentWillUnmount() { cancelAnimationFrame(this._pulse); document.removeEventListener('pointerdown', this.onDocDown, true); if (this._mk) this.gameStore().setModal(this._mk, false); this.gameStore().subs.delete(this.onStore); }
+  componentDidUpdate(p) { this.syncModal(); if (this.state.tierDlg) this.scrollNext(); else this._scK = null; if (p.tabNonce !== this.props.tabNonce && this.props.startTab) this.applyFocus(); }
+  // Deep link (FeatureLock › Take Me There): open tab; for an upgrade, pan it to center, open its tier dialog, and scroll the tier list to the required tier.
+  applyFocus() { const pr = this.props, id = pr.focusUpgrade, n = id && this.tree.find(x => x.id === id);
+    const next = { tab: pr.startTab, dlg: null, tip: null, tierDlg: null, tierFx: null, tierScroll: null }; // entering never restores a previously open dialog; pan persists unless a focus target is given
+    if (n && pr.startTab === 'customize') { const el = this.viewRef.current, vw = el ? el.clientWidth : 1200, vh = el ? el.clientHeight : 540, cl = (v, a, b) => Math.max(a, Math.min(b, v));
+      next.pan = { x: vw / 2 - n.cx, y: vh / 2 - n.cy - this.OY }; next.tierDlg = { id, val: (this.gameStore().sub.up || {})[id] || 0, at: { x: 440, y: 160 } }; next.tierScroll = Math.max(0, (pr.focusTier || 1) - 1); }
+    this._scK = null; this.setState(next); }
+  // Upgrade popover (400×400) opens beside the click point, clamped fully inside the 1280×720 frame.
+  popAt(e) { const fr = this.frameRef.current; if (!fr) return { x: 440, y: 160 }; const a = fr.getBoundingClientRect(), k = a.width / (fr.offsetWidth || a.width), cx = (e.clientX - a.left) / k, cy = (e.clientY - a.top) / k, W = fr.offsetWidth || 1280, H = fr.offsetHeight || 720, P = 400, m = 8;
+    let x = cx + 24; if (x + P > W - m) x = cx - 24 - P; return { x: Math.max(m, Math.min(W - P - m, x)), y: Math.max(m, Math.min(H - P - m, cy - P / 2)) }; }
+  // Click an upgrade: glide the camera so the module is centered, THEN pop the dialog out to the module's lower-left (same spot every time), clamped on-screen.
+  focusNode(n, tr) { const el = this.viewRef.current, fr = this.frameRef.current; if (!el || !fr) { this.setState({ tierDlg: { id: n.id, val: tr, at: { x: 440, y: 160 } } }); return; }
+    const vw = el.clientWidth, vh = el.clientHeight, cl = (v, a, b) => Math.max(a, Math.min(b, v)), from = this.state.pan || this.homePan(vw, vh);
+    // Focus point (no world clamp, so edge modules land in the exact same spot): right of center, near the top, leaving room for the 400px popover below-left.
+    const fx = vw / 2, fy = vh / 2, to = { x: fx - n.cx, y: fy - n.cy - this.OY }, t0 = performance.now(), dur = 220;
+    cancelAnimationFrame(this._panRaf); this._focusing = true; this.setState({ tierDlg: null, tierFx: null, tip: null });
+    const step = now => { const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3), cur = { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e };
+      if (p < 1) { this.setState({ pan: cur }); this._panRaf = requestAnimationFrame(step); return; }
+      const fa = fr.getBoundingClientRect(), k = fa.width / (fr.offsetWidth || fa.width), va = el.getBoundingClientRect(), vx = (va.left - fa.left) / k, vy = (va.top - fa.top) / k;
+      const mx = vx + to.x + n.cx, my = vy + to.y + n.cy + this.OY, W = fr.offsetWidth || 1280, H = fr.offsetHeight || 720, P = 400, m = 8;
+      // Module is dead-center; the popover pops out to its LEFT, vertically centered on it (fits the 1280×720 frame).
+      const at = { x: cl(mx - n.size / 2 - P - 10, m, W - P - m), y: cl(my - P / 2, m, H - P - m) };
+      this._focusing = false; this.setState({ pan: to, tierDlg: { id: n.id, val: tr, at }, tierRej: false, tip: null }); };
+    this._panRaf = requestAnimationFrame(step); }
+  surveyFreq(t) { return ['quarterly', 'monthly', 'weekly', 'daily', 'instantaneously', 'instantaneously'][Math.min(5, t || 0)]; } // predictive (tier 5) keeps "instantaneously"
+  renderVals() {
+    this.upgrades.survey.tiers = ['Get each merc\'s opinion of your guild in an "anonymous" survey (' + this.surveyFreq((this.gameStore().sub.up || {}).fastmetrics) + ')'];
+    const show = this.props.showScenes ?? false, s = this.state, st = this.gameStore(), sub = st.sub, tab = s.tab || this.props.startTab || 'plans', N = v => Math.round(v).toLocaleString('en-US');
+    const employed = 10 - Object.keys(st.fired || {}).length, ent = sub.plan === 'enterprise', order = { free: 0, pro: 1, enterprise: 2 };
+    const monthly = k => this.plans[k].perMerc * employed, day = Math.floor(st.now / 1440) % 30 + 1, daysToBill = ((15 - day + 30) % 30) || 30;
+    const planCards = ['free', 'pro', 'enterprise'].map(k => { const P = this.plans[k], cur = sub.plan === k, custom = cur && k === 'enterprise', tooMany = employed > P.maxMercs, poor = P.perMerc > 0 && st.money < monthly(k), dis = (cur && !custom) || tooMany || poor;
+      return { name: P.name, current: cur, accent: P.accent, ring: cur ? '#6cc36a' : '#1f3560', tagline: P.tagline, features: P.features,
+        price: P.perMerc ? P.perMerc + ' notes per merc / month' : 'Free', estimate: P.perMerc ? N(monthly(k)) + ' notes / month for your ' + employed + ' mercs' : 'No service fee',
+        switchLabel: custom ? 'Customize Plan' : cur ? 'Current Plan' : 'Switch to ' + P.short + ' Plan',
+        switchTitle: custom ? 'Open the Customize tab' : cur ? 'This is your current plan' : tooMany ? 'You have ' + employed + ' mercs. ' + P.name + ' allows up to ' + P.maxMercs + '.' : poor ? 'You need at least ' + N(monthly(k)) + ' notes (1 month of service) to switch.' : '',
+        reason: cur ? '' : tooMany ? 'You must fire ' + (employed - P.maxMercs) + ' merc' + (employed - P.maxMercs === 1 ? '' : 's') + ' before you are eligible to downgrade' : poor ? 'Not enough notes: 1 month costs ' + N(monthly(k)) + '.' : '',
+        opacity: dis ? 0.45 : 1, cursor: dis ? 'not-allowed' : 'pointer', bg: dis ? '#27324a' : '#f28c28', hi: dis ? '#34415e' : '#ffb266', lo: dis ? '#1c2540' : '#b85a12', fg: dis ? '#8a97ad' : '#0a0f1c',
+        onSwitch: () => { if (custom) { this.setState({ tab: 'customize', tip: null, tierDlg: null }); return; } if (!dis) this.setState({ dlg: { kind: 'switch', plan: k }, tip: null }); } }; });
+    const lit = ent ? '#f28c28' : '#2b4f8a', TR = this.tree, C = this.cats, byId = Object.fromEntries(TR.map(n => [n.id, n]));
+    const inCat = (U, id) => U.cat === id || (U.alsoCat || []).includes(id), catFee = id => Object.entries(this.upgrades).filter(([, U]) => inCat(U, id)).reduce((a, [k, U]) => a + U.monthly.slice(0, sub.up[k] || 0).reduce((x, y) => x + y, 0), 0);
+    // Category progress: points spent / total tiers in the category. Icon runs dark red → bright green (gradient + brightness); glows (shared pulse clock, --g) when complete.
+    const catProg = id => { const us = Object.entries(this.upgrades).filter(([, U]) => inCat(U, id)), tot = us.reduce((a, [, U]) => a + U.monthly.length, 0), have = us.reduce((a, [k, U]) => a + Math.min(U.monthly.length, sub.up[k] || 0), 0); return { have, tot, f: tot ? have / tot : 0 }; };
+    const catColor = fr => { const c = this.tierColor(Math.round(fr * 1000), 1001), k = 0.3 + 0.7 * fr; return '#' + [1, 3, 5].map(j => Math.round(parseInt(c.slice(j, j + 2), 16) * k).toString(16).padStart(2, '0')).join(''); };
+    // ===== Connectors (derived) =====
+    // Geometry per element: node half 32 (Base 36), text below ends at cy+88; category box 140×44, its Total text ends at cy+76.
+    // Rules: one exit point per side (center). Several lines leaving the same side share that exit and fork later.
+    // Colors: Base lines are orange; lines leaving a category/upgrade take that element's icon color; 50% opacity when the element they lead to is not yet available.
+    const ngeo = n => ({ cx: n.cx, cy: n.cy, l: n.cx - n.size / 2, r: n.cx + n.size / 2, t: n.cy - n.size / 2, b: n.cy + n.size / 2, tb: n.cy + n.size / 2 + 56, stub: 10 });
+    const cgeo = c => ({ cx: c.cx, cy: c.cy, l: c.cx - 70, r: c.cx + 70, t: c.cy - 22, b: c.cy + 22, tb: c.cy + 76, stub: 8 });
+    const G = {}; TR.forEach(n => G[n.id] = ngeo(n)); C.forEach(c => G[c.id] = cgeo(c));
+    // seg(..., c2): optional end color → the segment fades from c (at x1,y1) to c2 (at x2,y2). Used where lines converge.
+    const lines = [], seg = (x1, y1, x2, y2, c, o, c2) => { if (x1 === x2 && y1 === y2) return; const bgc = c2 && c2 !== c ? 'linear-gradient(' + (y1 === y2 ? (x2 > x1 ? 'to right' : 'to left') : (y2 > y1 ? 'to bottom' : 'to top')) + ',' + c + ',' + c2 + ')' : c;
+      lines.push(y1 === y2 ? { l: Math.min(x1, x2) + 'px', t: (y1 - 2) + 'px', w: Math.abs(x2 - x1) + 'px', h: '4px', c: bgc, o } : { l: (x1 - 2) + 'px', t: (Math.min(y1, y2) - 2) + 'px', w: '4px', h: (Math.abs(y2 - y1) + 4) + 'px', c: bgc, o }); };
+    const down = (g, y, c, o) => { seg(g.cx, g.b, g.cx, g.b + g.stub, c, o); if (y > g.tb) seg(g.cx, g.tb, g.cx, y, c, o); }; // leave bottom: stub, gap for the label text, resume
+    const upInto = (g, y, c, o) => { if (y > g.tb) seg(g.cx, y, g.cx, g.tb, c, o); seg(g.cx, g.b, g.cx, g.b + g.stub, c, o); }; // enter from below: stops under the text, stub on the box
+    const dim = 0.5, full = ent ? 1 : dim, BASE = ent ? '#f28c28' : '#2b4f8a', bg = G.base;
+    // Line color leaving an upgrade = its own progress color (dark red at 0 → its tier color). Categories with no progress pass the incoming color through (Base orange).
+    const gateColor = fr => { const c = this.tierColor(Math.round(fr * 1000), 1001), k = 0.55 + 0.45 * fr; return '#' + [1, 3, 5].map(j => Math.round(parseInt(c.slice(j, j + 2), 16) * k).toString(16).padStart(2, '0')).join(''); };
+    const gateFr = r => Math.min(this.reqHave(r, sub.up), r.tier) / r.tier, parentCat = id => C.find(c => c.kids.includes(id)), memo = {};
+    const outColor = id => { if (memo[id]) return memo[id];
+      const c = C.find(x => x.id === id), p = c ? catProg(id) : null;
+      if (c) return memo[id] = p.have ? catColor(p.f) : (c.parent ? outColor(c.parent) : c.from ? outColor(c.from) : BASE);
+      const U = this.upgrades[id], tr = sub.up[id] || 0;
+      if (tr) return memo[id] = this.tierColor(tr - 1, U.monthly.length);
+      return memo[id] = gateColor(0); }; // unowned upgrade: start of the progress scale (dark red), so converging lines average the upgrades' own progress
+    const nodeColor = outColor, catCol = outColor;
+    // Base → categories
+    // A fully acquired category turns its box AND its line back to Base green (shared stems go green only when every category on them is complete).
+    const catDone = id => { const p = catProg(id); return p.tot > 0 && p.have >= p.tot; }, DONE = catColor(1), LC = id => catDone(id) ? DONE : BASE;
+    const trunkCats = C.filter(c => c.via === 'trunk'), trunkX = (bg.r + Math.min(...trunkCats.map(c => G[c.id].l))) / 2;
+    { const tc = ent && trunkCats.length && trunkCats.every(c => catDone(c.id)) ? catColor(1) : BASE; seg(bg.r, bg.cy, trunkX, bg.cy, tc, 1); seg(trunkX, bg.cy, trunkX, Math.max(...trunkCats.map(c => c.cy)), tc, 1); }
+    C.forEach(c => { const g = G[c.id], BASE = LC(c.id);
+      if (c.via === 'trunk') seg(trunkX, g.cy, g.l, g.cy, BASE, 1);
+      if (c.via === 'left') seg(bg.l, g.cy, g.r, g.cy, BASE, 1); // own exit on Base's left edge, level with the category
+      if (c.via === 'leftHigh' || c.via === 'leftLow') { const up = c.via === 'leftHigh', ey = bg.cy + (up ? -30 : 30), arms = C.filter(x => x.via === 'leftHigh' || x.via === 'leftLow').map(x => G[x.id].r), fx = Math.round((bg.l + Math.max(...arms)) / 2); /* one shared elbow x → the two left arms mirror each other */ seg(bg.l, ey, fx, ey, BASE, 1); seg(fx, ey, fx, g.cy, BASE, 1); seg(fx, g.cy, g.r, g.cy, BASE, 1); } // own upper/lower exit on Base's left edge → left, up/down, left
+      if (c.via === 'top') upInto(g, bg.t, BASE, 1);
+      if (c.via === 'fork') { const f = G[c.from], fx = f.r + 30, ey = g.t - 40; seg(fx, bg.cy, fx, ey, BASE, 1); seg(fx, ey, g.cx, ey, BASE, 1); seg(g.cx, ey, g.cx, g.t, BASE, 1); } // drop off the line into 'from', then over and down
+      if (c.via === 'busEnd') { down(bg, g.cy, BASE, 1); seg(bg.cx, g.cy, g.l, g.cy, BASE, 1); } // bus ends in the category's left side
+      if (c.via === 'node') { const f = G[c.from]; seg(f.r, g.cy, g.l, g.cy, outColor(c.from), full); } // category hangs right of an upgrade, same row
+      if (c.via === 'bottom') { const ey = g.t - 40; down(bg, ey, BASE, 1); seg(bg.cx, ey, g.cx, ey, BASE, 1); seg(g.cx, ey, g.cx, g.t, BASE, 1); } });
+    // Base bottom: two separate exits (either side of the Base label). Left exit drops straight to its split bar (Legal + Less Legal); right exit drops, then runs right to Insights.
+    ['bl', 'br'].forEach(v => { const cc = C.filter(c => c.via === v), cs = cc.map(c => G[c.id]); if (!cs.length) return; const xs = cs.map(g => g.cx), ex = bg.cx + (v === 'bl' ? -44 : 44), y2 = Math.min(...cs.map(g => g.t)) - 40;
+      const stem = cc.every(c => catDone(c.id)) ? LC(cc[0].id) : BASE;
+      if (v === 'bl') { seg(ex, bg.b, ex, y2, stem, 1); cc.forEach((c, i) => { const col = LC(c.id), g = cs[i]; seg(ex, y2, g.cx, y2, col, 1); seg(g.cx, y2, g.cx, g.t, col, 1); }); } // bar drawn per category (ex → its drop) so each arm can turn green on its own
+      else { const y1 = bg.cy + 140, g0 = cs[0], xd = g0.l - 60; seg(ex, bg.b, ex, y1, stem, 1); seg(ex, y1, xd, y1, stem, 1); seg(xd, y1, xd, g0.cy, stem, 1); seg(xd, g0.cy, g0.l, g0.cy, stem, 1); } }); // right branch: over, down, then into Insights' LEFT side
+    // Category → kids (+ subcategory), Less Legal → Discrimination
+    C.forEach(c => { const g = G[c.id], col = catCol(c.id), ks = c.kids.map(k => G[k]);
+      const spine = (R, kk) => { if (!kk.length) return; const edge = R ? g.r : g.l, kEdge = R ? Math.min(...kk.map(k => k.l)) : Math.max(...kk.map(k => k.r)), sp = (edge + kEdge) / 2, ys = kk.map(k => k.cy);
+        seg(edge, g.cy, sp, g.cy, col, full); seg(sp, Math.min(g.cy, ...ys), sp, Math.max(g.cy, ...ys), col, full); kk.forEach(k => seg(sp, k.cy, R ? k.l : k.r, k.cy, col, full)); };
+      if (c.side === 'right' || c.side === 'left') spine(c.side === 'right', ks);
+      if (c.side === 'split') { spine(false, c.kids.filter(k => c.leftKids.includes(k)).map(k => G[k])); spine(true, c.kids.filter(k => !c.leftKids.includes(k)).map(k => G[k])); }
+      if (c.side === 'fork') { const tl = c.tail && G[c.tail], by = tl ? tl.cy : Math.min(...ks.map(k => k.t)) - 40; down(g, by, col, full); seg(Math.min(...ks.map(k => k.cx)), by, Math.max(...ks.map(k => k.cx)), by, col, full); ks.forEach(k => seg(k.cx, by, k.cx, k.t, col, full));
+        if (tl) seg(Math.max(...ks.map(k => k.cx)), by, tl.l, by, col, full); } // tail: the fork bar continues right into that upgrade's left side (same row as the bar)
+      if (c.side === 'down') ks.forEach(k => down(g, k.t, col, full));
+      if (c.side === 'up') ks.forEach(k => upInto(k, g.t, col, full));
+      if (c.side === 'upFork') { const by = Math.round((g.t + Math.max(...ks.map(k => k.tb))) / 2); seg(g.cx, g.t, g.cx, by, col, full); seg(Math.min(...ks.map(k => k.cx)), by, Math.max(...ks.map(k => k.cx)), by, col, full); ks.forEach(k => upInto(k, by, col, full)); } // up, bar across, up into each kid (under its label)
+      if (c.link) { const d = G[c.link]; seg(g.r, g.cy, d.cx, g.cy, col, full); seg(d.cx, g.cy, d.cx, d.t, col, full); } });
+    // Gated upgrades: sources converge in the gate lane (118px before the target), then one line into the target with the [have/need] label 33px from it.
+    const mix = cs => '#' + [1, 3, 5].map(j => Math.round(cs.reduce((a, c) => a + parseInt(c.slice(j, j + 2), 16), 0) / cs.length).toString(16).padStart(2, '0')).join('');
+    // Requirement modules [have/need] are stop points. Lines INTO a module: each source leg keeps its source's color, then fades into the merged color on its final (converging) segment; the merged leg is the average of the sources.
+    // Lines OUT of a module take the module's color: same dark-red → bright-green slider as icons (by have/need), brightness floor 0.55 for legibility; glows once met.
+    const gates = []; TR.forEach(n => { const U3 = this.upgrades[n.id], r = U3 && U3.req; if (!r) return;
+      const t = G[n.id], srcs = (r.ids || [r.id]).map(k => G[k]), met = this.reqMet(r, sub.up), have = Math.min(this.reqHave(r, sub.up), r.tier), cols = (r.ids || [r.id]).map(nodeColor), mc = mix(cols);
+      const gc = gateColor(have / r.tier), oi = full, oo = met && ent ? 1 : dim; // in: full (the module is always reachable); out: dim until met
+      // Every source leg is ONE polyline (list of points) ending at the merge point. leg() draws it in the source's color and fades only its LAST non-zero
+      // segment into the merged color — so no leg ever changes color abruptly, whatever its shape. Routing below only chooses the points.
+      const leg = (pts, c) => { const P = pts.filter((p, k) => !k || p[0] !== pts[k - 1][0] || p[1] !== pts[k - 1][1]), last = P.length - 2;
+        for (let k = 0; k < P.length - 1; k++) seg(P[k][0], P[k][1], P[k + 1][0], P[k + 1][1], c, oi, k === last ? mc : undefined); };
+      const ids = r.ids || [r.id], tops = r.topExit || [], side = r.sideExit || [];
+      let lx, ly, M, legs;
+      if (srcs.every(sg => t.cx - sg.cx >= 2 * this.GX)) { const cx = t.l - 118; lx = t.l - 59; ly = t.cy; M = [cx, t.cy]; // → right: horizontal gate lane (topExit: leave the top, rise, run in)
+        const dy = r.exitDy || {}; // exitDy: offset a source's side exit so two requirements leaving the same side run as separate parallel lines
+        legs = srcs.map((sg, i) => tops.includes(ids[i]) ? [[sg.cx, sg.t], [sg.cx, t.cy], M] : [[sg.r, sg.cy + (dy[ids[i]] || 0)], [cx, sg.cy + (dy[ids[i]] || 0)], M]);
+        legs.forEach((p, i) => leg(p, cols[i])); seg(cx, t.cy, lx - 26, t.cy, mc, oi); seg(lx + 26, t.cy, t.l, t.cy, gc, oo); }
+      else if (srcs.every(sg => sg.cx - t.cx >= 2 * this.GX)) { const cx = t.r + 118; lx = t.r + 59; ly = t.cy; M = [cx, t.cy]; // ← left: mirrored lane
+        srcs.forEach((sg, i) => leg([[sg.l, sg.cy], [cx, sg.cy], M], cols[i])); seg(cx, t.cy, lx + 26, t.cy, mc, oi); seg(lx - 26, t.cy, t.r, t.cy, gc, oo); }
+      else if (srcs.every(sg => sg.cy > t.cy)) { const cy = t.tb + 92; lx = t.cx; ly = t.tb + 46; M = [t.cx, cy]; // ↑ up
+        srcs.forEach((sg, i) => leg([[sg.cx, sg.t], [sg.cx, cy], M], cols[i])); seg(t.cx, cy, t.cx, ly + 13, mc, oi); upInto(t, ly - 13, gc, oo); }
+      else { const cy = side.length ? G[side[0]].cy : t.t - 92; lx = t.cx; ly = t.t - 46; M = [t.cx, cy]; // ↓ down (sideExit: join row = that source's row)
+        srcs.forEach((sg, i) => { const L = sg.cx < t.cx, face = L ? sg.r : sg.l;
+          if (side.includes(ids[i]) || Math.abs(sg.cy - cy) < 2) return leg([[face, sg.cy], [t.cx, sg.cy], M], cols[i]); // on the join row: straight across
+          if (sg.b + sg.stub > cy) { const lxn = L ? t.l - 118 : t.r + 118; return leg([[face, sg.cy], [lxn, sg.cy], [lxn, cy], M], cols[i]); } // level/below: side-step to the lane, climb
+          seg(sg.cx, sg.b, sg.cx, sg.b + sg.stub, cols[i], oi); leg([[sg.cx, sg.tb], [sg.cx, cy], M], cols[i]); }); // above: stub, gap for label, drop, run in
+        seg(t.cx, cy, t.cx, ly - 13, mc, oi); seg(t.cx, ly + 13, t.cx, t.t, gc, oo); }
+      gates.push({ left: (lx - 26) + 'px', top: (ly - 13) + 'px', text: have + '/' + r.tier, color: gc, ring: gc, anim: met ? 'brightness(calc(1 + var(--g, 0) * 0.8)) drop-shadow(0 0 calc(var(--g, 0) * 6px) rgba(242,211,61,calc(var(--g, 0) * 0.9)))' : 'none',
+        onEnter: e => this.showTip(e, { kind: 'Requirement', name: U3.name, desc: this.reqText(r), next: '', nextColor: '#9cc6ef' }) }); });
+    const llMask = this.mi().cell16('less_legal', '#e8583f');
+    const cats = C.map(c => ({ ...(() => { const p = catProg(c.id), full = p.tot > 0 && p.have >= p.tot; return { icon: this.nodeIc(c.id, catColor(p.f)), anim: full ? 'brightness(calc(1 + var(--g, 0) * 0.8)) drop-shadow(0 0 calc(var(--g, 0) * 6px) rgba(242,211,61,calc(var(--g, 0) * 0.9)))' : 'none', prog: p.have + '/' + p.tot }; })(), bg: catDone(c.id) ? '#123321' : '#15223d', total: N(catFee(c.id)), totLeft: (c.cx - 70) + 'px', totTop: (c.cy + 26) + 'px', name: c.name, left: (c.cx - 70) + 'px', top: (c.cy - 22) + 'px', ring: catDone(c.id) ? catColor(1) : lit,
+      onEnter: e => { const p = catProg(c.id); this.showTip(e, { kind: 'Category', name: c.name, desc: c.desc, next: p.have + '/' + p.tot + ' upgrades owned', nextColor: '#f3ead7' }); } }));
+    const nodes = TR.map(n => { const common = { left: (n.cx - n.size / 2) + 'px', top: (n.cy - n.size / 2) + 'px', size: n.size + 'px', justify: 'center', padTop: '0px', pipW: '7px' }; // no tier tube (Base) → icon centered
+      if (n.id === 'base') return { ...common, ll: false, name: 'Base Plan', sub: N(this.plans.enterprise.perMerc * employed), hasFee: true, subColor: '#f3ead7', bg: '#0a0f1c', hi: '#1a2b4d', lo: '#000000', ring: ent ? '#f28c28' : '#3b6fb6', opacity: 1, cursor: 'default', hasPips: false, pips: [],
+        ...(() => { const all = Object.entries(this.upgrades), tot = all.reduce((a, [, U]) => a + U.monthly.length, 0), have = all.reduce((a, [k, U]) => a + Math.min(U.monthly.length, sub.up[k] || 0), 0), col = catColor(tot ? have / tot : 0);
+          return { icon: this.mi().cell16('mercday', col, true), anim: 'none', iconAnim: tot && have >= tot ? 'brightness(calc(1 + var(--g, 0) * 0.8)) drop-shadow(0 0 calc(var(--g, 0) * 6px) rgba(242,211,61,calc(var(--g, 0) * 0.9)))' : 'none' }; })(), onClick: () => {}, onEnter: e => this.showTip(e, { kind: 'Enterprise', name: 'Base Plan', desc: 'The root of your Enterprise customizations. Every branch starts here.', next: '', nextColor: '#9cc6ef' }) };
+      const U2 = this.upgrades[n.id], tr = sub.up[n.id] || 0, max = U2.monthly.length, maxed = tr >= max, tc = tr ? this.tierColor(tr - 1, max) : null, gated = !this.reqMet(U2.req, sub.up), usable = ent && !gated;
+      return { ...common, name: U2.name, sub: N(this.upFee({ [n.id]: tr })), hasFee: true, subColor: tr ? '#f3ead7' : '#5e7699', anim: 'none', iconAnim: 'none',
+        bg: maxed ? '#1f3560' : '#2b4f8a', hi: maxed ? '#2b4f8a' : '#3b6fb6', lo: '#111c33', ring: !ent ? '#1f3560' : maxed ? '#f2d33d' : '#f28c28', opacity: usable ? 1 : 0.45, cursor: usable ? 'pointer' : 'not-allowed',
+        ll: (U2.alsoCat || []).includes('lessLegal'), hasPips: true, justify: 'flex-start', padTop: '12px', pipW: max > 8 ? '6px' : '7px', /* 9 tiers: 9×6 + 8×2 + 4 pad + 4 caps = 78px (≥7px margin each side of the 92px module) */ /* icon up top, tier tube 8px above the bottom edge */ // Mini tier bar: same solid-gradient chunks as the dialog bar; shines left → right when full.
+        pips: Array.from({ length: max }, (_, i) => { const on = i < tr, c = this.tierColor(i, max), sh = (hex, w, k) => '#' + [1, 3, 5].map(j => Math.round(parseInt(hex.slice(j, j + 2), 16) + (w - parseInt(hex.slice(j, j + 2), 16)) * k).toString(16).padStart(2, '0')).join('');
+          return { bg: on ? c : '#15223d', hi: on ? sh(c, 255, 0.4) : '#1f3560', lo: on ? sh(c, 0, 0.35) : '#0e1628', anim: maxed ? 'brightness(calc(1 + var(--g' + i + ', 0) * 0.9))' : 'none' }; }), /* brightness-only (no glow shadow) so tiny chunks don't jitter */ icon: this.nodeIc(n.id, tc || '#5e7699'),
+        // Rich upgrade tooltip: icon (current tier color), tier bar + have/total, monthly spend, and the "Next Tier" module (as in the dialog).
+        onEnter: e => { const sh = (hex, w, k) => '#' + [1, 3, 5].map(j => Math.round(parseInt(hex.slice(j, j + 2), 16) + (w - parseInt(hex.slice(j, j + 2), 16)) * k).toString(16).padStart(2, '0')).join('');
+          this.showTip(e, { rich: true, plain: false, h: maxed ? 190 : 260, kind: (this.cats.find(c => c.id === U2.cat) || { name: U2.cat }).name, name: U2.name, desc: U2.desc,
+            icon: this.nodeIc(n.id, tc || '#5e7699'), iconRing: tc || '#1f3560',
+            chunks: Array.from({ length: max }, (_, i) => { const on = i < tr, c = this.tierColor(i, max); return { bg: on ? c : '#15223d', hi: on ? sh(c, 255, 0.4) : '#1f3560', lo: on ? sh(c, 0, 0.35) : '#0e1628' }; }),
+            prog: tr + '/' + max, fee: N(this.upFee({ [n.id]: tr })), hasNext: !maxed, nextText: maxed ? '' : U2.tiers[tr], nextFee: maxed ? '' : N(U2.monthly[tr]),
+            nextIcon: this.nodeIc(n.id, this.tierColor(Math.min(tr, max - 1), max)),
+            gatedNote: gated, gatedText: gated ? this.reqText(U2.req) : '' }); },
+        onClick: () => { if (this._dragged || !usable) return; this.focusNode(n, tr); } }; });
+    // Tier dialog (always available on Enterprise): slider snaps per tier. Raise past Monthly Income → rejected (flash/shake). Lower below in-use minimum → rejected + red reason.
+    // Upgrades bill pro-rated today; downgrades are never refunded — they simply stop billing from the next cycle.
+    const planFee = this.plans[sub.plan].perMerc * employed, curUpFee = this.upFee(sub.up), avail0 = this.budget.income - this.budget.otherExpenses;
+    let td = {}; const tdS = s.tierDlg;
+    if (tdS) { const U2 = this.upgrades[tdS.id], cur = sub.up[tdS.id] || 0, v = tdS.val, lo = this.minTier(tdS.id, employed), newUp = { ...sub.up, [tdS.id]: v }, newFee = planFee + this.upFee(newUp), oldFee = planFee + curUpFee, dF = newFee - oldFee;
+      const inc = avail0 - newFee, rej = !!s.tierRej, mon = Math.floor(st.now / 1440 / 30) % 12, billMon = this.monthsN[(day >= 15 ? mon + 1 : mon) % 12], today = dF > 0 ? Math.ceil(dF * daysToBill / 30) : 0;
+      const tierTxt = x => x ? 'Tier ' + x + ': ' + U2.tiers[x - 1] : 'None';
+      const inUse = lo > 0 ? (tdS.id === 'seats' ? "Can't go below Tier " + lo + ': ' + employed + ' mercs are using those seats.' : "Can't go below Tier " + lo + ': ' + this.boardCount + ' contracts are on your board.') : '';
+      const reject = () => { clearTimeout(this.rejT); this.setState({ tierRej: false }, () => requestAnimationFrame(() => this.setState({ tierRej: true }))); this.rejT = setTimeout(() => this.setState({ tierRej: false }), 420); };
+      const fx = s.tierFx || {}, alt = (fx.n || 0) % 2, max = U2.monthly.length, isMax = cur >= max, nextFee = isMax ? 0 : U2.monthly[cur], nextToday = Math.ceil(nextFee * daysToBill / 30);
+      const bump = kind => this.setState(st2 => ({ tierFx: { kind, n: ((st2.tierFx || {}).n || 0) + 1 } }));
+      // Prepaid: tiers already billed this cycle (upgrade → downgrade → re-upgrade costs 0 today). Resets each billing day (engine).
+      const pre = ((sub.prepaid || {})[tdS.id]) || 0, reup = cur + 1 <= pre, chargeToday = reup ? 0 : nextToday;
+      // Tier bar: standard red → yellow → green gradient, each chunk a SOLID color sampled at its midpoint.
+      const grad = f => { f = Math.max(0, Math.min(1, f)); const A = [0xe8, 0x58, 0x3f], Bc = [0xf2, 0xd3, 0x3d], Cc = [0x4e, 0xe0, 0x6a], [p, q, u] = f < 0.5 ? [A, Bc, f * 2] : [Bc, Cc, (f - 0.5) * 2]; return p.map((v, i) => Math.round(v + (q[i] - v) * u)); };
+      const hx = c => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join(''), mix = (c, w, k) => c.map(v => v + (w - v) * k);
+      td = { name: U2.name, desc: U2.desc, tierLabel: 'Tier ' + cur + ' / ' + max,
+        // Tier modules: icon tinted with that tier's bar color — full when owned, half-dim when next, grayscale when locked. All owned → shine top → bottom (same timing as the bar).
+        tierList: U2.tiers.map((tx, i) => { const have = i < cur, next = i === cur, c = hx(grad(max === 1 ? 1 : i / (max - 1)));
+          return { idx: String(i), label: next ? 'Next Tier' : 'Tier ' + (i + 1), text: tx, color: have ? '#f3ead7' : next ? '#c8d3e6' : '#5e7699', labelColor: next ? '#f28c28' : have ? c : '#3b4d6e',
+            bg: have ? '#15223d' : next ? '#132038' : '#0e1628', ring: next ? '#f28c28' : have ? '#1f3560' : '#0a0f1c', nextAttr: next ? '1' : '0',
+            icon: this.nodeIc(tdS.id, c), iconRing: have ? c : '#1f3560', iconOpacity: next ? 0.5 : 1, iconFilter: have || next ? 'none' : 'grayscale(1) brightness(0.7)',
+            anim: isMax ? 'brightness(calc(1 + var(--g' + i + ', 0) * 0.8)) drop-shadow(0 0 calc(var(--g' + i + ', 0) * 6px) rgba(242,211,61,calc(var(--g' + i + ', 0) * 0.9)))' : 'none' }; }),
+        // Chunked tier bar: filled chunks = owned tiers. Full bar shines left → right forever.
+        chunks: Array.from({ length: max }, (_, i) => { const on = i < cur, c = grad(max === 1 ? 1 : i / (max - 1)); return { bg: on ? hx(c) : '#15223d', hi: on ? hx(mix(c, 255, 0.4)) : '#1f3560', lo: on ? hx(mix(c, 0, 0.35)) : '#0e1628', anim: isMax ? 'brightness(calc(1 + var(--g' + i + ', 0) * 0.9)) drop-shadow(0 0 calc(var(--g' + i + ', 0) * 7px) rgba(242,211,61,calc(var(--g' + i + ', 0) * 0.9)))' : 'none' }; }),
+        barAnim: fx.kind === 'up' ? 'barUp' + alt + ' 0.6s ease-out 1' : fx.kind === 'down' ? 'barDn' + alt + ' 0.45s steps(6) 1' : 'none',
+        plusAnim: fx.kind === 'up' ? 'pPop' + alt + ' 0.5s ease-out 1' : fx.kind === 'rejUp' ? 'rej' + alt + ' 0.4s steps(5) 1' : 'none',
+        minusAnim: fx.kind === 'down' ? 'mPop' + alt + ' 0.35s ease-out 1' : fx.kind === 'rejDown' ? 'rej' + alt + ' 0.4s steps(5) 1' : 'none',
+        incAnim: fx.kind === 'rejUp' ? 'subShake 0.4s steps(5) 1' : 'none', plusBg: isMax ? '#27324a' : '#6cc36a', plusHi: isMax ? '#34415e' : '#9be29a', plusLo: isMax ? '#1c2540' : '#3f8a3e',
+        income: N(avail0 - oldFee), incColor: fx.kind === 'rejUp' || avail0 - oldFee < 0 ? '#e8583f' : (avail0 - oldFee) < avail0 * 0.15 ? '#f2b33d' : '#6cc36a',
+        canUp: !isMax, isMax, today: N(chargeToday), monthly: '+' + N(nextFee), billDate: billMon + ' 15th', maxNote: N(this.upFee({ [tdS.id]: cur })),
+        inUse, hasInUse: !!inUse,
+        // Auto-applies: + bills the next tier pro-rated today (rejected if Monthly Income would go below 0); − never refunds (rejected below in-use minimum).
+        plus: () => { this.setState({ tierScroll: null }); if (isMax) { bump('rejUp'); return; } if (avail0 - (oldFee + nextFee) < 0) { bump('rejUp'); return; } st.money -= chargeToday; st.sub = { ...st.sub, prepaid: { ...(st.sub.prepaid || {}), [tdS.id]: Math.max(pre, cur + 1) } }; st.setUpgrade(tdS.id, cur + 1); bump('up'); },
+        minus: () => { this.setState({ tierScroll: null }); if (cur <= lo) { bump('rejDown'); return; } this.setUp(tdS.id, cur - 1); bump('down'); },
+        close: () => this.setState({ tierDlg: null, tierFx: null }), stop: ev => ev.stopPropagation(),
+        px: ((tdS.at || { x: 440 }).x) + 'px', py: Math.max(8, Math.min((tdS.at || { y: 160 }).y, (parseInt(this.props.frameH) || 720) - 400 - 24)) + 'px' }; }
+    const pan = s.pan || (() => { const el = this.viewRef.current, vw = el ? el.clientWidth : 1200, vh = el ? el.clientHeight : 540; return this.homePan(vw, vh); })();
+    let dlg = {};
+    const okBtn = (label, can, bad) => ({ okLabel: label, okOpacity: can ? 1 : 0.4, okCursor: can ? 'pointer' : 'not-allowed', okBg: bad ? '#e8583f' : '#6cc36a', okHi: bad ? '#ff8a70' : '#9be29a', okLo: bad ? '#a83a28' : '#3f8a3e' });
+    if (s.dlg) { const d = s.dlg, close = () => this.setState({ dlg: null });
+      { const P = this.plans[d.plan], down = order[d.plan] < order[sub.plan], leaveEnt = ent && d.plan !== 'enterprise', sections = [];
+        // Downgrade warnings: Free trims the board to 5 on the next billing day; leaving Enterprise forfeits every purchased upgrade.
+        if (d.plan === 'free' && this.boardCount > 5) sections.push({ text: (this.boardCount - 5) + ' contracts will be removed from your board in ' + daysToBill + ' Days if you proceed', color: '#f2b33d', list: [], dot: '#f2b33d' });
+        if (leaveEnt) { const owned = Object.entries(sub.up).filter(([, v]) => v > 0).map(([k, v]) => this.upgrades[k].name + ' ' + this.roman(v));
+          if (owned.length) sections.push({ text: 'You will lose access to the following upgrades and will have to purchase them individually again', color: '#f2b33d', list: owned, dot: '#e8583f' }); }
+        if (!down) sections.push({ text: 'Includes:', color: '#9cc6ef', list: P.features, dot: '#6cc36a' });
+        if (down && !sections.length) sections.push({ text: 'You will lose the features of ' + this.plans[sub.plan].name + '.', color: '#f2b33d', list: [], dot: '#f2b33d' });
+        const fee = monthly(d.plan), can = st.money >= fee;
+        dlg = { kind: down ? 'Downgrade Plan' : 'Upgrade Plan', title: P.name, ring: down ? '#f2b33d' : '#f28c28', sections, costLabel: 'Monthly Service Fee', cost: N(fee), costColor: can ? '#f3ead7' : '#e8583f',
+          note: fee ? P.perMerc + ' notes per merc, billed with Loans & Services on the 15th.' : 'No service fee.', noteColor: '#9cc6ef', ...okBtn(down ? 'Downgrade' : 'Upgrade', can, down), isUp: !down, isDown: down, // Upgrade = button + "Back" link; Downgrade = red underlined link + "Back" button
+          onConfirm: () => { if (!can) return; st.setPlan(d.plan); close(); } }; } }
+    const goPlans = () => this.setState({ tab: 'plans', dlg: null, tip: null });
+    return { frameH: this.props.frameH || '720px', 
+      showScenes: show, sceneMap: this.sceneMap, frameRef: this.frameRef,
+      nGlyph: this.noteMap.join('').split('').map(ch => ch === '#' ? 'currentColor' : 'transparent'),
+      logo: this.mi().cell16('mercday'), checkCells: this.mi().box('check_sm', 2, 2, 12, 12),
+      tabs: [['plans', 'Plans', 'Mercday Plans', 'mercday', null, false], ['customize', 'Customize', ent ? 'Customize' : 'Customize (Mercday Enterprise only)', 'customize', null, !ent]].map(([k, l, title, map, pal, locked]) => { const a = tab === k;
+        return { label: l, title, active: a, locked, flex: a ? '0 0 auto' : '0 0 52px', icon: a ? this.mi().tabOn(map) : this.mi().cell16(map), onClick: () => this.setState({ tab: k, tip: null, tierDlg: null, tierFx: null, tierScroll: null }) }; }),
+      isPlans: tab === 'plans', isCustomize: tab === 'customize', custLocked: tab === 'customize' && !ent, goPlans: () => { goPlans(); },
+      planCards,
+      treeNote: ent ? 'Click a block to upgrade' : 'Available on Mercday Enterprise', treeNoteColor: ent ? '#9cc6ef' : '#f2b33d',
+      // Customize readout: plan fee + add-ons. Red if over monthly income, orange within 10% of it, else white.
+      spend: (() => { const base = this.plans[sub.plan].perMerc * employed, add = this.upFee(sub.up), inc = this.budget.income - this.budget.otherExpenses, tot = base + add;
+        return { base: N(base), addon: N(add), color: tot > inc ? '#e8583f' : tot >= inc * 0.9 ? '#f28c28' : '#f3ead7', title: 'Plan ' + N(base) + ' + add-ons ' + N(add) + ' of ' + N(inc) + ' available monthly income' }; })(),
+      // DEBUG (testing only): set every upgrade to max tier at once — no charge, no income check.
+      stopEv: e => e.stopPropagation(), debugMax: () => { const st2 = this.gameStore(); st2.sub = { ...st2.sub, up: Object.fromEntries(Object.entries(this.upgrades).map(([k, U]) => [k, U.monthly.length])) }; st2.emit(); },
+      popRef: this.popRef, lines, cats, nodes, gates, llMask, tierOpen: !!tdS, td, viewRef: this.viewRef, tierListRef: this.tierListRef,
+      panX: pan.x + 'px', panY: pan.y + 'px', panCursor: this._drag ? 'grabbing' : 'grab',
+      panDown: e => { if (e.button !== 0) return; const el = this.viewRef.current; this._drag = { x0: e.clientX, y0: e.clientY, px: pan.x, py: pan.y, sc: el ? (el.getBoundingClientRect().width / (el.offsetWidth || 1) || 1) : 1 }; this._dragged = false; },
+      panMove: e => { const d = this._drag; if (!d) return; const dx = (e.clientX - d.x0) / d.sc, dy = (e.clientY - d.y0) / d.sc; if (!this._dragged && Math.hypot(dx, dy) < 4) return;
+        if (!this._dragged) { this._dragged = true; e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); }
+        const el = this.viewRef.current, vw = el ? el.clientWidth : 1200, vh = el ? el.clientHeight : 540, cl = (v, a, b) => Math.max(a, Math.min(b, v));
+        const M = 500; this.setState({ pan: { x: cl(d.px + dx, vw - this.world.w - M, M), y: cl(d.py + dy, vh - this.world.h - M, M) }, tip: null }); },
+      panUp: () => { this._drag = null; setTimeout(() => { this._dragged = false; }, 0); this.forceUpdate(); },
+      tip: s.tip && !s.tierDlg && !s.dlg && !this._focusing ? s.tip : { on: false }, hideTip: () => this.setState({ tip: null }),
+      dlgOpen: !!s.dlg, dlg, closeDlg: () => this.setState({ dlg: null }),
+    };
+  }
+}
+</script>
+</body>
+</html>

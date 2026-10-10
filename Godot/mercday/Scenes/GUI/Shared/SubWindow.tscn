@@ -1,7 +1,15 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/SubWindow.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ScanlineOverlay.tscn" id="3"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_border"]
+draw_center = false
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.949020, 0.549020, 0.156863, 1)
 
 [node name="SubWindow" type="Control"]
 anchor_right = 1.0
@@ -20,6 +28,10 @@ anchor_bottom = 1.0
 theme_type_variation = &"SubWindowPanel"
 
 [node name="Holder" type="Control" parent="."]
+
+[node name="Border" type="Panel" parent="."]
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_border")
 
 [node name="CloseX" type="Button" parent="."]
 flat = true

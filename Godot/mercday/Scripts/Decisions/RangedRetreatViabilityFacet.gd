@@ -12,10 +12,8 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var enemies: Array = ctx.get("enemies", [])
 	if enemies.is_empty():
 		return 0.0
-	var pace: int = maxi(1, int(MovementExecutor.turn_paces(merc, state, 0)["paces"]))
-	var closest := 999999
-	for enemy: MercenaryData in enemies:
-		closest = mini(closest, state.distance_to(merc, enemy))
+	var pace: int = maxi(1, int(PaceBudget.turn_paces(merc, state, 0)["paces"]))
+	var closest: int = MovementDecider.nearest_enemy(merc, enemies, state)["dist"]
 	var ranged_acc := float(merc.stats.get("ranged_accuracy", 0.0))
 	var melee_acc := float(merc.stats.get("melee_accuracy", 0.0))
 	var best_weapon_score := -9999.0
@@ -25,11 +23,8 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var check_entries: Array[Dictionary] = []
 	if merc.equipped_weapon != null and merc.weapon_drawn:
 		check_entries.append({"weapon": merc.equipped_weapon, "drawn": true})
-	for inv_e: Dictionary in merc.inventory:
-		if inv_e.get("type") == "weapon":
-			var inv_w: WeaponData = inv_e.get("data") as WeaponData
-			if inv_w != null:
-				check_entries.append({"weapon": inv_w, "drawn": false})
+	for inv_w: WeaponData in merc.inventory_weapons():
+		check_entries.append({"weapon": inv_w, "drawn": false})
 	for entry: Dictionary in check_entries:
 		var w: WeaponData = entry.get("weapon") as WeaponData
 		var drawn: bool = entry.get("drawn", false)
@@ -64,14 +59,13 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 			is_drawn = true
 	if not has_viable or best_weapon_score <= 0.0:
 		return 0.0
-	var score := 0.45 if enemy_in_range else 0.05
+	var value := 0.45 if enemy_in_range else 0.05
 	if is_drawn:
-		score += 0.1
+		value += 0.1
 	if ranged_acc > melee_acc:
-		score += 0.15
-	score += minf(0.15, best_weapon_score * 0.05)
-	var max_hp := maxf(1.0, float(merc.stats.get("maximum_hit_points", 1)))
-	var hp_ratio := float(merc.current_hp) / max_hp
+		value += 0.15
+	value += minf(0.15, best_weapon_score * 0.05)
+	var hp_ratio := merc.hp_ratio()
 	if hp_ratio < 0.5:
-		score += (0.5 - hp_ratio) * 0.3
-	return clampf(score, 0.0, 1.0)
+		value += (0.5 - hp_ratio) * 0.3
+	return clampf(value, 0.0, 1.0)

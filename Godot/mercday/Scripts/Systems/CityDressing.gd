@@ -10,15 +10,9 @@ const SQUARE_GAP := 4
 const SEED_TRIES := 8
 const GROW_MAX := 12
 const GROW_FALLOFF := 0.75
-const DIRS: Array[Vector2i] = [
-	Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
-	Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)
-]
 
 
 static func build(area: BattlefieldArea, area_data: Dictionary) -> void:
-	if area == null:
-		return
 	var idx: int = BattlefieldArea.COVER_AMOUNT_NAMES.find(
 		String(area_data.get("vegetation_amt", "")).to_lower())
 	if idx < 0:
@@ -54,9 +48,6 @@ static func _rows(area: BattlefieldArea, names: Array) -> Array[ObstacleData]:
 			continue
 		out.append(row)
 	return out
-
-
-#### Masks.
 
 
 #1 on every nature cell an object may take.
@@ -104,9 +95,6 @@ static func _near_main_mask(area: BattlefieldArea) -> PackedByteArray:
 		elif i2 + w < n and walk[i2 + w] == 1:
 			out[i2] = 1
 	return out
-
-
-#### Squares.
 
 
 static func _squares(area: BattlefieldArea, skip: Dictionary) -> int:
@@ -185,9 +173,6 @@ static func _block_ok(area: BattlefieldArea, hold: PackedByteArray, near: Packed
 	return touches
 
 
-#### Vegetation.
-
-
 static func _vegetation(area: BattlefieldArea, area_data: Dictionary, idx: int,
 		skip: Dictionary) -> int:
 	var rows: Array[ObstacleData] = _rows(area, area_data.get("vegetation_list", []) as Array)
@@ -225,7 +210,7 @@ static func _vegetation(area: BattlefieldArea, area_data: Dictionary, idx: int,
 static func _grow(area: BattlefieldArea, row: ObstacleData, origin: Vector2i, open: Dictionary) -> void:
 	var odds: int = row.growth_pct
 	var added: int = 0
-	var dirs: Array[Vector2i] = DIRS.duplicate()
+	var dirs: Array[Vector2i] = PathCost.DIRS8.duplicate()
 	var frontier: Array[Vector2i] = [origin]
 	while odds > 0 and added < GROW_MAX and not frontier.is_empty() and randi() % 100 < odds:
 		var parent: Vector2i = frontier[randi() % frontier.size()]

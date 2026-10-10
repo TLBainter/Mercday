@@ -182,7 +182,7 @@ static func _case_gear_perk(res: Dictionary) -> void:
 			"weapon keys %d, armor key '%s'" % [weapon_keys.size(), armor_key])
 		return
 	var armed := TestFixtures.sheet_merc("Armed")
-	armed.equipped_weapon = _weapon(weapon_keys[0])
+	armed.equipped_weapon = TestFixtures.weapon(weapon_keys[0])
 	TestFixtures.check(res, "an owned weapon type offers its perks",
 		_has_option(LevelUpSystem.build_pool(armed, 1), "armor_or_weapon_perk"),
 		"weapon key %s" % weapon_keys[0])
@@ -205,8 +205,8 @@ static func _case_gear_weight(res: Dictionary) -> void:
 		TestFixtures.check(res, "two weapon types carry perks", false, "%d found" % keys.size())
 		return
 	var merc := TestFixtures.sheet_merc("Gear")
-	merc.equipped_weapon = _weapon(keys[0])
-	merc.inventory.append({"type": "weapon", "data": _weapon(keys[1])})
+	merc.equipped_weapon = TestFixtures.weapon(keys[0])
+	merc.inventory.append({"type": "weapon", "data": TestFixtures.weapon(keys[1])})
 	var weights: Dictionary = _gear_weights(merc)
 	TestFixtures.check(res, "the equipped weapon weighs three times the stowed one",
 		is_equal_approx(float(weights.get(keys[0], 0.0)), 3.0)
@@ -221,11 +221,11 @@ static func _case_gear_weight(res: Dictionary) -> void:
 		"%s %s against %s %s" % [keys[1], str(weights.get(keys[1], 0.0)), keys[0],
 			str(weights.get(keys[0], 0.0))])
 	var user := TestFixtures.sheet_merc("Uses")
-	LevelUpSystem.note_weapon_use(user, _weapon(keys[0]))
-	LevelUpSystem.note_weapon_use(user, _weapon(keys[0]))
+	LevelUpSystem.note_weapon_use(user, TestFixtures.weapon(keys[0]))
+	LevelUpSystem.note_weapon_use(user, TestFixtures.weapon(keys[0]))
 	TestFixtures.check(res, "note_weapon_use counts every swing",
 		int(user.gear_use_counts.get("weapon:" + keys[0], 0)) == 2, str(user.gear_use_counts))
-	var virtual_weapon: WeaponData = _weapon(keys[0])
+	var virtual_weapon: WeaponData = TestFixtures.weapon(keys[0])
 	virtual_weapon.is_virtual = true
 	LevelUpSystem.note_weapon_use(user, virtual_weapon)
 	TestFixtures.check(res, "a virtual weapon is never counted",
@@ -241,13 +241,9 @@ static func _case_gear_weight(res: Dictionary) -> void:
 
 
 static func _case_lifepath(res: Dictionary) -> void:
-	var pool: Array = DataManager.lifepaths_by_category.get("Experienced", []) as Array
-	var common: LifepathData = _event("Levelup Test Common", "Common")
-	var rare: LifepathData = _event("Levelup Test Rare", "Rare")
-	var very_rare: LifepathData = _event("Levelup Test Very Rare", "Very Rare")
-	pool.append(common)
-	pool.append(rare)
-	pool.append(very_rare)
+	var common := TestFixtures.register_stub(TestFixtures.lifepath_stub("Levelup Test Common", "Common"))
+	var rare := TestFixtures.register_stub(TestFixtures.lifepath_stub("Levelup Test Rare", "Rare"))
+	var very_rare := TestFixtures.register_stub(TestFixtures.lifepath_stub("Levelup Test Very Rare", "Very Rare"))
 	var merc := TestFixtures.sheet_merc("Lifepath")
 	merc.lifepath_pool.append(common.event_name)
 	merc.lifepath_pool.append(rare.event_name)
@@ -260,14 +256,14 @@ static func _case_lifepath(res: Dictionary) -> void:
 		taken == very_rare.event_name, "took '%s', %s" % [taken, detail])
 	var full := TestFixtures.sheet_merc("Full")
 	for i: int in range(LifepathProgression.MAX_EVENTS):
-		full.lifepaths.append(_event("Levelup Test Filler %d" % i, "Common"))
+		full.lifepaths.append(TestFixtures.lifepath_stub("Levelup Test Filler %d" % i, "Common"))
 	full.lifepath_pool.append(very_rare.event_name)
 	TestFixtures.check(res, "eight events close the lifepath option",
 		not _has_option(LevelUpSystem.build_pool(full, 2), "lifepath_event"),
 		"%d events held" % full.lifepaths.size())
-	pool.erase(common)
-	pool.erase(rare)
-	pool.erase(very_rare)
+	TestFixtures.unregister_stub(common)
+	TestFixtures.unregister_stub(rare)
+	TestFixtures.unregister_stub(very_rare)
 
 
 static func _case_bank(res: Dictionary) -> void:
@@ -353,7 +349,7 @@ static func _case_generation(res: Dictionary) -> void:
 	if template == null:
 		TestFixtures.check(res, "an NPC template loads", false, "Bandit Melee is missing")
 		return
-	var npc: MercenaryData = NPCGenerator.generate(template, {}, 0, 5)
+	var npc: MercenaryData = NPCGenerator.generate(template, {}, 5)
 	if npc == null:
 		TestFixtures.check(res, "NPC generation returns a merc", false, "null NPC")
 		return
@@ -377,21 +373,6 @@ static func _case_sheet_printer(res: Dictionary) -> void:
 static func _row(tier: String, levels: Array, option: String, ordinal: int = 1) -> Dictionary:
 	return {"tier": tier, "levels": levels, "option": option, "weight": 1.0,
 		"description": "", "ordinal": ordinal}
-
-
-static func _event(event_name: String, rarity: String) -> LifepathData:
-	var lp := LifepathData.new()
-	lp.event_type = "Experienced"
-	lp.event_name = event_name
-	lp.rarity = rarity
-	return lp
-
-
-static func _weapon(weapon_type: String) -> WeaponData:
-	var w := WeaponData.new()
-	w.item_name = weapon_type + " (test)"
-	w.weapon_type = weapon_type
-	return w
 
 
 static func _armor(armor_type: String) -> ArmorData:

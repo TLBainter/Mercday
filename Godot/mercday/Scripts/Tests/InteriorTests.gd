@@ -7,7 +7,6 @@ const SEEDS := 8
 const SEED_BASE := 41
 const WING_MIN := 1
 const WING_MAX := 3
-const TAVERN := "Tavern"
 
 
 static func run() -> bool:
@@ -24,17 +23,10 @@ static func run() -> bool:
 	return TestFixtures.summarize(res, "INTERIOR")
 
 
-static func _seeded(seed_i: int) -> BattlefieldArea:
-	seed(seed_i)
-	var ctx := GenerationContext.new()
-	var area_data: Dictionary = DataManager.get_area_by_name(TAVERN)
-	return BattlefieldArea.generate_random(null, ctx, String(area_data.get("type", "Interior")), area_data)
-
-
 static func _seeded_fields() -> Array[BattlefieldArea]:
 	var out: Array[BattlefieldArea] = []
 	for s: int in range(SEEDS):
-		out.append(_seeded(SEED_BASE + s))
+		out.append(TestFixtures.seeded_tavern(SEED_BASE + s))
 	return out
 
 
@@ -146,7 +138,7 @@ static func _case_boundary(res: Dictionary, fields: Array[BattlefieldArea]) -> v
 				var c: Vector3i = key as Vector3i
 				if c.z != fl or not _on_union_edge(f, Vector2i(c.x, c.y)):
 					continue
-				var ct: String = String((f._obs_map.get(c, {}) as Dictionary).get("cell_type", ""))
+				var ct: String = f.cell_type_at(c)
 				if ct != "wall" and ct != "window" and ct != "door" and ct != "fence":
 					open_edge += 1
 				elif ct == "door" and not _door_leads_out(f, c):
@@ -278,7 +270,7 @@ static func _door_leads_out(field: BattlefieldArea, c: Vector3i) -> bool:
 		var p := Vector2i(c.x + d.x, c.y + d.y)
 		if field.footprint_union.has(p):
 			continue
-		if p.x < 0 or p.y < 0 or p.x >= field.width or p.y >= field.length:
+		if not field.in_bounds_xy(p.x, p.y):
 			continue
 		if field.building_interiors.has(Vector3i(p.x, p.y, c.z)):
 			return true
@@ -302,6 +294,6 @@ static func _west_entrance(field: BattlefieldArea) -> Vector3i:
 		var c: Vector3i = key as Vector3i
 		if c.z != 0 or c.x != x:
 			continue
-		if String((field._obs_map[c] as Dictionary).get("cell_type", "")) == "door":
+		if field.cell_type_at(c) == "door":
 			return Vector3i(x + 1, c.y, 0)
 	return Vector3i(-1, -1, 0)

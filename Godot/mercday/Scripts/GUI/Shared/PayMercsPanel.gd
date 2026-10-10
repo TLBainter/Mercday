@@ -1,4 +1,4 @@
-class_name PayMercsPanel extends PanelContainer
+class_name PayMercsPanel extends CrewPanel
 
 #Right side of an Odd Job crew: the default bonus, a per merc stepper and the running total.
 #Only shown once the team holds at least one merc. The total turns red past the guild's notes.
@@ -6,12 +6,6 @@ class_name PayMercsPanel extends PanelContainer
 signal pay_changed(per: int)
 
 const CAP_FLOOR: int = 999
-const RED: Color = Color("#e8583f")
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
-const TITLE_COLOR: Color = Color("#f28c28")
-const FONT_BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
 
 @export var default_pay: int = 0:
 	set(v):
@@ -30,7 +24,6 @@ const FONT_REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/Sil
 		money = v
 		_refresh()
 
-@onready var title_label: Label = $Rows/Title
 @onready var items_row: HBoxContainer = $Rows/ItemsRow
 @onready var default_row: HBoxContainer = $Rows/ItemsRow/DefaultRow
 @onready var default_glyph: TextureRect = $Rows/ItemsRow/DefaultRow/Glyph
@@ -43,25 +36,18 @@ const FONT_REGULAR: FontVariation = preload("res://Resources/GUI/Theme/Fonts/Sil
 
 
 func _ready() -> void:
-	add_theme_stylebox_override(&"panel", _panel_style())
+	super()
 	title_label.text = "Pay Mercs"
-	title_label.add_theme_font_override(&"font", FONT_REGULAR)
-	title_label.add_theme_font_size_override(&"font_size", 11)
-	title_label.add_theme_color_override(&"font_color", TITLE_COLOR)
 	default_row.tooltip_text = "Odd Job Default Bonus"
-	default_value_label.add_theme_font_override(&"font", FONT_BOLD)
-	default_value_label.add_theme_font_size_override(&"font_size", 16)
-	default_value_label.add_theme_color_override(&"font_color", SKY)
+	GuiStyle.paint(default_value_label, GuiStyle.SILK_BOLD, 16, GuiColors.SKY)
 	stepper.min_value = 0
 	stepper.max_value = _stepper_cap()
 	stepper.custom_minimum_size = Vector2(170.0, 38.0)
 	stepper.value_changed.connect(_on_stepper_changed)
 	GameState.money_changed.connect(_on_money_changed)
 	per_merc_label.text = "/ Merc"
-	per_merc_label.add_theme_font_override(&"font", FONT_REGULAR)
-	per_merc_label.add_theme_font_size_override(&"font_size", 17)
-	per_merc_label.add_theme_color_override(&"font_color", SKY)
-	total_label.add_theme_font_override(&"font", FONT_BOLD)
+	GuiStyle.paint(per_merc_label, GuiStyle.SILK, 17, GuiColors.SKY)
+	total_label.add_theme_font_override(&"font", GuiStyle.SILK_BOLD)
 	total_label.add_theme_font_size_override(&"font_size", 18)
 	_refresh()
 
@@ -70,18 +56,17 @@ func total() -> int:
 	return per * team_size
 
 
+#Test probe: one press of the stepper plus button.
 func press_stepper_plus() -> void:
 	stepper.press_plus()
 
 
-func press_stepper_minus() -> void:
-	stepper.press_minus()
-
-
+#Test probe: the value the stepper shows.
 func stepper_value() -> int:
 	return stepper.value
 
 
+#Test probe: the default bonus text.
 func default_text() -> String:
 	return default_value_label.text
 
@@ -103,17 +88,17 @@ func _refresh() -> void:
 	if not is_node_ready():
 		return
 	visible = team_size >= 1
-	default_value_label.text = _format(default_pay)
-	default_glyph.texture = CrewGlyphs.note(SKY, 2)
-	default_glyph.custom_minimum_size = Vector2(CrewGlyphs.NOTE_COLS, CrewGlyphs.NOTE_ROWS) * 2.0
+	default_value_label.text = TransactionData.grouped(default_pay)
+	default_glyph.texture = Icons.tinted("note", GuiColors.SKY, 2, true)
+	default_glyph.custom_minimum_size = NoteIcon.GLYPH_SIZE_PX * 2.0
 	stepper.max_value = _stepper_cap()
 	stepper.set_value_silent(per)
 	var over: bool = total() > money
-	var tint: Color = RED if over else CREAM
-	total_label.text = "Total %s" % _format(total())
+	var tint: Color = GuiColors.RED if over else GuiColors.CREAM
+	total_label.text = "Total %s" % TransactionData.grouped(total())
 	total_label.add_theme_color_override(&"font_color", tint)
-	total_glyph.texture = CrewGlyphs.note(tint, 3)
-	total_glyph.custom_minimum_size = Vector2(CrewGlyphs.NOTE_COLS, CrewGlyphs.NOTE_ROWS) * 3.0
+	total_glyph.texture = Icons.tinted("note", tint, 3, true)
+	total_glyph.custom_minimum_size = NoteIcon.GLYPH_SIZE_PX * 3.0
 
 
 #The stepper never caps below the guild's notes, the current per merc pay or CAP_FLOOR.
@@ -123,21 +108,3 @@ func _stepper_cap() -> int:
 
 func _on_money_changed(_notes: int) -> void:
 	_refresh()
-
-
-func _panel_style() -> StyleBoxFlat:
-	var path: String = "res://Resources/GUI/Theme/Styles/crew_panel_dark.tres"
-	return (load(path) as StyleBoxFlat).duplicate() as StyleBoxFlat
-
-
-static func _format(n: int) -> String:
-	var neg: bool = n < 0
-	var s: String = str(absi(n))
-	var out: String = ""
-	var count: int = 0
-	for i in range(s.length() - 1, -1, -1):
-		out = s[i] + out
-		count += 1
-		if count % 3 == 0 and i != 0:
-			out = "," + out
-	return ("-" if neg else "") + out

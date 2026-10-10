@@ -16,34 +16,33 @@ var kidnap_triggered: bool = false
 var kidnap_closed: bool = false       #a failed or abandoned grapple ends kidnap rolls for this encounter
 var kidnap_pending: MercenaryData = null   #the enemy whose kidnap roll passed and has not grappled yet
 var kidnap_pending_target: MercenaryData = null
-var battlefield: BattlefieldArea   # null = no positioning active
-var positions: Dictionary = {}     # MercenaryData -> Vector2i
+var battlefield: BattlefieldArea   #null = no positioning active
+var positions: Dictionary = {}     #MercenaryData -> Vector2i
 var heights: Dictionary = {}       #MercenaryData -> int paces above the surface of its own cell
-var floors: Dictionary = {}        # MercenaryData -> int floor_num (interior maps; 0 for ground floor)
-var climbing_data: Dictionary = {} # MercenaryData -> {wall_pos, current_h, target_h, top_pos}
+var floors: Dictionary = {}        #MercenaryData -> int floor_num (interior maps; 0 for ground floor)
+var climbing_data: Dictionary = {} #MercenaryData -> {wall_pos, current_h, target_h, top_pos}
 var sunk: Dictionary = {}          #MercenaryData -> int paces below the water surface of its own cell
-#plain int/String fields only; no Vector2i to avoid Variant-inference warnings
 var los_cache: Dictionary = {}                #LOS result cache; key includes battlefield.los_version
-var last_attacked: Dictionary = {}            # attacker -> last target attacked
+var last_attacked: Dictionary = {}            #attacker -> last target attacked
 var dying_source: Dictionary = {}             #MercenaryData -> the merc who put them into Dying
-var last_ranged_targeted_round: Dictionary = {}  # target -> round_number when last targeted by a ranged attacker
-var damage_dealt_this_round: Dictionary = {}  # attacker -> { target -> total dealt }
+var last_ranged_targeted_round: Dictionary = {}  #target -> round_number when last targeted by a ranged attacker
+var damage_dealt_this_round: Dictionary = {}  #attacker -> { target -> total dealt }
 var damage_dealt_total: Dictionary = {}       #attacker -> {target -> total} for the whole encounter; never rotated
-var damage_dealt_last_round: Dictionary = {}  # same, snapshot from previous round
-var dropped_weapons: Dictionary = {}          # Vector2i -> Array[WeaponData]
-var no_target_turns: Dictionary = {}          # MercenaryData -> consecutive turns without a valid attack target
+var damage_dealt_last_round: Dictionary = {}  #same, snapshot from previous round
+var dropped_weapons: Dictionary = {}          #Vector2i -> Array of {weapon, ammo_loaded, ammo_loaded_type, floor}
+var no_target_turns: Dictionary = {}          #MercenaryData -> consecutive turns without a valid attack target
 var move_goals: Dictionary = {}              #MercenaryData -> Vector3i persistent move destination
-var move_targets: Dictionary = {}            # MercenaryData -> MercenaryData current move target
-var position_history: Dictionary = {}        # MercenaryData -> Array[Vector2i] (last 3 end-of-turn positions)
-var no_progress_rounds: Dictionary = {}      # MercenaryData -> consecutive turns without position change
-var _cached_winner: int = -2                  # set by AutoBattle._finalize() before merc reset
-var _merc_team_index: Dictionary = {}         # MercenaryData -> int; populated in create()
+var move_targets: Dictionary = {}            #MercenaryData -> MercenaryData current move target
+var position_history: Dictionary = {}        #MercenaryData -> Array[Vector2i] (last 3 end-of-turn positions)
+var no_progress_rounds: Dictionary = {}      #MercenaryData -> consecutive turns without position change
+var _cached_winner: int = -2                  #set by AutoBattle.finalize() before merc reset
+var _merc_team_index: Dictionary = {}         #MercenaryData -> int; populated in create()
 var turn_ally_passable: Dictionary = {}       #MercenaryData -> Dictionary{Vector3i->true}; rebuilt per turn
 var turn_path_dist: Dictionary = {}           #"a|b" pair key -> int path distance; rebuilt per turn
-var movement_blocked: Dictionary = {}         # MercenaryData -> Dictionary{MercenaryData->true}; permanently unreachable enemies
+var movement_blocked: Dictionary = {}         #MercenaryData -> Dictionary{MercenaryData->true}; permanently unreachable enemies
 var far_full: Dictionary = {}                #MercenaryData -> true; its approach flood runs uncapped for the rest of the battle
-var team_blocked_round: Dictionary = {}      # MercenaryData (target) -> int (round of last block increment)
-var team_blocked_count: Dictionary = {}      # MercenaryData (target) -> int (allies blocked on this target in that round)
+var team_blocked_round: Dictionary = {}      #MercenaryData (target) -> int (round of last block increment)
+var team_blocked_count: Dictionary = {}      #MercenaryData (target) -> int (allies blocked on this target in that round)
 var pending_interact: Dictionary = {}        #MercenaryData -> Vector3i; door cell a move stopped in front of
 var pace_pool: Dictionary = {}               #MercenaryData -> int paces banked by Move actions this turn
 var move_plan: Dictionary = {}               #MercenaryData -> {"moves_allowed": int, "reserve_ap": int} for the next Move
@@ -51,8 +50,7 @@ var climb_routes: Dictionary = {}            #MercenaryData -> {"link": Dictiona
 var jump_routes: Dictionary = {}             #MercenaryData -> {"to": Vector3i, "foot": Vector3i}; roof leap a walk stopped at
 var roof_posts: Dictionary = {}              #MercenaryData -> RoofPostScore row, {} for none; one score per turn
 var campaign_seeded: int = 0                 #knowledge tokens carried in from CampaignKnowledge at create()
-var casualties: Array[MercenaryData] = []    #Filled by AutoBattle._finalize with every merc dead at the end
-var carry_resources: bool = false            #When true create() keeps current hp, ep, mp and is_dead so damage carries between events
+var casualties: Array[MercenaryData] = []    #Filled by AutoBattle.finalize with every merc dead at the end
 var defected: Array[MercenaryData] = []      #mercs that switched sides during this battle
 var escaped: Array[MercenaryData] = []       #left the field alive through remove_from_field, reason fled
 var removed_from_field: Array[MercenaryData] = []  #left the field alive through remove_from_field, reason out
@@ -72,10 +70,8 @@ var state_timers: Dictionary = {}
 static func create(
 		team_a: Array[MercenaryData],
 		team_b: Array[MercenaryData],
-		field: BattlefieldArea = null,
-		carry: bool = false) -> BattleState:
+		field: BattlefieldArea = null) -> BattleState:
 	var state := BattleState.new()
-	state.carry_resources = carry
 	state.teams = [team_a, team_b]
 	for _ti: int in range(state.teams.size()):
 		for _tm: MercenaryData in state.teams[_ti]:
@@ -83,21 +79,15 @@ static func create(
 	var all_mercs: Array[MercenaryData] = []
 	all_mercs.assign(team_a + team_b)
 	for merc: MercenaryData in all_mercs:
-		for detail: String in MercGenerator.load_gear_perks(merc, MercGenerator.force_perk_load):
+		for detail: String in WeaponArmorPerkLibrary.load_gear_perks(merc, WeaponArmorPerkLibrary.force_perk_load):
 			state.pre_battle_lines.append("PERK LOAD: %s %s" % [merc.merc_name, detail])
-		if not carry:
-			merc.current_hp = int(merc.stats.get("maximum_hit_points", 1))
-			merc.is_dead = false
-			merc.current_ep = int(merc.stats.get("maximum_endurance_points", 1))
-			#TODO: apply the ArmorData.fatigue penalty, guarded by armor_fatigue_zero:<armor type>.
-			merc.current_mp = int(merc.stats.get("maximum_magic_points", 0))
 		LevelUpSystem.note_armor_use(merc)
 		merc.current_ap = 0
 		#Excess HP, EP and MP are not reset here; they are cleared on contract return (ExcessPool.clear)
 		merc.excess_ap = 0
-		var campaign_snap := ConstStates.snapshot_campaign_states(merc)
+		var campaign_snap := StateCampaign.snapshot_campaign_states(merc)
 		merc.active_states = {}
-		ConstStates.restore_campaign_states(merc, campaign_snap)
+		StateCampaign.restore_campaign_states(merc, campaign_snap)
 		merc.death_test_hp_loss = 0
 		merc.rot_hp_loss = 0
 		merc.suffocation_hp_loss = 0
@@ -126,11 +116,10 @@ static func create(
 	state.battlefield = field
 	if field != null:
 		SpawnPlacer.assign(state, team_a, team_b)
-		PathTargeter.warm_jumps(state)
+		ReachCache.warm_jumps(state)
 	return state
 
 
-#Every merc starts knowing the passive immunity tokens of each teammate.
 #Merc first name wrapped in the colour tag of its team, as every battle log line prints it.
 static func colored_name(merc: MercenaryData, state: BattleState) -> String:
 	var first := merc.merc_name.get_slice(" ", 0)
@@ -142,6 +131,7 @@ static func colored_name(merc: MercenaryData, state: BattleState) -> String:
 	return first
 
 
+#Every merc starts knowing the passive immunity tokens of each teammate.
 static func _seed_team_knowledge(state: BattleState) -> void:
 	for team: Array in state.teams:
 		for viewer: MercenaryData in team:
@@ -263,8 +253,8 @@ static func _reset_starting_ammo(merc: MercenaryData) -> void:
 		return
 	var prev_equipped := merc.equipped_weapon
 	merc.equipped_weapon = ranged_w
-	MercGenerator._equip_starting_ammo(merc)
-	MercGenerator.cap_carried_ammo(merc, merc.max_ammo)
+	StartingGear.equip_starting_ammo(merc)
+	StartingGear.cap_carried_ammo(merc, merc.max_ammo)
 	merc.equipped_weapon = prev_equipped
 
 
@@ -282,26 +272,27 @@ static func restore_pools(merc: MercenaryData, ammo: bool = true) -> void:
 		_reset_starting_ammo(merc)
 
 
+#Drops the paces, move plan and climb, jump and roof routes a merc banked for one turn.
+func _clear_turn_plans(merc: MercenaryData) -> void:
+	pace_pool.erase(merc)
+	move_plan.erase(merc)
+	climb_routes.erase(merc)
+	jump_routes.erase(merc)
+	roof_posts.erase(merc)
+
+
 func start_of_turn(merc: MercenaryData) -> void:
 	var max_ap := int(merc.stats.get("action_points", 5))
 	merc.current_ap = maxi(0, max_ap - merc.ap_debt)
 	merc.ap_debt = 0
 	escalation[merc] = {}
-	pace_pool.erase(merc)
-	move_plan.erase(merc)
-	climb_routes.erase(merc)
-	jump_routes.erase(merc)
-	roof_posts.erase(merc)
+	_clear_turn_plans(merc)
 	merc.active_states.erase("draw_refused_turn")
 	merc.active_states.erase("draw_priority_turn")
 
 
 func end_of_turn(merc: MercenaryData, took_weapon_action: bool = false) -> void:
-	pace_pool.erase(merc)
-	move_plan.erase(merc)
-	climb_routes.erase(merc)
-	jump_routes.erase(merc)
-	roof_posts.erase(merc)
+	_clear_turn_plans(merc)
 	#Unspent AP is next turn's excess; excess still left from the previous turn is dropped.
 	merc.excess_ap = maxi(0, merc.current_ap)
 	merc.current_ap = 0
@@ -338,7 +329,7 @@ func get_cost_after(merc: MercenaryData, action_name: String, base_cost: int, ex
 	if escalation.has(merc):
 		times_used += escalation[merc].get(_cost_key(action_name), 0)
 	var cost := base_cost + times_used
-	cost *= ConstStates.cost_multiplier(merc, "ap")
+	cost *= StateEffects.cost_multiplier(merc, "ap")
 	return cost
 
 
@@ -376,18 +367,6 @@ func any_timed_state_pending() -> bool:
 			if expires == 0 or expires > round_number:
 				return true
 	return false
-
-
-func export_campaign_timers() -> void:
-	CampaignTimers.export_campaign_timers(self)
-
-
-func _campaign_expiry(merc: MercenaryData, state_name: String, now: int) -> int:
-	return CampaignTimers._campaign_expiry(self, merc, state_name, now)
-
-
-func get_timed_states(merc: MercenaryData) -> Array[String]:
-	return CampaignTimers.get_timed_states(self, merc)
 
 
 func set_pace_pool(merc: MercenaryData, paces: int) -> void:
@@ -476,7 +455,7 @@ func learn_token(observer: MercenaryData, target: MercenaryData, token: String) 
 func learn_state_immunity(observer: MercenaryData, target: MercenaryData, state_name: String) -> void:
 	if ConstStates.immune_source(target, state_name) != "passive":
 		return
-	learn_token(observer, target, "immune:" + ConstStates.normalize_token(state_name))
+	learn_token(observer, target, "immune:" + StateTokens.normalize_token(state_name))
 
 
 func clear_encounter_cache() -> void:
@@ -635,7 +614,7 @@ func nav_passable_3d() -> Dictionary:
 	var result: Dictionary = {}
 	if battlefield == null or battlefield.is_interior_map:
 		return result
-	for c: Vector2i in battlefield.get_nav_passable_cells().keys():
+	for c: Vector2i in battlefield.reserved_corridor_cells.keys():
 		result[Vector3i(c.x, c.y, 0)] = true
 	return result
 
@@ -644,15 +623,20 @@ func get_floor(merc: MercenaryData) -> int:
 	return floors.get(merc, 0)
 
 
-#The climb link a stopped walk left pending, {} when none; a move off the foot drops the record.
-func climb_route(merc: MercenaryData) -> Dictionary:
-	var row: Dictionary = climb_routes.get(merc, {}) as Dictionary
+#The route stored for merc, dropped once the merc has left its foot cell.
+func _route_from(routes: Dictionary, merc: MercenaryData) -> Dictionary:
+	var row: Dictionary = routes.get(merc, {}) as Dictionary
 	if row.is_empty():
 		return {}
 	if pos3(merc) != (row["foot"] as Vector3i):
-		climb_routes.erase(merc)
+		routes.erase(merc)
 		return {}
 	return row
+
+
+#The climb link a stopped walk left pending, {} when none; a move off the foot drops the record.
+func climb_route(merc: MercenaryData) -> Dictionary:
+	return _route_from(climb_routes, merc)
 
 
 func set_climb_route(merc: MercenaryData, link: Dictionary, down: bool, foot: Vector3i) -> void:
@@ -665,13 +649,7 @@ func clear_climb_route(merc: MercenaryData) -> void:
 
 #The roof leap a stopped walk left pending, {} when none; a move off the take-off drops the record.
 func jump_route(merc: MercenaryData) -> Dictionary:
-	var row: Dictionary = jump_routes.get(merc, {}) as Dictionary
-	if row.is_empty():
-		return {}
-	if pos3(merc) != (row["foot"] as Vector3i):
-		jump_routes.erase(merc)
-		return {}
-	return row
+	return _route_from(jump_routes, merc)
 
 
 func set_jump_route(merc: MercenaryData, to: Vector3i, foot: Vector3i) -> void:
@@ -700,6 +678,17 @@ func distance_to(a: MercenaryData, b: MercenaryData) -> int:
 	var eb := battlefield.cell_base_elevation(pb, get_floor(b)) + float(body_height(b))
 	var dz := int(round(absf(ea - eb)))
 	return maxi(maxi(abs(pa.x - pb.x), abs(pa.y - pb.y)), dz)
+
+
+#distance_to from a stance at `cell` with `height` to `target`; reads the target's get_height, not body_height.
+func distance_from(cell: Vector3i, height: int, target: MercenaryData) -> int:
+	if battlefield == null:
+		return 0
+	var tp := get_position(target)
+	var ea := battlefield.cell_base_elevation(Vector2i(cell.x, cell.y), cell.z) + float(height)
+	var eb := battlefield.cell_base_elevation(tp, get_floor(target)) + float(get_height(target))
+	var dz := int(round(absf(ea - eb)))
+	return maxi(maxi(abs(cell.x - tp.x), abs(cell.y - tp.y)), dz)
 
 
 #A* walking distance between two mercs in pace cost. 9999 when no route exists.
@@ -759,7 +748,7 @@ func record_damage_dealt(attacker: MercenaryData, target: MercenaryData, amount:
 	if not damage_dealt_this_round.has(attacker):
 		damage_dealt_this_round[attacker] = {}
 	damage_dealt_this_round[attacker][target] = damage_dealt_this_round[attacker].get(target, 0) + amount
-	if attacker == null or target == null or attacker == target:
+	if attacker == target:
 		return
 	if int(_merc_team_index.get(attacker, -1)) == int(_merc_team_index.get(target, -2)):
 		return
@@ -785,28 +774,8 @@ func is_battle_over() -> bool:
 	return false
 
 
-func drop_weapon(merc: MercenaryData) -> void:
-	DroppedItemStore.drop_weapon(self, merc)
-
-
-func retrieve_dropped_weapons_for(merc: MercenaryData) -> int:
-	return DroppedItemStore.retrieve_dropped_weapons_for(self, merc)
-
-
-func drop_packed_weapon(merc: MercenaryData, weapon: WeaponData) -> bool:
-	return DroppedItemStore.drop_packed_weapon(self, merc, weapon)
-
-
-func drop_ammo_bundle(merc: MercenaryData, ammo_name: String) -> int:
-	return DroppedItemStore.drop_ammo_bundle(self, merc, ammo_name)
-
-
 func get_dropped_weapons_at(pos: Vector2i, floor_num: int = -1) -> Array:
 	return DroppedItemStore.get_dropped_weapons_at(self, pos, floor_num)
-
-
-func remove_dropped_weapon(pos: Vector2i, entry: Dictionary) -> void:
-	DroppedItemStore.remove_dropped_weapon(self, pos, entry)
 
 
 func is_position_occupied(pos: Vector2i, exclude_merc: MercenaryData, floor_num: int) -> bool:
@@ -834,3 +803,12 @@ func get_winner() -> int:
 				winner = i
 				break
 	return winner
+
+
+#Door opened or closed: sight lines and floods are stale, the geometry tables are not.
+func on_door_changed() -> void:
+	if battlefield != null:
+		battlefield.los_version += 1
+		battlefield.bump_door_version()
+	los_cache.clear()
+	MovementExecutor.clear_caches()

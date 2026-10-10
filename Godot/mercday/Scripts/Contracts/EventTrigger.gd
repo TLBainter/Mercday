@@ -19,7 +19,7 @@ static func is_wilderness(loc: LocationData) -> bool:
 		return false
 	if loc.location_type.strip_edges() == SETTLEMENT_TYPE:
 		return false
-	return LifepathRequirements._environment_of(loc).strip_edges() != URBAN_ENVIRONMENT
+	return LifepathRequirements.environment_of(loc).strip_edges() != URBAN_ENVIRONMENT
 
 
 #A Trigger cell reads "<rest kind>:<place>"; the place half is optional.
@@ -40,15 +40,13 @@ static func matches(event: EventData, kind: String, run: ContractRun) -> bool:
 #Percent chance at this rest: Luck buys it down, every Respite that passed quietly pushes it up.
 static func chance(team: Array[MercenaryData]) -> float:
 	var config: ContractConfig = ContractLibrary.config()
-	if config == null:
-		return 0.0
 	var pct: float = config.ambush_base_chance - PartyStats.average_stat(team, "luck") * config.ambush_luck_weight
 	pct += float(missed_respites) * config.ambush_escalation
 	return clampf(pct, config.ambush_chance_floor, 100.0)
 
 
 static func roll(team: Array[MercenaryData]) -> Dictionary:
-	var d100: int = BadLuckRoll.forced_or_d100(forced_d100)
+	var d100: int = Dice.forced_or_d100(forced_d100)
 	forced_d100 = -1
 	var pct: float = chance(team)
 	var avg: float = PartyStats.average_stat(team, "luck")
@@ -66,6 +64,9 @@ static func roll(team: Array[MercenaryData]) -> Dictionary:
 static func pick(kind: String, run: ContractRun) -> EventData:
 	last_line = ""
 	if run == null or kind != RestSystem.KIND_RESPITE:
+		return null
+	#A Local run rests at the guild: no roll and no streak move.
+	if run.contract != null and run.contract.local:
 		return null
 	if _forced_name() != "":
 		var forced: EventData = _forced_event(kind, run)
@@ -87,10 +88,7 @@ static func pick(kind: String, run: ContractRun) -> EventData:
 
 
 static func _forced_name() -> String:
-	var config: ContractConfig = ContractLibrary.config()
-	if config == null:
-		return ""
-	return config.force_trigger_event.strip_edges()
+	return ContractLibrary.config().force_trigger_event.strip_edges()
 
 
 #The forced event skips the place test and the roll, never the one firing per run.
@@ -103,7 +101,7 @@ static func _forced_event(kind: String, run: ContractRun) -> EventData:
 	return event
 
 
-#Every event whose Trigger cell answers this rest and has not fired yet this run.
+#Every event whose Trigger cell answers this rest, lists the run's contract type (blank lists all) and has not fired yet.
 static func _candidates(kind: String, run: ContractRun) -> Array[EventData]:
 	var out: Array[EventData] = []
 	for row: Dictionary in DataManager.event_rows:
@@ -113,9 +111,16 @@ static func _candidates(kind: String, run: ContractRun) -> Array[EventData]:
 		if name == "" or run.triggered_events.has(name):
 			continue
 		var event: EventData = ContractLibrary.event(name)
-		if event != null and matches(event, kind, run) and not out.has(event):
+		if event != null and matches(event, kind, run) and type_allowed(event, run):
 			out.append(event)
 	return out
+
+
+#A blank Possible Contracts cell, or a run with no contract, allows every type.
+static func type_allowed(event: EventData, run: ContractRun) -> bool:
+	if event.possible_contracts.is_empty() or run.contract == null:
+		return true
+	return event.possible_contracts.has(run.contract.contract_type)
 
 
 static func _trigger_part(event: EventData, index: int) -> String:

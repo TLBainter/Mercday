@@ -6,8 +6,7 @@ class_name LifepathRequirements
 
 #Check kinds that exist without a Stats.tsv row; a contract check also records under every
 #team.<stat> its event's Success Formula names, so any stat var name is a check token too.
-const CHECK_STATS: Array[String] = ["vigor", "dexterity", "cognition", "wile", "cheat_death",
-	"resist", "reroll", "avoid_aoe"]
+const CHECK_STATS: Array[String] = ["cheat_death", "resist", "reroll", "avoid_aoe"]
 const ITEM_TYPES: Array[String] = ["ranged", "melee", "thrown"]
 const OPS: Array[String] = ["IS", "IS NOT", "IS >=", "ONE OF", "CONTAINS", "HAS TAG"]
 #Subjects read straight off merc.stats; the value cell is the number the operator compares against.
@@ -197,7 +196,7 @@ static func _is_bool(value: String) -> bool:
 static func _is_check_token(token: String) -> bool:
 	if token == "":
 		return false
-	if CHECK_STATS.has(token):
+	if TraitRuntime.CORE_STATS.has(token) or CHECK_STATS.has(token):
 		return true
 	if _stat_tokens.is_empty():
 		for stat_def: Dictionary in DataManager.stat_definitions:
@@ -382,7 +381,7 @@ static func _location_tokens(loc: LocationData) -> Array[String]:
 	var out: Array[String] = []
 	if loc == null:
 		return out
-	for raw: String in [loc.location_type, loc.location_name, _environment_of(loc)]:
+	for raw: String in [loc.location_type, loc.location_name, environment_of(loc)]:
 		var t := StateTokens.normalize_token(raw)
 		if t != "" and not out.has(t):
 			out.append(t)
@@ -390,7 +389,7 @@ static func _location_tokens(loc: LocationData) -> Array[String]:
 
 
 #A blank Environment cell borrows the parent's, so a settlement inherits its country's when unset.
-static func _environment_of(loc: LocationData) -> String:
+static func environment_of(loc: LocationData) -> String:
 	var node: LocationData = loc
 	while node != null:
 		if node.environment.strip_edges() != "":
@@ -406,7 +405,7 @@ static func _contract_location(merc: MercenaryData, ctx: Dictionary, value: Stri
 	if value == HOME_TOKEN:
 		return _is_merc_home(merc, run.location)
 	if value == ENVIRON_TOKEN:
-		return _environment_of(run.location) != ""
+		return environment_of(run.location) != ""
 	return _location_tokens(run.location).has(StateTokens.normalize_token(value))
 
 

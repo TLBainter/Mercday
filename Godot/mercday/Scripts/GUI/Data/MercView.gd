@@ -2,7 +2,7 @@ class_name MercView extends RefCounted
 
 #Everything the Merc Viewer, the lists and the Dispatch Window read about one merc, flattened off
 #MercenaryData so no scene walks the engine resources. Rebuilt by GameState.refresh_views().
-#Sample rows fill only the handoff fields and leave merc null. Beside the flat traits names the
+#Sample rows fill only the design prototype fields and leave merc null. Beside the flat traits names the
 #viewer tabs read perks, drawbacks, descriptors and skills, and the overview reads the lifepath chips.
 
 #Relationship thresholds, low to high; the face is the index of the highest one reached.
@@ -18,6 +18,10 @@ var heritage: String = ""
 var level: int = 0
 var tradition: String = ""
 var age_group: String = ""
+#CharacterAppearance.roll seed; 0 falls back to the uid in MercPortrait.
+var appearance_seed: int = 0
+#The merc's rolled look (shared reference); null falls back to appearance_seed.
+var appearance: CharacterAppearance = null
 #PLACEHOLDER: no roster criminality record exists, so an employed merc reads blank; an
 #applicant carries the value the hiring pool drew.
 var criminality: String = ""
@@ -29,6 +33,8 @@ var employment_months: int = 0
 var guild_opinion: int = 0
 var status: int = GuiTypes.MercStatus.AVAILABLE
 var status_time_left_hours: float = 0.0
+#The fraction of the status span still ahead, 0..1, from GameState.merc_status; -1 = unknown.
+var status_fraction_left: float = -1.0
 var knowledges: Array[String] = []
 var tools: Array[String] = []
 var level_mode: String = "Auto"
@@ -79,6 +85,8 @@ static func from_merc(m: MercenaryData, new_status: int, status_hours: float,
 	view.level = ExperienceSystem.current_level(m)
 	view.tradition = m.tradition.tradition_name if m.tradition != null else ""
 	view.age_group = m.age_category
+	view.appearance_seed = m.appearance_seed
+	view.appearance = m.appearance
 	view.monthly_salary = m.monthly_salary
 	view.employment_months = maxi(0, months)
 	view.guild_opinion = m.guild_opinion
@@ -141,14 +149,21 @@ static func from_sample(d: Dictionary) -> MercView:
 	return view
 
 
-#Reads a job applicant so the viewer can show one before hire. ApplicantData carries no salary
-#history, resources, lifepath or opinion, so those fields keep their defaults; the age arrives as a
-#number of years because an applicant has no life expectancy to band it with, and the status stays
-#AVAILABLE because "Applicant" is a state of the viewer, not a roster status.
+#Reads a job applicant so the viewer can show one before hire: the merc rolled when they appeared,
+#keyed by the applicant id and priced at their asking rate. The status stays AVAILABLE because
+#"Applicant" is a state of the viewer, not a roster status. An applicant with no merc behind it reads
+#flat off ApplicantData, its age a number of years because it has no life expectancy to band it with.
 static func from_applicant(a: ApplicantData) -> MercView:
-	var view := MercView.new()
 	if a == null:
-		return view
+		return MercView.new()
+	var m: MercenaryData = PromotionsManager.merc_of(a)
+	if m != null:
+		var full: MercView = from_merc(m, GuiTypes.MercStatus.AVAILABLE, 0.0, 0)
+		full.uid = a.id
+		full.monthly_salary = a.ask
+		full.criminality = a.criminality
+		return full
+	var view := MercView.new()
 	view.uid = a.id
 	view.name = a.name
 	view.heritage = a.heritage
@@ -169,6 +184,20 @@ static func from_applicant(a: ApplicantData) -> MercView:
 	return view
 
 
+#The status a band reads: an away merc shows where they are.
+func shown_status() -> int:
+	if GameState.is_away(uid):
+		return GameState.away_status(uid)
+	return status
+
+
+#The loan line under the name, when the ledger has one to give for the shown status.
+func loan_note(shown: int) -> String:
+	if shown != GuiTypes.MercStatus.LOAN:
+		return ""
+	return FinanceManager.loan_note(uid)
+
+
 static func status_from_text(text: String) -> int:
 	match text.strip_edges().to_lower():
 		"resting":
@@ -187,6 +216,14 @@ static func relationship_face(value: int) -> int:
 		if value >= FACE_THRESHOLDS[i]:
 			face = i
 	return face
+
+
+#The view in list whose uid matches, or null when none does; a null entry is skipped.
+static func by_uid(list: Array[MercView], merc_uid: int) -> MercView:
+	for view: MercView in list:
+		if view != null and view.uid == merc_uid:
+			return view
+	return null
 
 
 func face_for(other_uid: int) -> int:

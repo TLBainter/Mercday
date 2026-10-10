@@ -33,12 +33,70 @@ static func _extract_data(field: BattlefieldArea) -> Dictionary:
 	data["floors"] = floors
 	data["floor_list"] = _floor_list(field)
 
-	var th: Dictionary = {}
-	for k: Variant in field.terrain_heights.keys():
-		var pos := k as Vector2i
-		th["%d_%d" % [pos.x, pos.y]] = field.terrain_heights[k]
-	data["terrain_heights"] = th
+	data["terrain_heights"] = _keyed(field.terrain_heights, TYPE_NIL)
 
+	data["obstacles"] = _extract_obstacles(field)
+
+	#Exterior buildings key their cells by Vector2i; the viewer draws those on floor 0.
+	var bi: Array = []
+	for k: Variant in field.building_interiors.keys():
+		if k is Vector3i:
+			var pos: Vector3i = k
+			bi.append([pos.x, pos.y, pos.z])
+		elif k is Vector2i:
+			var flat: Vector2i = k
+			bi.append([flat.x, flat.y, 0])
+	data["building_interiors"] = bi
+
+	data["stairwell_cells"] = _triples(field.stairwell_cells)
+
+	var stc: Array = []
+	for k: Variant in field.stair_run_cells.keys():
+		var sp := k as Vector3i
+		stc.append([sp.x, sp.y, sp.z, field.cell_base_elevation(Vector2i(sp.x, sp.y), sp.z)])
+	data["stair_cells"] = stc
+
+	data["drop_links"] = _extract_drop_links(field)
+
+	var rooms: Array = []
+	for entry: Dictionary in field.interior_rooms:
+		rooms.append(_rect_dict(entry["rect"] as Rect2i, {"name": entry["name"], "floor": entry["floor"]}))
+	data["rooms"] = rooms
+
+	var bdata: Array = []
+	for b: Dictionary in field.building_data:
+		bdata.append(_rect_dict(b["rect"] as Rect2i, {"name": b.get("name", "")}))
+	data["buildings"] = bdata
+
+	data["spawn_a"] = _pairs(field.spawn_zone_a)
+
+	data["spawn_b"] = _pairs(field.spawn_zone_b)
+
+	data["jagged_cells"] = _pairs(field.jagged_cells)
+
+	data["is_cavern"] = field.is_cavern
+	if field.is_cavern:
+		_extract_cavern(field, data)
+
+	data["is_dungeon"] = field.is_dungeon
+	var halls: Array = []
+	for entry: Dictionary in field.dungeon_halls:
+		halls.append(_rect_dict(entry["rect"] as Rect2i,
+			{"name": entry.get("name", ""), "floor": int(entry.get("floor", 0))}))
+	data["halls"] = halls
+
+	if field.is_city:
+		data["city"] = _extract_city(field)
+	if not field.buildings.is_empty():
+		_extract_buildings(field, data)
+	if not field.roof_parts.is_empty():
+		data["roofs"] = _extract_roofs(field)
+
+	return data
+
+
+#One record per obstacle with its cell, footprint, flags and the city tags.
+static func _extract_obstacles(field: BattlefieldArea) -> Array:
 	var obs_list: Array = []
 	for obs: Dictionary in field.obstacles:
 		var cell := BattlefieldArea.cell_of(obs["pos"])
@@ -73,27 +131,11 @@ static func _extract_data(field: BattlefieldArea) -> Dictionary:
 			entry["ct"] = String(obs.get("city", ""))
 			entry["blk"] = 1 if blocking else 0
 		obs_list.append(entry)
-	data["obstacles"] = obs_list
+	return obs_list
 
-	#Exterior buildings key their cells by Vector2i; the viewer draws those on floor 0.
-	var bi: Array = []
-	for k: Variant in field.building_interiors.keys():
-		if k is Vector3i:
-			var pos: Vector3i = k
-			bi.append([pos.x, pos.y, pos.z])
-		elif k is Vector2i:
-			var flat: Vector2i = k
-			bi.append([flat.x, flat.y, 0])
-	data["building_interiors"] = bi
 
-	data["stairwell_cells"] = _triples(field.stairwell_cells)
-
-	var stc: Array = []
-	for k: Variant in field.stair_run_cells.keys():
-		var sp := k as Vector3i
-		stc.append([sp.x, sp.y, sp.z, field.cell_base_elevation(Vector2i(sp.x, sp.y), sp.z)])
-	data["stair_cells"] = stc
-
+#Every window and balcony drop link as a flat record; roof drops are left to the roof data.
+static func _extract_drop_links(field: BattlefieldArea) -> Array:
 	var dls: Array = []
 	for k: Variant in field.drop_links.keys():
 		var dp := k as Vector3i
@@ -103,65 +145,14 @@ static func _extract_data(field: BattlefieldArea) -> Dictionary:
 			var dt: Vector3i = dl["to"] as Vector3i
 			dls.append({"x": dp.x, "y": dp.y, "floor": dp.z, "tx": dt.x, "ty": dt.y,
 				"paces": int(dl["paces"]), "kind": str(dl["kind"])})
-	data["drop_links"] = dls
-
-	var rooms: Array = []
-	for entry: Dictionary in field.interior_rooms:
-		var rect: Rect2i = entry["rect"] as Rect2i
-		rooms.append({
-			"x": rect.position.x, "y": rect.position.y,
-			"w": rect.size.x, "h": rect.size.y,
-			"name": entry["name"], "floor": entry["floor"]
-		})
-	data["rooms"] = rooms
-
-	var bdata: Array = []
-	for b: Dictionary in field.building_data:
-		var rect: Rect2i = b["rect"] as Rect2i
-		bdata.append({"x": rect.position.x, "y": rect.position.y, "w": rect.size.x, "h": rect.size.y, "name": b.get("name", "")})
-	data["buildings"] = bdata
-
-	data["spawn_a"] = _pairs(field.spawn_zone_a)
-
-	data["spawn_b"] = _pairs(field.spawn_zone_b)
-
-	data["jagged_cells"] = _pairs(field.jagged_cells)
-
-	data["is_cavern"] = field.is_cavern
-	if field.is_cavern:
-		_extract_cavern(field, data)
-
-	data["is_dungeon"] = field.is_dungeon
-	var halls: Array = []
-	for entry: Dictionary in field.dungeon_halls:
-		var hrect: Rect2i = entry["rect"] as Rect2i
-		halls.append({"x": hrect.position.x, "y": hrect.position.y, "w": hrect.size.x,
-			"h": hrect.size.y, "name": entry.get("name", ""), "floor": int(entry.get("floor", 0))})
-	data["halls"] = halls
-
-	if field.is_city:
-		data["city"] = _extract_city(field)
-	if not field.buildings.is_empty():
-		_extract_buildings(field, data)
-	if not field.roof_parts.is_empty():
-		data["roofs"] = _extract_roofs(field)
-
-	return data
+	return dls
 
 
 #Ceilings, water, rock, entrances, chambers and tunnels of a cavern map.
 static func _extract_cavern(field: BattlefieldArea, data: Dictionary) -> void:
-	var ceil_map: Dictionary = {}
-	for k: Variant in field.cavern_ceiling.keys():
-		var cpos := k as Vector2i
-		ceil_map["%d_%d" % [cpos.x, cpos.y]] = float(field.cavern_ceiling[k])
-	data["cavern_ceiling"] = ceil_map
+	data["cavern_ceiling"] = _keyed(field.cavern_ceiling, TYPE_FLOAT)
 
-	var water: Dictionary = {}
-	for k: Variant in field.water_cells.keys():
-		var wpos := k as Vector2i
-		water["%d_%d" % [wpos.x, wpos.y]] = int(field.water_cells[k])
-	data["water_cells"] = water
+	data["water_cells"] = _keyed(field.water_cells, TYPE_INT)
 
 	data["rock_cells"] = _pairs(field.rock_cells)
 
@@ -172,19 +163,16 @@ static func _extract_cavern(field: BattlefieldArea, data: Dictionary) -> void:
 
 	var chambers: Array = []
 	for ch: Dictionary in field.cavern_chambers:
-		var rect: Rect2i = ch.get("rect", Rect2i()) as Rect2i
 		var peak: Vector2i = ch.get("peak", Vector2i.ZERO) as Vector2i
-		chambers.append({
+		chambers.append(_rect_dict(ch.get("rect", Rect2i()) as Rect2i, {
 			"name": str(ch.get("name", "")),
-			"x": rect.position.x, "y": rect.position.y,
-			"w": rect.size.x, "h": rect.size.y,
 			"level": float(ch.get("level", 0.0)),
 			"px": peak.x, "py": peak.y,
 			"peak_size": int(ch.get("peak_size", 1)),
 			"peak_clearance": float(ch.get("peak_clearance", 0.0)),
 			"flooded": ch.get("flooded", false) as bool,
 			"depth": int(ch.get("depth", 0)),
-		})
+		}))
 	data["cavern_chambers"] = chambers
 
 
@@ -309,7 +297,7 @@ static func _extract_buildings(field: BattlefieldArea, data: Dictionary) -> void
 	owner.fill(-1)
 	for k2: Variant in field.building_id_at.keys():
 		var pos := k2 as Vector2i
-		if pos.x < 0 or pos.y < 0 or pos.x >= field.width or pos.y >= field.length:
+		if not field.in_bounds_xy(pos.x, pos.y):
 			continue
 		owner[pos.y * field.width + pos.x] = int(field.building_id_at[k2])
 	data["bld_owner"] = owner
@@ -361,15 +349,10 @@ static func _extract_roofs(field: BattlefieldArea) -> Array:
 		}
 		if part.has("dome"):
 			var dm: Dictionary = part["dome"] as Dictionary
-			rec["dome"] = {
-				"cx": snappedf(float(dm.get("cx", 0.0)), 0.01),
-				"cy": snappedf(float(dm.get("cy", 0.0)), 0.01),
-				"a": snappedf(float(dm.get("a", 0.0)), 0.01),
-				"b": snappedf(float(dm.get("b", 0.0)), 0.01),
-				"h": snappedf(float(dm.get("h", 0.0)), 0.01),
-				"crown": int(dm.get("crown", 1)),
-				"plateau": snappedf(float(dm.get("plateau", 0.0)), 0.01),
-			}
+			var dome: Dictionary = {"crown": int(dm.get("crown", 1))}
+			for dk: String in ["cx", "cy", "a", "b", "h", "plateau"]:
+				dome[dk] = snappedf(float(dm.get(dk, 0.0)), 0.01)
+			rec["dome"] = dome
 		out.append(rec)
 	return out
 
@@ -381,6 +364,22 @@ static func _floor_list(field: BattlefieldArea) -> Array[int]:
 		out.append(k as int)
 	out.sort()
 	out.reverse()
+	return out
+
+
+#Vector2i keys of d as "x_y" strings; values pass through, or convert to cast when it is not TYPE_NIL.
+static func _keyed(d: Dictionary, cast: int) -> Dictionary:
+	var out: Dictionary = {}
+	for k: Variant in d.keys():
+		var pos := k as Vector2i
+		out["%d_%d" % [pos.x, pos.y]] = d[k] if cast == TYPE_NIL else type_convert(d[k], cast)
+	return out
+
+
+#A rect as x, y, w, h with the extra keys merged in.
+static func _rect_dict(rect: Rect2i, extra: Dictionary) -> Dictionary:
+	var out: Dictionary = {"x": rect.position.x, "y": rect.position.y, "w": rect.size.x, "h": rect.size.y}
+	out.merge(extra)
 	return out
 
 
@@ -425,7 +424,7 @@ static func _build_html(field: BattlefieldArea) -> String:
 	var num_floors: int = field.interior_floor_elevations.size()
 	var slider_max: String = str(max(1, num_floors - 1)) if field.is_interior_map else "10"
 
-	var html := _html_template()
+	var html := ViewerTemplate.text()
 	html = html.replace("{{SCENE_DATA}}", json_str)
 	html = html.replace("{{TITLE}}", title)
 	html = html.replace("{{TYPE_LABEL}}", type_label)
@@ -433,7 +432,3 @@ static func _build_html(field: BattlefieldArea) -> String:
 	html = html.replace("{{SLIDER_MAX}}", slider_max)
 	html = html.replace("{{EXPLODE_ON}}", " checked" if field.is_dungeon else "")
 	return html
-
-
-static func _html_template() -> String:
-	return ViewerTemplate.text()

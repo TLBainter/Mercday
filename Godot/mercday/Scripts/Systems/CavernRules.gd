@@ -40,13 +40,13 @@ static func on_enter_cell(merc: MercenaryData, from_cell: Vector2i, to_cell: Vec
 	var was_water := field.is_water(from_cell)
 	var now_water := field.is_water(to_cell)
 	if now_water and not was_water:
-		_apply(merc, ConstStates.DRENCHED, WATER_SOURCE)
+		apply(merc, ConstStates.DRENCHED, WATER_SOURCE)
 		if not can_swim(merc) or sinks(merc):
-			_apply(merc, ConstStates.INHIBITED, WATER_SOURCE)
+			apply(merc, ConstStates.INHIBITED, WATER_SOURCE)
 		if sinks(merc):
 			var depth := field.water_depth(to_cell)
 			state.set_sunk(merc, depth)
-			_apply(merc, ConstStates.DROWNING, WATER_SOURCE)
+			apply(merc, ConstStates.DROWNING, WATER_SOURCE)
 			lines.append("  %s sinks to the bottom of the pool (depth %d)!" % [
 				BattleState.colored_name(merc, state), depth])
 			return true
@@ -55,11 +55,11 @@ static func on_enter_cell(merc: MercenaryData, from_cell: Vector2i, to_cell: Vec
 		else:
 			lines.append("  %s wades into the water, Inhibited." % BattleState.colored_name(merc, state))
 	elif was_water and not now_water and not state.is_sunk(merc):
-		_release(merc, ConstStates.INHIBITED, WATER_SOURCE, state, "cause")
+		release(merc, ConstStates.INHIBITED, WATER_SOURCE, state, "cause")
 		lines.append("  %s climbs out of the water." % BattleState.colored_name(merc, state))
 	if state.is_sunk(merc):
 		return false
-	var size := maxi(1, int(merc.stats.get("size", 1)))
+	var size := merc.unit_size()
 	if field.clearance(to_cell) < float(size):
 		if not merc.crawling:
 			start_crawl(merc, state, lines)
@@ -74,8 +74,8 @@ static func on_surface(merc: MercenaryData, state: BattleState, lines: Array[Str
 		return
 	var was_sunk := state.is_sunk(merc)
 	state.set_sunk(merc, 0)
-	var dropped := _release(merc, ConstStates.DROWNING, WATER_SOURCE, state, "cause")
-	var unbound := _release(merc, ConstStates.INHIBITED, WATER_SOURCE, state, "cause")
+	var dropped := release(merc, ConstStates.DROWNING, WATER_SOURCE, state, "cause")
+	var unbound := release(merc, ConstStates.INHIBITED, WATER_SOURCE, state, "cause")
 	if was_sunk or dropped or unbound:
 		lines.append("  %s hauls out of the water." % BattleState.colored_name(merc, state))
 
@@ -83,13 +83,13 @@ static func on_surface(merc: MercenaryData, state: BattleState, lines: Array[Str
 #Deposed by choice, so immunity does not refuse it; the pace cap and the Get Up action are exempt while crawling.
 static func start_crawl(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
 	merc.crawling = true
-	_apply(merc, ConstStates.DEPOSED, CRAWL_SOURCE, true)
+	apply(merc, ConstStates.DEPOSED, CRAWL_SOURCE, true)
 	lines.append("  %s drops prone and crawls." % BattleState.colored_name(merc, state))
 
 
 static func stand(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
 	merc.crawling = false
-	if _release(merc, ConstStates.DEPOSED, CRAWL_SOURCE, state, "stand"):
+	if release(merc, ConstStates.DEPOSED, CRAWL_SOURCE, state, "stand"):
 		lines.append("  %s stands up." % BattleState.colored_name(merc, state))
 
 
@@ -100,7 +100,7 @@ static func breath_turn_start(merc: MercenaryData, state: BattleState,
 	if merc.is_dead:
 		return lines
 	var vigor := maxi(1, int(merc.stats.get("vigor", 1)))
-	if ConstStates.is_suffocating(merc):
+	if StateEffects.is_suffocating(merc):
 		merc.suffocate_rounds += 1
 		merc.breath_clear_rounds = 0
 		if merc.suffocate_rounds > vigor:
@@ -143,21 +143,21 @@ static func is_cavern_sourced(merc: MercenaryData, state_name: String) -> bool:
 	return true
 
 
-static func _apply(merc: MercenaryData, state_name: String, source_name: String,
+static func apply(merc: MercenaryData, state_name: String, source_name: String,
 		chosen: bool = false) -> bool:
-	return ConstStates.apply_state(merc, state_name, null, "", ENGINE_KIND + ":" + source_name,
-		ConstStates.until_removal("none"), chosen)
+	return StateCascade.apply_state(merc, state_name, null, "", ENGINE_KIND + ":" + source_name,
+		StateCascade.until_removal("none"), chosen)
 
 
 #Ends a state this system applied; when something else holds it up only the engine source is forgotten.
-static func _release(merc: MercenaryData, state_name: String, source_name: String,
+static func release(merc: MercenaryData, state_name: String, source_name: String,
 		state: BattleState, reason: String) -> bool:
 	if not ConstStates.has_state(merc, state_name):
 		return false
 	if not _engine_only(merc, state_name, source_name):
 		StateSources.drop_source(merc, state_name, ENGINE_KIND, source_name)
 		return false
-	if not bool(ConstStates.remove_state(merc, state_name)["removed"]):
+	if not bool(StateCascade.remove_state(merc, state_name)["removed"]):
 		return false
 	StateInfliction.note_removed(merc, state_name, state, reason)
 	return true

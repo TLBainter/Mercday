@@ -2,9 +2,8 @@ class_name GuiFinanceDataTests
 
 #FinanceLedger and TransactionData off a fresh campaign. Every case restarts the game, puts the
 #clock on a named calendar day and reseeds the ledger, so the projection, the breakdown and the
-#two bills read the same way on every run. GameState on this copy already has charge() and the
-#money_logged signal, and FinanceLedger already connects to it; the cases still call record() and
-#tick() themselves because they pin the ledger's own arithmetic, not the GameState wiring.
+#two bills read the same way on every run. The cases call record() and tick() directly because
+#they pin the ledger's own arithmetic, not the GameState wiring.
 #Calendar days used here: day 0 is Daith 1, day 14 Daith 15, day 28 Daith 29,
 #day 44 Ruadd 15, day 120 Erta 1 (a 40 day month), day 250 Orlin 1, day 320 Tek 31, day 329 Tek 40.
 
@@ -17,14 +16,14 @@ const CATEGORY_TABLE: Dictionary = {
 	"subscription": "Subscription", "upgrade": "Subscription", "ads": "Ads", "bazaar": "Bazaar",
 	"legal": "Legal", "fine": "Legal", "bail": "Legal", "permit": "Legal", "odd_job": "Odd Job",
 	"hiring": "Hiring", "hire": "Hiring", "stock": "Invest", "dividend": "Invest",
-	"benefit": "Benefit",
+	"benefit": "Benefit", "bonus": "Benefit", "mail": "Other",
 }
 
 #The spend reasons the wave map pins. Every one has to file under a category of its own, so a
 #reason nobody mapped cannot sit in Other unnoticed.
 const PINNED_REASONS: Array[String] = ["subscription", "upgrade", "loan", "loan_payment",
 	"loan_payoff", "bazaar", "fine", "bail", "permit", "odd_job", "ads", "hire", "hiring",
-	"stock", "dividend", "benefit", "guild", "travel", "travel_refund", "payroll", "contract"]
+	"stock", "dividend", "benefit", "bonus", "guild", "travel", "travel_refund", "payroll", "contract"]
 
 
 static func run(host: Node) -> bool:
@@ -43,7 +42,7 @@ static func run(host: Node) -> bool:
 	_case_schedule_year_end(res)
 	_case_horizons(res)
 	_case_projection(res)
-	_case_projection_seeded_loans(res)
+	_case_projection_real_loan(res)
 	_case_projection_one_day(res)
 	_case_projection_loans(res, host)
 	_case_projection_ads(res)
@@ -54,7 +53,7 @@ static func run(host: Node) -> bool:
 	_case_tick_jump(res)
 	_case_tick_free_plan(res)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	CampaignClock.reset()
 	return TestFixtures.summarize(res, "GUI FINDATA")
 
@@ -66,7 +65,7 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	FinanceManager.reset()
 	FinanceLedger.reset()
@@ -75,12 +74,12 @@ static func _fresh() -> void:
 #Puts the clock on 8:00 of that day index; the clock only ever runs forward, so it resets first.
 static func _at_day(day_index: int) -> void:
 	CampaignClock.reset()
-	CampaignClock.advance_to(day_index * CampaignClock.MINUTES_PER_DAY
-		+ 8 * CampaignClock.MINUTES_PER_HOUR)
+	CampaignClock.advance_to(_minute_of(day_index))
 
 
-static func _fund(amount: int) -> void:
-	GameState.refund(amount)
+#The minute of 8:00 on that day index.
+static func _minute_of(day_index: int) -> int:
+	return day_index * CampaignClock.MINUTES_PER_DAY + 8 * CampaignClock.MINUTES_PER_HOUR
 
 
 #The seeded campaigns bill ads; a case that wants a clean projection drops them.
@@ -88,8 +87,14 @@ static func _no_promos() -> void:
 	PromotionsManager.campaigns.clear()
 
 
-#The seeded campaign owes two loans on the 15th; a case that wants the subscription alone on
-#the services row drops them.
+#An Infinite campaign launched today through PromotionsManager.launch, with the rights and notes to pay for it.
+static func _ongoing_campaign(type_key: StringName, title: String) -> CampaignData:
+	GameState.bank_notes = maxi(GameState.bank_notes, 100000)
+	SubscriptionManager.set_entitlements(ForecastTests.promo_ent())
+	return TestFixtures.launch_campaign({"type": type_key, "infinite": true, "name": title})
+
+
+#A case that wants the loans row empty drops any loan an earlier case left.
 static func _no_loans() -> void:
 	FinanceManager.loans.clear()
 
@@ -120,11 +125,11 @@ static func _labels_of(list: Array) -> Array[String]:
 static func _case_constants(res: Dictionary) -> void:
 	TestFixtures.check(res, "payroll bills on the 2nd",
 		int(FinanceLedger.BILL_DAYS["payroll"]) == 2, "got %s" % FinanceLedger.BILL_DAYS)
-	TestFixtures.check(res, "the subscription and the loans bill on the 15th",
-		int(FinanceLedger.BILL_DAYS["subscription"]) == 15
-		and int(FinanceLedger.BILL_DAYS["loans"]) == 15, "got %s" % FinanceLedger.BILL_DAYS)
-	TestFixtures.check(res, "the guild expenses bill on the 29th",
-		int(FinanceLedger.BILL_DAYS["guild"]) == 29, "got %s" % FinanceLedger.BILL_DAYS)
+	TestFixtures.check(res, "the subscription bills on the 2nd and loans keep their own day",
+		int(FinanceLedger.BILL_DAYS["subscription"]) == 2 and not FinanceLedger.BILL_DAYS.has("loans")
+		and FinanceManager.BILL_DAY_CHOICES == [2, 15], "got %s" % FinanceLedger.BILL_DAYS)
+	TestFixtures.check(res, "the guild expenses bill on the 2nd",
+		int(FinanceLedger.BILL_DAYS["guild"]) == 2, "got %s" % FinanceLedger.BILL_DAYS)
 	TestFixtures.check(res, "the ledger keeps 500 rows", FinanceLedger.MAX_ROWS == 500,
 		"got %d" % FinanceLedger.MAX_ROWS)
 	TestFixtures.check(res, "a breakdown bar holds 20 cells", FinanceLedger.BREAKDOWN_CELLS == 20,
@@ -299,36 +304,17 @@ static func _case_listener(res: Dictionary) -> void:
 		"%d rows" % FinanceLedger.transactions.size())
 
 
+#The ledger opens empty: reset lays down no history and never moves the bank.
 static func _case_seed(res: Dictionary) -> void:
 	_fresh()
 	_at_day(20)
 	var bank: int = GameState.bank_notes
+	FinanceLedger.record(250, GameState.REASON_CONTRACT, "Before Reset")
 	FinanceLedger.reset()
-	TestFixtures.check(res, "reset lays down the seeded history",
-		FinanceLedger.transactions.size() == FinanceLedger.SEED_ROWS.size(),
+	TestFixtures.check(res, "reset leaves the ledger empty", FinanceLedger.transactions.is_empty(),
 		"%d rows" % FinanceLedger.transactions.size())
-	TestFixtures.check(res, "the seeded history never moves the bank", GameState.bank_notes == bank,
+	TestFixtures.check(res, "reset never moves the bank", GameState.bank_notes == bank,
 		"%d notes" % GameState.bank_notes)
-	var newest: Array[TransactionData] = FinanceLedger.rows()
-	TestFixtures.check(res, "the newest seeded row is today's contract reward",
-		newest[0].label == "Contract 12 Name - Reward" and newest[0].day_index == 20,
-		"%s on day %d" % [newest[0].label, newest[0].day_index])
-	TestFixtures.check(res, "the oldest seeded row sits fifteen days back",
-		newest[8].label == "Contract 9 Name - Reward" and newest[8].day_index == 5,
-		"%s on day %d" % [newest[8].label, newest[8].day_index])
-	TestFixtures.check(res, "a seeded row reads its date off the game calendar",
-		newest[8].date_text() == TrynnCalendar.date_text(newest[8].minute), newest[8].date_text())
-	TestFixtures.check(res, "a seeded lender row files under Loan",
-		newest[7].category == "Loan" and newest[7].label == "Lender 1 - Payment",
-		"%s %s" % [newest[7].category, newest[7].label])
-	var total: int = 0
-	for held: TransactionData in FinanceLedger.transactions:
-		total += held.amount
-	TestFixtures.check(res, "the seeded history nets 3000 notes", total == 3000, "%d" % total)
-	_at_day(1)
-	FinanceLedger.reset()
-	TestFixtures.check(res, "a seeded row never falls before the first day",
-		FinanceLedger.rows()[8].minute == 0, "%d" % FinanceLedger.rows()[8].minute)
 
 
 #The window sums positive rows in the ledger, not a placeholder rate.
@@ -336,27 +322,30 @@ static func _case_income_window(res: Dictionary) -> void:
 	_fresh()
 	_at_day(60)
 	FinanceLedger.reset()
-	var seeded_income: int = 0
+	var today: int = TrynnCalendar.day_index(CampaignClock.now())
+	var placed: Array[Array] = [[300, 0], [700, 12], [-200, 3], [450, 29]]
+	var window_income: int = 0
 	var today_income: int = 0
-	for row: Dictionary in FinanceLedger.SEED_ROWS:
-		var amount: int = int(row["amount"])
-		if amount > 0:
-			seeded_income += amount
-			if int(row["days_ago"]) == 0:
-				today_income += amount
-	TestFixtures.check(res, "the 30 day income sums the positive seeded rows",
-		FinanceLedger.income_in(FinanceLedger.RATE_DAYS) == seeded_income,
-		"%d against %d" % [FinanceLedger.income_in(FinanceLedger.RATE_DAYS), seeded_income])
+	for pair: Array in placed:
+		var minute: int = (today - int(pair[1])) * CampaignClock.MINUTES_PER_DAY
+		FinanceLedger.transactions.append(TransactionData.make(int(pair[0]), minute, "Placed",
+			"Contract", "contract"))
+		if int(pair[0]) > 0:
+			window_income += int(pair[0])
+			if int(pair[1]) == 0:
+				today_income += int(pair[0])
+	TestFixtures.check(res, "the 30 day income sums the positive rows inside it",
+		FinanceLedger.income_in(FinanceLedger.RATE_DAYS) == window_income,
+		"%d against %d" % [FinanceLedger.income_in(FinanceLedger.RATE_DAYS), window_income])
 	FinanceLedger.record(500, "contract")
 	TestFixtures.check(res, "a new contract reward raises the window",
-		FinanceLedger.income_in(FinanceLedger.RATE_DAYS) == seeded_income + 500,
+		FinanceLedger.income_in(FinanceLedger.RATE_DAYS) == window_income + 500,
 		"%d" % FinanceLedger.income_in(FinanceLedger.RATE_DAYS))
-	var today: int = TrynnCalendar.day_index(CampaignClock.now())
 	var old_minute: int = (today - 40) * CampaignClock.MINUTES_PER_DAY
 	FinanceLedger.transactions.append(TransactionData.make(400, old_minute, "Old Reward",
 		"Contract", "contract"))
 	TestFixtures.check(res, "a row forty days back falls outside the thirty day window",
-		FinanceLedger.income_in(FinanceLedger.RATE_DAYS) == seeded_income + 500,
+		FinanceLedger.income_in(FinanceLedger.RATE_DAYS) == window_income + 500,
 		"%d" % FinanceLedger.income_in(FinanceLedger.RATE_DAYS))
 	TestFixtures.check(res, "income_in(1) counts only today",
 		FinanceLedger.income_in(1) == today_income + 500,
@@ -374,10 +363,14 @@ static func _case_schedule_month(res: Dictionary) -> void:
 	TestFixtures.check(res, "the 29th is twenty eight days off Daith 1",
 		FinanceLedger.next_in(29) == 28, "%d" % FinanceLedger.next_in(29))
 	TestFixtures.check(res, "one day off reads as a single day",
-		FinanceLedger.rel_text(FinanceLedger.next_in(2)) == "1 Day From Now",
-		FinanceLedger.rel_text(FinanceLedger.next_in(2)))
+		GuiDates.from_now_text(FinanceLedger.next_in(2)) == "1 Day From Now",
+		GuiDates.from_now_text(FinanceLedger.next_in(2)))
 	TestFixtures.check(res, "twelve days off reads in the plural",
-		FinanceLedger.rel_text(12) == "12 Days From Now", FinanceLedger.rel_text(12))
+		GuiDates.from_now_text(12) == "12 Days From Now", GuiDates.from_now_text(12))
+	TestFixtures.check(res, "one day back reads as a single day ago",
+		GuiDates.ago_text(1) == "1 Day Ago", GuiDates.ago_text(1))
+	TestFixtures.check(res, "three days back reads in the plural",
+		GuiDates.ago_text(3) == "3 Days Ago", GuiDates.ago_text(3))
 	TestFixtures.check(res, "payroll falls once in the month", FinanceLedger.count_in(2, 30) == 1,
 		"%d" % FinanceLedger.count_in(2, 30))
 	TestFixtures.check(res, "the 15th falls three times in the spring quarter",
@@ -389,8 +382,8 @@ static func _case_schedule_month(res: Dictionary) -> void:
 	_at_day(14)
 	TestFixtures.check(res, "a bill due today is zero days off", FinanceLedger.next_in(15) == 0,
 		"%d" % FinanceLedger.next_in(15))
-	TestFixtures.check(res, "zero days off reads as today", FinanceLedger.rel_text(0) == "Today",
-		FinanceLedger.rel_text(0))
+	TestFixtures.check(res, "zero days off reads as today", GuiDates.from_now_text(0) == "Today",
+		GuiDates.from_now_text(0))
 	TestFixtures.check(res, "a window starting on the bill day counts it",
 		FinanceLedger.count_in(15, 16) == 1, "%d" % FinanceLedger.count_in(15, 16))
 	TestFixtures.check(res, "payroll is gone for this month", FinanceLedger.count_in(2, 16) == 0,
@@ -468,7 +461,7 @@ static func _case_projection(res: Dictionary) -> void:
 	_at_day(0)
 	_no_promos()
 	_no_loans()
-	_fund(5000)
+	GameState.refund(5000)
 	FinanceLedger.reset()
 	var sub_cost: int = SubscriptionManager.monthly_cost()
 	var pay: int = GameState.month_expenses()
@@ -485,31 +478,35 @@ static func _case_projection(res: Dictionary) -> void:
 	TestFixtures.check(res, "a full month of income is the monthly rate",
 		int(income["amount"]) == FinanceLedger.monthly_income(), "%d" % int(income["amount"]))
 	var payroll: Dictionary = _row_of(proj["rows"], "payroll")
-	TestFixtures.check(res, "the payroll row counts one billing day and names it",
-		str(payroll["label"]) == "Payroll (1x)" and int(payroll["count"]) == 1,
+	TestFixtures.check(res, "the payroll row counts one billing day and keeps its plain label",
+		str(payroll["label"]) == "Payroll" and int(payroll["count"]) == 1,
 		str(payroll["label"]))
 	TestFixtures.check(res, "the payroll row debits one month of wages",
 		int(payroll["amount"]) == -pay, "%d against %d" % [int(payroll["amount"]), pay])
 	TestFixtures.check(res, "the payroll row names the next billing day",
 		str(payroll["sub"]) == "Next: 1 Day From Now", str(payroll["sub"]))
 	var loans: Dictionary = _row_of(proj["rows"], "loans")
-	TestFixtures.check(res, "with no loans the services row is the subscription alone",
-		int(loans["amount"]) == -sub_cost and str(loans["label"]) == "Loans & Services (1x)",
-		"%d against %d" % [int(loans["amount"]), sub_cost])
+	TestFixtures.check(res, "with no loans the loans row is empty and says so",
+		int(loans["amount"]) == 0 and str(loans["label"]) == "Loans"
+		and str(loans["sub"]) == "No active loans" and int(loans["count"]) == 0,
+		"%d %s %s" % [int(loans["amount"]), str(loans["label"]), str(loans["sub"])])
 	var guild: Dictionary = _row_of(proj["rows"], "guild")
-	TestFixtures.check(res, "the guild row debits one monthly rate",
-		int(guild["amount"]) == -FinanceLedger.GUILD_RATE
-		and str(guild["label"]) == "Guild Expenses (1x)", "%d" % int(guild["amount"]))
+	TestFixtures.check(res, "the guild row debits the guild rate and the subscription together",
+		int(guild["amount"]) == -(FinanceLedger.GUILD_RATE + sub_cost)
+		and str(guild["label"]) == "Guild Expenses" and str(guild["sub"]) == "Next: 1 Day From Now",
+		"%d %s %s" % [int(guild["amount"]), str(guild["label"]), str(guild["sub"])])
 	var travel: Dictionary = _row_of(proj["rows"], "travel")
-	TestFixtures.check(res, "the travel row debits one monthly estimate",
-		int(travel["amount"]) == -FinanceLedger.TRAVEL_RATE
-		and str(travel["sub"]) == "Per contract", "%d" % int(travel["amount"]))
+	var trip: Dictionary = FinanceLedger.travel_forecast()
+	var trip_sub: String = "Estimate" if bool(trip["estimate"]) else "No travel booked"
+	TestFixtures.check(res, "the travel row debits the monthly forecast and names its source",
+		int(travel["amount"]) == -FinanceLedger.travel_rate() and str(travel["sub"]) == trip_sub,
+		"%d %s" % [int(travel["amount"]), str(travel["sub"])])
 	var ads: Dictionary = _row_of(proj["rows"], "ads")
 	TestFixtures.check(res, "with no campaigns the ads row is empty",
 		int(ads["amount"]) == 0 and str(ads["sub"]) == "No ongoing promos", "%d"
 		% int(ads["amount"]))
 	var want: int = GameState.bank_notes + FinanceLedger.monthly_income() - pay - sub_cost
-	want -= FinanceLedger.GUILD_RATE + FinanceLedger.TRAVEL_RATE
+	want -= FinanceLedger.GUILD_RATE + FinanceLedger.travel_rate()
 	TestFixtures.check(res, "the projected notes add every row above",
 		int(proj["total"]) == want, "%d against %d" % [int(proj["total"]), want])
 	var last: Dictionary = _row_of(proj["rows"], "total")
@@ -522,20 +519,31 @@ static func _case_projection(res: Dictionary) -> void:
 		str(proj["when"]))
 
 
-#The seeded loans ride the same 15th as the subscription, so the services row carries both.
-static func _case_projection_seeded_loans(res: Dictionary) -> void:
+#A loan opened on the 1st bills on the 15th; the loans row carries its instalment alone and the
+#subscription stays on the guild row.
+static func _case_projection_real_loan(res: Dictionary) -> void:
 	_fresh()
 	_at_day(0)
 	_no_promos()
+	_no_loans()
 	FinanceLedger.reset()
-	var sub_cost: int = SubscriptionManager.monthly_cost()
-	var due: int = FinanceManager.monthly_loans()
-	TestFixtures.check(res, "the campaign opens owing loan instalments", due > 0, "%d" % due)
+	var loan: LoanData = TestFixtures.add_loan("Test Lender", 1200, 0.1, 12, -1, LoanLogic.FIRST_DUE_MIN)
+	TestFixtures.check(res, "a loan opened on the 1st bills on the 15th", loan.bill_day == 15,
+		"%d" % loan.bill_day)
+	var due: int = FinanceManager.loan_payment(loan)
 	var proj: Dictionary = FinanceLedger.projection(FinanceLedger.Horizon.END_OF_MONTH)
 	var loans: Dictionary = _row_of(proj["rows"], "loans")
-	TestFixtures.check(res, "the services row adds the loan instalments to the subscription",
-		int(loans["amount"]) == -(sub_cost + due),
-		"%d against %d" % [int(loans["amount"]), -(sub_cost + due)])
+	TestFixtures.check(res, "the loans row is the instalment alone, without the subscription",
+		due > 0 and int(loans["amount"]) == -due and FinanceLedger.loans_total() == due,
+		"%d against %d" % [int(loans["amount"]), -due])
+	var wait: int = TrynnCalendar.day_index(FinanceManager.next_due_minute(loan.id)) - FinanceLedger._today()
+	TestFixtures.check(res, "the loans row names the next instalment",
+		str(loans["sub"]) == "Next: %s" % GuiDates.from_now_text(wait), str(loans["sub"]))
+	var lines: Array[Dictionary] = FinanceLedger.loan_lines()
+	TestFixtures.check(res, "the loans tooltip lists the lender and its bill day",
+		lines.size() == 1 and str(lines[0]["label"]) == "Test Lender (15th)"
+		and int(lines[0]["amount"]) == due, str(lines))
+	_no_loans()
 
 
 static func _case_projection_one_day(res: Dictionary) -> void:
@@ -545,19 +553,21 @@ static func _case_projection_one_day(res: Dictionary) -> void:
 	FinanceLedger.reset()
 	var proj: Dictionary = FinanceLedger.projection(FinanceLedger.Horizon.END_OF_MONTH)
 	var payroll: Dictionary = _row_of(proj["rows"], "payroll")
-	TestFixtures.check(res, "a bill outside the window is counted zero times",
-		str(payroll["label"]) == "Payroll (0x)" and int(payroll["amount"]) == 0,
-		"%s %d" % [str(payroll["label"]), int(payroll["amount"])])
-	TestFixtures.check(res, "a bill outside the window says so",
-		str(payroll["sub"]) == "None in period", str(payroll["sub"]))
+	TestFixtures.check(res, "a bill outside the window is counted zero times but keeps its amount",
+		str(payroll["label"]) == "Payroll" and int(payroll["count"]) == 0
+		and int(payroll["amount"]) == -FinanceLedger.payroll(),
+		"%s %d %d" % [str(payroll["label"]), int(payroll["count"]), int(payroll["amount"])])
+	TestFixtures.check(res, "a bill outside the window still names its next date",
+		str(payroll["sub"]) == "Next: %s" % GuiDates.from_now_text(FinanceLedger.next_in(2)),
+		str(payroll["sub"]))
 	var income: Dictionary = _row_of(proj["rows"], "income")
 	var want_income: int = int(round(float(FinanceLedger.monthly_income()) / 30.0))
 	TestFixtures.check(res, "one day of income is the ledger rate over thirty",
 		int(income["amount"]) == want_income,
 		"%d against %d" % [int(income["amount"]), want_income])
 	var travel: Dictionary = _row_of(proj["rows"], "travel")
-	TestFixtures.check(res, "one day of travel is the rate over thirty",
-		int(travel["amount"]) == -20, "%d" % int(travel["amount"]))
+	TestFixtures.check(res, "the travel row shows the monthly forecast whatever the horizon",
+		int(travel["amount"]) == -FinanceLedger.travel_rate(), "%d" % int(travel["amount"]))
 	TestFixtures.check(res, "a one day horizon reads in the singular",
 		str(proj["when"]) == "in 1 day - %s"
 		% TrynnCalendar.date_text(29 * CampaignClock.MINUTES_PER_DAY), str(proj["when"]))
@@ -578,38 +588,41 @@ static func _case_projection_loans(res: Dictionary, host: Node) -> void:
 	stub.name = "FinanceManager"
 	root.add_child(stub)
 	var active := _LoanRow.new()
+	active.id = 1
 	active.months = 12
 	active.paid = 0
+	active.bill_day = 2
 	var done := _LoanRow.new()
+	done.id = 2
 	done.months = 3
 	done.paid = 3
 	stub.loans = [active, done]
-	var sub_cost: int = SubscriptionManager.monthly_cost()
-	TestFixtures.check(res, "loans and services adds the monthly loans to the subscription",
-		FinanceLedger.loans_and_services() == sub_cost + _LoanStub.PAYMENT,
-		"%d against %d" % [FinanceLedger.loans_and_services(), sub_cost + _LoanStub.PAYMENT])
+	TestFixtures.check(res, "the loans total counts an active loan and skips a finished one",
+		FinanceLedger.loans_total() == _LoanStub.PAYMENT,
+		"%d against %d" % [FinanceLedger.loans_total(), _LoanStub.PAYMENT])
 	var proj: Dictionary = FinanceLedger.projection(FinanceLedger.Horizon.END_OF_MONTH)
 	var loans: Dictionary = _row_of(proj["rows"], "loans")
-	TestFixtures.check(res, "the services row counts the one 15th of the month",
+	TestFixtures.check(res, "the loans row counts the one instalment due this month",
 		int(loans["count"]) == 1, "%d" % int(loans["count"]))
 	TestFixtures.check(res, "an active loan pays once and a finished loan pays nothing",
-		int(loans["amount"]) == -(_LoanStub.PAYMENT + sub_cost),
-		"%d against %d" % [int(loans["amount"]), -(_LoanStub.PAYMENT + sub_cost)])
+		int(loans["amount"]) == -_LoanStub.PAYMENT,
+		"%d against %d" % [int(loans["amount"]), -_LoanStub.PAYMENT])
+	TestFixtures.check(res, "the loans row names the soonest instalment",
+		str(loans["sub"]) == "Next: %s" % GuiDates.from_now_text(_LoanStub.DUE_DAY),
+		str(loans["sub"]))
 	var quarter: Dictionary = FinanceLedger.projection(FinanceLedger.Horizon.END_OF_QUARTER)
 	var over: Dictionary = _row_of(quarter["rows"], "loans")
-	TestFixtures.check(res, "three billing days take three instalments",
-		int(over["amount"]) == -(_LoanStub.PAYMENT * 3 + sub_cost * 3),
+	TestFixtures.check(res, "a longer horizon still shows one instalment, not one per month",
+		int(over["amount"]) == -_LoanStub.PAYMENT,
 		"%d over %d days" % [int(over["amount"]), int(quarter["days"])])
-	active.months = 2
-	active.paid = 1
-	var capped: Dictionary = FinanceLedger.projection(FinanceLedger.Horizon.END_OF_QUARTER)
-	var left: Dictionary = _row_of(capped["rows"], "loans")
-	TestFixtures.check(res, "a loan never pays past its remaining months",
-		int(left["amount"]) == -(_LoanStub.PAYMENT + sub_cost * 3), "%d" % int(left["amount"]))
+	var lines: Array[Dictionary] = FinanceLedger.loan_lines()
+	TestFixtures.check(res, "the loans tooltip lists only the active loan with its bill day",
+		lines.size() == 1 and str(lines[0]["label"]) == "Stub Lender (2nd)", str(lines))
 	stub.loans = []
 	var bare: Dictionary = FinanceLedger.projection(FinanceLedger.Horizon.END_OF_MONTH)
-	TestFixtures.check(res, "with no loans only the subscription is left",
-		int(_row_of(bare["rows"], "loans")["amount"]) == -sub_cost,
+	TestFixtures.check(res, "with no loans the loans row is empty",
+		int(_row_of(bare["rows"], "loans")["amount"]) == 0
+		and str(_row_of(bare["rows"], "loans")["sub"]) == "No active loans",
 		"%d" % int(_row_of(bare["rows"], "loans")["amount"]))
 	root.remove_child(stub)
 	stub.free()
@@ -621,16 +634,23 @@ static func _case_projection_ads(res: Dictionary) -> void:
 	_at_day(0)
 	PromotionsManager.reset()
 	FinanceLedger.reset()
-	TestFixtures.check(res, "the seeded promotions hold two ongoing campaigns",
+	_ongoing_campaign(&"flyers", "Ongoing Flyers")
+	_ongoing_campaign(&"radio", "Ongoing Radio")
+	TestFixtures.check(res, "the case holds two ongoing campaigns",
 		PromotionsManager.infinite_count() == 2, "%d" % PromotionsManager.infinite_count())
 	var proj: Dictionary = FinanceLedger.projection(FinanceLedger.Horizon.END_OF_MONTH)
 	var ads: Dictionary = _row_of(proj["rows"], "ads")
 	var bills: Array[Dictionary] = PromotionsManager.ad_bill_days(0, int(proj["days"]))
-	var want: int = 0
-	for bill: Dictionary in bills:
-		want += int(bill["amount"])
-	TestFixtures.check(res, "the ads row debits every campaign bill in the window",
-		int(ads["amount"]) == -want, "%d against %d" % [int(ads["amount"]), -want])
+	var period: int = TrynnCalendar.next_day_on(14, FinanceManager.bill_day_from(0)) - 14
+	var want: int = (5 + 80) * period
+	TestFixtures.check(res, "the ads row debits the next bill of every ongoing campaign",
+		period > 0 and int(ads["amount"]) == -want, "%d against %d" % [int(ads["amount"]), -want])
+	TestFixtures.check(res, "campaigns started on the 1st bill on the 15th",
+		bills.size() == 2 and int(bills[0]["day"]) == 14 and int(bills[1]["day"]) == 14, str(bills))
+	var lines: Array[Dictionary] = FinanceLedger.ad_lines()
+	TestFixtures.check(res, "the ads tooltip lists each ongoing campaign with its next bill",
+		lines.size() == 2 and str(lines[0]["label"]) == "Ongoing Flyers"
+		and int(lines[0]["amount"]) == 5 * period, str(lines))
 	TestFixtures.check(res, "the ads row counts the bills it found",
 		int(ads["count"]) == bills.size(), "%d against %d" % [int(ads["count"]), bills.size()])
 	TestFixtures.check(res, "the ads row names the ongoing campaigns",
@@ -653,28 +673,29 @@ static func _case_breakdown(res: Dictionary) -> void:
 		_keys_of(rows) == ["payroll", "loans", "guild", "travel", "ads"],
 		"got %s" % str(_keys_of(rows)))
 	TestFixtures.check(res, "the breakdown rows are labelled as the prototype does",
-		_labels_of(rows) == ["Payroll", "Loans & Services", "Guild Expenses", "Travel", "Ads"],
+		_labels_of(rows) == ["Payroll", "Loans", "Guild Expenses", "Travel", "Ads"],
 		"got %s" % str(_labels_of(rows)))
 	TestFixtures.check(res, "the payroll row names its billing day and the wait",
 		str(_row_of(rows, "payroll")["sub"]) == "2nd - 1 Day From Now",
 		str(_row_of(rows, "payroll")["sub"]))
-	TestFixtures.check(res, "the services row names the 15th",
-		str(_row_of(rows, "loans")["sub"]) == "15th - 14 Days From Now",
+	TestFixtures.check(res, "with no loans the loans row says so",
+		str(_row_of(rows, "loans")["sub"]) == "No active loans",
 		str(_row_of(rows, "loans")["sub"]))
-	TestFixtures.check(res, "the guild row names the 29th",
-		str(_row_of(rows, "guild")["sub"]) == "29th - 28 Days From Now",
+	TestFixtures.check(res, "the guild row names the 2nd",
+		str(_row_of(rows, "guild")["sub"]) == "2nd - 1 Day From Now",
 		str(_row_of(rows, "guild")["sub"]))
-	TestFixtures.check(res, "the travel row is an average per contract",
-		str(_row_of(rows, "travel")["sub"]) == "Per contract (avg.)",
+	var trip: Dictionary = FinanceLedger.travel_forecast()
+	TestFixtures.check(res, "the travel row names where its forecast comes from",
+		str(_row_of(rows, "travel")["sub"]) == ("Estimate" if bool(trip["estimate"]) else "No travel booked"),
 		str(_row_of(rows, "travel")["sub"]))
 	TestFixtures.check(res, "with no campaigns the ads row says so",
 		str(_row_of(rows, "ads")["sub"]) == "No ongoing promos",
 		str(_row_of(rows, "ads")["sub"]))
 	TestFixtures.check(res, "the breakdown reads the same figures as the month",
 		int(_row_of(rows, "payroll")["amount"]) == FinanceLedger.payroll()
-		and int(_row_of(rows, "loans")["amount"]) == FinanceLedger.loans_and_services()
-		and int(_row_of(rows, "guild")["amount"]) == FinanceLedger.GUILD_RATE
-		and int(_row_of(rows, "travel")["amount"]) == FinanceLedger.TRAVEL_RATE
+		and int(_row_of(rows, "loans")["amount"]) == FinanceLedger.loans_total()
+		and int(_row_of(rows, "guild")["amount"]) == FinanceLedger.guild_bill()
+		and int(_row_of(rows, "travel")["amount"]) == FinanceLedger.travel_rate()
 		and int(_row_of(rows, "ads")["amount"]) == 0, "rows do not match the month")
 	var top: int = 0
 	for row: Dictionary in rows:
@@ -690,12 +711,30 @@ static func _case_breakdown(res: Dictionary) -> void:
 			bad.append(str(row["key"]))
 	TestFixtures.check(res, "the tallest row fills the bar and an empty row lights nothing",
 		bad.is_empty(), TestFixtures.detail(bad, rows.size(), "rows"))
+	var order: Array[String] = []
+	for a: Dictionary in rows:
+		for b: Dictionary in rows:
+			if int(a["amount"]) > int(b["amount"]) and int(a["cells"]) < int(b["cells"]):
+				order.append("%s<%s" % [str(a["key"]), str(b["key"])])
 	TestFixtures.check(res, "a larger expense never lights fewer cells",
-		int(_row_of(rows, "travel")["cells"]) >= int(_row_of(rows, "guild")["cells"]),
-		"%d against %d" % [int(_row_of(rows, "travel")["cells"]),
-		int(_row_of(rows, "guild")["cells"])])
+		order.is_empty(), TestFixtures.detail(order, rows.size(), "rows"))
+	var lines: Array[Dictionary] = _row_of(rows, "guild")["lines"]
+	TestFixtures.check(res, "the guild tooltip opens with the Mercday service fee",
+		not lines.is_empty() and str(lines[0]["label"]) == FinanceLedger.SERVICE_LABEL
+		and int(lines[0]["amount"]) == FinanceLedger.GUILD_RATE + SubscriptionManager.service_fee(),
+		str(lines))
+	var line_sum: int = 0
+	for line: Dictionary in lines:
+		line_sum += maxi(0, int(line["amount"]))
+	TestFixtures.check(res, "the guild tooltip lines add up to the guild row",
+		line_sum == int(_row_of(rows, "guild")["amount"]),
+		"%d against %d" % [line_sum, int(_row_of(rows, "guild")["amount"])])
 	GameState.mercs.clear()
+	GameState.contracts.clear()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
+	FinanceLedger.transactions.clear()
+	#A fare of 14 today is read over the 7 day span floor: 14 * 30 / 7 = 60, twice the guild rate.
+	FinanceLedger.record(-14, GameState.REASON_TRAVEL, "", "foot", 10)
 	var halved: Array[Dictionary] = FinanceLedger.expense_breakdown()
 	TestFixtures.check(res, "half of the tallest expense lights half the bar",
 		int(_row_of(halved, "guild")["cells"]) == 10
@@ -712,7 +751,7 @@ static func _case_stat_cards(res: Dictionary) -> void:
 	_fresh()
 	_at_day(0)
 	_no_promos()
-	_fund(5000)
+	GameState.refund(5000)
 	FinanceLedger.reset()
 	var cards: Array[Dictionary] = FinanceLedger.stat_cards()
 	TestFixtures.check(res, "the overview shows four cards",
@@ -741,33 +780,34 @@ static func _case_stat_cards(res: Dictionary) -> void:
 	var card: Dictionary = _row_of(cards, "net")
 	TestFixtures.check(res, "the net card follows the sign of the month",
 		str(card["sub"]) == ("Growing" if net >= 0 else "Shrinking")
-		and (card["color"] as Color) == (FinanceLedger.GREEN if net >= 0 else FinanceLedger.RED),
+		and (card["color"] as Color) == (GuiColors.GREEN if net >= 0 else GuiColors.RED),
 		"net %d reads %s" % [net, str(card["sub"])])
 	TestFixtures.check(res, "the monthly expenses add up to the five lines",
 		FinanceLedger.monthly_expenses() == FinanceLedger.payroll()
-		+ FinanceLedger.loans_and_services() + FinanceLedger.GUILD_RATE
-		+ FinanceLedger.TRAVEL_RATE + FinanceLedger.ads(),
+		+ FinanceLedger.loans_total() + FinanceLedger.GUILD_RATE + SubscriptionManager.monthly_cost()
+		+ FinanceLedger.travel_rate() + FinanceLedger.ads(),
 		"%d" % FinanceLedger.monthly_expenses())
 	GameState.mercs.clear()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
 	_no_loans()
+	FinanceLedger.record(1000, GameState.REASON_CONTRACT, "Rich Reward")
 	var rich: Array[Dictionary] = FinanceLedger.stat_cards()
 	var grown: Dictionary = _row_of(rich, "net")
-	var want_net: int = FinanceLedger.monthly_income() - FinanceLedger.GUILD_RATE - FinanceLedger.TRAVEL_RATE
+	var want_net: int = FinanceLedger.monthly_income() - FinanceLedger.GUILD_RATE - FinanceLedger.travel_rate()
 	TestFixtures.check(res, "a guild with no wages nets the income less guild and travel",
 		FinanceLedger.net_month() == want_net,
 		"%d against %d" % [FinanceLedger.net_month(), want_net])
 	TestFixtures.check(res, "a positive net reads with a plus and says it is growing",
 		str(grown["value"]) == "+" + TransactionData.grouped(want_net)
 		and str(grown["sub"]) == "Growing"
-		and (grown["color"] as Color) == FinanceLedger.GREEN, str(grown["value"]))
+		and (grown["color"] as Color) == GuiColors.GREEN, str(grown["value"]))
 
 
 static func _case_tick_subscription(res: Dictionary) -> void:
 	_fresh()
-	_at_day(13)
+	_at_day(0)
 	_no_promos()
-	_fund(20000)
+	GameState.refund(20000)
 	FinanceLedger.reset()
 	FinanceLedger.transactions.clear()
 	var cost: int = SubscriptionManager.monthly_cost()
@@ -776,105 +816,95 @@ static func _case_tick_subscription(res: Dictionary) -> void:
 	FinanceLedger.tick(CampaignClock.now())
 	TestFixtures.check(res, "the first tick after a reset only records the day",
 		FinanceLedger.transactions.is_empty(), "%d rows" % FinanceLedger.transactions.size())
-	CampaignClock.advance_to(14 * CampaignClock.MINUTES_PER_DAY
-		+ 8 * CampaignClock.MINUTES_PER_HOUR)
+	CampaignClock.advance_to(_minute_of(1))
 	var before: int = GameState.bank_notes
 	FinanceLedger.tick(CampaignClock.now())
-	TestFixtures.check(res, "the 15th bills the subscription once",
-		FinanceLedger.transactions.size() == 1, "%d rows" % FinanceLedger.transactions.size())
-	var row: TransactionData = FinanceLedger.rows()[0]
+	TestFixtures.check(res, "the 2nd bills the subscription and the guild once each, as two rows",
+		_categories() == ["Subscription", "Guild"], str(_categories()))
+	var row: TransactionData = FinanceLedger.transactions[0]
 	TestFixtures.check(res, "the subscription bill files under Subscription",
 		row.category == "Subscription" and row.reason == "subscription", row.category)
 	TestFixtures.check(res, "the subscription bill carries the prototype label",
 		row.label == FinanceLedger.SUBSCRIPTION_LABEL, row.label)
 	TestFixtures.check(res, "the subscription bill debits the monthly cost", row.amount == -cost,
 		"%d against %d" % [row.amount, -cost])
-	TestFixtures.check(res, "the subscription bill leaves the bank short",
-		GameState.bank_notes == before - cost, "%d" % GameState.bank_notes)
+	TestFixtures.check(res, "the two bills of the 2nd leave the bank short by both",
+		GameState.bank_notes == before - cost - FinanceLedger.GUILD_RATE, "%d" % GameState.bank_notes)
 	FinanceLedger.tick(CampaignClock.now())
 	TestFixtures.check(res, "a second tick on the same day bills nothing again",
-		FinanceLedger.transactions.size() == 1, "%d rows" % FinanceLedger.transactions.size())
+		FinanceLedger.transactions.size() == 2, "%d rows" % FinanceLedger.transactions.size())
 
 
 static func _case_tick_guild(res: Dictionary) -> void:
 	_fresh()
-	_at_day(27)
+	_at_day(30)
 	_no_promos()
-	_fund(20000)
+	GameState.refund(20000)
 	FinanceLedger.reset()
 	FinanceLedger.transactions.clear()
 	FinanceLedger.tick(CampaignClock.now())
-	CampaignClock.advance_to(28 * CampaignClock.MINUTES_PER_DAY
-		+ 8 * CampaignClock.MINUTES_PER_HOUR)
+	CampaignClock.advance_to(_minute_of(31))
 	var before: int = GameState.bank_notes
+	var cost: int = SubscriptionManager.monthly_cost()
 	FinanceLedger.tick(CampaignClock.now())
-	TestFixtures.check(res, "the 29th bills the guild expenses once",
-		FinanceLedger.transactions.size() == 1, "%d rows" % FinanceLedger.transactions.size())
-	var row: TransactionData = FinanceLedger.rows()[0]
+	TestFixtures.check(res, "the 2nd of the next month bills the guild expenses once",
+		_categories().count("Guild") == 1, str(_categories()))
+	var row: TransactionData = FinanceLedger.transactions[_categories().find("Guild")]
 	TestFixtures.check(res, "the guild bill files under Guild with the prototype label",
 		row.category == "Guild" and row.label == FinanceLedger.GUILD_LABEL,
 		"%s %s" % [row.category, row.label])
 	TestFixtures.check(res, "the guild bill debits the monthly rate",
 		row.amount == -FinanceLedger.GUILD_RATE
-		and GameState.bank_notes == before - FinanceLedger.GUILD_RATE, "%d" % row.amount)
+		and GameState.bank_notes == before - FinanceLedger.GUILD_RATE - cost, "%d" % row.amount)
 
 
 static func _case_tick_jump(res: Dictionary) -> void:
 	_fresh()
 	_at_day(0)
 	_no_promos()
-	_fund(20000)
+	GameState.refund(20000)
 	FinanceLedger.reset()
 	FinanceLedger.transactions.clear()
 	var cost: int = SubscriptionManager.monthly_cost()
 	FinanceLedger.tick(CampaignClock.now())
 	var before: int = GameState.bank_notes
-	CampaignClock.advance_to(45 * CampaignClock.MINUTES_PER_DAY
-		+ 8 * CampaignClock.MINUTES_PER_HOUR)
+	CampaignClock.advance_to(_minute_of(45))
 	FinanceLedger.tick(CampaignClock.now())
 	TestFixtures.check(res, "a forty five day jump bills every day it passed",
-		FinanceLedger.transactions.size() == 3,
+		FinanceLedger.transactions.size() == 4,
 		"%d rows" % FinanceLedger.transactions.size())
-	var order: Array[String] = []
-	for held: TransactionData in FinanceLedger.transactions:
-		order.append(held.category)
+	var order: Array[String] = _categories()
 	TestFixtures.check(res, "the bills of a jump land in calendar order",
-		order == ["Subscription", "Guild", "Subscription"], "got %s" % str(order))
-	TestFixtures.check(res, "a jump debits two subscriptions and one guild bill",
-		GameState.bank_notes == before - cost * 2 - FinanceLedger.GUILD_RATE,
-		"%d against %d" % [GameState.bank_notes, before - cost * 2 - FinanceLedger.GUILD_RATE])
+		order == ["Subscription", "Guild", "Subscription", "Guild"], "got %s" % str(order))
+	TestFixtures.check(res, "a jump over two 2nds debits two subscriptions and two guild bills",
+		GameState.bank_notes == before - (cost + FinanceLedger.GUILD_RATE) * 2,
+		"%d against %d" % [GameState.bank_notes, before - (cost + FinanceLedger.GUILD_RATE) * 2])
 	TestFixtures.check(res, "the rows of a jump are stamped at the end of the jump",
 		FinanceLedger.rows()[0].day_index == 45, "%d" % FinanceLedger.rows()[0].day_index)
 	FinanceLedger.tick(CampaignClock.now())
 	TestFixtures.check(res, "a tick with no day passed bills nothing",
-		FinanceLedger.transactions.size() == 3, "%d rows" % FinanceLedger.transactions.size())
+		FinanceLedger.transactions.size() == 4, "%d rows" % FinanceLedger.transactions.size())
 
 
 static func _case_tick_free_plan(res: Dictionary) -> void:
 	_fresh()
-	_at_day(13)
+	_at_day(0)
 	_no_promos()
-	_fund(20000)
+	GameState.refund(20000)
 	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
 	FinanceLedger.reset()
 	FinanceLedger.transactions.clear()
 	TestFixtures.check(res, "the free plan costs nothing a month",
 		SubscriptionManager.monthly_cost() == 0, "%d" % SubscriptionManager.monthly_cost())
 	FinanceLedger.tick(CampaignClock.now())
-	CampaignClock.advance_to(14 * CampaignClock.MINUTES_PER_DAY
-		+ 8 * CampaignClock.MINUTES_PER_HOUR)
+	CampaignClock.advance_to(_minute_of(1))
 	var before: int = GameState.bank_notes
 	FinanceLedger.tick(CampaignClock.now())
 	TestFixtures.check(res, "a subscription that costs nothing files no bill",
-		FinanceLedger.transactions.is_empty() and GameState.bank_notes == before,
-		"%d rows" % FinanceLedger.transactions.size())
-	CampaignClock.advance_to(28 * CampaignClock.MINUTES_PER_DAY
-		+ 8 * CampaignClock.MINUTES_PER_HOUR)
-	FinanceLedger.tick(CampaignClock.now())
+		not _categories().has("Subscription"), str(_categories()))
 	TestFixtures.check(res, "the guild bill still lands on the free plan",
-		FinanceLedger.transactions.size() == 1
-		and FinanceLedger.rows()[0].category == "Guild",
-		"%d rows" % FinanceLedger.transactions.size())
+		_categories() == ["Guild"] and GameState.bank_notes == before - FinanceLedger.GUILD_RATE,
+		str(_categories()))
 
 
 #Counts the changed emissions of one case.
@@ -885,15 +915,27 @@ class _Counter extends RefCounted:
 		count += 1
 
 
-#One loan of the stub below: the months it runs and the months already paid.
+#The categories of the ledger rows, oldest first.
+static func _categories() -> Array[String]:
+	var out: Array[String] = []
+	for held: TransactionData in FinanceLedger.transactions:
+		out.append(held.category)
+	return out
+
+
+#One loan of the stub below: the months it runs, the months already paid and the day it bills.
 class _LoanRow extends RefCounted:
+	var id: int = 0
+	var lender: String = "Stub Lender"
 	var months: int = 0
 	var paid: int = 0
+	var bill_day: int = 2
 
 
-#Stands in for the FinanceManager of GX2F, which carries no loans on this copy.
+#Stands in for FinanceManager with one flat payment per loan that still has months to pay.
 class _LoanStub extends Node:
 	const PAYMENT: int = 100
+	const DUE_DAY: int = 1
 
 	var loans: Array = []
 
@@ -907,3 +949,7 @@ class _LoanStub extends Node:
 
 	func loan_payment(_loan: Object) -> int:
 		return PAYMENT
+
+	#Every loan of the stub is next due DUE_DAY days from the case's day 0.
+	func next_due_minute(_loan_id: int) -> int:
+		return CampaignClock.now() + DUE_DAY * CampaignClock.MINUTES_PER_DAY

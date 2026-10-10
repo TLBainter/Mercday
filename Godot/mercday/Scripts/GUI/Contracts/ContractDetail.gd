@@ -9,8 +9,8 @@ signal reject_requested(entry_id: int)
 signal cancel_requested(entry_id: int)
 signal merc_picked(uid: int)
 
-const DATE_COLOR: Color = Color("#5e7699")
-const TOP_EDGE_COLOR: Color = Color("#3b6fb6")
+const DATE_COLOR: Color = GuiColors.MUTED
+const TOP_EDGE_COLOR: Color = GuiColors.BLUE_HI
 const TOP_EDGE_PX: float = 4.0
 const BODY_MARGIN: float = 20.0
 #The line under the name once a posting has settled, by the status it is drawn as (README I5).
@@ -21,12 +21,14 @@ const CLOSED_LINES: Dictionary = {
 	GuiTypes.ContractStatus.REJECTED: "Rejected on %s",
 }
 const CLOSED_FALLBACK: String = "Closed"
-const DEADLINE_LINE: String = "Deadline %s"
 #The detail portrait wears the status mark at five pixels per art pixel (80 px).
 const DETAIL_MARK_SCALE: int = 5
 const CARD_COMPLETION: int = 0
 const CARD_DISTANCE: int = 1
 const CARD_URGENCY: int = 2
+const STORY_ICON: String = "scroll"
+const STORY_TEXT: String = "Story"
+const LOCAL_TEXT: String = "Local"
 
 @onready var image: ContractImageBox = $Body/Header/Image
 @onready var status_label: Label = $Body/Header/Image/Strip/Text
@@ -35,13 +37,14 @@ const CARD_URGENCY: int = 2
 @onready var deadline_label: Label = $Body/Header/Names/Deadline
 @onready var dates_label: Label = $Body/Header/Names/Dates
 @onready var level_badge: LevelBadge = $Body/Header/Names/Meta/Level
+@onready var meta: HFlowContainer = $Body/Header/Names/Meta
 @onready var type_label: Label = $Body/Header/Names/Meta/Type
 @onready var merc_count: MercCount = $Body/Header/Names/Meta/Count
 @onready var crew_wrap: MarginContainer = $Body/Header/Names/Meta/CrewWrap
 @onready var crew: ActiveCrew = $Body/Header/Names/Meta/CrewWrap/Crew
-@onready var issuer_value: Label = $Body/Header/Names/Issuer/IssuerBox/Rows/Value
-@onready var issuer_type_value: Label = $Body/Header/Names/Issuer/TypeBox/Rows/Value
-@onready var stars: DifficultyStars = $Body/Header/Right/Stars
+@onready var issuer_box: InfoField = $Body/Header/Names/Issuer/IssuerBox
+@onready var issuer_type_box: InfoField = $Body/Header/Names/Issuer/TypeBox
+@onready var stars: Stars = $Body/Header/Right/Stars
 @onready var reward_label: Label = $Body/Header/Right/Pay/Reward
 @onready var cards: HBoxContainer = $Body/Cards
 @onready var recommended: HBoxContainer = $Body/Recommended
@@ -49,8 +52,13 @@ const CARD_URGENCY: int = 2
 @onready var buttons: DecisionButtons = $Body/Decisions
 @onready var odds_tip: OddsTooltip = $OddsTip
 @onready var payout_tip: PayoutTooltip = $PayoutTip
+@onready var body: VBoxContainer = $Body
 
 var view: ContractView = null
+#The settled layout, built in code and seated where the cards sit.
+var summary: CompletedSummary = null
+#The story chip at the end of the meta row, built in code.
+var story_chip: HBoxContainer
 
 
 func _ready() -> void:
@@ -59,13 +67,40 @@ func _ready() -> void:
 	buttons.rejected.connect(_on_reject)
 	buttons.cancel_requested.connect(_on_cancel)
 	crew.merc_picked.connect(func(uid: int) -> void: merc_picked.emit(uid))
+	summary = CompletedSummary.new()
+	summary.name = "Completed"
+	body.add_child(summary)
+	body.move_child(summary, cards.get_index())
 	stars.mouse_entered.connect(_on_stars_entered)
 	stars.mouse_exited.connect(odds_tip.hide_tip)
 	reward_label.mouse_entered.connect(_on_reward_entered)
 	reward_label.mouse_exited.connect(payout_tip.hide_tip)
 	level_badge.mouse_filter = MOUSE_FILTER_IGNORE
 	mark.mark_scale = DETAIL_MARK_SCALE
+	_build_story_chip()
 	_refresh()
+
+
+func _build_story_chip() -> void:
+	story_chip = HBoxContainer.new()
+	story_chip.name = "Story"
+	story_chip.add_theme_constant_override("separation", 4)
+	story_chip.mouse_filter = MOUSE_FILTER_IGNORE
+	story_chip.visible = false
+	var icon := IconRect.new()
+	icon.name = "Icon"
+	icon.icon_id = STORY_ICON
+	icon.trimmed = true
+	icon.pixel_scale = 1
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.mouse_filter = MOUSE_FILTER_IGNORE
+	story_chip.add_child(icon)
+	var text := Label.new()
+	text.name = "Text"
+	text.text = STORY_TEXT
+	text.mouse_filter = MOUSE_FILTER_IGNORE
+	story_chip.add_child(text)
+	meta.add_child(story_chip)
 
 
 #The RaisedPanel bevel with wider content margins; the blue top edge is painted in _draw
@@ -97,6 +132,10 @@ func entry_id() -> int:
 
 func decisions() -> DecisionButtons:
 	return buttons
+
+
+func completed() -> CompletedSummary:
+	return summary
 
 
 func badge() -> LevelBadge:
@@ -167,8 +206,7 @@ func _refresh() -> void:
 	visible = view != null
 	if view == null:
 		return
-	name_label.text = view.name
-	type_label.text = view.type
+	ContractSummary.fill_header(view, name_label, type_label, stars, reward_label, merc_count, level_badge)
 	description_label.text = view.description
 	image.set_image_path(view.image)
 	_fill_status()
@@ -179,6 +217,31 @@ func _refresh() -> void:
 	_fill_cards()
 	_fill_recommended()
 	buttons.set_state(view.status, is_queued())
+	_apply_mode(settled_result())
+
+
+#A settled posting the player has opened shows its summary where a posting still to be taken shows
+#the cards, the recommendations and the decision buttons, and its crew in the strip a running one uses.
+func _apply_mode(result: ContractResultData) -> void:
+	var settled: bool = result != null
+	summary.visible = settled
+	cards.visible = not settled
+	recommended.visible = not settled
+	buttons.visible = not settled
+	if settled:
+		summary.set_result(result)
+		merc_count.visible = false
+		crew_wrap.visible = not result.members.is_empty()
+		crew.visible = crew_wrap.visible
+		crew.set_members(result.members)
+
+
+#The result behind a settled posting the player has opened; null while the posting runs or its
+#results sit unclaimed, so the layout never gives the outcome away.
+func settled_result() -> ContractResultData:
+	if view == null or view.is_unclaimed() or not ContractListItem.is_closed(view):
+		return null
+	return GameState.result_of(view.entry_id)
 
 
 #The strip never names the outcome: a failed posting reads as Failed once its results are
@@ -199,7 +262,7 @@ func _fill_dates() -> void:
 	elif view.status == GuiTypes.ContractStatus.ACTIVE:
 		text = "Returns in %s" % MercStatusStrip.time_text(_minutes_left())
 	elif view.status == GuiTypes.ContractStatus.EXPIRED and view.expires_minute >= 0:
-		text = _deadline_text()
+		text = ContractSummary.deadline_line(view)
 	dates_label.text = text
 	dates_label.add_theme_color_override("font_color", DATE_COLOR)
 	_fill_deadline()
@@ -224,52 +287,51 @@ func _fill_deadline() -> void:
 	if not deadline_label.visible:
 		deadline_label.text = ""
 		return
-	deadline_label.text = _deadline_text()
-
-
-func _deadline_text() -> String:
-	return DEADLINE_LINE % TrynnCalendar.date_text(view.expires_minute)
+	deadline_label.text = ContractSummary.deadline_line(view)
 
 
 func _minutes_left() -> int:
 	var run: ActiveRun = run_of_view()
 	if run == null:
 		return int(view.completion_hours * 60.0)
-	var start: int = run.depart_minute if run.depart_minute >= 0 else run.dispatched_minute
-	if start < 0:
-		start = CampaignClock.now()
-	return maxi(0, start + int(run.hours * 60.0) - CampaignClock.now())
+	return maxi(0, run.return_minute() - CampaignClock.now())
 
 
 func _fill_meta() -> void:
-	level_badge.level = view.contract_level
-	level_badge.current_xp = 0
-	level_badge.next_level_xp = 1
-	merc_count.required = view.merc_min
-	merc_count.allowed = view.merc_max
 	var run: ActiveRun = run_of_view()
 	var running: bool = run != null and view.status == GuiTypes.ContractStatus.ACTIVE
 	merc_count.visible = not running
 	crew_wrap.visible = running
 	crew.visible = running
 	crew.set_run(run if running else null)
+	story_chip.visible = view.story
 
 
 func _fill_issuer() -> void:
-	issuer_value.text = view.issuer if view.issuer != "" else "Unknown"
-	issuer_type_value.text = "Issuer %d" % view.issuer_type
+	issuer_box.value = view.issuer if view.issuer != "" else "Unknown"
+	issuer_type_box.value = issuer_kind_text(view)
+
+
+#The TypeBox text: the kind label, plus the class for a person row that names one.
+static func issuer_kind_text(row: ContractView) -> String:
+	var i: int = ContractView.KIND_WORDS.find(row.issuer_type)
+	if i < 0:
+		return "Unknown"
+	var text: String = ClientRegistry.KIND_LABELS[i]
+	if row.issuer_type == "person" and row.issuer_class.strip_edges() != "":
+		text += ", " + row.issuer_class
+	return text
 
 
 func _fill_rating() -> void:
-	stars.rating = view.difficulty
 	stars.tooltip_text = view.difficulty_name()
-	reward_label.text = "%d" % view.reward
 
 
 func _fill_cards() -> void:
 	card(CARD_COMPLETION).set_card("Completion Time",
 		StatCard.hours_text(view.completion_hours), "")
-	card(CARD_DISTANCE).set_card("Distance", "%d km" % view.distance_km, view.location)
+	var distance: String = LOCAL_TEXT if view.local else "%d km" % view.distance_km
+	card(CARD_DISTANCE).set_card("Distance", distance, view.location)
 	var urgency: String = str(GuiTypes.URGENCY_NAMES.get(view.urgency, "None"))
 	card(CARD_URGENCY).set_card("Urgency", urgency, "", GuiTypes.urgency_color(view.urgency))
 
@@ -293,10 +355,7 @@ func _on_reward_entered() -> void:
 	if run == null:
 		_show_results_tip()
 		return
-	var start: int = run.depart_minute if run.depart_minute >= 0 else run.dispatched_minute
-	if start < 0:
-		start = CampaignClock.now()
-	var payday: int = start + int(run.hours * 60.0)
+	var payday: int = run.return_minute()
 	var days: int = TrynnCalendar.day_index(payday) - TrynnCalendar.day_index(CampaignClock.now())
 	payout_tip.set_payout(view.reward, run.travel_cost, TrynnCalendar.date_text(payday), days)
 	payout_tip.show_at(reward_label)
@@ -317,11 +376,7 @@ func _on_cancel() -> void:
 #A settled posting shows what it finally paid, but never before the player has opened the
 #results: the tooltip would give the outcome away (README I5).
 func _show_results_tip() -> void:
-	if view == null or view.is_unclaimed():
-		return
-	if not ContractListItem.is_closed(view):
-		return
-	var result: ContractResultData = GameState.result_of(view.entry_id)
+	var result: ContractResultData = settled_result()
 	if result == null:
 		return
 	payout_tip.set_results(result)

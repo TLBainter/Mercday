@@ -6,9 +6,9 @@ extends RefCounted
 
 const SUB_DIR := "city_gen"
 const DUMP_PER_TIER := 2
-const YIELD_EVERY := 5
 const FIXTURE_SEED := 9100
-const ROW_FMT := "CITY %03d tier=%s seed=%d size=%dx%d mains=%d sides=%d alleys=%d deadends=%d plots=%d/%d/%d lots=%d nature=%d%% ms=%d tries=%d violations=%d bld=%d failed=%d objs=%d lanes=%d"
+const ROW_FMT := "CITY %03d tier=%s seed=%d size=%dx%d mains=%d sides=%d alleys=%d deadends=%d plots=%d/%d/%d " \
+		+ "lots=%d nature=%d%% ms=%d tries=%d violations=%d bld=%d failed=%d objs=%d lanes=%d"
 const INDEX_FMT := "city_%03d_%s tier=%s size=%dx%d mains=%d sides=%d alleys=%d lots=%d nature=%d%% issues=%d bld=%d objs=%d"
 const TIME_FMT := "CITY GEN TIME tier=%s n=%d avg=%d ms max=%d ms tries_avg=%.2f"
 
@@ -41,6 +41,11 @@ static func run(host: Node, count: int, tier: String, base_seed: int) -> void:
 		var tries: int = int(city.get("tries", 0))
 		var nature: int = int(round(float(stats.get("nature_pct", 0.0))))
 		var objs: int = int(stats.get("nature_objects", 0)) + int(stats.get("street_objects", 0))
+		var mains: int = int(stats.get("mains", 0))
+		var sides: int = int(stats.get("sides", 0))
+		var alleys: int = int(stats.get("alleys", 0))
+		var lots: int = int(stats.get("lots", 0))
+		var built: int = int(stats.get("buildings", 0))
 		var rec: Dictionary = totals.get(map_tier, {"n": 0, "ms": 0, "max": 0, "tries": 0})
 		var tier_index: int = int(rec["n"])
 		rec["n"] = tier_index + 1
@@ -48,12 +53,10 @@ static func run(host: Node, count: int, tier: String, base_seed: int) -> void:
 		rec["max"] = maxi(int(rec["max"]), ms)
 		rec["tries"] = int(rec["tries"]) + tries
 		totals[map_tier] = rec
-		print(ROW_FMT % [i, map_tier, map_seed, field.width, field.length,
-			int(stats.get("mains", 0)), int(stats.get("sides", 0)), int(stats.get("alleys", 0)),
+		print(ROW_FMT % [i, map_tier, map_seed, field.width, field.length, mains, sides, alleys,
 			int(stats.get("dead_ends", 0)), int(stats.get("plots_large", 0)),
-			int(stats.get("plots_medium", 0)), int(stats.get("plots_small", 0)),
-			int(stats.get("lots", 0)), nature, ms, tries, issues.size(),
-			int(stats.get("buildings", 0)), int(stats.get("failed_lots", 0)), objs,
+			int(stats.get("plots_medium", 0)), int(stats.get("plots_small", 0)), lots, nature, ms,
+			tries, issues.size(), built, int(stats.get("failed_lots", 0)), objs,
 			int(stats.get("back_lanes", 0))])
 		for v: Variant in issues:
 			print("  VIOLATION: %s" % str(v))
@@ -64,16 +67,10 @@ static func run(host: Node, count: int, tier: String, base_seed: int) -> void:
 				if line.begins_with("[CITY]"):
 					print("  LOG: %s" % line)
 		if tier_index < DUMP_PER_TIER or not issues.is_empty():
-			var stem: String = "%s/%s/city_%03d_%s" % [
-				EncounterLogger.LOG_DIR, SUB_DIR, i, map_tier.to_lower()]
-			HtmlWireframeGenerator.save(field, stem)
-			LevelDumpWriter.save(field, stem)
+			GenFixtures.dump(field, SUB_DIR, "city_%03d_%s" % [i, map_tier.to_lower()])
 			index_lines.append(INDEX_FMT % [i, map_tier.to_lower(), map_tier, field.width,
-				field.length, int(stats.get("mains", 0)), int(stats.get("sides", 0)),
-				int(stats.get("alleys", 0)), int(stats.get("lots", 0)), nature, issues.size(),
-				int(stats.get("buildings", 0)), objs])
-		if (i + 1) % YIELD_EVERY == 0:
-			await host.get_tree().process_frame
+				field.length, mains, sides, alleys, lots, nature, issues.size(), built, objs])
+		await GenFixtures.pace(host, i + 1)
 	TestFixtures.write_gen_index(SUB_DIR, "CityBatch", index_lines)
 	for tier_name: String in CityGenerator.TIERS:
 		if not totals.has(tier_name):
@@ -87,11 +84,9 @@ static func run(host: Node, count: int, tier: String, base_seed: int) -> void:
 	host.get_tree().quit(0 if clean == count else 1)
 
 
-#The Stage 1 three-building map, so the viewer keeps a per-building floor plane case in the batch output.
+#The three-building map, so the viewer keeps a per-building floor plane case in the batch output.
 static func _dump_fixture() -> void:
 	var fx: BattlefieldArea = CityFixtures.city(FIXTURE_SEED)["map"]
-	var stem: String = "%s/%s/city_fixture" % [EncounterLogger.LOG_DIR, SUB_DIR]
-	HtmlWireframeGenerator.save(fx, stem)
-	LevelDumpWriter.save(fx, stem)
+	GenFixtures.dump(fx, SUB_DIR, "city_fixture")
 	print("CITY FIXTURE DUMPED")
 

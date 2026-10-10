@@ -8,13 +8,13 @@ signal filter_changed(show_concluded: bool, show_infinite: bool)
 signal sort_changed(key: StringName)
 signal direction_changed(ascending: bool)
 
-const FONT_SILK: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const CAPTION_COLOR: Color = Color("#9cc6ef")
-const CREAM: Color = Color("#f3ead7")
-const FIELD_BG: Color = Color("#15223d")
-const RING_PLAIN: Color = Color("#3b6fb6")
-const RING_CUSTOM: Color = Color("#f28c28")
+const FONT_SILK: FontVariation = GuiStyle.SILK
+const FONT_BODY: FontVariation = GuiStyle.BODY
+const CAPTION_COLOR: Color = GuiColors.SKY
+const CREAM: Color = GuiColors.CREAM
+const FIELD_BG: Color = GuiColors.ROW_HOVER
+const RING_PLAIN: Color = GuiColors.BLUE_HI
+const RING_CUSTOM: Color = GuiColors.ORANGE
 const CAPTION_SIZE: int = 9
 const COUNT_SIZE: int = 11
 const FILTER_SIZE: Vector2 = Vector2(150, 32)
@@ -34,7 +34,7 @@ const DEFAULT_INFINITE: bool = true
 @onready var count: Label = $Count
 @onready var filter_caption: Label = $FilterBox/Caption
 @onready var filter_button: Button = $FilterBox/Button
-@onready var filter_menu: PopupPanel = $FilterBox/Button/Menu
+@onready var filter_menu: DropPanel = $FilterBox/Button/Menu
 @onready var concluded_row: FilterCheckRow = $FilterBox/Button/Menu/List/Concluded
 @onready var infinite_row: FilterCheckRow = $FilterBox/Button/Menu/List/Infinite
 @onready var sort_caption: Label = $SortBox/Caption
@@ -51,15 +51,13 @@ var _quiet: bool = false
 
 func _ready() -> void:
 	add_theme_constant_override(&"separation", GAP)
-	_style_caption(filter_caption, "Filter")
-	_style_caption(sort_caption, "Sort")
-	count.add_theme_font_override(&"font", FONT_BODY)
-	count.add_theme_font_size_override(&"font_size", COUNT_SIZE)
-	count.add_theme_color_override(&"font_color", CAPTION_COLOR)
+	filter_caption.text = "Filter"
+	GuiStyle.paint(filter_caption, FONT_SILK, CAPTION_SIZE, CAPTION_COLOR)
+	sort_caption.text = "Sort"
+	GuiStyle.paint(sort_caption, FONT_SILK, CAPTION_SIZE, CAPTION_COLOR)
+	GuiStyle.paint(count, FONT_BODY, COUNT_SIZE, CAPTION_COLOR)
 	filter_button.custom_minimum_size = FILTER_SIZE
-	filter_button.add_theme_font_override(&"font", FONT_BODY)
-	filter_button.add_theme_font_size_override(&"font_size", 13)
-	filter_button.add_theme_color_override(&"font_color", CREAM)
+	GuiStyle.paint(filter_button, FONT_BODY, 13, CREAM)
 	filter_button.pressed.connect(open_filter)
 	concluded_row.label = CONCLUDED_LABEL
 	infinite_row.label = INFINITE_LABEL
@@ -109,11 +107,9 @@ func filter_text() -> String:
 func open_filter() -> void:
 	if not is_node_ready():
 		return
-	var rect: Rect2 = filter_button.get_global_rect()
-	var wanted: Vector2 = filter_menu.get_contents_minimum_size()
-	var width: int = maxi(FILTER_POPUP_WIDTH, int(wanted.x))
-	var pos := Vector2i(int(rect.position.x), int(rect.end.y))
-	filter_menu.popup(Rect2i(pos, Vector2i(width, int(wanted.y))))
+	var wanted: Vector2 = filter_menu.get_combined_minimum_size()
+	wanted.x = maxi(FILTER_POPUP_WIDTH, int(wanted.x))
+	filter_menu.popup(PopupButton.place_below(filter_button, wanted), filter_button)
 
 
 func filter_open() -> bool:
@@ -183,24 +179,13 @@ func _at_defaults() -> bool:
 	return _concluded == DEFAULT_CONCLUDED and _infinite == DEFAULT_INFINITE
 
 
-func _style_caption(node: Label, text: String) -> void:
-	node.text = text
-	node.add_theme_font_override(&"font", FONT_SILK)
-	node.add_theme_font_size_override(&"font_size", CAPTION_SIZE)
-	node.add_theme_color_override(&"font_color", CAPTION_COLOR)
-
-
 func _apply() -> void:
 	filter_button.text = filter_text()
 	var ring: Color = RING_PLAIN if _at_defaults() else RING_CUSTOM
-	var box := StyleBoxFlat.new()
-	box.bg_color = FIELD_BG
-	box.set_border_width_all(RING_PX)
-	box.border_color = ring
+	var box: StyleBoxFlat = GuiStyle.flat(FIELD_BG, RING_PX, ring)
 	box.content_margin_left = 8.0
 	box.content_margin_right = 8.0
-	for state: StringName in [&"normal", &"hover", &"pressed", &"focus"]:
-		filter_button.add_theme_stylebox_override(state, box)
+	GuiStyle.set_all_boxes(filter_button, box)
 	sort_button.selected = maxi(0, _index_of(_key))
 	dir_toggle.descending = not _ascending
 

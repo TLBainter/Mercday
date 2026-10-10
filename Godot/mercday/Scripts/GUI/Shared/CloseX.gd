@@ -12,6 +12,7 @@ const HOVER: Color = Color(1.0, 1.8, 1.8, 1.0)
 const PRESSED: Color = Color(0.72, 0.72, 0.72, 1.0)
 const BOX_STATES: Array[String] = ["normal", "hover", "pressed", "focus", "disabled"]
 const TEXT_COLORS: Array[String] = ["font_color", "font_outline_color"]
+const OVERLAY: StringName = &"CloseOverlay"
 
 
 static func icon(scale: int = SCALE_WINDOW) -> ImageTexture:
@@ -55,3 +56,49 @@ static func make(scale: int = SCALE_WINDOW) -> Button:
 	var made: Button = Button.new()
 	style(made, scale)
 	return made
+
+
+#Pins the button on the top right corner of box, inset px in from the outer edge, so it moves with the box.
+#A Container box lays out its children, so the X goes into a plain Control overlay child that
+#fills the box (a PanelContainer or MarginContainer stacks it over the content, never beside it).
+static func pin(button: Button, box: Control, scale: int = SCALE_WINDOW, inset: float = 0.0) -> void:
+	if button == null or box == null:
+		return
+	var host: Control = box
+	if box is Container:
+		host = box.get_node_or_null(NodePath(String(OVERLAY))) as Control
+		if host == null:
+			host = Control.new()
+			host.name = OVERLAY
+			host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			box.add_child(host)
+		box.move_child(host, box.get_child_count() - 1)
+	if button.get_parent() != host:
+		if button.get_parent() != null:
+			button.get_parent().remove_child(button)
+		host.add_child(button)
+	var side: Vector2 = size(scale)
+	var pad: Vector2 = _content_pad(box)
+	button.top_level = false
+	button.anchor_left = 1.0
+	button.anchor_right = 1.0
+	button.anchor_top = 0.0
+	button.anchor_bottom = 0.0
+	button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	button.offset_left = pad.x - inset - side.x
+	button.offset_right = pad.x - inset
+	button.offset_top = inset - pad.y
+	button.offset_bottom = inset - pad.y + side.y
+
+
+#The overlay fills the content rect, so the pin undoes the right and top content margins.
+static func _content_pad(box: Control) -> Vector2:
+	if box is PanelContainer:
+		var panel: StyleBox = box.get_theme_stylebox(&"panel")
+		if panel == null:
+			return Vector2.ZERO
+		return Vector2(panel.get_margin(SIDE_RIGHT), panel.get_margin(SIDE_TOP))
+	if box is MarginContainer:
+		return Vector2(float(box.get_theme_constant(&"margin_right")),
+			float(box.get_theme_constant(&"margin_top")))
+	return Vector2.ZERO

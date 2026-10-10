@@ -2,8 +2,8 @@ extends Node
 
 #Nine companies with a deterministic price history, holdings, buy and sell, quarterly dividends,
 #the price reaction to contract results and the stockMove notifications. No screen is built here;
-#the Invest tab of wave 3 (GX3G) renders this data.
-#PLACEHOLDER: the whole market model is the data and formulas of the Finance Viewer prototype.
+#the Invest tab renders this data.
+#PLACEHOLDER: the whole market model, both its data and its formulas.
 
 signal changed
 
@@ -12,10 +12,8 @@ const HISTORY_DAYS: int = 1800
 const RANGES: Array[String] = ["5Y", "1Y", "YTD", "6M", "3M", "1M", "MTD", "1W"]
 const RANGE_DAYS: Dictionary = {"1W": 10, "1M": 33, "3M": 99, "6M": 198, "1Y": 330, "5Y": 1650}
 const SEASON_START_MONTHS: Array[int] = [0, 3, 5, 8]
-const REASON_STOCK: String = "stock"
-const REASON_DIVIDEND: String = "dividend"
 
-#Dividend day rule (PROTO isDivDay): day DIV_DAY_OFFSET of every DIV_PERIOD_DAYS day quarter.
+#Dividend day rule: day DIV_DAY_OFFSET of every DIV_PERIOD_DAYS day quarter.
 const DIV_PERIOD_DAYS: int = 90
 const DIV_DAY_OFFSET: int = 45
 #Dividend payout and its price drop: this share of the annual yield, paid each dividend day.
@@ -51,25 +49,18 @@ const RNG_SEED_BASE: int = 17
 #Company defs are authored in TSVs/Companies.tsv; company k belongs to lender k + 1 ("Lender N").
 const COMPANIES_TSV: String = "res://TSVs/Companies.tsv"
 
-#PLACEHOLDER: the PROTO companyStats table (Finance Viewer.dc.html:1401), [taken, failed] by k.
+#PLACEHOLDER: the contracts each company has taken and failed, [taken, failed] by k.
 const COMPANY_STATS: Array[Array] = [
 	[0, 0], [0, 0], [6, 1], [5, 1], [4, 0], [7, 2], [0, 0], [0, 0], [0, 0],
 ]
 
-#PLACEHOLDER: the PROTO own-contract events and the forced event of company 5 (ensureMarket's
-#`own` and `forced` maps), kept as an offset from today so they always land near the end of the
-#history however far `today` has moved. own: cid 11/12/13 are companies (cid - 9); forced: cid 5.
+#PLACEHOLDER: the sample contract events, three of your guild and one rival, kept as an offset
+#from today so they always land near the end of the history however far `today` has moved.
 const SAMPLE_EVENTS: Array[Dictionary] = [
 	{"company": 2, "offset": 0, "win": true, "label": "Contract 12 Name - Success (your guild)", "diff": 1.6},
 	{"company": 3, "offset": -2, "win": true, "label": "Contract 13 Name - Success (your guild)", "diff": 1.6},
 	{"company": 4, "offset": -6, "win": true, "label": "Contract 14 Name - Success (your guild)", "diff": 1.6},
 	{"company": 5, "offset": -3, "win": false, "label": "Contract 6 Name - Failed (rival guild)", "diff": 1.4},
-]
-
-#PLACEHOLDER: the three sample seeded holdings (ensureMarket's tail forEach), [company, shares,
-#pct since seen, dividends already received].
-const SEED_HOLDINGS: Array[Array] = [
-	[0, 25, 2.1, 38], [3, 40, 6.4, 71], [5, 120, -5.3, 164],
 ]
 
 var companies: Array[StockCompany] = []
@@ -78,12 +69,11 @@ var company_defs: Array[Dictionary] = []
 var _holdings: Dictionary = {}
 var _today: int = 0
 var _last_tick_day: int = -1
-var _seeded: bool = false
 
 
 func _ready() -> void:
 	GameState.results_recorded.connect(_on_results_recorded)
-	GameState.roster_changed.connect(_on_roster_changed)
+	GameState.game_started.connect(reset)
 	reset()
 
 
@@ -108,25 +98,21 @@ static func load_company_defs(path: String = COMPANIES_TSV) -> Array[Dictionary]
 	return out
 
 
-#Builds the market for the current day, seeds the holdings and forgets the last tick day. Runs
-#on _ready and on a new game. MetricsHistory has no self triggered new game detection on this
-#copy (verified: no _ready, reset, roster_changed or started reference anywhere in it); this
-#follows the BazaarManager and LegalManager _seeded/roster_changed/GameState.started idiom
-#instead, the one working "new game" pattern actually present in the codebase.
+#Builds the market for the current day, empties the holdings and forgets the last tick day. Runs
+#on _ready and on GameState.game_started.
 #company_defs loads once, from disk; a test may point it at a fixture first, by writing to
 #company_defs before calling reset() or by assigning the result of load_company_defs(path) to it.
 func reset() -> void:
 	if company_defs.is_empty():
 		company_defs = load_company_defs()
 	build(GameState.day())
-	_seed_holdings()
+	_holdings.clear()
 	_last_tick_day = -1
-	_seeded = GameState.started
 	changed.emit()
 
 
-#Creates for every company the history that ends `today`, exactly as ensureMarket does. The same
-#day and the same seed always give the same history: build() touches nothing but `companies`.
+#Creates for every company the history that ends `today`. The same day and the same seed always
+#give the same history: build() touches nothing but `companies`.
 func build(today: int) -> void:
 	_today = today
 	companies.clear()
@@ -138,8 +124,22 @@ func company_count() -> int:
 	return company_defs.size()
 
 
+#The company that issued an entry: its board entry's issuer seat once it carries one, else the ContractIssuer id rule.
+func issuer_company(entry_id: int) -> int:
+	var entry: BoardEntry = null
+	if GameState.board != null:
+		entry = GameState.board.entry(entry_id)
+	if entry != null and entry.issuer_id >= 0:
+		return IssuerOpinion.company_index(entry.issuer_id)
+	return ContractIssuer.company_of(entry_id, company_count())
+
+
+func _valid(k: int) -> bool:
+	return k >= 0 and k < companies.size()
+
+
 func company(k: int) -> Dictionary:
-	if k < 0 or k >= companies.size():
+	if not _valid(k):
 		return {}
 	var c: StockCompany = companies[k]
 	var h: PackedFloat32Array = c.history
@@ -153,20 +153,20 @@ func company(k: int) -> Dictionary:
 
 
 func price(k: int) -> float:
-	if k < 0 or k >= companies.size():
+	if not _valid(k):
 		return 0.0
 	var h: PackedFloat32Array = companies[k].history
 	return h[h.size() - 1] if h.size() > 0 else 0.0
 
 
 func history(k: int) -> PackedFloat32Array:
-	if k < 0 or k >= companies.size():
+	if not _valid(k):
 		return PackedFloat32Array()
 	return companies[k].history.duplicate()
 
 
 func events(k: int) -> Array[Dictionary]:
-	if k < 0 or k >= companies.size():
+	if not _valid(k):
 		return []
 	return companies[k].events.duplicate(true)
 
@@ -187,7 +187,7 @@ func last_accepted(k: int) -> Dictionary:
 	var best_active: bool = false
 	var best_status: String = ""
 	for view: ContractView in GameState.contracts:
-		if ContractIssuer.company_of(view.entry_id, company_count()) != k:
+		if issuer_company(view.entry_id) != k:
 			continue
 		var st: String = _accepted_status(view)
 		if st == "":
@@ -217,18 +217,16 @@ func _accepted_status(view: ContractView) -> String:
 	return ""
 
 
-func _accepted_color(status_text: String) -> String:
+func _accepted_color(status_text: String) -> Color:
 	match status_text:
 		"Active":
-			return "#5aa6e8"
+			return GuiColors.LIGHT_BLUE
 		"Completed":
-			return "#6cc36a"
+			return GuiColors.GREEN
 		"Failed":
-			return "#e8583f"
-	return "#9aa0a8"
+			return GuiColors.RED
+	return GuiColors.PALE_GRAY
 
-
-#Holdings
 
 func holding(k: int) -> Dictionary:
 	if not _holdings.has(k):
@@ -261,54 +259,34 @@ func _holding_row(h: StockHolding) -> Dictionary:
 	return {
 		"company_id": h.company_id, "company": companies[h.company_id].name,
 		"shares": h.shares, "avg": h.avg, "seen": h.seen, "band": h.band,
-		"dividends": h.dividends, "price": px, "value": value,
+		"dividends": h.dividends, "payouts": h.payouts, "price": px, "value": value,
 		"gain": value - cost, "gain_pct": gain_pct, "since_day": h.since_day,
 	}
 
 
-#PLACEHOLDER: the PROTO sample holdings (ensureMarket's tail forEach). Seed rows never move the
-#bank: avg and seen are back solved from the seeded pct so the row shows the same pct at once.
-func _seed_holdings() -> void:
-	_holdings.clear()
-	for row: Array in SEED_HOLDINGS:
-		var k: int = int(row[0])
-		if k < 0 or k >= companies.size():
-			continue
-		var shares: int = int(row[1])
-		var pct: float = float(row[2])
-		var div: int = int(row[3])
-		var px: float = price(k)
-		var seen: float = px / (1.0 + pct / 100.0)
-		var factor: float = 0.08 if k == 3 else -0.04
-		var h := StockHolding.new()
-		h.company_id = k
-		h.shares = shares
-		h.seen = seen
-		h.avg = seen / (1.0 + factor)
-		h.band = _band(pct)
-		h.dividends = div
-		h.since_day = _today
-		_holdings[k] = h
-
-
-#Trades
-
 func can_buy(k: int, qty: int) -> bool:
-	if k < 0 or k >= companies.size() or qty < 1:
+	if not _valid(k) or qty < 1:
 		return false
 	return GameState.bank_notes >= buy_cost(k, qty)
 
 
 func buy_cost(k: int, qty: int) -> int:
-	if k < 0 or k >= companies.size() or qty < 1:
+	if not _valid(k) or qty < 1:
 		return 0
 	return int(ceil(float(qty) * price(k) + float(TRADE_FEE)))
 
 
 func sell_value(k: int, qty: int) -> int:
-	if k < 0 or k >= companies.size() or qty < 1:
+	if not _valid(k) or qty < 1:
 		return 0
 	return maxi(0, int(floor(float(qty) * price(k) - float(TRADE_FEE))))
+
+
+#What a trade of qty shares moves in notes: the proceeds for a sell, the cost for a buy.
+func trade_total(k: int, side: StringName, qty: int) -> int:
+	if side == InvestTradePanel.SIDE_SELL:
+		return sell_value(k, qty)
+	return buy_cost(k, qty)
 
 
 func buy(k: int, qty: int) -> bool:
@@ -317,7 +295,7 @@ func buy(k: int, qty: int) -> bool:
 	var cost: int = buy_cost(k, qty)
 	var px: float = price(k)
 	var label: String = "%s - Bought %d shares" % [companies[k].name, qty]
-	if not _pay(cost, REASON_STOCK, label):
+	if not GameState.spend(cost, GameState.REASON_STOCK, label):
 		return false
 	var h: StockHolding = _holdings.get(k) as StockHolding
 	if h == null:
@@ -334,22 +312,20 @@ func buy(k: int, qty: int) -> bool:
 
 
 func sell(k: int, qty: int) -> bool:
-	if k < 0 or k >= companies.size():
+	if not _valid(k):
 		return false
 	var h: StockHolding = _holdings.get(k) as StockHolding
 	if h == null or qty < 1 or qty > h.shares:
 		return false
 	var value: int = sell_value(k, qty)
 	var label: String = "%s - Sold %d shares" % [companies[k].name, qty]
-	_credit(value, REASON_STOCK, label)
+	GameState.refund(value, GameState.REASON_STOCK, label)
 	h.shares -= qty
 	if h.shares <= 0:
 		_holdings.erase(k)
 	changed.emit()
 	return true
 
-
-#Alerts
 
 static func _band(pct: float) -> int:
 	if pct >= 0.0:
@@ -370,57 +346,33 @@ func check(k: int) -> void:
 	h.band = b
 	if b == 0:
 		return
-	var center: Node = _notice_center()
-	if center == null:
-		return
-	if center.has_method("resolve"):
-		center.call("resolve", NotificationData.TYPE_STOCK_MOVE, k)
-	if center.has_method("push"):
-		center.call("push", NotificationData.TYPE_STOCK_MOVE, k,
-			{"company_id": k, "company": companies[k].name, "pct": snappedf(pct, 0.1), "band": b},
-			NotificationData.Urgency.INFORMATIONAL)
+	NotificationCenter.resolve(NotificationData.TYPE_STOCK_MOVE, k)
+	NotificationCenter.push(NotificationData.TYPE_STOCK_MOVE, k,
+		{"company_id": k, "company": companies[k].name, "pct": snappedf(pct, 0.1), "band": b},
+		NotificationData.Urgency.INFORMATIONAL)
 
 
 #Viewing a stock's page: resets its alert baseline (when held) and resolves its unread rows.
 func mark_viewed(k: int) -> void:
-	if k < 0 or k >= companies.size():
+	if not _valid(k):
 		return
 	var h: StockHolding = _holdings.get(k) as StockHolding
 	if h != null:
 		h.seen = price(k)
 		h.band = 0
-	var center: Node = _notice_center()
-	if center != null and center.has_method("resolve"):
-		center.call("resolve", NotificationData.TYPE_STOCK_MOVE, k)
+	NotificationCenter.resolve(NotificationData.TYPE_STOCK_MOVE, k)
 
-
-func _notice_center() -> Node:
-	return get_node_or_null("/root/NotificationCenter")
-
-
-#Days
 
 #One market day for every company; the history keeps its last HISTORY_DAYS values. Emits
 #nothing on its own: tick() coalesces every day it steps into one changed signal.
 func advance_day() -> void:
 	_today += 1
-	var is_div: bool = _is_div_day(_today)
+	var is_div: bool = is_div_day(_today)
 	for c: StockCompany in companies:
 		var last_price: float = c.history[c.history.size() - 1]
-		var lp: float = log(last_price)
-		var jump: float = 0.0
 		if is_div:
 			_pay_dividend(c)
-			jump -= c.yld * DIV_SHARE_OF_YIELD
-			c.lf -= c.yld * DIV_SHARE_OF_YIELD
-			c.events.append({
-				"day": _today, "kind": "div", "win": false,
-				"label": "Dividend paid (%.2f%% of price)" % (c.yld * DIV_SHARE_OF_YIELD * 100.0),
-				"pct": -(c.yld * DIV_SHARE_OF_YIELD * 100.0),
-			})
-		var g: float = c.rng.gauss()
-		c.lf += c.drift
-		lp += c.drift + c.vol * g - MEAN_REVERT * (lp - c.lf) + jump
+		var lp: float = _step_price(c, c.rng, _today, log(last_price), 0.0)
 		c.history.append(maxf(PRICE_FLOOR, exp(lp)))
 		if c.history.size() > HISTORY_DAYS:
 			c.history.remove_at(0)
@@ -432,33 +384,37 @@ func _pay_dividend(c: StockCompany) -> void:
 	var h: StockHolding = _holdings.get(c.id) as StockHolding
 	if h == null:
 		return
-	var amount: int = int(floor(float(h.shares) * price(c.id) * c.yld * DIV_SHARE_OF_YIELD))
-	_credit(amount, REASON_DIVIDEND, "%s - Dividend" % c.name)
+	var amount: int = _dividend_of(c, h)
+	GameState.refund(amount, GameState.REASON_DIVIDEND, "%s - Dividend" % c.name)
 	h.dividends += amount
+	h.payouts += 1
+
+
+#The guild's payout over every holding if a dividend day fell at today's prices; 0 with no shares.
+func dividend_estimate() -> int:
+	var total: int = 0
+	for k: Variant in _holdings.keys():
+		var h: StockHolding = _holdings[k] as StockHolding
+		total += _dividend_of(companies[h.company_id], h)
+	return total
+
+
+func _dividend_of(c: StockCompany, h: StockHolding) -> int:
+	return int(floor(float(h.shares) * price(c.id) * c.yld * DIV_SHARE_OF_YIELD))
 
 
 #Idempotent: one advance_day per calendar day passed since the last tick. The first call after
 #reset() only records the day. `now` is a CampaignClock minute.
 func tick(now: int) -> void:
-	var d: int = TrynnCalendar.day_index(now)
-	if _last_tick_day < 0:
-		_last_tick_day = d
-		return
-	var advanced: bool = false
-	while _last_tick_day < d:
-		_last_tick_day += 1
-		advance_day()
-		advanced = true
-	if advanced:
+	var before: int = _last_tick_day
+	_last_tick_day = GameState.for_each_new_day(_last_tick_day, now, advance_day.unbind(1))
+	if before >= 0 and _last_tick_day > before:
 		changed.emit()
 
 
-#Contract results
-
 func contract_result(entry_id: int, win: bool, difficulty: float) -> void:
-	var count: int = company_count()
-	var k: int = ContractIssuer.company_of(entry_id, count)
-	if k < 0 or k >= companies.size():
+	var k: int = issuer_company(entry_id)
+	if not _valid(k):
 		return
 	var j: float = _jump_of(win, difficulty)
 	var c: StockCompany = companies[k]
@@ -484,19 +440,6 @@ func _on_results_recorded(entry_id: int) -> void:
 		return
 	contract_result(entry_id, not result.failed, result.difficulty)
 
-
-func _on_roster_changed() -> void:
-	_seed_if_started()
-
-
-func _seed_if_started() -> bool:
-	if _seeded or not GameState.started:
-		return false
-	reset()
-	return true
-
-
-#Ranges
 
 func range_start(range_key: String) -> int:
 	if range_key == "MTD":
@@ -563,18 +506,31 @@ static func _season_cap(season: String) -> String:
 	return season.substr(0, 1).to_upper() + season.substr(1)
 
 
-#History build
-
 static func _jump_of(win: bool, diff: float) -> float:
 	if win:
 		return WIN_JUMP_BASE + WIN_JUMP_PER_DIFF * diff
 	return -(LOSS_JUMP_BASE + LOSS_JUMP_PER_DIFF * diff)
 
 
-#Dividend day rule (PROTO isDivDay): day DIV_DAY_OFFSET of every DIV_PERIOD_DAYS day quarter, on
-#the day index. posmod folds a negative day the same way ((d % 90) + 90) % 90 does.
-static func _is_div_day(day: int) -> bool:
+#Dividend day rule: day DIV_DAY_OFFSET of every DIV_PERIOD_DAYS day quarter, on the day index.
+static func is_div_day(day: int) -> bool:
 	return posmod(day, DIV_PERIOD_DAYS) == DIV_DAY_OFFSET
+
+
+#One market day of company c from log price lp, returning the new log price. On a dividend day
+#the price and the fair value drop by the dividend share and a div event is logged.
+func _step_price(c: StockCompany, rng: StockRng, day: int, lp: float, jump: float) -> float:
+	if is_div_day(day):
+		jump -= c.yld * DIV_SHARE_OF_YIELD
+		c.lf -= c.yld * DIV_SHARE_OF_YIELD
+		c.events.append({
+			"day": day, "kind": "div", "win": false,
+			"label": "Dividend paid (%.2f%% of price)" % (c.yld * DIV_SHARE_OF_YIELD * 100.0),
+			"pct": -(c.yld * DIV_SHARE_OF_YIELD * 100.0),
+		})
+	var g: float = rng.gauss()
+	c.lf += c.drift
+	return lp + (c.drift + c.vol * g - MEAN_REVERT * (lp - c.lf) + jump)
 
 
 func _build_company(k: int, today: int) -> StockCompany:
@@ -594,8 +550,8 @@ func _build_company(k: int, today: int) -> StockCompany:
 	var t0: int = today - HISTORY_DAYS
 	var jumps: Dictionary = {}
 
-	#Rival events every RIVAL_GAP_MIN_DAYS to RIVAL_GAP_MIN_DAYS + RIVAL_GAP_SPAN_DAYS days: the
-	#PROTO for-loop ported as a while, same draw order.
+	#Rival events every RIVAL_GAP_MIN_DAYS to RIVAL_GAP_MIN_DAYS + RIVAL_GAP_SPAN_DAYS days; the
+	#order of the draws below fixes the seeded history.
 	var day: int = t0 + RIVAL_FIRST_MIN_DAYS + int(floor(rng.next() * RIVAL_FIRST_SPAN_DAYS))
 	while day < today - RIVAL_TAIL_DAYS:
 		var is_win: bool = rng.next() < c.win
@@ -620,7 +576,6 @@ func _build_company(k: int, today: int) -> StockCompany:
 	c.lf = c.lp
 
 	var raw: PackedFloat32Array = PackedFloat32Array()
-	var built_events: Array[Dictionary] = []
 	for i: int in range(HISTORY_DAYS + 1):
 		var d: int = t0 + i
 		var jump: float = 0.0
@@ -629,46 +584,21 @@ func _build_company(k: int, today: int) -> StockCompany:
 			var j: float = _jump_of(bool(e["win"]), float(e["diff"]))
 			jump = j
 			c.lf += j * FAIR_JUMP_SHARE
-			built_events.append({
+			c.events.append({
 				"day": d, "kind": "contract", "win": bool(e["win"]),
 				"label": String(e["label"]), "pct": j * 100.0,
 			})
-		if _is_div_day(d):
-			jump -= c.yld * DIV_SHARE_OF_YIELD
-			c.lf -= c.yld * DIV_SHARE_OF_YIELD
-			built_events.append({
-				"day": d, "kind": "div", "win": false,
-				"label": "Dividend paid (%.2f%% of price)" % (c.yld * DIV_SHARE_OF_YIELD * 100.0),
-				"pct": -(c.yld * DIV_SHARE_OF_YIELD * 100.0),
-			})
-		c.lf += c.drift
-		c.lp += c.drift + c.vol * rng.gauss() - MEAN_REVERT * (c.lp - c.lf) + jump
+		c.lp = _step_price(c, rng, d, c.lp, jump)
 		raw.append(maxf(PRICE_FLOOR, exp(c.lp)))
 
 	c.history = raw.slice(1, raw.size())
-	c.events = built_events
 	c.rng = rng
 	return c
 
 
-#Money
-
-func _pay(amount: int, reason: String, label: String) -> bool:
-	if GameState.has_method("charge"):
-		return bool(GameState.call("spend", amount, reason, label))
-	return GameState.spend(amount, reason)
-
-
-func _credit(amount: int, reason: String, label: String) -> void:
-	if GameState.has_method("charge"):
-		GameState.call("refund", amount, reason, label)
-	else:
-		GameState.refund(amount, reason)
-#Readers for the Invest page (GX3G). Added members only: no formula above changes.
-
 #The largest quantity of k the bank can still afford, 0 when even one share is out of reach.
 func max_buy(k: int) -> int:
-	if k < 0 or k >= companies.size():
+	if not _valid(k):
 		return 0
 	var px: float = price(k)
 	if px <= 0.0:
@@ -677,20 +607,16 @@ func max_buy(k: int) -> int:
 	if budget < 0.0:
 		return 0
 	var n: int = int(floor(budget / px))
-	while n > 0 and not can_buy(k, n):
+	if n > 0 and not can_buy(k, n):
 		n -= 1
-	if n >= 0 and can_buy(k, n + 1):
+	elif can_buy(k, n + 1):
 		n += 1
 	return maxi(0, n)
 
 
 #True while NotificationCenter still holds an unread stockMove row for company k.
 func has_unread(k: int) -> bool:
-	var center: Node = _notice_center()
-	if center == null or not center.has_method("rows_of"):
-		return false
-	var rows: Array = center.call("rows_of", NotificationData.TYPE_STOCK_MOVE, k)
-	for row: NotificationData in rows:
+	for row: NotificationData in NotificationCenter.rows_of(NotificationData.TYPE_STOCK_MOVE, k):
 		if not row.read:
 			return true
 	return false
@@ -698,7 +624,7 @@ func has_unread(k: int) -> bool:
 
 #The price that opens a range: the history value at range_start(range_key).
 func first_price(k: int, range_key: String) -> float:
-	if k < 0 or k >= companies.size():
+	if not _valid(k):
 		return 0.0
 	var h: PackedFloat32Array = companies[k].history
 	if h.is_empty():

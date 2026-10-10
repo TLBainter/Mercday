@@ -8,16 +8,16 @@ signal picked(option: String)
 const BOX_WIDTH: float = 200.0
 const PAD: float = 12.0
 const GAP: int = 4
-const BG_COLOR: Color = Color("#1f3560")
-const RING_COLOR: Color = Color("#f28c28")
+const BG_COLOR: Color = GuiColors.BLUE_LO
+const RING_COLOR: Color = GuiColors.ORANGE
 const RING_WIDTH: float = 4.0
 const SHADOW_OFFSET: float = 8.0
 const SHADOW_SPREAD: float = 4.0
 const SHADOW_COLOR: Color = Color(0.0, 0.0, 0.0, 0.5)
-const ROW_SELECTED_BG: Color = Color("#f28c28")
-const ROW_SELECTED_FG: Color = Color("#0a0f1c")
-const ROW_IDLE_BG: Color = Color("#16233f")
-const ROW_IDLE_FG: Color = Color("#f3ead7")
+const ROW_SELECTED_BG: Color = GuiColors.ORANGE
+const ROW_SELECTED_FG: Color = GuiColors.INK
+const ROW_IDLE_BG: Color = GuiColors.NAVY_ROW
+const ROW_IDLE_FG: Color = GuiColors.CREAM
 const ROW_HOVER_GAIN: float = 1.2
 const ROW_FONT_SIZE: int = 14
 const ROW_PAD_X: float = 8.0
@@ -103,9 +103,7 @@ func _apply_heading() -> void:
 func _rebuild() -> void:
 	if _options == null:
 		return
-	for child: Node in _options.get_children():
-		_options.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(_options)
 	_rows.clear()
 	_options.add_theme_constant_override("separation", GAP)
 	for option: String in options:
@@ -126,8 +124,8 @@ func _restyle() -> void:
 		var bg: Color = row_bg(row.text)
 		var fg: Color = row_fg(row.text)
 		row.add_theme_stylebox_override("normal", _row_box(bg))
-		row.add_theme_stylebox_override("hover", _row_box(_brighter(bg)))
-		row.add_theme_stylebox_override("pressed", _row_box(_brighter(bg)))
+		row.add_theme_stylebox_override("hover", _row_box(GuiColors.brighter(bg, ROW_HOVER_GAIN)))
+		row.add_theme_stylebox_override("pressed", _row_box(GuiColors.brighter(bg, ROW_HOVER_GAIN)))
 		row.add_theme_stylebox_override("focus", _row_box(bg))
 		row.add_theme_color_override("font_color", fg)
 		row.add_theme_color_override("font_hover_color", fg)
@@ -153,11 +151,6 @@ func _row_box(fill: Color) -> StyleBoxFlat:
 	box.content_margin_top = ROW_PAD_Y
 	box.content_margin_bottom = ROW_PAD_Y
 	return box
-
-
-static func _brighter(base: Color) -> Color:
-	return Color(minf(base.r * ROW_HOVER_GAIN, 1.0), minf(base.g * ROW_HOVER_GAIN, 1.0),
-		minf(base.b * ROW_HOVER_GAIN, 1.0), base.a)
 
 
 #The box: a hard shadow, then the orange ring outside the fill, then the fill.

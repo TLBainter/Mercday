@@ -90,10 +90,10 @@ static func _set_auto_state(merc: MercenaryData, state_name: String, wanted: boo
 	var want := wanted and not ConstStates.is_immune(merc, state_name)
 	var had := ConstStates.has_state(merc, state_name)
 	if want and not had:
-		ConstStates.apply_state(merc, state_name, null, "", "engine:" + StateTokens.normalize_token(state_name))
+		StateCascade.apply_state(merc, state_name, null, "", "engine:" + StateTokens.normalize_token(state_name))
 		lines.append("  %s is %s!" % [BattleState.colored_name(merc, state), label])
 	elif not want and had:
-		ConstStates.remove_state(merc, state_name)
+		StateCascade.remove_state(merc, state_name)
 
 
 #True when merc still senses the aura source: hearing needs range only, sight needs LOS.
@@ -108,7 +108,7 @@ static func _aura_reaches(merc: MercenaryData, source: MercenaryData, gate: Stri
 
 static func apply_dot_effects(merc: MercenaryData, state: BattleState) -> Array[String]:
 	var lines: Array[String] = []
-	for dot: Dictionary in ConstStates.dot_effects(merc):
+	for dot: Dictionary in StateEffects.dot_effects(merc):
 		var amount: int = int(dot["amount"])
 		if amount <= 0:
 			continue
@@ -144,7 +144,7 @@ static func check_hp_death(merc: MercenaryData, state: BattleState, lines: Array
 	if merc.current_hp > 0:
 		return
 	if ConstStates.has_state(merc, ConstStates.DYING):
-		mark_dead(merc, BattleState.colored_name(merc, state), lines)
+		mark_dead(merc, "  %s is dead!" % BattleState.colored_name(merc, state), lines)
 	else:
 		mark_dying(merc, BattleState.colored_name(merc, state), lines)
 
@@ -153,23 +153,36 @@ static func check_hp_death(merc: MercenaryData, state: BattleState, lines: Array
 static func remove_without_death(merc: MercenaryData, state: BattleState, lines: Array[String]) -> void:
 	merc.current_hp = 1
 	if ConstStates.has_state(merc, ConstStates.DYING):
-		ConstStates.remove_state(merc, ConstStates.DYING)
+		StateCascade.remove_state(merc, ConstStates.DYING)
 	state.dying_source.erase(merc)
 	state.remove_from_field(merc, "out", lines)
 
 
-#Turns a Dying merc into a dead one and logs the death line under the supplied display name.
-static func mark_dead(merc: MercenaryData, name_text: String, lines: Array[String]) -> void:
+#Full death tail: dead flags and death line, the verbose note, on-kill perks when asked, then the death hooks.
+static func kill(merc: MercenaryData, killer: MercenaryData, state: BattleState, lines: Array[String],
+		death_line: String, verbose: String, kill_perks: bool = true) -> void:
+	mark_dead(merc, death_line, lines)
+	if EncounterLogger.is_active():
+		EncounterLogger.log_verbose(verbose)
+	state.dying_source.erase(merc)
+	if kill_perks:
+		lines.append_array(CombatApplicator.handle_on_kill_perks(killer, merc, state))
+	TraitRuntime.on_death(merc, killer, state, lines)
+	StateInfliction.release_held_by(merc, state, lines)
+
+
+#Sets a merc dead at 0 HP with Dying cleared and logs death_line.
+static func mark_dead(merc: MercenaryData, death_line: String, lines: Array[String]) -> void:
 	merc.current_hp = 0
 	merc.is_dead = true
-	ConstStates.remove_state(merc, ConstStates.DYING)
-	lines.append("  %s is dead!" % name_text)
+	StateCascade.remove_state(merc, ConstStates.DYING)
+	lines.append(death_line)
 
 
 #Puts a merc at 0 HP into Dying and logs the line; the caller records the dying source.
 static func mark_dying(merc: MercenaryData, name_text: String, lines: Array[String]) -> void:
 	merc.current_hp = 0
-	ConstStates.apply_state(merc, ConstStates.DYING, null, "", "engine:dying")
+	StateCascade.apply_state(merc, ConstStates.DYING, null, "", "engine:dying")
 	lines.append("  %s is dying!" % name_text)
 
 

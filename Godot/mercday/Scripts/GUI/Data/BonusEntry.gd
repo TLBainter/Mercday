@@ -1,7 +1,7 @@
 class_name BonusEntry extends Resource
 
-#One recommended knowledge, tool or tradition and the hidden percent it is worth. The percent is
-#never shown; it only sorts the list.
+#One recommended knowledge, tool or tradition and the hidden value it is worth (threshold points for Checks.tsv rows).
+#The value is never shown; it only sorts the list.
 
 @export var name: String = ""
 @export var hidden_bonus: int = 0
@@ -28,6 +28,20 @@ static func from_boosts(boosts: Dictionary) -> Array[BonusEntry]:
 	var out: Array[BonusEntry] = []
 	for key: Variant in boosts:
 		out.append(make(str(key), int(boosts[key])))
+	return sort_desc(out)
+
+
+#Reads CheckStore.parse entries of {"name", key}; positive_only drops entries worth 0 or less.
+static func from_parsed(entries: Array, key: String, positive_only: bool) -> Array[BonusEntry]:
+	var out: Array[BonusEntry] = []
+	for entry: Variant in entries:
+		if not (entry is Dictionary):
+			continue
+		var d: Dictionary = entry
+		var bonus: int = int(d.get(key, 0))
+		if positive_only and bonus <= 0:
+			continue
+		out.append(make(str(d.get("name", "")), bonus))
 	return sort_desc(out)
 
 

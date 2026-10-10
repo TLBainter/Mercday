@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./merc-icons.js"></script>
+<script src="./map-elements.js?v=2026-10-08z4"></script>
+<script src="./map-settlements.js?v=2026-10-08r2"></script>
+<script src="./map-vehicles.js?v=2026-10-08j8"></script>
+<script src="./map-core.js?v=2026-10-08z9"></script>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+html,body{margin:0;background:#16213a;color:#f3ead7}
+html,body,body>div,body>div>div{height:100%}
+a{color:#f28c28}a:hover{color:#f3ead7}
+</style>
+</helmet>
+<div data-screen-label="Map View" style="position:relative;width:100%;height:100%;min-height:100%;overflow:hidden;background:#16213a">
+  <canvas ref="{{ canvasRef }}" style="position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none"></canvas>
+  <div ref="{{ overlayRef }}" data-help="map_labels" style="position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden">
+    <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:84px;left:50%;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MapLabels.tscn</span></sc-if>
+    <sc-for list="{{ labels }}" as="l" hint-placeholder-count="0">
+      <div data-lid="{{ l.key }}" style="position:absolute;left:0;top:0;width:0;height:0;visibility:hidden;z-index:{{ l.z }}">
+        <sc-if value="{{ l.isRegion }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ l.open }}" onPointerDown="{{ stop }}" onPointerEnter="{{ l.enter }}" onPointerLeave="{{ leaveL }}" title="{{ l.name }}" style="position:absolute;left:0;top:0;transform:translate(-50%,-50%);white-space:nowrap;font-family:Silkscreen;font-weight:400;font-size:{{ l.fs }}px;line-height:1;letter-spacing:1px;color:{{ l.color }};transition:font-size 160ms ease-in-out,color 160ms ease-in-out,padding 160ms ease-in-out,background-color 160ms ease-in-out,box-shadow 160ms ease-in-out,top 160ms ease-in-out,text-shadow 160ms ease-in-out;text-shadow:1px 0 0 {{ l.ink }},-1px 0 0 {{ l.ink }},0 1px 0 {{ l.ink }},0 -1px 0 {{ l.ink }},2px 2px 0 {{ l.ink }};pointer-events:{{ hudPE }};cursor:pointer">{{ l.name }}</div>
+        </sc-if>
+        <sc-if value="{{ l.isNation }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ l.open }}" onPointerDown="{{ stop }}" onPointerEnter="{{ l.enter }}" onPointerLeave="{{ leaveL }}" title="{{ l.name }}" style="position:absolute;left:0;top:0;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;white-space:nowrap;color:{{ l.color }};transition:color 160ms ease-in-out,text-shadow 160ms ease-in-out;text-shadow:1px 0 0 {{ l.ink }},-1px 0 0 {{ l.ink }},0 1px 0 {{ l.ink }},0 -1px 0 {{ l.ink }},2px 2px 0 {{ l.ink }},3px 3px 0 #0a0f1c;pointer-events:{{ hudPE }};cursor:pointer">
+            <sc-if value="{{ l.lead }}" hint-placeholder-val="{{ false }}"><span style="font:400 10px/1 Silkscreen;letter-spacing:1px;color:{{ l.leadColor }};transition:color 160ms ease-in-out">{{ l.lead }}</span></sc-if>
+            <span style="font:700 20px/1 Silkscreen;letter-spacing:2px;text-transform:uppercase">{{ l.title }}</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ l.isPoi }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:-1px;top:-18px;width:2px;height:18px;background:#0a0f1c"></div>
+          <div style="position:absolute;left:-3px;top:-3px;width:6px;height:6px;background:{{ l.pin }};box-shadow:0 0 0 2px #0a0f1c"></div>
+          <div onClick="{{ l.open }}" onPointerDown="{{ stop }}" onPointerEnter="{{ l.enter }}" onPointerLeave="{{ leaveL }}" title="{{ l.name }}" style="position:absolute;left:-12px;top:-42px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:#0e1628;color:{{ l.pin }};font-size:12px;box-shadow:0 0 0 2px {{ l.ring }},0 0 0 4px #0a0f1c;transition:box-shadow 160ms ease-in-out;pointer-events:{{ hudPE }};cursor:pointer"><i class="{{ l.icon }}"></i></div>
+          <div onClick="{{ l.open }}" onPointerDown="{{ stop }}" onPointerEnter="{{ l.enter }}" onPointerLeave="{{ leaveL }}" style="position:absolute;left:18px;top:{{ l.ntop }}px;white-space:nowrap;font-family:Silkscreen;font-weight:400;font-size:{{ l.nfs }}px;line-height:1;color:{{ l.color }};transition:font-size 160ms ease-in-out,color 160ms ease-in-out,padding 160ms ease-in-out,background-color 160ms ease-in-out,box-shadow 160ms ease-in-out,top 160ms ease-in-out,text-shadow 160ms ease-in-out;padding:{{ l.npad }};background:{{ l.nbg }};box-shadow:{{ l.nsh }};text-shadow:1px 0 0 {{ l.ink }},-1px 0 0 {{ l.ink }},0 1px 0 {{ l.ink }},0 -1px 0 {{ l.ink }},2px 2px 0 {{ l.ink }};pointer-events:{{ hudPE }};cursor:pointer">{{ l.name }}</div>
+        </sc-if>
+      </div>
+    </sc-for>
+    <sc-if value="{{ tip }}" hint-placeholder-val="{{ false }}">
+      <div data-lid="{{ tip.key }}" data-tip="1" style="position:absolute;left:0;top:0;width:0;height:0;visibility:hidden;z-index:5">
+        <div data-help="map_label_tooltip" onPointerDown="{{ stop }}" style="position:absolute;width:240px;display:flex;flex-direction:column;gap:6px;padding:10px 12px 12px;background:#1a2b4d;font:400 10px/1.4 Silkscreen;color:#f3ead7;pointer-events:{{ hudPE }};box-shadow:inset 0 3px 0 #28447a,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,8px 8px 0 rgba(10,15,28,0.6)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-18px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">LabelTooltip.tscn</span></sc-if>
+          <div style="display:flex;align-items:flex-start;gap:8px">
+            <div style="flex:1;min-width:0;font:700 12px/1.2 Silkscreen;color:#f28c28;text-wrap:pretty">{{ tip.name }}</div>
+            <button onClick="{{ closeTip }}" title="Close" style="flex:none;width:18px;height:18px;border:0;padding:0;background:#2b4f8a;color:#f3ead7;font:400 10px/18px Silkscreen;cursor:pointer;box-shadow:0 0 0 2px #0a0f1c" style-hover="background:#3b6fb6">x</button>
+          </div>
+          <div style="color:#9cc6ef;text-transform:uppercase;letter-spacing:1px;font-size:9px">{{ tip.type }}</div>
+          <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 8px">
+            <span style="color:#9cc6ef">Region</span><span>{{ tip.region }}</span>
+            <span style="color:#9cc6ef">Nation</span><span>{{ tip.nation }}</span>
+          </div>
+          <div style="padding-top:6px;box-shadow:inset 0 2px 0 #28447a;color:#c9d6e8;text-wrap:pretty">{{ tip.text }}</div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  <sc-if value="{{ status }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font:400 12px Silkscreen;color:#9cc6ef">{{ status }}</div>
+  </sc-if>
+  <sc-if value="{{ pick }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:20px;bottom:64px;z-index:2;padding:4px 8px;background:#f28c28;color:#0a0f1c;font:400 10px/1 Silkscreen;pointer-events:none;box-shadow:0 0 0 2px #0a0f1c">{{ pick }}</div>
+  </sc-if>
+  <sc-if value="{{ hud }}" hint-placeholder-val="{{ false }}">
+    <div data-help="map_coords" style="position:absolute;left:20px;bottom:20px;z-index:2;height:32px;padding:0 12px;display:flex;align-items:center;gap:8px;pointer-events:none;background:#0e1628;font:400 12px/1 Silkscreen;white-space:nowrap;box-shadow:0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-16px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">MapCoords.tscn</span></sc-if>
+      <span style="color:#f3ead7">{{ place }},</span>
+      <span style="color:#9cc6ef">{{ coords }},</span>
+      <span style="color:#f28c28">{{ km }}</span>
+    </div>
+    <div style="position:absolute;right:20px;bottom:20px;z-index:2;pointer-events:{{ hudPE }}">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-14px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">GuildHomeButton.tscn</span></sc-if>
+      <button data-help="map_guild_home" onClick="{{ goHome }}" title="Return to Guild Home" style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;border:0;padding:0;cursor:pointer;background:#2b4f8a;box-shadow:inset 4px 4px 0 #3b6fb6,inset -4px -4px 0 #111c33,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+        <sc-if value="{{ guildIcon.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c);background:url({{ guildIcon.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+      </button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:644},&quot;locked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;hud&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;},&quot;camHeight&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:520,&quot;min&quot;:200,&quot;max&quot;:1200,&quot;step&quot;:10,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Camera&quot;},&quot;pitch&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:55,&quot;min&quot;:30,&quot;max&quot;:80,&quot;step&quot;:1,&quot;unit&quot;:&quot;°&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Camera&quot;},&quot;heightScale&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:160,&quot;min&quot;:40,&quot;max&quot;:400,&quot;step&quot;:10,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Terrain&quot;},&quot;pixelScale&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:2,&quot;options&quot;:[1,2,3,4],&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Terrain&quot;}}">
+class Component extends DCLogic {
+  state = { status: 'Loading map…', x: 0, z: 0, cur: null, labels: [], tip: null, hovL: null, hovSet: null };
+  // Hovered city: from the map (any building / street of a generated settlement) or from hovering its label. Drives the map outline (setHot) + label pop.
+  hotCity() { const s = this.state, l = s.hovL && this.byKey && this.byKey[s.hovL]; return s.hovSet || (l && l.kind === 'poi' ? l.name : null); }
+  openTip(l) { if (this.props.locked || !l) return; this.setState({ tip: { key: l.key, name: l.name, type: l.kind === 'poi' ? (l.type === 'poi' ? 'Point of interest' : l.type) : l.type, region: l.region || '—', nation: l.nation || '—', text: l.placeholder_text } }); }
+  canvasRef = React.createRef();
+  overlayRef = React.createRef();
+  opts() { const p = this.props; return { locked: !!p.locked, camHeight: p.camHeight ?? 520, pitch: p.pitch ?? 55, heightScale: p.heightScale ?? 160, pixelScale: p.pixelScale ?? 2, style: p.renderStyle ?? 'voxel', voxel: p.voxelSize ?? 2 }; }
+  // Positions every [data-lid] overlay element at its label's ground point (no React re-render per frame).
+  place(proj) { const root = this.overlayRef.current, byKey = this.byKey; if (!root || !byKey) return;
+    for (const el of root.querySelectorAll('[data-lid]')) { const L = byKey[el.getAttribute('data-lid')], p = L && proj(L.ix, L.iz);
+      if (!p) { el.style.visibility = 'hidden'; continue; } el.style.visibility = 'visible'; el.style.transform = 'translate(' + Math.round(p[0]) + 'px,' + Math.round(p[1]) + 'px)';
+      if (el.hasAttribute('data-tip') && el.firstElementChild) { // tooltip opens right/below of the label; flips left / above near the frame edges
+        const box = el.firstElementChild, w = 240, h = box.offsetHeight || 140, poi = L.kind === 'poi', W = root.clientWidth, H = root.clientHeight;
+        let dx = poi ? 22 : 14, dy = poi ? -18 : 10; if (p[0] + dx + w > W - 12) dx = -(w + (poi ? 22 : 14)); if (p[1] + dy + h > H - 12) dy = -(h + (poi ? 46 : 14)); if (p[1] + dy < 84) dy = 84 - p[1];
+        box.style.left = dx + 'px'; box.style.top = dy + 'px'; } } }
+  componentDidMount() {
+    const go = () => { if (!window.MercMap || !this.canvasRef.current) return false;
+      this.map = window.__mapCtl = window.MercMap.mount(this.canvasRef.current, { ...this.opts(),
+        onReady: () => { const L = window.MercMap.labels(); this.byKey = {}; L.forEach(l => this.byKey[l.key] = l); this.setState({ status: '', labels: L }); },
+        onError: m => this.setState({ status: m }), onMove: (x, z) => { clearTimeout(this._mvT); this._mvT = setTimeout(() => this.setState({ x, z }), 150); }, /* readout updates once the camera pauses (no full re-render per frame) */ onCursor: c => this.setState({ cur: c }), onPick: p => this.setState({ pick: p }), onSettle: n => this.setState({ hovSet: n }),
+        onSettleClick: n => this.openTip(this.state.labels.find(l => l.kind === 'poi' && l.name === n)),
+        onFrame: proj => { this._proj = proj; this.place(proj); } }); return true; };
+    if (!go()) this._wait = setInterval(() => { if (go()) clearInterval(this._wait); }, 50);
+    if (!window.MercIcons) this._miWait = setInterval(() => { if (window.MercIcons) { clearInterval(this._miWait); this.forceUpdate(); } }, 50);
+    this._esc = e => { if (e.key === 'Escape' && this.state.tip) this.setState({ tip: null }); }; window.addEventListener('keydown', this._esc);
+    this._down = () => { if (this.state.tip) this.setState({ tip: null }); }; // any map press (drag start) closes the tooltip
+    this.canvasRef.current && this.canvasRef.current.addEventListener('pointerdown', this._down);
+  }
+  componentDidUpdate(pp, ps) { if (this.map) { this.map.set(this.opts()); const h = this.props.locked ? null : this.hotCity(); if (h !== this._hot) { this._hot = h; this.map.setHot(h); } }
+    if (this.props.locked && (this.state.hovL || this.state.hovSet)) this.setState({ hovL: null, hovSet: null }); if (this.props.locked && this.state.tip) this.setState({ tip: null }); if (this._proj && (!ps || ps.labels !== this.state.labels || ps.tip !== this.state.tip || ps.elLayers !== this.state.elLayers)) this.place(this._proj); }
+  componentWillUnmount() { clearInterval(this._wait); clearInterval(this._miWait); window.removeEventListener('keydown', this._esc); if (this.canvasRef.current) this.canvasRef.current.removeEventListener('pointerdown', this._down); if (this.map) this.map.destroy(); }
+  renderVals() {
+    const MM = window.MercMap, s = this.state, home = MM ? MM.home : [0, 0], M = window.MercIcons, pos = s.cur || { x: s.x, z: s.z }; // readout follows the cursor; camera center when the cursor is off the map
+    const here = MM && MM.placeAt ? MM.placeAt(pos.x, pos.z) : null, hereReg = here ? here.regionId : 0;
+    const ICON = { capital: 'fa-solid fa-crown', city: 'fa-solid fa-city', poi: 'fa-solid fa-monument', volcano: 'fa-solid fa-volcano' }, PIN = { capital: '#f2d33d', city: '#f3ead7', poi: '#9cc6ef', volcano: '#ff7a1a' };
+    const WATERY = { sea: 1, fjord: 1, gulf: 1, bay: 1, bight: 1, lake: 1, waterway: 1, bank: 1, cove: 1, channel: 1, strait: 1, river: 1 };
+    const hot = this.props.locked ? null : this.hotCity(), ORANGE = '#f28c28';
+    const NC = this.natCol || (this.natCol = {}), hcOf = l => { if (!(l.key in NC)) { const f = this.map && this.map.natHexAt; NC[l.key] = (f && !l.water && f(l.ix, l.iz, l.nationId)) || null; } return NC[l.key] || ORANGE; }; // label highlight = its nation's highlight colour (same as the building tint)
+    const labels = s.labels.map(l => { const hl = !this.props.locked && (l.key === s.hovL || (l.kind === 'region' && l.regionId === hereReg)), pop = l.kind === 'poi' && (hl || (hot && l.name === hot)), HC = hl || pop ? hcOf(l) : ORANGE;
+      return { key: l.key, name: l.name, isRegion: l.kind === 'region', isPoi: l.kind === 'poi', isNation: l.kind === 'nation', lead: l.lead, title: l.title, z: pop ? 4 : l.kind === 'nation' ? 2 : l.kind === 'poi' ? 1 : 0, icon: ICON[l.type] || ICON.poi, pin: PIN[l.type] || PIN.poi,
+        fs: (l.kind === 'region' ? (l.type === 'sea' ? 14 : l.type === 'river' ? 9 : 11) : 10) + (hl && l.kind === 'region' ? 4 : 0), // hovered region label grows 4 px
+        ink: (hl || pop) && /Kathaya|Aldurstein|Copari|Zukei|Suorr|Cyfrolaef/.test(l.nation || '') ? '#ffffff' : '#0a0f1c', // dark highlight colours (those four nations) get a white outline while hovered
+        color: hl || pop ? HC : l.volcano ? '#ffb070' : WATERY[l.type] ? '#9cc6ef' : '#f3ead7', leadColor: hl ? HC : '#e8d9b8',
+        // POI pop: name grows 10 → 13 px on a dark chip with an orange edge; icon ring turns orange.
+        ring: pop ? HC : PIN[l.type] || PIN.poi, nfs: pop ? 13 : 10, ntop: pop ? -40 : -37, npad: pop ? '3px 5px' : '0', nbg: pop ? '#0e1628' : 'transparent', nsh: pop ? '0 0 0 2px ' + HC + ',0 0 0 4px #0a0f1c' : 'none',
+        enter: () => { if (!this.props.locked && this.state.hovL !== l.key) this.setState({ hovL: l.key }); }, open: () => this.openTip(l) }; });
+    return { canvasRef: this.canvasRef, overlayRef: this.overlayRef, status: s.status, hud: this.props.hud ?? true, hudPE: this.props.locked ? 'none' : 'auto' /* masked while locked */, showScenes: this.props.showScenes ?? false,
+      pick: s.pick ? 'Pick ' + s.pick.ix + ', ' + s.pick.iz + ' (image px)' : '',
+      elLayers: s.elLayers || [],
+      labels, leaveL: () => this.state.hovL && this.setState({ hovL: null }), tip: s.tip, closeTip: () => this.setState({ tip: null }), stop: e => e.stopPropagation(),
+      place: MM ? MM.regionAt(pos.x, pos.z) || '…' : '…', coords: MM ? MM.toLatLon(pos.x, pos.z).text : '', km: Math.round(Math.hypot(pos.x - home[0], pos.z - home[1])).toLocaleString('en-US') + 'km',
+      guildIcon: M ? M.cell16('guild_banner') : [], goHome: () => this.map && this.map.flyTo(home[0], home[1]) };
+  }
+}
+</script>
+</body>
+</html>

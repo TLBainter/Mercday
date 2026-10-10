@@ -5,24 +5,19 @@ class_name CityObjects
 
 
 static func _objects(area: BattlefieldArea) -> Dictionary:
-	if not area.city.has("objects"):
-		var fresh: Dictionary = {}
-		for k: String in CityAccess.OBJECT_KEYS:
-			fresh[k] = 0
-		area.city["objects"] = fresh
 	return area.city["objects"] as Dictionary
 
 
 #Writes one outdoor object and its reserved cells; {} when a footprint cell fails its test.
 static func place(area: BattlefieldArea, data: ObstacleData, cell: Vector2i, tag: String,
 		rotated: bool = false) -> Dictionary:
-	if area == null or data == null:
+	if data == null:
 		return {}
 	var pw: int = 1
 	var ph: int = 1
 	var size: int = 0
 	if data.obstacle_type == "Vegetation":
-		size = ObstacleGenerator._instance_size(data)
+		size = ObstacleGenerator.instance_size(data)
 	else:
 		pw = maxi(1, ceili(data.size_x))
 		ph = maxi(1, ceili(data.size_y))
@@ -33,7 +28,7 @@ static func place(area: BattlefieldArea, data: ObstacleData, cell: Vector2i, tag
 		size = pw * ph
 	for dy: int in range(ph):
 		for dx: int in range(pw):
-			if not CityGrid.inside(area, cell.x + dx, cell.y + dy):
+			if not area.in_bounds_xy(cell.x + dx, cell.y + dy):
 				return {}
 	for dy2: int in range(ph):
 		for dx2: int in range(pw):
@@ -51,8 +46,7 @@ static func place(area: BattlefieldArea, data: ObstacleData, cell: Vector2i, tag
 				return {}
 			var key := Vector3i(c.x, c.y, 0)
 			if dx3 == 0 and dy3 == 0:
-				area._obs_map[key] = obs
-				area.obstacles.append(obs)
+				area.add_obstacle(obs, key)
 			else:
 				area._obs_map[key] = {"cell_type": "reserved", "floor": 0}
 			written.append(key)

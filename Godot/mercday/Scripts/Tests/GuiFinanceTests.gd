@@ -3,12 +3,12 @@ extends RefCounted
 
 #Run: godot --headless --path . with the --gui-finance-tests flag.
 #The My Finance window: the frame, the five tabs and their dots, the page host, the invest only
-#mode, the modal layer and the whole Overview page against FinanceLedger. The four pages of the
+#and hiring only modes, the modal layer and the whole Overview page against FinanceLedger. The four pages of the
 #other screens are never loaded: every page path points at FinanceStubPage or at nothing.
 #Every case drives the public helpers, because a synthetic click never reaches a button headless.
 
 const VIEWER: PackedScene = preload("res://Scenes/GUI/Finance/FinanceViewer.tscn")
-const STUB_PATH: String = "res://Scenes/GUI/Finance/FinanceStubPage.tscn"
+const STUB_PATH: String = "res://Scenes/Tests/FinanceStubPage.tscn"
 #A path no build holds, so the host has to fall back on the placeholder.
 const MISSING_PATH: String = "res://Scenes/GUI/Finance/Nowhere/NoSuchTab.tscn"
 const PAGE_KEYS: Array[StringName] = [&"loans", &"payroll", &"hiring", &"invest"]
@@ -28,11 +28,11 @@ const TAB_ICON_CELL: int = 16
 const TAB_ICON_IDS: Array[String] = ["eye", "piggy", "money_bag", "add_person", "invest"]
 const PAGE_PAD: int = 14
 const TAB_GAP: int = 8
-const FRAME_BG: Color = Color("#101a30")
-const ORANGE: Color = Color("#f28c28")
-const CREAM: Color = Color("#f3ead7")
-const GREEN: Color = Color("#6cc36a")
-const RED: Color = Color("#e8583f")
+const FRAME_BG: Color = GuiColors.FRAME_BG
+const ORANGE: Color = GuiColors.ORANGE
+const CREAM: Color = GuiColors.CREAM
+const GREEN: Color = GuiColors.GREEN
+const RED: Color = GuiColors.RED
 #More rows than the list shows, so the cap of a hundred is read.
 const OVER_CAP: int = 120
 const FUNDS: int = 20000
@@ -40,6 +40,8 @@ const SPEND_NOTES: int = 120
 const FINE_NOTES: int = 40
 const OFFER_ID: int = 42
 const COMPANY_ID: int = 7
+#The campaign the hiring only window is held to.
+const CAMPAIGN_ID: int = 1
 
 
 static func run(host: Node) -> bool:
@@ -55,6 +57,7 @@ static func run(host: Node) -> bool:
 	await _case_pages(res, host)
 	await _case_entries(res, host)
 	await _case_invest_only(res, host)
+	await _case_hiring_only(res, host)
 	await _case_dots(res, host)
 	await _case_stats(res, host)
 	await _case_projection(res, host)
@@ -62,11 +65,15 @@ static func run(host: Node) -> bool:
 	await _case_expenses(res, host)
 	await _case_transactions(res, host)
 	await _case_modal_layer(res, host)
+	await _case_hiring_icon(res, host)
+	await _case_reopen_finance_loans(res, host)
+	await _case_reopen_finance_hiring(res, host)
+	await _case_reopen_finance_payroll(res, host)
 	CampaignClock.minutes = clock
 	GameState.bank_notes = bank
 	NotificationCenter.reset()
 	PromotionsManager.reset()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	FinanceLedger.reset()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	TestFixtures.reset_campaign()
@@ -78,7 +85,7 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	NotificationCenter.reset()
 	PromotionsManager.reset()
 	FinanceLedger.reset()
@@ -106,20 +113,23 @@ static func _stub_of(viewer: FinanceViewer, key: StringName) -> FinanceStubPage:
 	return viewer.page(key) as FinanceStubPage
 
 
-#Leaves n of the seeded campaigns ongoing, which is what the Ads row counts.
+#Leaves exactly n Infinite campaigns, each launched today through PromotionsManager.launch.
 static func _set_promos(n: int) -> void:
 	PromotionsManager.reset()
-	var left: int = n
-	for campaign: CampaignData in PromotionsManager.campaigns:
-		if not campaign.infinite:
-			continue
-		if left > 0:
-			left -= 1
-		else:
-			campaign.infinite = false
+	var bank: int = GameState.bank_notes
+	GameState.bank_notes = 100000
+	for i: int in range(n):
+		TestFixtures.launch_campaign({"type": &"flyers", "infinite": true, "name": "Ongoing %d" % (i + 1)})
+	GameState.bank_notes = bank
 
 
+#Marks every applicant read or unread; with none on the books an unread case adds a walk-in.
 static func _set_unseen(flag: bool) -> void:
+	if flag and PromotionsManager.applicants.is_empty():
+		var walk_in: ApplicantData = ApplicantData.new()
+		walk_in.id = 1
+		walk_in.name = "Walk In"
+		PromotionsManager.applicants.append(walk_in)
 	for applicant: ApplicantData in PromotionsManager.applicants:
 		applicant.unseen = flag
 
@@ -128,10 +138,10 @@ static func _set_unseen(flag: bool) -> void:
 #a minus, and the notes and total rows print their own sign.
 static func _want_text(key: String, amount: int) -> String:
 	if key == INCOME_KEY:
-		return "+" + NotesLabel.format_amount(absi(amount))
+		return "+" + TransactionData.grouped(absi(amount))
 	if EXPENSE_KEYS.has(key):
-		return "-" + NotesLabel.format_amount(absi(amount))
-	return NotesLabel.format_amount(amount)
+		return "-" + TransactionData.grouped(absi(amount))
+	return TransactionData.grouped(amount)
 
 
 static func _want_color(key: String, amount: int) -> Color:
@@ -144,20 +154,6 @@ static func _want_color(key: String, amount: int) -> Color:
 	return CREAM
 
 
-static func _keys_of(rows: Array[Dictionary]) -> Array[String]:
-	var out: Array[String] = []
-	for row: Dictionary in rows:
-		out.append(String(row["key"]))
-	return out
-
-
-static func _row_of(rows: Array[Dictionary], key: String) -> Dictionary:
-	for row: Dictionary in rows:
-		if String(row["key"]) == key:
-			return row
-	return {}
-
-
 static func _count_scrolls(node: Node) -> int:
 	var found: int = 1 if node is ScrollContainer else 0
 	for child: Node in node.get_children():
@@ -165,12 +161,14 @@ static func _count_scrolls(node: Node) -> int:
 	return found
 
 
+#A closed DropPanel (a dropdown's list, top level since D3c in place of a PopupPanel window) is not counted.
 static func _count_floating(node: Node) -> int:
 	var found: int = 0
 	if node is CanvasLayer:
 		found += 1
 	var control: Control = node as Control
-	if control != null and control.top_level:
+	var closed_drop: bool = node is DropPanel and not (node as DropPanel).is_open()
+	if control != null and control.top_level and not closed_drop:
 		found += 1
 	for child: Node in node.get_children():
 		found += _count_floating(child)
@@ -198,10 +196,10 @@ static func _case_frame(res: Dictionary, host: Node) -> void:
 			and pad.get_theme_constant("margin_bottom") == PAGE_PAD,
 		"pad %d" % [0 if pad == null else pad.get_theme_constant("margin_left")])
 	TestFixtures.check(res, "the tab row stands 44 px tall with a gap of eight",
-		is_equal_approx(viewer.tab_row.custom_minimum_size.y, TAB_ROW_HEIGHT)
-			and viewer.tab_row.get_theme_constant("separation") == TAB_GAP,
-		"%.0f px, gap %d" % [viewer.tab_row.custom_minimum_size.y,
-			viewer.tab_row.get_theme_constant("separation")])
+		is_equal_approx(viewer.tab_strip.custom_minimum_size.y, TAB_ROW_HEIGHT)
+			and viewer.tab_strip.get_theme_constant("separation") == TAB_GAP,
+		"%.0f px, gap %d" % [viewer.tab_strip.custom_minimum_size.y,
+			viewer.tab_strip.get_theme_constant("separation")])
 	TestFixtures.check(res, "the page host clips what runs past its edge",
 		viewer.page_host.clip_contents, "clip %s" % viewer.page_host.clip_contents)
 	TestFixtures.check(res, "the window root is 1280 by 644 under the bottom bar",
@@ -215,7 +213,7 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 	var viewer: FinanceViewer = _make(host, false, FinanceViewer.Tab.OVERVIEW, STUB_PATH)
 	await host.get_tree().process_frame
 	var order: Array[String] = []
-	for child: Node in viewer.tab_row.get_children():
+	for child: Node in viewer.tab_strip.get_children():
 		order.append((child as TabButton).label)
 	TestFixtures.check(res, "the tab row holds the five tabs of the window in order",
 		order == LABELS, "got %s" % str(order))
@@ -230,7 +228,7 @@ static func _case_tabs(res: Dictionary, host: Node) -> void:
 	for i: int in FinanceViewer.TAB_KEYS.size():
 		if viewer.tab_button(FinanceViewer.TAB_KEYS[i]).description != TIPS[i]:
 			bad.append(String(FinanceViewer.TAB_KEYS[i]))
-	TestFixtures.check(res, "every tab carries the tooltip of the handoff", bad.is_empty(),
+	TestFixtures.check(res, "every tab carries the tooltip of the design prototype", bad.is_empty(),
 		TestFixtures.detail(bad, TIPS.size(), "tooltips"))
 	bad = []
 	for i: int in FinanceViewer.TAB_KEYS.size():
@@ -481,6 +479,64 @@ static func _case_invest_only(res: Dictionary, host: Node) -> void:
 	_drop(plain)
 
 
+#Case 7b: the hiring only window the View Applicants button opens.
+static func _case_hiring_only(res: Dictionary, host: Node) -> void:
+	var plain: FinanceViewer = _make(host, false, FinanceViewer.Tab.OVERVIEW, STUB_PATH)
+	var solo: FinanceViewer = VIEWER.instantiate() as FinanceViewer
+	solo.start_tab = FinanceViewer.Tab.LOANS
+	solo.hiring_only = true
+	solo.fixed_campaign = CAMPAIGN_ID
+	for key: StringName in PAGE_KEYS:
+		solo.set_page_path(key, STUB_PATH)
+	host.add_child(solo)
+	plain.open_tab(&"loans")
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the hiring only window hides the tab row",
+		not solo.tab_pad.visible, "row shown %s" % solo.tab_pad.visible)
+	var page: FinanceStubPage = _stub_of(solo, &"hiring")
+	TestFixtures.check(res, "the hiring only window opens on Hiring whatever tab it was given",
+		solo.current_tab() == &"hiring" and page != null and page.shown == 1,
+		"tab %s shown %d" % [String(solo.current_tab()), 0 if page == null else page.shown])
+	TestFixtures.check(res, "the hiring only content panel takes the room of the tab row",
+		is_equal_approx(solo.page_panel.position.y, TOP_LINE_HEIGHT)
+			and is_equal_approx(plain.page_panel.position.y, TAB_ROW_HEIGHT + TOP_LINE_HEIGHT),
+		"%.0f against %.0f" % [solo.page_panel.position.y, plain.page_panel.position.y])
+	TestFixtures.check(res, "no other page is built in the hiring only window",
+		solo.page(&"loans") == null and solo.page(&"payroll") == null
+			and solo.page(&"invest") == null,
+		"host holds %d pages" % solo.page_host.get_child_count())
+	TestFixtures.check(res, "the hiring only window keeps the campaign it was given",
+		solo.fixed_campaign == CAMPAIGN_ID and solo.hiring_only and not solo.invest_only,
+		"campaign %d invest %s" % [solo.fixed_campaign, solo.invest_only])
+	solo.open_tab(&"overview")
+	solo.open_hiring()
+	solo.open_offer(OFFER_ID)
+	solo.open_stock(COMPANY_ID)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "a tab change, an offer or a stock move does nothing in the hiring only window",
+		solo.current_tab() == &"hiring" and not solo.overview().visible and page != null
+			and page.shown == 1 and solo.page(&"loans") == null and solo.page(&"invest") == null,
+		"tab %s shown %d" % [String(solo.current_tab()), 0 if page == null else page.shown])
+	plain.hiring_only = true
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "the tab row goes when hiring only is set later",
+		not plain.tab_pad.visible and plain.current_tab() == &"hiring",
+		"row shown %s on %s" % [plain.tab_pad.visible, String(plain.current_tab())])
+	plain.invest_only = true
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "invest only set after hiring only clears it",
+		plain.invest_only and not plain.hiring_only and plain.current_tab() == &"invest",
+		"invest %s hiring %s on %s" % [plain.invest_only, plain.hiring_only, String(plain.current_tab())])
+	plain.hiring_only = true
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "hiring only set after invest only clears it in turn",
+		plain.hiring_only and not plain.invest_only and plain.current_tab() == &"hiring",
+		"invest %s hiring %s on %s" % [plain.invest_only, plain.hiring_only, String(plain.current_tab())])
+	_drop(solo)
+	_drop(plain)
+
+
 #Case 8: the dots on the tabs.
 static func _case_dots(res: Dictionary, host: Node) -> void:
 	_fresh()
@@ -593,7 +649,7 @@ static func _case_stats(res: Dictionary, host: Node) -> void:
 			TestFixtures.detail(bad, STAT_KEYS.size(), "cards")])
 	bad = []
 	for key: String in STAT_KEYS:
-		var sub: Label = over.stat_tile(key).get_node_or_null(FinanceOverview.SUB_PATH) as Label
+		var sub: Label = over.stat_tile(key).sub_text
 		if sub == null or sub.clip_text or sub.autowrap_mode != TextServer.AUTOWRAP_WORD_SMART:
 			bad.append(key)
 	TestFixtures.check(res, "every card wraps its description instead of clipping it",
@@ -647,7 +703,7 @@ static func _case_projection(res: Dictionary, host: Node) -> void:
 		await host.get_tree().process_frame
 		var data: Dictionary = FinanceLedger.projection(h)
 		var rows: Array[Dictionary] = data["rows"]
-		if proj.row_keys() != _keys_of(rows) or proj.row_count() != rows.size():
+		if proj.row_keys() != GuiFinanceDataTests._keys_of(rows) or proj.row_count() != rows.size():
 			bad_rows.append(str(h))
 		for row: Dictionary in rows:
 			var key: String = String(row["key"])
@@ -664,7 +720,7 @@ static func _case_projection(res: Dictionary, host: Node) -> void:
 			if want_prefix != "" and not proj.row_text(key).begins_with(want_prefix):
 				bad_prefix.append("%d %s" % [h, key])
 		var total: int = int(data["total"])
-		if proj.total_text() != NotesLabel.format_amount(total):
+		if proj.total_text() != TransactionData.grouped(total):
 			bad_total.append("%d total" % h)
 		elif proj.when_text() != String(data["when"]):
 			bad_total.append("%d date" % h)
@@ -698,11 +754,11 @@ static func _case_projection(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	var bare: Dictionary = FinanceLedger.projection(proj.horizon())
 	TestFixtures.check(res, "an empty bank leaves the notes row and the total on the books",
-		proj.row_text("notes") == NotesLabel.format_amount(0)
-			and proj.total_text() == NotesLabel.format_amount(int(bare["total"]))
+		proj.row_text("notes") == TransactionData.grouped(0)
+			and proj.total_text() == TransactionData.grouped(int(bare["total"]))
 			and proj.total_color().is_equal_approx(_want_color(TOTAL_KEY, int(bare["total"]))),
 		"%s and %s" % [proj.row_text("notes"), proj.total_text()])
-	var pad2: MarginContainer = proj.list.get_parent() as MarginContainer
+	var pad2: MarginContainer = proj.items().get_parent() as MarginContainer
 	var scroll: ScrollContainer = (pad2.get_parent() as ScrollContainer) if pad2 != null else null
 	TestFixtures.check(res, "the breakdown list sits in a padded scroll container",
 		pad2 != null and scroll != null
@@ -726,11 +782,11 @@ static func _case_projection_zero_expense(res: Dictionary, host: Node) -> void:
 	var proj: FinanceProjection = viewer.overview().projection()
 	var data: Dictionary = FinanceLedger.projection(proj.horizon())
 	var rows: Array[Dictionary] = data["rows"]
-	var ads: Dictionary = _row_of(rows, "ads")
+	var ads: Dictionary = GuiFinanceDataTests._row_of(rows, "ads")
 	TestFixtures.check(res, "a campaign-free guild projects an ads row of 0",
 		int(ads.get("amount", -1)) == 0, "amount %s" % str(ads.get("amount", "missing")))
 	TestFixtures.check(res, "an expense row of 0 still reads a leading minus",
-		proj.row_text("ads") == "-" + NotesLabel.format_amount(0), proj.row_text("ads"))
+		proj.row_text("ads") == "-" + TransactionData.grouped(0), proj.row_text("ads"))
 	_drop(viewer)
 
 
@@ -759,7 +815,7 @@ static func _case_expenses(res: Dictionary, host: Node) -> void:
 		var key: String = String(row["key"])
 		if box.row_label(key) != String(row["label"]) or box.row_sub(key) != String(row["sub"]):
 			bad.append(key)
-		elif box.row_text(key) != NotesLabel.format_amount(int(row["amount"])):
+		elif box.row_text(key) != TransactionData.grouped(int(row["amount"])):
 			bad.append(key)
 		elif box.row_cells(key) != int(row["cells"]):
 			bad.append(key)
@@ -787,17 +843,18 @@ static func _case_expenses(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "two ongoing campaigns read as two promos billed monthly",
 		box.row_sub("ads") == "2 ongoing promos - billed monthly", box.row_sub("ads"))
 	TestFixtures.check(res, "the Ads row bills what the promotions manager bills",
-		box.row_text("ads") == NotesLabel.format_amount(PromotionsManager.monthly_ad_bill()),
+		box.row_text("ads") == TransactionData.grouped(PromotionsManager.monthly_ad_bill()),
 		"%s against %d" % [box.row_text("ads"), PromotionsManager.monthly_ad_bill()])
 	bad = []
 	for key: String in EXPENSE_KEYS:
-		var line: HBoxContainer = box.row_line(key)
-		if line == null or line.get_child_count() != 3:
+		var line: ValueRow = box.row_line(key) as ValueRow
+		if line == null or line.bar() == null or line.get_child(1) != line.bar():
 			bad.append(key)
-		elif (not (line.get_child(0) is Label) or not (line.get_child(1) is CellBar)
-				or not (line.get_child(2) is HBoxContainer)):
+		elif not line.notes_label.visible or line.value_label.visible or line.sub_label.visible:
 			bad.append(key)
-	TestFixtures.check(res, "every row is one line: a title label, the bar, then the amount",
+		elif line.texts.custom_minimum_size.x != FinanceExpenses.LABEL_WIDTH:
+			bad.append(key)
+	TestFixtures.check(res, "every row is one line: a fixed title column, the bar, then the amount",
 		bad.is_empty(), TestFixtures.detail(bad, EXPENSE_KEYS.size(), "rows"))
 	await host.get_tree().process_frame
 	var first_x: float = box.row_bar_x(EXPENSE_KEYS[0])
@@ -818,6 +875,21 @@ static func _case_expenses(res: Dictionary, host: Node) -> void:
 	box._on_row_hover(box.row_line("payroll"), box.row_label("payroll"), "")
 	TestFixtures.check(res, "a row with an empty sub shows no tooltip",
 		not box.tooltip().visible, "visible %s" % box.tooltip().visible)
+	var items: Array = box.row_lines("ads")
+	var want_lines: Array[String] = []
+	for item: Variant in items:
+		var row: Dictionary = item as Dictionary
+		want_lines.append("%s: %s" % [String(row["label"]), TooltipPanel.line_amount_text(int(row["amount"]))])
+	box._on_row_hover(box.row_line("ads"), box.row_label("ads"), box.row_sub("ads"), items)
+	TestFixtures.check(res, "hovering a row with lines lists one line per campaign with its notes",
+		box.tooltip().visible and items.size() == 2 and box.tooltip().line_texts() == want_lines,
+		str(box.tooltip().line_texts()))
+	box._on_row_exit()
+	box._on_row_hover(box.row_line("ads"), box.row_label("ads"), box.row_sub("ads"))
+	TestFixtures.check(res, "a plain hover after a lines hover shows the sub text and no lines",
+		box.tooltip().line_texts().is_empty() and box.tooltip().body_label.text == box.row_sub("ads"),
+		str(box.tooltip().line_texts()))
+	box._on_row_exit()
 	_drop(viewer)
 
 
@@ -826,6 +898,9 @@ static func _case_transactions(res: Dictionary, host: Node) -> void:
 	_fresh()
 	GameState.refund(FUNDS)
 	FinanceLedger.reset()
+	FinanceLedger.record(400, GameState.REASON_CONTRACT, "Placed Reward")
+	FinanceLedger.record(-25, GameState.REASON_TRAVEL, "Placed Fare", "horse", 40)
+	FinanceLedger.record(0, "", "Placed Note")
 	var viewer: FinanceViewer = _make(host, false, FinanceViewer.Tab.OVERVIEW, STUB_PATH)
 	await host.get_tree().process_frame
 	var list: FinanceTransactions = viewer.overview().transactions()
@@ -920,3 +995,266 @@ static func _case_modal_layer(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the window holds no canvas layer and nothing that floats free",
 		_count_floating(viewer) == 0, "%d floating nodes" % _count_floating(viewer))
 	_drop(viewer)
+
+
+static func _opaque(tex: Texture2D) -> int:
+	if tex == null:
+		return 0
+	var img: Image = tex.get_image()
+	if img == null:
+		return 0
+	var n: int = 0
+	for y: int in img.get_height():
+		for x: int in img.get_width():
+			if img.get_pixel(x, y).a > 0.0:
+				n += 1
+	return n
+
+
+#The Hiring tab carries a drawn icon, idle and active, clear of the close X, and every tab fits the band.
+static func _case_hiring_icon(res: Dictionary, host: Node) -> void:
+	_fresh()
+	var viewer: FinanceViewer = VIEWER.instantiate() as FinanceViewer
+	host.add_child(viewer)
+	GuiAdsTests.fit_band(viewer)
+	for key: StringName in [&"overview", &"hiring"]:
+		viewer.open_tab(key)
+		await host.get_tree().process_frame
+		await host.get_tree().process_frame
+		var tab: TabButton = viewer.tab_button(&"hiring")
+		var rect: IconRect = tab.icon_rect
+		var box: Rect2 = rect.get_global_rect()
+		TestFixtures.check(res, "the Hiring icon shows opaque pixels with %s open" % key,
+			rect.icon_id == "add_person" and _opaque(rect.texture) > 0 and rect.is_visible_in_tree()
+			and box.size.x > 0.0 and box.size.y > 0.0 and rect.modulate.a > 0.0
+			and not box.intersects(GuiAdsTests.X_RECT),
+			"id %s opaque %d shown %s rect %s" % [rect.icon_id, _opaque(rect.texture),
+				rect.is_visible_in_tree(), box])
+	for key: StringName in FinanceViewer.TAB_KEYS:
+		viewer.open_tab(key)
+		await host.get_tree().process_frame
+		await host.get_tree().process_frame
+		GuiAdsTests.check_fit(res, "Finance %s" % key, viewer, viewer.page(key), [viewer.tab_strip])
+	_drop(viewer)
+	await host.get_tree().process_frame
+
+
+#The books the reopen cases read: the hiring board, the loan fixture and every tier unlocked.
+static func _reopen_books() -> void:
+	GuiHiringTests._fresh()
+	FinanceManager.reset()
+	GuiLoanTests._seed_fixture()
+	SubscriptionManager.max_out()
+
+
+#Opens the Finance window from its tile and shows one page; returns [viewer, page, first tab].
+static func _reopen_open(host: Node, hud: GameHUD, key: StringName) -> Array:
+	var viewer: FinanceViewer = await GuiClickDTests._press_tile(host, hud, &"finance") as FinanceViewer
+	if viewer == null:
+		return [null, null, &""]
+	var tab0: StringName = viewer.current_tab()
+	viewer.open_tab(key)
+	await host.get_tree().process_frame
+	return [viewer, viewer.page(key), tab0]
+
+
+static func _reopen_close(res: Dictionary, host: Node, hud: GameHUD, viewer: FinanceViewer) -> void:
+	hud.popup().close()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "reopen: closing the Finance window frees its content",
+		not is_instance_valid(viewer), "content still alive")
+
+
+static func _reopen_done(host: Node, hud: GameHUD) -> void:
+	await GuiClickDTests._drop(host, hud)
+	_fresh()
+	FinanceManager.reset()
+
+
+#Designer rule 2026-10-04: the picks reset once the Finance window is fully closed.
+static func _case_reopen_finance_loans(res: Dictionary, host: Node) -> void:
+	_reopen_books()
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var opened: Array = await _reopen_open(host, hud, &"loans")
+	var page: LoansTab = opened[1] as LoansTab
+	if page == null:
+		TestFixtures.check(res, "reopen: the Finance tile opens the Loans page", false, "no page")
+		await _reopen_done(host, hud)
+		return
+	var viewer: FinanceViewer = opened[0] as FinanceViewer
+	var tab0: StringName = opened[2]
+	var view0: StringName = page.view()
+	var sort0: String = page.sort_key()
+	var desc0: bool = page.descending()
+	var req0: bool = page.show_requests()
+	var exp0: bool = page.show_expired()
+	var ranges0: Dictionary = page.ranges()
+	var cards0: int = page.card_count()
+	var ids0: Array[int] = page.row_ids()
+	page.press_view(LoanRows.VIEW_PENDING)
+	page.pick_sort(1)
+	page.toggle_direction()
+	page.set_show_requests(false)
+	page.set_show_expired(false)
+	var spans0: Dictionary = {}
+	for def: Dictionary in LoanRows.FILTER_DEFS:
+		var key: String = String(def["key"])
+		var cap: float = page.filter_popup().slider(key).max_value
+		spans0[key] = ranges0.get(key, Vector2(0.0, cap))
+		page.set_filter(key, 0.0, cap * 0.5)
+	await host.get_tree().process_frame
+	var ranges1: Dictionary = page.ranges()
+	var still: Array[String] = []
+	for key: Variant in spans0:
+		if ranges1.get(key) == null or ranges1[key] == spans0[key]:
+			still.append(String(key))
+	TestFixtures.check(res, "reopen: the Loans picks under test moved off their first values",
+		page.view() != view0 and page.sort_key() != sort0 and page.descending() != desc0
+		and page.show_requests() != req0 and page.show_expired() != exp0 and still.is_empty()
+		and page.row_ids() != ids0 and viewer.current_tab() != tab0,
+		"view %s sort %s desc %s ranges kept %s rows %s against %s" % [page.view(), page.sort_key(),
+		str(page.descending()), str(still), str(page.row_ids()), str(ids0)])
+	await _reopen_close(res, host, hud, viewer)
+	var again: Array = await _reopen_open(host, hud, &"loans")
+	var page2: LoansTab = again[1] as LoansTab
+	if page2 == null:
+		TestFixtures.check(res, "reopen: the Finance tile opens the Loans page again", false, "no page")
+		await _reopen_done(host, hud)
+		return
+	TestFixtures.check(res, "reopen: the Finance window opens again on its first tab",
+		StringName(again[2]) == tab0, "%s against %s" % [str(again[2]), tab0])
+	TestFixtures.check(res, "reopen: the Loans view, sort and direction read their first values",
+		page2.view() == view0 and page2.sort_key() == sort0 and page2.descending() == desc0,
+		"%s %s %s" % [page2.view(), page2.sort_key(), str(page2.descending())])
+	TestFixtures.check(res, "reopen: the Loans switches and ranges read their first values",
+		page2.show_requests() == req0 and page2.show_expired() == exp0 and page2.ranges() == ranges0
+		and page2.filter_popup().show_requests() == req0 and page2.filter_popup().show_expired() == exp0,
+		"req %s exp %s ranges %s" % [str(page2.show_requests()), str(page2.show_expired()),
+		str(page2.ranges())])
+	TestFixtures.check(res, "reopen: the Loans list shows its first rows",
+		page2.card_count() == cards0 and page2.row_ids() == ids0,
+		"%s against %s" % [str(page2.row_ids()), str(ids0)])
+	await _reopen_done(host, hud)
+
+
+#Designer rule 2026-10-04: the picks reset once the Finance window is fully closed.
+static func _case_reopen_finance_hiring(res: Dictionary, host: Node) -> void:
+	_reopen_books()
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var opened: Array = await _reopen_open(host, hud, &"hiring")
+	var page: HiringTab = opened[1] as HiringTab
+	if page == null:
+		TestFixtures.check(res, "reopen: the Finance tile opens the Hiring page", false, "no page")
+		await _reopen_done(host, hud)
+		return
+	var viewer: FinanceViewer = opened[0] as FinanceViewer
+	var tab0: StringName = opened[2]
+	var panel: TraitFilterPanel = page.filter_panel()
+	var filters0: Dictionary = panel.filters()
+	var sort0: StringName = page.sort_key()
+	var desc0: bool = page.descending()
+	var shown0: int = page.shown_count()
+	var ids0: Array[int] = page.card_ids()
+	var moved: Array[String] = []
+	for def: Dictionary in panel.defs():
+		var key: String = String(def.get("key", ""))
+		var pick: Variant = _reopen_pick(def)
+		if pick == null:
+			continue
+		panel.press_value(key, pick)
+		if panel.value_of(key) != filters0.get(StringName(key)):
+			moved.append(key)
+	page.set_sort(&"salary")
+	page.set_descending(false)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "reopen: the Hiring picks under test moved off their first values",
+		moved.size() == panel.defs().size() and page.sort_key() != sort0
+		and page.descending() != desc0 and page.shown_count() < shown0 and viewer.current_tab() != tab0,
+		"%d of %d filters moved %s, sort %s, shown %d of %d" % [moved.size(), panel.defs().size(),
+		str(moved), page.sort_key(), page.shown_count(), shown0])
+	await _reopen_close(res, host, hud, viewer)
+	var again: Array = await _reopen_open(host, hud, &"hiring")
+	var page2: HiringTab = again[1] as HiringTab
+	if page2 == null:
+		TestFixtures.check(res, "reopen: the Finance tile opens the Hiring page again", false, "no page")
+		await _reopen_done(host, hud)
+		return
+	var filters2: Dictionary = page2.filter_panel().filters()
+	var stuck: Array[String] = []
+	for key: Variant in filters0:
+		if filters2.get(key) != filters0[key]:
+			stuck.append(String(key))
+	TestFixtures.check(res, "reopen: every Hiring filter reads its first value",
+		stuck.is_empty() and filters2.size() == filters0.size(), "kept %s" % str(stuck))
+	TestFixtures.check(res, "reopen: the Hiring sort and direction read their first values",
+		page2.sort_key() == sort0 and page2.descending() == desc0,
+		"%s %s" % [page2.sort_key(), str(page2.descending())])
+	TestFixtures.check(res, "reopen: the Hiring list shows its first cards",
+		page2.shown_count() == shown0 and page2.card_ids() == ids0,
+		"%d against %d" % [page2.shown_count(), shown0])
+	await _reopen_done(host, hud)
+
+
+#An off-default value for one filter def, or null when the def offers none.
+static func _reopen_pick(def: Dictionary) -> Variant:
+	var of_kind: String = String(def.get("kind", ""))
+	var low: float = float(def.get("min", 0.0))
+	var high: float = float(def.get("max", 0.0))
+	if of_kind == TraitFilterDefs.KIND_SLIDER2 or of_kind == TraitFilterDefs.KIND_RANGE:
+		return [low + (high - low) * 0.5, high] if high > low else null
+	if of_kind == TraitFilterDefs.KIND_MIN:
+		return low + float(def.get("step", 1.0)) * 5.0 if high > low else null
+	if of_kind == TraitFilterDefs.KIND_TRAD:
+		return [TraitFilterDefs.traditions()[0]] if not TraitFilterDefs.traditions().is_empty() else null
+	var values: Array = def.get("values", []) as Array
+	if of_kind == TraitFilterDefs.KIND_CHIPS and not values.is_empty():
+		return [values[0]]
+	return null
+
+
+#Designer rule 2026-10-04: the picks reset once the Finance window is fully closed.
+static func _case_reopen_finance_payroll(res: Dictionary, host: Node) -> void:
+	_reopen_books()
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var opened: Array = await _reopen_open(host, hud, &"payroll")
+	var page: PayrollTab = opened[1] as PayrollTab
+	if page == null:
+		TestFixtures.check(res, "reopen: the Finance tile opens the Payroll page", false, "no page")
+		await _reopen_done(host, hud)
+		return
+	var viewer: FinanceViewer = opened[0] as FinanceViewer
+	var tab0: StringName = opened[2]
+	var states0: Dictionary = page.filter_button.states()
+	var sort0: String = page.sort_key()
+	var desc0: bool = page.descending()
+	var rows0: int = page.row_count()
+	for i: int in FilterButton.DEFAULTS.size():
+		page.filter_button.toggle(i)
+	page.refresh()
+	page.set_sort("level")
+	page.set_descending(false)
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "reopen: the Payroll picks under test moved off their first values",
+		page.filter_button.states() != states0 and page.filter_active() and page.sort_key() != sort0
+		and page.descending() != desc0 and page.row_count() != rows0 and viewer.current_tab() != tab0,
+		"states %s sort %s rows %d of %d" % [str(page.filter_button.states()), page.sort_key(),
+		page.row_count(), rows0])
+	await _reopen_close(res, host, hud, viewer)
+	var again: Array = await _reopen_open(host, hud, &"payroll")
+	var page2: PayrollTab = again[1] as PayrollTab
+	if page2 == null:
+		TestFixtures.check(res, "reopen: the Finance tile opens the Payroll page again", false, "no page")
+		await _reopen_done(host, hud)
+		return
+	TestFixtures.check(res, "reopen: the Payroll status filter reads its first rows",
+		page2.filter_button.states() == states0 and not page2.filter_active(),
+		"%s against %s" % [str(page2.filter_button.states()), str(states0)])
+	TestFixtures.check(res, "reopen: the Payroll sort, direction and rows read their first values",
+		page2.sort_key() == sort0 and page2.descending() == desc0 and page2.row_count() == rows0
+		and page2.sort_button.selected == PayrollTab.SORT_KEYS.find(sort0),
+		"%s %s %d against %d" % [page2.sort_key(), str(page2.descending()), page2.row_count(), rows0])
+	await _reopen_done(host, hud)

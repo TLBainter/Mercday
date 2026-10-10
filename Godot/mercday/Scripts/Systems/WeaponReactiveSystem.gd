@@ -1,19 +1,6 @@
 class_name WeaponReactiveSystem
 
-#Tokens that sit between the trigger and the verb in a reactive_action DSL string.
-const KNOWN_CONDITIONS: PackedStringArray = [
-	"any", "surprised", "deposed", "vulnerable", "two_handed",
-	"size_5_or_less", "size_gte_self", "size_lte_self", "thrown",
-	"within_2", "melee", "intended_range", "once_per_combat", "1hp",
-	"size_1_plus",
-]
-
 const NO_CELL := Vector3i(-1, -1, -1)
-
-
-
-static func fire_trigger(attacker: MercenaryData, trigger: String, target: MercenaryData, atk: Dictionary, state: BattleState, enhancements: int) -> Array[String]:
-	return _fire_weapon_reactive(attacker, trigger, target, atk, state, enhancements)
 
 
 #Extra damage from on_hit perks, added to the hit before defense. Charges 1 EP per perk.
@@ -33,8 +20,7 @@ static func on_hit_damage_bonus(
 		if not WeaponReactiveDsl.conditions_met(tok["conds"], attacker, target, atk, state, perk):
 			continue
 		var args: Array = tok["args"]
-		var val_str: String = str(args[0]) if args.size() > 0 else "+0"
-		var bonus: int = int(target.stats.get("pain_limit", 0)) if val_str == "pain_limit" else int(val_str)
+		var bonus: int = _damage_arg(args, target)
 		if bonus <= 0:
 			continue
 		var paid := _charge_reaction(attacker, perk, target, state)
@@ -68,10 +54,10 @@ static func apply_on_hit(
 		if not WeaponReactiveDsl.conditions_met(tok["conds"], attacker, target, atk, state, perk):
 			continue
 		var args: Array = tok["args"]
-		var paces: int = maxi(1, int(str(args[0]))) if args.size() > 0 and str(args[0]).is_valid_int() else 1
+		var paces: int = _int_arg(args)
 		match verb:
 			"pull_self":
-				var self_dest := _pull_destination(attacker, target, paces, state)
+				var self_dest := pull_destination(attacker, target, paces, state)
 				if self_dest == NO_CELL:
 					continue
 				if _charge_reaction(attacker, perk, target, state).is_empty():
@@ -80,7 +66,7 @@ static func apply_on_hit(
 				lines.append("  %s closes in with %s!" % [BattleState.colored_name(attacker, state), _perk_label(perk)])
 				lines.append_array(_relocate(attacker, self_dest, state))
 			"pull_target":
-				var tgt_dest := _pull_destination(target, attacker, paces, state)
+				var tgt_dest := pull_destination(target, attacker, paces, state)
 				if tgt_dest == NO_CELL:
 					continue
 				if _charge_reaction(attacker, perk, target, state).is_empty():
@@ -120,7 +106,7 @@ static func apply_on_hit(
 	return lines
 
 
-static func _fire_weapon_reactive(
+static func fire_trigger(
 		attacker: MercenaryData,
 		trigger: String,
 		target: MercenaryData,
@@ -152,20 +138,16 @@ static func _fire_weapon_reactive(
 		var before := lines.size()
 		match verb:
 			"damage":
-				var val_str: String = str(args[0]) if args.size() > 0 else "+0"
-				var bonus: int
-				if val_str == "pain_limit":
-					bonus = int(react_target.stats.get("pain_limit", 0))
-				else:
-					bonus = int(val_str)
+				var bonus: int = _damage_arg(args, react_target)
 				if bonus > 0:
 					lines.append("  %s activates %s!" % [BattleState.colored_name(attacker, state), _perk_label(perk)])
 					lines.append_array(CombatApplicator.deal_direct(attacker, react_target, bonus,
 						str(atk.get("damage_type", "Strike")), state, _perk_label(perk)))
-			"throw_attack":
+			"throw_attack", "throw":
 				lines.append_array(_reaction_throw(attacker, react_target, state, perk, enhancements))
 			"attack_same_target", "attack_new_target", "attack":
 				var dmg_mod := 0
+				var cap := -1
 				var extra_enh := 0
 				var extra_flaws := 0
 				var dtype_arg := ""
@@ -184,12 +166,10 @@ static func _fire_weapon_reactive(
 					elif arg == "+1_flawed_per_attack_this_turn":
 						extra_flaws += _weapon_attacks_this_turn(attacker)
 					elif arg == "max_1":
-						dmg_mod = -9000
+						cap = 1
+						dmg_mod = 0
 					elif arg.is_valid_int():
 						dmg_mod += int(arg)
-				var cap: int = 1 if dmg_mod == -9000 else -1
-				if cap == 1:
-					dmg_mod = 0
 				lines.append_array(_reaction_attack(attacker, react_target, state, perk,
 					enhancements + extra_enh, extra_flaws, dtype_arg, dmg_mod, cap))
 			"reload":
@@ -201,7 +181,7 @@ static func _fire_weapon_reactive(
 				lines.append_array(CombatApplicator.apply_pain_limit_checks(react_target, 1,
 					BattleState.colored_name(react_target, state)))
 			"push_target":
-				var push_paces: int = maxi(1, int(str(args[0]))) if args.size() > 0 and str(args[0]).is_valid_int() else 1
+				var push_paces: int = _int_arg(args)
 				if WeaponArmorPerkLibrary.is_level_20(attacker):
 					push_paces = 2
 				lines.append("  %s activates %s!" % [BattleState.colored_name(attacker, state), _perk_label(perk)])
@@ -213,7 +193,7 @@ static func _fire_weapon_reactive(
 			"move_self":
 				lines.append_array(_shadow_move(attacker, react_target, state, perk))
 			"direct":
-				var amount: int = maxi(1, int(str(args[0]))) if args.size() > 0 and str(args[0]).is_valid_int() else 1
+				var amount: int = _int_arg(args)
 				if WeaponArmorPerkLibrary.is_level_20(attacker):
 					amount = maxi(amount, 2)
 				lines.append_array(CombatApplicator.deal_direct(attacker, react_target, amount,
@@ -242,8 +222,6 @@ static func _fire_weapon_reactive(
 				paid = {}
 				lines.append_array(CombatApplicator.reaction_attack(attacker, react_target, state,
 					enhancements, 0, _perk_label(perk)))
-			"throw":
-				lines.append_array(_reaction_throw(attacker, react_target, state, perk, enhancements))
 			_:
 				if EncounterLogger.is_active():
 					EncounterLogger.log_verbose("REACTIVE SKIP: %s %s (unknown_verb)" % [attacker.merc_name, verb])
@@ -287,7 +265,7 @@ static func fire_shove_seen(shoved: MercenaryData, state: BattleState) -> Array[
 	for reactor: MercenaryData in state.get_enemies(shoved):
 		if not BattleState._is_alive(reactor) or reactor.off_field:
 			continue
-		lines.append_array(_fire_weapon_reactive(reactor, "on_shove_seen", shoved, {}, state, 0))
+		lines.append_array(fire_trigger(reactor, "on_shove_seen", shoved, {}, state, 0))
 	return lines
 
 
@@ -318,7 +296,7 @@ static func incoming_attack_flaws(attacker: MercenaryData, target: MercenaryData
 
 
 #Short Sword Parry: a melee attack that missed the holder takes direct damage back.
-static func after_attack_resolved(attacker: MercenaryData, target: MercenaryData, _atk: Dictionary,
+static func after_attack_resolved(attacker: MercenaryData, target: MercenaryData, atk: Dictionary,
 		state: BattleState) -> Array[String]:
 	var lines: Array[String] = []
 	if attacker == null or target == null or not BattleState._is_alive(target):
@@ -330,17 +308,12 @@ static func after_attack_resolved(attacker: MercenaryData, target: MercenaryData
 		if tok.is_empty():
 			continue
 		var conds: Array = tok["conds"]
-		if conds.has("melee"):
-			var aw: WeaponData = attacker.equipped_weapon
-			if aw != null and aw.is_ranged:
-				continue
-			if state != null and state.battlefield != null \
-					and state.distance_to(attacker, target) > WeaponArmorPerkLibrary.get_effective_melee_range(attacker):
-				continue
+		if conds.has("melee") and not WeaponReactiveDsl.conditions_met(["melee_reach"], attacker, target, atk, state):
+			continue
 		if str(tok["verb"]) != "direct":
 			continue
 		var args: Array = tok["args"]
-		var amount: int = maxi(1, int(str(args[0]))) if args.size() > 0 and str(args[0]).is_valid_int() else 1
+		var amount: int = _int_arg(args)
 		var free: bool = target.active_states.get("deflection_vs") == attacker
 		if not free:
 			if _charge_reaction(target, perk, attacker, state).is_empty():
@@ -371,6 +344,17 @@ static func fire_on_load(merc: MercenaryData, state: BattleState) -> Array[Strin
 			BattleState.colored_name(merc, state), _perk_label(perk)])
 		break
 	return lines
+
+
+#The first argument as a count of at least 1; 1 when it is missing or not an integer.
+static func _int_arg(args: Array) -> int:
+	return maxi(1, int(str(args[0]))) if args.size() > 0 and str(args[0]).is_valid_int() else 1
+
+
+#The flat damage bonus in the first argument; "pain_limit" reads the target's pain limit.
+static func _damage_arg(args: Array, target: MercenaryData) -> int:
+	var val_str: String = str(args[0]) if args.size() > 0 else "+0"
+	return int(target.stats.get("pain_limit", 0)) if val_str == "pain_limit" else int(val_str)
 
 
 #The EP a reaction costs, paid through the excess pool; empty when the reaction is refused.
@@ -537,7 +521,7 @@ static func _do_catch(attacker: MercenaryData, target: MercenaryData, atk: Dicti
 	WeaponArmorPerkLibrary.refresh_held_bonuses(attacker)
 	lines.append("  %s catches %s on the rebound (%s)." % [
 		BattleState.colored_name(attacker, state), weapon.item_name, _perk_label(perk)])
-	lines.append_array(_fire_weapon_reactive(attacker, "on_catch", target, atk, state,
+	lines.append_array(fire_trigger(attacker, "on_catch", target, atk, state,
 		int(atk.get("enhancements", 0))))
 	return lines
 
@@ -555,7 +539,7 @@ static func _convert_to_crit(attacker: MercenaryData, target: MercenaryData, atk
 	var cd: Dictionary = atk.get("check_def", {})
 	if not cr.is_empty() and not cd.is_empty():
 		CriticalSuccessSystem.on_critical(attacker, cr, cd)
-	lines.append_array(_fire_weapon_reactive(attacker, "on_crit", target, atk, state, enhancements))
+	lines.append_array(fire_trigger(attacker, "on_crit", target, atk, state, enhancements))
 	return lines
 
 
@@ -609,7 +593,7 @@ static func _shadow_move(attacker: MercenaryData, target: MercenaryData, state: 
 	if target == null or state == null or state.battlefield == null:
 		return lines
 	var paces: int = 2 if WeaponArmorPerkLibrary.is_level_20(attacker) else 1
-	var dest := _pull_destination(attacker, target, maxi(1, paces * 2), state)
+	var dest := pull_destination(attacker, target, maxi(1, paces * 2), state)
 	if dest == NO_CELL:
 		return lines
 	state.set_pos3(attacker, dest)
@@ -675,12 +659,12 @@ static func _relocate(mover: MercenaryData, dest: Vector3i, state: BattleState) 
 	mover.aim_active = false
 	var drop := state.battlefield.surface_height(old_pos) - state.battlefield.surface_height(Vector2i(dest.x, dest.y))
 	if drop >= 1.0:
-		lines.append_array(CombatApplicator.resolve_fall(mover, int(floor(drop)), state))
+		lines.append_array(FallResolver.resolve_fall(mover, int(floor(drop)), state))
 	return lines
 
 
 #Nearest free cell adjacent to anchor that the mover can reach in max_paces, or NO_CELL.
-static func _pull_destination(
+static func pull_destination(
 		mover: MercenaryData,
 		anchor: MercenaryData,
 		max_paces: int,
@@ -693,7 +677,7 @@ static func _pull_destination(
 		return NO_CELL
 	var anchor_pos := state.get_position(anchor)
 	var from := state.get_position(mover)
-	if maxi(abs(anchor_pos.x - from.x), abs(anchor_pos.y - from.y)) <= 1:
+	if Pathfinder.chebyshev2(anchor_pos, from) <= 1:
 		return NO_CELL
 	var best := NO_CELL
 	var best_d := 9999
@@ -704,7 +688,7 @@ static func _pull_destination(
 			var cell := anchor_pos + Vector2i(dx, dy)
 			if field.clamp_position(cell) != cell:
 				continue
-			var dist := maxi(abs(cell.x - from.x), abs(cell.y - from.y))
+			var dist := Pathfinder.chebyshev2(cell, from)
 			if dist == 0 or dist > max_paces or dist >= best_d:
 				continue
 			var obs := field.get_obstacle_at_3d(Vector3i(cell.x, cell.y, floor_num))
@@ -720,7 +704,4 @@ static func _pull_destination(
 
 
 static func _perk_label(perk: TraitData) -> String:
-	if perk == null:
-		return "reaction"
-	var pieces := perk.trait_name.split("|")
-	return pieces[pieces.size() - 1]
+	return "reaction" if perk == null else WeaponArmorPerkLibrary.perk_display_name(perk)

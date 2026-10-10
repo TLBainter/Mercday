@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Notifications/NotificationPanel.gd" id="1"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="2"]
@@ -7,6 +7,12 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Notifications/NotificationSortPanel.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Notifications/NotificationFilterPanel.tscn" id="6"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Styles/notify_title_font.tres" id="7"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="8"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/BevelEdges.gd" id="9"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="10"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_NotificationPanel.tres" id="11"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_NotificationFilterPanel.tres" id="12"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_NotificationSortPanel.tres" id="13"]
 
 [node name="NotificationPanel" type="Control"]
 custom_minimum_size = Vector2(440, 520)
@@ -41,7 +47,7 @@ text = "Notifications"
 mouse_filter = 2
 theme_override_constants/separation = 8
 
-[node name="UnreadTab" type="Button" parent="Pad/Col/TabRow"]
+[node name="UnreadTab" parent="Pad/Col/TabRow" instance=ExtResource("8")]
 custom_minimum_size = Vector2(0, 32)
 size_flags_horizontal = 3
 focus_mode = 0
@@ -49,26 +55,27 @@ theme_override_fonts/font = ExtResource("3")
 theme_override_font_sizes/font_size = 11
 text = "Unread (0)"
 clip_text = true
+edge = 0.0
+outline = 3.0
+min_size = Vector2(0, 32)
+click_move = 1
+click_shade = 6
+hover_move = 0
 
-[node name="BevelTop" type="ColorRect" parent="Pad/Col/TabRow/UnreadTab"]
-anchor_right = 1.0
-offset_left = 3.0
-offset_top = 3.0
-offset_right = -3.0
-offset_bottom = 6.0
-mouse_filter = 2
-
-[node name="BevelBottom" type="ColorRect" parent="Pad/Col/TabRow/UnreadTab"]
-anchor_top = 1.0
+[node name="Edges" type="Control" parent="Pad/Col/TabRow/UnreadTab"]
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 3.0
-offset_top = -6.0
+offset_top = 3.0
 offset_right = -3.0
 offset_bottom = -3.0
 mouse_filter = 2
+script = ExtResource("9")
+px = 3
+sides = 5
 
-[node name="ReadTab" type="Button" parent="Pad/Col/TabRow"]
+[node name="ReadTab" parent="Pad/Col/TabRow" instance=ExtResource("8")]
 custom_minimum_size = Vector2(0, 32)
 size_flags_horizontal = 3
 focus_mode = 0
@@ -76,24 +83,25 @@ theme_override_fonts/font = ExtResource("3")
 theme_override_font_sizes/font_size = 11
 text = "Read (0)"
 clip_text = true
+edge = 0.0
+outline = 3.0
+min_size = Vector2(0, 32)
+click_move = 1
+click_shade = 6
+hover_move = 0
 
-[node name="BevelTop" type="ColorRect" parent="Pad/Col/TabRow/ReadTab"]
-anchor_right = 1.0
-offset_left = 3.0
-offset_top = 3.0
-offset_right = -3.0
-offset_bottom = 6.0
-mouse_filter = 2
-
-[node name="BevelBottom" type="ColorRect" parent="Pad/Col/TabRow/ReadTab"]
-anchor_top = 1.0
+[node name="Edges" type="Control" parent="Pad/Col/TabRow/ReadTab"]
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 3.0
-offset_top = -6.0
+offset_top = 3.0
 offset_right = -3.0
 offset_bottom = -3.0
 mouse_filter = 2
+script = ExtResource("9")
+px = 3
+sides = 5
 
 [node name="ToolWrap" type="MarginContainer" parent="Pad/Col"]
 mouse_filter = 2
@@ -104,7 +112,7 @@ theme_override_constants/margin_right = 3
 mouse_filter = 2
 theme_override_constants/separation = 8
 
-[node name="SortBtn" type="Button" parent="Pad/Col/ToolWrap/ToolRow"]
+[node name="SortBtn" parent="Pad/Col/ToolWrap/ToolRow" instance=ExtResource("8")]
 custom_minimum_size = Vector2(0, 26)
 size_flags_horizontal = 3
 focus_mode = 0
@@ -114,51 +122,52 @@ theme_override_font_sizes/font_size = 10
 text = "Urgency"
 clip_text = true
 alignment = 0
+edge = 0.0
+outline = 3.0
+min_size = Vector2(0, 26)
+click_shade = 3
+hover_move = 0
+hover_shade = 3
 
-[node name="BevelTop" type="ColorRect" parent="Pad/Col/ToolWrap/ToolRow/SortBtn"]
-anchor_right = 1.0
-offset_left = 3.0
-offset_top = 3.0
-offset_right = -3.0
-offset_bottom = 6.0
-mouse_filter = 2
-
-[node name="BevelBottom" type="ColorRect" parent="Pad/Col/ToolWrap/ToolRow/SortBtn"]
-anchor_top = 1.0
+[node name="Edges" type="Control" parent="Pad/Col/ToolWrap/ToolRow/SortBtn"]
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 3.0
-offset_top = -6.0
+offset_top = 3.0
 offset_right = -3.0
 offset_bottom = -3.0
 mouse_filter = 2
+script = ExtResource("9")
+px = 3
+sides = 5
 
-[node name="FilterBtn" type="Button" parent="Pad/Col/ToolWrap/ToolRow"]
-custom_minimum_size = Vector2(0, 26)
+[node name="FilterBtn" parent="Pad/Col/ToolWrap/ToolRow" instance=ExtResource("8")]
+custom_minimum_size = Vector2(32, 26)
 focus_mode = 0
 theme_override_constants/h_separation = 6
 theme_override_fonts/font = ExtResource("2")
 theme_override_font_sizes/font_size = 10
-text = "Filter"
 clip_text = true
+edge = 0.0
+outline = 3.0
+min_size = Vector2(32, 26)
+click_shade = 3
+hover_move = 0
+hover_shade = 3
 
-[node name="BevelTop" type="ColorRect" parent="Pad/Col/ToolWrap/ToolRow/FilterBtn"]
-anchor_right = 1.0
-offset_left = 3.0
-offset_top = 3.0
-offset_right = -3.0
-offset_bottom = 6.0
-mouse_filter = 2
-
-[node name="BevelBottom" type="ColorRect" parent="Pad/Col/ToolWrap/ToolRow/FilterBtn"]
-anchor_top = 1.0
+[node name="Edges" type="Control" parent="Pad/Col/ToolWrap/ToolRow/FilterBtn"]
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 3.0
-offset_top = -6.0
+offset_top = 3.0
 offset_right = -3.0
 offset_bottom = -3.0
 mouse_filter = 2
+script = ExtResource("9")
+px = 3
+sides = 5
 
 [node name="ListFrame" type="PanelContainer" parent="Pad/Col"]
 size_flags_vertical = 3
@@ -195,3 +204,16 @@ visible = false
 
 [node name="FilterPopup" parent="." instance=ExtResource("6")]
 visible = false
+
+[node name="HelpTarget" type="Node" parent="FilterPopup"]
+script = ExtResource("10")
+hint = ExtResource("12")
+
+[node name="HelpTarget" type="Node" parent="SortPopup"]
+script = ExtResource("10")
+hint = ExtResource("13")
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("10")
+hint = ExtResource("11")
+opens_scope = true

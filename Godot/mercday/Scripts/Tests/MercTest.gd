@@ -21,6 +21,15 @@ extends Node
 @export var start_interior_battle: NodePath
 @export var run_test_contract: NodePath
 
+const CHECK_LABELS := {
+	"defend_check": "DEFEND CHECK (Dexterity)",
+	"urban_check": "URBAN CHECK (Cognition)",
+	"monster_hunt_check": "MONSTER HUNT CHECK (Vigor)",
+	"social_check": "SOCIAL CHECK (Wile)",
+	"poison_check": "POISON CHECK (Dexterity / Wile)",
+	"put_on_a_show_check": "PUT ON A SHOW CHECK (Wile / Dexterity)",
+}
+
 var mercs: Array[MercenaryData] = []
 
 
@@ -33,26 +42,32 @@ func _ready() -> void:
 
 
 func _connect_buttons() -> void:
-	(get_node(reroll_mercs) as Button).pressed.connect(_on_reroll_mercs)
-	(get_node(add_merc) as Button).pressed.connect(_on_add_merc)
-	(get_node(remove_merc) as Button).pressed.connect(_on_remove_merc)
-	(get_node(reroll_names) as Button).pressed.connect(_on_reroll_names)
-	(get_node(add_taverngoer) as Button).pressed.connect(_on_add_taverngoer)
-	(get_node(defend_check) as Button).pressed.connect(func() -> void: CheckDemos.named_check("DEFEND CHECK (Dexterity)", mercs))
-	(get_node(urban_check) as Button).pressed.connect(func() -> void: CheckDemos.named_check("URBAN CHECK (Cognition)", mercs))
-	(get_node(monster_hunt_check) as Button).pressed.connect(func() -> void: CheckDemos.named_check("MONSTER HUNT CHECK (Vigor)", mercs))
-	(get_node(social_check) as Button).pressed.connect(func() -> void: CheckDemos.named_check("SOCIAL CHECK (Wile)", mercs))
-	(get_node(poison_check) as Button).pressed.connect(func() -> void: CheckDemos.named_check("POISON CHECK (Dexterity / Wile)", mercs))
-	(get_node(put_on_a_show_check) as Button).pressed.connect(func() -> void: CheckDemos.named_check("PUT ON A SHOW CHECK (Wile / Dexterity)", mercs))
-	(get_node(batch_analysis) as Button).pressed.connect(func() -> void: MercSheetPrinter.batch_analysis())
-	(get_node(attack_check) as Button).pressed.connect(func() -> void: CheckDemos.attack_check(mercs))
-	(get_node(damage_check) as Button).pressed.connect(func() -> void: CheckDemos.damage_check(mercs))
-	(get_node(start_battle) as Button).pressed.connect(func() -> void: BattleHarness.start_battle(mercs))
-	(get_node(drop_mercs) as Button).pressed.connect(func() -> void: CheckDemos.drop_mercs(mercs))
-	(get_node(gen_outhouse_map) as Button).pressed.connect(func() -> void: BuildingMapWriter.gen_outhouse_map())
-	(get_node(gen_terrain_batch) as Button).pressed.connect(func() -> void: TerrainBatchWriter.gen_terrain_batch())
-	(get_node(start_interior_battle) as Button).pressed.connect(func() -> void: BattleHarness.start_interior_battle(mercs))
-	(get_node(run_test_contract) as Button).pressed.connect(func() -> void: HarnessContracts.run_test_contract(mercs))
+	var actions: Dictionary = _button_actions()
+	for key: String in actions:
+		(get_node(get(key) as NodePath) as Button).pressed.connect(actions[key] as Callable)
+
+
+#Each NodePath export by name, paired with what its button runs.
+func _button_actions() -> Dictionary:
+	var actions: Dictionary = {
+		"reroll_mercs": _on_reroll_mercs,
+		"add_merc": _on_add_merc,
+		"remove_merc": _on_remove_merc,
+		"reroll_names": _on_reroll_names,
+		"add_taverngoer": _on_add_taverngoer,
+		"batch_analysis": func() -> void: MercSheetPrinter.batch_analysis(),
+		"attack_check": func() -> void: CheckDemos.attack_check(mercs),
+		"damage_check": func() -> void: CheckDemos.damage_check(mercs),
+		"start_battle": func() -> void: BattleHarness.start_battle(mercs),
+		"drop_mercs": func() -> void: CheckDemos.drop_mercs(mercs),
+		"gen_outhouse_map": func() -> void: BuildingMapWriter.gen_outhouse_map(),
+		"gen_terrain_batch": func() -> void: TerrainBatchWriter.gen_terrain_batch(),
+		"start_interior_battle": func() -> void: BattleHarness.start_battle(mercs, "Interior"),
+		"run_test_contract": func() -> void: HarnessContracts.run_test_contract(mercs),
+	}
+	for key: String in CHECK_LABELS:
+		actions[key] = CheckDemos.named_check.bind(String(CHECK_LABELS[key]), mercs)
+	return actions
 
 
 func _on_reroll_mercs() -> void:
@@ -64,15 +79,12 @@ func _on_reroll_mercs() -> void:
 		var merc := HarnessRoster.roster_merc(i)
 		mercs.append(merc)
 		MercSheetPrinter.print_merc(merc)
-	BeauSystem.set_roster(mercs)
-	GuildRoster.set_roster(mercs)
+	TestFixtures.set_roster(mercs)
 
 
 func _on_add_merc() -> void:
 	var merc := HarnessRoster.roster_merc(mercs.size())
-	mercs.append(merc)
-	BeauSystem.set_roster(mercs)
-	GuildRoster.set_roster(mercs)
+	_add_and_sync(merc)
 	print("\n====== ADDED MERC ======\n")
 	MercSheetPrinter.print_merc(merc)
 
@@ -85,8 +97,7 @@ func _on_remove_merc() -> void:
 	var removed := mercs[idx]
 	CampaignKnowledge.forget(removed.merc_uid)
 	mercs.remove_at(idx)
-	BeauSystem.set_roster(mercs)
-	GuildRoster.set_roster(mercs)
+	TestFixtures.set_roster(mercs)
 	print("\n====== REMOVED MERC: %s ======\n" % removed.merc_name)
 
 
@@ -102,11 +113,15 @@ func _on_add_taverngoer() -> void:
 		avg_level /= float(mercs.size())
 	var party := {"average_level": avg_level, "merc_count": mercs.size()}
 	print("\n====== TAVERNGOER ======\n")
-	var npc := NPCGenerator.generate_batch("Taverngoer", 1, party)
-	if npc.is_empty():
-		print("ERROR: NPCGenerator returned no results.")
+	var template: NPCTemplate = DataManager.npc_templates.get("Taverngoer", null) as NPCTemplate
+	if template == null:
+		print("ERROR: no Taverngoer NPC template.")
 		return
-	mercs.append(npc[0])
-	BeauSystem.set_roster(mercs)
-	GuildRoster.set_roster(mercs)
+	var npc: Array[MercenaryData] = [NPCGenerator.generate(template, party)]
+	_add_and_sync(npc[0])
 	MercSheetPrinter.print_merc(npc[0])
+
+
+func _add_and_sync(merc: MercenaryData) -> void:
+	mercs.append(merc)
+	TestFixtures.set_roster(mercs)

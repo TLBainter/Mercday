@@ -2,18 +2,14 @@ class_name CheckSystem
 
 const _CONFIG := preload("res://Scripts/Actions/Resources/BattleConfig.tres")
 
+#Flat threshold bonus of a flagged Circumstance, before its additional bonus.
+const CIRCUMSTANCE_BONUS := 15.0
 #Test hook: while not empty every d100 of a check is drawn from here, front first.
 static var forced_rolls: Array[int] = []
 #Knowledges every check counts as named while set; a Competition of War bout fills it and clears it.
 static var ambient_knowledges: Array[String] = []
 #Parsed formulas keyed by the formula and the variable names it was parsed against.
 static var _expr_cache: Dictionary = {}
-
-
-static func _d100() -> int:
-	if not forced_rolls.is_empty():
-		return forced_rolls.pop_front()
-	return randi_range(1, 100)
 
 
 #Shared make_check/_prepare prologue: stat choice, bonuses and the final threshold.
@@ -63,7 +59,7 @@ static func _resolve_check(merc: MercenaryData, check_def: Dictionary) -> Dictio
 	var dice_bonus := int(check_def.get("dice_bonus", 0))
 
 	var chosen_stat := _choose_stat(merc, success_chance, stat_keys, circ_names, dice_bonus)
-	var mod := ConstStates.check_modifier(merc, chosen_stat)
+	var mod := StateEffects.check_modifier(merc, chosen_stat)
 	flat_bonus += float(mod["threshold"])
 	enhancements += int(mod["enhancements"])
 	flaws += int(mod["flaws"])
@@ -73,6 +69,7 @@ static func _resolve_check(merc: MercenaryData, check_def: Dictionary) -> Dictio
 	var threshold := clampf(success_chance + circ_bonus + bsc + flat_bonus, 0.01, 100.0)
 	return {
 		"threshold": threshold,
+		"raw": success_chance + circ_bonus + bsc + flat_bonus,
 		"chosen_stat": chosen_stat,
 		"enhancements": enhancements,
 		"flaws": flaws,
@@ -112,8 +109,6 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 	var threshold: float = prep["threshold"]
 	var enhancements: int = prep["enhancements"]
 	var flaws: int = prep["flaws"]
-	var k_bonus: int = prep["k_bonus"]
-	var t_bonus: int = prep["t_bonus"]
 	var mod_states := states_text(mod["states"])
 
 	if bool(mod["auto_fail"]):
@@ -122,19 +117,7 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 				merc.merc_name, chosen_stat, mod_states])
 		LifepathTally.record_check(merc, chosen_stat, 0, false)
 		LifepathTally.record_target_check(merc, chosen_stat, false)
-		return {
-			"successes": 0,
-			"failures": 1,
-			"roll1": [],
-			"roll2": [],
-			"rerolls": 0,
-			"stat_used": chosen_stat,
-			"threshold": threshold,
-			"k_bonus": k_bonus,
-			"t_bonus": t_bonus,
-			"critical": false,
-			"crit_reward": "",
-		}
+		return _result(prep, 0, 1, [], [], 0)
 	if EncounterLogger.is_active() and mod_states != "":
 		EncounterLogger.log_verbose("CHECK STATE MOD: %s %s threshold=%+.1f flaws=%d enh=%d states=%s" % [
 			merc.merc_name, chosen_stat, float(mod["threshold"]), int(mod["flaws"]),
@@ -164,20 +147,20 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 			init_val = pair[1]
 			init_entry = pair
 		else:
-			init_val = _d100()
+			init_val = Dice.d100(forced_rolls)
 			init_entry = init_val
 		roll1.append(init_entry)
 
 		var final_val := init_val
 		var final_entry: Variant = init_entry
-		if float(init_val) > threshold and float(_d100()) <= reroll_threshold:
+		if float(init_val) > threshold and float(Dice.d100(forced_rolls)) <= reroll_threshold:
 			rerolls += 1
 			if is_hard:
 				var pair := _roll_pair()
 				final_val = pair[1]
 				final_entry = pair
 			else:
-				final_val = _d100()
+				final_val = Dice.d100(forced_rolls)
 				final_entry = final_val
 		roll2.append(final_entry)
 
@@ -190,19 +173,7 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 	LifepathTally.record_target_check(merc, chosen_stat, successes > 0)
 	if rerolls > 0 and successes > 0:
 		LifepathTally.record_check(merc, "reroll", successes, true, false)
-	var result := {
-		"successes": successes,
-		"failures": failures,
-		"roll1": roll1,
-		"roll2": roll2,
-		"rerolls": rerolls,
-		"stat_used": chosen_stat,
-		"threshold": threshold,
-		"k_bonus": k_bonus,
-		"t_bonus": t_bonus,
-		"critical": false,
-		"crit_reward": "",
-	}
+	var result := _result(prep, successes, failures, roll1, roll2, rerolls)
 	if CriticalSuccessSystem.is_critical_success(result, merc):
 		var reward := CriticalSuccessSystem.on_critical(merc, result, check_def)
 		result["critical"] = true
@@ -211,6 +182,23 @@ static func make_check(merc: MercenaryData, check_def: Dictionary) -> Dictionary
 			EncounterLogger.log_verbose("CRITICAL SUCCESS: %s %s reward=%s" % [
 				merc.merc_name, chosen_stat, reward])
 	return result
+
+
+static func _result(prep: Dictionary, successes: int, failures: int, roll1: Array, roll2: Array,
+		rerolls: int) -> Dictionary:
+	return {
+		"successes": successes,
+		"failures": failures,
+		"roll1": roll1,
+		"roll2": roll2,
+		"rerolls": rerolls,
+		"stat_used": prep["chosen_stat"],
+		"threshold": prep["threshold"],
+		"k_bonus": prep["k_bonus"],
+		"t_bonus": prep["t_bonus"],
+		"critical": false,
+		"crit_reward": "",
+	}
 
 
 #Counts one real use of a Knowledge, Tool or Circumstance; the estimators never call it.
@@ -231,6 +219,14 @@ static func expected_success_chance(merc: MercenaryData, check_def: Dictionary, 
 	if trial > dice:
 		return _crit_chance_of(prep)
 	return _pool_tail(prep, trial)
+
+
+#Unclamped threshold sum a check would use, 0.0 when a state auto-fails it; stage 5 halves it for retries.
+static func threshold_for(merc: MercenaryData, check_def: Dictionary) -> float:
+	var prep := _resolve_check(merc, check_def)
+	if bool(prep["auto_fail"]):
+		return 0.0
+	return float(prep["raw"])
 
 
 #Two results rolled apart: a lone critical wins, otherwise more successes; equal loses.
@@ -275,10 +271,14 @@ static func opposed_win_chance(a: MercenaryData, def_a: Dictionary, b: Mercenary
 	var pb: Dictionary = _prepare(b, def_b)
 	if bool(pb["auto_fail"]):
 		return expected_success_chance(a, def_a, 1)
-	var dice_a: int = int(pa["dice"])
+	var pmf_a := _pool_distribution(pa)
+	var pmf_b := _pool_distribution(pb)
 	var total := 0.0
-	for k: int in range(1, dice_a + 1):
-		total += _pool_pmf(pa, k) * (1.0 - _pool_tail(pb, k))
+	var b_below := 0.0
+	for k: int in range(1, pmf_a.size()):
+		if k <= pmf_b.size():
+			b_below += pmf_b[k - 1]
+		total += pmf_a[k] * clampf(b_below, 0.0, 1.0)
 	return clampf(total, 0.0, 1.0)
 
 
@@ -335,18 +335,10 @@ static func _binomial_tail(n: int, p: float, trial: int) -> float:
 		return 1.0
 	if trial > n:
 		return 0.0
-	p = clampf(p, 0.0, 1.0)
-	if p <= 0.0:
-		return 0.0
-	if p >= 1.0:
-		return 1.0
-	var term := pow(1.0 - p, float(n))
+	var pmf := binomial_distribution(n, p)
 	var total := 0.0
-	for k: int in range(n + 1):
-		if k >= trial:
-			total += term
-		if k < n:
-			term = term * float(n - k) / float(k + 1) * p / (1.0 - p)
+	for k: int in range(trial, n + 1):
+		total += pmf[k]
 	return clampf(total, 0.0, 1.0)
 
 
@@ -366,11 +358,6 @@ static func _pool_tail(prep: Dictionary, trial: int) -> float:
 	var qh := _die_chance(p * p, reroll)
 	return clampf(qh * _binomial_tail(normal, qn, trial - 1)
 		+ (1.0 - qh) * _binomial_tail(normal, qn, trial), 0.0, 1.0)
-
-
-#P(exactly `k` successes) over the mixed pool, read off the two tails around k.
-static func _pool_pmf(prep: Dictionary, k: int) -> float:
-	return clampf(_pool_tail(prep, k) - _pool_tail(prep, k + 1), 0.0, 1.0)
 
 
 #P(exactly k successes) for k = 0..dice over the mixed pool, the hard pair folded in last.
@@ -503,7 +490,7 @@ static func _circumstance_bonus_for_stat(
 	var circ_display: String = _circumstance_name_for_stat(merc, stat_key, circumstance_display_names)
 	if circ_display == "":
 		return 0.0
-	return 15.0 + merc.circumstance_additional_bonus.get(circ_display, 0.0)
+	return CIRCUMSTANCE_BONUS + merc.circumstance_additional_bonus.get(circ_display, 0.0)
 
 
 #The flagged Circumstance whose bonus this stat would use; "" when none of them names it.
@@ -522,6 +509,25 @@ static func _circumstance_name_for_stat(
 
 
 static func _roll_pair() -> Array[int]:
-	var a := _d100()
-	var b := _d100()
+	var a := Dice.d100(forced_rolls)
+	var b := Dice.d100(forced_rolls)
 	return [mini(a, b), maxi(a, b)]
+
+
+#A luck check def on one stat and its circumstances; the enhancements key is set only when nonzero.
+static func luck_def(stat_key: String, circumstances: Array, enhancements: int = 0) -> Dictionary:
+	var d: Dictionary = {"stat_keys": [stat_key], "circumstances": circumstances, "knowledges": [], "tools": [],
+		"formula": "luck", "flat_threshold_bonus": 0.0}
+	if enhancements != 0:
+		d["enhancements"] = enhancements
+	return d
+
+
+#Grace (Dexterity) luck check, the side keeping out of sight.
+static func grace_def(enhancements: int = 0) -> Dictionary:
+	return luck_def("dexterity", [ConstCircumstances.GRACE_DEXTERITY], enhancements)
+
+
+#Notice (Cognition) luck check, the watching side.
+static func notice_def() -> Dictionary:
+	return luck_def("cognition", [ConstCircumstances.NOTICE_COGNITION])

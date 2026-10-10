@@ -4,11 +4,8 @@ class_name CityValidator
 #CityGenerator runs the layout rules before the fill passes and both sets after them.
 
 const MAX_ISSUES := 12
-const MAIN_BAND := 2
 const DEAD_GROW := 2
 const MOUTH_GROW := 3
-const SPAWN_OUTDOOR_MIN := 8
-const BUILDING_GAP := 2
 const STAT_KEYS: Array[String] = ["mains", "sides", "alleys", "dead_ends", "back_lanes",
 	"plots_large", "plots_medium", "plots_small", "lots", "buildings", "failed_lots",
 	"nature_objects", "street_objects", "alley_ring_cells", "alley_connector_cells",
@@ -108,11 +105,10 @@ static func _first_not(area: BattlefieldArea, rect: Rect2i, want: int) -> Vector
 static func _first_unpaved(area: BattlefieldArea, rect: Rect2i) -> Vector2i:
 	for y: int in range(rect.position.y, rect.end.y):
 		for x: int in range(rect.position.x, rect.end.x):
-			if not CityGrid.inside(area, x, y):
+			if not area.in_bounds_xy(x, y):
 				continue
 			var s: int = CityGrid.surf(area, x, y)
-			if s != BattlefieldArea.SURF_MAIN and s != BattlefieldArea.SURF_SIDE \
-					and s != BattlefieldArea.SURF_SIDEWALK:
+			if not CityGrid.is_paved(s):
 				return Vector2i(x, y)
 	return Vector2i(-1, -1)
 
@@ -250,11 +246,11 @@ static func _mains(area: BattlefieldArea, out: Array[String]) -> void:
 static func _main_bands(area: BattlefieldArea, r: Rect2i, axis: String) -> Array[Rect2i]:
 	var bands: Array[Rect2i] = []
 	if axis == "x":
-		bands.append(Rect2i(0, r.position.y - MAIN_BAND, area.width, MAIN_BAND))
-		bands.append(Rect2i(0, r.end.y, area.width, MAIN_BAND))
+		bands.append(Rect2i(0, r.position.y - CityGenerator.MAIN_SIDEWALK, area.width, CityGenerator.MAIN_SIDEWALK))
+		bands.append(Rect2i(0, r.end.y, area.width, CityGenerator.MAIN_SIDEWALK))
 	else:
-		bands.append(Rect2i(r.position.x - MAIN_BAND, 0, MAIN_BAND, area.length))
-		bands.append(Rect2i(r.end.x, 0, MAIN_BAND, area.length))
+		bands.append(Rect2i(r.position.x - CityGenerator.MAIN_SIDEWALK, 0, CityGenerator.MAIN_SIDEWALK, area.length))
+		bands.append(Rect2i(r.end.x, 0, CityGenerator.MAIN_SIDEWALK, area.length))
 	return bands
 
 
@@ -338,8 +334,7 @@ static func _wrapped(area: BattlefieldArea, out: Array[String]) -> void:
 					if nx < 0 or nx >= w or (dx == 0 and dy == 0):
 						continue
 					var s: int = area.surface_grid[nrow + nx]
-					if s == BattlefieldArea.SURF_MAIN or s == BattlefieldArea.SURF_SIDE \
-							or s == BattlefieldArea.SURF_SIDEWALK:
+					if CityGrid.is_paved(s):
 						continue
 					hits = _hit(out, hits, "carriageway %d,%d touches surface %d at %d,%d"
 						% [x, y, s, nx, ny])
@@ -530,9 +525,9 @@ static func _lot_record(area: BattlefieldArea, lot: Dictionary, li: int, pi: int
 	if not CityGrid.SIDES.has(front):
 		hits = _hit(out, hits, "lot %d fronts '%s'" % [li, front])
 	else:
-		var across_front: bool = front == "N" or front == "S"
-		var frontage: int = r.size.x if across_front else r.size.y
-		var depth: int = r.size.y if across_front else r.size.x
+		var span: Vector2i = CityGrid.front_span(r.size, front)
+		var frontage: int = span.x
+		var depth: int = span.y
 		var fit: Array[String] = CityPlots.rows_that_fit(cls, frontage, depth)
 		var rows: Array = lot.get("rows", [])
 		if rows.is_empty():
@@ -573,16 +568,13 @@ static func _lot_surface(area: BattlefieldArea, lot: Dictionary, li: int, out: A
 #True when the street that owns the cell is a painted back lane, a building ring or a connector.
 static func _is_lane(area: BattlefieldArea, i: int) -> bool:
 	var sid: int = area.street_grid[i]
-	if sid < 0:
+	var streets: Array = _streets(area)
+	if sid < 0 or sid >= streets.size():
 		return false
-	for entry: Variant in _streets(area):
-		var st: Dictionary = entry as Dictionary
-		if int(st.get("id", -1)) != sid:
-			continue
-		if String(st.get("kind", "")) != "alley":
-			return false
-		return st.has("back_door") or CityAlleys.is_wrap(st)
-	return false
+	var st: Dictionary = streets[sid] as Dictionary
+	if String(st.get("kind", "")) != "alley":
+		return false
+	return st.has("back_door") or CityAlleys.is_wrap(st)
 
 
 static func _same_rows(got: Array, want: Array[String]) -> bool:
@@ -789,15 +781,15 @@ static func _setback(area: BattlefieldArea, lot: Dictionary, li: int, bid: int, 
 	return hits
 
 
-#Spacing rule: BUILDING_GAP or more free cells lie between the cells of two buildings, corners included.
+#Spacing rule: CityLots.GAP or more free cells lie between the cells of two buildings, corners included.
 static func _spacing(area: BattlefieldArea, out: Array[String]) -> void:
 	var hits: int = 0
 	var seen: Dictionary = {}
 	for key: Variant in area.building_id_at.keys():
 		var cell: Vector2i = key as Vector2i
 		var id: int = int(area.building_id_at[cell])
-		for dy: int in range(-BUILDING_GAP, BUILDING_GAP + 1):
-			for dx: int in range(-BUILDING_GAP, BUILDING_GAP + 1):
+		for dy: int in range(-CityLots.GAP, CityLots.GAP + 1):
+			for dx: int in range(-CityLots.GAP, CityLots.GAP + 1):
 				var other: int = int(area.building_id_at.get(Vector2i(cell.x + dx, cell.y + dy), id))
 				if other == id:
 					continue
@@ -806,7 +798,7 @@ static func _spacing(area: BattlefieldArea, out: Array[String]) -> void:
 					continue
 				seen[pair] = true
 				hits = _hit(out, hits, "building %d stands within %d cells of building %d at %d,%d"
-					% [id, BUILDING_GAP, other, cell.x, cell.y])
+					% [id, CityLots.GAP, other, cell.x, cell.y])
 				if hits >= CityAccess.HITS_PER_RULE:
 					return
 
@@ -872,15 +864,15 @@ static func _spawn(area: BattlefieldArea, out: Array[String]) -> void:
 
 static func _spawn_side(area: BattlefieldArea, tag: String, c: Vector2i, outdoor: int,
 		reach0: PackedByteArray, out: Array[String]) -> void:
-	if not CityGrid.inside(area, c.x, c.y):
+	if not area.in_bounds_xy(c.x, c.y):
 		_note(out, "spawn %s stands at %d,%d, off the map" % [tag, c.x, c.y])
 		return
 	if area.building_id_at.has(c):
 		_note(out, "spawn %s stands at %d,%d, inside a building" % [tag, c.x, c.y])
 	elif reach0.size() == area.width * area.length and reach0[c.y * area.width + c.x] != 1:
 		_note(out, "spawn %s at %d,%d reaches no main street" % [tag, c.x, c.y])
-	if outdoor < SPAWN_OUTDOOR_MIN:
-		_note(out, "spawn %s holds %d outdoor cell(s), %d wanted" % [tag, outdoor, SPAWN_OUTDOOR_MIN])
+	if outdoor < CitySpawns.MIN_OUTDOOR:
+		_note(out, "spawn %s holds %d outdoor cell(s), %d wanted" % [tag, outdoor, CitySpawns.MIN_OUTDOOR])
 
 
 #Back lane rule: every painted lane serves a back door and joins a street of its own.
@@ -919,7 +911,7 @@ static func _lanes(area: BattlefieldArea, out: Array[String]) -> void:
 static func _lane_mouth(area: BattlefieldArea, st: Dictionary, id: int, out: Array[String],
 		hits: int) -> int:
 	var m: Vector2i = st.get("mouth", Vector2i(-1, -1))
-	if not CityGrid.inside(area, m.x, m.y):
+	if not area.in_bounds_xy(m.x, m.y):
 		return _hit(out, hits, "lane %d joins %d,%d, off the map" % [id, m.x, m.y])
 	var s: int = CityGrid.surf(area, m.x, m.y)
 	if not CityGrid.is_street(s):

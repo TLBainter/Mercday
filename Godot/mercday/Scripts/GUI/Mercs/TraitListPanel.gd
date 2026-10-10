@@ -21,7 +21,7 @@ signal card_selected(index: int)
 var rows: Array[Dictionary] = []
 var selected_index: int = -1
 var empty_text: String = "Nothing matches this filter."
-var accent: Color = Color("#f28c28")
+var accent: Color = GuiColors.ORANGE
 
 
 func _ready() -> void:
@@ -57,9 +57,7 @@ func cards() -> Array[TraitCard]:
 	var out: Array[TraitCard] = []
 	if not is_node_ready():
 		return out
-	for child: Node in card_box.get_children():
-		if child is TraitCard:
-			out.append(child as TraitCard)
+	out.assign(GuiNodes.children_of(card_box, TraitCard))
 	return out
 
 
@@ -107,9 +105,7 @@ static func _before(a: Dictionary, b: Dictionary, mode: int) -> bool:
 func _rebuild() -> void:
 	if not is_node_ready():
 		return
-	for child: Node in card_box.get_children():
-		card_box.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(card_box)
 	var list: Array[Dictionary] = shown_rows()
 	for i: int in list.size():
 		var card: TraitCard = CARD_SCENE.instantiate()

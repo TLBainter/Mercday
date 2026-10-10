@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://oflaqfv37l4b"
+path="res://.godot/imported/ESM_Mellow_Message_Ping_Notification_Synth_Electronic_Cartoon.wav-c7457a5b667e39b272138812a2808c40.sample"
+
+[deps]
+
+source_file="res://Sound/SFX/Event/Messages/Neutral Alert/ESM_Mellow_Message_Ping_Notification_Synth_Electronic_Cartoon.wav"
+dest_files=["res://.godot/imported/ESM_Mellow_Message_Ping_Notification_Synth_Electronic_Cartoon.wav-c7457a5b667e39b272138812a2808c40.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

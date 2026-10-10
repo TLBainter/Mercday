@@ -1,0 +1,689 @@
+{
+ "description": "MercSettlements config (map-settlements.js). TIERS = size rules, STYLES = per-style kit weights + landmarks + small (infill), RULES = per-kit zone weights / street / max (missing → inner 1, outer 1, any), NATION_STYLE = nation → style (Cyfrolaef none), MIN_BUILD / GROW = minimum size + growth steps, STN = train-station rule, DOCKS = dock rules.",
+ "TIERS": {
+  "city": {
+   "radius": 46,
+   "plaza": 3,
+   "roads": [
+    2,
+    4
+   ],
+   "roadLen": [
+    20,
+    44
+   ],
+   "branchEvery": [
+    5,
+    9
+   ],
+   "branchLen": [
+    8,
+    18
+   ],
+   "branchP": [
+    0.8,
+    0.55
+   ],
+   "turn": 0.06,
+   "buildings": [
+    34,
+    48
+   ],
+   "landmarks": 2,
+   "infill": 30,
+   "backP": 0.85
+  },
+  "capital": {
+   "radius": 92,
+   "core": true,
+   "roads": [
+    4,
+    4
+   ],
+   "roadLen": [
+    34,
+    70
+   ],
+   "branchEvery": [
+    4,
+    7
+   ],
+   "branchLen": [
+    10,
+    24
+   ],
+   "branchP": [
+    0.85,
+    0.6
+   ],
+   "turn": 0.05,
+   "buildings": [
+    80,
+    120
+   ],
+   "landmarks": 3,
+   "infill": 70,
+   "backP": 0.9
+  }
+ },
+ "STYLES": {
+  "buern": {
+   "kits": {
+    "hut": 3,
+    "stall": 1.5,
+    "dar": 4,
+    "riad": 3,
+    "l_house": 2,
+    "windcatcher": 1.5,
+    "stepped_kasbah": 1,
+    "tower_house": 1.5,
+    "domed": 1.5,
+    "merchant": 1.5,
+    "caravanserai": 1,
+    "hammam": 1,
+    "round_tower": 0.5,
+    "minaret": 0.6,
+    "cathedral": 0,
+    "shatyor": 0,
+    "kremlin_tower": 0.2
+   },
+   "landmarks": [
+    "minaret",
+    "stepped_kasbah",
+    "merchant"
+   ]
+  },
+  "vaernebo": {
+   "kits": {
+    "hut": 3,
+    "stall": 1.5,
+    "dar": 4,
+    "riad": 2.5,
+    "l_house": 2,
+    "windcatcher": 0.8,
+    "stepped_kasbah": 0.6,
+    "tower_house": 1,
+    "domed": 2.5,
+    "merchant": 1.5,
+    "caravanserai": 0.8,
+    "hammam": 2,
+    "round_tower": 0.6,
+    "minaret": 0.6,
+    "cathedral": 0.6,
+    "shatyor": 0.3,
+    "kremlin_tower": 0.4
+   },
+   "landmarks": [
+    "domed",
+    "cathedral",
+    "minaret"
+   ]
+  },
+  "rossade": {
+   "kits": {
+    "hut": 3,
+    "stall": 1.2,
+    "dar": 4,
+    "riad": 2.5,
+    "l_house": 2,
+    "windcatcher": 0.4,
+    "stepped_kasbah": 0.5,
+    "tower_house": 1.5,
+    "domed": 1.5,
+    "merchant": 1.5,
+    "caravanserai": 0.4,
+    "hammam": 0.8,
+    "round_tower": 1,
+    "minaret": 0.3,
+    "cathedral": 1,
+    "shatyor": 1,
+    "kremlin_tower": 1
+   },
+   "landmarks": [
+    "cathedral",
+    "shatyor",
+    "kremlin_tower"
+   ]
+  },
+  "kathaya": {
+   "kits": {
+    "kt_shack": 3,
+    "kt_adobe": 4,
+    "kt_falsefront": 3,
+    "kt_saloon": 1,
+    "kt_mission": 0.5,
+    "kt_watertower": 0.6,
+    "kt_hacienda": 1
+   },
+   "small": [
+    "kt_shack",
+    "kt_adobe"
+   ],
+   "landmarks": [
+    "kt_mission",
+    "kt_saloon",
+    "kt_watertower"
+   ]
+  },
+  "aldurstein": {
+   "kits": {
+    "al_stuga": 4,
+    "al_longhouse": 2,
+    "al_ottoman": 3,
+    "al_block": 1.5,
+    "al_warehouse": 1,
+    "al_stave": 0.3,
+    "al_mosque": 0.3
+   },
+   "small": [
+    "al_stuga"
+   ],
+   "landmarks": [
+    "al_mosque",
+    "al_stave",
+    "al_block"
+   ]
+  },
+  "zukei": {
+   "kits": {
+    "zk_minka": 3,
+    "zk_machiya": 4,
+    "zk_shop": 1.5,
+    "zk_temple": 0.4,
+    "zk_pagoda": 0.3,
+    "zk_yagura": 0.3
+   },
+   "small": [
+    "zk_minka"
+   ],
+   "gates": "zk_torii",
+   "landmarks": [
+    "zk_pagoda",
+    "zk_temple",
+    "zk_castle"
+   ]
+  },
+  "suorr": {
+   "kits": {
+    "su_cottage": 3,
+    "su_terrace": 4,
+    "su_casa": 2.5,
+    "su_factory": 1.2,
+    "su_gasholder": 0.5,
+    "su_cathedral": 0.3,
+    "su_clocktower": 0.3
+   },
+   "small": [
+    "su_cottage"
+   ],
+   "landmarks": [
+    "su_clocktower",
+    "su_factory",
+    "su_cathedral"
+   ]
+  },
+  "miliim": {
+   "kits": {
+    "ml_rondavel": 5,
+    "ml_granary": 2,
+    "ml_compound": 2,
+    "ml_mudhouse": 3,
+    "ml_market": 1,
+    "ml_mosque": 0.3,
+    "ml_palace": 0.3
+   },
+   "small": [
+    "ml_rondavel",
+    "ml_granary"
+   ],
+   "landmarks": [
+    "ml_mosque",
+    "ml_market",
+    "ml_palace"
+   ]
+  },
+  "aerdis": {
+   "kits": {
+    "ae_cottage": 4,
+    "ae_longcottage": 2,
+    "ae_pub": 1.2,
+    "ae_terrace": 2,
+    "ae_chapel": 0.5,
+    "ae_roundtower": 0.3,
+    "ae_wizard": 0.3
+   },
+   "small": [
+    "ae_cottage"
+   ],
+   "landmarks": [
+    "ae_roundtower",
+    "ae_pub",
+    "ae_wizard"
+   ]
+  },
+  "copari": {
+   "kits": {
+    "co_shack": 4,
+    "co_tenement": 3,
+    "co_mansard": 2.5,
+    "co_victorian": 2,
+    "co_warehouse": 1.5,
+    "co_bauhaus": 0.6,
+    "co_colonial": 0.3
+   },
+   "small": [
+    "co_shack"
+   ],
+   "landmarks": [
+    "co_colonial",
+    "co_warehouse",
+    "co_bauhaus"
+   ]
+  }
+ },
+ "RULES": {
+  "dar": {
+   "inner": 1,
+   "outer": 1.5,
+   "front": "any"
+  },
+  "riad": {
+   "inner": 1.3,
+   "outer": 0.8,
+   "front": "any"
+  },
+  "tower_house": {
+   "inner": 0.7,
+   "outer": 1,
+   "front": "any"
+  },
+  "domed": {
+   "inner": 1.2,
+   "outer": 0.6,
+   "front": "any"
+  },
+  "hammam": {
+   "inner": 1,
+   "outer": 0.4,
+   "front": "any",
+   "max": 3
+  },
+  "merchant": {
+   "inner": 1.5,
+   "outer": 0.5,
+   "front": "main"
+  },
+  "caravanserai": {
+   "inner": 0.2,
+   "outer": 1.2,
+   "front": "main",
+   "max": 2
+  },
+  "minaret": {
+   "inner": 1,
+   "outer": 0.3,
+   "front": "any",
+   "max": 2
+  },
+  "kremlin_tower": {
+   "inner": 0.6,
+   "outer": 0.6,
+   "front": "main",
+   "max": 2
+  },
+  "hut": {
+   "inner": 0.5,
+   "outer": 1.5,
+   "front": "any"
+  },
+  "stall": {
+   "inner": 1.5,
+   "outer": 0.3,
+   "front": "main"
+  },
+  "stepped_kasbah": {
+   "inner": 0.8,
+   "outer": 1,
+   "front": "any",
+   "max": 3
+  },
+  "l_house": {
+   "inner": 1,
+   "outer": 1,
+   "front": "any"
+  },
+  "round_tower": {
+   "inner": 0.6,
+   "outer": 0.6,
+   "front": "any",
+   "max": 3
+  },
+  "cathedral": {
+   "inner": 1.2,
+   "outer": 0.2,
+   "front": "main",
+   "max": 1
+  },
+  "shatyor": {
+   "inner": 0.8,
+   "outer": 0.3,
+   "front": "any",
+   "max": 2
+  },
+  "windcatcher": {
+   "inner": 1,
+   "outer": 0.8,
+   "front": "any"
+  },
+  "kt_shack": {
+   "inner": 0.5,
+   "outer": 1.5,
+   "front": "any"
+  },
+  "kt_falsefront": {
+   "inner": 1.5,
+   "outer": 0.6,
+   "front": "main"
+  },
+  "kt_saloon": {
+   "inner": 1.5,
+   "outer": 0.3,
+   "front": "main",
+   "max": 2
+  },
+  "kt_mission": {
+   "inner": 1,
+   "outer": 0.4,
+   "front": "any",
+   "max": 1
+  },
+  "kt_watertower": {
+   "inner": 0.3,
+   "outer": 1,
+   "front": "any",
+   "max": 2
+  },
+  "kt_hacienda": {
+   "inner": 0.4,
+   "outer": 1.2,
+   "front": "any",
+   "max": 3
+  },
+  "al_stuga": {
+   "inner": 0.6,
+   "outer": 1.5,
+   "front": "any"
+  },
+  "al_longhouse": {
+   "inner": 0.4,
+   "outer": 1.4,
+   "front": "any"
+  },
+  "al_block": {
+   "inner": 1.6,
+   "outer": 0.4,
+   "front": "main",
+   "max": 4
+  },
+  "al_stave": {
+   "inner": 1,
+   "outer": 0.5,
+   "front": "any",
+   "max": 1
+  },
+  "al_mosque": {
+   "inner": 1.4,
+   "outer": 0.2,
+   "front": "any",
+   "max": 1
+  },
+  "al_warehouse": {
+   "inner": 0.3,
+   "outer": 1.2,
+   "front": "any",
+   "max": 3
+  },
+  "zk_minka": {
+   "inner": 0.4,
+   "outer": 1.6,
+   "front": "any"
+  },
+  "zk_shop": {
+   "inner": 1.6,
+   "outer": 0.4,
+   "front": "main"
+  },
+  "zk_temple": {
+   "inner": 1,
+   "outer": 0.6,
+   "front": "any",
+   "max": 1
+  },
+  "zk_pagoda": {
+   "inner": 1,
+   "outer": 0.5,
+   "front": "any",
+   "max": 1
+  },
+  "zk_castle": {
+   "inner": 1,
+   "outer": 0.2,
+   "front": "any",
+   "max": 1
+  },
+  "zk_torii": {
+   "inner": 1,
+   "outer": 1,
+   "front": "any",
+   "max": 3
+  },
+  "zk_yagura": {
+   "inner": 0.4,
+   "outer": 1,
+   "front": "any",
+   "max": 2
+  },
+  "su_cottage": {
+   "inner": 0.5,
+   "outer": 1.5,
+   "front": "any"
+  },
+  "su_factory": {
+   "inner": 0.2,
+   "outer": 1.5,
+   "front": "any",
+   "max": 3
+  },
+  "su_gasholder": {
+   "inner": 0.2,
+   "outer": 1.2,
+   "front": "any",
+   "max": 2
+  },
+  "su_cathedral": {
+   "inner": 1.4,
+   "outer": 0.2,
+   "front": "main",
+   "max": 1
+  },
+  "su_clocktower": {
+   "inner": 1.5,
+   "outer": 0.2,
+   "front": "main",
+   "max": 1
+  },
+  "ml_rondavel": {
+   "inner": 0.6,
+   "outer": 1.5,
+   "front": "any"
+  },
+  "ml_granary": {
+   "inner": 0.4,
+   "outer": 1.2,
+   "front": "any"
+  },
+  "ml_compound": {
+   "inner": 0.6,
+   "outer": 1.3,
+   "front": "any"
+  },
+  "ml_mosque": {
+   "inner": 1.4,
+   "outer": 0.2,
+   "front": "any",
+   "max": 1
+  },
+  "ml_palace": {
+   "inner": 1.4,
+   "outer": 0.2,
+   "front": "any",
+   "max": 1
+  },
+  "ml_market": {
+   "inner": 1.5,
+   "outer": 0.3,
+   "front": "main",
+   "max": 3
+  },
+  "ae_cottage": {
+   "inner": 0.6,
+   "outer": 1.5,
+   "front": "any"
+  },
+  "ae_pub": {
+   "inner": 1.4,
+   "outer": 0.5,
+   "front": "main",
+   "max": 3
+  },
+  "ae_terrace": {
+   "inner": 1.4,
+   "outer": 0.5,
+   "front": "any"
+  },
+  "ae_chapel": {
+   "inner": 1,
+   "outer": 0.5,
+   "front": "any",
+   "max": 2
+  },
+  "ae_roundtower": {
+   "inner": 1,
+   "outer": 0.4,
+   "front": "any",
+   "max": 1
+  },
+  "ae_wizard": {
+   "inner": 0.8,
+   "outer": 0.6,
+   "front": "any",
+   "max": 1
+  },
+  "co_shack": {
+   "inner": 0.3,
+   "outer": 1.8,
+   "front": "any"
+  },
+  "co_tenement": {
+   "inner": 1.4,
+   "outer": 0.6,
+   "front": "any"
+  },
+  "co_warehouse": {
+   "inner": 0.3,
+   "outer": 1.4,
+   "front": "any",
+   "max": 3
+  },
+  "co_bauhaus": {
+   "inner": 1.2,
+   "outer": 0.5,
+   "front": "main",
+   "max": 2
+  },
+  "co_colonial": {
+   "inner": 1.5,
+   "outer": 0.2,
+   "front": "main",
+   "max": 1
+  }
+ },
+ "SMALL": [
+  "hut",
+  "stall",
+  "dar"
+ ],
+ "NATION_STYLE": {
+  "Principality of Buern": "buern",
+  "Principality of Vaernebo": "vaernebo",
+  "Principality of Rossade": "rossade",
+  "Kingdom of Kathaya": "kathaya",
+  "Queendom of Aldurstein": "aldurstein",
+  "Isolationist Empire of Zukei": "zukei",
+  "Free Cities of Suorr": "suorr",
+  "Federation of Miliim": "miliim",
+  "Kingdom of Aerdis": "aerdis",
+  "Republic of Copari": "copari"
+ },
+ "MIN_BUILD": 9,
+ "GROW": [
+  1,
+  1.5,
+  2.2
+ ],
+ "STN": {
+  "reach": 1.25,
+  "edge": 13,
+  "off": 5,
+  "force": 160
+ },
+ "DOCKS": {
+  "per": 10,
+  "max": {
+   "city": 2,
+   "capital": 3
+  },
+  "spacing": 34,
+  "minWater": 0.7,
+  "maxRise": 2,
+  "open": 44,
+  "side": 12,
+  "kits": {
+   "dock": 3,
+   "harbor": 1,
+   "shipyard": 0
+  },
+  "capital": [
+   "harbor",
+   "shipyard"
+  ],
+  "styles": {
+   "suorr": {
+    "shipyard": 1.2
+   },
+   "copari": {
+    "shipyard": 1.2
+   },
+   "aldurstein": {
+    "shipyard": 0.5
+   },
+   "aerdis": {
+    "shipyard": 0.3
+   },
+   "kathaya": {
+    "harbor": 0.6
+   },
+   "miliim": {
+    "harbor": 0.3,
+    "dock": 4
+   }
+  }
+ },
+ "SITE": {
+  "Hjalt": {
+   "grow": 2,
+   "station": true,
+   "lv": 2
+  }
+ }
+}

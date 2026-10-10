@@ -9,8 +9,8 @@ const GROUP_STANDARD := "Standard"
 const GROUP_COMBAT := "Combat PIP"
 const GROUP_SKILL := "Skill PIP"
 
-const GROUP_COLORS: Dictionary = {GROUP_STANDARD: Color("#9cc6ef"),
-	GROUP_COMBAT: Color("#e8583f"), GROUP_SKILL: Color("#6cc36a")}
+const GROUP_COLORS: Dictionary = {GROUP_STANDARD: GuiColors.SKY,
+	GROUP_COMBAT: GuiColors.RED, GROUP_SKILL: GuiColors.GREEN}
 
 const MODES: Array[Dictionary] = [
 	{"mode": &"Auto", "group": GROUP_STANDARD, "gate": "", "icon": "pip_auto",
@@ -63,10 +63,7 @@ const DEFAULT_MODE := &"Auto"
 
 
 static func find(mode: StringName) -> Dictionary:
-	for data: Dictionary in MODES:
-		if StringName(data["mode"]) == mode:
-			return data
-	return {}
+	return TraitFilterDefs.find(MODES, mode, "mode")
 
 
 static func has(mode: StringName) -> bool:
@@ -102,14 +99,14 @@ static func groups() -> Array[String]:
 
 
 static func group_color(group: String) -> Color:
-	return GROUP_COLORS.get(group, Color("#f3ead7")) as Color
+	return GROUP_COLORS.get(group, GuiColors.CREAM) as Color
 
 
 static func desc_of(mode: StringName) -> String:
 	return String(find(mode).get("desc", ""))
 
 
-#The atlas id of the mode's icon; MercGlyphs.pip_id is the one reader.
+#The atlas id of the mode's icon; MercGlyphs.pip and MercGlyphs.pip_locked read it.
 static func icon_id(mode: StringName) -> String:
 	return String(find(mode).get("icon", ""))
 
@@ -129,17 +126,11 @@ static func upgrade_tier(mode: StringName) -> int:
 #The upgrade display name and its tier count are held once in UpgradeDefs, so they are read from
 #there instead of a second copy here that a price or tier edit would leave behind.
 static func upgrade_name(mode: StringName) -> String:
-	var id: String = upgrade_id(mode)
-	if id == "" or not UpgradeDefs.has_id(id):
-		return ""
-	return UpgradeDefs.name_of(id)
+	return UpgradeDefs.display_name(upgrade_id(mode))
 
 
 static func upgrade_tiers(mode: StringName) -> int:
-	var id: String = upgrade_id(mode)
-	if id == "" or not UpgradeDefs.has_id(id):
-		return 1
-	return maxi(1, UpgradeDefs.tier_count(id))
+	return UpgradeDefs.display_tiers(upgrade_id(mode))
 
 
 #The wording the FeatureLock puts in front of "is locked."

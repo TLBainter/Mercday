@@ -1,19 +1,20 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://duu72xle7h7hk"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/RangedEnemyFacet.gd" id="RangedEnemyFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/CoverNearbyFacet.gd" id="CoverNearbyFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/RangedThreatFacet.gd" id="RangedThreatFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/CoverOnPathFacet.gd" id="CoverOnPathFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_hr07s"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
 [ext_resource type="Script" path="res://Scripts/Decisions/AimActiveFacet.gd" id="AimActiveFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/CombatIdleFacet.gd" id="CombatIdleFacet"]
+[ext_resource type="Script" uid="uid://dbr05ijjva" path="res://Scripts/Decisions/CombatIdleFacet.gd" id="CombatIdleFacet"]
+[ext_resource type="Script" uid="uid://bg6pashvgu76y" path="res://Scripts/Decisions/CoverNearbyFacet.gd" id="CoverNearbyFacet"]
+[ext_resource type="Script" uid="uid://bgvntho1vewlt" path="res://Scripts/Decisions/CoverOnPathFacet.gd" id="CoverOnPathFacet"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://b5u54jqkqd0ww" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
+[ext_resource type="Script" uid="uid://d355cmbhyyd6f" path="res://Scripts/Decisions/RangedEnemyFacet.gd" id="RangedEnemyFacet"]
+[ext_resource type="Script" uid="uid://dwqrb76bw63bc" path="res://Scripts/Decisions/RangedThreatFacet.gd" id="RangedThreatFacet"]
 
 [sub_resource type="Resource" id="facet_hp"]
 script = ExtResource("HpRatioFacet")
 weight = 0.7
-below_is_high = true
+invert = true
 
 [sub_resource type="Resource" id="facet_ranged"]
 script = ExtResource("RangedEnemyFacet")
@@ -21,8 +22,8 @@ is_required = true
 
 [sub_resource type="Resource" id="facet_cover"]
 script = ExtResource("CoverNearbyFacet")
-is_required = true
 weight = 2.0
+is_required = true
 
 [sub_resource type="Resource" id="facet_threat"]
 script = ExtResource("RangedThreatFacet")
@@ -34,23 +35,23 @@ is_required = true
 
 [sub_resource type="Resource" id="facet_not_aimed"]
 script = ExtResource("AimActiveFacet")
-aimed_is_high = false
 weight = 0.75
+invert = true
 
 [sub_resource type="Resource" id="facet_idle"]
 script = ExtResource("CombatIdleFacet")
 weight = 0.75
-idle_threshold = 3
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_hp"), SubResource("facet_ranged"), SubResource("facet_cover"), SubResource("facet_threat"), SubResource("facet_on_path"), SubResource("facet_not_aimed"), SubResource("facet_idle")]
-threshold = 0.5
+facets = Array[ExtResource("1_hr07s")]([SubResource("facet_hp"), SubResource("facet_ranged"), SubResource("facet_cover"), SubResource("facet_threat"), SubResource("facet_on_path"), SubResource("facet_not_aimed"), SubResource("facet_idle")])
 
 [resource]
 script = ExtResource("ActionData")
 action_name = "seek_cover"
 ap_cost = 2
 priority = 30
-snap_require = {"ranged_enemy_present": true}
+snap_require = {
+"ranged_enemy_present": true
+}
 decision = SubResource("decision")

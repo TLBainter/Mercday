@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Finance/FinanceViewer.gd" id="1"]
 [ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
 [ext_resource type="StyleBox" path="res://Resources/GUI/Theme/Styles/finance_frame.tres" id="3"]
 [ext_resource type="StyleBox" path="res://Resources/GUI/Theme/Styles/finance_content.tres" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Overview/FinanceOverview.tscn" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/TabStrip.gd" id="6"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/BevelEdges.gd" id="7"]
 
 [node name="FinanceViewer" type="Control"]
 custom_minimum_size = Vector2(1280, 644)
@@ -13,6 +15,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource("2")
 script = ExtResource("1")
+tab_strip_path = NodePath("Margin/Rows/TabRowPad/TabRow")
 
 [node name="Frame" type="Panel" parent="."]
 layout_mode = 1
@@ -42,13 +45,17 @@ theme_override_constants/separation = 0
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/margin_left = 4
-theme_override_constants/margin_right = 4
+theme_override_constants/margin_right = 42
 
 [node name="TabRow" type="HBoxContainer" parent="Margin/Rows/TabRowPad"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
+script = ExtResource("6")
+labels = Array[String](["Overview", "Loans", "Payroll", "Hiring", "Invest"])
+tips = Array[String](["Your finances at a glance", "Manage and request loans", "Manage merc pay", "Review mercs who applied to your guild", "Invest notes in company stocks"])
+icon_ids = Array[String](["eye", "piggy", "money_bag", "add_person", "invest"])
 
 [node name="TopLine" type="ColorRect" parent="Margin/Rows"]
 custom_minimum_size = Vector2(0, 4)
@@ -71,7 +78,7 @@ theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
 [node name="Pages" type="Control" parent="Margin/Rows/PagePanel/PagePad"]
-custom_minimum_size = Vector2(0, 560)
+custom_minimum_size = Vector2(0, 532)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -87,34 +94,8 @@ anchor_bottom = 1.0
 [node name="Bevels" type="Control" parent="Margin/Rows/PagePanel"]
 layout_mode = 2
 mouse_filter = 2
-
-[node name="BevelLeft" type="ColorRect" parent="Margin/Rows/PagePanel/Bevels"]
-layout_mode = 1
-anchors_preset = 9
-anchor_bottom = 1.0
-offset_right = 4.0
-mouse_filter = 2
-color = Color(0.156863, 0.266667, 0.478431, 1)
-
-[node name="BevelRight" type="ColorRect" parent="Margin/Rows/PagePanel/Bevels"]
-layout_mode = 1
-anchors_preset = 11
-anchor_left = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -4.0
-mouse_filter = 2
-color = Color(0.066667, 0.109804, 0.200000, 1)
-
-[node name="BevelBottom" type="ColorRect" parent="Margin/Rows/PagePanel/Bevels"]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = -4.0
-mouse_filter = 2
-color = Color(0.066667, 0.109804, 0.200000, 1)
+script = ExtResource("7")
+sides = 14
 
 [node name="ModalLayer" type="Control" parent="." groups=["finance_modal_host"]]
 layout_mode = 1

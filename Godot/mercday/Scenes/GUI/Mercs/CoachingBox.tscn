@@ -1,9 +1,11 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/CoachingBox.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/IconRect.tscn" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/BevelButton.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_LevelModeList.tres" id="6"]
 
 [node name="CoachingBox" type="VBoxContainer"]
 mouse_filter = 1
@@ -18,12 +20,15 @@ theme_override_font_sizes/font_size = 9
 text = "Coaching"
 
 [node name="Coach" parent="." instance=ExtResource("4")]
-custom_minimum_size = Vector2(0, 40)
 min_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_vertical = 0
 kind = &"blue"
 text = ""
+click_move = 7
+click_shade = 4
+hover_shade = 5
+stay_move = 3
 
 [node name="Row" type="HBoxContainer" parent="Coach"]
 anchors_preset = 15
@@ -64,3 +69,7 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
 theme_override_font_sizes/font_size = 12
 text = "Auto"
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("5")
+hint = ExtResource("6")

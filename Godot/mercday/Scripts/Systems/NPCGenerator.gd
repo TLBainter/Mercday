@@ -1,36 +1,17 @@
 class_name NPCGenerator
 
-static var _rolling_penalties: Dictionary = {
-	"location": {}, "ancestry": {}, "bloodline": {},
-	"heritage": {}, "lifepath": {}, "tradition": {},
-}
-static var _rolling_penalty_age: Dictionary = {
-	"location": {}, "ancestry": {}, "bloodline": {},
-	"heritage": {}, "lifepath": {}, "tradition": {},
-}
+const _DEFAULT_ACTIONS := preload("res://Scripts/Actions/Resources/DefaultActionSet.tres")
 
 
-static func generate_batch(npc_type: String, count: int, party_context: Dictionary = {},
-		level: int = -1) -> Array[MercenaryData]:
-	var results: Array[MercenaryData] = []
-	var template: NPCTemplate = DataManager.npc_templates.get(npc_type, null) as NPCTemplate
-	if not template:
-		push_error("NPCGenerator: unknown npc_type '%s'" % npc_type)
-		return results
-	for i: int in range(count):
-		results.append(generate(template, party_context, i, level))
-	return results
-
-
-static func generate(template: NPCTemplate, party_context: Dictionary = {}, _npc_index: int = 0,
+static func generate(template: NPCTemplate, party_context: Dictionary = {},
 		level: int = -1) -> MercenaryData:
 	var merc := MercenaryData.new()
-	MercGenerator._reset_generated_fields(merc)
+	GenerationSteps.reset_generated_fields(merc)
 
 	if level >= 0:
 		merc.stats["level"] = float(level)
 	else:
-		merc.stats["level"] = float(maxi(0, _eval_level_formula(template.level_formula, party_context)))
+		merc.stats["level"] = float(maxi(0, OpponentGenerator.eval_level(template.level_formula, party_context)))
 	merc.xp = ExperienceSystem.xp_for_level(int(merc.stats["level"]))
 	#NPCs are Adult by default; an NPCs.tsv age column is a to-do.
 	merc.age_category = AgeSystem.AGE_ADULT
@@ -41,27 +22,29 @@ static func generate(template: NPCTemplate, party_context: Dictionary = {}, _npc
 	_npc_apply_passive_tokens(merc, template)
 	_npc_step_lifepaths(merc, template, party_context)
 
-	MercGenerator._prepare_max_stats(merc)
-	MercGenerator._step6_traits(merc)
-	MercGenerator._step7_stats(merc)
-	StatCalculator.apply_ability_grants(merc)
-	MercGenerator._clamp_floor_stats(merc)
-	MercGenerator._apply_random_stat_boosts(merc)
+	GenerationSteps.prepare_max_stats(merc)
+	GenerationSteps.step6_traits(merc)
+	GenerationSteps.step7_stats(merc)
+	GenerationSteps.clamp_floor_stats(merc)
+	GenerationSteps.apply_random_stat_boosts(merc)
 
 	_npc_step_tradition(merc, template)
 	_npc_step_traits(merc, template)
 
 	merc.merc_name = _npc_generate_name(merc, template)
-	MercGenerator._seed_current_pools(merc)
+	GenerationSteps.seed_current_pools(merc)
 
 	_npc_step_equip(merc, template)
-	WeaponArmorPerkLibrary.resolve_deferred_grants(merc)
+	PerkGrants.resolve_deferred_grants(merc)
 	merc.max_ammo = template.max_ammo
 	StartingGear.cap_carried_ammo(merc, template.max_ammo)
 	StatCalculator.refresh(merc)
 	LevelUpSystem.catch_up(merc)
-	merc.action_set = DefaultActionSet.create()
-	_update_npc_rolling_penalties(merc)
+	merc.action_set = _DEFAULT_ACTIONS
+	RollingPenalties.update_rolling_penalties(merc, true)
+	merc.appearance_seed = randi_range(1, CharacterAppearance.SEED_MAX)
+	var pool: ResolvedPool = AppearanceRules.resolve(merc)
+	merc.appearance = CharacterAppearance.roll(merc.appearance_seed, true, pool)
 	return merc
 
 
@@ -89,10 +72,6 @@ static func _npc_apply_passive_tokens(merc: MercenaryData, template: NPCTemplate
 		merc.passive_effects.append(token)
 
 
-static func _eval_level_formula(formula: String, party: Dictionary) -> int:
-	return OpponentGenerator.eval_level(formula, party)
-
-
 static func _eval_le_count(le_str: String, party: Dictionary) -> int:
 	var s: String = le_str.strip_edges()
 	if s.is_valid_int():
@@ -101,7 +80,7 @@ static func _eval_le_count(le_str: String, party: Dictionary) -> int:
 		var parts: PackedStringArray = s.split("-")
 		if parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
 			return randi_range(int(parts[0]), int(parts[1]))
-	return maxi(0, _eval_level_formula(s, party))
+	return maxi(0, OpponentGenerator.eval_level(s, party))
 
 
 static func _npc_step_origin(merc: MercenaryData, template: NPCTemplate) -> void:
@@ -126,10 +105,10 @@ static func _npc_step_origin(merc: MercenaryData, template: NPCTemplate) -> void
 	if pool.is_empty():
 		return
 	var items: Array[Dictionary] = WeightedTable.items_from(pool, "location_name", "", "Uncommon")
-	var loc_name: String = WeightedTable.roll(items, _get_npc_penalty_boosts("location"))
+	var loc_name: String = WeightedTable.roll(items, RollingPenalties.get_penalty_boosts("location", true))
 	merc.starting_location = DataManager.locations.get(loc_name, null) as LocationData
 	if merc.starting_location:
-		MercGenerator._seed_odds_from_location(merc)
+		GenerationSteps.seed_odds_from_location(merc)
 
 
 static func _location_is_in_region(loc: LocationData, region_name: String) -> bool:
@@ -157,14 +136,7 @@ static func _npc_step_ancestry(merc: MercenaryData, template: NPCTemplate) -> vo
 
 	var ancestry_items: Array[Dictionary] = WeightedTable.items_from(ancestry_list, "ancestry_name", "rarity")
 
-	var combined_flat: Dictionary = {}
-	if loc:
-		for n: String in loc.ancestry_buffs:
-			combined_flat[n] = loc.ancestry_buffs[n] as float
-		for n: String in loc.ancestry_debuffs:
-			combined_flat[n] = -(loc.ancestry_debuffs[n] as float)
-	for pen_name: String in _rolling_penalties["ancestry"]:
-		combined_flat[pen_name] = (combined_flat.get(pen_name, 0.0) as float) - (_rolling_penalties["ancestry"][pen_name] as float)
+	var combined_flat: Dictionary = GenerationSteps.ancestry_flat_boosts(loc, RollingPenalties.npc_penalties)
 
 	var first_name: String = WeightedTable.roll(ancestry_items, combined_flat)
 	var first_ancestry: AncestryData = DataManager.ancestries.get(first_name, null) as AncestryData
@@ -173,11 +145,7 @@ static func _npc_step_ancestry(merc: MercenaryData, template: NPCTemplate) -> vo
 
 	merc.ancestry = first_ancestry
 	merc.bloodline = _npc_roll_bloodline(first_ancestry, loc, template)
-
-	if merc.bloodline and merc.bloodline.types.size() > 0:
-		merc.creature_types = merc.bloodline.types.duplicate()
-	else:
-		merc.creature_types = merc.ancestry.types.duplicate()
+	GenerationSteps.set_creature_types(merc)
 
 
 static func _npc_roll_bloodline(ancestry: AncestryData, loc: LocationData, template: NPCTemplate) -> AncestryData:
@@ -190,7 +158,7 @@ static func _npc_roll_bloodline(ancestry: AncestryData, loc: LocationData, templ
 			return DataManager.bloodlines[forced] as AncestryData
 		return null
 
-	return MercGenerator._roll_bloodline(ancestry, loc)
+	return GenerationSteps.roll_bloodline(ancestry, loc)
 
 
 static func _npc_step_heritage(merc: MercenaryData, template: NPCTemplate) -> void:
@@ -209,31 +177,8 @@ static func _npc_step_heritage(merc: MercenaryData, template: NPCTemplate) -> vo
 	var heritage_items: Array[Dictionary] = WeightedTable.items_from(
 			heritage_list, "heritage_name", "", "Common")
 
-	var loc: LocationData = merc.starting_location
-	var flat_boosts: Dictionary = {}
-	if loc:
-		flat_boosts = loc.heritage_buffs.duplicate()
-	for pen_name: String in _rolling_penalties["heritage"]:
-		flat_boosts[pen_name] = (flat_boosts.get(pen_name, 0.0) as float) - (_rolling_penalties["heritage"][pen_name] as float)
-
-	var heritage_name: String = WeightedTable.roll(heritage_items, flat_boosts)
-	merc.heritage = DataManager.heritages.get(heritage_name, null) as HeritageData
-	if not merc.heritage:
-		return
-
-	var circ_pool: Array[Dictionary] = MercGenerator._build_circumstance_pool(merc.heritage)
-	if circ_pool.size() > 0:
-		var circ_name: String = WeightedTable.roll(circ_pool)
-		if ConstCircumstances.DATA.has(circ_name):
-			merc.circumstance_flags[circ_name] = true
-
-	var kt_pool: Array[Dictionary] = MercGenerator._build_kt_pool(merc.heritage)
-	if kt_pool.size() > 0:
-		var kt_name: String = WeightedTable.roll(kt_pool)
-		if DataManager.knowledges.has(kt_name):
-			merc.knowledges.append(DataManager.knowledges[kt_name] as UtilityTraitData)
-		elif DataManager.tools.has(kt_name):
-			merc.tools.append(DataManager.tools[kt_name] as UtilityTraitData)
+	var flat_boosts: Dictionary = GenerationSteps.heritage_flat_boosts(merc.starting_location, RollingPenalties.npc_penalties)
+	GenerationSteps.roll_heritage(merc, heritage_items, flat_boosts, {})
 
 
 static func _npc_step_lifepaths(merc: MercenaryData, template: NPCTemplate, party: Dictionary) -> void:
@@ -251,18 +196,14 @@ static func _npc_step_lifepaths(merc: MercenaryData, template: NPCTemplate, part
 			var items: Array[Dictionary] = WeightedTable.items_from(
 					LifepathRequirements.filter(merc, sle_pool), "event_name", "rarity")
 			if not items.is_empty():
-				var picked: String = WeightedTable.roll(items, _get_npc_penalty_boosts("lifepath"))
+				var picked: String = WeightedTable.roll(items, RollingPenalties.get_penalty_boosts("lifepath", true))
 				lp = DataManager.starting_lifepaths.get(picked, null) as LifepathData
 		else:
 			lp = DataManager.starting_lifepaths.get(template.sle_name, null) as LifepathData
 			if not lp:
-				for cat_arr: Array in DataManager.lifepaths_by_category.values():
-					for ev: LifepathData in cat_arr:
-						if ev.event_name == template.sle_name:
-							lp = ev
-							break
-					if lp:
-						break
+				var found: Array[LifepathData] = _find_lifepaths(template.sle_name)
+				if not found.is_empty():
+					lp = found[0]
 		if lp:
 			merc.lifepaths.append(lp)
 			sle_added = true
@@ -280,11 +221,7 @@ static func _npc_step_lifepaths(merc: MercenaryData, template: NPCTemplate, part
 				candidates.append(ev)
 	else:
 		for ev_name: String in template.ele_pool:
-			for cat_arr: Array in DataManager.lifepaths_by_category.values():
-				for ev: LifepathData in cat_arr:
-					if ev.event_name == ev_name:
-						candidates.append(ev)
-						break
+			candidates.append_array(_find_lifepaths(ev_name))
 
 	candidates.assign(LifepathRequirements.filter(merc, candidates))
 	candidates.shuffle()
@@ -300,6 +237,17 @@ static func _npc_step_lifepaths(merc: MercenaryData, template: NPCTemplate, part
 		if not already:
 			merc.lifepaths.append(lp)
 			added += 1
+
+
+#The first lifepath named event_name in each non Starting category, in category order.
+static func _find_lifepaths(event_name: String) -> Array[LifepathData]:
+	var found: Array[LifepathData] = []
+	for cat_arr: Array in DataManager.lifepaths_by_category.values():
+		for ev: LifepathData in cat_arr:
+			if ev.event_name == event_name:
+				found.append(ev)
+				break
+	return found
 
 
 #An eLE "Any" draw takes Experienced rows only, skipping Guaranteed rarity and placeholder payoffs.
@@ -319,7 +267,7 @@ static func _npc_step_tradition(merc: MercenaryData, template: NPCTemplate) -> v
 	if template.tradition_none:
 		return
 	if template.tradition_any:
-		MercGenerator._step5_tradition(merc)
+		GenerationSteps.step5_tradition(merc)
 		return
 
 	var trad_list: Array = []
@@ -332,20 +280,13 @@ static func _npc_step_tradition(merc: MercenaryData, template: NPCTemplate) -> v
 
 	var items: Array[Dictionary] = WeightedTable.items_from(trad_list, "tradition_name", "", "Common")
 
-	var trad_boosts: Dictionary = MercGenerator._build_tradition_boosts(merc)
-	for pen_name: String in _rolling_penalties["tradition"]:
-		trad_boosts[pen_name] = (trad_boosts.get(pen_name, 0.0) as float) - (_rolling_penalties["tradition"][pen_name] as float)
+	var trad_boosts: Dictionary = GenerationSteps.tradition_flat_boosts(merc, RollingPenalties.npc_penalties)
 
 	var trad_name: String = WeightedTable.roll(items, trad_boosts)
 	merc.tradition = DataManager.traditions.get(trad_name, null) as TraditionData
 	if not merc.tradition:
 		return
-	MercGenerator._apply_tradition_boosts(merc)
-
-	MercGenerator._apply_tradition_circumstance(merc)
-
-	#Runs last so the tradition boosts and circumstance flags reach the derived stats.
-	StatCalculator.refresh(merc)
+	GenerationSteps.finish_tradition(merc)
 
 
 static func _npc_generate_name(merc: MercenaryData, template: NPCTemplate) -> String:
@@ -450,40 +391,5 @@ static func _npc_equip_armor(merc: MercenaryData, template: NPCTemplate) -> void
 	var armor: ArmorData = DataManager.armor.get(chosen, null) as ArmorData
 	if not armor:
 		return
-	merc.equipped_armor = armor
-	for prot_type: String in armor.protection:
-		var eff: String = "protected:" + prot_type.to_lower()
-		if not merc.passive_effects.has(eff):
-			merc.passive_effects.append(eff)
+	StartingGear.wear_armor(merc, armor)
 
-
-static func _get_npc_penalty_boosts(category: String) -> Dictionary:
-	var boosts: Dictionary = {}
-	for name: String in _rolling_penalties.get(category, {}):
-		var penalty: float = _rolling_penalties[category][name] as float
-		if penalty > 0.0:
-			boosts[name] = -penalty
-	return boosts
-
-
-static func _update_npc_rolling_penalties(merc: MercenaryData) -> void:
-	var rolled: Dictionary = {
-		"location": {}, "ancestry": {}, "bloodline": {},
-		"heritage": {}, "lifepath": {}, "tradition": {},
-	}
-	if merc.starting_location:
-		rolled["location"][merc.starting_location.location_name] = true
-	if merc.ancestry:
-		rolled["ancestry"][merc.ancestry.ancestry_name] = true
-	if merc.bloodline:
-		rolled["bloodline"][merc.bloodline.ancestry_name] = true
-	if merc.heritage:
-		rolled["heritage"][merc.heritage.heritage_name] = true
-	if merc.lifepaths.size() > 0:
-		rolled["lifepath"][merc.lifepaths[0].event_name] = true
-	if merc.tradition:
-		rolled["tradition"][merc.tradition.tradition_name] = true
-
-	for category: String in _rolling_penalties:
-		RollingPenalties.step_rolling_penalties(_rolling_penalties[category],
-				_rolling_penalty_age[category], rolled.get(category, {}))

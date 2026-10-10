@@ -17,3 +17,4 @@ possible_locations = Array[String](["Aerdis", "Aldurstein", "Miliim", "Zukei", "
 enemy = "Taverngoer"
 enemy_counter = "party.merc_count + bad_luck_roll"
 map_rule = "Interior:Tavern"
+fail_ends_contract = false

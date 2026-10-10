@@ -57,7 +57,7 @@ signal take_me_there(target: Dictionary)
 	set(v):
 		pick_desc = v
 		if is_node_ready():
-			picker_node.pick_desc = pick_desc
+			picker_node.subtitle = pick_desc
 @export var locked: bool = false:
 	set(v):
 		locked = v
@@ -69,7 +69,7 @@ signal take_me_there(target: Dictionary)
 @onready var send_panel: SendMercsPanel = $Pad/Cols/SendMercsPanel
 @onready var pay_col: MarginContainer = $Pad/Cols/PayCol
 @onready var pay_panel: PayMercsPanel = $Pad/Cols/PayCol/PayMercsPanel
-@onready var picker_node: CrewMercPicker = $Picker
+@onready var picker_node: MercPicker = $Picker
 
 
 func _ready() -> void:
@@ -82,7 +82,7 @@ func _ready() -> void:
 	pay_panel.per = per
 	pay_panel.default_pay = default_pay
 	pay_panel.money = money
-	picker_node.pick_desc = pick_desc
+	picker_node.subtitle = pick_desc
 	send_panel.locked = locked
 	_rebuild()
 
@@ -109,6 +109,7 @@ func remove_merc(id: int) -> void:
 	_remove_at(pos)
 
 
+#Test probe: sets the pay each merc gets.
 func set_pay(per_in: int) -> void:
 	per = per_in
 
@@ -118,7 +119,7 @@ func open_picker(slot_index: int) -> void:
 	picker_node.open_for(slot_index, _picker_rows(slot_index), filled)
 
 
-func picker() -> CrewMercPicker:
+func picker() -> MercPicker:
 	return picker_node
 
 
@@ -130,7 +131,7 @@ func _remove_at(slot_index: int) -> void:
 	team = new_team
 
 
-func _on_picker_picked(slot_index: int, id: int) -> void:
+func _on_picker_picked(id: int, slot_index: int) -> void:
 	var new_team: Array[int] = team.duplicate()
 	var existing_pos: int = new_team.find(id)
 	var target: int = slot_index
@@ -157,10 +158,9 @@ func _lookup(id: int) -> Dictionary:
 	for c: Dictionary in candidates:
 		if int(c.get("id", -1)) == id:
 			return c
-	if GameState.has_method("merc_by_uid"):
-		var md: MercenaryData = GameState.merc_by_uid(id)
-		if md != null:
-			return {"id": id, "name": md.merc_name, "fit": 0.5}
+	var md: MercenaryData = GameState.merc_by_uid(id)
+	if md != null:
+		return {"id": id, "name": md.merc_name, "fit": 0.5}
 	return {"id": id, "name": "", "fit": 0.5}
 
 
@@ -187,16 +187,8 @@ func _picker_rows(slot_index: int) -> Array[Dictionary]:
 	for c: Dictionary in candidates:
 		if not exclude.has(int(c.get("id", -1))):
 			rows.append(c)
-	rows.sort_custom(_by_fit_then_name)
+	rows.sort_custom(CrewCandidates.by_fit_then_name)
 	return rows
-
-
-static func _by_fit_then_name(a: Dictionary, b: Dictionary) -> bool:
-	var fit_a: float = float(a.get("fit", 0.0))
-	var fit_b: float = float(b.get("fit", 0.0))
-	if fit_a != fit_b:
-		return fit_a > fit_b
-	return String(a.get("name", "")) < String(b.get("name", ""))
 
 
 func _rebuild() -> void:

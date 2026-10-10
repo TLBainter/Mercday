@@ -14,18 +14,6 @@ static func run() -> bool:
 	return TestFixtures.summarize(res, "FLY")
 
 
-#Interior shell 10x10 at the origin with a basement at 0 and the ground floor at 3.
-static func _basement() -> BattlefieldArea:
-	var f := BattlefieldArea.new()
-	f.width = 24
-	f.length = 24
-	f.height = 24
-	f.is_interior_map = true
-	f.building_footprint = Rect2i(0, 0, 10, 10)
-	f.interior_floor_elevations = {-1: 0, 0: 3}
-	return f
-
-
 #Pace cost of a fixed route for a Size 1 flyer, altitude carried from cell to cell.
 static func _route_cost(f: BattlefieldArea, cells: Array[Vector3i], altitude: int) -> int:
 	var total := 0
@@ -73,7 +61,7 @@ static func _case_band_budget(res: Dictionary) -> void:
 
 
 static func _case_absolute_height(res: Dictionary) -> void:
-	var f := _basement()
+	var f := TestFixtures.interior_field({-1: 0, 0: 3})
 	var st := BattleState.new()
 	st.battlefield = f
 	var m := MercenaryData.new()

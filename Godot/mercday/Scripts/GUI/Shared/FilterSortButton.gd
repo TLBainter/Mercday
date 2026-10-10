@@ -1,11 +1,11 @@
-class_name FilterSortButton extends Button
+class_name FilterSortButton extends PopupButton
 
 #Combined sort and filter dropdown: two columns of pickable options under one button. The rows
 #wear the sort popup's look, so the picked row in either column reads as an orange block.
 
 signal changed(sort: int, filter: int)
 
-const GLYPH_COLOR: Color = Color("#f3ead7")
+const GLYPH_COLOR: Color = GuiColors.CREAM
 
 @export var sort_options: Array[String] = []:
 	set(value):
@@ -24,14 +24,13 @@ const GLYPH_COLOR: Color = Color("#f3ead7")
 		filter_index = value
 		_refresh()
 
-@onready var menu: PopupPanel = $Menu
 @onready var sort_list: VBoxContainer = $Menu/Columns/SortColumn
 @onready var filter_list: VBoxContainer = $Menu/Columns/FilterColumn
 
 
 func _ready() -> void:
+	super()
 	icon = GuiGlyphs.lines(GLYPH_COLOR)
-	pressed.connect(_on_pressed)
 	_refresh()
 
 
@@ -68,11 +67,3 @@ func _fill(column: VBoxContainer, opts: Array[String], index: int, target: Calla
 		SortButton.style_row(b, i == index)
 		b.pressed.connect(target.bind(i))
 		column.add_child(b)
-
-
-func _on_pressed() -> void:
-	var rect: Rect2 = get_global_rect()
-	var wanted: Vector2 = menu.get_contents_minimum_size()
-	var width: int = maxi(int(rect.size.x), int(wanted.x))
-	var pos := Vector2i(int(rect.position.x), int(rect.end.y))
-	menu.popup(Rect2i(pos, Vector2i(width, int(wanted.y))))

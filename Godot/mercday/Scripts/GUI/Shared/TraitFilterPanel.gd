@@ -2,7 +2,8 @@ class_name TraitFilterPanel extends VBoxContainer
 
 #The one filter column of the game: it renders any TraitFilterDefs table, one FilterGroup per group
 #that has rows and one headerless group for rows that name no group. It owns no table of its own and
-#no per-trait branch: the def rows decide every widget, every lock and every badge count.
+#no per-trait branch: the def rows decide every widget, every lock and every badge count. Opening a
+#named group shuts the others, so one group at a time is ever on screen.
 
 signal filters_changed(filters: Dictionary)
 signal take_me_there(target: Dictionary)
@@ -10,18 +11,18 @@ signal take_me_there(target: Dictionary)
 const HEADER_HEIGHT: float = 24.0
 const TITLE_TEXT: String = "Filters"
 const TITLE_SIZE: int = 11
-const TITLE_COLOR: Color = Color("#f3ead7")
+const TITLE_COLOR: Color = GuiColors.CREAM
 const CLEAR_TEXT: String = "Clear"
 const CLEAR_SIZE: int = 10
-const CLEAR_COLOR: Color = Color("#9cc6ef")
-const CLEAR_HOVER: Color = Color("#f28c28")
+const CLEAR_COLOR: Color = GuiColors.SKY
+const CLEAR_HOVER: Color = GuiColors.ORANGE
 const NOTE_SIZE: int = 10
-const NOTE_COLOR: Color = Color("#5e7699")
+const NOTE_COLOR: Color = GuiColors.MUTED
 const GROUP_GAP: int = 8
 const PANEL_GAP: int = 8
 const NO_GROUP: String = ""
-const FONT_TITLE: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_NOTE: Font = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
+const FONT_TITLE: Font = GuiStyle.SILK
+const FONT_NOTE: Font = GuiStyle.BODY
 const GROUP_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FilterGroup.tscn")
 const SECTION_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FilterSection.tscn")
 
@@ -50,25 +51,19 @@ func _ready() -> void:
 	add_theme_constant_override(&"separation", PANEL_GAP)
 	custom_minimum_size.x = float(panel_width)
 	title_label.text = TITLE_TEXT
-	title_label.add_theme_font_override(&"font", FONT_TITLE)
-	title_label.add_theme_font_size_override(&"font_size", TITLE_SIZE)
-	title_label.add_theme_color_override(&"font_color", TITLE_COLOR)
+	GuiStyle.paint(title_label, FONT_TITLE, TITLE_SIZE, TITLE_COLOR)
 	header.custom_minimum_size.y = HEADER_HEIGHT
 	clear_button.text = CLEAR_TEXT
 	clear_button.focus_mode = Control.FOCUS_NONE
 	clear_button.flat = true
 	clear_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	clear_button.add_theme_font_override(&"font", FONT_TITLE)
-	clear_button.add_theme_font_size_override(&"font_size", CLEAR_SIZE)
-	clear_button.add_theme_color_override(&"font_color", CLEAR_COLOR)
+	GuiStyle.paint(clear_button, FONT_TITLE, CLEAR_SIZE, CLEAR_COLOR)
 	clear_button.add_theme_color_override(&"font_hover_color", CLEAR_HOVER)
 	clear_button.add_theme_color_override(&"font_pressed_color", CLEAR_HOVER)
 	clear_button.pressed.connect(press_clear)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	groups_box.add_theme_constant_override(&"separation", GROUP_GAP)
-	footer_label.add_theme_font_override(&"font", FONT_NOTE)
-	footer_label.add_theme_font_size_override(&"font_size", NOTE_SIZE)
-	footer_label.add_theme_color_override(&"font_color", NOTE_COLOR)
+	GuiStyle.paint(footer_label, FONT_NOTE, NOTE_SIZE, NOTE_COLOR)
 	footer_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_refresh_chrome()
 	if not _defs.is_empty():
@@ -76,7 +71,7 @@ func _ready() -> void:
 
 
 #The one entry point: the def rows to render, the values they start on and the entitlement table
-#that decides which of them are locked.
+#that decides which of them are locked. A held key the rows do not carry is left out of filters().
 func set_defs(rows: Array[Dictionary], held: Dictionary = {}, ents: Dictionary = {}) -> void:
 	_defs = rows
 	_ents = ents if not ents.is_empty() else SubscriptionManager.entitlements()
@@ -98,6 +93,7 @@ func filters() -> Dictionary:
 	return out
 
 
+#Test probe: a copy of the value one section holds, or null for an unknown key.
 func value_of(key: String) -> Variant:
 	var at: StringName = StringName(key)
 	return _value_copy(_sections[at]) if _sections.has(at) else null
@@ -117,8 +113,11 @@ func set_value(key: String, value: Variant) -> void:
 	_refresh_counts()
 
 
-#Writes one filter and reports it, the path a click and a headless test share.
+#Writes one filter and reports it, the path a click and a headless test share. A key the rows do
+#not carry changes nothing and reports nothing.
 func press_value(key: String, value: Variant) -> void:
+	if not _sections.has(StringName(key)):
+		return
 	set_value(key, value)
 	filters_changed.emit(filters())
 
@@ -142,6 +141,7 @@ func press_clear() -> void:
 	filters_changed.emit(filters())
 
 
+#Test probe: how many unlocked sections hold an active value.
 func active_total() -> int:
 	var total: int = 0
 	for def: Dictionary in _defs:
@@ -152,6 +152,7 @@ func active_total() -> int:
 	return total
 
 
+#Test probe: the active filter count of one group.
 func active_in(group: String) -> int:
 	return TraitFilterDefs.active_count(_defs, group, filters(), _ents)
 
@@ -165,6 +166,15 @@ func group_names() -> Array[String]:
 
 func group_for(group: String) -> FilterGroup:
 	return _groups.get(group) as FilterGroup
+
+
+#Opens one named group and shuts every other one, without reporting it; an unknown name changes nothing.
+func open_group(group: String) -> void:
+	var target: FilterGroup = group_for(group)
+	if target == null or target.headless:
+		return
+	target.set_open(true)
+	_shut_others(target)
 
 
 func groups() -> Array[FilterGroup]:
@@ -200,9 +210,7 @@ func entitlements() -> Dictionary:
 
 
 func _build() -> void:
-	for child: Node in groups_box.get_children():
-		groups_box.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(groups_box)
 	_groups.clear()
 	for group_name: String in _group_order():
 		var group: FilterGroup = GROUP_SCENE.instantiate() as FilterGroup
@@ -211,6 +219,8 @@ func _build() -> void:
 		group.expanded = group_name == NO_GROUP
 		groups_box.add_child(group)
 		_groups[group_name] = group
+		if not group.headless:
+			group.toggled_open.connect(_on_group_toggled.bind(group))
 		for def: Dictionary in _defs:
 			if String(def.get("group", "")) != group_name:
 				continue
@@ -264,6 +274,17 @@ func _stored(def: Dictionary, filters_in: Dictionary) -> Variant:
 
 func _value_copy(value: Variant) -> Variant:
 	return (value as Array).duplicate() if value is Array else value
+
+
+func _on_group_toggled(open: bool, group: FilterGroup) -> void:
+	if open:
+		_shut_others(group)
+
+
+func _shut_others(keep: FilterGroup) -> void:
+	for other: FilterGroup in groups():
+		if other != keep:
+			other.set_open(false)
 
 
 func _on_section_changed(key: StringName, value: Variant) -> void:

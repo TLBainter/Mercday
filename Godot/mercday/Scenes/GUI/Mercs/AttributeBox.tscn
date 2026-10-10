@@ -1,8 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/AttributeBox.gd" id="1"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FeatureLock.tscn" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_AttributeBox.tres" id="5"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_box"]
 bg_color = Color(0.054902, 0.086275, 0.156863, 1)
@@ -68,7 +70,9 @@ size_flags_vertical = 4
 [node name="Abbr" type="Label" parent="Row"]
 mouse_filter = 2
 size_flags_vertical = 4
-theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
-theme_override_fonts/font = ExtResource("2")
-theme_override_font_sizes/font_size = 18
+theme_type_variation = &"TitleLabel"
 text = "CGN"
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("4")
+hint = ExtResource("5")

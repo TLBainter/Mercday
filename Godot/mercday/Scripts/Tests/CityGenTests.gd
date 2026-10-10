@@ -21,7 +21,9 @@ const BREAKS := 12
 const REPEAT_CHECKS := 10
 const BARREL := "Barrel"
 const MS_KEYS: Array[String] = ["ms", "ms_lots", "ms_spawn", "ms_alleys", "ms_objects"]
-const TIER_SEEDS: Array[Array] = [["Small", 9200, 20], ["Medium", 9300, 20], ["Large", 9400, 6],
+const REF_TIER := "Small"
+const REF_SEED := 9200
+const TIER_SEEDS: Array[Array] = [[REF_TIER, REF_SEED, 20], ["Medium", 9300, 20], ["Large", 9400, 6],
 	["Massive", 9500, 2]]
 
 static var _cache: Dictionary = {}
@@ -75,6 +77,11 @@ static func _map_of(tier: String, seed_i: int) -> BattlefieldArea:
 			var map: BattlefieldArea = item["map"]
 			return map
 	return null
+
+
+#The cached map the dump, finish and validator cases share.
+static func ref_map() -> BattlefieldArea:
+	return _map_of(REF_TIER, REF_SEED)
 
 
 static func _case_row(res: Dictionary) -> void:
@@ -392,65 +399,78 @@ static func _case_lots(res: Dictionary) -> void:
 		var lanes: Dictionary = _lane_ids(map)
 		for lv: Variant in (map.city.get("lots", []) as Array):
 			var lot: Dictionary = lv as Dictionary
-			var id: int = int(lot.get("id", -1))
-			var r: Rect2i = lot.get("rect", Rect2i())
-			var front: String = String(lot.get("front", ""))
-			var cls: String = String(lot.get("class", ""))
-			var down: bool = front == "N" or front == "S"
-			var frontage: int = r.size.x if down else r.size.y
-			var depth: int = r.size.y if down else r.size.x
-			var rows: Array = lot.get("rows", [])
-			if rows.is_empty():
-				fit.append("s%d lot %d names no row" % [s, id])
-			for rv: Variant in rows:
-				if _row_fits(String(rv), frontage, depth):
-					continue
-				fit.append("s%d lot %d row %s over %dx%d" % [s, id, String(rv), frontage, depth])
-			var kind: String = String(CityGrid.side_touch(map, r, front)["kind"])
-			if not CityGrid.side_has_access(map, r, front) or kind != String(lot.get("front_kind", "")):
-				access.append("s%d lot %d front %s meets '%s', says '%s'"
-					% [s, id, front, kind, String(lot.get("front_kind", ""))])
-			elif kind != "main":
-				var missed: String = _main_front_missed(map, lot, cls)
-				if missed != "":
-					access.append("s%d lot %d %s" % [s, id, missed])
-			var clash: bool = false
-			for y: int in range(maxi(r.position.y, 0), mini(r.end.y, map.length)):
-				for x: int in range(maxi(r.position.x, 0), mini(r.end.x, map.width)):
-					var i: int = y * map.width + x
-					var surf: int = map.surface_grid[i]
-					var owned: bool = map.building_id_at.has(Vector2i(x, y))
-					var lane: bool = surf == BattlefieldArea.SURF_ALLEY \
-						and lanes.has(map.street_grid[i])
-					var fine: bool = (surf == BattlefieldArea.SURF_LOT) if owned \
-						else (surf == BattlefieldArea.SURF_NATURE or lane)
-					if not fine:
-						cells.append("s%d lot %d cell %d,%d holds %d" % [s, id, x, y, surf])
-						clash = true
-						break
-					if owner[i] >= 0:
-						cells.append("s%d lot %d overlaps lot %d at %d,%d" % [s, id, owner[i], x, y])
-						clash = true
-						break
-					owner[i] = id
-				if clash:
-					break
-		var stray: bool = false
-		for y2: int in range(map.length):
-			var row2: int = y2 * map.width
-			for x2: int in range(map.width):
-				var i2: int = row2 + x2
-				if map.surface_grid[i2] != BattlefieldArea.SURF_LOT or owner[i2] >= 0:
-					continue
-				cells.append("s%d lot cell %d,%d belongs to no lot" % [s, x2, y2])
-				stray = true
-				break
-			if stray:
-				break
+			_lot_fit(lot, s, fit)
+			_lot_access(map, lot, s, access)
+			_lot_cells(map, lot, s, lanes, owner, cells)
+		_stray_lot_cell(map, s, owner, cells)
 	var total: int = maps().size()
 	TestFixtures.check(res, "citygen_lot_fit", fit.is_empty(), TestFixtures.detail(fit, total, "map(s)"))
 	TestFixtures.check(res, "citygen_lot_access", access.is_empty(), TestFixtures.detail(access, total, "map(s)"))
 	TestFixtures.check(res, "citygen_lot_cells", cells.is_empty(), TestFixtures.detail(cells, total, "map(s)"))
+
+
+#Every row a lot names fits its frontage and depth, and a lot names at least one row.
+static func _lot_fit(lot: Dictionary, s: int, fit: Array[String]) -> void:
+	var id: int = int(lot.get("id", -1))
+	var r: Rect2i = lot.get("rect", Rect2i())
+	var span: Vector2i = _frontage_depth(r, String(lot.get("front", "")))
+	var rows: Array = lot.get("rows", [])
+	if rows.is_empty():
+		fit.append("s%d lot %d names no row" % [s, id])
+	for rv: Variant in rows:
+		if _row_fits(String(rv), span.x, span.y):
+			continue
+		fit.append("s%d lot %d row %s over %dx%d" % [s, id, String(rv), span.x, span.y])
+
+
+#The front of a lot meets the street kind it names, and a lot off a main street had no main side to take.
+static func _lot_access(map: BattlefieldArea, lot: Dictionary, s: int, access: Array[String]) -> void:
+	var id: int = int(lot.get("id", -1))
+	var r: Rect2i = lot.get("rect", Rect2i())
+	var front: String = String(lot.get("front", ""))
+	var kind: String = String(CityGrid.side_touch(map, r, front)["kind"])
+	if not CityGrid.side_has_access(map, r, front) or kind != String(lot.get("front_kind", "")):
+		access.append("s%d lot %d front %s meets '%s', says '%s'"
+			% [s, id, front, kind, String(lot.get("front_kind", ""))])
+	elif kind != "main":
+		var missed: String = _main_front_missed(map, lot, String(lot.get("class", "")))
+		if missed != "":
+			access.append("s%d lot %d %s" % [s, id, missed])
+
+
+#The first cell of the lot with the wrong surface or an earlier lot as owner; owner marks the cells claimed so far.
+static func _lot_cells(map: BattlefieldArea, lot: Dictionary, s: int, lanes: Dictionary,
+		owner: PackedInt32Array, cells: Array[String]) -> void:
+	var id: int = int(lot.get("id", -1))
+	var r: Rect2i = lot.get("rect", Rect2i())
+	for y: int in range(maxi(r.position.y, 0), mini(r.end.y, map.length)):
+		for x: int in range(maxi(r.position.x, 0), mini(r.end.x, map.width)):
+			var i: int = y * map.width + x
+			var surf: int = map.surface_grid[i]
+			var owned: bool = map.building_id_at.has(Vector2i(x, y))
+			var lane: bool = surf == BattlefieldArea.SURF_ALLEY \
+				and lanes.has(map.street_grid[i])
+			var fine: bool = (surf == BattlefieldArea.SURF_LOT) if owned \
+				else (surf == BattlefieldArea.SURF_NATURE or lane)
+			if not fine:
+				cells.append("s%d lot %d cell %d,%d holds %d" % [s, id, x, y, surf])
+				return
+			if owner[i] >= 0:
+				cells.append("s%d lot %d overlaps lot %d at %d,%d" % [s, id, owner[i], x, y])
+				return
+			owner[i] = id
+
+
+#The first lot surface cell that no lot claimed.
+static func _stray_lot_cell(map: BattlefieldArea, s: int, owner: PackedInt32Array, cells: Array[String]) -> void:
+	for y: int in range(map.length):
+		var row: int = y * map.width
+		for x: int in range(map.width):
+			var i: int = row + x
+			if map.surface_grid[i] != BattlefieldArea.SURF_LOT or owner[i] >= 0:
+				continue
+			cells.append("s%d lot cell %d,%d belongs to no lot" % [s, x, y])
+			return
 
 
 static func _case_alleys(res: Dictionary) -> void:
@@ -537,7 +557,7 @@ static func _link_fault(map: BattlefieldArea, st: Dictionary, d: int) -> String:
 
 #"" when the cell carries alley paint under street id, no building and the curb height.
 static func _wrap_cell_fault(map: BattlefieldArea, c: Vector2i, id: int) -> String:
-	if not CityGrid.inside(map, c.x, c.y):
+	if not map.in_bounds_xy(c.x, c.y):
 		return "cell %d,%d lies outside the map" % [c.x, c.y]
 	var i: int = c.y * map.width + c.x
 	if map.surface_grid[i] != BattlefieldArea.SURF_ALLEY:
@@ -554,9 +574,9 @@ static func _wrap_cell_fault(map: BattlefieldArea, c: Vector2i, id: int) -> Stri
 
 #True when a 4-neighbour of the cell carries street paint another street id owns.
 static func _joins_street(map: BattlefieldArea, c: Vector2i, id: int) -> bool:
-	for step: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+	for step: Vector2i in DungeonGenerator.DIRS4:
 		var n: Vector2i = c + step
-		if not CityGrid.inside(map, n.x, n.y):
+		if not map.in_bounds_xy(n.x, n.y):
 			continue
 		var i: int = n.y * map.width + n.x
 		if CityGrid.is_street(map.surface_grid[i]) and map.street_grid[i] != id:
@@ -667,7 +687,7 @@ static func _case_reset(res: Dictionary) -> void:
 
 
 static func _case_finish(res: Dictionary) -> void:
-	var map: BattlefieldArea = _map_of("Small", 9200)
+	var map: BattlefieldArea = ref_map()
 	if map == null:
 		TestFixtures.check(res, "citygen_finish", false, "no cached map")
 		return
@@ -690,37 +710,23 @@ static func _case_finish(res: Dictionary) -> void:
 
 
 static func _case_dump(res: Dictionary) -> void:
-	var map: BattlefieldArea = _map_of("Small", 9200)
+	var map: BattlefieldArea = ref_map()
 	if map == null:
 		TestFixtures.check(res, "citygen_dump", false, "no cached map")
 		return
-	EncounterLogger._ensure_dir()
-	var dir: String = "%s/%s" % [EncounterLogger.LOG_DIR, SUB_DIR]
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
-	var stem: String = "%s/%s" % [dir, DUMP_NAME]
-	LevelDumpWriter.save(map, stem)
-	var lines: PackedStringArray = FileAccess.get_file_as_string(stem + "_level.txt").split("\n")
-	var head: int = -1
+	var lines: PackedStringArray = GenFixtures.dump_lines(map, SUB_DIR, DUMP_NAME)
 	var named: bool = false
-	for i: int in range(lines.size()):
-		if lines[i] == SURFACE_HEAD and head < 0:
-			head = i
-		if lines[i].begins_with("CITY:"):
+	for line: String in lines:
+		if line.begins_with("CITY:"):
 			named = true
-	var rows: int = 0
-	var legend: bool = head >= 0 and head + 1 < lines.size() and lines[head + 1].begins_with("Legend:")
-	if legend and head + 1 + map.length < lines.size():
-		for i2: int in range(map.length):
-			if lines[head + 2 + i2].length() != map.width:
-				break
-			rows += 1
-	TestFixtures.check(res, "citygen_dump", named and legend and rows == map.length,
-		"CITY line %s, legend %s, %d of %d row(s) of %d character(s)" % [str(named), str(legend),
-			rows, map.length, map.width])
+	var rows: int = GenFixtures.grid_rows(lines, SURFACE_HEAD, map)
+	TestFixtures.check(res, "citygen_dump", named and rows == map.length,
+		"CITY line %s, legend %s, %d of %d row(s) of %d character(s)" % [str(named), str(rows >= 0),
+			maxi(rows, 0), map.length, map.width])
 
 
 static func _case_breaks(res: Dictionary) -> void:
-	var map: BattlefieldArea = _map_of("Small", 9200)
+	var map: BattlefieldArea = ref_map()
 	if map == null:
 		TestFixtures.check(res, "citygen_validator_catches", false, "no cached map")
 		return
@@ -751,8 +757,7 @@ static func _break_curb(map: BattlefieldArea, missed: Array[String]) -> void:
 		return
 	var old: float = float(map.terrain_heights.get(walk, 0.0))
 	map.terrain_heights[walk] = 0.0
-	if not _reports(map, "curb"):
-		missed.append("a flattened curb")
+	_expect_report(map, "curb", "a flattened curb", missed)
 	map.terrain_heights[walk] = old
 
 
@@ -763,8 +768,7 @@ static func _break_nature(map: BattlefieldArea, missed: Array[String]) -> void:
 		return
 	var i: int = wild.y * map.width + wild.x
 	map.surface_grid[i] = BattlefieldArea.SURF_LOT
-	if not _reports(map, "outside every lot"):
-		missed.append("a lot cell outside every lot")
+	_expect_report(map, "outside every lot", "a lot cell outside every lot", missed)
 	map.surface_grid[i] = BattlefieldArea.SURF_NATURE
 
 
@@ -776,8 +780,7 @@ static func _break_carriage(map: BattlefieldArea, missed: Array[String]) -> void
 	var j: int = beside.y * map.width + beside.x
 	var was: int = map.surface_grid[j]
 	map.surface_grid[j] = BattlefieldArea.SURF_NATURE
-	if not _reports(map, "touches"):
-		missed.append("nature against a carriageway")
+	_expect_report(map, "touches", "nature against a carriageway", missed)
 	map.surface_grid[j] = was
 
 
@@ -788,8 +791,7 @@ static func _break_segment(map: BattlefieldArea, missed: Array[String]) -> void:
 		return
 	var width: int = int(seg.get("width", 0))
 	seg["width"] = width + 5
-	if not _reports(map, "says width"):
-		missed.append("a wrong segment width")
+	_expect_report(map, "says width", "a wrong segment width", missed)
 	seg["width"] = width
 
 
@@ -801,8 +803,7 @@ static func _break_lot_surface(map: BattlefieldArea, missed: Array[String]) -> v
 	var i: int = owned.y * map.width + owned.x
 	var was: int = map.surface_grid[i]
 	map.surface_grid[i] = BattlefieldArea.SURF_NATURE
-	if not _reports(map, "holds surface"):
-		missed.append("a building cell turned to nature")
+	_expect_report(map, "holds surface", "a building cell turned to nature", missed)
 	map.surface_grid[i] = was
 
 
@@ -813,8 +814,7 @@ static func _break_lot_building(map: BattlefieldArea, missed: Array[String]) -> 
 		return
 	var was: int = int(lot.get("building", -1))
 	lot["building"] = -1
-	if not _reports(map, "holds no building and did not fail"):
-		missed.append("a lot that lost its building")
+	_expect_report(map, "holds no building and did not fail", "a lot that lost its building", missed)
 	lot["building"] = was
 
 
@@ -825,8 +825,7 @@ static func _break_spawn(map: BattlefieldArea, missed: Array[String]) -> void:
 		return
 	var was: int = int(sp.get("side_b", -1))
 	sp["side_b"] = int(sp.get("side_a", -1))
-	if not _reports(map, "both teams spawn on side"):
-		missed.append("both teams on one side")
+	_expect_report(map, "both teams spawn on side", "both teams on one side", missed)
 	sp["side_b"] = was
 
 
@@ -837,8 +836,7 @@ static func _break_stats(map: BattlefieldArea, missed: Array[String]) -> void:
 		return
 	var was: int = int(stats.get("buildings", 0))
 	stats["buildings"] = was + 1
-	if not _reports(map, "stats buildings"):
-		missed.append("a wrong building count")
+	_expect_report(map, "stats buildings", "a wrong building count", missed)
 	stats["buildings"] = was
 
 
@@ -853,8 +851,7 @@ static func _break_lane(missed: Array[String]) -> void:
 			continue
 		var was: int = int(lane.get("back_door", -1))
 		lane["back_door"] = 9999
-		if not _reports(map, "names building 9999"):
-			missed.append("a lane that names no building")
+		_expect_report(map, "names building 9999", "a lane that names no building", missed)
 		lane["back_door"] = was
 		return
 	missed.append("no cached Small map holds a back lane")
@@ -872,8 +869,7 @@ static func _break_object(map: BattlefieldArea, missed: Array[String]) -> void:
 		"pw": 1, "ph": 1, "city": "alley"}
 	map._obs_map[key] = obs
 	map.obstacles.append(obs)
-	if not _reports(map, "on a protected cell"):
-		missed.append("a blocking object on a protected cell")
+	_expect_report(map, "on a protected cell", "a blocking object on a protected cell", missed)
 	map._obs_map.erase(key)
 	map.obstacles.pop_back()
 
@@ -891,8 +887,7 @@ static func _break_spacing(map: BattlefieldArea, missed: Array[String]) -> void:
 		missed.append("no free cell beside building 0")
 		return
 	map.building_id_at[cell] = 1
-	if not _reports(map, "stands within"):
-		missed.append("two buildings closer than the gap")
+	_expect_report(map, "stands within", "two buildings closer than the gap", missed)
 	map.building_id_at.erase(cell)
 
 
@@ -912,8 +907,7 @@ static func _break_ring(map: BattlefieldArea, missed: Array[String]) -> void:
 	if ring >= 0:
 		map.street_grid[i] = ring
 	map.terrain_heights[owned] = CURB
-	if not _reports(map, "holds surface"):
-		missed.append("a ring over a building cell")
+	_expect_report(map, "holds surface", "a ring over a building cell", missed)
 	map.surface_grid[i] = was
 	map.street_grid[i] = was_id
 	if had:
@@ -936,6 +930,12 @@ static func _reports(map: BattlefieldArea, needle: String) -> bool:
 		if text.contains(needle):
 			return true
 	return false
+
+
+#Adds label to missed when the validator does not report needle on the map as broken by the caller.
+static func _expect_report(map: BattlefieldArea, needle: String, label: String, missed: Array[String]) -> void:
+	if not _reports(map, needle):
+		missed.append(label)
 
 
 static func _find_surface(map: BattlefieldArea, want: int) -> Vector2i:
@@ -1084,7 +1084,7 @@ static func _first_unpaved(map: BattlefieldArea, rect: Rect2i, axis: String) -> 
 	for band: Rect2i in bands:
 		for y: int in range(band.position.y, band.end.y):
 			for x: int in range(band.position.x, band.end.x):
-				if not CityGrid.inside(map, x, y):
+				if not map.in_bounds_xy(x, y):
 					continue
 				var s: int = map.surface_grid[y * map.width + x]
 				if s != BattlefieldArea.SURF_MAIN and s != BattlefieldArea.SURF_SIDE \
@@ -1147,10 +1147,10 @@ static func _reach_fault(map: BattlefieldArea) -> String:
 		qy.remove_at(last)
 		if not skip.has(Vector2i(cx, cy)):
 			reached += 1
-		for step: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		for step: Vector2i in DungeonGenerator.DIRS4:
 			var nx: int = cx + step.x
 			var ny: int = cy + step.y
-			if nx < 0 or ny < 0 or nx >= map.width or ny >= map.length:
+			if not map.in_bounds_xy(nx, ny):
 				continue
 			var i2: int = ny * map.width + nx
 			if seen[i2] != 0 or not CityGrid.is_street(map.surface_grid[i2]):
@@ -1176,7 +1176,7 @@ static func _touch_fault(map: BattlefieldArea) -> String:
 						continue
 					var nx: int = x + dx
 					var ny: int = y + dy
-					if nx < 0 or ny < 0 or nx >= map.width or ny >= map.length:
+					if not map.in_bounds_xy(nx, ny):
 						continue
 					var s: int = map.surface_grid[ny * map.width + nx]
 					if s == BattlefieldArea.SURF_MAIN or s == BattlefieldArea.SURF_SIDE \
@@ -1210,13 +1210,17 @@ static func _main_front_missed(map: BattlefieldArea, lot: Dictionary, cls: Strin
 			continue
 		if String(CityGrid.side_touch(map, r, side)["kind"]) != "main":
 			continue
-		var down: bool = side == "N" or side == "S"
-		var frontage: int = r.size.x if down else r.size.y
-		var depth: int = r.size.y if down else r.size.x
-		if CityPlots.rows_that_fit(cls, frontage, depth).is_empty():
+		var span: Vector2i = _frontage_depth(r, side)
+		if CityPlots.rows_that_fit(cls, span.x, span.y).is_empty():
 			continue
 		return "passes over main side %s for '%s'" % [side, String(lot.get("front_kind", ""))]
 	return ""
+
+
+#Frontage in x and depth in y of a rect whose front faces side.
+static func _frontage_depth(r: Rect2i, side: String) -> Vector2i:
+	var down: bool = side == "N" or side == "S"
+	return Vector2i(r.size.x, r.size.y) if down else Vector2i(r.size.y, r.size.x)
 
 
 static func _row_fits(row_name: String, frontage: int, depth: int) -> bool:

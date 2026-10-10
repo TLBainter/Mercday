@@ -29,16 +29,16 @@ static func partner(merc: MercenaryData, ctx: Dictionary) -> MercenaryData:
 		return null
 	var run: ContractRun = ctx.get("run", null)
 	if run != null:
-		var on_team: MercenaryData = _by_uid(run.team, merc.beau_uid)
+		var on_team: MercenaryData = GuildRoster.by_uid(run.team, merc.beau_uid)
 		if on_team != null:
 			return on_team
 	var state: BattleState = ctx.get("state", null)
 	if state != null:
 		for team: Array in state.teams:
-			var on_field: MercenaryData = _by_uid(team, merc.beau_uid)
+			var on_field: MercenaryData = GuildRoster.by_uid(team, merc.beau_uid)
 			if on_field != null:
 				return on_field
-	return _by_uid(roster, merc.beau_uid)
+	return GuildRoster.by_uid(roster, merc.beau_uid)
 
 
 #The name a [Beau] placeholder takes; "" when the merc has no beau and the line is dropped.
@@ -60,10 +60,10 @@ static func begin_contract(run: ContractRun) -> Array[String]:
 	for merc: MercenaryData in run.team:
 		if merc == null or merc.beau_uid <= 0:
 			continue
-		var beau: MercenaryData = _by_uid(run.team, merc.beau_uid)
+		var beau: MercenaryData = GuildRoster.by_uid(run.team, merc.beau_uid)
 		if beau == null:
 			merc.beau_together = false
-			var away: MercenaryData = _by_uid(roster, merc.beau_uid)
+			var away: MercenaryData = GuildRoster.by_uid(roster, merc.beau_uid)
 			if away != null:
 				away.beau_together = false
 			continue
@@ -79,7 +79,7 @@ static func tick(now: int) -> Array[String]:
 	for merc: MercenaryData in roster:
 		if merc == null or merc.beau_uid <= 0:
 			continue
-		var beau: MercenaryData = _by_uid(roster, merc.beau_uid)
+		var beau: MercenaryData = GuildRoster.by_uid(roster, merc.beau_uid)
 		if beau == null:
 			continue
 		#A dead partner ends the accrual; no sighting can revert the bond scope after this.
@@ -162,13 +162,3 @@ static func _together(merc: MercenaryData, beau: MercenaryData) -> bool:
 	if merc.on_contract or beau.on_contract:
 		return false
 	return not RestSystem.is_resting(merc) and not RestSystem.is_resting(beau)
-
-
-static func _by_uid(pool: Array, uid: int) -> MercenaryData:
-	if uid <= 0:
-		return null
-	for entry in pool:
-		var merc: MercenaryData = entry as MercenaryData
-		if merc != null and merc.merc_uid == uid:
-			return merc
-	return null

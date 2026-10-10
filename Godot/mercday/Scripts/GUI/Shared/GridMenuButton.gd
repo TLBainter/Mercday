@@ -1,4 +1,4 @@
-class_name GridMenuButton extends Button
+class_name GridMenuButton extends BevelButton
 
 #A 160x160 dashboard tile: an icon over a label strip. Named GridMenuButton because MenuButton
 #is a built-in Godot class (SCENES.md calls this atom MenuButton). locked greys the tile out and
@@ -7,12 +7,9 @@ class_name GridMenuButton extends Button
 signal opened(scene: PackedScene)
 signal locked_pressed
 
-const HOVER_COLOR := Color(0.949020, 0.549020, 0.156863, 1)
-const NORMAL_COLOR := Color(0.952941, 0.917647, 0.843137, 1)
-const HOVER_Z_INDEX: int = 25
-const BEVEL_PX: float = 2.0
-const GRAY_TINT: Color = Color(GuiColors.GRAY_ICON_BRIGHTNESS, GuiColors.GRAY_ICON_BRIGHTNESS,
-	GuiColors.GRAY_ICON_BRIGHTNESS)
+const HOVER_COLOR := GuiColors.ORANGE
+const NORMAL_COLOR := GuiColors.CREAM
+const GRAY_TINT: Color = GuiColors.GREY_TINT
 const LOCK_BADGE_SIZE: Vector2 = Vector2(36, 40)
 const LOCK_BADGE_INSET: Vector2 = Vector2(10, 10)
 const DOT_INSET: float = 2.0
@@ -53,7 +50,20 @@ const DOT_GAP: float = 4.0
 var _hovered: bool = false
 
 
+func _init() -> void:
+	click_sfx = preload("res://Resources/Audio/Libraries/big_button_click.tres")
+	click_move = ButtonFx.ClickMove.POP
+	click_shade = ButtonFx.ClickShade.FLASH
+	hover_move = ButtonFx.HoverMove.LIFT
+	hover_shade = ButtonFx.HoverShade.GLOW
+	stay_move = ButtonFx.StayMove.NONE
+	stay_shade = ButtonFx.StayShade.NONE
+	active_move = ButtonFx.HoverMove.NONE
+	active_shade = ButtonFx.HoverShade.RING
+
+
 func _ready() -> void:
+	super()
 	mouse_entered.connect(func() -> void: hover(true))
 	mouse_exited.connect(func() -> void: hover(false))
 	pressed.connect(_on_pressed)
@@ -86,13 +96,11 @@ func _refresh() -> void:
 	icon_rect.tint = GRAY_TINT if locked else Color.WHITE
 	text_label.add_theme_color_override("font_color",
 		GuiColors.LOCKED_TEXT if locked else (HOVER_COLOR if _hovered else NORMAL_COLOR))
-	for state: StringName in [&"normal", &"hover", &"pressed", &"focus", &"disabled"]:
-		if locked:
-			add_theme_stylebox_override(state, _locked_button_style())
-		else:
-			remove_theme_stylebox_override(state)
+	if locked:
+		set_colors(GuiColors.LOCKED_BG, GuiColors.LOCKED_HI, GuiColors.LOCKED_LO, GuiColors.LOCKED_TEXT)
+	else:
+		apply_palette(kind)
 	_position_indicators()
-	queue_redraw()
 
 
 func set_icon(tex: Texture2D) -> void:
@@ -102,12 +110,11 @@ func set_icon(tex: Texture2D) -> void:
 
 func hover(on: bool) -> void:
 	_hovered = on
-	z_index = HOVER_Z_INDEX if on else 0
 	if not locked:
 		text_label.add_theme_color_override("font_color", HOVER_COLOR if on else NORMAL_COLOR)
 
 
-func text_color() -> Color:
+func caption_color() -> Color:
 	return text_label.get_theme_color("font_color")
 
 
@@ -128,33 +135,20 @@ func _position_indicators() -> void:
 	dot_node.on = dot
 
 
-func _locked_button_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = GuiColors.LOCKED_BG
-	return style
-
-
 func _lock_badge_style() -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color("#0a0f1c")
+	style.bg_color = GuiColors.INK
 	style.border_width_left = 2
 	style.border_width_top = 2
 	style.border_width_right = 2
 	style.border_width_bottom = 2
 	style.border_color = GuiColors.LOCK_RING
 	var art: Vector2i = Icons.size("lock") * LOCK_ICON_SCALE
-	var pad_x: float = (LOCK_BADGE_SIZE.x - float(art.x)) / 2.0
-	var pad_y: float = (LOCK_BADGE_SIZE.y - float(art.y)) / 2.0
-	style.content_margin_left = pad_x
-	style.content_margin_right = pad_x
-	style.content_margin_top = pad_y
-	style.content_margin_bottom = pad_y
+	var badge_pad_x: float = (LOCK_BADGE_SIZE.x - float(art.x)) / 2.0
+	var badge_pad_y: float = (LOCK_BADGE_SIZE.y - float(art.y)) / 2.0
+	style.content_margin_left = badge_pad_x
+	style.content_margin_right = badge_pad_x
+	style.content_margin_top = badge_pad_y
+	style.content_margin_bottom = badge_pad_y
 	return style
 
-
-#The lock family's shared bevel: a hi bar on top, a lo bar on the bottom, only while locked.
-func _draw() -> void:
-	if not locked:
-		return
-	draw_rect(Rect2(0.0, 0.0, size.x, BEVEL_PX), GuiColors.LOCKED_HI)
-	draw_rect(Rect2(0.0, size.y - BEVEL_PX, size.x, BEVEL_PX), GuiColors.LOCKED_LO)

@@ -25,10 +25,7 @@ static func from_dict(d: Dictionary) -> LegalLocationData:
 	loc.tele_cost = int(d.get("tele_cost", 0))
 	loc.avg_difficulty = float(d.get("avg_difficulty", 0.0))
 	loc.relationship = int(d.get("relationship", 0))
-	var lines: Array[String] = []
-	for line: Variant in (d.get("rules", []) as Array):
-		lines.append(str(line))
-	loc.rules = lines
+	loc.rules.assign(d.get("rules", []))
 	return loc
 
 

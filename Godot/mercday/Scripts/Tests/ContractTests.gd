@@ -7,6 +7,8 @@ class_name ContractTests
 static func run() -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
 	_case_build(res)
+	_case_old_sheet(res)
+	_case_rows(res)
 	_case_builder_military(res)
 	_case_builder_entertain(res)
 	_case_builder_events(res)
@@ -32,12 +34,30 @@ static func run() -> bool:
 	_case_field_for(res)
 	_case_log_path(res)
 	_case_generator(res)
+	_case_generator_mercs(res)
+	_case_local_cell(res)
 	_case_generator_locations(res)
+	_case_location_pool(res)
+	_case_local_home(res)
+	_case_generate_for(res)
+	_case_check_contract(res)
+	_case_target_parse(res)
+	_case_target_complete(res)
+	_case_target_display(res)
+	_case_description_pick(res)
+	_case_fill_tags(res)
+	_case_requestor_name(res)
+	_case_target_name(res)
+	_case_build_tags(res)
 	await _case_manager_flow(res)
 	_case_manager_end_rest(res)
 	await _case_between_events(res)
+	await _case_local_run(res)
 	_case_log_write(res)
 	_case_merc_line(res)
+	_case_event_config_validator(res)
+	await MatchScoreTests.add_cases(res)
+	_case_one_roll(res)
 	return TestFixtures.summarize(res, "CONTRACT")
 
 
@@ -54,16 +74,20 @@ static func _pct(boosts: Dictionary, name: String) -> float:
 	return float(boosts.get(name, -1.0))
 
 
-static func _utility(name: String) -> UtilityTraitData:
-	var u := UtilityTraitData.new()
-	u.utility_name = name
-	return u
+#The contract type of that name, or null after recording a failed check under label.
+static func _loaded_type(res: Dictionary, label: String, type_name: String) -> ContractData:
+	var c: ContractData = ContractLibrary.contract_type(type_name)
+	if c == null:
+		TestFixtures.check(res, label, false, "%s contract resource did not load" % type_name)
+	return c
 
 
 static func _case_build(res: Dictionary) -> void:
 	var out: Dictionary = ContractResourceBuilder.build_all()
-	TestFixtures.check(res, "build_contract_count", int(out["contracts"]) == 8, "contracts %d" % int(out["contracts"]))
-	TestFixtures.check(res, "build_event_count", int(out["events"]) == 19, "events %d" % int(out["events"]))
+	var live: int = _live_contract_count()
+	TestFixtures.check(res, "build_contract_count", int(out["contracts"]) == live,
+		"contracts %d of %d" % [int(out["contracts"]), live])
+	TestFixtures.check(res, "build_event_count", int(out["events"]) == 23, "events %d" % int(out["events"]))
 	var texts: Array[String] = ContractResourceBuilder.last_warnings
 	#Known TSV data gaps; tighten to warnings == 0 once the designer fills these cells.
 	var allowed: Array[String] = [
@@ -78,10 +102,153 @@ static func _case_build(res: Dictionary) -> void:
 		% [int(out["warnings"]), "none" if unexpected.is_empty() else ", ".join(unexpected)])
 
 
+#The live Contracts.tsv rows build_all writes: distinct file stems of the nonblank row names (as BuilderTests counts).
+static func _live_contract_count() -> int:
+	var seen: Dictionary = {}
+	for row: Dictionary in DataManager.contract_rows:
+		var name: String = ContractResourceBuilder.row_name(row)
+		if name != "":
+			seen[ContractResourceBuilder.file_stem(name).to_lower()] = true
+	return seen.size()
+
+
+#The stock rows live in Contracts_OLD.tsv and Resources/Contracts_OLD; the live sheet and folder hold none of them.
+static func _case_old_sheet(res: Dictionary) -> void:
+	var old_names: Array[String] = []
+	var untagged: Array[String] = []
+	for row: Dictionary in DataManager.contract_rows_old:
+		old_names.append(ContractResourceBuilder.row_name(row))
+		if not bool(row.get("_old", false)):
+			untagged.append(ContractResourceBuilder.row_name(row))
+	var missing: Array[String] = []
+	for stock: String in HarnessEntry.STOCK_CONTRACTS:
+		if not old_names.has(stock):
+			missing.append(stock)
+	TestFixtures.check(res, "old_sheet_rows", missing.is_empty(),
+		"%d old rows" % old_names.size() if missing.is_empty() else "missing: %s" % ", ".join(missing))
+	var live_stock: Array[String] = []
+	var live: Array[PackedStringArray] = TsvReader.load_tsv(DataManager.CONTRACTS_TSV)
+	for i: int in range(1, live.size()):
+		var name: String = TsvReader.row_get(live[i], 0)
+		if HarnessEntry.STOCK_CONTRACTS.has(name):
+			live_stock.append(name)
+	TestFixtures.check(res, "live_rows_not_stock", live_stock.is_empty() and live.size() >= 2,
+		"%d live lines; stock: %s" % [live.size(), ", ".join(live_stock)])
+	var misplaced: Array[String] = []
+	for stock: String in HarnessEntry.STOCK_CONTRACTS:
+		var stem: String = ContractResourceBuilder.file_stem(stock)
+		if FileAccess.file_exists("res://Resources/Contracts/%s.tres" % stem) \
+				or not FileAccess.file_exists("res://Resources/Contracts_OLD/%s.tres" % stem):
+			misplaced.append(stem)
+	TestFixtures.check(res, "stock_tres_moved", misplaced.is_empty(),
+		TestFixtures.detail(misplaced, HarnessEntry.STOCK_CONTRACTS.size(), "stems"))
+	var live_tagged: Array[String] = []
+	for row: Dictionary in DataManager.contract_rows:
+		if bool(row.get("_old", false)) and not old_names.has(ContractResourceBuilder.row_name(row)):
+			live_tagged.append(ContractResourceBuilder.row_name(row))
+	for row: Dictionary in DataManager.contract_rows_from(live):
+		if bool(row.get("_old", false)):
+			live_tagged.append(ContractResourceBuilder.row_name(row))
+	TestFixtures.check(res, "old_rows_tagged", untagged.is_empty() and live_tagged.is_empty() and not old_names.is_empty(),
+		"untagged %s; live tagged %s" % [", ".join(untagged), ", ".join(live_tagged)])
+
+
+#A row named apart from its type lists, generates, counts for rest demand and posts by its own name; build_all prunes it.
+static func _case_rows(res: Dictionary) -> void:
+	TestFixtures.check(res, "rows_harness_pin", ContractLibrary.pinned_names == HarnessEntry.STOCK_CONTRACTS,
+		"pin %s" % ", ".join(ContractLibrary.pinned_names))
+	var saved_rows: Array[Dictionary] = DataManager.contract_rows
+	var saved_pin: Array[String] = ContractLibrary.pinned_names.duplicate()
+	var before_names: Array[String] = ContractLibrary.contract_names()
+	var military: Dictionary = {}
+	for row: Dictionary in saved_rows:
+		if ContractResourceBuilder.row_name(row) == "Military":
+			military = row
+			break
+	if military.is_empty():
+		TestFixtures.check(res, "rows_listed", false, "no Military row")
+		return
+	var extra: Dictionary = military.duplicate(true)
+	extra["Contract Name"] = "TEST Row Named"
+	extra["Contract Type"] = "TEST Kind"
+	extra["15% Knowledge"] = "TEST Lore"
+	extra["_row"] = 99
+	var rows: Array[Dictionary] = []
+	rows.append_array(saved_rows)
+	rows.append(extra)
+	DataManager.contract_rows = rows
+	ContractResourceBuilder.build_all()
+	var unpinned: Array[String] = []
+	ContractLibrary.pinned_names = unpinned
+	var names: Array[String] = ContractLibrary.row_names()
+	var types: Array[String] = ContractLibrary.contract_type_names()
+	TestFixtures.check(res, "rows_listed", names.has("TEST Row Named") and types.has("TEST Kind")
+		and not names.has("TEST Kind") and ContractLibrary.contracts_for_type("TEST Kind").size() == 1,
+		"rows %s; types %s" % [", ".join(names), ", ".join(types)])
+	var named: ContractData = ContractGenerator.generate_named("TEST Row Named")
+	TestFixtures.check(res, "rows_generate_named",
+		named != null and named.contract_name == "TEST Row Named" and named.contract_type == "TEST Kind",
+		"contract %s" % ("null" if named == null else "%s of %s" % [named.contract_name, named.contract_type]))
+	var template: ContractData = ContractLibrary.contract_type("TEST Kind")
+	var stock: ContractData = ContractLibrary.contract_type("Military")
+	var by_type: ContractData = ContractGenerator.generate("TEST Kind")
+	TestFixtures.check(res, "rows_type_template", template != null and template.contract_name == "TEST Row Named"
+		and stock != null and stock.contract_name == "Military" and by_type != null and by_type.contract_type == "TEST Kind",
+		"TEST Kind %s, Military %s, generate %s" % ["null" if template == null else template.contract_name,
+		"null" if stock == null else stock.contract_name, "null" if by_type == null else by_type.contract_type])
+	var kept_table: Dictionary = RestActions._demand_table
+	var kept_max: float = RestActions._demand_max
+	var kept_built: bool = RestActions._demand_built
+	RestActions._demand_built = false
+	RestActions._demand_table = {}
+	RestActions._demand_max = 0.0
+	var lore: float = RestActions.demand("knowledge:TEST Lore")
+	RestActions._demand_table = kept_table
+	RestActions._demand_max = kept_max
+	RestActions._demand_built = kept_built
+	TestFixtures.check(res, "rows_rest_demand", lore == 3.0, "knowledge:TEST Lore %.2f, want 3.00" % lore)
+	var kinds: Array[String] = ["TEST Kind"]
+	var anywhere: Array[String] = []
+	var off: String = ""
+	for _i: int in range(20):
+		var drawn: ContractData = ContractGenerator.generate_for(kinds, anywhere, 0.5, 5.0)
+		if off == "" and (drawn == null or drawn.contract_name != "TEST Row Named"):
+			off = "null" if drawn == null else drawn.contract_name
+	TestFixtures.check(res, "rows_generate_for_type", off == "", "first draw off the row: %s" % (off if off != "" else "none"))
+	var board := ContractBoard.new()
+	var kept_roster: Array[MercenaryData] = []
+	kept_roster.assign(GuildRoster.mercs)
+	GuildRoster.reset()
+	board.launch(0, names.size())
+	GuildRoster.set_roster(kept_roster)
+	var posted: Array[String] = []
+	for entry: BoardEntry in board.entries:
+		posted.append(entry.contract.contract_name if entry.contract != null else "")
+	posted.sort()
+	TestFixtures.check(res, "rows_board_every_row", posted == names, "posted %s" % ", ".join(posted))
+	var only: Array[String] = ["Military"]
+	ContractLibrary.pinned_names = only.duplicate()
+	var pinned_rows: Array[String] = ContractLibrary.row_names()
+	var pinned_types: Array[String] = ContractLibrary.contract_type_names()
+	var pin_ok: bool = (pinned_rows == only and pinned_types == only
+		and ContractLibrary.contracts_for_type("TEST Kind").is_empty()
+		and ContractLibrary.contracts_for_type("Military").size() == 1
+		and ContractLibrary.contract_type("TEST Kind") == null
+		and ContractGenerator.generate_named("TEST Row Named") != null
+		and ContractLibrary.contract_names().has("TEST Row Named"))
+	TestFixtures.check(res, "rows_pin_filters", pin_ok,
+		"rows %s; types %s" % [", ".join(pinned_rows), ", ".join(pinned_types)])
+	ContractLibrary.pinned_names = saved_pin
+	DataManager.contract_rows = saved_rows
+	ContractResourceBuilder.build_all()
+	var after_names: Array[String] = ContractLibrary.contract_names()
+	TestFixtures.check(res, "rows_cleanup", not FileAccess.file_exists(ContractResourceBuilder.contract_path("TEST Row Named"))
+		and after_names == before_names, "names %s" % ", ".join(after_names))
+
+
 static func _case_builder_military(res: Dictionary) -> void:
-	var c: ContractData = ContractLibrary.contract_type("Military")
+	var c: ContractData = _loaded_type(res, "builder_military", "Military")
 	if c == null:
-		TestFixtures.check(res, "builder_military", false, "Military contract resource did not load")
 		return
 	TestFixtures.check(res, "builder_military_primary_pool",
 		_names_eq(c.primary_event_pool, ["Assist with the Skirmish", "Battle"]),
@@ -112,9 +279,8 @@ static func _case_builder_military(res: Dictionary) -> void:
 
 
 static func _case_builder_entertain(res: Dictionary) -> void:
-	var c: ContractData = ContractLibrary.contract_type("Entertain")
+	var c: ContractData = _loaded_type(res, "builder_entertain", "Entertain")
 	if c == null:
-		TestFixtures.check(res, "builder_entertain", false, "Entertain contract resource did not load")
 		return
 	TestFixtures.check(res, "builder_entertain_primary_pool",
 		_names_eq(c.primary_event_pool, ["Put on a Show", "Competition"]),
@@ -237,9 +403,8 @@ static func _case_penalty_match(res: Dictionary) -> void:
 
 
 static func _case_modifiers_apply_revert(res: Dictionary) -> void:
-	var contract: ContractData = ContractLibrary.contract_type("Military")
+	var contract: ContractData = _loaded_type(res, "modifiers_apply_revert", "Military")
 	if contract == null:
-		TestFixtures.check(res, "modifiers_apply_revert", false, "Military contract resource did not load")
 		return
 	#A clean probe carries no trait multipliers, so the boosted values stay exact.
 	var probe := MercenaryData.new()
@@ -280,9 +445,8 @@ static func _case_modifiers_apply_revert(res: Dictionary) -> void:
 
 
 static func _case_circumstance_boost(res: Dictionary) -> void:
-	var contract: ContractData = ContractLibrary.contract_type("Military")
+	var contract: ContractData = _loaded_type(res, "circumstance_boost", "Military")
 	if contract == null:
-		TestFixtures.check(res, "circumstance_boost", false, "Military contract resource did not load")
 		return
 	var display: String = ConstCircumstances.ATTACK_DEXTERITY
 	var flagged: MercenaryData = MercGenerator.generate(0)
@@ -330,7 +494,7 @@ static func _case_set_level(res: Dictionary) -> void:
 	var merc: MercenaryData = MercGenerator.generate(0)
 	var level_before: float = float(merc.stats.get("level", 0.0))
 	var base_before: float = float(merc.stats.get("base_success_chance", 0.0))
-	ContractModifiers.set_level(merc, 5)
+	TestFixtures.set_level(merc, 5)
 	TestFixtures.check(res, "set_level_level", int(merc.stats.get("level", 0)) == 5, "level %s" % str(merc.stats.get("level", 0)))
 	var base_after: float = float(merc.stats.get("base_success_chance", -1.0))
 	#Base success chance is the level, so a generated multiplier on either stat scales the delta.
@@ -343,7 +507,7 @@ static func _case_set_level(res: Dictionary) -> void:
 	probe.max_stats = {"size": 0, "max_cognition": 4, "max_dexterity": 20, "max_vigor": 4, "max_wile": 4}
 	probe.stats = StatCalculator.calculate_all(probe)
 	var speed_before: float = float(probe.stats.get("speed", 0.0))
-	ContractModifiers.set_level(probe, 5)
+	TestFixtures.set_level(probe, 5)
 	var speed_after: float = float(probe.stats.get("speed", 0.0))
 	TestFixtures.check(res, "set_level_speed", absf(speed_after - (speed_before + 5.0)) < 0.001,
 		"speed %.3f -> %.3f" % [speed_before, speed_after])
@@ -365,7 +529,7 @@ static func _case_overall_success(res: Dictionary) -> void:
 	var merc := MercenaryData.new()
 	merc.merc_name = "Probe"
 	merc.stats = {"base_success_chance": 5.0, "cognition": 2, "level": 5.0}
-	merc.tools = [_utility("Scout's Kit")] as Array[UtilityTraitData]
+	merc.tools = [ContractFixtures.utility("Scout's Kit")] as Array[UtilityTraitData]
 	var contract: ContractData = _synthetic_contract()
 	var team: Array[MercenaryData] = [merc]
 	var info: Dictionary = OverallSuccess.for_merc(contract, team, merc, null)
@@ -375,7 +539,7 @@ static func _case_overall_success(res: Dictionary) -> void:
 		and is_equal_approx(float(info["net_percent"]), 5.0) \
 		and absf(float(info["value"]) - 5.25) < 0.0001 and absf(float(info["delta"]) - 0.25) < 0.0001
 	TestFixtures.check(res, "overall_success_no_event", plain_ok, OverallSuccess.describe(merc, info))
-	merc.knowledges = [_utility("Dueling")] as Array[UtilityTraitData]
+	merc.knowledges = [ContractFixtures.utility("Dueling")] as Array[UtilityTraitData]
 	var event: EventData = ContractLibrary.event("Tavern Brawl")
 	var with_event: Dictionary = OverallSuccess.for_merc(contract, team, merc, event)
 	var event_ok: bool = is_equal_approx(float(with_event["relevance_percent"]), 15.0) \
@@ -395,11 +559,11 @@ static func _case_relevance(res: Dictionary) -> void:
 	var brewer := MercenaryData.new()
 	brewer.merc_name = "Brewer"
 	brewer.stats = {}
-	brewer.tools = [_utility("Brewer's Kit")] as Array[UtilityTraitData]
+	brewer.tools = [ContractFixtures.utility("Brewer's Kit")] as Array[UtilityTraitData]
 	var plain := MercenaryData.new()
 	plain.merc_name = "Plain"
 	plain.stats = {}
-	plain.tools = [_utility("Miner's Kit")] as Array[UtilityTraitData]
+	plain.tools = [ContractFixtures.utility("Miner's Kit")] as Array[UtilityTraitData]
 	var hit: float = OverallSuccess.relevance_percent(brewer, event)
 	var miss: float = OverallSuccess.relevance_percent(plain, event)
 	TestFixtures.check(res, "relevance_tool_prefix", is_equal_approx(hit, 15.0), "relevance %.1f" % hit)
@@ -410,8 +574,8 @@ static func _case_area_lookup(res: Dictionary) -> void:
 	var tavern: Dictionary = DataManager.get_area_by_name("Tavern")
 	TestFixtures.check(res, "area_lookup_tavern", String(tavern.get("type", "")) == "Interior", "area %s" % str(tavern.get("type", "")))
 	TestFixtures.check(res, "area_lookup_missing", DataManager.get_area_by_name("Nowhere").is_empty(), "empty for an unknown area")
-	var cathistii: LocationData = DataManager.locations.get("Cathistii") as LocationData
-	var aerdis: LocationData = DataManager.locations.get("Aerdis") as LocationData
+	var cathistii: LocationData = ContractFixtures.location("Cathistii")
+	var aerdis: LocationData = ContractFixtures.location("Aerdis")
 	var raw_a: String = String(cathistii.get_meta("temperature_raw", "x")) if cathistii != null else "missing"
 	var raw_b: String = String(aerdis.get_meta("temperature_raw", "x")) if aerdis != null else "missing"
 	TestFixtures.check(res, "location_temperature_raw", raw_a == "" and raw_b == "Above 25",
@@ -424,7 +588,7 @@ static func _case_terrain_rule(res: Dictionary) -> void:
 	}
 	var bad_env: Array[String] = []
 	for loc_name: String in envs:
-		var loc: LocationData = DataManager.locations.get(loc_name, null) as LocationData
+		var loc: LocationData = ContractFixtures.location(loc_name)
 		var got: String = ContractTerrain.terrain_environment(loc)
 		if got != String(envs[loc_name]):
 			bad_env.append("%s '%s' != '%s'" % [loc_name, got, String(envs[loc_name])])
@@ -445,14 +609,14 @@ static func _case_terrain_rule(res: Dictionary) -> void:
 	}
 	var bad: Array[String] = []
 	for loc_name: String in expected:
-		var loc: LocationData = DataManager.locations.get(loc_name, null) as LocationData
+		var loc: LocationData = ContractFixtures.location(loc_name)
 		var got: String = ContractTerrain.weights_text(ContractTerrain.candidates(loc))
 		if got != String(expected[loc_name]):
 			bad.append("%s '%s' != '%s'" % [loc_name, got, String(expected[loc_name])])
 	TestFixtures.check(res, "terrain_candidates", bad.is_empty(),
 		"all 7 locations map as expected" if bad.is_empty() else ", ".join(bad))
-	var aerdis: LocationData = DataManager.locations.get("Aerdis", null) as LocationData
-	var sea: LocationData = DataManager.locations.get("Gledd Sea", null) as LocationData
+	var aerdis: LocationData = ContractFixtures.location("Aerdis")
+	var sea: LocationData = ContractFixtures.location("Gledd Sea")
 	var desc_a: String = ContractTerrain.describe(aerdis)
 	var desc_b: String = ContractTerrain.describe(sea)
 	TestFixtures.check(res, "terrain_describe",
@@ -499,9 +663,9 @@ static func _case_terrain_odds(res: Dictionary) -> void:
 	for text: String in warnings:
 		if text.find("column Terrain Odds") >= 0:
 			odds_warnings += 1
-	TestFixtures.check(res, "odds_validator", odds_warnings == 3 and warnings.size() == 3,
+	TestFixtures.check(res, "odds_validator", odds_warnings == 2 and warnings.size() == 2,
 		"%d Terrain Odds warning(s) of %d" % [odds_warnings, warnings.size()])
-	var rossade: LocationData = DataManager.locations.get("Rossade", null) as LocationData
+	var rossade: LocationData = ContractFixtures.location("Rossade")
 	var forced := ContractData.new()
 	forced.contract_type = "TEST Forced"
 	forced.terrain_odds = _terrain_odds([["Cavern", 100]])
@@ -538,6 +702,111 @@ static func _case_terrain_odds(res: Dictionary) -> void:
 		"cavern share %.1f%% of 300 draws" % share)
 
 
+static func _split_probe(entries: Array) -> ContractData:
+	var probe := ContractData.new()
+	probe.contract_type = "TEST Split"
+	probe.terrain_odds = _terrain_odds(entries)
+	return probe
+
+
+#400 draws of probe at loc: forced hits per area name, "_pool" location draws in the pool, "_off" the rest.
+static func _split_counts(loc: LocationData, probe: ContractData) -> Dictionary:
+	var counts: Dictionary = {"_pool": 0, "_off": 0, "_hows": []}
+	for _i: int in range(400):
+		var drawn: Dictionary = ContractTerrain.draw(loc, probe)
+		var name: String = String((drawn["area"] as Dictionary).get("name", ""))
+		var how: String = String(drawn["how"])
+		if how.find(" odds (") >= 0:
+			counts[name] = int(counts.get(name, 0)) + 1
+			(counts["_hows"] as Array).append(how)
+		elif name == "Arctic Mountain" or name == "Cavern":
+			counts["_pool"] = int(counts["_pool"]) + 1
+		else:
+			counts["_off"] = int(counts["_off"]) + 1
+	return counts
+
+
+#Area names of 20 draws at loc after seed(4242).
+static func _seeded_names(loc: LocationData, probe: ContractData) -> Array[String]:
+	var out: Array[String] = []
+	seed(4242)
+	for _i: int in range(20):
+		out.append(String((ContractTerrain.draw(loc, probe)["area"] as Dictionary).get("name", "")))
+	return out
+
+
+static func _odds_warnings_of(entries: Array) -> Array[String]:
+	var out: Array[String] = []
+	for text: String in ContractDataValidator.validate_contract(_split_probe(entries), {"_row": 99}):
+		if text.find("column Terrain Odds") >= 0:
+			out.append(text)
+	return out
+
+
+static func _case_one_roll(res: Dictionary) -> void:
+	var rossade: LocationData = ContractFixtures.location("Rossade")
+	var full: Dictionary = _split_counts(rossade, _split_probe([["Cavern", 15], ["Dungeon", 85]]))
+	var full_cavern: int = int(full.get("Cavern", 0))
+	var full_dungeon: int = int(full.get("Dungeon", 0))
+	var full_hows_ok: bool = true
+	for how: String in full["_hows"]:
+		if how.find("(Dungeon") >= 0 and how != "TEST Split odds (Dungeon 85)":
+			full_hows_ok = false
+	TestFixtures.check(res, "one_roll_full", full_cavern + full_dungeon == 400 and full_cavern >= 24
+		and full_cavern <= 96 and full_hows_ok, "cavern %d dungeon %d hows ok %s" % [full_cavern, full_dungeon,
+		str(full_hows_ok)])
+	var clipped: Dictionary = _split_counts(rossade, _split_probe([["Cavern", 15], ["Dungeon", 100]]))
+	var clipped_cavern: int = int(clipped.get("Cavern", 0))
+	var clipped_forced: int = clipped_cavern + int(clipped.get("Dungeon", 0))
+	TestFixtures.check(res, "one_roll_clipped", clipped_forced == 400 and clipped_cavern >= 24 and clipped_cavern <= 96,
+		"forced %d cavern %d" % [clipped_forced, clipped_cavern])
+	var rest: Dictionary = _split_counts(rossade, _split_probe([["Dungeon", 30]]))
+	var rest_dungeon: int = int(rest.get("Dungeon", 0))
+	TestFixtures.check(res, "one_roll_remainder", rest_dungeon >= 74 and rest_dungeon <= 166
+		and rest_dungeon + int(rest["_pool"]) == 400, "dungeon %d pool %d off %d" % [rest_dungeon, int(rest["_pool"]),
+		int(rest["_off"])])
+	var invalid: Dictionary = _split_counts(rossade, _split_probe([["Forest", 50], ["Dungeon", 50]]))
+	var invalid_dungeon: int = int(invalid.get("Dungeon", 0))
+	TestFixtures.check(res, "one_roll_invalid_range", int(invalid.get("Forest", 0)) == 0 and invalid_dungeon >= 150
+		and invalid_dungeon <= 250 and invalid_dungeon + int(invalid["_pool"]) == 400,
+		"forest %d dungeon %d pool %d off %d" % [int(invalid.get("Forest", 0)), invalid_dungeon, int(invalid["_pool"]),
+		int(invalid["_off"])])
+	var past: Dictionary = _split_counts(rossade, _split_probe([["Dungeon", 100], ["Cavern", 50]]))
+	TestFixtures.check(res, "one_roll_past_full", int(past.get("Dungeon", 0)) == 400 and int(past.get("Cavern", 0)) == 0,
+		"dungeon %d cavern %d" % [int(past.get("Dungeon", 0)), int(past.get("Cavern", 0))])
+	#LANE E FACT: a percent below 1 takes no range; the builder cannot store 0 (#578).
+	var zero: Dictionary = _split_counts(rossade, _split_probe([["Cavern", 0], ["Dungeon", 100]]))
+	TestFixtures.check(res, "one_roll_zero_share", int(zero.get("Dungeon", 0)) == 400,
+		"dungeon %d of 400" % int(zero.get("Dungeon", 0)))
+	var plain: Array[String] = _seeded_names(rossade, null)
+	var no_roll_ok: bool = true
+	var no_roll_why: String = "all equal"
+	for entries: Array in [[["Forest", 50]], [["Cavern", 0]], [["Cavern", -1]]]:
+		var names: Array[String] = _seeded_names(rossade, _split_probe(entries))
+		if not _names_eq(names, plain):
+			no_roll_ok = false
+			no_roll_why = "%s drew %s, null drew %s" % [str(entries), str(names), str(plain)]
+	TestFixtures.check(res, "one_roll_no_valid_no_roll", no_roll_ok, no_roll_why)
+	var split: ContractData = _split_probe([["Cavern", 15], ["Dungeon", 85]])
+	var single_ok: int = 0
+	for s: int in range(4243, 4263):
+		seed(s)
+		ContractTerrain.draw(rossade, split)
+		var a: int = randi()
+		seed(s)
+		randi_range(1, 100)
+		if randi() == a:
+			single_ok += 1
+	TestFixtures.check(res, "one_roll_single_call", single_ok == 20, "%d of 20 seeds made one call" % single_ok)
+	var past_warnings: Array[String] = _odds_warnings_of([["Dungeon", 100], ["Cavern", 50]])
+	TestFixtures.check(res, "odds_validator_past_full", past_warnings.size() == 1
+		and past_warnings[0].find("Cavern never draws") >= 0, str(past_warnings))
+	var dup_warnings: Array[String] = _odds_warnings_of([["Cavern", 10], ["Cavern", 20]])
+	TestFixtures.check(res, "odds_validator_duplicate", dup_warnings.size() == 1
+		and dup_warnings[0].find("duplicate area Cavern") >= 0, str(dup_warnings))
+	randomize()
+
+
 static func _case_enemy_counter(res: Dictionary) -> void:
 	var ctx: Dictionary = {"merc_count": 3, "average_level": 5.0, "bad_luck_roll": 0}
 	var a: int = OpponentGenerator.eval_count("party.merc_count + 2", ctx)
@@ -556,23 +825,21 @@ static func _case_carry_and_casualties(res: Dictionary) -> void:
 	var b: Array[MercenaryData] = [MercGenerator.generate(1)]
 	a[0].current_hp = 3
 	a[0].current_ep = 2
-	var state: BattleState = BattleState.create(a, b, null, true)
-	var carry_ok: bool = a[0].current_hp == 3 and a[0].current_ep == 2 and state.carry_resources
-	TestFixtures.check(res, "carry_resources_kept", carry_ok,
-		"hp %d ep %d carry %s" % [a[0].current_hp, a[0].current_ep, str(state.carry_resources)])
+	var state: BattleState = BattleState.create(a, b, null)
+	var pools_kept: bool = a[0].current_hp == 3 and a[0].current_ep == 2
+	TestFixtures.check(res, "create_keeps_pools", pools_kept, "hp %d ep %d" % [a[0].current_hp, a[0].current_ep])
 	a[0].is_dead = true
-	AutoBattle._finalize(state, Callable())
+	AutoBattle.finalize(state, Callable())
 	var cas_ok: bool = state.casualties.size() == 1 and state.casualties[0] == a[0] \
 		and a[0].is_dead and a[0].current_hp == 3
 	TestFixtures.check(res, "carry_casualties_recorded", cas_ok,
 		"casualties %d dead %s hp %d" % [state.casualties.size(), str(a[0].is_dead), a[0].current_hp])
 	var state2: BattleState = BattleState.create(a, b, null)
-	var reset_ok: bool = not a[0].is_dead and a[0].current_hp == int(a[0].stats.get("maximum_hit_points", -1))
-	TestFixtures.check(res, "carry_off_resets", reset_ok,
-		"dead %s hp %d max %d" % [str(a[0].is_dead), a[0].current_hp, int(a[0].stats.get("maximum_hit_points", -1))])
-	AutoBattle._finalize(state2, Callable())
-	TestFixtures.check(res, "carry_off_no_casualties", state2.casualties.is_empty(),
-		"casualties %d" % state2.casualties.size())
+	TestFixtures.check(res, "create_never_refills", a[0].is_dead and a[0].current_hp == 3,
+		"dead %s hp %d" % [str(a[0].is_dead), a[0].current_hp])
+	AutoBattle.finalize(state2, Callable())
+	TestFixtures.check(res, "finalize_never_revives", state2.casualties.size() == 1 and a[0].is_dead,
+		"casualties %d dead %s" % [state2.casualties.size(), str(a[0].is_dead)])
 
 
 static func _case_forced_generation(res: Dictionary) -> void:
@@ -584,21 +851,16 @@ static func _case_forced_generation(res: Dictionary) -> void:
 	TestFixtures.check(res, "forced_level_applied", level_ok,
 		"level %s base %s" % [str(m.stats.get("level", -1)), str(m.stats.get("base_success_chance", -1.0))])
 	TestFixtures.check(res, "forced_tradition_applied", m.tradition != null and m.tradition.tradition_name == "Brave",
-		"tradition %s" % _trad_name(m))
+		"tradition %s" % ContractFixtures.trad_name(m))
 	MercGenerator.forced_level = -1
 	MercGenerator.forced_tradition = ""
 	var m2: MercenaryData = MercGenerator.generate(0)
 	TestFixtures.check(res, "forced_reset", int(m2.stats.get("level", 0)) == 0, "level %s" % str(m2.stats.get("level", 0)))
 	MercGenerator.forced_tradition = "Nonsense"
 	var m3: MercenaryData = MercGenerator.generate(0)
-	TestFixtures.check(res, "forced_tradition_unknown_falls_back", m3.tradition != null, "tradition %s" % _trad_name(m3))
+	TestFixtures.check(res, "forced_tradition_unknown_falls_back", m3.tradition != null,
+		"tradition %s" % ContractFixtures.trad_name(m3))
 	MercGenerator.forced_tradition = ""
-
-
-static func _trad_name(merc: MercenaryData) -> String:
-	if merc == null or merc.tradition == null:
-		return "null"
-	return merc.tradition.tradition_name
 
 
 static func _contract_run(contract_name: String, count: int, level: int) -> ContractRun:
@@ -608,7 +870,7 @@ static func _contract_run(contract_name: String, count: int, level: int) -> Cont
 	for i: int in range(count):
 		var merc: MercenaryData = MercGenerator.generate(i)
 		if level > 0:
-			ContractModifiers.set_level(merc, level)
+			TestFixtures.set_level(merc, level)
 		team.append(merc)
 	r.team = team
 	return r
@@ -630,9 +892,9 @@ static func _case_enemy_team(res: Dictionary) -> void:
 		if lvl < lo or lvl > hi:
 			levels_ok = false
 		var want: String = "Brave" if i == 0 else "Warrior"
-		if _trad_name(mercs[i]) != want:
+		if ContractFixtures.trad_name(mercs[i]) != want:
 			trads_ok = false
-		detail.append("L%d %s" % [lvl, _trad_name(mercs[i])])
+		detail.append("L%d %s" % [lvl, ContractFixtures.trad_name(mercs[i])])
 	TestFixtures.check(res, "enemy_team_merc_levels", levels_ok,
 		"enemies %s against a band of %d to %d" % [", ".join(detail), lo, hi])
 	TestFixtures.check(res, "enemy_team_merc_traditions", trads_ok, "enemies %s" % ", ".join(detail))
@@ -701,12 +963,12 @@ static func _case_run_helpers(res: Dictionary) -> void:
 
 
 static func _case_field_for(res: Dictionary) -> void:
-	var aerdis: LocationData = DataManager.locations.get("Aerdis", null) as LocationData
-	var austyg: LocationData = DataManager.locations.get("Austyg", null) as LocationData
-	var cathistii: LocationData = DataManager.locations.get("Cathistii", null) as LocationData
+	var aerdis: LocationData = ContractFixtures.location("Aerdis")
+	var austyg: LocationData = ContractFixtures.location("Austyg")
+	var cathistii: LocationData = ContractFixtures.location("Cathistii")
 	var brawl: EventData = ContractLibrary.event("Tavern Brawl")
 	var skirmish: EventData = ContractLibrary.event("Assist with the Skirmish")
-	var umbra: LocationData = DataManager.locations.get("Umbra", null) as LocationData
+	var umbra: LocationData = ContractFixtures.location("Umbra")
 	var plain_odds := ContractData.new()
 	plain_odds.contract_type = "TEST Plain"
 	plain_odds.terrain_odds = _terrain_odds([["Desert Plain", 100]])
@@ -746,8 +1008,106 @@ static func _display_name(loc: LocationData) -> String:
 	return loc.location_name
 
 
+#Card 285: the Cat row's Min and Max Mercs 1 reach the generated contract; a blank row keeps the config defaults.
+static func _case_generator_mercs(res: Dictionary) -> void:
+	var config: ContractConfig = ContractLibrary.config()
+	var cat: ContractData = ContractGenerator.generate_named("Cat Stuck in Tree!")
+	TestFixtures.check(res, "card285_cat_solo", cat != null and cat.max_mercs == 1 and cat.min_mercs == 1
+		and ContractBoard.merc_min_for(cat) == 1,
+		"null" if cat == null else "max %d min %d" % [cat.max_mercs, cat.min_mercs])
+	var crew: ContractData = ContractGenerator.generate("Military")
+	TestFixtures.check(res, "card285_blank_defaults", crew != null and crew.max_mercs == config.default_max_mercs
+		and crew.min_mercs == config.board_merc_min,
+		"null" if crew == null else "max %d min %d" % [crew.max_mercs, crew.min_mercs])
+	var events: Array[EventData] = []
+	var row: ContractData = ContractResourceBuilder.build_contract({"Contract Name": "TEST Mercs",
+		"Contract Type": "Help", "Min Mercs": "2", "Max Mercs": "4", "_row": 97}, events)
+	var made: ContractData = ContractGenerator.generate_row(row, 1, 1.0, "")
+	TestFixtures.check(res, "card285_generate_row_range", made != null and made.max_mercs == 4 and made.min_mercs == 2
+		and row.max_mercs == 4 and row.min_mercs == 2,
+		"null" if made == null else "max %d min %d" % [made.max_mercs, made.min_mercs])
+
+
+#Card 736: the Local column; the Cat row reads true, a blank cell false, "yes" false with one validator warning.
+static func _case_local_cell(res: Dictionary) -> void:
+	var live: Array[PackedStringArray] = TsvReader.load_tsv(DataManager.CONTRACTS_TSV)
+	var old: Array[PackedStringArray] = TsvReader.load_tsv(DataManager.CONTRACTS_OLD_TSV)
+	var live_head: PackedStringArray = live[0] if not live.is_empty() else PackedStringArray()
+	var old_head: PackedStringArray = old[0] if not old.is_empty() else PackedStringArray()
+	TestFixtures.check(res, "local:sheet_42_cells", live_head.size() == 42 and live_head[41] == "Local"
+		and old_head.size() == 42 and old_head[41] == "Local",
+		"live %d old %d" % [live_head.size(), old_head.size()])
+	var cat: ContractData = ContractGenerator.generate_named("Cat Stuck in Tree!")
+	TestFixtures.check(res, "local:cat_true", cat != null and cat.local, "null" if cat == null else str(cat.local))
+	var events: Array[EventData] = []
+	var blank_row: Dictionary = {"Contract Name": "TEST Local Blank", "Contract Type": "Help", "_row": 94}
+	var blank: ContractData = ContractResourceBuilder.build_contract(blank_row, events)
+	var blank_warned: bool = _local_warnings(ContractDataValidator.validate_contract(blank, blank_row)) > 0
+	TestFixtures.check(res, "local:blank_false", not blank.local and not blank_warned, "local %s" % str(blank.local))
+	var false_row: Dictionary = {"Contract Name": "TEST Local False", "Contract Type": "Help", "Local": "false", "_row": 95}
+	var lower: ContractData = ContractResourceBuilder.build_contract(false_row, events)
+	var true_row: Dictionary = {"Contract Name": "TEST Local True", "Contract Type": "Help", "Local": "true", "_row": 96}
+	var upper: ContractData = ContractResourceBuilder.build_contract(true_row, events)
+	var quiet: int = _local_warnings(ContractDataValidator.validate_contract(lower, false_row)) \
+		+ _local_warnings(ContractDataValidator.validate_contract(upper, true_row))
+	TestFixtures.check(res, "local:case_free", not lower.local and upper.local and quiet == 0,
+		"false %s true %s warnings %d" % [str(lower.local), str(upper.local), quiet])
+	var yes_row: Dictionary = {"Contract Name": "TEST Local Yes", "Contract Type": "Help", "Local": "yes", "_row": 97}
+	var yes: ContractData = ContractResourceBuilder.build_contract(yes_row, events)
+	var warned: Array[String] = ContractDataValidator.validate_contract(yes, yes_row)
+	TestFixtures.check(res, "local:yes_false_warns", not yes.local and _local_warnings(warned) == 1,
+		"local %s warnings %s" % [str(yes.local), str(warned)])
+
+
+static func _local_warnings(texts: Array[String]) -> int:
+	var count: int = 0
+	for text: String in texts:
+		if text.contains("column Local:"):
+			count += 1
+	return count
+
+
+#Card 736: ContractManager.run on the Local Cat row has no travel or respite clock line and logs LOCAL CONTRACT once.
+static func _case_local_run(res: Dictionary) -> void:
+	CampaignClock.reset()
+	CampaignClock.advance(8 * CampaignClock.MINUTES_PER_HOUR)
+	CheckStore.reset()
+	var cat: ContractData = ContractGenerator.generate_named("Cat Stuck in Tree!")
+	if cat == null:
+		TestFixtures.check(res, "local:run_cat", false, "Cat Stuck in Tree! did not generate")
+		return
+	cat.rolled_mishaps.clear()
+	var merc: MercenaryData = MercGenerator.generate(0)
+	TestFixtures.set_level(merc, 5)
+	var team: Array[MercenaryData] = [merc]
+	GuildRoster.set_roster(team)
+	EventTrigger.missed_respites = 2
+	EventTrigger.forced_d100 = 1
+	var contract_run: ContractRun = await ContractManager.run(cat, team, Callable())
+	EventTrigger.forced_d100 = -1
+	var lines: Array[String] = contract_run.log_lines
+	TestFixtures.check(res, "local:run_no_travel", not TestFixtures.has_line(lines, "CLOCK: travel out")
+		and not TestFixtures.has_line(lines, "CLOCK: travel back"), "a travel clock line")
+	TestFixtures.check(res, "local:run_no_respite_clock", ContractFixtures.index_of_prefix(lines, "CLOCK: respite") < 0,
+		"a respite clock line")
+	var local_lines: int = 0
+	for line: String in lines:
+		if line == ContractManager.LOCAL_LINE:
+			local_lines += 1
+	TestFixtures.check(res, "local:run_local_line", local_lines == 1, "LOCAL CONTRACT lines %d" % local_lines)
+	TestFixtures.check(res, "local:run_no_roll", not TestFixtures.has_line(lines, "AMBUSH ROLL")
+		and EventTrigger.missed_respites == 2 and contract_run.outcomes.size() == 1,
+		"streak %d outcomes %d" % [EventTrigger.missed_respites, contract_run.outcomes.size()])
+	EventTrigger.missed_respites = 0
+	CheckStore.reset()
+
+
 static func _case_generator(res: Dictionary) -> void:
+	var config: ContractConfig = ContractLibrary.config()
+	var saved: String = config.test_primary_event
+	config.test_primary_event = "Assist with the Skirmish"
 	var c: ContractData = ContractGenerator.generate("Military")
+	config.test_primary_event = saved
 	TestFixtures.check(res, "generator_not_null", c != null, "contract %s" % ("null" if c == null else c.contract_type))
 	if c == null:
 		return
@@ -757,10 +1117,10 @@ static func _case_generator(res: Dictionary) -> void:
 	TestFixtures.check(res, "generator_primary", c.assigned_primary_event == "Assist with the Skirmish",
 		"primary %s" % c.assigned_primary_event)
 	TestFixtures.check(res, "generator_mishaps", _names_eq(c.rolled_mishaps, ["Tavern Brawl"]), "mishaps %s" % str(c.rolled_mishaps))
-	var a: LocationData = DataManager.locations.get(c.location_a, null) as LocationData
+	var a: LocationData = ContractFixtures.location(c.location_a)
 	TestFixtures.check(res, "generator_location_a", a != null and ContractTerrain.has_terrain(a),
 		"location_a %s terrain %s" % [c.location_a, ContractTerrain.describe(a)])
-	var b: LocationData = DataManager.locations.get(c.location_b, null) as LocationData
+	var b: LocationData = ContractFixtures.location(c.location_b)
 	TestFixtures.check(res, "generator_location_b",
 		b != null and b.location_type == "Country" and b.demonym != "" and (a == null or b.demonym != a.demonym),
 		"location_b %s type %s demonym %s" % [c.location_b, "none" if b == null else b.location_type, "none" if b == null else b.demonym])
@@ -789,11 +1149,328 @@ static func _case_generator_locations(res: Dictionary) -> void:
 	TestFixtures.check(res, "pick_location_b_country",
 		b != null and b.location_type == "Country" and b.demonym != "",
 		"location %s" % ("null" if b == null else "%s %s %s" % [b.location_name, b.location_type, b.demonym]))
-	var aerdis: LocationData = DataManager.locations.get("Aerdis", null) as LocationData
-	var austyg: LocationData = DataManager.locations.get("Austyg", null) as LocationData
+	var aerdis: LocationData = ContractFixtures.location("Aerdis")
+	var austyg: LocationData = ContractFixtures.location("Austyg")
 	var want: String = "%s vs %s" % [_display_name(aerdis), _display_name(austyg)]
 	var got: String = ContractGenerator.fill_description("[location_a.demonym] vs [location_b.demonym]", aerdis, austyg)
 	TestFixtures.check(res, "fill_description", got == want and got.begins_with("Aerdan vs "), "got %s want %s" % [got, want])
+
+
+#Card 736: a Local row is placed at the guild home; a row that is not Local keeps its Possible Locations pool.
+static func _case_local_home(res: Dictionary) -> void:
+	var cat: ContractData = ContractGenerator.generate_named("Cat Stuck in Tree!")
+	TestFixtures.check(res, "local:named_home", cat != null and cat.local and cat.location_a == GenConstants.GUILD_HOME,
+		"null" if cat == null else "location %s local %s" % [cat.location_a, str(cat.local)])
+	var row: ContractData = ContractGenerator.generate("Military")
+	if row == null:
+		TestFixtures.check(res, "local:named_pool_kept", false, "Military generated null")
+		return
+	row.local = false
+	var pool: Array[String] = ["Aerdis"]
+	row.possible_locations = pool
+	var made: ContractData = ContractGenerator.generate_row(row, 3, 2.0, "")
+	TestFixtures.check(res, "local:named_pool_kept", made != null and pool.has(made.location_a),
+		"null" if made == null else "location %s" % made.location_a)
+
+
+static func _case_location_pool(res: Dictionary) -> void:
+	var c := ContractData.new()
+	c.contract_type = "TEST Pool"
+	var no_names: Array[String] = []
+	var ad: Array[String] = ["Aerdis"]
+	var row: Array[String] = ["Aerdis", "Buern"]
+	var overlap: Array[String] = ["Aerdis", "Okun"]
+	var disjoint: Array[String] = ["Okun"]
+	var blank_row: Array[String] = ContractGenerator.location_pool(c, ad)
+	TestFixtures.check(res, "location_pool_blank_row", _same_names(blank_row, ["Aerdis"]), "pool %s" % str(blank_row))
+	c.possible_locations = row
+	var no_ad: Array[String] = ContractGenerator.location_pool(c, no_names)
+	TestFixtures.check(res, "location_pool_no_ad", _same_names(no_ad, ["Aerdis", "Buern"]), "pool %s" % str(no_ad))
+	var shared: Array[String] = ContractGenerator.location_pool(c, overlap)
+	TestFixtures.check(res, "location_pool_overlap", _same_names(shared, ["Aerdis"]), "pool %s" % str(shared))
+	var apart: Array[String] = ContractGenerator.location_pool(c, disjoint)
+	TestFixtures.check(res, "location_pool_disjoint", _same_names(apart, ["Aerdis", "Buern"]), "pool %s" % str(apart))
+	var off_pool: String = ""
+	for _i: int in range(20):
+		var loc: LocationData = ContractGenerator.pick_location_among(ContractGenerator.location_pool(c, no_names))
+		var drawn: String = loc.location_name if loc != null else "null"
+		if not row.has(drawn):
+			off_pool = drawn
+			break
+	TestFixtures.check(res, "location_pool_draws", off_pool == "",
+		"20 draws in Aerdis, Buern" if off_pool == "" else "drew %s" % off_pool)
+	var military: Array[String] = ["Military"]
+	var made: ContractData = ContractGenerator.generate_for(military, ad, 0.5, 5.0)
+	TestFixtures.check(res, "location_pool_generate_for",
+		made != null and ContractGenerator.location_pool(made, ad).has(made.location_a),
+		"null contract" if made == null else "location_a %s possible locations %s" % [made.location_a, str(made.possible_locations)])
+
+
+#location_pool promises no order, so its names compare sorted.
+static func _same_names(actual: Array, expected: Array) -> bool:
+	var a: Array = actual.duplicate()
+	var b: Array = expected.duplicate()
+	a.sort()
+	b.sort()
+	return _names_eq(a, b)
+
+
+static func _case_generate_for(res: Dictionary) -> void:
+	var home: LocationData = ContractGenerator.pick_location_a()
+	var home_name: String = home.location_name if home != null else ""
+	var types: Array[String] = ["Entertain", "Military"]
+	var places: Array[String] = ["Nowhere", home_name]
+	var built: int = 0
+	var type_bad: String = ""
+	var place_bad: String = ""
+	var diff_bad: String = ""
+	for _i: int in range(20):
+		var c: ContractData = ContractGenerator.generate_for(types, places, 1.5, 3.0)
+		if c == null:
+			continue
+		built += 1
+		if type_bad == "" and not types.has(c.contract_type):
+			type_bad = c.contract_type
+		if place_bad == "" and not ContractGenerator.location_pool(c, places).has(c.location_a):
+			place_bad = c.location_a
+		if diff_bad == "" and (c.difficulty < 1.5 or c.difficulty > 3.0):
+			diff_bad = "%.1f" % c.difficulty
+	TestFixtures.check(res, "generate_for_built", home_name != "" and built == 20, "%d of 20 in %s" % [built, home_name])
+	TestFixtures.check(res, "generate_for_type", type_bad == "",
+		"first type off the picks %s" % (type_bad if type_bad != "" else "none"))
+	TestFixtures.check(res, "generate_for_location", place_bad == "",
+		"first location_a off %s: %s" % [home_name, place_bad if place_bad != "" else "none"])
+	TestFixtures.check(res, "generate_for_difficulty", diff_bad == "",
+		"first difficulty off [1.5, 3]: %s" % (diff_bad if diff_bad != "" else "none"))
+	var military: Array[String] = ["Military"]
+	var nowhere: Array[String] = ["Nowhere"]
+	var anywhere: Array[String] = []
+	var lost: ContractData = ContractGenerator.generate_for(military, nowhere, 0.5, 5.0)
+	var lost_at: LocationData = null
+	if lost != null:
+		lost_at = ContractFixtures.location(lost.location_a)
+	TestFixtures.check(res, "generate_for_unknown_location",
+		lost_at != null and ContractTerrain.has_terrain(lost_at) and ContractGenerator._hosts_contracts(lost_at),
+		"location_a %s" % ("null contract" if lost == null else lost.location_a))
+	var odd: Array[String] = ["Nonsense"]
+	var any_type: ContractData = ContractGenerator.generate_for(odd, anywhere, 0.5, 5.0)
+	TestFixtures.check(res, "generate_for_unknown_type",
+		any_type != null and ContractLibrary.contract_type_names().has(any_type.contract_type),
+		"contract %s" % ("null" if any_type == null else any_type.contract_type))
+	var flipped: ContractData = ContractGenerator.generate_for(military, anywhere, 4.0, 2.0)
+	TestFixtures.check(res, "generate_for_flipped_band",
+		flipped != null and flipped.difficulty >= 2.0 and flipped.difficulty <= 4.0,
+		"difficulty %s" % ("null" if flipped == null else "%.1f" % flipped.difficulty))
+	var pinned: ContractData = ContractGenerator.generate_for(military, anywhere, 2.5, 2.5)
+	TestFixtures.check(res, "generate_for_pinned_band", pinned != null and is_equal_approx(pinned.difficulty, 2.5),
+		"difficulty %s" % ("null" if pinned == null else "%.1f" % pinned.difficulty))
+
+
+static func _case_target_parse(res: Dictionary) -> void:
+	var full: String = "random:level=10-20, count=party+1, tradition=Warrior, skew=Dexterity, type=Beast"
+	var beast: Dictionary = {"source": "monster", "type": "Beast", "pick": "all"}
+	var rounds: Array[Dictionary] = [
+		{"label": "blank", "cell": "", "out": "", "want": {"source": ""}},
+		{"label": "npc", "cell": "npc:Bandit Leader", "out": "npc:Bandit Leader",
+			"want": {"source": "npc", "name": "Bandit Leader"}},
+		{"label": "monster", "cell": "monster:Beast:all", "out": "monster:Beast:all", "want": beast},
+		{"label": "monster_no_pick", "cell": "monster:Beast", "out": "monster:Beast:all", "want": beast},
+		{"label": "random_full", "cell": full, "out": full, "want": {"source": "random", "level_mode": "range",
+			"level_min": 10, "level_max": 20, "count_mode": "party", "party_plus": 1, "tradition": "Warrior",
+			"skew": "Dexterity", "type": "Beast"}},
+		{"label": "random_defaults", "cell": "random:", "out": ContractTarget.DEFAULT_RANDOM,
+			"want": {"source": "random", "level_mode": "party", "count_mode": "party", "party_plus": 0}},
+		{"label": "random_order", "cell": "random:count=3, level=12", "out": "random:level=12, count=3",
+			"want": {"source": "random", "level_mode": "fixed", "level": 12, "count_mode": "fixed", "count": 3}},
+		{"label": "random_spaces", "cell": " random: level = party , count = party+2 ",
+			"out": "random:level=party, count=party+2",
+			"want": {"source": "random", "level_mode": "party", "count_mode": "party", "party_plus": 2}},
+		{"label": "random_zeros", "cell": "random:level=00000, count=00012", "out": "random:level=0, count=12",
+			"want": {"source": "random", "level_mode": "fixed", "level": 0, "count_mode": "fixed", "count": 12}},
+	]
+	for entry: Dictionary in rounds:
+		var spec: Dictionary = ContractTarget.parse(str(entry["cell"]))
+		var out: String = ContractTarget.compose(spec)
+		TestFixtures.check(res, "target_parse_" + str(entry["label"]),
+			_spec_has(spec, entry["want"]) and out == str(entry["out"]),
+			"'%s' composed '%s', error '%s'" % [entry["cell"], out, spec["error"]])
+	TestFixtures.check(res, "target_parse_monster_same_spec",
+		ContractTarget.parse("monster:Beast") == ContractTarget.parse("monster:Beast:all"),
+		"monster:Beast against monster:Beast:all")
+	var rejects: Array[String] = ["foo:bar", "npc:", "monster:", "monster:Beast:all:x", "random:level=x",
+		"random:level=5-3", "random:level=300", "random:count=0", "random:count=100", "random:count=party+10",
+		"random:skew=melee", "random:bogus=1", "random:level=1, level=2", "NPC:Bandit Leader", "random:level=00300"]
+	var bad: Array[String] = []
+	for cell: String in rejects:
+		var spec: Dictionary = ContractTarget.parse(cell)
+		var rest: Dictionary = spec.duplicate()
+		rest["ok"] = true
+		rest["error"] = ""
+		if bool(spec["ok"]) or str(spec["error"]) == "" or rest != ContractTarget.blank_spec():
+			bad.append(cell)
+	TestFixtures.check(res, "target_parse_rejects", bad.is_empty(), TestFixtures.detail(bad, rejects.size(), "cells"))
+
+
+#True when spec parsed ok and holds every value of want.
+static func _spec_has(spec: Dictionary, want: Dictionary) -> bool:
+	if not bool(spec.get("ok", false)):
+		return false
+	for key: String in want:
+		if str(spec.get(key, "")) != str(want[key]):
+			return false
+	return true
+
+
+#complete() is true only for a spec whose composed cell parses back to the same values.
+static func _case_target_complete(res: Dictionary) -> void:
+	var whole: Array[String] = ["", "random:", "npc:Bandit Leader", "monster:Beast"]
+	var done: int = 0
+	for cell: String in whole:
+		if ContractTarget.complete(ContractTarget.parse(cell)):
+			done += 1
+	TestFixtures.check(res, "target_complete", done == whole.size(), "%d of %d parsed cells" % [done, whole.size()])
+	var kept: Array[Dictionary] = [{"source": "npc", "name": "Bandit Leader"},
+		{"source": "monster", "type": "Beast", "pick": "Dire Wolf"},
+		{"source": "random", "level_mode": "range", "level_min": 5, "level_max": 9, "party_plus": 3,
+			"tradition": "Warrior", "skew": "Vigor", "type": "Undead"}]
+	var lost: Array[String] = []
+	for want: Dictionary in kept:
+		var spec: Dictionary = _target_spec(want)
+		var cell: String = ContractTarget.compose(spec)
+		if not ContractTarget.complete(spec) or not _spec_has(ContractTarget.parse(cell), want):
+			lost.append(cell)
+	TestFixtures.check(res, "target_complete_round_trip", lost.is_empty(),
+		TestFixtures.detail(lost, kept.size(), "specs"))
+	var broken: Array[Dictionary] = [{"source": "npc"}, {"source": "monster"}, {"source": "bogus"},
+		{"source": "monster", "type": "Beast:Kin"}, {"source": "monster", "type": "Beast", "pick": "Dire:Wolf"},
+		{"source": "random", "tradition": "Hedge, Wild"}, {"source": "random", "type": "Beast, Kin"},
+		{"source": "random", "tradition": "Hedge, skew=Vigor"}, {"source": "random", "party_plus": 12},
+		{"source": "random", "level_mode": "fixed", "level": 300}, ContractTarget.parse("garbage"),
+		{"source": "random", "level_mode": "range", "level_min": 30, "level_max": 10}, ContractTarget.parse("npc:"),
+		{"source": "random", "count_mode": "fixed", "count": 0}]
+	var passed: Array[String] = []
+	for values: Dictionary in broken:
+		if ContractTarget.complete(_target_spec(values)):
+			passed.append(str(values))
+	TestFixtures.check(res, "target_complete_rejects", passed.is_empty(),
+		TestFixtures.detail(passed, broken.size(), "specs"))
+
+
+static func _target_spec(values: Dictionary) -> Dictionary:
+	var spec: Dictionary = ContractTarget.blank_spec()
+	spec.merge(values, true)
+	return spec
+
+
+static func _case_target_display(res: Dictionary) -> void:
+	var cases: Array[Array] = [["npc:Bandit Leader", "Rolf", "Bandit Leader Rolf"],
+		["npc:Bandit Leader", "", "Bandit Leader"], ["monster:Beast:all", "", "Beast"],
+		["monster:Beast:Dire Wolf", "", "Dire Wolf"], ["random:level=party, count=party", "", "Mercenaries"],
+		["random:tradition=Warrior", "", "Warrior"], ["random:type=Undead", "", "Undead"], ["garbage", "x", ""],
+		["", "x", ""]]
+	for i: int in range(cases.size()):
+		var entry: Array = cases[i]
+		var got: String = ContractTarget.display_name(str(entry[0]), str(entry[1]))
+		TestFixtures.check(res, "target_display_%d" % i, got == str(entry[2]),
+			"'%s' with '%s' gave '%s'" % [entry[0], entry[1], got])
+
+
+static func _case_description_pick(res: Dictionary) -> void:
+	var data: ContractData = ContractData.new()
+	data.description_template = "T"
+	var empty_pick: String = ContractGenerator.pick_description(data)
+	data.descriptions.assign(["", " "])
+	var blank_pick: String = ContractGenerator.pick_description(data)
+	TestFixtures.check(res, "description_pick_template", empty_pick == "T" and blank_pick == "T",
+		"no entries '%s', blank entries '%s'" % [empty_pick, blank_pick])
+	data.descriptions.assign(["A", "B"])
+	var seen: Dictionary = {}
+	for _i: int in range(40):
+		seen[ContractGenerator.pick_description(data)] = true
+	TestFixtures.check(res, "description_pick_entries", seen.size() == 2 and seen.has("A") and seen.has("B"),
+		"picked %s" % str(seen.keys()))
+
+
+static func _case_fill_tags(res: Dictionary) -> void:
+	var text: String = "Find %target% near %location% for %requestor%."
+	var filled: String = ContractGenerator.fill_tags(text, "Bandit Leader Rolf", "Harrow", "Mira")
+	TestFixtures.check(res, "fill_tags_values", filled == "Find Bandit Leader Rolf near Harrow for Mira.", filled)
+	var blank: String = ContractGenerator.fill_tags(text, "", "", "")
+	TestFixtures.check(res, "fill_tags_blank", blank == "Find Unknown near Unknown for Unknown.", blank)
+	var plain: String = ContractGenerator.fill_tags("Escort the caravan.", "x", "y", "z")
+	var token: String = ContractGenerator.fill_tags("Rescue [location_a.name]", "x", "y", "z")
+	TestFixtures.check(res, "fill_tags_untouched",
+		plain == "Escort the caravan." and token == "Rescue [location_a.name]", "'%s' and '%s'" % [plain, token])
+
+
+static func _case_requestor_name(res: Dictionary) -> void:
+	var aerdis: LocationData = ContractFixtures.location("Aerdis")
+	var data: ContractData = ContractData.new()
+	data.issuer_type = "place"
+	data.issuer = " Aerdis "
+	var place: String = ContractGenerator.requestor_name(data, aerdis)
+	TestFixtures.check(res, "requestor_place", place == "Aerdis", "'%s'" % place)
+	data.issuer_type = "org"
+	data.issuer = "Guild"
+	var org: String = ContractGenerator.requestor_name(data, aerdis)
+	TestFixtures.check(res, "requestor_org", org == "Guild", "'%s'" % org)
+	data.issuer_type = "person"
+	var person: String = ContractGenerator.requestor_name(data, aerdis)
+	var nobody: String = ContractGenerator.requestor_name(data, null)
+	TestFixtures.check(res, "requestor_person", aerdis != null and person.strip_edges() != "" and nobody == "",
+		"Aerdis '%s', no location '%s'" % [person, nobody])
+	data.issuer_type = ""
+	var unset: String = ContractGenerator.requestor_name(data, aerdis)
+	TestFixtures.check(res, "requestor_unset", unset == "", "'%s'" % unset)
+
+
+static func _case_target_name(res: Dictionary) -> void:
+	var aerdis: LocationData = ContractFixtures.location("Aerdis")
+	var data: ContractData = ContractData.new()
+	var cases: Array[Array] = [["", ""], ["monster:Beast:all", "Beast"], ["random:tradition=Warrior", "Warrior"],
+		["garbage", ""]]
+	for i: int in range(cases.size()):
+		var entry: Array = cases[i]
+		data.target = str(entry[0])
+		var got: String = ContractGenerator.target_name(data, aerdis)
+		TestFixtures.check(res, "target_name_%d" % i, got == str(entry[1]), "'%s' gave '%s'" % [entry[0], got])
+	data.target = "npc:Bandit Leader"
+	var named: String = ContractGenerator.target_name(data, aerdis)
+	var one_more: bool = named.begins_with("Bandit Leader ") and named.split(" ", false).size() == 3
+	TestFixtures.check(res, "target_name_npc", aerdis != null and (named == "Bandit Leader" or one_more),
+		"'%s'" % named)
+	var alone: String = ContractGenerator.target_name(data, null)
+	TestFixtures.check(res, "target_name_npc_no_place", alone == "Bandit Leader", "'%s'" % alone)
+
+
+#Every row's Target and Issuer Type cells are blank today, so both generated names stay blank. _build loads its row by
+#type name, so the hand-built row runs through pick_description, fill_tags and target_name.
+static func _case_build_tags(res: Dictionary) -> void:
+	var home: LocationData = ContractGenerator.pick_location_a()
+	var home_name: String = home.location_name if home != null else ""
+	var types: Array[String] = ["Entertain", "Military"]
+	var places: Array[String] = ["Nowhere", home_name]
+	var built: int = 0
+	var bad: Array[String] = []
+	for _i: int in range(10):
+		var c: ContractData = ContractGenerator.generate_for(types, places, 1.5, 3.0)
+		if c == null:
+			continue
+		built += 1
+		if c.description.contains("%") or c.target_name != "" or c.requestor_name != "":
+			bad.append("%s '%s' target '%s' requestor '%s'" % [c.contract_type, c.description, c.target_name,
+				c.requestor_name])
+	TestFixtures.check(res, "build_tags_generated", built == 10 and bad.is_empty(),
+		"%d of 10 built, %s" % [built, TestFixtures.detail(bad, built, "with a percent sign or a name")])
+	var row: ContractData = ContractData.new()
+	row.descriptions.assign(["Rescue %target% from %location%"])
+	row.target = "monster:Beast:all"
+	var text: String = ContractGenerator.fill_tags(
+		ContractGenerator.fill_description(ContractGenerator.pick_description(row), home, null),
+		ContractGenerator.target_name(row, home), ContractGenerator._place_name(home),
+		ContractGenerator.requestor_name(row, home))
+	TestFixtures.check(res, "build_tags_hand_row", home_name != "" and text == "Rescue Beast from %s" % home_name,
+		"'%s' at %s" % [text, home_name])
 
 
 static func _case_manager_flow(res: Dictionary) -> void:
@@ -801,7 +1478,7 @@ static func _case_manager_flow(res: Dictionary) -> void:
 	var team: Array[MercenaryData] = []
 	for i: int in range(3):
 		var merc: MercenaryData = MercGenerator.generate(i)
-		ContractModifiers.set_level(merc, 5)
+		TestFixtures.set_level(merc, 5)
 		team.append(merc)
 	var combat_before: Dictionary = {}
 	for merc: MercenaryData in team:
@@ -809,6 +1486,7 @@ static func _case_manager_flow(res: Dictionary) -> void:
 	GuildRoster.set_roster(team)
 	var contract: ContractData = ContractGenerator.generate("Military")
 	contract.unsavory = false
+	contract.assigned_primary_event = "Assist with the Skirmish"
 	var prelude: Array[String] = ["PRELUDE TEST LINE"]
 	var contract_run: ContractRun = await ContractManager.run(contract, team, Callable(), prelude)
 	#A triggered event (an Ambush during a respite) adds its own outcome; the flow checks count the scheduled ones.
@@ -920,6 +1598,44 @@ static func _check_manager_rest(res: Dictionary, contract_run: ContractRun) -> v
 
 #The CLOCK lines add up to the campaign clock and carry the gap and respite rests.
 static func _check_manager_clock(res: Dictionary, contract_run: ContractRun, events_done: int) -> void:
+	var spans: Dictionary = _manager_clock_spans(contract_run)
+	var clock_sum: int = int(spans["sum"])
+	var gap_lines: int = int(spans["gap_lines"])
+	var gaps_moved: bool = bool(spans["gaps_moved"])
+	var respite_lines: int = int(spans["respite_lines"])
+	var respite_delta: int = int(spans["respite_delta"])
+	var floor_minutes: int = 2 * CampaignClock.TRAVEL_MINUTES + CampaignClock.EVENT_MINUTES * events_done
+	TestFixtures.check(res, "manager_clock",
+		CampaignClock.now() == clock_sum and clock_sum >= floor_minutes,
+		"clock %d sum %d floor %d after %d events" % [CampaignClock.now(), clock_sum, floor_minutes, events_done])
+	TestFixtures.check(res, "manager_clock_gaps",
+		gap_lines == maxi(0, events_done - 1) and gaps_moved,
+		"gap lines %d events %d moved %s" % [gap_lines, events_done, str(gaps_moved)])
+	var primary_ran: bool = false
+	for outcome: Dictionary in contract_run.outcomes:
+		if String(outcome.get("event_type", "")) == "Primary":
+			primary_ran = true
+	var want_respite: bool = primary_ran and not contract_run.living_team().is_empty()
+	var rest_time_delta: int = int(spans["rest_time"])
+	TestFixtures.check(res, "manager_clock_respite",
+		respite_lines == (1 if want_respite else 0)
+		and (not want_respite or (respite_delta >= 1 and respite_delta == rest_time_delta)),
+		"lines %d delta %d rest time %d primary %s" % [respite_lines, respite_delta, rest_time_delta,
+		str(primary_ran)])
+	var gap_at: int = int(spans["gap_at"])
+	TestFixtures.check(res, "manager_between_events_rest",
+		(gap_at >= 0) == (events_done >= 2) and bool(spans["gap_rested"]) == bool(spans["gap_rests"]),
+		"gap line %d rested %s events %d" % [gap_at, str(spans["gap_rested"]), events_done])
+	var back_at: int = int(spans["back_at"])
+	var first_respite: int = int(spans["first_respite"])
+	var primary_rested: bool = contract_run.living_team().is_empty() \
+		or (first_respite >= 0 and back_at >= 0 and first_respite < back_at)
+	TestFixtures.check(res, "manager_primary_respite", primary_rested,
+		"respite line %d travel back %d living %d" % [first_respite, back_at, contract_run.living_team().size()])
+
+
+#Reads the log of a manager run into the clock sums and line positions the clock checks compare.
+static func _manager_clock_spans(contract_run: ContractRun) -> Dictionary:
 	var clock_sum: int = 0
 	var gap_lines: int = 0
 	var gaps_moved: bool = true
@@ -937,21 +1653,9 @@ static func _check_manager_clock(res: Dictionary, contract_run: ContractRun, eve
 		elif entry.begins_with("CLOCK: respite "):
 			respite_lines += 1
 			respite_delta = delta
-	var floor_minutes: int = 2 * CampaignClock.TRAVEL_MINUTES + CampaignClock.EVENT_MINUTES * events_done
-	TestFixtures.check(res, "manager_clock",
-		CampaignClock.now() == clock_sum and clock_sum >= floor_minutes,
-		"clock %d sum %d floor %d after %d events" % [CampaignClock.now(), clock_sum, floor_minutes, events_done])
-	TestFixtures.check(res, "manager_clock_gaps",
-		gap_lines == maxi(0, events_done - 1) and gaps_moved,
-		"gap lines %d events %d moved %s" % [gap_lines, events_done, str(gaps_moved)])
-	var primary_ran: bool = false
-	for outcome: Dictionary in contract_run.outcomes:
-		if String(outcome.get("event_type", "")) == "Primary":
-			primary_ran = true
-	var want_respite: bool = primary_ran and not contract_run.living_team().is_empty()
 	#The Military Avoid boost moves rest_recovery until end() reverts it, so the REST TIME line is the witness.
 	var rest_time_delta: int = 0
-	var respite_at: int = _index_of_prefix(contract_run.log_lines, "CLOCK: respite ")
+	var respite_at: int = ContractFixtures.index_of_prefix(contract_run.log_lines, "CLOCK: respite ")
 	if respite_at >= 0:
 		for i: int in range(respite_at + 1, contract_run.log_lines.size()):
 			var line: String = contract_run.log_lines[i]
@@ -960,13 +1664,7 @@ static func _check_manager_clock(res: Dictionary, contract_run: ContractRun, eve
 				break
 			if line.begins_with("CLOCK: ") and not _triggered_clock(line, contract_run):
 				break
-	TestFixtures.check(res, "manager_clock_respite",
-		respite_lines == (1 if want_respite else 0)
-		and (not want_respite or (respite_delta >= 1 and respite_delta == rest_time_delta)),
-		"lines %d delta %d rest time %d primary %s" % [respite_lines, respite_delta, rest_time_delta,
-		str(primary_ran)])
-	var gap_at: int = _index_of_prefix(contract_run.log_lines, "CLOCK: between events")
-	var gap_rests: bool = gap_at >= 0 and contract_run.log_lines[gap_at].contains("(")
+	var gap_at: int = ContractFixtures.index_of_prefix(contract_run.log_lines, "CLOCK: between events")
 	var gap_rested: bool = false
 	if gap_at >= 0:
 		for i: int in range(gap_at + 1, contract_run.log_lines.size()):
@@ -976,15 +1674,12 @@ static func _check_manager_clock(res: Dictionary, contract_run: ContractRun, eve
 			if line.begins_with("REST TIME: ") or line.begins_with("RESPITE: ") or line.begins_with("BREATHER: "):
 				gap_rested = true
 				break
-	TestFixtures.check(res, "manager_between_events_rest",
-		(gap_at >= 0) == (events_done >= 2) and gap_rested == gap_rests,
-		"gap line %d rested %s events %d" % [gap_at, str(gap_rested), events_done])
-	var back_at: int = _index_of_prefix(contract_run.log_lines, "CLOCK: travel back ")
-	var first_respite: int = _index_of_prefix(contract_run.log_lines, "RESPITE: ")
-	var primary_rested: bool = contract_run.living_team().is_empty() \
-		or (first_respite >= 0 and back_at >= 0 and first_respite < back_at)
-	TestFixtures.check(res, "manager_primary_respite", primary_rested,
-		"respite line %d travel back %d living %d" % [first_respite, back_at, contract_run.living_team().size()])
+	return {"sum": clock_sum, "gap_lines": gap_lines, "gaps_moved": gaps_moved,
+		"respite_lines": respite_lines, "respite_delta": respite_delta, "rest_time": rest_time_delta,
+		"gap_at": gap_at, "gap_rests": gap_at >= 0 and contract_run.log_lines[gap_at].contains("("),
+		"gap_rested": gap_rested,
+		"back_at": ContractFixtures.index_of_prefix(contract_run.log_lines, "CLOCK: travel back "),
+		"first_respite": ContractFixtures.index_of_prefix(contract_run.log_lines, "RESPITE: ")}
 
 
 static func _case_log_write(res: Dictionary) -> void:
@@ -1000,11 +1695,45 @@ static func _case_log_write(res: Dictionary) -> void:
 
 static func _case_merc_line(res: Dictionary) -> void:
 	var merc: MercenaryData = MercGenerator.generate(0)
-	var want: String = "%s L%d %s" % [merc.merc_name, int(merc.stats.get("level", 0)), _trad_name(merc)]
+	var want: String = "%s L%d %s" % [merc.merc_name, int(merc.stats.get("level", 0)), ContractFixtures.trad_name(merc)]
 	TestFixtures.check(res, "merc_line_generated", ContractLog.merc_line(merc) == want, "line %s" % ContractLog.merc_line(merc))
 	var empty := MercenaryData.new()
 	empty.merc_name = "Nobody"
 	TestFixtures.check(res, "merc_line_npc", ContractLog.merc_line(empty) == "Nobody L0 NPC", "line %s" % ContractLog.merc_line(empty))
+
+
+#Event Config warnings: a bad value, a cell with no event or a blank event name, and a valid Chase cell kept silent.
+static func _case_event_config_validator(res: Dictionary) -> void:
+	var probe: ContractData = ContractData.new()
+	probe.contract_type = "TEST Event"
+	probe.completion = "event:Fight Bandits"
+	probe.event_config = "bandits=9"
+	var warned: Array[String] = _event_config_warnings(probe)
+	TestFixtures.check(res, "event_config_warns", warned.size() == 1
+		and warned[0].find("bandits must be 0.5 to 4 in steps of 0.5") >= 0, "; ".join(warned))
+	probe.completion = ""
+	probe.event_config = "bandits=1"
+	warned = _event_config_warnings(probe)
+	TestFixtures.check(res, "event_config_without_event", warned.size() == 1
+		and warned[0].ends_with("set without an event completion"), "; ".join(warned))
+	probe.completion = "event:Chase"
+	probe.event_config = "chase=foot; chasing=target"
+	warned = _event_config_warnings(probe)
+	TestFixtures.check(res, "event_config_valid_silent", warned.is_empty(), "; ".join(warned))
+	probe.completion = "event:"
+	probe.event_config = "bandits=1"
+	warned = _event_config_warnings(probe)
+	TestFixtures.check(res, "event_config_blank_event", warned.size() == 1
+		and warned[0].ends_with("set without an event completion"), "; ".join(warned))
+
+
+#The Event Config warnings validate_contract gives probe as sheet row 99.
+static func _event_config_warnings(probe: ContractData) -> Array[String]:
+	var out: Array[String] = []
+	for text: String in ContractDataValidator.validate_contract(probe, {"_row": 99}):
+		if text.find("column Event Config: ") >= 0:
+			out.append(text)
+	return out
 
 
 static func _case_manager_end_rest(res: Dictionary) -> void:
@@ -1033,7 +1762,7 @@ static func _case_manager_end_rest(res: Dictionary) -> void:
 		and merc.rest_lockout_until == CampaignClock.now()
 		+ RestSystem.rest_minutes(merc, RestSystem.RESPITE_MINUTES),
 		"kind %s until %d clock %d" % [merc.rest_lockout_kind, merc.rest_lockout_until, CampaignClock.now()])
-	var lost_at: int = _index_of_prefix(r.log_lines, "EXCESS LOST: ")
+	var lost_at: int = ContractFixtures.index_of_prefix(r.log_lines, "EXCESS LOST: ")
 	var lost_line: String = r.log_lines[lost_at] if lost_at >= 0 else ""
 	TestFixtures.check(res, "manager_end_excess_cleared",
 		merc.excess_hp == 0 and lost_line.contains("2 ExHP, 1 ExEP") and lost_line.ends_with("(contract return)"),
@@ -1050,7 +1779,7 @@ static func _case_manager_end_rest(res: Dictionary) -> void:
 	TestFixtures.check(res, "manager_end_respite_completes",
 		merc.current_hp >= want_hp and merc.current_hp <= maxi(1, max_hp)
 		and merc.current_ep == max_ep and merc.current_mp == max_mp
-		and _index_of_prefix(done, "RESPITE: ") >= 0,
+		and ContractFixtures.index_of_prefix(done, "RESPITE: ") >= 0,
 		"hp %d want %d, ep %d/%d, mp %d/%d, lines %d" % [merc.current_hp, want_hp,
 		merc.current_ep, max_ep, merc.current_mp, max_mp, done.size()])
 	TestFixtures.check(res, "manager_end_lockout_cleared",
@@ -1078,11 +1807,11 @@ static func _case_between_events(res: Dictionary) -> void:
 		want_gap = RestSystem.party_rest_minutes(team, RestSystem.RESPITE_MINUTES)
 	TestFixtures.check(res, "between_events_clock", CampaignClock.now() == want_gap,
 		"clock %d want %d" % [CampaignClock.now(), want_gap])
-	var rest_time_at: int = _index_of_prefix(wounded.log_lines, "REST TIME: respite ")
+	var rest_time_at: int = ContractFixtures.index_of_prefix(wounded.log_lines, "REST TIME: respite ")
 	TestFixtures.check(res, "between_events_rest_time",
 		not config.respite_between_events or rest_time_at >= 0,
 		"rest time line %d flag %s" % [rest_time_at, str(config.respite_between_events)])
-	var got_respite: bool = _index_of_prefix(wounded.log_lines, "RESPITE: ") >= 0
+	var got_respite: bool = ContractFixtures.index_of_prefix(wounded.log_lines, "RESPITE: ") >= 0
 	TestFixtures.check(res, "between_events_respite", got_respite == config.respite_between_events,
 		"respite line %s flag %s lines %d" % [str(got_respite), str(config.respite_between_events), wounded.log_lines.size()])
 	TestFixtures.check(res, "between_events_hp_topped",
@@ -1099,10 +1828,10 @@ static func _case_between_events(res: Dictionary) -> void:
 			wants = true
 	var before: int = CampaignClock.now()
 	await ContractManager.between_events(tired)
-	var got_breather: bool = _index_of_prefix(tired.log_lines, "BREATHER: ") >= 0
+	var got_breather: bool = ContractFixtures.index_of_prefix(tired.log_lines, "BREATHER: ") >= 0
 	TestFixtures.check(res, "between_events_breather",
 		got_breather == (config.breather_between_events and wants)
-		and _index_of_prefix(tired.log_lines, "RESPITE: ") < 0,
+		and ContractFixtures.index_of_prefix(tired.log_lines, "RESPITE: ") < 0,
 		"breather line %s flag %s wants %s" % [str(got_breather), str(config.breather_between_events), str(wants)])
 	var want_breather_gap: int = CampaignClock.EVENT_GAP_MINUTES
 	if config.breather_between_events:
@@ -1114,7 +1843,7 @@ static func _case_between_events(res: Dictionary) -> void:
 		merc.current_hp = int(merc.stats.get("maximum_hit_points", 0))
 		merc.current_ep = int(merc.stats.get("maximum_endurance_points", 0))
 	var wet: MercenaryData = team[0]
-	ConstStates.apply_state(wet, ConstStates.DRENCHED)
+	StateCascade.apply_state(wet, ConstStates.DRENCHED)
 	wet.campaign_states[ConstStates.DRENCHED] = CampaignClock.now() + 1
 	var soaked := ContractRun.new()
 	soaked.team.assign(team)
@@ -1134,13 +1863,6 @@ static func _case_between_events(res: Dictionary) -> void:
 static func _hp_cap(merc: MercenaryData) -> int:
 	var max_hp: int = int(merc.stats.get("maximum_hit_points", 0))
 	return int(floor(float(max_hp) * RestSystem.PARTIAL_CAP))
-
-
-static func _index_of_prefix(lines: Array[String], prefix: String) -> int:
-	for i: int in range(lines.size()):
-		if lines[i].begins_with(prefix):
-			return i
-	return -1
 
 
 #A "CLOCK: <event> +1 h" line of a triggered event lands inside the rest it interrupted.
@@ -1198,3 +1920,29 @@ static func _span_minutes(count: String, unit: String) -> int:
 	elif unit == "min":
 		scale = 1
 	return int(count) * scale
+
+
+#The Cat Style check contract: its "check:" primary, no build warning, Checks.tsv hours and dispatch odds above the floor.
+static func _case_check_contract(res: Dictionary) -> void:
+	CheckStore.reset()
+	var cat: ContractData = ContractGenerator.generate_named("Cat Stuck in Tree!")
+	if cat == null:
+		for label: String in ["cat_primary", "cat_no_warning", "cat_hours", "cat_odds_above_1"]:
+			TestFixtures.check(res, label, false, "Cat Stuck in Tree! did not generate")
+		return
+	cat.rolled_mishaps.clear()
+	TestFixtures.check(res, "cat_primary", cat.assigned_primary_event == "check:Get Cat from Tree",
+		"primary %s" % cat.assigned_primary_event)
+	ContractResourceBuilder.build_all()
+	var bad: Array[String] = []
+	for text: String in ContractResourceBuilder.last_warnings:
+		if text.contains("Cat Stuck in Tree!") or text.contains("no Checks.tsv row named Get Cat from Tree"):
+			bad.append(text)
+	TestFixtures.check(res, "cat_no_warning", bad.is_empty(), "warnings %s" % str(bad))
+	TestFixtures.check(res, "cat_hours", ContractBoard.completion_hours(cat) == 1,
+		"hours %d" % ContractBoard.completion_hours(cat))
+	var team: Array[MercenaryData] = [TestFixtures.fixed_merc("Cat A", {"base_success_chance": 50.0}),
+		TestFixtures.fixed_merc("Cat B", {"base_success_chance": 50.0})]
+	var odds: int = OddsEstimator.for_contract(cat, team)
+	TestFixtures.check(res, "cat_odds_above_1", odds > 1, "odds %d" % odds)
+	CheckStore.reset()

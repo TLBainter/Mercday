@@ -26,11 +26,7 @@ static func generate(location: LocationData) -> String:
 	var region: String = _find_region(location)
 	if region.is_empty():
 		return "Unknown"
-	return _make_full_name(region)
-
-
-static func generate_for_region(region: String) -> String:
-	return _make_full_name(region)
+	return make_full_name(region)
 
 
 static func get_regions() -> Array[String]:
@@ -49,7 +45,7 @@ static func _find_region(location: LocationData) -> String:
 	return ""
 
 
-#The finish chain every generated part runs through, written once for both callers.
+#Post-processes one generated name part.
 static func _finish_part(part: String, region: String) -> String:
 	return _fix_trailing_apos(_cap_first(_post_process(part, region)))
 
@@ -69,7 +65,7 @@ static func _resolve_name(region: String, is_surname: bool, prefab_out: Array = 
 	return part
 
 
-static func _make_full_name(region: String) -> String:
+static func make_full_name(region: String) -> String:
 	for _i: int in range(20):
 		if region == "Aldurstein" and randf() < 0.5:
 			var first_a: String = _generate_part(region, false)

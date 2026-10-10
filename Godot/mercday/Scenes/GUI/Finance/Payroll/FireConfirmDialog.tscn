@@ -1,65 +1,56 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=9 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Finance/Payroll/FireConfirmDialog.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TraditionSigil.tscn" id="2"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Finance/Payroll/PayrollBadge.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodFace.tscn" id="4"]
-[ext_resource type="Script" path="res://Scripts/GUI/Shared/BevelButton.gd" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ModalDialog.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Finance/Payroll/FireConfirmDialog.gd" id="2"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/payroll_fire_box.tres" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/TraditionSigil.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LevelBadge.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodFace.tscn" id="6"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="7"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_FireConfirmDialog.tres" id="8"]
 
-[node name="FireConfirmDialog" type="Control"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("1")
+[node name="FireConfirmDialog" instance=ExtResource("1")]
+mouse_filter = 0
+script = ExtResource("2")
+backdrop_closes = false
+box_style = ExtResource("3")
+edge_px = 0
+show_close = false
+cancel_text = "Cancel"
+confirm_text = "Confirm"
+cancel_kind = &"danger"
+confirm_kind = &"neutral"
 
-[node name="Overlay" type="Panel" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Pad" parent="Box"]
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
 
-[node name="Center" type="CenterContainer" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
+[node name="Head" parent="Box/Pad/Rows"]
+theme_override_constants/separation = 14
 
-[node name="Box" type="PanelContainer" parent="Center"]
-custom_minimum_size = Vector2(500, 0)
-layout_mode = 2
+[node name="Cancel" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 36)
+size_flags_horizontal = 3
+min_size = Vector2(0, 36)
 
-[node name="Rows" type="VBoxContainer" parent="Center/Box"]
+[node name="Confirm" parent="Box/Pad/Rows/Buttons"]
+custom_minimum_size = Vector2(0, 36)
+size_flags_horizontal = 3
+min_size = Vector2(0, 36)
+
+[node name="Plates" type="HBoxContainer" parent="Box/Pad/Rows"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 14
 
-[node name="Kicker" type="Label" parent="Center/Box/Rows"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="NameLabel" type="Label" parent="Center/Box/Rows"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="Head" type="HBoxContainer" parent="Center/Box/Rows"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 14
-
-[node name="SigilBox" type="Control" parent="Center/Box/Rows/Head"]
+[node name="SigilBox" type="Control" parent="Box/Pad/Rows/Plates"]
 custom_minimum_size = Vector2(70, 70)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="Sigil" parent="Center/Box/Rows/Head/SigilBox" instance=ExtResource("2")]
+[node name="Sigil" parent="Box/Pad/Rows/Plates/SigilBox" instance=ExtResource("4")]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -69,54 +60,39 @@ anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Badge" parent="Center/Box/Rows/Head" instance=ExtResource("3")]
+[node name="Badge" parent="Box/Pad/Rows/Plates" instance=ExtResource("5")]
 layout_mode = 2
+size_mode = 3
 
-[node name="Face" parent="Center/Box/Rows/Head" instance=ExtResource("4")]
+[node name="Face" parent="Box/Pad/Rows/Plates" instance=ExtResource("6")]
 layout_mode = 2
 size_flags_vertical = 4
 
-[node name="EmployedRow" type="HBoxContainer" parent="Center/Box/Rows"]
+[node name="EmployedRow" type="HBoxContainer" parent="Box/Pad/Rows"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 10
 
-[node name="EmployedHead" type="Label" parent="Center/Box/Rows/EmployedRow"]
+[node name="EmployedHead" type="Label" parent="Box/Pad/Rows/EmployedRow"]
 layout_mode = 2
 mouse_filter = 2
 vertical_alignment = 1
 
-[node name="EmployedText" type="Label" parent="Center/Box/Rows/EmployedRow"]
+[node name="EmployedText" type="Label" parent="Box/Pad/Rows/EmployedRow"]
 layout_mode = 2
 mouse_filter = 2
 vertical_alignment = 1
 
-[node name="Notes" type="VBoxContainer" parent="Center/Box/Rows"]
+[node name="Notes" type="VBoxContainer" parent="Box/Pad/Rows"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
 
-[node name="Body" type="Label" parent="Center/Box/Rows"]
+[node name="Body" type="Label" parent="Box/Pad/Rows"]
 layout_mode = 2
 mouse_filter = 2
 autowrap_mode = 3
 
-[node name="Buttons" type="HBoxContainer" parent="Center/Box/Rows"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Cancel" type="Button" parent="Center/Box/Rows/Buttons"]
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-size_flags_horizontal = 3
-script = ExtResource("5")
-kind = &"danger"
-text = "Cancel"
-
-[node name="Confirm" type="Button" parent="Center/Box/Rows/Buttons"]
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-size_flags_horizontal = 3
-script = ExtResource("5")
-kind = &"neutral"
-text = "Confirm"
+[node name="HelpTarget" type="Node" parent="Box"]
+script = ExtResource("7")
+hint = ExtResource("8")

@@ -1,17 +1,19 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://cjqjw82vjxl5t"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/WeaponThrowableFacet.gd" id="WeaponThrowableFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/ValidTargetsFacet.gd" id="ValidTargetsFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_2n5um"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://daqe10omsn4iq" path="res://Scripts/Decisions/CtxFlagFacet.gd" id="CtxFlagFacet"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://b5qexeqlw8y6s" path="res://Scripts/Decisions/NotMisfiredFacet.gd" id="NotMisfiredFacet"]
+[ext_resource type="Script" uid="uid://bj673d13td7g6" path="res://Scripts/Decisions/WeaponThrowableFacet.gd" id="WeaponThrowableFacet"]
 
 [sub_resource type="Resource" id="facet_throwable"]
 script = ExtResource("WeaponThrowableFacet")
 is_required = true
 
 [sub_resource type="Resource" id="facet_targets"]
-script = ExtResource("ValidTargetsFacet")
+script = ExtResource("CtxFlagFacet")
+key = "valid_targets"
 is_required = true
 
 [sub_resource type="Resource" id="facet_misfire"]
@@ -20,8 +22,7 @@ is_required = true
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_throwable"), SubResource("facet_targets"), SubResource("facet_misfire")]
-threshold = 0.5
+facets = Array[ExtResource("1_2n5um")]([SubResource("facet_throwable"), SubResource("facet_targets"), SubResource("facet_misfire")])
 
 [resource]
 script = ExtResource("ActionData")

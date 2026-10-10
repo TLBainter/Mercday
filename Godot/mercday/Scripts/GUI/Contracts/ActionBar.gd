@@ -12,7 +12,7 @@ signal cancel_pressed
 signal dispatch_pressed
 
 const CLEAR_FILL: Color = Color("#6b7488")
-const CLEAR_INK: Color = Color("#f3ead7")
+const CLEAR_INK: Color = GuiColors.CREAM
 const CLEAR_DIM: float = 0.4
 
 @onready var odds_label: Label = $Pad/Row/Odds/Head/OddsLabel

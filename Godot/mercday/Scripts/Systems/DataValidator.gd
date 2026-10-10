@@ -1,9 +1,10 @@
 class_name DataValidator
 extends RefCounted
 
-#Cross-table checks over loaded state, trait and NPC data; reports through push_warning only.
+#Cross-table checks over loaded state, trait and NPC data; push_warning, or push_error for a missing required stat.
 
 const PERK_GROUP_PREFIX: String = "grant:random:perk_group:"
+const IMMUNITY_VERBS: Array = ["immune", "protected", "susceptible"]
 
 
 static func is_damage_target(token: String) -> bool:
@@ -32,6 +33,23 @@ static func validate_effect_tokens(traits: Dictionary) -> void:
 			check_perk_group_token(token, "Traits.tsv " + trait_name, trait_data)
 
 
+static func _target_known(target: String) -> bool:
+	return ConstStates.state_from_token(target) != "" or is_damage_target(target)
+
+
+#The keys no stat row names by var_name; each one is a push_error, since a reader of it would fail silently.
+static func require_stat_keys(stat_rows: Array[Dictionary], keys: Array[String], where: String) -> Array[String]:
+	var names: Array[String] = []
+	for row: Dictionary in stat_rows:
+		names.append(String(row.get("var_name", "")))
+	var missing: Array[String] = []
+	for key: String in keys:
+		if not names.has(key):
+			missing.append(key)
+			push_error("%s: Stats.tsv has no %s stat" % [where, key])
+	return missing
+
+
 static func check_effect_token(token: String, where: String) -> void:
 	if token == "":
 		return
@@ -39,7 +57,7 @@ static func check_effect_token(token: String, where: String) -> void:
 	if parts.size() < 2:
 		return
 	var verb: String = StateTokens.normalize_token(parts[0])
-	if not (verb in ["immune", "protected", "susceptible"]):
+	if not (verb in IMMUNITY_VERBS):
 		return
 	if StateTokens.normalize_token(parts[1]) == "tag":
 		return
@@ -47,7 +65,7 @@ static func check_effect_token(token: String, where: String) -> void:
 		var target: String = StateTokens.normalize_token(spec)
 		if target == "":
 			continue
-		if ConstStates.state_from_token(target) != "" or is_damage_target(target):
+		if _target_known(target):
 			continue
 		push_warning("%s: unresolvable target %s in token %s" % [where, target, token])
 
@@ -86,10 +104,10 @@ static func parse_npc_immunities(raw: String, title: String) -> Array[String]:
 			continue
 		var verb: String = StateTokens.normalize_token(pieces[0])
 		var target: String = StateTokens.normalize_token(pieces[1])
-		if not (verb in ["immune", "protected", "susceptible"]) or target == "":
+		if not (verb in IMMUNITY_VERBS) or target == "":
 			push_warning("%s: unknown immunity token %s" % [where, token])
 			continue
-		if ConstStates.state_from_token(target) == "" and not is_damage_target(target):
+		if not _target_known(target):
 			push_warning("%s: unknown immunity token %s" % [where, token])
 			continue
 		var normalized: String = verb + ":" + target

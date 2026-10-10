@@ -62,7 +62,11 @@ static func is_valid(merc: MercenaryData, target: MercenaryData, key: String, st
 
 
 static func call_line(merc: MercenaryData, key: String, state: BattleState) -> String:
-	return "  %s calls the shot: %s (%d)!" % [BattleState.colored_name(merc, state), label(key), value(key)]
+	return call_line_text(merc, label(key), value(key), state)
+
+
+static func call_line_text(merc: MercenaryData, text: String, v: int, state: BattleState) -> String:
+	return "  %s calls the shot: %s (%d)!" % [BattleState.colored_name(merc, state), text, v]
 
 
 static func hp_total(target: MercenaryData) -> int:
@@ -116,7 +120,7 @@ static func apply_effect(merc: MercenaryData, target: MercenaryData, key: String
 			var h := state.get_height(target)
 			if h > 0:
 				state.set_height(target, 0)
-				lines.append_array(CombatApplicator.resolve_fall(target, h, state))
+				lines.append_array(FallResolver.resolve_fall(target, h, state))
 		return lines
 	if bool(opt.get("crit", false)):
 		lines.append("  %s strikes a grievous wound!" % BattleState.colored_name(merc, state))
@@ -140,7 +144,7 @@ static func apply_effect(merc: MercenaryData, target: MercenaryData, key: String
 #Applies one state outside the resist cascade; returns false when the target shrugged it off.
 static func _apply_state(merc: MercenaryData, target: MercenaryData, state_name: String, rounds: int,
 		state: BattleState, lines: Array[String]) -> bool:
-	if not ConstStates.apply_state(target, state_name, merc, "", ORIGIN):
+	if not StateCascade.apply_state(target, state_name, merc, "", ORIGIN):
 		lines.append("  %s is immune to %s!" % [BattleState.colored_name(target, state), state_name])
 		if state != null:
 			state.learn_state_immunity(merc, target, state_name)
@@ -155,7 +159,7 @@ static func _apply_state(merc: MercenaryData, target: MercenaryData, state_name:
 	return true
 
 
-#Placeholder until the creatures TSV carries the column; every creature needs a head for now.
+#The needs_head stat; true when the stat is absent.
 static func needs_head(merc: MercenaryData) -> bool:
 	if merc == null:
 		return false
@@ -181,7 +185,7 @@ static func faces_away(target: MercenaryData, merc: MercenaryData, state: Battle
 	return to_merc.x * facing.x + to_merc.y * facing.y < 0
 
 
-#E: the perk rows that make a called shot of their own (Atlas Vertebra, Skull Splitter).
+#The perk rows that make a called shot of their own (Atlas Vertebra, Skull Splitter).
 static func perk_ready(merc: MercenaryData, target: MercenaryData, info: Dictionary,
 		state: BattleState) -> bool:
 	if merc == null or target == null or state == null or state.battlefield == null:
@@ -239,8 +243,7 @@ static func perk_called_shot(merc: MercenaryData, perk: TraitData, target: Merce
 	var v := int(parts[start + 1])
 	var flags := _perk_flags(info)
 	lines.append("  %s %s" % [BattleState.colored_name(merc, state), PerkActionExecutor._perk_announce(perk)])
-	lines.append("  %s calls the shot: %s (%d)!" % [
-		BattleState.colored_name(merc, state), _perk_label(perk), v])
+	lines.append(call_line_text(merc, _perk_label(perk), v, state))
 	calls_made += 1
 	var hp_before := hp_total(target)
 	target.active_states.erase("pain_fired")
@@ -272,7 +275,7 @@ static func perk_called_shot(merc: MercenaryData, perk: TraitData, target: Merce
 static func _perk_label(perk: TraitData) -> String:
 	if perk == null:
 		return ""
-	var name := PerkActionExecutor._perk_label(perk)
+	var name := WeaponArmorPerkLibrary.perk_display_name(perk)
 	var open := name.find("(")
 	var close := name.rfind(")")
 	if open >= 0 and close > open + 1:

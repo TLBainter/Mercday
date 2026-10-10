@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/MercDave Clicks/ESM_Negative_Answer_or_Disconnected_25_Glitch_Soft_Airy_Particle_Processed_Beep_Chrip_Electronic.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/MercDave Clicks/ESM_Negative_Answer_or_Disconnected_26_Glitch_Soft_Airy_Particle_Processed_Beep_Chrip_Electronic.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Clicks/MercDave Clicks/ESM_Negative_Answer_or_Disconnected_27_Glitch_Soft_Airy_Particle_Processed_Beep_Chrip_Electronic.wav" id="4_s3"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3")])

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./fit-frame.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0b1220;color:#f3ead7;font-family:'Pixelify Sans',monospace;-webkit-font-smoothing:none;image-rendering:pixelated}
+a{color:#f28c28}a:hover{color:#f3ead7}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+input[type=range]{accent-color:#f28c28;width:100%;margin:0;height:16px}
+input[type=checkbox]{accent-color:#f28c28;width:16px;height:16px;margin:0}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:#0a0f1c;box-shadow:inset 2px 0 0 #1f3560}
+::-webkit-scrollbar-thumb{background:#f28c28;box-shadow:inset 2px 2px 0 #ffb266,inset -2px -2px 0 #b85a12;border:2px solid #0a0f1c}
+::-webkit-scrollbar-button{display:none}
+::-webkit-scrollbar-corner{background:#0a0f1c}
+@keyframes urgentPulse{0%,100%{opacity:0.04}50%{opacity:0.38}}
+</style>
+<script src="./sigils.js"></script>
+<script src="./merc-icons.js"></script>
+</helmet>
+<div data-help-scope="window" style="min-height:100vh;padding:32px;display:flex;flex-direction:column;align-items:safe center;gap:32px;overflow:auto">
+  <div data-screen-label="Contract Viewer" ref="{{ frameRef }}" style="position:relative;width:{{ frameW }};height:{{ frameH }};flex:none;background:#101a30;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,0.025) 0 2px,transparent 2px 4px);padding:20px;display:grid;grid-template-columns:{{ frameCols }};gap:20px;box-shadow:0 -4px 0 #000,0 4px 0 #000,-4px 0 0 #000,4px 0 0 #000">
+
+    <sc-if value="{{ tip.on }}" hint-placeholder-val="{{ false }}">
+      <div onMouseEnter="{{ keepTip }}" onMouseLeave="{{ hideTipNow }}" style="position:absolute;left:{{ tip.x }};top:{{ tip.y }};z-index:50;width:320px;padding:14px;display:flex;flex-direction:column;gap:10px;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+        <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ContractTooltip.tscn</div></sc-if>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:10px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+            <span style="font:700 14px Silkscreen;color:#f28c28;line-height:1.2;text-wrap:pretty">{{ tip.name }}</span>
+            <span style="font-size:14px;color:#f3ead7">{{ tip.type }}</span>
+          </div>
+          <div style="width:40px;height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+            <span style="font:400 7px Silkscreen;letter-spacing:1px">LVL</span>
+            <span style="font:700 15px Silkscreen;line-height:1">{{ tip.level }}</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:#0e1628">
+          <div style="display:flex;gap:3px">
+            <sc-for list="{{ tip.stars }}" as="s" hint-placeholder-count="5">
+              <sc-if value="{{ s.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ s.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+            </sc-for>
+          </div>
+          <span style="font:700 11px Silkscreen;color:{{ tip.diffColor }};white-space:nowrap">{{ tip.diffLabel }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="display:flex;flex-direction:column;gap:3px;padding:6px 10px;background:#0e1628">
+            <span style="font:400 8px Silkscreen;color:#9cc6ef">Reward</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="flex:none;width:12px;height:14px;display:flex;align-items:center;justify-content:center;background:#f28c28"><sc-if value="{{ noteGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:5px;height:9px;image-rendering:pixelated;background:url({{ noteGlyph.px5 }}) 0 0/100% 100% no-repeat"></span></sc-if></div>
+              <span style="font:700 12px Silkscreen;color:#f3ead7">{{ tip.reward }}</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;padding:6px 10px;background:#0e1628">
+            <span style="font:400 8px Silkscreen;color:#9cc6ef">Urgency</span>
+            <span style="font:700 12px Silkscreen;color:{{ tip.urgencyColor }}">{{ tip.urgency }}</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:8px;padding-top:8px;box-shadow:inset 0 2px 0 #2b4f8a">
+          <span style="font:400 8px Silkscreen;color:#9cc6ef">Issuer</span>
+          <span style="font-size:14px;color:#f3ead7">{{ tip.issuer }}</span>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showList }}" hint-placeholder-val="{{ true }}">
+    <!-- ContractList.tscn -->
+    <div data-help="scene_ContractList" style="position:relative;min-height:0;display:flex;flex-direction:column;gap:12px;padding:14px 10px 14px 14px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-10px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">ContractList.tscn</div></sc-if>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding-right:4px">
+        <span style="font:400 13px Silkscreen;color:#f28c28;letter-spacing:1px">Contracts</span>
+        <span style="font:400 11px Silkscreen;color:#9cc6ef">{{ countLabel }}</span>
+      </div>
+      <div style="position:relative;display:flex;gap:8px;align-items:center;padding:0 4px 0 3px">
+        <button data-popup="1" onClick="{{ toggleSort }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:26px;padding:0 8px;background:#2b4f8a;font:400 10px Silkscreen;white-space:nowrap;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">
+          <span style="display:grid;gap:2px"><span style="width:10px;height:2px;background:#f3ead7"></span><span style="width:7px;height:2px;background:#f3ead7"></span><span style="width:4px;height:2px;background:#f3ead7"></span></span>
+          {{ sortLabel }}
+        </button>
+        <button onClick="{{ toggleDir }}" title="{{ dirTitle }}" style="flex:none;width:40px;height:26px;display:flex;align-items:center;justify-content:center;gap:4px;background:{{ dirBg }};box-shadow:inset 0 3px 0 {{ dirHi }},inset 0 -3px 0 {{ dirLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+          <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid {{ upColor }}"></span>
+          <span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid {{ downColor }}"></span>
+        </button>
+        <button data-popup="1" onClick="{{ toggleFilter }}" style="flex:none;height:26px;padding:0 8px;display:flex;align-items:center;gap:6px;background:{{ filterBg }};color:{{ filterFg }};font:400 10px Silkscreen;box-shadow:inset 0 3px 0 {{ filterHi }},inset 0 -3px 0 {{ filterLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.15)">
+          <span style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="width:10px;height:2px;background:{{ filterFg }}"></span><span style="width:6px;height:2px;background:{{ filterFg }}"></span><span style="width:2px;height:4px;background:{{ filterFg }}"></span></span>
+          Filter
+        </button>
+
+        <sc-if value="{{ sortOpen }}" hint-placeholder-val="{{ false }}">
+          <div data-popup="1" style="position:absolute;top:36px;left:72px;z-index:40;width:220px;padding:12px;display:flex;flex-direction:column;gap:10px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+            <span style="font:400 10px Silkscreen;color:#9cc6ef">Sort by</span>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <sc-for list="{{ sortOpts }}" as="o" hint-placeholder-count="5">
+                <button onClick="{{ o.onClick }}" style="text-align:left;padding:6px 8px;font-size:14px;background:{{ o.bg }};color:{{ o.fg }}" style-hover="filter:brightness(1.2)">{{ o.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ filterOpen }}" hint-placeholder-val="{{ false }}">
+          <div data-help="scene_ContractFilterPanel" data-popup="1" style="position:absolute;top:36px;left:72px;z-index:40;width:300px;padding:14px;display:flex;flex-direction:column;gap:14px;background:#1f3560;box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,8px 8px 0 4px rgba(0,0,0,0.5)">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ContractFilterPanel.tscn</div></sc-if>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font:400 10px Silkscreen;color:#9cc6ef">Show</span>
+              <sc-for list="{{ closedOpts }}" as="o" hint-placeholder-count="3">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding-left:{{ o.indent }}">
+                  <input type="checkbox" checked="{{ o.on }}" onChange="{{ o.onChange }}">
+                  <span style="font-size:14px;color:{{ o.color }}">{{ o.label }}</span>
+                </label>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:400 10px Silkscreen;color:#9cc6ef">Difficulty</span><span style="font:400 10px Silkscreen;color:#f2b33d">{{ dRange }}</span></div>
+              <div style="display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">Min</span><dc-import name="Pixel Slider" min="0.5" max="5" step="0.5" value="{{ dMin }}" on-change="{{ onDMin }}" style="display:block;width:100%" hint-size="100%,22px"></dc-import></div>
+              <div style="display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">Max</span><dc-import name="Pixel Slider" min="0.5" max="5" step="0.5" value="{{ dMax }}" on-change="{{ onDMax }}" style="display:block;width:100%" hint-size="100%,22px"></dc-import></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:400 10px Silkscreen;color:#9cc6ef">Reward</span><span style="font:400 10px Silkscreen;color:#f2b33d">{{ rRange }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;vertical-align:-1px;margin-left:3px"></span></sc-if></span></div>
+              <div style="display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">Min</span><dc-import name="Pixel Slider" min="0" max="{{ rewardCap }}" step="50" value="{{ rMin }}" on-change="{{ onRMin }}" style="display:block;width:100%" hint-size="100%,22px"></dc-import></div>
+              <div style="display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">Max</span><dc-import name="Pixel Slider" min="0" max="{{ rewardCap }}" step="50" value="{{ rMax }}" on-change="{{ onRMax }}" style="display:block;width:100%" hint-size="100%,22px"></dc-import></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:400 10px Silkscreen;color:#9cc6ef">Max Distance</span><span style="font:400 10px Silkscreen;color:#f2b33d">{{ distLabel }}</span></div>
+              <dc-import name="Pixel Slider" min="1" max="{{ distCap }}" step="1" value="{{ maxDist }}" on-change="{{ onDist }}" style="display:block;width:100%" hint-size="100%,22px"></dc-import>
+            </div>
+            <button onClick="{{ resetFilters }}" style="align-self:flex-start;height:26px;padding:0 10px;background:#2b4f8a;font:400 10px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560" style-hover="background:#3b6fb6">Reset</button>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;padding:12px 12px 6px 4px">
+        <sc-for list="{{ list }}" as="c" hint-placeholder-count="8">
+          <button data-help="scene_ContractListItem" onClick="{{ c.onClick }}" onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ hideTip }}" style="position:relative;flex:none;height:68px;display:grid;grid-template-columns:56px minmax(0,1fr) 48px;gap:10px;align-items:center;padding:6px;text-align:left;filter:{{ c.filter }};background:{{ c.bg }};box-shadow:0 -3px 0 {{ c.ring }},0 3px 0 {{ c.ring }},-3px 0 0 {{ c.ring }},3px 0 0 {{ c.ring }}" style-hover="background:#15223d">
+            <sc-if value="{{ c.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;right:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ContractListItem.tscn</span></sc-if>
+            <sc-if value="{{ c.unclaimed }}" hint-placeholder-val="{{ false }}"><dc-import name="Notification Dot" hint-size="28px,28px" style="position:absolute;top:-10px;right:-10px;z-index:8;pointer-events:none"></dc-import></sc-if>
+            <div style="position:relative;width:56px;height:56px;overflow:hidden;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6">
+              <sc-if value="{{ c.urgent }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#ff2a1f;animation:urgentPulse 2.6s ease-in-out infinite;pointer-events:none"></div></sc-if>
+              <sc-if value="{{ c.mark }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:14px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><sc-if value="{{ c.mark.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c) drop-shadow(-1px -1px 0 #0a0f1c);background:url({{ c.mark.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if></div></sc-if>
+              <div style="position:absolute;top:0;left:0;right:0;height:14px;display:flex;align-items:center;justify-content:center;background:rgba(10,15,28,0.78);font:500 8px/1 'Pixelify Sans',monospace;color:{{ c.statusColor }};white-space:nowrap">{{ c.status }}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0;height:56px">
+              <span style="font:700 12px/1 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+              <div style="display:flex;gap:2px">
+                <sc-for list="{{ c.stars }}" as="s" hint-placeholder-count="5">
+                  <sc-if value="{{ s.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ s.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px">
+                <div style="flex:none;width:12px;height:14px;display:flex;align-items:center;justify-content:center;background:#f28c28"><sc-if value="{{ noteGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:5px;height:9px;image-rendering:pixelated;background:url({{ noteGlyph.px5 }}) 0 0/100% 100% no-repeat"></span></sc-if></div>
+                <span style="font:700 11px Silkscreen;color:#f3ead7">{{ c.reward }}</span>
+              </div>
+            </div>
+            <div style="width:48px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+              <span style="font:400 8px Silkscreen;letter-spacing:1px">LVL</span>
+              <span style="font:700 18px Silkscreen;line-height:1">{{ c.level }}</span>
+            </div>
+          </button>
+        </sc-for>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px;text-align:center;font-size:14px;color:#9cc6ef;background:#0e1628">No contracts match these filters.</div>
+        </sc-if>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ContractDetail.tscn -->
+    <div data-help="scene_ContractDetail" style="position:relative;min-height:0;display:flex;flex-direction:column;gap:16px;padding:20px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #0a0f1c,0 4px 0 #0a0f1c,-4px 0 0 #0a0f1c,4px 0 0 #0a0f1c,0 -4px 0 #f28c28">
+      <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:8px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 10px Silkscreen;padding:2px 6px">ContractDetail.tscn</div></sc-if>
+      <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:18px">
+          <div style="position:relative;width:150px;height:150px;overflow:hidden;background:#0e1628;background-image:repeating-linear-gradient(45deg,#15223d 0 6px,#0e1628 6px 12px);box-shadow:inset 0 0 0 4px #f28c28;display:flex;align-items:flex-end;justify-content:center;padding:10px">
+            <sc-if value="{{ sel.urgent }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#ff2a1f;animation:urgentPulse 2.6s ease-in-out infinite;pointer-events:none"></div></sc-if>
+              <sc-if value="{{ sel.mark }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:26px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;pointer-events:none"><sc-if value="{{ sel.mark.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:80px;height:80px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c) drop-shadow(-1px -1px 0 #0a0f1c);background:url({{ sel.mark.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if></div></sc-if>
+            <div style="position:absolute;top:4px;left:4px;right:4px;height:22px;display:flex;align-items:center;justify-content:center;background:rgba(10,15,28,0.78);font:400 11px Silkscreen;letter-spacing:1px;color:{{ sel.statusColor }}">{{ sel.status }}</div>
+            <span style="position:relative;font:400 10px ui-monospace,monospace;color:#9cc6ef;background:#0e1628;padding:3px 6px">contract image</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0;height:150px">
+            <div style="display:flex;flex-direction:column;gap:0">
+              <span style="font:700 22px Silkscreen;color:#f28c28;line-height:1;text-shadow:2px 2px 0 #0a0f1c">{{ sel.name }}</span>
+              <span style="font-size:14px;line-height:1.1;color:#8a97ad">{{ sel.dateLine }}</span>
+              <span style="font-size:12px;line-height:1.1;color:#5e7699">{{ sel.dateRel }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="flex:none;width:48px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+                <span style="font:400 8px Silkscreen;letter-spacing:1px">LVL</span>
+                <span style="font:700 18px Silkscreen;line-height:1">{{ sel.recLevel }}</span>
+              </div>
+              <span style="font:400 16px Silkscreen;color:#f3ead7">{{ sel.type }}</span>
+              <div style="position:relative;display:flex;align-items:flex-end;gap:5px;margin-left:14px">
+                <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-12px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">{{ mercSceneTag }}</span></sc-if>
+                <sc-if value="{{ sel.notActive }}" hint-placeholder-val="{{ true }}">
+                  <div title="{{ sel.mercTitle }}" style="display:flex;align-items:flex-end;gap:5px">
+                    <sc-for list="{{ sel.mercIcons }}" as="m" hint-placeholder-count="5">
+                      <sc-if value="{{ m.px14 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:28px;height:28px;image-rendering:pixelated;background:url({{ m.px14 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ sel.isActive }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:4px">
+                    <sc-for list="{{ sel.crew }}" as="m" hint-placeholder-count="3">
+                      <div onClick="{{ m.onClick }}" onMouseEnter="{{ m.onEnter }}" onMouseLeave="{{ m.onLeave }}" style="position:relative;width:46px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer" style-hover="filter:brightness(1.2)">
+                        <span style="width:100%;height:12px;display:flex;align-items:center;justify-content:center;background:{{ m.roleBg }};color:{{ m.roleFg }};font:400 7px Silkscreen;white-space:nowrap;overflow:hidden">{{ m.role }}</span>
+                        <div style="width:34px;height:34px;background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px {{ m.ring }}"></div>
+                        <sc-if value="{{ m.tip }}" hint-placeholder-val="{{ false }}">
+                          <div style="position:absolute;top:calc(100% + 8px);left:0;z-index:30;width:220px;padding:12px;display:flex;flex-direction:column;gap:8px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">CrewTooltip.tscn</div></sc-if>
+                            <div style="display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:8px;align-items:start">
+                              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                                <span style="font:700 12px Silkscreen;color:#f28c28;line-height:1.2">{{ m.name }}</span>
+                                <div style="display:flex;align-items:center;gap:6px">
+                                  <div style="flex:none;width:18px;height:18px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 1px {{ m.tradColor }}"><sc-if value="{{ m.sigil.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ m.sigil.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if></div>
+                                  <span style="font-size:13px;color:{{ m.tradColor }}">{{ m.trad }}</span>
+                                </div>
+                              </div>
+                              <div style="width:36px;height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#f28c28;color:#0a0f1c;box-shadow:inset -3px -3px 0 #b85a12,inset 3px 3px 0 #ffb266">
+                                <span style="font:400 7px Silkscreen">LVL</span>
+                                <span style="font:700 14px Silkscreen;line-height:1">{{ m.level }}</span>
+                              </div>
+                            </div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:#0e1628">
+                              <span style="font:400 8px Silkscreen;color:#9cc6ef">Contract Match</span>
+                              <div style="display:flex;gap:2px"><sc-for list="{{ m.stars }}" as="s" hint-placeholder-count="5"><sc-if value="{{ s.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ s.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if></sc-for></div>
+                            </div>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <div style="margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div style="background:#0e1628;padding:4px 10px;display:flex;flex-direction:column;gap:2px">
+                <span style="font:400 9px Silkscreen;color:#9cc6ef">Contract Issuer</span>
+                <span style="font-size:15px">{{ sel.issuer }}</span>
+              </div>
+              <div style="background:#0e1628;padding:4px 10px;display:flex;flex-direction:column;gap:2px">
+                <span style="font:400 9px Silkscreen;color:#9cc6ef">Issuer Type</span>
+                <span style="font-size:15px">{{ sel.issuerType }}</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+            <div onMouseEnter="{{ sel.oddsEnter }}" onMouseLeave="{{ sel.tipLeave }}" style="position:relative;display:flex;gap:4px;cursor:{{ sel.hoverCursor }}">
+              <sc-if value="{{ sel.oddsTip }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:250px;padding:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">OddsTooltip.tscn</div></sc-if>
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+                    <span style="font:400 10px Silkscreen;color:#f28c28">Success Odds</span>
+                    <span style="font:700 18px Silkscreen;color:{{ sel.oddsColor }}">{{ sel.oddsLabel }}</span>
+                  </div>
+                  <div style="display:flex;gap:2px;height:14px;padding:2px;background:#0a0f1c">
+                    <sc-for list="{{ sel.oddsCells }}" as="oc" hint-placeholder-count="20"><div style="flex:1;background:{{ oc }}"></div></sc-for>
+                  </div>
+                  <span style="font-size:13px;color:#9cc6ef">{{ sel.diffLabel }} contract</span>
+                </div>
+              </sc-if>
+              <sc-for list="{{ sel.bigStars }}" as="s" hint-placeholder-count="5">
+                <sc-if value="{{ s.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:32px;height:32px;image-rendering:pixelated;background:url({{ s.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+              </sc-for>
+            </div>
+            <div onMouseEnter="{{ sel.moneyEnter }}" onMouseLeave="{{ sel.tipLeave }}" style="position:relative;display:flex;align-items:center;gap:8px;margin-top:4px;cursor:{{ sel.hoverCursor }}">
+              <sc-if value="{{ sel.doneTip }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:260px;padding:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                  <span style="font:400 10px Silkscreen;color:#f28c28">Final Pay Results</span>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0e1628"><span style="font:400 9px Silkscreen;color:#9cc6ef">Reward</span><span style="font-size:14px">{{ sel.done.reward }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;vertical-align:-1px;margin-left:3px"></span></sc-if></span></div>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0e1628"><span style="font:400 9px Silkscreen;color:#9cc6ef">Expenses</span><span style="font-size:14px;color:#e8583f">−{{ sel.done.cost }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;vertical-align:-1px;margin-left:3px"></span></sc-if></span></div>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0e1628"><span style="font:400 9px Silkscreen;color:#9cc6ef">Merc Payment</span><span style="font-size:14px;color:#f2d33d">−{{ sel.done.merc }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;vertical-align:-1px;margin-left:3px"></span></sc-if></span></div>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0a0f1c;box-shadow:inset 0 2px 0 #2b4f8a"><span style="font:400 9px Silkscreen;color:#9cc6ef">Final Guild Income</span><span style="font:700 14px Silkscreen;color:{{ sel.done.guildColor }}">{{ sel.done.guild }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;vertical-align:-1px;margin-left:3px"></span></sc-if></span></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ sel.moneyTip }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:250px;padding:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none;background:#1f3560;box-shadow:0 -3px 0 #9cc6ef,0 3px 0 #9cc6ef,-3px 0 0 #9cc6ef,3px 0 0 #9cc6ef,6px 6px 0 3px rgba(0,0,0,0.5)">
+                  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;left:0;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px;white-space:nowrap">PayoutTooltip.tscn</div></sc-if>
+                  <span style="font:400 10px Silkscreen;color:#f28c28">Payout</span>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0e1628"><span style="font:400 9px Silkscreen;color:#9cc6ef">Reward</span><span style="font-size:14px">{{ sel.pay.reward }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;vertical-align:-1px;margin-left:3px"></span></sc-if></span></div>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0e1628"><span style="font:400 9px Silkscreen;color:#9cc6ef">Expenses</span><span style="font-size:14px;color:#e8583f">−{{ sel.pay.cost }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;vertical-align:-1px;margin-left:3px"></span></sc-if></span></div>
+                  <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;background:#0a0f1c;box-shadow:inset 0 2px 0 #2b4f8a"><span style="font:400 9px Silkscreen;color:#9cc6ef">Expected Total</span><span style="font:700 14px Silkscreen;color:{{ sel.pay.netColor }}">{{ sel.pay.net }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;vertical-align:-1px;margin-left:3px"></span></sc-if></span></div>
+                  <div style="display:flex;flex-direction:column;gap:2px;padding-top:4px"><span style="font:400 9px Silkscreen;color:#9cc6ef">Estimated Payday</span><span style="font-size:14px">{{ sel.pay.day }}</span><span style="font-size:12px;color:#8a97ad">{{ sel.pay.dayRel }}</span></div>
+                </div>
+              </sc-if>
+              <div style="flex:none;width:20px;height:24px;display:flex;align-items:center;justify-content:center;background:#f28c28;box-shadow:inset -2px -2px 0 #b85a12,inset 2px 2px 0 #ffb266">
+                <sc-if value="{{ noteGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:10px;height:18px;image-rendering:pixelated;background:url({{ noteGlyph.px5 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+              </div>
+              <span style="font:700 26px/24px Silkscreen;color:#f3ead7">{{ sel.rewardLabel }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#0e1628;padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+          <span style="font:400 9px Silkscreen;color:#9cc6ef">Description</span>
+          <p style="margin:0;font-size:15px;line-height:1.4;text-wrap:pretty">{{ sel.desc }}</p>
+        </div>
+
+        <div style="position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">StatCard.tscn ×3</div></sc-if>
+          <div style="background:#0e1628;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+            <span style="font:400 9px Silkscreen;color:#9cc6ef">Completion Time</span>
+            <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.completionLabel }}</span>
+          </div>
+          <div style="background:#0e1628;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+            <span style="font:400 9px Silkscreen;color:#9cc6ef">Distance · Location</span>
+            <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.distLabel }} · {{ sel.location }}</span>
+          </div>
+          <div style="background:#0e1628;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+            <span style="font:400 9px Silkscreen;color:#9cc6ef">Urgency</span>
+            <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:Silkscreen;font-size:14px;color:{{ sel.urgencyColor }}">{{ sel.urgency }}</span>
+          </div>
+        </div>
+
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+          <sc-for list="{{ sel.bests }}" as="b" hint-placeholder-count="3">
+            <div data-help="scene_RecommendedList" style="position:relative;min-height:0;display:flex;flex-direction:column;gap:8px">
+              <sc-if value="{{ b.tag }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">RecommendedList.tscn</div></sc-if>
+              <span style="font:400 12px Silkscreen;color:#f28c28;letter-spacing:1px;white-space:nowrap">{{ b.title }}</span>
+              <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;overflow-y:auto;overflow-x:hidden;padding:4px;background:#0e1628;border:3px solid #1f3560;outline:2px solid #0a0f1c">
+                <sc-for list="{{ b.items }}" as="it" hint-placeholder-count="6">
+                  <div style="flex:none;display:flex;align-items:center;gap:8px;height:26px;padding:0 10px;background:#2b4f8a;box-shadow:inset 0 -3px 0 #1f3560,inset 0 3px 0 #3b6fb6">
+                    <sc-if value="{{ it.sigil }}" hint-placeholder-val="{{ false }}">
+                      <div style="flex:none;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:#0a0f1c;box-shadow:inset 0 0 0 1px {{ it.color }}">
+                        <sc-if value="{{ it.sigil.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ it.sigil.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+                      </div>
+                    </sc-if>
+                    <span style="flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.name }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ canDecide }}" hint-placeholder-val="{{ true }}">
+          <div data-help="scene_DecisionButtons" style="position:relative;flex:none;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">DecisionButtons.tscn</div></sc-if>
+            <button onClick="{{ accept }}" style="height:54px;display:flex;align-items:center;justify-content:center;gap:14px;background:#3f9a4a;font:700 18px Silkscreen;color:#f3ead7;letter-spacing:1px;text-shadow:2px 2px 0 #0a0f1c;box-shadow:inset 0 4px 0 #6cc36a,inset 0 -4px 0 #2a6b32,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#4fb05a" style-active="background:#2a6b32">
+              <sc-if value="{{ checkIcon.px13 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:39px;height:30px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #000) drop-shadow(-3px 0 0 #000) drop-shadow(0 3px 0 #000) drop-shadow(0 -3px 0 #000) drop-shadow(2px 2px 0 #0a0f1c);background:url({{ checkIcon.px13 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+              Accept
+            </button>
+            <button onClick="{{ askReject }}" style="height:54px;display:flex;align-items:center;justify-content:center;gap:14px;background:#b8402e;font:700 18px Silkscreen;color:#f3ead7;letter-spacing:1px;text-shadow:2px 2px 0 #0a0f1c;box-shadow:inset 0 4px 0 #e8583f,inset 0 -4px 0 #7a2a1e,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#cc4a36" style-active="background:#7a2a1e">
+              <sc-if value="{{ xIcon.px12 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:36px;height:36px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #000) drop-shadow(-3px 0 0 #000) drop-shadow(0 3px 0 #000) drop-shadow(0 -3px 0 #000) drop-shadow(2px 2px 0 #0a0f1c);background:url({{ xIcon.px12 }}) 0 0/100% 100% no-repeat"></span></sc-if>
+              Reject
+            </button>
+          </div>
+        </sc-if>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ resultsOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:66;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div ref="{{ resPanelRef }}" style="width:900px;position:relative;padding:22px;display:flex;flex-direction:column;gap:16px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 {{ rs.accent }},0 4px 0 {{ rs.accent }},-4px 0 0 {{ rs.accent }},4px 0 0 {{ rs.accent }},10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ContractResults.tscn (AnimationPlayer timeline)</div></sc-if>
+          <sc-if value="{{ rs.canClose }}" hint-placeholder-val="{{ false }}"><button onClick="{{ closeResults }}" title="Close" style="position:absolute;top:-4px;right:-4px;transform:translate(50%,-50%);z-index:5;padding:0;background:none;color:#ff3b2f;font:700 48px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button></sc-if>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:20px;align-items:end">
+            <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+              <div ref="{{ rs.dockRef }}" style="height:40px" aria-hidden="true"></div>
+              <span style="font:700 20px Silkscreen;color:{{ rs.accent }};letter-spacing:1px">{{ rs.title }}</span>
+              <span style="font:700 14px Silkscreen;color:#f28c28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ rs.name }}</span>
+              <div style="display:flex;gap:2px"><sc-for list="{{ rs.stars }}" as="s" hint-placeholder-count="5"><sc-if value="{{ s.px16 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:16px;height:16px;image-rendering:pixelated;background:url({{ s.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if></sc-for></div>
+            </div>
+            <div data-help="scene_NotesEarned" style="position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 14px;background:#0e1628">
+              <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-12px;right:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">NotesEarned.tscn</div></sc-if>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">{{ rs.rewardLabel }}</span><span style="display:flex;align-items:center;gap:3px;font-size:14px;line-height:1;color:{{ rs.rewardColor }}">{{ rs.rewardV }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if></span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:400 9px Silkscreen;color:#9cc6ef">Expenses</span><span style="display:flex;align-items:center;gap:3px;font-size:14px;line-height:1;color:#e8583f">−{{ rs.expenseV }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if></span></div>
+              <div ref="{{ netBoxRef }}" style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;box-shadow:inset 0 2px 0 #1f3560">
+                <span style="font:400 9px Silkscreen;color:#9cc6ef">{{ rs.netLabel }}</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="flex:none;width:16px;height:20px;display:flex;align-items:center;justify-content:center;background:#f28c28;box-shadow:inset -2px -2px 0 #b85a12,inset 2px 2px 0 #ffb266"><sc-if value="{{ noteGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:5px;height:9px;image-rendering:pixelated;background:url({{ noteGlyph.px5 }}) 0 0/100% 100% no-repeat"></span></sc-if></div>
+                  <span style="font:700 20px/1 Silkscreen;color:{{ rs.netColor }};text-shadow:{{ rs.netGlow }}">{{ rs.netV }}</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;opacity:{{ rs.bonusOpacity }}"><span style="font:400 9px Silkscreen;color:#9cc6ef">{{ rs.bonusLabel }}</span><span style="display:flex;align-items:center;gap:3px;font-size:14px;line-height:1;color:#f2d33d">−{{ rs.bonusV }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if></span></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ rs.members }}" as="m" hint-placeholder-count="3">
+              <div data-help="scene_ResultRow" style="position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) 170px 230px 80px;gap:14px;align-items:center;padding:8px 10px;background:#0e1628;box-shadow:inset 0 0 0 2px {{ m.ring }}">
+                <sc-if value="{{ m.tag }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;left:4px;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ResultRow.tscn</span></sc-if>
+                <div style="position:relative;width:48px;height:48px">
+                  <div style="width:48px;height:48px;filter:{{ m.filter }};background:#0e1628;background-image:repeating-linear-gradient(45deg,#1f3560 0 4px,#0e1628 4px 8px);box-shadow:inset 0 0 0 2px #3b6fb6"></div>
+                  <sc-if value="{{ m.bars }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ m.barCells.px16 }}" hint-placeholder-val="{{ false }}"><span title="Captured" style="position:absolute;inset:0;transform:{{ m.fateTf }};display:block;flex:none;width:48px;height:48px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c);background:url({{ m.barCells.px16 }}) 0 0/100% 100% no-repeat"></span></sc-if></sc-if>
+                  <sc-if value="{{ m.skull }}" hint-placeholder-val="{{ false }}"><div title="Deceased" style="position:absolute;inset:0;transform:{{ m.fateTf }};display:flex;align-items:center;justify-content:center"><sc-if value="{{ m.skullCells.px11 }}" hint-placeholder-val="{{ false }}"><span style="display:block;flex:none;width:33px;height:39px;image-rendering:pixelated;filter:drop-shadow(2px 2px 0 #0a0f1c);background:url({{ m.skullCells.px11 }}) 0 0/100% 100% no-repeat"></span></sc-if></div></sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                    <span style="font:700 12px/1 Silkscreen;color:#f3ead7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</span>
+                    <sc-if value="{{ m.mvp }}" hint-placeholder-val="{{ false }}"><span style="flex:none;padding:2px 6px;background:#f2d33d;color:#0a0f1c;font:700 9px Silkscreen;box-shadow:inset -2px -2px 0 #b89a1a,inset 2px 2px 0 #fff08a">MVP</span></sc-if>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9cc6ef;min-width:0">
+                    <div style="flex:none;width:26px;height:22px;display:flex;align-items:center;justify-content:center;background:#f28c28;color:#0a0f1c;font:700 11px Silkscreen;box-shadow:inset -2px -2px 0 #b85a12,inset 2px 2px 0 #ffb266{{ m.lvGlow }}">{{ m.lvShown }}</div>
+                    <sc-if value="{{ m.lvPlus }}" hint-placeholder-val="{{ false }}"><span style="flex:none;font:700 11px Silkscreen;color:#6cc36a;text-shadow:0 0 6px #6cc36a">+1</span></sc-if>
+                    <span style="color:{{ m.tradColor }}">{{ m.trad }}</span><span>· {{ m.role }}</span>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:5px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:400 8px Silkscreen;color:#f2b33d">XP</span><span style="font:700 12px Silkscreen;color:{{ m.xpColor }}">{{ m.xp }}</span></div>
+                  <div style="position:relative;flex:none;width:100%;height:12px;background:#0a0f1c;box-shadow:0 -2px 0 #0a0f1c,0 2px 0 #0a0f1c,-2px 0 0 #0a0f1c,2px 0 0 #0a0f1c,inset 0 0 0 2px #1f3560">
+                    <div style="height:100%;width:{{ m.xpW }};background:{{ m.xpFill }};box-shadow:inset 0 3px 0 rgba(255,255,255,0.3),inset 0 -3px 0 rgba(0,0,0,0.25){{ m.xpGlowS }}"></div>
+                    <div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 14px,#0a0f1c 14px 16px)"></div>
+                  </div>
+                  <span style="font-size:11px;line-height:1;color:#9cc6ef;text-align:right">{{ m.xpNum }}</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px">
+                  <sc-for list="{{ m.res }}" as="x" hint-placeholder-count="3">
+                    <div style="display:grid;grid-template-columns:22px minmax(0,1fr) 44px;gap:6px;align-items:center">
+                      <span style="font:400 8px Silkscreen;color:{{ x.color }}">{{ x.key }}</span>
+                      <div style="position:relative;flex:1;height:10px;background:#0a0f1c;box-shadow:inset 0 0 0 2px #1f3560"><div style="position:absolute;left:0;top:0;bottom:0;width:{{ x.w }};background:{{ x.color }};box-shadow:inset 0 2px 0 rgba(255,255,255,0.3),inset 0 -2px 0 rgba(0,0,0,0.3)"></div></div>
+                      <span style="font-size:11px;line-height:1;color:#f3ead7;text-align:right">{{ x.label }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+                  <span style="font:700 11px Silkscreen;color:{{ m.statusColor }};text-align:right">{{ m.status }}</span>
+                  <span ref="{{ m.payRef }}" title="Merc Bonus paid" style="display:flex;align-items:center;gap:3px;font:700 12px/1 Silkscreen;color:{{ m.payColor }};text-shadow:{{ m.payGlow }};white-space:nowrap">{{ m.payV }}<sc-if value="{{ nGlyph.px5 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;flex:none;width:5px;height:9px;background:currentColor;-webkit-mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;mask:url({{ nGlyph.px5 }}) 0 0/100% 100% no-repeat;flex:none"></span></sc-if></span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ rs.dimOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;z-index:29;pointer-events:none;background:rgba(6,10,20,0.6);opacity:{{ rs.dimOp }}"></div></sc-if>
+          <sc-if value="{{ rs.verdictOn }}" hint-placeholder-val="{{ false }}">
+            <div ref="{{ rs.verdictRef }}" style="position:absolute;left:0;top:0;z-index:30;pointer-events:none;transform-origin:center;transform:{{ rs.verdictTf }};opacity:{{ rs.verdictOp }};padding:22px 46px;background:#0a0f1c;box-shadow:inset 0 0 0 6px {{ rs.verdictColor }},inset 0 0 0 10px {{ rs.verdictDark }},0 -6px 0 #0a0f1c,0 6px 0 #0a0f1c,-6px 0 0 #0a0f1c,6px 0 0 #0a0f1c,12px 12px 0 0 rgba(0,0,0,0.5)">
+              <span style="display:block;font:700 84px/1 Silkscreen;letter-spacing:4px;color:{{ rs.verdictColor }};text-shadow:6px 6px 0 {{ rs.verdictDark }};white-space:nowrap">{{ rs.verdict }}</span>
+            </div>
+          </sc-if>
+          <sc-for list="{{ rs.payNotes }}" as="fn" hint-placeholder-count="0">
+            <div style="position:absolute;left:{{ fn.x }};top:{{ fn.y }};opacity:{{ fn.o }};z-index:20;width:14px;height:18px;pointer-events:none;background:#f28c28;box-shadow:inset -2px -2px 0 #b85a12,inset 2px 2px 0 #ffb266,0 0 0 2px #0a0f1c"></div>
+          </sc-for>
+          <div style="display:flex;justify-content:flex-end">
+            <button onClick="{{ rs.onContinue }}" title="{{ rs.contTitle }}" style="height:40px;padding:0 26px;background:{{ rs.contBg }};color:{{ rs.contFg }};font:700 13px Silkscreen;opacity:{{ rs.contOpacity }};cursor:{{ rs.contCursor }};box-shadow:inset 0 3px 0 {{ rs.contHi }},inset 0 -3px 0 {{ rs.contLo }},0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Continue</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ dispatchOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+        <div style="position:relative;flex:none;width:1280px;height:{{ frameH }};box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <div style="position:absolute;top:0;left:0;width:1280px;height:{{ frameH }};overflow:hidden">
+            <dc-import name="Dispatch Window" frame-h="{{ frameH }}" contract="{{ dispatchContract }}" busy-ids="{{ busyIds }}" on-dispatched="{{ onDispatched }}" on-close="{{ closeDispatch }}" style="position:absolute;top:-32px;left:-32px;width:1344px" hint-size="1344px,784px"></dc-import>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ mercViewOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeMercView }}" style="position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.7)">
+        <div onClick="{{ stop }}" style="position:relative;flex:none;width:988px;height:{{ frameH }};box-shadow:0 -4px 0 #f28c28,0 4px 0 #f28c28,-4px 0 0 #f28c28,4px 0 0 #f28c28,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <div style="position:absolute;top:0;left:0;width:988px;height:{{ frameH }};overflow:hidden">
+            <dc-import name="Merc Viewer" frame-h="{{ frameH }}" merc-id="{{ mercViewId }}" hide-roster="{{ true }}" style="position:absolute;top:-32px;left:-32px;width:1052px" hint-size="1052px,784px"></dc-import>
+          </div>
+          <button onClick="{{ closeMercView }}" title="Close" style="position:absolute;top:10px;right:10px;title="Close" style="position:absolute;top:10px;right:10px;z-index:5;padding:0;background:none;color:#ff3b2f;font:700 56px/1 Silkscreen;text-shadow:3px 0 0 #0a0f1c,-3px 0 0 #0a0f1c,0 3px 0 #0a0f1c,0 -3px 0 #0a0f1c,3px 3px 0 #0a0f1c,-3px -3px 0 #0a0f1c,3px -3px 0 #0a0f1c,-3px 3px 0 #0a0f1c" style-hover="color:#ff6a55"><span style="display:block;width:30px;height:30px;background:url(icon_sheet/merc-manager_ICON-COLLECTION.png) -105px -105px / 768px 1920px;image-rendering:pixelated;filter:drop-shadow(3px 0 0 #0a0f1c) drop-shadow(-3px 0 0 #0a0f1c) drop-shadow(0 3px 0 #0a0f1c) drop-shadow(0 -3px 0 #0a0f1c)"></span></button>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,10,20,0.72)">
+        <div data-help="scene_ConfirmDialog" data-help-scope="dialog" style="position:relative;width:420px;padding:22px;display:flex;flex-direction:column;gap:16px;background:#1a2b4d;box-shadow:inset 4px 4px 0 #28447a,inset -4px -4px 0 #111c33,0 -4px 0 #e8583f,0 4px 0 #e8583f,-4px 0 0 #e8583f,4px 0 0 #e8583f,10px 10px 0 4px rgba(0,0,0,0.5)">
+          <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:-14px;left:0;z-index:9;background:#f28c28;color:#0a0f1c;font:400 9px Silkscreen;padding:1px 4px">ConfirmDialog.tscn</div></sc-if>
+          <span style="font:700 18px Silkscreen;color:#e8583f">Are you sure?</span>
+          <span style="font-size:15px;line-height:1.4;color:#f3ead7">Once rejected, this contract will no longer be available.</span>
+          <div style="display:flex;justify-content:flex-end;gap:12px">
+            <button onClick="{{ cancelReject }}" style="height:36px;padding:0 18px;background:#2b4f8a;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #3b6fb6,inset 0 -3px 0 #1f3560,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="background:#3b6fb6">Cancel</button>
+            <button onClick="{{ confirmReject }}" style="height:36px;padding:0 22px;background:#e8583f;color:#0a0f1c;font:400 12px Silkscreen;box-shadow:inset 0 3px 0 #ff8a70,inset 0 -3px 0 #a83a28,0 -3px 0 #0a0f1c,0 3px 0 #0a0f1c,-3px 0 0 #0a0f1c,3px 0 0 #0a0f1c" style-hover="filter:brightness(1.1)">Yes</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showScenes }}" hint-placeholder-val="{{ false }}">
+    <div style="width:1280px;flex:none;display:flex;flex-direction:column;gap:14px">
+      <span style="font:700 18px Silkscreen;color:#f28c28">Scene map</span>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ sceneMap }}" as="s" hint-placeholder-count="9">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px;background:#1a2b4d;box-shadow:inset 0 3px 0 #28447a">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+              <span style="font:700 13px Silkscreen;color:#f3ead7">{{ s.name }}</span>
+              <span style="font:400 10px Silkscreen;color:#f28c28;white-space:nowrap">{{ s.uses }}</span>
+            </div>
+            <span style="font-size:13px;color:#9cc6ef">{{ s.root }}</span>
+            <div style="display:flex;flex-direction:column;gap:2px;font:12px ui-monospace,monospace;color:#f3ead7">
+              <sc-for list="{{ s.vars }}" as="v" hint-placeholder-count="3"><span>{{ v }}</span></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showScenes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;},&quot;hideList&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dev&quot;}}">class Component extends DCLogic {
+  mi() { const M = window.MercIcons; if (M) return M; if (!this._miWait) this._miWait = setInterval(() => { if (window.MercIcons) { clearInterval(this._miWait); this.forceUpdate(); } }, 50); return { cells: () => [], cell16: () => [], box: () => [], solid: () => [], diffStar: () => [], tabOn: () => [], mask: () => [''], w: () => 1, h: () => 1 }; }
+  sig(n) { const S = window.Sigils; if (S) return S.cells(n); if (!this._sigWait) this._sigWait = setInterval(() => { if (window.Sigils) { clearInterval(this._sigWait); this.forceUpdate(); } }, 50); return Array(256).fill('transparent'); }
+  state = { sel: 0, sort: 'difficulty', desc: true, sortOpen: false, filterOpen: false, showAvailable: true, showActive: true, showExpired: false, showCompleted: false, showUnclaimed: true, showRejected: false, dMin: 0.5, dMax: 5, rMin: 0, rMax: null, maxDist: null };
+  dotMap = ['..####..', '.######.', '########', '########', '########', '########', '.######.', '..####..'];
+  isUnclaimed(c) { return (c.status === 'Completed' || c.status === 'Failed') && !this.gameStore().seenResults[c.id]; } // results not yet viewed (success OR failure)
+  levels = [7, 12, 3, 9, 15, 5, 11, 2, 8, 4];
+  rateColors = { 0.5: '#e03829', 1: '#e05f29', 1.5: '#e08629', 2: '#e3b43b', 2.5: '#e3d83b', 3: '#cae33b', 3.5: '#a6e33b', 4: '#77e029', 4.5: '#50e029', 5: '#29e029' };
+  // Shared session state (GameState + NotificationCenter autoloads in Godot). Keep identical in Game HUD, Contract Viewer, Merc Viewer.
+  gameStore() { const w = window; return w.__mercStore || (w.__mercStore = { subs: new Set(),
+    active: { 2: { name: 'Contract 3 Name', hours: 150, reward: 2400, travelCost: 300, odds: 62, team: [{ id: 6, role: 'Leader', match: 4 }, { id: 2, role: 'Guide', match: 3.5 }] },
+      5: { name: 'Contract 6 Name', hours: 80, reward: 1100, travelCost: 120, odds: 48, team: [{ id: 1, role: 'Leader', match: 3.5 }, { id: 7, role: 'Driver', match: 2.5 }] } },
+    notifs: [
+      { id: 1, kind: 'Contract', type: 'contractCompleted', contractId: 11, urgency: 'Informational', t: 1296 * 1440 + 9 * 60 + 40, read: false },
+      { id: 2, kind: 'Contract', type: 'contractCompleted', contractId: 12, urgency: 'Informational', t: 1294 * 1440 + 16 * 60 + 5, read: false },
+      { id: 3, kind: 'Contract', type: 'contractCompleted', contractId: 13, urgency: 'Informational', t: 1290 * 1440 + 7 * 60 + 30, read: true },
+      { id: 4, kind: 'Contract', type: 'contractFailed', contractId: 14, urgency: 'Informational', t: 1295 * 1440 + 21 * 60 + 15, read: false },
+      { id: 'o101', kind: 'Finance', type: 'loanOffer', offerId: 101, snap: { lender: 'Lender 1', amount: 1500, rate: 0.08, term: 6, team: [3], odds: 71, outcome: 'exact', expiresIn: 90, approved: true, offerAmount: 1500, offerRate: 0.08, offerTerm: 6, firstDue: 2, offerFirstDue: 2 }, urgency: 'Informational', t: 1296 * 1440 + 8 * 60 + 15, read: false },
+      { id: 'o102', kind: 'Finance', type: 'loanOffer', offerId: 102, snap: { lender: 'Lender 2', amount: 1000, rate: 0.12, term: 6, team: [3, 8], odds: 83, outcome: 'better', expiresIn: 30, approved: true, offerAmount: 1200, offerRate: 0.1, offerTerm: 6, firstDue: 2, offerFirstDue: 3 }, urgency: 'Urgent', t: 1295 * 1440 + 14 * 60 + 50, read: false },
+      { id: 'o103', kind: 'Finance', type: 'loanOffer', offerId: 103, snap: { lender: 'Lender 3', amount: 4000, rate: 0.25, term: 12, team: [5], odds: 34, outcome: 'worse', expiresIn: 8, approved: false, offerAmount: 2800, offerRate: 0.29, offerTerm: 12, firstDue: 3, offerFirstDue: 1 }, urgency: 'Urgent', t: 1293 * 1440 + 11 * 60 + 20, read: false } ],
+    seenResults: { 13: true },
+    completed: [11, 12, 13, 14],
+    fired: {},
+    money: 1000, salary: {}, guildAdj: {},
+    loans: [{ id: 1, lender: 'Lender 1', principal: 2000, rate: 0.08, months: 12, paid: 4 }, { id: 2, lender: 'Lender 2', principal: 800, rate: 0.12, months: 6, paid: 1 }],
+    closedLoans: [{ id: 201, lender: 'Lender 2', principal: 600, rate: 0.12, months: 6, paid: 6, closedAs: 'Paid in Full', paidTotal: 672 }, { id: 202, lender: 'Lender 1', principal: 1200, rate: 0.08, months: 12, paid: 7, closedAs: 'Paid Off Early', paidTotal: 1263 }],
+    sub: { plan: 'pro', owned: { free: true, pro: true, enterprise: false }, up: { seats: 0, contracts: 0, discrim: 0, background: 0, survey: 0, aptitude: 0, brawn: 0, readiness: 0, personality: 0, skilltest: 0, education: 0 } },
+    modals: {}, pursuits: {}, offers: { 101: { lender: 'Lender 1', amount: 1500, rate: 0.08, term: 6, team: [3], odds: 71, outcome: 'exact', expiresIn: 90, approved: true, offerAmount: 1500, offerRate: 0.08, offerTerm: 6, firstDue: 2, offerFirstDue: 2 }, 102: { lender: 'Lender 2', amount: 1000, rate: 0.12, term: 6, team: [3, 8], odds: 83, outcome: 'better', expiresIn: 30, approved: true, offerAmount: 1200, offerRate: 0.1, offerTerm: 6, firstDue: 2, offerFirstDue: 3 }, 103: { lender: 'Lender 3', amount: 4000, rate: 0.25, term: 12, team: [5], odds: 34, outcome: 'worse', expiresIn: 8, approved: false, offerAmount: 2800, offerRate: 0.29, offerTerm: 12, firstDue: 3, offerFirstDue: 1 }, 104: { lender: 'Lender 4', amount: 2000, rate: 0.14, term: 12, team: [], odds: 58, outcome: 'exact', expiresIn: 60, approved: true, offerAmount: 2000, offerRate: 0.14, offerTerm: 12, firstDue: 2, offerFirstDue: 2 }, 105: { lender: 'Lender 5', amount: 3000, rate: 0.18, term: 24, team: [1], odds: 49, outcome: 'worse', expiresIn: 20, approved: false, offerAmount: 2200, offerRate: 0.21, offerTerm: 24, firstDue: 4, offerFirstDue: 3 } }, now: 1296 * 1440 + 10 * 60,
+    emit() { this.subs.forEach(f => f()); },
+    dispatch(id, run) { this.active = { ...this.active, [id]: run }; this.emit(); },
+    markRead(nid) { this.notifs = this.notifs.map(n => n.id === nid ? { ...n, read: true } : n); this.emit(); },
+    readContract(cid) { if (this.notifs.some(n => n.contractId === cid && !n.read)) { this.notifs = this.notifs.map(n => n.contractId === cid ? { ...n, read: true } : n); this.emit(); } },
+    setSalary(id, v, shift) { this.salary = { ...this.salary, [id]: v }; this.guildAdj = { ...this.guildAdj, [id]: (this.guildAdj[id] || 0) + (shift || 0) }; this.emit(); },
+    adjOpinion(id, d) { this.guildAdj = { ...this.guildAdj, [id]: (this.guildAdj[id] || 0) + d }; this.emit(); },
+    addLoan(l) { this.loans = [...this.loans, { ...l, id: Date.now(), paid: 0 }]; this.money += l.principal; this.emit(); },
+    payOff(id, amt) { const l = this.loans.find(x => x.id === id); this.loans = this.loans.filter(x => x.id !== id); this.money -= amt;
+      if (l) this.closedLoans = [...this.closedLoans, { ...l, closedAs: 'Paid Off Early', paidTotal: Math.ceil(l.principal * (1 + l.rate) / l.months) * l.paid + amt }]; this.emit(); },
+    requestLoan(req) { const id = Date.now(); this.pursuits = { ...this.pursuits, [id]: req }; this.emit();
+      setTimeout(() => { const p = this.pursuits[id]; if (!p) return; const rest = { ...this.pursuits }; delete rest[id]; this.pursuits = rest;
+        const roll = Math.random() * 100, outcome = p.team.length && roll < p.odds * 0.3 ? 'better' : roll < p.odds ? 'exact' : 'worse';
+        const amt = outcome === 'better' ? p.amount * 1.2 : outcome === 'worse' ? p.amount * (0.55 + Math.random() * 0.3) : p.amount;
+        const rate = outcome === 'better' ? Math.max(0.02, p.rate - 0.02) : outcome === 'worse' ? p.rate + 0.03 + Math.round(Math.random() * 4) / 100 : p.rate;
+        const offer = { ...p, outcome, approved: outcome !== 'worse', offerAmount: Math.max(100, Math.round(amt / 100) * 100), offerRate: +rate.toFixed(2), offerTerm: p.term, offerFirstDue: Math.max(1, Math.min(6, (p.firstDue ?? 2) + (outcome === 'better' ? 1 : outcome === 'worse' ? -1 : 0))), expiresIn: 72 };
+        this.offers = { ...this.offers, [id]: offer }; this.now += 30;
+        this.notifs = [...this.notifs, { id: 'o' + id, kind: 'Finance', type: 'loanOffer', offerId: id, snap: offer, urgency: 'Informational', t: this.now, read: false }]; this.emit(); }, req.delay || 8000); return id; },
+    resolveOffer(id, accept) { const o = this.offers[id]; if (!o) return; const rest = { ...this.offers }; delete rest[id]; this.offers = rest;
+      this.notifs = this.notifs.map(n => n.offerId === id ? { ...n, read: true } : n);
+      if (accept) { this.loans = [...this.loans, { id, lender: o.lender, principal: o.offerAmount, rate: o.offerRate, months: o.offerTerm || o.term, firstDue: o.offerFirstDue ?? o.firstDue ?? 2, paid: 0 }]; this.money += o.offerAmount;
+        // Accepting one offer auto-rejects all other open offers.
+        const others = Object.keys(this.offers).map(Number); this.offers = {}; this.notifs = this.notifs.map(n => others.includes(n.offerId) ? { ...n, read: true } : n); } this.emit(); },
+    readOffer(id) { if (this.notifs.some(n => n.offerId === id && !n.read)) { this.notifs = this.notifs.map(n => n.offerId === id ? { ...n, read: true } : n); this.emit(); } },
+    setModal(k, v) { const m = { ...this.modals }; if (v) m[k] = true; else delete m[k]; this.modals = m; this.emit(); },
+    // Generic notification escalation (NotificationCenter in Godot). Each rule: which triggers are still open, hours left, and how to build the notification.
+    // >= 72h left → Informational (as created). < 72h → Urgent: replaces any older notif for that trigger (even if dismissed) and re-fires every 8h until the trigger is handled.
+    notifRules: {
+      loanOffer: { key: 'offerId', open: st => Object.keys(st.offers).map(Number), hoursLeft: (st, id) => st.offers[id].expiresIn ?? 72, make: (st, id) => ({ kind: 'Finance', type: 'loanOffer', offerId: id, snap: st.offers[id] }) },
+    },
+    escalate() { let changed = false;
+      for (const [type, rule] of Object.entries(this.notifRules)) for (const id of rule.open(this)) {
+        if (rule.hoursLeft(this, id) >= 72) continue;
+        const mine = this.notifs.filter(n => n.type === type && n[rule.key] === id), last = mine[mine.length - 1];
+        if (!last || last.urgency !== 'Urgent' || (last.read && this.now - last.t >= 8 * 60)) {
+          this.notifs = [...this.notifs.filter(n => !(n.type === type && n[rule.key] === id)), { id: type + ':' + id + ':' + this.now, ...rule.make(this, id), urgency: 'Urgent', t: this.now, read: false }]; changed = true; } }
+      if (changed) this.emit(); },
+    tick(minutes) { this.now += minutes; Object.values(this.offers).forEach(o => { o.expiresIn = Math.max(0, (o.expiresIn ?? 72) - minutes / 60); }); this.escalate(); this.emit(); }, // call from the game clock
+    // Money payout animation: Game HUD registers flyHandler (notes fly to the money readout). Without a HUD, money is added directly.
+    flyMoney(amount, done) { const fin = () => { this.money += amount; this.emit(); if (done) done(); };
+      if (this.flyHandler) this.flyHandler(amount, fin); else setTimeout(fin, 400); },
+    // Subscription (SubscriptionManager autoload). Upgrades persist; they only apply while plan === 'enterprise'.
+    buyPlan(k, cost) { this.money -= cost; this.sub = { ...this.sub, plan: k, owned: { ...this.sub.owned, [k]: true } }; this.emit(); },
+    // Leaving Enterprise forfeits all purchased upgrades (must be re-bought). Downgrading to Free trims the contract board to 5 on the next billing day (engine-side).
+    setPlan(k) { const up = this.sub.plan === 'enterprise' && k !== 'enterprise' ? { seats: 0, contracts: 0, discrim: 0, background: 0, survey: 0, aptitude: 0, brawn: 0, readiness: 0, personality: 0, skilltest: 0, education: 0 } : this.sub.up; this.sub = { ...this.sub, plan: k, owned: { ...this.sub.owned, [k]: true }, up }; this.emit(); },
+    // Locked Page › Take Me There: Game HUD registers navHandler (closes open windows, opens Subscription › Plans).
+    goToPlans(target) { if (this.navHandler) this.navHandler(target || { tab: 'plans' }); }, // target: { tab: 'plans' | 'customize', upgrade?, tier? }
+    setUpgrade(k, t) { this.sub = { ...this.sub, up: { ...this.sub.up, [k]: t } }; this.emit(); }, // monthly service tier (Enterprise); billing handled by caller
+    buyUpgrade(k, cost) { this.money -= cost; this.sub = { ...this.sub, up: { ...this.sub.up, [k]: this.sub.up[k] + 1 } }; this.emit(); },
+    entitlements() { const p = this.sub.plan, e = p === 'enterprise', u = e ? this.sub.up : { seats: 0, contracts: 0, discrim: 0, background: 0, survey: 0, aptitude: 0, brawn: 0, readiness: 0, personality: 0, skilltest: 0, education: 0 };
+      return { plan: p, perMerc: p === 'pro' ? 5 : e ? 15 : 0, maxMercs: p === 'free' ? 5 : Math.min(50, 20 + u.seats * 5), maxContracts: p === 'free' ? 5 : 12 + (u.contracts || 0) * 2, metrics: p !== 'free',
+        ancestry: u.discrim >= 1, bloodline: u.discrim >= 2, age: u.discrim >= 3, heritage: u.background >= 1, perks: u.background >= 2, drawbacks: u.background >= 3, skills: u.background >= 4, criminality: (u.criminal || 0) >= 1, lifepath: u.background >= 5, contractMetrics: (u.contractmetrics || 0) >= 1, mercMetrics: u.mercmetrics || 0, pip: (u.pip || 0) >= 1, lvSupport: (u.combatpip || 0) >= 1, lvDefensive: (u.combatpip || 0) >= 2, lvOffensive: (u.combatpip || 0) >= 3, lvExisting: (u.skillpip || 0) >= 1, lvNewSkills: (u.skillpip || 0) >= 2, lvUniversal: (u.skillpip || 0) >= 3, lvAncestral: (u.skillpip || 0) >= 4, lvTradition: (u.skillpip || 0) >= 5, lvSpell: (u.magicpip || 0) >= 1, physical: p !== 'free', cognition: (u.aptitude || 0) >= 1, vigor: (u.brawn || 0) >= 1, dexterity: (u.readiness || 0) >= 1, wile: (u.personality || 0) >= 1, tools: (u.skilltest || 0) >= 1, knowledges: (u.education || 0) >= 1,
+        guildOpinion: (u.survey || 0) >= 1, relationships: (u.peer || 0) >= 1, clientOpinion: (u.customer || 0) >= 1, surveyRefresh: (u.survey || 0) >= 1 ? ['quarterly', 'monthly', 'weekly', 'daily', 'instant', 'instant'][Math.min(5, u.fastmetrics || 0)] : 'none', predictive: (u.fastmetrics || 0) >= 5, /* Rapid Survey tiers set survey frequency; tier 5 = predictive previews */ veryFast: p !== 'free', oddJobs: (u.oddjobs || 0) /* max mercs on Odd Jobs (0 = locked); tier ≥ 1 also unlocks the Odd Job Default Bonus setting */, bazaar: (u.bazaar || 0) >= 1, bazaarRarity: u.betteritems || 0 /* 0 Ordinary only · 1 Common · 2 Uncommon · 3 Rare · 4 Very Rare */, bazaarSpeed: u.fasteritems || 0 /* delivery 20 → 15/14/11/10 days → 2 days */, opsPermits: u.opspermit || 0 /* 1 most nations · 2 all nations · 3 other Domains */, teleport: u.teleport || 0 /* 1 guild circle + most nations · 2 all nations · 3 other Domains */, representation: u.representation || 0 /* dismissal chance on incur */, whoKnows: u.whoknows || 0 /* future bail/fine/sentence/fee reductions */, counsel: u.counsel || 0 /* +5/7/9/13/15% Renegotiate odds per merc */, promotions: (u.promotions || 0) >= 1 /* Promotions upgrade: My Promotions window + Job Postings + Flyers */, jobPostings: (u.promotions || 0) >= 1, maxPromoDays: (u.promotions || 0) >= 1 ? [5, 10, 17, 25, 30, Infinity][Math.min(5, u.longpromos || 0)] : 0 /* Long Promos; Infinity = runs until ended, billed monthly */, adBoost: [0, 5, 7, 12, 15, 20, 25][Math.min(6, u.marketing || 0)] /* Marketing Agency: % ad effectiveness */, guildPromo: (u.guildpromo || 0) >= 1, gpMinDifficulty: (u.guildpromo || 0) >= 2, gpMaxDifficulty: (u.guildpromo || 0) >= 3, gpContractType: (u.guildpromo || 0) >= 4, hiringDiscrim: (u.discrim || 0) >= 4 /* Discrimination IV: see + filter ancestry/bloodline/age on applicants and job postings */, adDirect: (u.promomethods || 0) >= 1, adRadio: (u.promomethods || 0) >= 2, adSponsor: (u.promomethods || 0) >= 3 /* Promo Methods tiers I–III; Word of Mouth comes with Odd Jobs */ }; },
+    fire(id) { this.fired = { ...this.fired, [id]: true }; this.emit(); },
+    markSeen(cid) { if (!this.seenResults[cid]) { this.seenResults = { ...this.seenResults, [cid]: true }; this.emit(); } } }); }
+  rateStars(v) { const col = this.rateColors[v]; return [0, 1, 2, 3, 4].map(i => { const full = v >= i + 1, half = !full && v >= i + 0.5; return this.mi().diffStar(full ? 1 : half ? 0.5 : 0, col); }); }
+  diffNames = { 0.5: 'Cakewalk', 1: 'Very Easy', 1.5: 'Easy', 2: 'Straightforward', 2.5: 'Manageable', 3: 'Average', 3.5: 'Challenging', 4: 'Hard', 4.5: 'Tough', 5: 'Impossible' };
+  statusColors = { Available: '#5aa6e8', Active: '#c8cdd8', Expired: '#e8583f', Completed: '#6cc36a', Rejected: '#f2b33d', Failed: '#e8583f' };
+  thumbMap = ['....ff........', '...fff........', '...fff........', '..ffff........', '..ffffffffff..', 'cc.ffffffffff.', 'cc.ffffdddddd.', 'cc.fffffffff..', 'cc.ffffddddd..', 'cc.ffffffff...', 'cc.ffffdddd...', 'cc.fffffff....', '..............', '..............'].reverse();
+  xMap = ['##......##', '###....###', '.###..###.', '..######..', '...####...', '...####...', '..######..', '.###..###.', '###....###', '##......##'];
+  isClosed(st) { return st === 'Expired' || st === 'Completed' || st === 'Rejected' || st === 'Failed'; }
+  // Contract Failed overlays (48px portrait, 4px per pixel): red skull = merc died; prison bars = merc captured.
+  skullMap = ['...######...', '..########..', '.##########.', '.##########.', '.#...##...#.', '.#...##...#.', '.####..####.', '..###..###..', '...######...', '...#.##.#...', '...######...', '............'];
+  barsMap = ['############', '.#..#..#..#.', '.#..#..#..#.', '.#..#..#..#.', '.#..#..#..#.', '############', '.#..#..#..#.', '.#..#..#..#.', '.#..#..#..#.', '.#..#..#..#.', '.#..#..#..#.', '############'];
+  skullMark = ['..............', '....######....', '...########...', '..##########..', '..##########..', '..#..####..#..', '..#..####..#..', '..##########..', '...###..###...', '....######....', '....#.##.#....', '....######....', '..............', '..............'];
+  traditions = [['Brave', '#5aa6e8'], ['Chymist', '#6cc36a'], ['Divine', '#f2d33d'], ['Hellion', '#a36ce8'], ['Honorable', '#f28c28'], ['Mage', '#a8385a'], ['Mystech', '#3fc9c0'], ['Performer', '#f07ab8'], ['Sorcerer', '#e8583f'], ['Warrior', '#a0a8b8']];
+  get noteMap() { return this.mi().mask('note'); } /* Notes symbol */
+  get starMap() { return this.mi().mask('star9'); }
+  contracts = (() => {
+    const D = [3, 0.5, 4.5, 2, 1.5, 3.5, 5, 1, 2.5, 4, 3, 2, 1.5, 4, 3.5];
+    const RW = [800, 80, 2400, 400, 220, 1100, 5000, 150, 520, 1600, 700, 300, 260, 1900, 1400];
+    const DI = [48, 2, 110, 20, 12, 60, 150, 5, 35, 85, 40, 8, 14, 95, 70];
+    const CT = [48, 4, 120, 24, 12, 72, 168, 8, 36, 96, 48, 16, 12, 110, 60];
+    const EX = [70, 30, 10, 120, 50, 26, 200, 6, 90, 40, 0, 0, 0, 0, 0];
+    const UR = ['Low', 'None', 'High', 'Low', 'None', 'High', 'Low', 'High', 'None', 'Low', 'None', 'None', 'None', 'None', 'None'];
+    const ST = ['Available', 'Available', 'Active', 'Available', 'Available', 'Active', 'Available', 'Available', 'Available', 'Available', 'Expired', 'Completed', 'Completed', 'Completed', 'Failed'];
+    return D.map((d, i) => ({ id: i, name: 'Contract ' + (i + 1) + ' Name', type: 'Contract Type ' + ((i % 3) + 1), typeN: (i % 3) + 1,
+      diff: d, reward: RW[i], dist: DI[i], hours: CT[i], exp: EX[i], status: ST[i], recLevel: Math.round(d * 3) + 1,
+      mercMin: [1, 1, 2, 1, 1, 2, 3, 1, 1, 2, 1, 1, 1, 2, 2][i], mercMax: [3, 1, 5, 2, 4, 3, 5, 2, 3, 4, 2, 1, 2, 4, 4][i], urgency: (ST[i] === 'Expired' || ST[i] === 'Completed' || ST[i] === 'Failed') ? 'None' : UR[i], desc: 'Contract ' + (i + 1) + ' Description',
+      location: 'Location ' + (i + 1), issuer: 'Issuer ' + (i + 1) + ' Name', issuerType: 'Issuer Type ' + ((i % 4) + 1),
+      know: Array.from({ length: 8 }, (_, k) => ({ name: 'Knowledge ' + ((i + k * 3) % 12 + 1), bonus: ((i + 1) * (k + 5) * 7) % 40 })),
+      tools: Array.from({ length: 8 }, (_, k) => ({ name: 'Tool ' + ((i * 2 + k * 5) % 12 + 1), bonus: ((i + 3) * (k + 2) * 11) % 40 })),
+      trads: Array.from({ length: 10 }, (_, k) => ({ t: this.traditions[k], bonus: ((i + 2) * (k + 7) * 13) % 50 })) }));
+  })();
+  diffColors = { 0.5: '#29e029', 1: '#50e029', 1.5: '#77e029', 2: '#a6e33b', 2.5: '#cae33b', 3: '#e3d83b', 3.5: '#e3b43b', 4: '#e08629', 4.5: '#e05f29', 5: '#e03829' };
+  urgencyColors = { Low: '#6cc36a', None: '#f28c28', High: '#e8583f' };
+  starCells(v, i) {
+    const full = v >= i + 1, half = !full && v >= i + 0.5, col = this.diffColors[v];
+    return this.mi().diffStar(full ? 1 : half ? 0.5 : 0, col);
+  }
+  stars(v) { return [0, 1, 2, 3, 4].map(i => this.starCells(v, i)); }
+  personMap = ['...####...', '..######..', '..######..', '..######..', '..######..', '...####...', '..........', '..######..', '.########.', '##########', '##########', '##########', '##########', '##########'];
+  personCells(kind) { return kind === 'no' ? this.mi().cells('person_outline', '#3b6fb6') : this.mi().cells('person', kind === 'req' ? '#f28c28' : '#f3ead7'); }
+  checkMap = ['..............', '............##', '...........###', '..........###.', '.........###..', '........###...', '.##....###....', '.###..###.....', '..######......', '...####.......', '....##........', '..............', '..............', '..............'];
+  bangMap = ['......##......', '.....####.....', '.....####.....', '.....####.....', '.....####.....', '.....####.....', '......##......', '......##......', '..............', '......##......', '.....####.....', '......##......', '..............', '..............'];
+  // Unclaimed results (Completed or Failed, not yet viewed) never reveal the outcome: orange "!" + status "Complete".
+  markFor(c) { return this.isUnclaimed(c) ? this.mi().cell16('alert') : this.markCells(c.status); }
+  markCells(status) { const ids = { Completed: 'check_lg', Failed: 'x_lg', Rejected: 'thumbs_down', Expired: 'prohibited' }; return ids[status] ? this.mi().cell16(ids[status]) : null; }
+  dur(h) { const d = Math.floor(h / 24), r = h % 24; return d + ' Days, ' + r + ' Hours'; }
+  swordMap() {
+    const g = Array.from({ length: 12 }, () => Array(12).fill('.'));
+    for (let r = 0; r <= 6; r++) { g[r][11 - r] = 'b'; if (r > 0) g[r][12 - r] = 'b'; }
+    [[5, 2], [6, 3], [7, 4], [8, 5], [9, 6], [10, 0], [11, 0], [11, 1]].forEach(([r, c]) => g[r][c] = 'b');
+    [[8, 3], [9, 2], [10, 1]].forEach(([r, c]) => g[r][c] = 'g');
+    return g.flat();
+  }
+  frameRef = React.createRef();
+  showTip(e, c) {
+    const fr = this.frameRef.current; if (!fr) return;
+    clearTimeout(this.tipT);
+    const a = fr.getBoundingClientRect(), r = e.currentTarget.getBoundingClientRect(), k = a.width / (fr.offsetWidth || a.width);
+    const x = (r.right - a.left) / k - 24, H = a.height / k;
+    let y = (r.top - a.top) / k + 18; if (y + 250 > H) y = H - 260;
+    this.setState({ tip: { on: true, x: x + 'px', y: y + 'px', name: c.name, type: c.type, level: String(c.recLevel).padStart(2, '0'),
+      stars: this.stars(c.diff), diffLabel: this.diffNames[c.diff], diffColor: this.diffColors[c.diff],
+      urgency: c.urgency, urgencyColor: this.urgencyColors[c.urgency], reward: c.reward, issuer: c.issuer } });
+  }
+  rng(seed) { let a = seed * 2654435761 >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  // Sample final results. In-engine: XP, HP/EP/MP and survival come from the contract resolution;
+  // MVP is picked at random here — the real MVP formula must be written in-engine (ContractResolver.gd).
+  resultsFor(id) {
+    const c = this.contracts[id], r = this.rng(id + 900), n = Math.max(1, Math.min(4, c.mercMax)), pool = [...Array(10).keys()], team = [];
+    while (team.length < n) team.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+    const roles = ['Guide', 'Escort', 'Driver', 'Assassin', 'Support'];
+    const failed = c.status === 'Failed', FATES = ['alive', 'dead', 'captured', 'alive']; // PLACEHOLDER fates for the failed sample; in-engine from ContractResolver
+    const members = team.map((mid, k) => { const lv = this.levels[mid], fate = failed ? FATES[k % FATES.length] : 'alive', dead = (id === 13 && k === n - 1) || fate === 'dead', captured = fate === 'captured';
+      const res = [['HP', 10 + lv * 2, '#e8583f'], ['EP', 6 + lv, '#6cc36a'], ['MP', 4 + Math.round(lv * 0.8), '#5aa6e8']].map(([key, max, color]) => ({ key, max, color, cur: dead && key === 'HP' ? 0 : Math.max(1, Math.round(max * (0.25 + r() * 0.7))) }));
+      return { mid, role: k === 0 ? 'Leader' : roles[Math.floor(r() * roles.length)], xp: dead || captured ? 0 : Math.round((40 + c.diff * 30 * (0.6 + r() * 0.8)) * (failed ? 0.35 : 1)) /* failure: survivors keep 35% XP */, res, dead, captured }; });
+    // MVP is random in this mockup; the real MVP formula must be written in-engine (ContractResolver.gd).
+    const alive = members.filter(m => !m.dead && !m.captured); if (!failed && alive.length) alive[Math.floor(r() * alive.length)].mvp = true; // no MVP on a failed contract
+    // Pre-contract snapshot: resources before departure, XP progress toward next level (need = 100 + 20·lvl). First survivor always levels up (demo).
+    members.forEach((m, k) => { const lv = this.levels[m.mid], need = 100 + lv * 20;
+      m.res.forEach(x => { x.before = m.dead && x.key === 'HP' ? Math.round(x.max * 0.6) : Math.min(x.max, x.cur + Math.round(x.max * (x.key === 'HP' ? 0.3 : 0.25))); });
+      m.need = need; m.xpBefore = m === alive[0] && !failed ? Math.max(0, need - Math.round(m.xp * 0.55)) : Math.round(r() * (need - m.xp) * 0.9); });
+    // Failure: reward forfeited; expenses (travel, supplies) are still owed → Total Cost = expenses.
+    const expense = Math.round(c.reward * 0.12), reward = failed ? 0 : c.reward, net = reward - expense;
+    // Merc Bonus = Per-Contract Bonus % (Finance › Payroll › Employee Benefits) of Notes Earned, split evenly among ALIVE mercs.
+    // Remainder → MVP; if MVP dead → highest-level living merc; tie → Leader if alive, else topmost living (list order) among the tied.
+    const pct = (((window.__mercStore || {}).benefits || {}).contract) || 0, bonus = net > 0 ? Math.floor(net * pct / 100) : 0;
+    const share = alive.length ? Math.floor(bonus / alive.length) : 0, rem = alive.length ? bonus - share * alive.length : 0;
+    let rcv = alive.find(m => m.mvp);
+    if (!rcv && alive.length) { const top = Math.max(...alive.map(m => this.levels[m.mid])), tied = alive.filter(m => this.levels[m.mid] === top);
+      rcv = tied.length === 1 ? tied[0] : (tied.find(m => m.role === 'Leader') || tied[0]); }
+    members.forEach(m => { m.pay = m.dead ? 0 : share + (m === rcv ? rem : 0); });
+    return { members, failed, reward, expense, net, pct, bonus, guild: net - bonus };
+  }
+  selectContract(id) {
+    const c = this.contracts[id], st = this.gameStore();
+    if (c && (c.status === 'Completed' || c.status === 'Failed') && !(this.state.rejected || {})[id]) { st.readContract(id); if (!st.seenResults[id]) { st.markSeen(id); this.setState({ results: id }); this.startResults(id); } }
+  }
+  resPanelRef = React.createRef(); netBoxRef = React.createRef(); verdictRef = React.createRef(); dockRef = React.createRef();
+  // Verdict geometry (unscaled panel px): start = panel center; dock = center of the slot above the results title; dockS = scale that fits the slot height.
+  verdictGeo() { const P = this.resPanelRef.current, B = this.verdictRef.current, D = this.dockRef.current, W = P ? P.offsetWidth : 900, H = P ? P.offsetHeight : 600, bh = B ? B.offsetHeight : 128, bw = B ? B.offsetWidth : 690;
+    let dx = 22 + bw * (40 / bh) / 2, dy = 42; if (P && D) { const pr = P.getBoundingClientRect(), k = pr.width / (W || pr.width) || 1, dr = D.getBoundingClientRect(); dx = (dr.left - pr.left) / k + bw * (dr.height / k / bh) / 2; dy = (dr.top - pr.top) / k + dr.height / k / 2; }
+    return { cx: W / 2, cy: H / 2, dx, dy, dockS: (D ? D.offsetHeight : 40) / bh }; }
+  // Measures note flight path (Notes Earned box → each merc's pay cell), relative to the results panel. Taken once when payout starts.
+  payGeo() { if (this._payGeo) return this._payGeo; const P = this.resPanelRef.current, S = this.netBoxRef.current; if (!P || !S) return null;
+    const pr = P.getBoundingClientRect(), sc = pr.width / (P.offsetWidth || pr.width) || 1, sr = S.getBoundingClientRect(), c = r => ({ x: (r.left + r.width / 2 - pr.left) / sc, y: (r.top + r.height / 2 - pr.top) / sc });
+    return this._payGeo = { src: c(sr), dst: (this._payEls || []).map(el => el ? c(el.getBoundingClientRect()) : null) }; }
+  startResults(id) { cancelAnimationFrame(this.raf); const t0 = performance.now(); let last = 0; this.setState({ rt: 0, moneyDone: false });
+    const loop = now => { const t = (now - t0) / 1000; if (now - last > 30) { last = now; this.setState({ rt: t }); }
+      const rs = this.resultsFor(id), end = rs.bonus > 0 ? 9.7 : 8.2; // merc outcomes 0.2–2.2 (all at once) · VERDICT pop-up 2.3–3.7 · money 3.8+ · failure: bars 0.2–1.4 · reward forfeited 2.3 · expenses 3.1–3.7 · total cost 3.7–4.3 · then notes leave HUD money
+      if (t < end) this.raf = requestAnimationFrame(loop); else { this.setState({ rt: end }); this.gameStore().flyMoney(rs.guild, () => this.setState({ moneyDone: true })); } };
+    this._payGeo = null; this._payEls = [];
+    this.raf = requestAnimationFrame(loop); }
+  applyOpen() { const id = this.props.openContractId; if (id == null || !this.contracts[id]) return;
+    const st = this.contracts[id].status;
+    this.setState({ sel: id, ['show' + st]: true, dMin: 0.5, dMax: 5, rMin: 0, rMax: null, maxDist: null, sortOpen: false, filterOpen: false }); this.selectContract(id); }
+  componentDidUpdate(p) { this.syncModal(); if (p.openContractId !== this.props.openContractId || p.openNonce !== this.props.openNonce) this.applyOpen(); }
+  syncModal() { const v = !!((s => s.dispatchFor != null || s.mercView != null || s.results != null || s.confirmOpen)(this.state)); if (v !== !!this._mv) { this._mv = v; this.gameStore().setModal(this._mk || (this._mk = 'm' + Math.random()), v); } }
+  componentDidMount() {
+    window.__contractViewer = this; // debug hook (tests / handoff screenshots): __contractViewer.setState({ results: id, rt: seconds, moneyDone })
+    this.syncModal();
+    this.applyOpen();
+    this.onStore = () => this.forceUpdate(); this.gameStore().subs.add(this.onStore);
+    this.onDocDown = e => { if (e.target.closest && e.target.closest('[data-popup]')) return;
+      if (this.state.sortOpen || this.state.filterOpen) this.setState({ sortOpen: false, filterOpen: false }); };
+    document.addEventListener('mousedown', this.onDocDown);
+  }
+  componentWillUnmount() { cancelAnimationFrame(this.raf); if (this._mk) this.gameStore().setModal(this._mk, false); this.gameStore().subs.delete(this.onStore); clearTimeout(this.tipT); document.removeEventListener('mousedown', this.onDocDown); }
+  sceneMap = [
+    { name: 'MercCount.tscn', uses: 'x1', root: 'HBoxContainer › TextureRect ×5', vars: ['@export var required: int = 1  # orange', '@export var allowed: int  # white up to this', '# beyond allowed: hollow dark blue'] },
+    { name: 'DecisionButtons.tscn', uses: 'x1', root: 'HBox › Button ×2 (Accept / Reject)', vars: ['@export var contract: ContractData', 'signal accepted  # opens DispatchWindow for contract', 'signal reject_requested'] },
+    { name: 'ActiveCrew.tscn', uses: 'x1 (replaces MercCount when ACTIVE)', root: 'HBox › CrewPortrait ×N', vars: ['@export var team: Array[{merc, role, match}]', '# role label on top; leader in orange', 'signal merc_clicked(merc)  # opens MercViewer (hide_roster = true)'] },
+    { name: 'ContractResults.tscn', uses: 'x1 (popup, first open of a COMPLETED contract)', root: 'PopupPanel › VBox (header, NotesEarned, ResultRow ×N)', vars: ['@export var contract: ContractData', '@export var results: ContractResults  # from ContractResolver', '# on open: GameState.mark_results_seen(id); NotificationCenter.read_contract(id)'] },
+    { name: 'ResultRow.tscn', uses: 'x team size', root: 'HBox › Portrait, NameBlock, XPLabel, ResourceBar ×3, StatusLabel', vars: ['@export var merc: MercData', '@export var xp_gained: int', '@export var hp: Vector2i  # cur, max', '@export var ep: Vector2i', '@export var mp: Vector2i', '@export var alive: bool  # dead → grayscale portrait, red ring', '@export var is_mvp: bool  # MVP formula lives in ContractResolver.gd', '@export var before: MercSnapshot  # HP/EP/MP/XP at departure → tween to after; level-up: fill, flash+glow, LVL glow +1, reset, carry-over', '# Continue/X locked until notes finish flying to HUD money (GameState.fly_money)'] },
+    { name: 'NotesEarned.tscn', uses: 'x1', root: 'Grid › Reward, Expenses, Net', vars: ['@export var reward: int', '@export var expenses: int'] },
+    { name: 'PayoutTooltip.tscn', uses: 'x1 (ACTIVE only)', root: 'PanelContainer › VBox', vars: ['@export var reward: int', '@export var expenses: int', '@export var payday: String'] },
+    { name: 'OddsTooltip.tscn', uses: 'x1 (ACTIVE only)', root: 'PanelContainer › VBox + SuccessMeter', vars: ['@export var odds: float'] },
+    { name: 'CrewTooltip.tscn', uses: 'x1 shared', root: 'PanelContainer (top_level)', vars: ['@export var merc: MercData', '@export var match: float  # contract match stars'] },
+    { name: 'ConfirmDialog.tscn', uses: 'x1 (popup)', root: 'PopupPanel › VBox', vars: ['@export var title: String', '@export var message: String', '@export var confirm_label: String = "Yes"', 'signal confirmed', 'signal cancelled'] },
+    { name: 'ContractTooltip.tscn', uses: 'x1 shared', root: 'PanelContainer (top_level)', vars: ['@export var contract: ContractData'] },
+    { name: 'ContractViewer.tscn', uses: 'root', root: 'HBoxContainer › ContractList + ContractDetail', vars: ['@export var contracts: Array[ContractData]', '@export var selected_index: int', 'func open_contract(id)  # from notifications: selects it, resets filters, shows closed if needed'] },
+    { name: 'ContractList.tscn', uses: 'x1', root: 'PanelContainer › VBox › ScrollContainer', vars: ['@export var sort_mode: ContractSort  # DIFFICULTY, VALUE, TYPE, DISTANCE, COMPLETION_DATE, UNCLAIMED', '@export var descending: bool = true', 'signal contract_selected(contract)'] },
+    { name: 'ContractListItem.tscn', uses: 'x N', root: 'Button › HBox (image, labels, stars)', vars: ['@export var contract: ContractData', '@export var selected: bool', '@export var unclaimed: bool  # COMPLETED + results not yet viewed → UnreadDot (same as bell) top-left', '# modulate gray when EXPIRED/COMPLETED/REJECTED'] },
+    { name: 'DifficultyStars.tscn', uses: 'x N', root: 'HBoxContainer › TextureRect ×5', vars: ['@export var rating: float  # 0.5–5.0, half steps', '@export var star_size: int'] },
+    { name: 'ContractFilterPanel.tscn', uses: 'x1 (popup)', root: 'PopupPanel › VBox', vars: ['@export var show_available: bool = true', '@export var show_active: bool = true', '@export var show_completed: bool = false', '@export var show_unclaimed: bool = true  # COMPLETED with results not yet viewed', '@export var show_rejected: bool = false', '@export var show_expired: bool = false', '@export var difficulty_range: Vector2', '@export var reward_range: Vector2i', '@export var max_distance_km: int', 'signal filters_changed'] },
+    { name: 'RangeSlider.tscn', uses: 'x5', root: 'HBox › Label + HSlider', vars: ['@export var label: String', '@export var min_value: float', '@export var max_value: float', '@export var step: float'] },
+    { name: 'ContractDetail.tscn', uses: 'x1', root: 'PanelContainer › VBox', vars: ['@export var contract: ContractData'] },
+    { name: 'StatCard.tscn', uses: 'x3', root: 'PanelContainer › VBox', vars: ['@export var label: String', '@export var value: String', '@export var accent: Color'] },
+    { name: 'RecommendedList.tscn', uses: 'x3', root: 'VBox › ScrollContainer › Row ×N (auto-sorted by hidden bonus)', vars: ['@export var title: String', '@export var entries: Array[BonusEntry]', '@export var show_sigil: bool  # traditions'] },
+    { name: 'StatusMark.tscn', uses: 'x N', root: 'TextureRect (over portrait)', vars: ['@export var status: ContractStatus  # COMPLETED → green check, EXPIRED → red no-sign, REJECTED → thumbs down', '# centered in the area BELOW the status strip'] },
+    { name: 'UrgencyPulse.tscn', uses: 'x N', root: 'ColorRect + AnimationPlayer', vars: ['@export var active: bool  # urgency == HIGH and status == AVAILABLE', '@export var period: float = 2.6'] },
+  ];
+  renderVals() {
+    const show = this.props.showScenes ?? false, s = this.state;
+    const rej = s.rejected || {};
+    const act = this.gameStore().active;
+    const all = this.contracts.map(c => rej[c.id] ? { ...c, status: 'Rejected', urgency: 'None' } : act[c.id] ? { ...c, status: 'Active', run: act[c.id] } : c);
+    const busyIds = [...Object.values(act).flatMap(r => r.team.map(t => t.id)), ...Object.values(this.gameStore().pursuits).flatMap(p => p.team)];
+    const dc = this.contracts.find(c => c.id === s.dispatchFor);
+    const shown = { Available: s.showAvailable, Active: s.showActive, Expired: s.showExpired, Completed: s.showCompleted, Failed: s.showFailed, Rejected: s.showRejected };
+    const pool = all.filter(c => this.isUnclaimed(c) ? s.showUnclaimed : shown[c.status]); // unclaimed results only via "Unclaimed Results" (Completed/Failed filters would spoil the outcome)
+    const rewardCap = Math.max(50, ...pool.map(c => c.reward)), rMax = s.rMax == null ? rewardCap : Math.min(s.rMax, rewardCap), rMin = Math.min(s.rMin, rMax);
+    const distCap = Math.max(1, ...pool.map(c => c.dist)), maxDist = s.maxDist == null ? distCap : Math.min(s.maxDist, distCap);
+    let list = pool.filter(c => c.diff >= s.dMin && c.diff <= s.dMax && c.reward >= rMin && c.reward <= rMax && c.dist <= maxDist);
+    const cmp = { difficulty: (a, b) => b.diff - a.diff, value: (a, b) => b.reward - a.reward, type: (a, b) => a.typeN - b.typeN || b.diff - a.diff, distance: (a, b) => b.dist - a.dist, unclaimed: (a, b) => (this.isUnclaimed(b) - this.isUnclaimed(a)) || b.diff - a.diff, completion: (a, b) => (b.status === 'Completed' || b.status === 'Failed' ? -1 : b.hours) - (a.status === 'Completed' || a.status === 'Failed' ? -1 : a.hours) }[s.sort];
+    list.sort(cmp); if (!s.desc) list.reverse();
+    const sel = list.find(c => c.id === s.sel) || list[0];
+    const labels = { difficulty: 'Difficulty', value: 'Value', type: 'Type', distance: 'Distance', completion: 'Completion Date', unclaimed: 'Unclaimed' };
+    const filtered = !s.showAvailable || !s.showActive || s.showExpired || s.showCompleted || s.showFailed || !s.showUnclaimed || s.showRejected || s.dMin > 0.5 || s.dMax < 5 || rMin > 0 || rMax < rewardCap || maxDist < distCap;
+    const sword = this.swordMap();
+    const setNum = (k, other, cmpFn) => e => { const v = (typeof e === 'number' ? e : +e.target.value); this.setState(st => { const o = {}; o[k] = v; if (cmpFn(v, st[other])) o[other] = v; return o; }); };
+    return { frameH: this.props.frameH || '720px', 
+      showScenes: show, showList: !this.props.hideList, frameW: this.props.hideList ? '940px' : '1280px', frameCols: this.props.hideList ? 'minmax(0,1fr)' : '320px minmax(0,1fr)',
+      countLabel: list.length + '/' + this.contracts.length,
+      sortLabel: labels[s.sort], sortOpen: s.sortOpen, filterOpen: s.filterOpen,
+      toggleSort: () => this.setState(st => ({ sortOpen: !st.sortOpen, filterOpen: false })),
+      toggleFilter: () => this.setState(st => ({ filterOpen: !st.filterOpen, sortOpen: false })),
+      sortOpts: Object.entries(labels).map(([k, l]) => ({ label: l, bg: s.sort === k ? '#f28c28' : '#16233f', fg: s.sort === k ? '#0a0f1c' : '#f3ead7', onClick: () => this.setState({ sort: k, sortOpen: false }) })),
+      toggleDir: () => this.setState(st => ({ desc: !st.desc })),
+      dirTitle: s.desc ? 'Highest to lowest' : 'Lowest to highest',
+      dirBg: s.desc ? '#f28c28' : '#2b4f8a', dirHi: s.desc ? '#ffb266' : '#3b6fb6', dirLo: s.desc ? '#b85a12' : '#1f3560',
+      upColor: s.desc ? '#7a4a1a' : '#f3ead7', downColor: s.desc ? '#0a0f1c' : '#5e7699',
+      filterBg: filtered ? '#f28c28' : '#2b4f8a', filterFg: filtered ? '#0a0f1c' : '#f3ead7', filterHi: filtered ? '#ffb266' : '#3b6fb6', filterLo: filtered ? '#b85a12' : '#1f3560',
+      closedOpts: [['Available', 'Available'], ['Active', 'Active'], ['Completed', 'Completed'], ['Failed', 'Failed'], ['Unclaimed', 'Unclaimed Results'], ['Rejected', 'Rejected'], ['Expired', 'Expired']].map(([k, label]) => ({ label, indent: k === 'Unclaimed' ? '24px' : '0', on: k === 'Unclaimed' ? !!s.showUnclaimed : !!shown[k], color: this.statusColors[k === 'Unclaimed' ? 'Completed' : k], onChange: e => this.setState({ ['show' + k]: e.target.checked }) })),
+      dMin: s.dMin, dMax: s.dMax, rMin, rMax, maxDist, rewardCap, distCap,
+      dRange: this.diffNames[s.dMin] + ' – ' + this.diffNames[s.dMax],
+      rRange: rMin + ' – ' + rMax,
+      distLabel: maxDist + ' km',
+      onDMin: setNum('dMin', 'dMax', (v, o) => v > o), onDMax: setNum('dMax', 'dMin', (v, o) => v < o),
+      onRMin: e => { const v = (typeof e === 'number' ? e : +e.target.value); this.setState({ rMin: v, rMax: v > rMax ? (v >= rewardCap ? null : v) : s.rMax }); },
+      onRMax: e => { const v = (typeof e === 'number' ? e : +e.target.value); this.setState({ rMax: v >= rewardCap ? null : v, rMin: v < rMin ? v : s.rMin }); },
+      onDist: e => { const v = (typeof e === 'number' ? e : +e.target.value); this.setState({ maxDist: v >= distCap ? null : v }); },
+      resetFilters: () => this.setState({ showAvailable: true, showActive: true, showExpired: false, showCompleted: false, showFailed: false, showUnclaimed: true, showRejected: false, dMin: 0.5, dMax: 5, rMin: 0, rMax: null, maxDist: null }),
+      empty: list.length === 0,
+      canDecide: !!sel && sel.status === 'Available',
+      checkIcon: this.mi().solid('check_lg', '#ffffff'),
+      xIcon: this.mi().solid('x_lg', '#ffffff'),
+      accept: () => this.setState({ dispatchFor: sel.id, sortOpen: false, filterOpen: false, tip: null }),
+      dispatchOpen: s.dispatchFor != null, busyIds, mercSceneTag: sel && sel.run ? 'ActiveCrew.tscn' : 'MercCount.tscn',
+      dispatchContract: dc ? { id: dc.id, name: dc.name, type: dc.type, level: dc.recLevel, diff: dc.diff, reward: dc.reward, dist: dc.dist, hours: dc.hours, mercMin: dc.mercMin, mercMax: dc.mercMax } : null,
+      mercViewOpen: s.mercView != null, mercViewId: s.mercView, closeMercView: () => this.setState({ mercView: null }), stop: e => e.stopPropagation(),
+      ...(() => { if (s.results == null) return { resultsOpen: false };
+        const rs = this.resultsFor(s.results), rc0 = this.contracts[s.results], t = s.rt || 0, cl = v => Math.max(0, Math.min(1, v)), ez = v => 1 - Math.pow(1 - cl(v), 2), N = v => Math.round(v).toLocaleString('en-US');
+        // Money timings below are +D (verdict pop-up sits between merc outcomes and the tally). Timeline (s): … net 3.7–4.3; merc payout 4.5–5.9 (notes fly to each living merc's pay; Notes Earned counts down to Guild Cut); then Guild Cut flies to HUD money.
+        // Timeline (s): 0.2–1.4 bars; level-up: fill→1.0, flash 1.0–1.5, level glow 1.2–1.8 (+1 at 1.3), carry-over 1.5–2.2; reward 2.3–3.1; expenses 3.1–3.7; net 3.7–4.3; then notes fly to HUD money.
+        // Order: 0.2–1.4 what happened to each merc (HP/EP/MP, all at once) → 1.2 fates → 2.3–3.75 verdict → 3.8–6.0 XP / level-ups → 6.0+ money → Continue.
+        const tx = t - 3.6 /* XP clock (old 0.2 start = 3.8) */, flash = tx >= 1.0 && tx < 1.5 && Math.floor(tx * 10) % 2 === 0, can = !!s.moneyDone, D = 3.7, tm = t - D /* money clock (reward starts at 6.0) */, fateOn = t >= 1.2, told = t >= 2.5;
+        // Verdict (SUCCESS! green / FAILURE red), pixel art: no rotation, hard shadows only.
+        // 2.3–2.55 slams in at panel center (scale 2.4 → 1) · 2.55–2.9 holds (tiny bounce) · 2.9–3.2 shrinks to 0.8 · 3.2–3.75 flies to the dock slot above "Contract Complete" and shrinks to fit · stays docked.
+        const vCol = rs.failed ? '#e8583f' : '#6cc36a', G = this.verdictGeo(), vp = cl((t - 2.3) / 0.25), mv = ez((t - 3.2) / 0.55);
+        const vS0 = t < 2.3 ? 2.4 : vp < 1 ? 2.4 - 1.4 * ez(vp) : t < 2.9 ? 1 + 0.05 * Math.max(0, Math.sin((t - 2.55) * 18)) * Math.max(0, 1 - (t - 2.55) * 3) : 1 - 0.2 * ez((t - 2.9) / 0.3);
+        const vScale = vS0 + (G.dockS - vS0) * mv, vx = G.cx + (G.dx - G.cx) * mv, vy = G.cy + (G.dy - G.cy) * mv, vOp = t < 2.3 ? 0 : cl(vp * 2), dimOp = t < 2.3 ? 0 : cl(vp * 2) * (1 - cl((t - 3.2) / 0.4));
+        return { resultsOpen: true, resPanelRef: this.resPanelRef, netBoxRef: this.netBoxRef, closeResults: () => { if (can) this.setState({ results: null }); },
+          rs: { name: rc0.name, stars: this.stars(rc0.diff), canClose: can, failed: rs.failed, title: 'Contract Complete' /* neutral; the docked verdict above it tells the outcome */, accent: t < 3.75 ? '#f28c28' : vCol,
+            verdictOn: t >= 2.3, verdict: rs.failed ? 'FAILURE' : 'SUCCESS!', verdictColor: vCol, verdictDark: rs.failed ? '#7a2a1e' : '#2f6a2e', verdictOp: vOp.toFixed(2), dimOp: dimOp.toFixed(2), dimOn: dimOp > 0,
+            verdictTf: 'translate(' + Math.round(vx) + 'px,' + Math.round(vy) + 'px) translate(-50%,-50%) scale(' + vScale.toFixed(3) + ')', verdictRef: this.verdictRef, dockRef: this.dockRef,
+            rewardLabel: told && rs.failed ? 'Reward (Forfeited)' : 'Reward', rewardColor: told && rs.failed ? '#5e7699' : '#f3ead7', netLabel: told && rs.failed ? 'Total Cost' : 'Notes Earned', /* neutral until the verdict */
+            contBg: told && rs.failed ? '#2b4f8a' : '#6cc36a', contHi: told && rs.failed ? '#3b6fb6' : '#9be29a', contLo: told && rs.failed ? '#1f3560' : '#3f8a3e', contFg: told && rs.failed ? '#f3ead7' : '#0a0f1c', onContinue: () => { if (can) this.setState({ results: null }); }, contOpacity: can ? 1 : 0.4, contCursor: can ? 'pointer' : 'not-allowed', contTitle: can ? '' : 'Tallying results…',
+            rewardV: N(rs.reward * ez((tm - 2.3) / 0.8)), expenseV: N(rs.expense * ez((tm - 3.1) / 0.6)), netV: rs.failed ? '−' + N(rs.expense * ez((tm - 3.7) / 0.6)) : N(rs.net * ez((tm - 3.7) / 0.6) - rs.bonus * ez((tm - 4.6) / 1.1)),
+            bonusLabel: 'Merc Bonus (' + rs.pct + '%)', bonusV: N(rs.bonus * ez((tm - 4.6) / 1.1)), bonusOpacity: rs.bonus > 0 && tm >= 4.5 ? 1 : 0,
+            payNotes: (() => { if (!(rs.bonus > 0) || tm < 4.5 || tm >= 6.0) return []; const g = this.payGeo(); if (!g) return []; const out = [];
+              rs.members.forEach((m, k) => { const d = g.dst[k]; if (m.dead || !d || !m.pay) return;
+                for (let j = 0; j < 5; j++) { const p = cl((tm - 4.5 - k * 0.12 - j * 0.07) / 0.6); if (p <= 0 || p >= 1) continue;
+                  out.push({ x: Math.round(g.src.x + (d.x - g.src.x) * p - 7) + 'px', y: Math.round(g.src.y + (d.y - g.src.y) * p - 70 * Math.sin(Math.PI * p) - 9) + 'px', o: 1 }); } });
+              return out; })(),
+            resPanelRef: this.resPanelRef, netBoxRef: this.netBoxRef, netColor: rs.net >= 0 ? '#6cc36a' : '#e8583f',
+            netGlow: tm >= 3.7 && tm < 4.6 ? (rs.failed ? '0 0 8px #e8583f, 0 0 2px #f3ead7' : '0 0 8px #6cc36a, 0 0 2px #f3ead7') : 'none',
+            members: rs.members.map((m, k) => { const tr = this.traditions[m.mid], lv = this.levels[m.mid], up = !m.dead && m.xpBefore + m.xp >= m.need, carry = m.xpBefore + m.xp - m.need, need2 = 100 + (lv + 1) * 20;
+              let w, glow = '', fill = '#f2b33d';
+              if (m.dead || m.captured) w = m.xpBefore / m.need;
+              else if (!up) w = (m.xpBefore + m.xp * ez((tx - 0.2) / 1.2)) / m.need;
+              else if (tx < 1.5) { w = (m.xpBefore + (m.need - m.xpBefore) * ez((tx - 0.2) / 0.8)) / m.need; if (tx >= 1.0) { glow = '0 0 10px #f2d33d, 0 0 4px #fff08a'; fill = flash ? '#fff08a' : '#f2d33d'; } }
+              else w = carry * ez((tx - 1.5) / 0.7) / need2;
+              const lvUpNow = up && tx >= 1.3, lvGlowOn = up && tx >= 1.2 && tx < 1.9;
+              return { tag: show && k === 0, name: 'FirstName' + (m.mid + 1) + ' LastName' + (m.mid + 1), role: m.role, trad: tr[0], tradColor: tr[1], mvp: !!m.mvp && told, dead: m.dead,
+                lvShown: String(lvUpNow ? lv + 1 : lv).padStart(2, '0'), lvPlus: lvUpNow, lvGlow: lvGlowOn ? ',0 0 10px #f2d33d,0 0 0 2px #fff08a' : '',
+                xp: !fateOn ? '…' : m.dead || m.captured ? '—' : '+' + N(m.xp * ez((tx - 0.2) / (up ? 2.0 : 1.2))) + ' XP', xpColor: fateOn && (m.dead || m.captured) ? '#5e7699' : '#f2b33d', xpW: (cl(w) * 100).toFixed(1) + '%', xpFill: fill, xpGlowS: glow ? ',' + glow : '', xpNum: m.dead || m.captured ? '' : Math.round(cl(w) * (up && tx >= 1.5 ? need2 : m.need)) + ' / ' + (up && tx >= 1.5 ? need2 : m.need),
+                payRef: el => { (this._payEls || (this._payEls = []))[k] = el; },
+                payV: !told ? '+0' : m.dead || m.captured || rs.failed ? '—' : '+' + N(m.pay * ez((tm - 4.8 - k * 0.12) / 0.8)), payColor: !told ? '#9cc6ef' : m.dead || m.captured || rs.failed ? '#5e7699' : m.pay ? '#f2d33d' : '#9cc6ef', payGlow: !m.dead && m.pay && tm >= 4.8 + k * 0.12 && tm < 5.9 ? '0 0 6px #f2d33d' : 'none',
+                status: !fateOn ? '…' : m.dead ? 'Deceased' : m.captured ? 'Captured' : 'Alive', statusColor: !fateOn ? '#9cc6ef' : m.dead ? '#e8583f' : m.captured ? '#f2b33d' : '#6cc36a', filter: fateOn && m.dead ? 'grayscale(1) brightness(0.6)' : fateOn && m.captured ? 'grayscale(0.5) brightness(0.7)' : 'none', ring: m.mvp && told ? '#f2d33d' : fateOn && m.dead ? '#a83a28' : fateOn && m.captured ? '#b8862a' : '#1f3560',
+                skull: fateOn && !!m.dead, bars: fateOn && !!m.captured, fateTf: 'scale(' + (1 + 0.5 * (1 - cl((t - 1.2) / 0.2))).toFixed(2) + ')', skullCells: this.mi().cells('skull'), barCells: this.mi().cells('bars'),
+                res: m.res.map(x => { const v = x.before + (x.cur - x.before) * ez((t - 0.2) / 1.2); return { key: x.key, color: x.color, label: Math.round(v) + '/' + x.max, w: (cl(v / x.max) * 100).toFixed(1) + '%' }; }) }; }) } }; })(),
+      closeDispatch: () => this.setState({ dispatchFor: null }),
+      onDispatched: p => { const id = s.dispatchFor; this.gameStore().dispatch(id, { ...p, name: dc.name }); this.setState({ dispatchFor: null, sel: id }); },
+      askReject: () => this.setState({ confirmOpen: true, sortOpen: false, filterOpen: false }),
+      cancelReject: () => this.setState({ confirmOpen: false }),
+      confirmReject: () => this.setState(st => ({ confirmOpen: false, rejected: { ...(st.rejected || {}), [sel.id]: true } })),
+      confirmOpen: !!s.confirmOpen,
+      list: list.map((c, i) => { const on = sel && c.id === sel.id, closed = this.isClosed(c.status); return {
+        name: c.name, type: c.type, status: this.isUnclaimed(c) ? 'Complete' : c.status, statusColor: this.isUnclaimed(c) ? '#f28c28' : this.statusColors[c.status], stars: this.stars(c.diff), tag: show && i === 0,
+        reward: c.reward, level: String(c.recLevel).padStart(2, '0'), unclaimed: this.isUnclaimed(c), urgent: c.urgency === 'High' && c.status === 'Available', mark: this.markFor(c),
+        bg: on ? '#15223d' : '#0e1628', ring: on ? '#f28c28' : '#0a0f1c', filter: closed && !this.isUnclaimed(c) ? 'grayscale(0.65) brightness(0.8)' : 'none',
+        onEnter: e => this.showTip(e, c),
+        onClick: () => { this.setState({ sel: c.id, sortOpen: false, filterOpen: false, crewTip: null }); this.selectContract(c.id); } }; }),
+      nGlyph: this.noteMap.join('').split('').map(ch => ch === '#' ? 'currentColor' : 'transparent'),
+      frameRef: this.frameRef, dotCells: this.mi().cells('dot', '#e8583f'),
+      tip: s.tip || { on: false },
+      hideTip: () => { clearTimeout(this.tipT); this.tipT = setTimeout(() => this.setState({ tip: null }), 350); },
+      keepTip: () => clearTimeout(this.tipT),
+      hideTipNow: () => { clearTimeout(this.tipT); this.setState({ tip: null }); },
+      hasSel: !!sel,
+      noteGlyph: this.noteMap.join('').split('').map(ch => ch === '#' ? '#0a0f1c' : 'transparent'),
+      sel: sel ? {
+        name: sel.name, type: sel.type, status: this.isUnclaimed(sel) ? 'Complete' : sel.status, statusColor: this.isUnclaimed(sel) ? '#f28c28' : this.statusColors[sel.status], issuer: sel.issuer, issuerType: sel.issuerType,
+        bigStars: this.stars(sel.diff), diffLabel: this.diffNames[sel.diff], diffColor: this.diffColors[sel.diff],
+        urgent: sel.urgency === 'High' && sel.status === 'Available', mark: this.markFor(sel),
+        isActive: !!sel.run, notActive: !sel.run, hoverCursor: sel.run || ((sel.status === 'Completed' || sel.status === 'Failed') && !this.isUnclaimed(sel)) ? 'help' : 'default',
+        // Completed contracts: hover the notes for the final pay results (reward, expenses, merc payment, guild income).
+        doneTip: s.headTip === 'done', done: sel.status === 'Completed' || sel.status === 'Failed' ? (() => { const rr = this.resultsFor(sel.id); return { reward: rr.reward, cost: rr.expense, merc: rr.bonus, guild: rr.guild, guildColor: rr.guild >= 0 ? '#6cc36a' : '#e8583f' }; })() : {},
+        ...(() => { const r = sel.run; if (!r) return { oddsTip: false, moneyTip: false, oddsEnter: () => {}, moneyEnter: (sel.status === 'Completed' || sel.status === 'Failed') && !this.isUnclaimed(sel) ? () => this.setState({ headTip: 'done' }) : () => {} /* no pay results before the results are viewed (no spoiler) */, tipLeave: () => this.setState({ headTip: null }) };
+          const odds = r.odds ?? 50, oc = odds >= 85 ? '#3fae5a' : odds >= 70 ? '#6cc36a' : odds >= 55 ? '#5aa6e8' : odds >= 45 ? '#f2b33d' : odds >= 25 ? '#f28c28' : '#e8583f';
+          const rw = r.reward ?? sel.reward, cost = r.travelCost ?? 0, net = rw - cost;
+          return { oddsTip: s.headTip === 'odds', moneyTip: s.headTip === 'money', oddsLabel: odds + '%', oddsColor: oc, oddsCells: Array.from({ length: 20 }, (_, k) => (k + 1) * 5 <= odds + 2 ? oc : '#1f3560'),
+            pay: { reward: rw, cost, net, netColor: net >= 0 ? '#6cc36a' : '#e8583f', day: '[Date] [Month] [Year]', dayRel: Math.max(1, Math.ceil(r.hours / 24)) + ' Days From Now' },
+            oddsEnter: () => this.setState({ headTip: 'odds' }), moneyEnter: () => this.setState({ headTip: 'money' }), tipLeave: () => this.setState({ headTip: null }) }; })(),
+        crew: sel.run ? sel.run.team.map((t, k) => { const tr = this.traditions[t.id]; return { role: t.role, name: 'FirstName' + (t.id + 1) + ' LastName' + (t.id + 1), level: String(this.levels[t.id]).padStart(2, '0'),
+          trad: tr[0], tradColor: tr[1], sigil: this.sig(tr[0]), stars: this.rateStars(t.match),
+          roleBg: t.role === 'Leader' ? '#f28c28' : '#2b4f8a', roleFg: t.role === 'Leader' ? '#0a0f1c' : '#f3ead7', ring: t.role === 'Leader' ? '#f28c28' : '#3b6fb6',
+          tip: s.crewTip === k, onClick: () => this.setState({ mercView: t.id, crewTip: null }), onEnter: () => this.setState({ crewTip: k }), onLeave: () => this.setState({ crewTip: null }) }; }) : [],
+        mercIcons: [0, 1, 2, 3, 4].map(i => this.personCells(i < sel.mercMin ? 'req' : i < sel.mercMax ? 'ok' : 'no')),
+        mercTitle: 'Mercs: ' + sel.mercMin + ' required, up to ' + sel.mercMax, desc: sel.desc, urgency: sel.urgency, urgencyColor: this.urgencyColors[sel.urgency],
+        dateLine: sel.run ? 'Estimated Return Time [Date] [Month] [Year]' : sel.status === 'Completed' ? 'Completed on [Date] [Month] [Year]' : sel.status === 'Failed' ? (this.isUnclaimed(sel) ? 'Completed on [Date] [Month] [Year]' : 'Failed on [Date] [Month] [Year]') : sel.status === 'Rejected' ? 'Rejected on [Date] [Month] [Year]' : 'Deadline [Date] [Month] [Year]',
+        dateRel: sel.run ? Math.max(1, Math.ceil(sel.run.hours / 24)) + ' Days From Now' : sel.status === 'Expired' ? 'Expired' : (sel.status === 'Completed' || sel.status === 'Failed' || sel.status === 'Rejected') ? '' : Math.floor(sel.exp / 24) + ' Days From Now',
+        rewardLabel: String(sel.reward), recLevel: String(sel.recLevel).padStart(2, '0'),
+        completionLabel: this.dur(sel.hours),
+        expLabel: sel.status === 'Expired' ? 'Expired' : sel.status === 'Completed' || sel.status === 'Failed' ? '—' : this.dur(sel.exp),
+        expColor: sel.status === 'Expired' ? '#e8583f' : sel.exp / 24 > 3 ? '#f3ead7' : sel.exp / 24 >= 1 ? '#f28c28' : '#e8583f',
+        distLabel: sel.dist + ' km', location: sel.location,
+        bests: [
+          { title: 'Recommended Knowledges', tag: show, items: [...sel.know].sort((a, b) => b.bonus - a.bonus).map(k => ({ name: k.name })) },
+          { title: 'Recommended Tools', tag: false, items: [...sel.tools].sort((a, b) => b.bonus - a.bonus).map(k => ({ name: k.name })) },
+          { title: 'Recommended Traditions', tag: false, items: [...sel.trads].sort((a, b) => b.bonus - a.bonus).map(k => ({ name: k.t[0], color: k.t[1], sigil: this.sig(k.t[0]) })) },
+        ],
+      } : {},
+      sceneMap: this.sceneMap,
+    };
+  }
+}</script>
+</body>
+</html>

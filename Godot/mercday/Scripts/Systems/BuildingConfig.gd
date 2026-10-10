@@ -2,6 +2,7 @@ class_name BuildingConfig
 
 #Passed to generate_random() / generate_buildings() to control building generation.
 #All fields are optional; unset fields fall back to the normal random pipeline.
+#Test-only: the BuildingMapWriter test sets these fields; production callers pass null.
 
 var forced_template: ObstacleData = null
 

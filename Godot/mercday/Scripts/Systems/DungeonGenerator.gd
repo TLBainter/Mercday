@@ -99,8 +99,7 @@ static func _log_generation(area: BattlefieldArea, total_ms: int) -> void:
 	area.generation_log.append("[GEN] dungeon rooms: %d  cells: %d  halls: %d  loops: %d  dead ends: %d" % [
 		int(st.get("chambers", 0)), int(st.get("cells", 0)), int(st.get("halls", 0)),
 		int(st.get("loops", 0)), int(st.get("dead_ends", 0))])
-	area.generation_log.append("[GEN] TOTAL: %dms  -  %s" % [total_ms, BattlefieldRender.to_header_string(area)])
-	print("[GEN] dungeon TOTAL: %dms  -  %s" % [total_ms, BattlefieldRender.to_header_string(area)])
+	area.log_total(total_ms)
 
 
 #One full layout pass; the returned texts name what the pass could not satisfy.
@@ -111,16 +110,16 @@ static func _build(area: BattlefieldArea, area_data: Dictionary, d: float,
 	area.spawn_zone_a.clear()
 	area.spawn_zone_b.clear()
 	area.interior_rooms.clear()
-	var g: Dictionary = _init_geometry(area, area_data, d, min_blocks)
-	if g.is_empty():
+	var g: DungeonGeom = _init_geometry(area, area_data, d, min_blocks)
+	if g == null:
 		problems.append("missing Wall row")
 		return problems
 	_carve_shell(area, g)
 	_carve_band(area, g)
-	_place_rooms(area, g, problems)
+	_place_rooms(g, problems)
 	_pick_doors(g, problems)
 	for f: int in _floor_list(g):
-		_carve_halls(area, g, f, problems)
+		_carve_halls(g, f, problems)
 	_place_entrance(area, g, problems)
 	_place_doors(area, g)
 	_apply_masks(area, g)
@@ -129,12 +128,51 @@ static func _build(area: BattlefieldArea, area_data: Dictionary, d: float,
 	return problems
 
 
+#Layout state shared by every pass of one dungeon build.
+class DungeonGeom extends RefCounted:
+	var area_data: Dictionary = {}
+	var d: float = 0.0
+	var fh: int = 0
+	var floors: int = 1
+	var fm: int = 0
+	var bld_x: int = 0
+	var top_y: int = 0
+	var floor_w: int = 0
+	var floor_d: int = 0
+	var ix0: int = 0
+	var ix1: int = 0
+	var iy0: int = 0
+	var iy1: int = 0
+	var wall: ObstacleData
+	var door: ObstacleData
+	var stairs: ObstacleData
+	var chambers: int = 0
+	var blocks: int = 0
+	var blocks_made: int = 0
+	var kinds: Dictionary = {}
+	var blocked: Dictionary = {}
+	var rooms: Array = []
+	var used: Dictionary = {}
+	var rings: Dictionary = {}
+	var wide: Dictionary = {}
+	var has_band: bool = false
+	var band: Rect2i = Rect2i()
+	var sx: int = -1
+	var run0: int = 0
+	var run1: int = 0
+	var foyer_side: int = 0
+	var entrance: Vector2i = Vector2i.ZERO
+	var seed_halls: Dictionary = {}
+	var block_floors: Dictionary = {}
+	var block_by_floor: Dictionary = {}
+
+
 static func _init_geometry(area: BattlefieldArea, area_data: Dictionary, d: float,
-		min_blocks: int = 0) -> Dictionary:
+		min_blocks: int = 0) -> DungeonGeom:
 	var wall_data: ObstacleData = DataManager.get_obstacle_by_name("Wall")
 	if wall_data == null:
 		push_error("DungeonGenerator: Wall obstacle missing")
-		return {}
+		return null
 	var spec: Dictionary = size_for(d, min_blocks)
 	var floors: int = maxi(1, mini(int(spec["floors"]), 1 + int(area_data.get("f_minus", 3))))
 	var min_sz: int = int(area_data.get("min_size", 20))
@@ -157,29 +195,37 @@ static func _init_geometry(area: BattlefieldArea, area_data: Dictionary, d: floa
 	area.dungeon_difficulty = d
 	for i: int in range(floors):
 		area.interior_floor_elevations[i - floors + 1] = i * fh
-	var g: Dictionary = {
-		"area_data": area_data, "d": d, "fh": fh, "floors": floors, "fm": floors - 1,
-		"bld_x": STREET, "top_y": STREET, "floor_w": floor_w, "floor_d": floor_d,
-		"ix0": STREET + 1, "ix1": STREET + floor_w, "iy0": STREET + 1, "iy1": STREET + floor_d,
-		"wall": wall_data, "door": BuildingGenerator._get_door_template(),
-		"stairs": DataManager.get_obstacle_by_name("Stairs"),
-		"chambers": int(spec["rooms"]), "blocks": int(spec["blocks"]),
-		"kinds": {}, "blocked": {}, "rooms": [], "used": {}, "rings": {}, "wide": {},
-		"has_band": floors > 1, "band": Rect2i(), "sx": -1, "run0": 0, "run1": 0,
-		"foyer_side": 0, "entrance": Vector2i.ZERO,
-		"seed_halls": {}, "block_floors": {}, "block_by_floor": {}, "blocks_made": 0,
-	}
-	var rings: Dictionary = g["rings"]
+	var g := DungeonGeom.new()
+	g.area_data = area_data
+	g.d = d
+	g.fh = fh
+	g.floors = floors
+	g.fm = floors - 1
+	g.bld_x = STREET
+	g.top_y = STREET
+	g.floor_w = floor_w
+	g.floor_d = floor_d
+	g.ix0 = STREET + 1
+	g.ix1 = STREET + floor_w
+	g.iy0 = STREET + 1
+	g.iy1 = STREET + floor_d
+	g.wall = wall_data
+	g.door = DataManager.door_data()
+	g.stairs = DataManager.get_obstacle_by_name("Stairs")
+	g.chambers = int(spec["rooms"])
+	g.blocks = int(spec["blocks"])
+	g.has_band = floors > 1
+	var rings: Dictionary = g.rings
 	for i: int in range(floors):
 		rings[-i] = {}
 	if floors > 1:
 		var sx: int = STREET + 2 + (randi() % maxi(1, floor_w - 3))
-		var rows: Vector2i = InteriorGenerator._run_rows(STREET, floor_d, fh)
-		g["sx"] = sx
-		g["run0"] = rows.x
-		g["run1"] = rows.y
-		g["band"] = Rect2i(sx, rows.x - 1, 2, rows.y - rows.x + 3)
-		var blocked: Dictionary = g["blocked"]
+		var rows: Vector2i = InteriorGenerator.stair_run_rows(STREET, floor_d, fh)
+		g.sx = sx
+		g.run0 = rows.x
+		g.run1 = rows.y
+		g.band = Rect2i(sx, rows.x - 1, 2, rows.y - rows.x + 3)
+		var blocked: Dictionary = g.blocked
 		for y: int in range(rows.x, rows.y + 1):
 			blocked[Vector2i(sx - 1, y)] = true
 			blocked[Vector2i(sx + 2, y)] = true
@@ -187,20 +233,20 @@ static func _init_geometry(area: BattlefieldArea, area_data: Dictionary, d: floa
 
 
 #Floors from F0 down to the deepest.
-static func _floor_list(g: Dictionary) -> Array[int]:
+static func _floor_list(g: DungeonGeom) -> Array[int]:
 	var out: Array[int] = []
-	for i: int in range(int(g["floors"])):
+	for i: int in range(g.floors):
 		out.append(-i)
 	return out
 
 
 #The canvas starts solid in the kind map and open in building_interiors; the outline comes from the mask.
-static func _carve_shell(area: BattlefieldArea, g: Dictionary) -> void:
-	var ix0: int = int(g["ix0"])
-	var ix1: int = int(g["ix1"])
-	var iy0: int = int(g["iy0"])
-	var iy1: int = int(g["iy1"])
-	var kinds: Dictionary = g["kinds"]
+static func _carve_shell(area: BattlefieldArea, g: DungeonGeom) -> void:
+	var ix0: int = g.ix0
+	var ix1: int = g.ix1
+	var iy0: int = g.iy0
+	var iy1: int = g.iy1
+	var kinds: Dictionary = g.kinds
 	for f: int in _floor_list(g):
 		var kind: Dictionary = {}
 		for y: int in range(iy0, iy1 + 1):
@@ -208,27 +254,27 @@ static func _carve_shell(area: BattlefieldArea, g: Dictionary) -> void:
 				kind[Vector2i(x, y)] = K_WALL
 				area.building_interiors[Vector3i(x, y, f)] = true
 		kinds[f] = kind
-	InteriorGenerator._mark_ceiling_cells(area, 0, int(g["fm"]), int(g["bld_x"]),
-		int(g["floor_w"]), int(g["floor_d"]), int(g["top_y"]))
+	InteriorGenerator.mark_ceiling_cells(area, 0, g.fm, g.bld_x,
+		g.floor_w, g.floor_d, g.top_y)
 
 
 #The one stair band: both columns open on every floor, the runs cut by the interior builder.
-static func _carve_band(area: BattlefieldArea, g: Dictionary) -> void:
-	if not bool(g["has_band"]):
+static func _carve_band(area: BattlefieldArea, g: DungeonGeom) -> void:
+	if not g.has_band:
 		return
-	var band: Rect2i = g["band"] as Rect2i
+	var band: Rect2i = g.band
 	for f: int in _floor_list(g):
 		for y: int in range(band.position.y, band.end.y):
 			for x: int in range(band.position.x, band.end.x):
 				_set_kind(g, f, Vector2i(x, y), K_BAND)
-	var sx: int = int(g["sx"])
+	var sx: int = g.sx
 	var xs: Dictionary = {}
 	var axs: Dictionary = {}
-	for f: int in range(0, -int(g["fm"]), -1):
+	for f: int in range(0, -g.fm, -1):
 		xs[f] = sx
 		axs[f] = sx + 1
-	InteriorGenerator._place_stairwells(area, 0, int(g["fm"]), int(g["bld_x"]), int(g["floor_w"]),
-		int(g["floor_d"]), g["stairs"] as ObstacleData, xs, axs, int(g["top_y"]))
+	InteriorGenerator.place_stairwells(area, 0, g.fm, g.bld_x, g.floor_w,
+		g.floor_d, g.stairs, xs, axs, g.top_y)
 	for f: int in _floor_list(g):
 		for y: int in range(band.position.y, band.end.y):
 			for x: int in range(band.position.x, band.end.x):
@@ -241,44 +287,44 @@ static func _carve_band(area: BattlefieldArea, g: Dictionary) -> void:
 					area._obs_map[p3] = {"cell_type": "reserved_stairwell", "floor": f}
 
 
-static func _set_kind(g: Dictionary, f: int, p: Vector2i, k: int) -> void:
-	((g["kinds"] as Dictionary)[f] as Dictionary)[p] = k
+static func _set_kind(g: DungeonGeom, f: int, p: Vector2i, k: int) -> void:
+	(g.kinds[f] as Dictionary)[p] = k
 
 
-static func _kind_of(g: Dictionary, f: int, p: Vector2i) -> int:
-	return int(((g["kinds"] as Dictionary)[f] as Dictionary).get(p, -1))
+static func _kind_of(g: DungeonGeom, f: int, p: Vector2i) -> int:
+	return int((g.kinds[f] as Dictionary).get(p, -1))
 
 
 #Chambers spread evenly over the floors, cell blocks on the deepest; F0 always holds the Foyer.
-static func _place_rooms(area: BattlefieldArea, g: Dictionary, problems: Array[String]) -> void:
-	var floors: int = int(g["floors"])
-	var chamber_q: Array[int] = _quota(int(g["chambers"]), floors)
+static func _place_rooms(g: DungeonGeom, problems: Array[String]) -> void:
+	var floors: int = g.floors
+	var chamber_q: Array[int] = _quota(g.chambers, floors)
 	var block_floors: Dictionary = _block_floors(g)
-	g["block_floors"] = block_floors
+	g.block_floors = block_floors
 	for i: int in range(floors):
 		var f: int = -i
 		var want: int = chamber_q[i]
 		if f == 0:
-			if _place_foyer(area, g):
+			if _place_foyer(g):
 				want -= 1
 			else:
 				problems.append("foyer did not fit")
 		if block_floors.has(f):
-			if _place_block(area, g, f):
-				g["blocks_made"] = int(g["blocks_made"]) + 1
+			if _place_block(g, f):
+				g.blocks_made = g.blocks_made + 1
 			else:
 				problems.append("cell block did not fit on F%d" % f)
 		for _c: int in range(want):
-			if not _place_chamber(area, g, f):
+			if not _place_chamber(g, f):
 				problems.append("chamber did not fit on F%d" % f)
-			_roll_extra_cell(area, g, f)
+			_roll_extra_cell(g, f)
 
 
 #Block floors: the deepest first, a second block on a random other floor, never two on one floor.
-static func _block_floors(g: Dictionary) -> Dictionary:
+static func _block_floors(g: DungeonGeom) -> Dictionary:
 	var out: Dictionary = {}
-	var floors: int = int(g["floors"])
-	var want: int = mini(int(g["blocks"]), floors)
+	var floors: int = g.floors
+	var want: int = mini(g.blocks, floors)
 	if want <= 0:
 		return out
 	out[-(floors - 1)] = true
@@ -293,20 +339,20 @@ static func _block_floors(g: Dictionary) -> Dictionary:
 
 
 #The more cells a block floor already holds, the likelier a chamber turns into one more cell.
-static func _roll_extra_cell(area: BattlefieldArea, g: Dictionary, f: int) -> void:
-	if not (g["block_floors"] as Dictionary).has(f):
+static func _roll_extra_cell(g: DungeonGeom, f: int) -> void:
+	if not g.block_floors.has(f):
 		return
 	var n: int = _cells_on(g, f)
 	if n <= 0 or n >= CELLS_MAX:
 		return
 	if randi() % 100 >= mini(80, 15 * n):
 		return
-	_extend_block(area, g, f)
+	_extend_block(g, f)
 
 
-static func _cells_on(g: Dictionary, f: int) -> int:
+static func _cells_on(g: DungeonGeom, f: int) -> int:
 	var n: int = 0
-	for entry: Dictionary in (g["rooms"] as Array):
+	for entry: Dictionary in g.rooms:
 		if int(entry["floor"]) == f and bool(entry["is_cell"]):
 			n += 1
 	return n
@@ -321,7 +367,7 @@ static func _quota(total: int, n: int) -> Array[int]:
 	return out
 
 
-static func _place_foyer(area: BattlefieldArea, g: Dictionary) -> bool:
+static func _place_foyer(g: DungeonGeom) -> bool:
 	var row: ObstacleData = DataManager.get_obstacle_by_name(FOYER_ROW)
 	if row == null:
 		return false
@@ -332,8 +378,8 @@ static func _place_foyer(area: BattlefieldArea, g: Dictionary) -> bool:
 		for _t: int in range(PLACE_TRIES):
 			var r: Rect2i = _flush_rect(g, side, w, h)
 			if r.size.x > 0 and _rect_free(g, 0, r):
-				_stamp(area, g, 0, row, r, false)
-				g["foyer_side"] = side
+				_stamp(g, 0, row, r, false)
+				g.foyer_side = side
 				return true
 		if w <= 2 and h <= 2:
 			break
@@ -343,11 +389,11 @@ static func _place_foyer(area: BattlefieldArea, g: Dictionary) -> bool:
 
 
 #A rect flush against one interior side, drawn at random along it.
-static func _flush_rect(g: Dictionary, side: int, w: int, h: int) -> Rect2i:
-	var ix0: int = int(g["ix0"])
-	var ix1: int = int(g["ix1"])
-	var iy0: int = int(g["iy0"])
-	var iy1: int = int(g["iy1"])
+static func _flush_rect(g: DungeonGeom, side: int, w: int, h: int) -> Rect2i:
+	var ix0: int = g.ix0
+	var ix1: int = g.ix1
+	var iy0: int = g.iy0
+	var iy1: int = g.iy1
 	if w > ix1 - ix0 + 1 or h > iy1 - iy0 + 1:
 		return Rect2i()
 	if side <= 1:
@@ -363,24 +409,24 @@ static func _flush_rect(g: Dictionary, side: int, w: int, h: int) -> Rect2i:
 	return Rect2i(randi_range(xlo, xhi), iy0 if side == 2 else iy1 - h + 1, w, h)
 
 
-static func _place_chamber(area: BattlefieldArea, g: Dictionary, f: int) -> bool:
+static func _place_chamber(g: DungeonGeom, f: int) -> bool:
 	var row: ObstacleData = _pick_row(g, f)
 	if row == null:
 		return false
 	var r: Rect2i = _cluster_rect(g, f, maxi(2, int(row.size_x)), maxi(2, int(row.size_y)), true)
 	if r.size.x == 0:
 		return false
-	_stamp(area, g, f, row, r, false)
+	_stamp(g, f, row, r, false)
 	return true
 
 
 #A room row for this floor: one still under the twice-per-dungeon cap, else a least used row.
-static func _pick_row(g: Dictionary, f: int) -> ObstacleData:
-	var used: Dictionary = g["used"]
+static func _pick_row(g: DungeonGeom, f: int) -> ObstacleData:
+	var used: Dictionary = g.used
 	var pool: Array[ObstacleData] = []
 	var spare: Array[ObstacleData] = []
 	var best: int = BIG
-	for row: ObstacleData in DataManager.get_dungeon_rooms_for_floor(g["area_data"] as Dictionary, f):
+	for row: ObstacleData in RoomCatalog.get_dungeon_rooms_for_floor(g.area_data, f):
 		var n: String = row.obstacle_name
 		if n == FOYER_ROW or n == CELL_ROW or n == HALL_NARROW or n == HALL_WIDE:
 			continue
@@ -401,7 +447,7 @@ static func _pick_row(g: Dictionary, f: int) -> ObstacleData:
 
 
 #Rooms cluster: tries grown off a room already on the floor, then anywhere, then a shrinking fit.
-static func _cluster_rect(g: Dictionary, f: int, w: int, h: int, shrink: bool) -> Rect2i:
+static func _cluster_rect(g: DungeonGeom, f: int, w: int, h: int, shrink: bool) -> Rect2i:
 	for _t: int in range(CLUSTER_TRIES):
 		var r: Rect2i = _grown_rect(g, f, w, h)
 		if r.size.x > 0 and _rect_free(g, f, r):
@@ -413,13 +459,13 @@ static func _cluster_rect(g: Dictionary, f: int, w: int, h: int, shrink: bool) -
 
 
 #A rect beyond one side of a room already on the floor, three to six cells of gap between interiors.
-static func _grown_rect(g: Dictionary, f: int, w: int, h: int) -> Rect2i:
+static func _grown_rect(g: DungeonGeom, f: int, w: int, h: int) -> Rect2i:
 	var anchors: Array[Rect2i] = []
-	for entry: Dictionary in (g["rooms"] as Array):
+	for entry: Dictionary in g.rooms:
 		if int(entry["floor"]) == f:
 			anchors.append(entry["rect"] as Rect2i)
-	if anchors.is_empty() and bool(g["has_band"]):
-		anchors.append(g["band"] as Rect2i)
+	if anchors.is_empty() and g.has_band:
+		anchors.append(g.band)
 	if anchors.is_empty():
 		return Rect2i()
 	var a: Rect2i = anchors[randi() % anchors.size()]
@@ -437,22 +483,22 @@ static func _grown_rect(g: Dictionary, f: int, w: int, h: int) -> Rect2i:
 	return _clamp_rect(g, Rect2i(p, Vector2i(w, h)))
 
 
-static func _clamp_rect(g: Dictionary, r: Rect2i) -> Rect2i:
-	var xlo: int = int(g["ix0"]) + 1
-	var xhi: int = int(g["ix1"]) - r.size.x
-	var ylo: int = int(g["iy0"]) + 1
-	var yhi: int = int(g["iy1"]) - r.size.y
+static func _clamp_rect(g: DungeonGeom, r: Rect2i) -> Rect2i:
+	var xlo: int = g.ix0 + 1
+	var xhi: int = g.ix1 - r.size.x
+	var ylo: int = g.iy0 + 1
+	var yhi: int = g.iy1 - r.size.y
 	if xhi < xlo or yhi < ylo:
 		return Rect2i()
 	return Rect2i(clampi(r.position.x, xlo, xhi), clampi(r.position.y, ylo, yhi), r.size.x, r.size.y)
 
 
 #One cell block: a straight hall with 2x2 cells on one or both sides, each gated onto that hall.
-static func _place_block(area: BattlefieldArea, g: Dictionary, f: int) -> bool:
+static func _place_block(g: DungeonGeom, f: int) -> bool:
 	var row: ObstacleData = DataManager.get_obstacle_by_name(CELL_ROW)
 	if row == null:
 		return false
-	var b: int = clampi(floori(float(g["d"])), 1, 5) - 1
+	var b: int = clampi(floori(g.d), 1, 5) - 1
 	var n: int = randi_range(BLOCK_CELL_LO[b], BLOCK_CELL_HI[b])
 	for _t: int in range(BLOCK_TRIES):
 		var axis: int = randi() % 2
@@ -476,21 +522,21 @@ static func _place_block(area: BattlefieldArea, g: Dictionary, f: int) -> bool:
 		var base: int = r.position.y if axis == 0 else r.position.x
 		var hp: int = base + 4 if sides.has(-1) else base
 		var blk: Dictionary = {"axis": axis, "hp": hp, "lo": lo, "hi": lo + span - 1, "sides": sides}
-		(g["block_by_floor"] as Dictionary)[f] = blk
+		g.block_by_floor[f] = blk
 		_stamp_hall(g, f, axis, lo, lo + span - 1, hp)
 		for i: int in range(slots):
 			for s: int in sides:
-				_stamp_cell(area, g, f, row, axis, lo + 1 + 3 * i, hp, s)
+				_stamp_cell(g, f, row, axis, lo + 1 + 3 * i, hp, s)
 		return true
 	return false
 
 
 #One more slot at a random end of the floor's block; the roll is spent when neither end fits.
-static func _extend_block(area: BattlefieldArea, g: Dictionary, f: int) -> bool:
+static func _extend_block(g: DungeonGeom, f: int) -> bool:
 	var row: ObstacleData = DataManager.get_obstacle_by_name(CELL_ROW)
 	if row == null:
 		return false
-	var blk: Dictionary = (g["block_by_floor"] as Dictionary).get(f, {}) as Dictionary
+	var blk: Dictionary = g.block_by_floor.get(f, {}) as Dictionary
 	if blk.is_empty():
 		return false
 	var sides: Array = blk["sides"] as Array
@@ -510,7 +556,7 @@ static func _extend_block(area: BattlefieldArea, g: Dictionary, f: int) -> bool:
 			continue
 		_stamp_hall(g, f, axis, a_lo, a_hi, hp)
 		for s: Variant in sides:
-			_stamp_cell(area, g, f, row, axis, a_lo if e > 0 else a_lo + 1, hp, int(s))
+			_stamp_cell(g, f, row, axis, a_lo if e > 0 else a_lo + 1, hp, int(s))
 		if e > 0:
 			blk["hi"] = a_hi
 		else:
@@ -538,29 +584,29 @@ static func _block_rect(axis: int, a_lo: int, a_hi: int, hp: int, sides: Array) 
 	return Rect2i(p_lo, a_lo, p_hi - p_lo + 1, a_hi - a_lo + 1)
 
 
-static func _stamp_hall(g: Dictionary, f: int, axis: int, a_lo: int, a_hi: int, hp: int) -> void:
-	var seeds: Array = (g["seed_halls"] as Dictionary).get(f, []) as Array
+static func _stamp_hall(g: DungeonGeom, f: int, axis: int, a_lo: int, a_hi: int, hp: int) -> void:
+	var seeds: Array = g.seed_halls.get(f, []) as Array
 	for a: int in range(a_lo, a_hi + 1):
 		var p: Vector2i = _block_point(axis, a, hp)
 		_set_kind(g, f, p, K_HALL)
 		seeds.append(p)
-	(g["seed_halls"] as Dictionary)[f] = seeds
+	g.seed_halls[f] = seeds
 
 
 #A 2x2 cell one row off the hall, its gate fixed on the hall side at one of the cell's two columns.
-static func _stamp_cell(area: BattlefieldArea, g: Dictionary, f: int, row: ObstacleData, axis: int,
+static func _stamp_cell(g: DungeonGeom, f: int, row: ObstacleData, axis: int,
 		a0: int, hp: int, s: int) -> void:
 	var p0: int = hp + 2 if s > 0 else hp - 3
 	var r: Rect2i = Rect2i(a0, p0, 2, 2) if axis == 0 else Rect2i(p0, a0, 2, 2)
-	_stamp(area, g, f, row, r, true)
-	var entry: Dictionary = (g["rooms"] as Array).back() as Dictionary
+	_stamp(g, f, row, r, true)
+	var entry: Dictionary = g.rooms.back() as Dictionary
 	var ga: int = a0 + (randi() % 2)
 	var side: int = (2 if s < 0 else 3) if axis == 0 else (0 if s < 0 else 1)
 	entry["doors"] = [{"pos": _block_point(axis, ga, hp + s), "out": _block_point(axis, ga, hp),
 		"side": side, "orient": "h" if axis == 0 else "v"}]
 
 
-static func _shrink_fit(g: Dictionary, f: int, w: int, h: int) -> Rect2i:
+static func _shrink_fit(g: DungeonGeom, f: int, w: int, h: int) -> Rect2i:
 	if randi() % 2 == 1:
 		var t: int = w
 		w = h
@@ -576,11 +622,11 @@ static func _shrink_fit(g: Dictionary, f: int, w: int, h: int) -> Rect2i:
 	return Rect2i()
 
 
-static func _random_rect(g: Dictionary, f: int, w: int, h: int) -> Rect2i:
-	var xlo: int = int(g["ix0"]) + 1
-	var xhi: int = int(g["ix1"]) - w
-	var ylo: int = int(g["iy0"]) + 1
-	var yhi: int = int(g["iy1"]) - h
+static func _random_rect(g: DungeonGeom, f: int, w: int, h: int) -> Rect2i:
+	var xlo: int = g.ix0 + 1
+	var xhi: int = g.ix1 - w
+	var ylo: int = g.iy0 + 1
+	var yhi: int = g.iy1 - h
 	if xhi < xlo or yhi < ylo:
 		return Rect2i()
 	for _t: int in range(PLACE_TRIES):
@@ -591,19 +637,19 @@ static func _random_rect(g: Dictionary, f: int, w: int, h: int) -> Rect2i:
 
 
 #Solid interior under the rect, a clear cell to its neighbours, and the free interior left in one piece.
-static func _rect_free(g: Dictionary, f: int, r: Rect2i) -> bool:
+static func _rect_free(g: DungeonGeom, f: int, r: Rect2i) -> bool:
 	if r.size.x <= 0 or r.size.y <= 0:
 		return false
-	var blocked: Dictionary = g["blocked"]
+	var blocked: Dictionary = g.blocked
 	for y: int in range(r.position.y, r.end.y):
 		for x: int in range(r.position.x, r.end.x):
 			var p := Vector2i(x, y)
 			if _kind_of(g, f, p) != K_WALL or blocked.has(p):
 				return false
 	var grown: Rect2i = r.grow(1)
-	if bool(g["has_band"]) and grown.intersects(g["band"] as Rect2i):
+	if g.has_band and grown.intersects(g.band):
 		return false
-	for entry: Dictionary in (g["rooms"] as Array):
+	for entry: Dictionary in g.rooms:
 		if int(entry["floor"]) != f:
 			continue
 		if grown.intersects(entry["rect"] as Rect2i):
@@ -612,11 +658,11 @@ static func _rect_free(g: Dictionary, f: int, r: Rect2i) -> bool:
 
 
 #True when the rect and its ring would cut the carveable interior of the floor into two regions.
-static func _splits_free(g: Dictionary, f: int, r: Rect2i) -> bool:
-	var ix0: int = int(g["ix0"])
-	var ix1: int = int(g["ix1"])
-	var iy0: int = int(g["iy0"])
-	var iy1: int = int(g["iy1"])
+static func _splits_free(g: DungeonGeom, f: int, r: Rect2i) -> bool:
+	var ix0: int = g.ix0
+	var ix1: int = g.ix1
+	var iy0: int = g.iy0
+	var iy1: int = g.iy1
 	var grown: Rect2i = r.grow(1)
 	var outer: Rect2i = r.grow(2)
 	var ring_ok: bool = true
@@ -662,36 +708,36 @@ static func _splits_free(g: Dictionary, f: int, r: Rect2i) -> bool:
 
 
 #A cell the halls could still carve or walk: interior band, or untouched wall outside every ring.
-static func _is_free(g: Dictionary, f: int, p: Vector2i, grown: Rect2i) -> bool:
-	if p.x < int(g["ix0"]) or p.x > int(g["ix1"]) or p.y < int(g["iy0"]) or p.y > int(g["iy1"]):
+static func _is_free(g: DungeonGeom, f: int, p: Vector2i, grown: Rect2i) -> bool:
+	if p.x < g.ix0 or p.x > g.ix1 or p.y < g.iy0 or p.y > g.iy1:
 		return false
 	var k: int = _kind_of(g, f, p)
 	if k == K_BAND:
 		return true
 	if k != K_WALL:
 		return false
-	if (g["blocked"] as Dictionary).has(p):
+	if g.blocked.has(p):
 		return false
-	if ((g["rings"] as Dictionary)[f] as Dictionary).has(p):
+	if (g.rings[f] as Dictionary).has(p):
 		return false
 	return not grown.has_point(p)
 
 
-static func _stamp(_area: BattlefieldArea, g: Dictionary, f: int, row: ObstacleData, r: Rect2i,
+static func _stamp(g: DungeonGeom, f: int, row: ObstacleData, r: Rect2i,
 		is_cell: bool) -> void:
 	for y: int in range(r.position.y, r.end.y):
 		for x: int in range(r.position.x, r.end.x):
 			_set_kind(g, f, Vector2i(x, y), K_CELL if is_cell else K_ROOM)
-	var used: Dictionary = g["used"]
+	var used: Dictionary = g.used
 	used[row.obstacle_name] = int(used.get(row.obstacle_name, 0)) + 1
-	(g["rooms"] as Array).append({"room": row, "rect": r, "floor": f, "is_cell": is_cell,
+	g.rooms.append({"room": row, "rect": r, "floor": f, "is_cell": is_cell,
 		"doors": []})
 	_add_ring(g, f, r)
 
 
 #Every cell of every room ring, per floor; halls never carve these, so rooms open by door only.
-static func _add_ring(g: Dictionary, f: int, r: Rect2i) -> void:
-	var ring: Dictionary = (g["rings"] as Dictionary)[f]
+static func _add_ring(g: DungeonGeom, f: int, r: Rect2i) -> void:
+	var ring: Dictionary = g.rings[f]
 	var gr: Rect2i = r.grow(1)
 	for x: int in range(gr.position.x, gr.end.x):
 		ring[Vector2i(x, gr.position.y)] = true
@@ -701,9 +747,9 @@ static func _add_ring(g: Dictionary, f: int, r: Rect2i) -> void:
 		ring[Vector2i(gr.end.x - 1, y)] = true
 
 
-static func _pick_doors(g: Dictionary, problems: Array[String]) -> void:
-	var rings: Dictionary = g["rings"]
-	for entry: Dictionary in (g["rooms"] as Array):
+static func _pick_doors(g: DungeonGeom, problems: Array[String]) -> void:
+	var rings: Dictionary = g.rings
+	for entry: Dictionary in g.rooms:
 		if not (entry["doors"] as Array).is_empty():
 			continue
 		var f: int = int(entry["floor"])
@@ -725,12 +771,12 @@ static func _pick_doors(g: Dictionary, problems: Array[String]) -> void:
 		entry["doors"] = chosen
 
 
-static func _door_count(g: Dictionary, entry: Dictionary) -> int:
+static func _door_count(g: DungeonGeom, entry: Dictionary) -> int:
 	if bool(entry["is_cell"]):
 		return 1
 	var r: Rect2i = entry["rect"] as Rect2i
 	if (entry["room"] as ObstacleData).obstacle_name == FOYER_ROW:
-		if int(g["floors"]) == 1 and int(g["chambers"]) >= 6:
+		if g.floors == 1 and g.chambers >= 6:
 			return 3
 		return 2
 	if r.size.x * r.size.y >= 40 and randi() % 100 < 40:
@@ -739,7 +785,7 @@ static func _door_count(g: Dictionary, entry: Dictionary) -> int:
 
 
 #Ring cells minus the corners whose outward neighbour is free interior the halls can still reach.
-static func _door_sites(g: Dictionary, f: int, r: Rect2i, ring: Dictionary) -> Array[Dictionary]:
+static func _door_sites(g: DungeonGeom, f: int, r: Rect2i, ring: Dictionary) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var gr: Rect2i = r.grow(1)
 	for x: int in range(r.position.x, r.end.x):
@@ -751,9 +797,9 @@ static func _door_sites(g: Dictionary, f: int, r: Rect2i, ring: Dictionary) -> A
 	return out
 
 
-static func _add_site(g: Dictionary, f: int, ring: Dictionary, out: Array[Dictionary],
+static func _add_site(g: DungeonGeom, f: int, ring: Dictionary, out: Array[Dictionary],
 		p: Vector2i, normal: Vector2i, side: int) -> void:
-	var blocked: Dictionary = g["blocked"]
+	var blocked: Dictionary = g.blocked
 	if _kind_of(g, f, p) != K_WALL or blocked.has(p):
 		return
 	for d: Vector2i in DIRS4:
@@ -770,8 +816,8 @@ static func _add_site(g: Dictionary, f: int, ring: Dictionary, out: Array[Dictio
 
 
 #Spanning tree from the band (or the Foyer door) to every door, then loops, stubs and one wide route.
-static func _carve_halls(_area: BattlefieldArea, g: Dictionary, f: int, problems: Array[String]) -> void:
-	var kind: Dictionary = (g["kinds"] as Dictionary)[f]
+static func _carve_halls(g: DungeonGeom, f: int, problems: Array[String]) -> void:
+	var kind: Dictionary = g.kinds[f]
 	var no_carve: Dictionary = _no_carve_set(g, f)
 	var wt: Dictionary = {}
 	for p: Vector2i in kind.keys():
@@ -785,7 +831,7 @@ static func _carve_halls(_area: BattlefieldArea, g: Dictionary, f: int, problems
 	var targets: Array[Vector2i] = []
 	var seen: Dictionary = {}
 	var rooms_here: int = 0
-	for entry: Dictionary in (g["rooms"] as Array):
+	for entry: Dictionary in g.rooms:
 		if int(entry["floor"]) != f:
 			continue
 		rooms_here += 1
@@ -795,8 +841,8 @@ static func _carve_halls(_area: BattlefieldArea, g: Dictionary, f: int, problems
 				seen[o] = true
 				targets.append(o)
 	var connected: Dictionary = {}
-	if bool(g["has_band"]):
-		var band: Rect2i = g["band"] as Rect2i
+	if g.has_band:
+		var band: Rect2i = g.band
 		for y: int in range(band.position.y, band.end.y):
 			for x: int in range(band.position.x, band.end.x):
 				connected[Vector2i(x, y)] = true
@@ -838,13 +884,13 @@ static func _carve_halls(_area: BattlefieldArea, g: Dictionary, f: int, problems
 		_add_stub(g, f, wt, no_carve)
 
 
-static func _no_carve_set(g: Dictionary, f: int) -> Dictionary:
+static func _no_carve_set(g: DungeonGeom, f: int) -> Dictionary:
 	var out: Dictionary = {}
-	for p: Variant in (g["blocked"] as Dictionary).keys():
+	for p: Variant in g.blocked.keys():
 		out[p as Vector2i] = true
-	for p: Variant in ((g["rings"] as Dictionary)[f] as Dictionary).keys():
+	for p: Variant in (g.rings[f] as Dictionary).keys():
 		out[p as Vector2i] = true
-	for entry: Dictionary in (g["rooms"] as Array):
+	for entry: Dictionary in g.rooms:
 		if int(entry["floor"]) != f:
 			continue
 		for door: Dictionary in (entry["doors"] as Array):
@@ -852,7 +898,7 @@ static func _no_carve_set(g: Dictionary, f: int) -> Dictionary:
 	return out
 
 
-static func _carve_hall_cell(g: Dictionary, f: int, p: Vector2i, wt: Dictionary) -> void:
+static func _carve_hall_cell(g: DungeonGeom, f: int, p: Vector2i, wt: Dictionary) -> void:
 	if _kind_of(g, f, p) != K_WALL:
 		return
 	_set_kind(g, f, p, K_HALL)
@@ -863,16 +909,15 @@ static func _carve_hall_cell(g: Dictionary, f: int, p: Vector2i, wt: Dictionary)
 static func _dijkstra(sources: Dictionary, wt: Dictionary) -> Dictionary:
 	var dist: Dictionary = {}
 	var prev: Dictionary = {}
-	var hd: Array[int] = []
-	var hc: Array[Vector2i] = []
+	var heap: Array = []
 	for s: Variant in sources.keys():
 		var sp: Vector2i = s as Vector2i
 		dist[sp] = 0
-		_hpush(hd, hc, 0, sp)
-	while not hd.is_empty():
-		var d0: int = hd[0]
-		var c0: Vector2i = hc[0]
-		_hpop(hd, hc)
+		Pathfinder.heap_insert(heap, [0, sp])
+	while not heap.is_empty():
+		var top: Array = Pathfinder.heap_pop(heap)
+		var d0: int = top[0]
+		var c0: Vector2i = top[1]
 		if d0 > int(dist.get(c0, BIG)):
 			continue
 		for dir: Vector2i in DIRS4:
@@ -884,7 +929,7 @@ static func _dijkstra(sources: Dictionary, wt: Dictionary) -> Dictionary:
 			if nd < int(dist.get(nb, BIG)):
 				dist[nb] = nd
 				prev[nb] = c0
-				_hpush(hd, hc, nd, nb)
+				Pathfinder.heap_insert(heap, [nd, nb])
 	return {"dist": dist, "prev": prev}
 
 
@@ -902,9 +947,9 @@ static func _trace(prev: Dictionary, sources: Dictionary, target: Vector2i) -> A
 	return out
 
 
-static func _widen(g: Dictionary, f: int, path: Array[Vector2i], wt: Dictionary,
+static func _widen(g: DungeonGeom, f: int, path: Array[Vector2i], wt: Dictionary,
 		no_carve: Dictionary) -> void:
-	var wide: Dictionary = (g["wide"] as Dictionary).get(f, {}) as Dictionary
+	var wide: Dictionary = g.wide.get(f, {}) as Dictionary
 	for i: int in range(path.size()):
 		var p: Vector2i = path[i]
 		var dir: Vector2i = Vector2i(1, 0)
@@ -920,11 +965,11 @@ static func _widen(g: Dictionary, f: int, path: Array[Vector2i], wt: Dictionary,
 			wide[cand] = true
 			wide[p] = true
 			break
-	(g["wide"] as Dictionary)[f] = wide
+	g.wide[f] = wide
 
 
 #A second route between two carved cells, cut through untouched wall so the floor gains a ring.
-static func _add_loop(g: Dictionary, f: int, wt: Dictionary, no_carve: Dictionary) -> void:
+static func _add_loop(g: DungeonGeom, f: int, wt: Dictionary, no_carve: Dictionary) -> void:
 	var open_cells: Array[Vector2i] = _cells_of_kind(g, f, [K_HALL, K_BAND])
 	if open_cells.size() < 2:
 		return
@@ -951,7 +996,7 @@ static func _add_loop(g: Dictionary, f: int, wt: Dictionary, no_carve: Dictionar
 
 
 #A short blind corridor off the hall net; it stops before it can touch anything else.
-static func _add_stub(g: Dictionary, f: int, wt: Dictionary, no_carve: Dictionary) -> void:
+static func _add_stub(g: DungeonGeom, f: int, wt: Dictionary, no_carve: Dictionary) -> void:
 	var open_cells: Array[Vector2i] = _cells_of_kind(g, f, [K_HALL])
 	if open_cells.is_empty():
 		return
@@ -971,9 +1016,9 @@ static func _add_stub(g: Dictionary, f: int, wt: Dictionary, no_carve: Dictionar
 		cur = nxt
 
 
-static func _cells_of_kind(g: Dictionary, f: int, kinds: Array[int]) -> Array[Vector2i]:
+static func _cells_of_kind(g: DungeonGeom, f: int, kinds: Array[int]) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	var kind: Dictionary = (g["kinds"] as Dictionary)[f]
+	var kind: Dictionary = g.kinds[f]
 	for p: Variant in kind.keys():
 		if kinds.has(int(kind[p])):
 			out.append(p as Vector2i)
@@ -981,24 +1026,24 @@ static func _cells_of_kind(g: Dictionary, f: int, kinds: Array[int]) -> Array[Ve
 
 
 #The one way in: a door in the F0 shell against the Foyer wall.
-static func _place_entrance(area: BattlefieldArea, g: Dictionary, problems: Array[String]) -> void:
+static func _place_entrance(area: BattlefieldArea, g: DungeonGeom, problems: Array[String]) -> void:
 	var foyer: Dictionary = _foyer_entry(g)
 	if foyer.is_empty():
 		problems.append("no foyer")
 		return
 	var r: Rect2i = foyer["rect"] as Rect2i
-	var side: int = int(g["foyer_side"])
+	var side: int = g.foyer_side
 	var cands: Array[Vector2i] = []
 	if side <= 1:
-		var wx: int = int(g["bld_x"]) if side == 0 else int(g["bld_x"]) + int(g["floor_w"]) + 1
-		if (side == 0 and r.position.x != int(g["ix0"])) or (side == 1 and r.end.x - 1 != int(g["ix1"])):
+		var wx: int = g.bld_x if side == 0 else g.bld_x + g.floor_w + 1
+		if (side == 0 and r.position.x != g.ix0) or (side == 1 and r.end.x - 1 != g.ix1):
 			problems.append("foyer is not flush")
 			return
 		for y: int in range(r.position.y, r.end.y):
 			cands.append(Vector2i(wx, y))
 	else:
-		var wy: int = int(g["top_y"]) if side == 2 else int(g["top_y"]) + int(g["floor_d"]) + 1
-		if (side == 2 and r.position.y != int(g["iy0"])) or (side == 3 and r.end.y - 1 != int(g["iy1"])):
+		var wy: int = g.top_y if side == 2 else g.top_y + g.floor_d + 1
+		if (side == 2 and r.position.y != g.iy0) or (side == 3 and r.end.y - 1 != g.iy1):
 			problems.append("foyer is not flush")
 			return
 		for x: int in range(r.position.x, r.end.x):
@@ -1007,24 +1052,24 @@ static func _place_entrance(area: BattlefieldArea, g: Dictionary, problems: Arra
 		problems.append("no entrance site")
 		return
 	var pos: Vector2i = cands[randi() % cands.size()]
-	InteriorGenerator._place_door_at(area, Vector3i(pos.x, pos.y, 0), g["door"] as ObstacleData,
-		int(g["fh"]), "v" if side <= 1 else "h")
+	InteriorGenerator.place_door_at(area, Vector3i(pos.x, pos.y, 0), g.door,
+		g.fh, "v" if side <= 1 else "h")
 	area.entrance_cells.append(pos)
-	g["entrance"] = pos
+	g.entrance = pos
 
 
-static func _foyer_entry(g: Dictionary) -> Dictionary:
-	for entry: Dictionary in (g["rooms"] as Array):
+static func _foyer_entry(g: DungeonGeom) -> Dictionary:
+	for entry: Dictionary in g.rooms:
 		if (entry["room"] as ObstacleData).obstacle_name == FOYER_ROW:
 			return entry
 	return {}
 
 
-static func _place_doors(area: BattlefieldArea, g: Dictionary) -> void:
-	var fh: int = int(g["fh"])
+static func _place_doors(area: BattlefieldArea, g: DungeonGeom) -> void:
+	var fh: int = g.fh
 	var lockable: int = 0
 	var locked: int = 0
-	for entry: Dictionary in (g["rooms"] as Array):
+	for entry: Dictionary in g.rooms:
 		var f: int = int(entry["floor"])
 		var is_cell: bool = bool(entry["is_cell"])
 		var lock_room: bool = false
@@ -1032,7 +1077,7 @@ static func _place_doors(area: BattlefieldArea, g: Dictionary) -> void:
 			var can_lock: bool = _lockable(entry["room"] as ObstacleData)
 			if can_lock:
 				lockable += 1
-			lock_room = can_lock and randf() < DungeonLocks.lock_chance(float(g["d"]))
+			lock_room = can_lock and randf() < DungeonLocks.lock_chance(g.d)
 			entry["locked"] = lock_room
 			if lock_room:
 				locked += 1
@@ -1042,13 +1087,13 @@ static func _place_doors(area: BattlefieldArea, g: Dictionary) -> void:
 			var p: Vector2i = door["pos"] as Vector2i
 			var p3 := Vector3i(p.x, p.y, f)
 			if is_cell:
-				DungeonLocks.place_bar_door(area, p3, fh, String(door["orient"]), float(g["d"]),
+				DungeonLocks.place_bar_door(area, p3, fh, String(door["orient"]), g.d,
 					room)
 			else:
-				InteriorGenerator._place_door_at(area, p3, g["door"] as ObstacleData, fh,
+				InteriorGenerator.place_door_at(area, p3, g.door, fh,
 					String(door["orient"]))
 				if lock_room:
-					DungeonLocks.lock_door(area, p3, float(g["d"]), room)
+					DungeonLocks.lock_door(area, p3, g.d, room)
 			_set_kind(g, f, p, K_DOOR)
 	area.generation_log.append("[LOCKS] Storage/Armory rooms locked %d of %d" % [locked, lockable])
 
@@ -1061,15 +1106,15 @@ static func _lockable(row: ObstacleData) -> bool:
 
 
 #The canvas box, shell ring included.
-static func _box(g: Dictionary) -> Rect2i:
-	return Rect2i(int(g["bld_x"]), int(g["top_y"]), int(g["floor_w"]) + 2, int(g["floor_d"]) + 2)
+static func _box(g: DungeonGeom) -> Rect2i:
+	return Rect2i(g.bld_x, g.top_y, g.floor_w + 2, g.floor_d + 2)
 
 
 #The outline of one floor: every carved cell of the kind map grown by one in all eight directions.
-static func _floor_mask(g: Dictionary, f: int) -> Dictionary:
+static func _floor_mask(g: DungeonGeom, f: int) -> Dictionary:
 	var out: Dictionary = {}
 	var box: Rect2i = _box(g)
-	var kind: Dictionary = (g["kinds"] as Dictionary)[f]
+	var kind: Dictionary = g.kinds[f]
 	for p: Variant in kind.keys():
 		if int(kind[p]) == K_WALL:
 			continue
@@ -1082,7 +1127,7 @@ static func _floor_mask(g: Dictionary, f: int) -> Dictionary:
 	return out
 
 
-static func _apply_masks(area: BattlefieldArea, g: Dictionary) -> void:
+static func _apply_masks(area: BattlefieldArea, g: DungeonGeom) -> void:
 	for f: int in _floor_list(g):
 		for p: Variant in _floor_mask(g, f).keys():
 			var pv: Vector2i = p as Vector2i
@@ -1091,9 +1136,9 @@ static func _apply_masks(area: BattlefieldArea, g: Dictionary) -> void:
 
 
 #Mask cells the layout never carved become solid rock; cells outside the mask are void.
-static func _fill_walls(area: BattlefieldArea, g: Dictionary) -> void:
-	var wall_data: ObstacleData = g["wall"] as ObstacleData
-	var fh: int = int(g["fh"])
+static func _fill_walls(area: BattlefieldArea, g: DungeonGeom) -> void:
+	var wall_data: ObstacleData = g.wall
+	var fh: int = g.fh
 	var box: Rect2i = _box(g)
 	for f: int in _floor_list(g):
 		for y: int in range(box.position.y, box.end.y):
@@ -1105,33 +1150,33 @@ static func _fill_walls(area: BattlefieldArea, g: Dictionary) -> void:
 					continue
 				if _kind_of(g, f, p) > K_WALL:
 					continue
-				InteriorGenerator._place_wall_if_empty(area, p3, 4, wall_data, fh)
+				InteriorGenerator.place_wall_if_empty(area, p3, 4, wall_data, fh)
 				area.building_interiors.erase(p3)
 
 
-static func _finish(area: BattlefieldArea, g: Dictionary) -> void:
+static func _finish(area: BattlefieldArea, g: DungeonGeom) -> void:
 	var furn: Array[Dictionary] = []
-	for entry: Dictionary in (g["rooms"] as Array):
+	for entry: Dictionary in g.rooms:
 		furn.append({"room": entry["room"], "rect": entry["rect"], "floor": entry["floor"]})
 		area.interior_rooms.append({"rect": entry["rect"], "floor": entry["floor"],
 			"name": (entry["room"] as ObstacleData).obstacle_name})
-	InteriorGenerator._place_furniture_in_rooms(area, furn)
+	InteriorGenerator.place_furniture_in_rooms(area, furn)
 	_record_halls(area, g)
 	_assign_spawns(area, g)
-	area.build_stair_links()
+	NavLinkBuilder.build_stair_links(area)
 	area._rebuild_cover_obstacles()
 	area._rebuild_droppable_obs_map()
 	_fill_stats(area, g)
 
 
 #Straight runs of hall, so the dump and the viewer can name them.
-static func _record_halls(area: BattlefieldArea, g: Dictionary) -> void:
-	var ix0: int = int(g["ix0"])
-	var ix1: int = int(g["ix1"])
-	var iy0: int = int(g["iy0"])
-	var iy1: int = int(g["iy1"])
+static func _record_halls(area: BattlefieldArea, g: DungeonGeom) -> void:
+	var ix0: int = g.ix0
+	var ix1: int = g.ix1
+	var iy0: int = g.iy0
+	var iy1: int = g.iy1
 	for f: int in _floor_list(g):
-		var wide: Dictionary = (g["wide"] as Dictionary).get(f, {}) as Dictionary
+		var wide: Dictionary = g.wide.get(f, {}) as Dictionary
 		for y: int in range(iy0, iy1 + 1):
 			var run: int = -1
 			for x: int in range(ix0, ix1 + 2):
@@ -1165,7 +1210,7 @@ static func _append_hall(area: BattlefieldArea, f: int, r: Rect2i, wide: Diction
 
 
 #Team A holds the Foyer; team B holds the chamber furthest from the entrance by walked steps.
-static func _assign_spawns(area: BattlefieldArea, g: Dictionary) -> void:
+static func _assign_spawns(area: BattlefieldArea, g: DungeonGeom) -> void:
 	var foyer: Dictionary = _foyer_entry(g)
 	if foyer.is_empty():
 		return
@@ -1174,11 +1219,11 @@ static func _assign_spawns(area: BattlefieldArea, g: Dictionary) -> void:
 	area.spawn_zone_a = zone_a
 	area.spawn_center_a = _zone_center(zone_a, foyer["rect"] as Rect2i)
 	area.spawn_floor_a = 0
-	var ent: Vector2i = g["entrance"] as Vector2i
+	var ent: Vector2i = g.entrance
 	var dist: Dictionary = _walk_dist(area, Vector3i(ent.x, ent.y, 0), true)
 	var best: Dictionary = {}
 	var best_d: int = -1
-	for entry: Dictionary in (g["rooms"] as Array):
+	for entry: Dictionary in g.rooms:
 		if bool(entry["is_cell"]) or entry == foyer:
 			continue
 		var f: int = int(entry["floor"])
@@ -1283,10 +1328,10 @@ static func _passable(area: BattlefieldArea, c: Vector3i, allow_locked: bool) ->
 	return true
 
 
-static func _fill_stats(area: BattlefieldArea, g: Dictionary) -> void:
+static func _fill_stats(area: BattlefieldArea, g: DungeonGeom) -> void:
 	var chambers: int = 0
 	var cells: int = 0
-	for entry: Dictionary in (g["rooms"] as Array):
+	for entry: Dictionary in g.rooms:
 		if bool(entry["is_cell"]):
 			cells += 1
 		else:
@@ -1314,12 +1359,12 @@ static func _fill_stats(area: BattlefieldArea, g: Dictionary) -> void:
 		fill[f] = int(info["fill"])
 		fill_min = mini(fill_min, int(info["fill"]))
 	area.dungeon_stats = {
-		"floors": int(g["floors"]), "chambers": chambers, "cells": cells,
+		"floors": g.floors, "chambers": chambers, "cells": cells,
 		"halls": area.dungeon_halls.size(), "loops": loops, "dead_ends": dead_ends,
 		"floor_loops": floor_loops, "floor_dead_ends": floor_dead, "walls": walls,
-		"floor_w": int(g["floor_w"]), "floor_d": int(g["floor_d"]),
-		"blocks": int(g["blocks_made"]), "mask": mask, "fill": fill, "fill_min": fill_min,
-		"difficulty": float(g["d"]), "ms": 0, "violations": 0,
+		"floor_w": g.floor_w, "floor_d": g.floor_d,
+		"blocks": g.blocks_made, "mask": mask, "fill": fill, "fill_min": fill_min,
+		"difficulty": g.d, "ms": 0, "violations": 0,
 	}
 
 
@@ -1357,7 +1402,7 @@ static func floor_graph(area: BattlefieldArea, f: int) -> Dictionary:
 		var p := Vector2i(c.x, c.y)
 		if not _passable(area, c, true):
 			continue
-		if (area._obs_map.get(c, {}) as Dictionary).get("cell_type", "") == "door":
+		if area.cell_type_at(c) == "door":
 			continue
 		var inside: bool = false
 		for r: Rect2i in rects:
@@ -1444,7 +1489,7 @@ static func _check_shell(area: BattlefieldArea) -> Array[String]:
 				break
 		if not edge:
 			continue
-		var ct: String = _shell_kind(area, c)
+		var ct: String = area.cell_type_at(c)
 		if ct == "door":
 			doors += 1
 		elif ct != "wall":
@@ -1462,13 +1507,9 @@ static func _check_shell(area: BattlefieldArea) -> Array[String]:
 		out.append("entrance_cells %d want 1" % area.entrance_cells.size())
 	elif doors == 1 and not area.entrance_cells.is_empty():
 		var e: Vector2i = area.entrance_cells[0]
-		if _shell_kind(area, Vector3i(e.x, e.y, 0)) != "door":
+		if area.cell_type_at(Vector3i(e.x, e.y, 0)) != "door":
 			out.append("entrance cell holds no door")
 	return out
-
-
-static func _shell_kind(area: BattlefieldArea, c: Vector3i) -> String:
-	return String((area._obs_map.get(c, {}) as Dictionary).get("cell_type", ""))
 
 
 #True when all eight neighbours of the cell are in its own floor mask.
@@ -1552,7 +1593,7 @@ static func _one_cell_hall(area: BattlefieldArea, f: int) -> bool:
 		var c: Vector3i = Vector3i(fronts[0].x, v2, f) if same_x else Vector3i(v2, fronts[0].y, f)
 		if not _passable(area, c, true):
 			return false
-		if (area._obs_map.get(c, {}) as Dictionary).get("cell_type", "") == "door":
+		if area.cell_type_at(c) == "door":
 			return false
 	return true
 
@@ -1606,7 +1647,7 @@ static func _check_doors(area: BattlefieldArea) -> Array[String]:
 				if n != STORAGE_ROW and n != ARMORY_ROW:
 					out.append("chamber (%d,%d) F%d locked but not Storage or Armory" % [
 						r.position.x, r.position.y, f])
-		if not InteriorGenerator._room_accessible_from_doors(area, r, f):
+		if not InteriorGenerator.room_accessible_from_doors(area, r, f):
 			out.append("room (%d,%d) F%d is cut off inside" % [r.position.x, r.position.y, f])
 	return out
 
@@ -1666,13 +1707,13 @@ static func _check_reach(area: BattlefieldArea) -> Array[String]:
 			continue
 		var rr: Rect2i = entry["rect"] as Rect2i
 		var ff: int = int(entry.get("floor", 0))
-		if _room_dist(free_dist, rr, ff) < 0 and not _locked_room(area, rr, ff):
+		if _room_dist(free_dist, rr, ff) < 0 and not locked_room(area, rr, ff):
 			out.append("chamber (%d,%d) F%d needs a locked gate" % [rr.position.x, rr.position.y, ff])
 	return out
 
 
 #True when the room carries doors and every one of them is locked, as a locked Storage or Armory does.
-static func _locked_room(area: BattlefieldArea, r: Rect2i, f: int) -> bool:
+static func locked_room(area: BattlefieldArea, r: Rect2i, f: int) -> bool:
 	var doors: Array[Dictionary] = _ring_doors(area, r, f)
 	if doors.is_empty():
 		return false
@@ -1703,46 +1744,3 @@ static func _check_shape(area: BattlefieldArea) -> Array[String]:
 	if fill_min >= FILL_BOXY:
 		out.append("every floor fills its box (%d%% min)" % fill_min)
 	return out
-
-
-static func _hpush(hd: Array[int], hc: Array[Vector2i], d: int, c: Vector2i) -> void:
-	hd.append(d)
-	hc.append(c)
-	var i: int = hd.size() - 1
-	while i > 0:
-		var par: int = (i - 1) >> 1
-		if hd[par] <= hd[i]:
-			break
-		_hswap(hd, hc, i, par)
-		i = par
-
-
-static func _hpop(hd: Array[int], hc: Array[Vector2i]) -> void:
-	var last: int = hd.size() - 1
-	hd[0] = hd[last]
-	hc[0] = hc[last]
-	hd.remove_at(last)
-	hc.remove_at(last)
-	var n: int = hd.size()
-	var i: int = 0
-	while true:
-		var l: int = i * 2 + 1
-		var r: int = l + 1
-		var s: int = i
-		if l < n and hd[l] < hd[s]:
-			s = l
-		if r < n and hd[r] < hd[s]:
-			s = r
-		if s == i:
-			break
-		_hswap(hd, hc, i, s)
-		i = s
-
-
-static func _hswap(hd: Array[int], hc: Array[Vector2i], a: int, b: int) -> void:
-	var td: int = hd[a]
-	hd[a] = hd[b]
-	hd[b] = td
-	var tc: Vector2i = hc[a]
-	hc[a] = hc[b]
-	hc[b] = tc

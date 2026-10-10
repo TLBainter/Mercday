@@ -1,56 +1,33 @@
-class_name VacationDialog extends Control
+class_name VacationDialog extends ModalDialog
 
 #The modal that writes the vacation policy: four boxes of sentences with a compact stepper or a
 #unit menu in place of each number. Every edit lands on a copy of the policy, so Cancel leaves the
 #guild rules untouched and Confirm writes the copy through BenefitsManager.
 
-const FONT_TITLE: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_KICKER: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_BODY: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const STYLE_BACKDROP: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_backdrop.tres")
-const STYLE_BOX: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_dialog.tres")
-const STYLE_FIELD: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_row_pad.tres")
+const STYLE_FIELD: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/dark_box_padded.tres")
 const STYLE_CHECK: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/payroll_check.tres")
 
-const ORANGE: Color = Color("#f28c28")
-const CREAM: Color = Color("#f3ead7")
-const SKY: Color = Color("#9cc6ef")
-const DARK: Color = Color("#0a0f1c")
 const KICKER_TEXT: String = "Employee Benefits"
 const TITLE_TEXT: String = "Vacation Days"
-const CANCEL_TEXT: String = "Cancel"
-const CONFIRM_TEXT: String = "Confirm"
 const APPROVAL_TEXT: String = "Vacations require approval."
 const BOX_WIDTH: float = 760.0
-const BUTTON_HEIGHT: float = 36.0
 const CHECK_SIZE: float = 22.0
 const MENU_SIZE: Vector2 = Vector2(96.0, 28.0)
 const TEXT_SIZE: int = 15
 const MAX_AT_MIN: int = 1
 
-signal confirmed(values: Dictionary)
-signal cancelled
-
-@onready var backdrop: Panel = $Backdrop
-@onready var box: PanelContainer = $Center/Box
-@onready var rows: VBoxContainer = $Center/Box/Rows
-@onready var kicker: Label = $Center/Box/Rows/Kicker
-@onready var title: Label = $Center/Box/Rows/Title
-@onready var start_step: PayrollStepper = $Center/Box/Rows/Box1/Lines/L1/StartStep
-@onready var add_step: PayrollStepper = $Center/Box/Rows/Box1/Lines/L2/AddStep
-@onready var add_word: Label = $Center/Box/Rows/Box1/Lines/L2/AddWord
-@onready var every_step: PayrollStepper = $Center/Box/Rows/Box1/Lines/L2/EveryStep
-@onready var unit_menu: OptionDropdown = $Center/Box/Rows/Box1/Lines/L2/UnitMenu
-@onready var len_step: PayrollStepper = $Center/Box/Rows/Box2/Lines/L1/LenStep
-@onready var len_menu: OptionDropdown = $Center/Box/Rows/Box2/Lines/L1/LenMenu
-@onready var at_step: PayrollStepper = $Center/Box/Rows/Box2/Lines/L2/AtStep
-@onready var at_word: Label = $Center/Box/Rows/Box2/Lines/L2/AtWord
-@onready var gap_step: PayrollStepper = $Center/Box/Rows/Box3/Lines/L1/GapStep
-@onready var gap_menu: OptionDropdown = $Center/Box/Rows/Box3/Lines/L1/GapMenu
-@onready var check_button: Button = $Center/Box/Rows/Box4/Lines/L1/Check
-@onready var cancel_button: BevelButton = $Center/Box/Rows/Buttons/Cancel
-@onready var confirm_button: BevelButton = $Center/Box/Rows/Buttons/Confirm
-@onready var close_button: Button = $Center/Box/Overlay/Close
+@onready var start_step: PayrollStepper = $Box/Pad/Rows/Box1/Lines/L1/StartStep
+@onready var add_step: PayrollStepper = $Box/Pad/Rows/Box1/Lines/L2/AddStep
+@onready var add_word: Label = $Box/Pad/Rows/Box1/Lines/L2/AddWord
+@onready var every_step: PayrollStepper = $Box/Pad/Rows/Box1/Lines/L2/EveryStep
+@onready var unit_menu: OptionDropdown = $Box/Pad/Rows/Box1/Lines/L2/UnitMenu
+@onready var len_step: PayrollStepper = $Box/Pad/Rows/Box2/Lines/L1/LenStep
+@onready var len_menu: OptionDropdown = $Box/Pad/Rows/Box2/Lines/L1/LenMenu
+@onready var at_step: PayrollStepper = $Box/Pad/Rows/Box2/Lines/L2/AtStep
+@onready var at_word: Label = $Box/Pad/Rows/Box2/Lines/L2/AtWord
+@onready var gap_step: PayrollStepper = $Box/Pad/Rows/Box3/Lines/L1/GapStep
+@onready var gap_menu: OptionDropdown = $Box/Pad/Rows/Box3/Lines/L1/GapMenu
+@onready var check_button: Button = $Box/Pad/Rows/Box4/Lines/L1/Check
 
 var _draft: VacationPolicy = VacationPolicy.new()
 #True while _fill writes the widgets, so a widget signal cannot write the draft back.
@@ -58,11 +35,10 @@ var _filling: bool = false
 
 
 func _ready() -> void:
-	visible = false
-	mouse_filter = Control.MOUSE_FILTER_STOP
-	backdrop.add_theme_stylebox_override("panel", STYLE_BACKDROP)
-	box.add_theme_stylebox_override("panel", STYLE_BOX)
-	box.custom_minimum_size = Vector2(BOX_WIDTH, 0.0)
+	box_width = BOX_WIDTH
+	super()
+	kicker = KICKER_TEXT
+	title = TITLE_TEXT
 	start_step.value_changed.connect(_on_start_changed)
 	add_step.value_changed.connect(_on_add_changed)
 	every_step.value_changed.connect(_on_every_changed)
@@ -73,24 +49,13 @@ func _ready() -> void:
 	len_menu.option_selected.connect(_on_len_unit_picked)
 	gap_menu.option_selected.connect(_on_gap_unit_picked)
 	check_button.pressed.connect(_on_check_pressed)
-	cancel_button.pressed.connect(press_cancel)
-	confirm_button.pressed.connect(press_confirm)
-	close_button.pressed.connect(press_cancel)
-	CloseX.style(close_button, CloseX.SCALE_WINDOW)
 	_style()
-	ModalFrame.fit(self, backdrop, box)
 
 
 func open() -> void:
 	_draft = BenefitsManager.policy().duplicate_policy()
-	visible = true
-	ModalFrame.fit(self, backdrop, box)
-	GuiFrameStack.push(self)
+	present()
 	_fill()
-
-
-func is_open() -> bool:
-	return visible
 
 
 func draft() -> VacationPolicy:
@@ -159,26 +124,14 @@ func word(key: String) -> String:
 			return ""
 
 
+#Replaces the base confirm because confirmed carries the policy values it wrote.
 func press_confirm() -> void:
 	if not visible:
 		return
 	var values: Dictionary = _draft.to_dict()
 	BenefitsManager.set_vacation(values)
-	visible = false
-	GuiFrameStack.remove(self)
+	close()
 	confirmed.emit(values)
-
-
-func press_cancel() -> void:
-	if not visible:
-		return
-	visible = false
-	GuiFrameStack.remove(self)
-	cancelled.emit()
-
-
-func _exit_tree() -> void:
-	GuiFrameStack.remove(self)
 
 
 func _plain(count: int, singular: String) -> String:
@@ -271,15 +224,8 @@ func _fill_menu(menu: OptionDropdown, keys: Array[String], picked: String, count
 
 
 func _style() -> void:
-	rows.add_theme_constant_override("separation", 12)
-	kicker.text = KICKER_TEXT
-	kicker.add_theme_font_override("font", FONT_KICKER)
-	kicker.add_theme_font_size_override("font_size", 11)
-	kicker.add_theme_color_override("font_color", SKY)
-	title.text = TITLE_TEXT
-	title.add_theme_font_override("font", FONT_TITLE)
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", ORANGE)
+	GuiStyle.paint(kicker_label, GuiStyle.SILK, 11, GuiColors.SKY)
+	GuiStyle.paint(title_label, GuiStyle.SILK_BOLD, 18, GuiColors.ORANGE)
 	for name_key: String in ["Box1", "Box2", "Box3", "Box4"]:
 		var field: PanelContainer = rows.get_node_or_null(NodePath(name_key)) as PanelContainer
 		if field != null:
@@ -288,16 +234,15 @@ func _style() -> void:
 		var body: Label = node as Label
 		if body == null:
 			continue
-		body.add_theme_font_override("font", FONT_BODY)
-		body.add_theme_font_size_override("font_size", TEXT_SIZE)
-		body.add_theme_color_override("font_color", CREAM)
+		GuiStyle.paint(body, GuiStyle.BODY, TEXT_SIZE, GuiColors.CREAM)
 	check_button.text = ""
 	check_button.custom_minimum_size = Vector2(CHECK_SIZE, CHECK_SIZE)
 	check_button.expand_icon = false
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		check_button.add_theme_stylebox_override(state, STYLE_CHECK)
-	_style_button(cancel_button, CANCEL_TEXT, CREAM)
-	_style_button(confirm_button, CONFIRM_TEXT, DARK)
+	GuiStyle.set_all_boxes(check_button, STYLE_CHECK)
+	check_button.add_theme_stylebox_override(&"hover", GuiStyle.lifted(STYLE_CHECK))
+	for button: BevelButton in [cancel_button, confirm_button]:
+		button.add_theme_font_override("font", GuiStyle.SILK)
+		button.add_theme_font_size_override("font_size", 12)
 
 
 func _sentence_labels() -> Array[Node]:
@@ -315,18 +260,3 @@ func _collect_labels(node: Node, out: Array[Node]) -> void:
 		if child is Label:
 			out.append(child)
 		_collect_labels(child, out)
-
-
-func _style_button(btn: BevelButton, body: String, tint: Color) -> void:
-	btn.text = body
-	btn.custom_minimum_size = Vector2(0.0, BUTTON_HEIGHT)
-	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.add_theme_font_override("font", FONT_KICKER)
-	btn.add_theme_font_size_override("font_size", 12)
-	btn.text_color = tint
-
-
-#Esc answers this dialog only while it is the top frame of the stack.
-func _unhandled_input(event: InputEvent) -> void:
-	if GuiFrameStack.consume_escape(self, event):
-		press_cancel()

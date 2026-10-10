@@ -1,30 +1,25 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="DrawAction" format=3 uid="uid://0ujrog4lnafu"]
 
-[ext_resource type="Script" path="res://Scripts/Actions/DrawAction.gd" id="DrawAction"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/WeaponDrawnFacet.gd" id="WeaponDrawnFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/DrawnWeaponUselessFacet.gd" id="DrawnWeaponUselessFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_drplw"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://c7r1j7y4vy7oh" path="res://Scripts/Actions/DrawAction.gd" id="DrawAction"]
+[ext_resource type="Script" uid="uid://c0s3ebuoxufxr" path="res://Scripts/Decisions/DrawnWeaponUselessFacet.gd" id="DrawnWeaponUselessFacet"]
+[ext_resource type="Script" uid="uid://cymb26473smip" path="res://Scripts/Decisions/WeaponDrawnFacet.gd" id="WeaponDrawnFacet"]
 
 [sub_resource type="Resource" id="facet_drawn"]
 script = ExtResource("WeaponDrawnFacet")
-is_required = false
-weight = 1.0
-drawn_is_high = false
+invert = true
 
 [sub_resource type="Resource" id="facet_useless"]
 script = ExtResource("DrawnWeaponUselessFacet")
-is_required = false
-weight = 1.0
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_drawn"), SubResource("facet_useless")]
-threshold = 0.5
+facets = Array[ExtResource("1_drplw")]([SubResource("facet_drawn"), SubResource("facet_useless")])
 
 [resource]
 script = ExtResource("DrawAction")
 action_name = "Draw"
-ap_cost = 0
 priority = 40
 execution_type = "draw"
 draw_from_inventory = true

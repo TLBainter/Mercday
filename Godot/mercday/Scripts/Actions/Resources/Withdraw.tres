@@ -1,26 +1,28 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://b6puyttg8pbjd"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
-[ext_resource type="Script" path="res://Scripts/Decisions/MovementNotBlockedFacet.gd" id="MovementNotBlocked"]
-[ext_resource type="Script" path="res://Scripts/Decisions/ActiveStateFacet.gd" id="ActiveStateFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/NotAtOptimalRangeFacet.gd" id="NotAtOptimalRangeFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/AdvantageThreatFacet.gd" id="AdvantageThreatFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/CombatReadinessFacet.gd" id="CombatReadinessFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/OpenExitsFacet.gd" id="OpenExitsFacet"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_dlr7w"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://dhgvlm1hbjsup" path="res://Scripts/Decisions/AdvantageThreatFacet.gd" id="AdvantageThreatFacet"]
 [ext_resource type="Script" path="res://Scripts/Decisions/AimActiveFacet.gd" id="AimActiveFacet"]
-[ext_resource type="Script" path="res://Scripts/Decisions/RangedRetreatViabilityFacet.gd" id="RangedRetreatViabilityFacet"]
+[ext_resource type="Script" uid="uid://dkhlstj70hi1y" path="res://Scripts/Decisions/AnyStateFacet.gd" id="AnyStateFacet"]
+[ext_resource type="Script" uid="uid://cmbt5r3adn3ss" path="res://Scripts/Decisions/CombatReadinessFacet.gd" id="CombatReadinessFacet"]
+[ext_resource type="Script" uid="uid://daqe10omsn4iq" path="res://Scripts/Decisions/CtxFlagFacet.gd" id="CtxFlagFacet"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://b5u54jqkqd0ww" path="res://Scripts/Decisions/HpRatioFacet.gd" id="HpRatioFacet"]
+[ext_resource type="Script" uid="uid://dr71u8aiaxnwt" path="res://Scripts/Decisions/NotAtOptimalRangeFacet.gd" id="NotAtOptimalRangeFacet"]
+[ext_resource type="Script" uid="uid://c4u16u22fp61l" path="res://Scripts/Decisions/OpenExitsFacet.gd" id="OpenExitsFacet"]
+[ext_resource type="Script" uid="uid://bxhw5wunc58wf" path="res://Scripts/Decisions/RangedRetreatViabilityFacet.gd" id="RangedRetreatViabilityFacet"]
 
 [sub_resource type="Resource" id="facet_move"]
-script = ExtResource("MovementNotBlocked")
+script = ExtResource("CtxFlagFacet")
+key = "movement_blocked"
 is_required = true
+invert = true
 
 [sub_resource type="Resource" id="facet_grapple"]
-script = ExtResource("ActiveStateFacet")
+script = ExtResource("AnyStateFacet")
 is_required = true
-state_name = "Grappled"
-present_is_high = false
+invert = true
 
 [sub_resource type="Resource" id="facet_threat"]
 script = ExtResource("AdvantageThreatFacet")
@@ -28,8 +30,7 @@ is_required = true
 
 [sub_resource type="Resource" id="facet_hp"]
 script = ExtResource("HpRatioFacet")
-weight = 1.0
-below_is_high = true
+invert = true
 
 [sub_resource type="Resource" id="facet_range"]
 script = ExtResource("NotAtOptimalRangeFacet")
@@ -38,7 +39,6 @@ weight = 2.0
 [sub_resource type="Resource" id="facet_readiness"]
 script = ExtResource("CombatReadinessFacet")
 weight = 1.5
-invert = false
 
 [sub_resource type="Resource" id="facet_exits"]
 script = ExtResource("OpenExitsFacet")
@@ -46,8 +46,8 @@ weight = 0.5
 
 [sub_resource type="Resource" id="facet_not_aimed"]
 script = ExtResource("AimActiveFacet")
-aimed_is_high = false
 weight = 0.75
+invert = true
 
 [sub_resource type="Resource" id="facet_weapon"]
 script = ExtResource("RangedRetreatViabilityFacet")
@@ -55,7 +55,7 @@ weight = 4.0
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
-facets = [SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_threat"), SubResource("facet_hp"), SubResource("facet_range"), SubResource("facet_readiness"), SubResource("facet_exits"), SubResource("facet_not_aimed"), SubResource("facet_weapon")]
+facets = Array[ExtResource("1_dlr7w")]([SubResource("facet_move"), SubResource("facet_grapple"), SubResource("facet_threat"), SubResource("facet_hp"), SubResource("facet_range"), SubResource("facet_readiness"), SubResource("facet_exits"), SubResource("facet_not_aimed"), SubResource("facet_weapon")])
 threshold = 0.4
 
 [resource]
@@ -63,7 +63,8 @@ script = ExtResource("ActionData")
 action_name = "withdraw"
 ap_cost = 2
 priority = 49
-execution_type = "special"
 target_mode = "nearest_enemy"
-snap_require = {"movement_blocked": false}
+snap_require = {
+"movement_blocked": false
+}
 decision = SubResource("decision")

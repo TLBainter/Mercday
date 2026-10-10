@@ -92,10 +92,6 @@ static func reset_count() -> void:
 	_silent_count = 0
 
 
-static func get_count() -> int:
-	return _silent_count
-
-
 static func report_enabled() -> bool:
 	if _report_flag < 0:
 		_report_flag = 1 if OS.get_cmdline_user_args().has(REPORT_ARG) else 0

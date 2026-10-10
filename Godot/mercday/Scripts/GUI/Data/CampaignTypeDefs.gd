@@ -28,65 +28,69 @@ const VARIES: float = -1.0
 const CAP_KEY: String = "maxPromoDays"
 const BOOST_KEY: String = "adBoost"
 const LONG_PROMOS_ID: String = "longpromos"
-const LONG_PROMOS_TIERS: int = 5
 
 #PLACEHOLDER
-#Prices, quality stars, the effect percentages and the nine location names are the handoff's own
+#Prices, quality stars, the effect percentages and the nine location names are the design prototype's own
 #placeholder numbers.
 const TYPES: Array[Dictionary] = [
 	{"key": &"wom", "name": "Word of Mouth", "stars": 1, "per_day": 0, "gate": "oddJobs",
 		"guild_only": false, "picks": "", "icon": "wom",
 		"desc": "Odd Job, pay your mercs", "effect": VARIES, "no_loc": [], "one_loc": false,
-		"refund": false, "upgrade_id": "oddjobs", "upgrade_tier": 1, "upgrade_tiers": 3},
+		"refund": false, "upgrade_id": "oddjobs", "upgrade_tier": 1},
 	{"key": &"flyers", "name": "Flyers", "stars": 2, "per_day": 5, "gate": "promotions",
 		"guild_only": false, "picks": "", "icon": "flyers",
 		"desc": "5 notes / day", "effect": 2.0, "no_loc": [], "one_loc": false,
-		"refund": true, "upgrade_id": "promotions", "upgrade_tier": 1, "upgrade_tiers": 1},
+		"refund": true, "upgrade_id": "promotions", "upgrade_tier": 1},
 	{"key": &"direct", "name": "Direct Sale", "stars": 3, "per_day": 40, "gate": "adDirect",
 		"guild_only": true, "picks": PICK_COMPANY, "icon": "direct_sale",
 		"desc": "40 notes / day, Guild Promo only", "effect": 9.0, "no_loc": [],
-		"one_loc": false, "refund": true, "upgrade_id": "promomethods", "upgrade_tier": 1,
-		"upgrade_tiers": 3},
+		"one_loc": false, "refund": true, "upgrade_id": "promomethods", "upgrade_tier": 1},
 	{"key": &"radio", "name": "Radio", "stars": 4, "per_day": 80, "gate": "adRadio",
 		"guild_only": false, "picks": "", "icon": "radio",
 		"desc": "80 notes / day", "effect": 12.0, "no_loc": [0, 4, 7], "one_loc": false,
-		"refund": true, "upgrade_id": "promomethods", "upgrade_tier": 2, "upgrade_tiers": 3},
+		"refund": true, "upgrade_id": "promomethods", "upgrade_tier": 2},
 	{"key": &"sponsor", "name": "Sponsorship", "stars": 5, "per_day": 250, "gate": "adSponsor",
 		"guild_only": false, "picks": PICK_COMPANY_OR_EVENT, "icon": "sponsorship",
 		"desc": "250 notes / day, one sponsor", "effect": 15.0, "no_loc": [], "one_loc": true,
-		"refund": true, "upgrade_id": "promomethods", "upgrade_tier": 3, "upgrade_tiers": 3},
+		"refund": true, "upgrade_id": "promomethods", "upgrade_tier": 3},
 ]
 
-#The nine places a campaign can reach, in the handoff order: a no_loc index reads off this list.
-const LOCATIONS: Array[String] = ["Buern", "Aerdis", "Aldurstein", "Zukei", "Rossade", "Copari",
-	"Miliim", "Vaernebo", "Cyfrolaef"]
+#The places a campaign can reach are the first nine of ClientRegistry.LOCATIONS.
+const LOCATION_COUNT: int = 9
+#Countries a permit covers past the nine campaign places, in LegalManager.LOCATIONS id order.
+const PERMIT_ONLY_PLACES: Array[String] = ["Kathaya", "Suorr", "Kahfald", "Cipex"]
 
 #The duration units, shortest first. min_cap is the smallest maxPromoDays that unlocks the unit,
 #so the Long Promos cap table [5, 10, 17, 25, 30, INFINITE_CAP] carries the tier gates.
 const UNITS: Array[Dictionary] = [
 	{"key": UNIT_DAYS, "name": "Days", "days": 1, "min_cap": 0, "upgrade_id": LONG_PROMOS_ID,
-		"upgrade_tier": 0, "upgrade_tiers": LONG_PROMOS_TIERS},
+		"upgrade_tier": 0},
 	{"key": UNIT_WEEKS, "name": "Weeks", "days": 7, "min_cap": 10, "upgrade_id": LONG_PROMOS_ID,
-		"upgrade_tier": 1, "upgrade_tiers": LONG_PROMOS_TIERS},
+		"upgrade_tier": 1},
 	{"key": UNIT_MONTHS, "name": "Months", "days": 30, "min_cap": 30,
-		"upgrade_id": LONG_PROMOS_ID, "upgrade_tier": 4, "upgrade_tiers": LONG_PROMOS_TIERS},
+		"upgrade_id": LONG_PROMOS_ID, "upgrade_tier": 4},
 	{"key": UNIT_INFINITE, "name": "Infinite", "days": 0, "min_cap": INFINITE_CAP,
-		"upgrade_id": LONG_PROMOS_ID, "upgrade_tier": 5, "upgrade_tiers": LONG_PROMOS_TIERS},
+		"upgrade_id": LONG_PROMOS_ID, "upgrade_tier": 5},
 ]
 
 
+static func locations() -> Array[String]:
+	return ClientRegistry.LOCATIONS.slice(0, LOCATION_COUNT)
+
+
+#The places a permit can be bought for: the nine campaign places, then the permit only countries.
+static func permit_places() -> Array[String]:
+	var out: Array[String] = locations()
+	out.append_array(PERMIT_ONLY_PLACES)
+	return out
+
+
 static func find(key: StringName) -> Dictionary:
-	for row: Dictionary in TYPES:
-		if StringName(row["key"]) == key:
-			return row
-	return {}
+	return TraitFilterDefs.find(TYPES, key)
 
 
 static func keys() -> Array[StringName]:
-	var out: Array[StringName] = []
-	for row: Dictionary in TYPES:
-		out.append(StringName(row["key"]))
-	return out
+	return TraitFilterDefs.keys_of(TYPES)
 
 
 #True when the entitlement the type names is held: a tier key counts from 1, a flag from true.
@@ -145,9 +149,9 @@ static func cap_of(ent: Dictionary) -> int:
 
 #Keeps a location pick valid for the type: the places it cannot reach go, and a one_loc type
 #keeps the first pick alone.
-static func fit_locations(key: StringName, locations: Array[int]) -> Array[int]:
+static func fit_locations(key: StringName, picks: Array[int]) -> Array[int]:
 	var out: Array[int] = []
-	for index: int in locations:
+	for index: int in picks:
 		if location_allowed(key, index):
 			out.append(index)
 	var row: Dictionary = find(key)
@@ -158,29 +162,23 @@ static func fit_locations(key: StringName, locations: Array[int]) -> Array[int]:
 
 static func location_allowed(key: StringName, index: int) -> bool:
 	var row: Dictionary = find(key)
-	if row.is_empty() or index < 0 or index >= LOCATIONS.size():
+	if row.is_empty() or index < 0 or index >= LOCATION_COUNT:
 		return false
 	return not (row["no_loc"] as Array).has(index)
 
 
 static func location_name(index: int) -> String:
-	if index < 0 or index >= LOCATIONS.size():
+	if index < 0 or index >= LOCATION_COUNT:
 		return ""
-	return LOCATIONS[index]
+	return ClientRegistry.LOCATIONS[index]
 
 
 static func unit_of(unit_key: StringName) -> Dictionary:
-	for row: Dictionary in UNITS:
-		if StringName(row["key"]) == unit_key:
-			return row
-	return {}
+	return TraitFilterDefs.find(UNITS, unit_key)
 
 
 static func unit_keys() -> Array[StringName]:
-	var out: Array[StringName] = []
-	for row: Dictionary in UNITS:
-		out.append(StringName(row["key"]))
-	return out
+	return TraitFilterDefs.keys_of(UNITS)
 
 
 #A unit opens once the duration cap reaches its min_cap, and no unit opens without a cap at all.

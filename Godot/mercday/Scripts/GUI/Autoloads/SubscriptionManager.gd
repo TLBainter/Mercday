@@ -27,13 +27,15 @@ const SURVEY_REFRESH: Array[String] = ["quarterly", "monthly", "weekly", "daily"
 const PLAN_FLAG := "--plan"
 
 #Billing days of the game calendar month: the subscription and the Customize add-ons fall on the
-#15th. MONTH_DAYS is only the pro-rating base; a game month holds 30 or 40 days.
-const BILL_DAY: int = 15
+#2nd. MONTH_DAYS is only the pro-rating base; a game month holds 30 or 40 days.
+const BILL_DAY: int = 2
 const MONTH_DAYS: int = 30
 #What budget_available() answers while FinanceManager is not in the tree.
 const BUDGET_FALLBACK: int = 1350
+#The refusal raise_reason gives for a short budget; the tier dialog pulses its income number on it.
+const INCOME_REASON: String = "Not enough monthly income."
 #Tier numerals for the upgrade lines of the plan and tier dialogs.
-const ROMAN: Array[String] = ["I", "II", "III", "IV", "V", "VI"]
+const ROMAN: Array[String] = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"]
 #The metrics keys _derived() publishes in two spellings, each spelling to the other. An override
 #handed one of them is laid under the other too, so a reader of either spelling sees it.
 const _KEY_TWINS: Dictionary = {"contractMetrics": "contract_metrics",
@@ -98,6 +100,7 @@ func can_buy(id: String, tier: int) -> bool:
 	return tier == 0 or UpgradeDefs.requirement_met(id, _tiers)
 
 
+#Test hook.
 func set_tier(id: String, tier: int) -> bool:
 	if not can_buy(id, tier):
 		return false
@@ -145,8 +148,18 @@ func set_entitlements(d: Dictionary) -> void:
 	changed.emit()
 
 
-#The dev default: Enterprise with every upgrade maxed, so every screen is reachable for review.
+#The start: Free with every tier at 0, nothing prepaid, no overrides.
 func reset() -> void:
+	_plan = Plan.FREE
+	_tiers.clear()
+	_prepaid.clear()
+	_last_bill_day = -1
+	_overrides.clear()
+	changed.emit()
+
+
+#Enterprise with every upgrade maxed: the state behind --plan=enterprise and the suites that need every screen.
+func max_out() -> void:
 	_plan = Plan.ENTERPRISE
 	_tiers.clear()
 	_prepaid.clear()
@@ -171,13 +184,18 @@ func set_state(p: int, t: Dictionary) -> void:
 
 #"--plan=free|pro|enterprise|bare": the headless state to start from; absent leaves the default.
 func apply_harness_flag() -> void:
-	match HarnessFlags.auto_spec(PLAN_FLAG):
+	apply_plan_spec(HarnessHook.auto_spec(PLAN_FLAG))
+
+
+#free reads 5/5, pro 8/8, enterprise every tier maxed (32/20), bare Enterprise base 8/8; other specs change nothing.
+func apply_plan_spec(spec: String) -> void:
+	match spec:
 		"free":
 			set_state(Plan.FREE, {})
 		"pro":
 			set_state(Plan.PRO, {})
 		"enterprise":
-			reset()
+			max_out()
 		"bare":
 			set_state(Plan.ENTERPRISE, {})
 
@@ -192,7 +210,7 @@ func _paid_tier(id: String) -> int:
 	return tier_of(id) if _plan == Plan.ENTERPRISE else 0
 
 
-#The flat key table every screen reads. Names are fixed by the handoff; nothing else derives them.
+#The flat key table every screen reads. Names are fixed by the design prototype; nothing else derives them.
 func _derived() -> Dictionary:
 	var combat: int = _paid_tier("combatpip")
 	var skill: int = _paid_tier("skillpip")
@@ -304,7 +322,7 @@ func day_of_month() -> int:
 	return int(TrynnCalendar.date_of(CampaignClock.now()).get("day", 1))
 
 
-#Whole days to the next 15th; on the 15th itself the distance to the 15th of the next month.
+#Whole days to the next bill day; on the bill day itself the distance to the one of the next month.
 func days_to_bill() -> int:
 	var day: int = day_of_month()
 	if day < BILL_DAY:
@@ -312,20 +330,20 @@ func days_to_bill() -> int:
 	return (_days_this_month() - day) + BILL_DAY
 
 
-#Mercs the guild pays for; a fired merc stays in the roster but is off the payroll.
+#Mercs holding a seat (GuiTypes.counts_toward_roster). A captive keeps the seat and the fee until freed or lost.
 func employed() -> int:
-	if GameState.has_method("payroll_mercs"):
-		return (GameState.call("payroll_mercs") as Array).size()
-	return GameState.mercs.size()
+	var total: int = 0
+	for merc: MercenaryData in GameState.mercs:
+		if merc != null and GuiTypes.counts_toward_roster(int(GameState.merc_status(merc)["status"])):
+			total += 1
+	return total
 
 
-#Contracts taking up a board slot: the listed ones plus the runs under way.
+#Open postings taking up a board slot, campaign postings included; Active runs and closed rows hold none.
 func board_count() -> int:
 	var total: int = 0
-	var listed: int = GuiTypes.ContractStatus.AVAILABLE
-	var running: int = GuiTypes.ContractStatus.ACTIVE
 	for view: ContractView in GameState.contracts:
-		if view.status == listed or view.status == running:
+		if view.status == GuiTypes.ContractStatus.AVAILABLE:
 			total += 1
 	return total
 
@@ -391,7 +409,7 @@ func tier_price(id: String, tier: int) -> int:
 
 
 #What raising this upgrade to that tier costs right now: nothing when this cycle already paid for
-#it, else the tier price pro-rated over the days left before the 15th, capped at the full price.
+#it, else the tier price pro-rated over the days left before the bill day, capped at the full price.
 func upgrade_charge_today(id: String, tier: int) -> int:
 	var price: int = tier_price(id, tier)
 	if price <= 0 or tier <= prepaid_tier(id):
@@ -420,7 +438,7 @@ func raise_reason(id: String) -> String:
 	if not UpgradeDefs.has_id(id):
 		return "Already at the highest tier."
 	if _plan != Plan.ENTERPRISE:
-		return "Requires Mercday Enterprise."
+		return "Requires %s." % PLAN_NAMES[Plan.ENTERPRISE]
 	var tier: int = tier_of(id)
 	if tier >= max_tier(id):
 		return "Already at the highest tier."
@@ -430,7 +448,7 @@ func raise_reason(id: String) -> String:
 		return "%d prior upgrade%s still required" % [need, "" if need == 1 else "s"]
 	var next_fee: int = tier_price(id, tier + 1)
 	if budget_available() - (service_fee() + upgrade_fee() + next_fee) < 0:
-		return "Not enough monthly income."
+		return INCOME_REASON
 	if upgrade_charge_today(id, tier + 1) > GameState.bank_notes:
 		return "Not enough notes."
 	return ""
@@ -444,7 +462,7 @@ func buy_tier(id: String) -> bool:
 	var charge: int = upgrade_charge_today(id, tier)
 	if charge > 0:
 		var label: String = "%s %s" % [UpgradeDefs.name_of(id), roman(tier)]
-		if not _pay(charge, "upgrade", label):
+		if not GameState.spend(charge, GameState.REASON_UPGRADE, label):
 			return false
 	_prepaid[id] = maxi(prepaid_tier(id), tier)
 	_tiers[id] = tier
@@ -461,7 +479,7 @@ func lower_reason(id: String) -> String:
 	if not UpgradeDefs.has_id(id):
 		return "Already at the lowest tier."
 	if _plan != Plan.ENTERPRISE:
-		return "Requires Mercday Enterprise."
+		return "Requires %s." % PLAN_NAMES[Plan.ENTERPRISE]
 	var tier: int = tier_of(id)
 	if tier <= 0:
 		return "Already at the lowest tier."
@@ -487,20 +505,29 @@ func lower_tier(id: String) -> bool:
 	return true
 
 
-#Tier numerals I to VI, then the plain number.
+#Tier numerals I to VIII, then the plain number.
 func roman(n: int) -> String:
 	if n >= 1 and n <= ROMAN.size():
 		return ROMAN[n - 1]
 	return str(n)
 
 
-#Every upgrade the guild owns with its tier numeral, in table order.
-func owned_lines() -> Array[String]:
-	var out: Array[String] = []
+#Every upgrade the guild owns in table order: id, owned tier, tier count and what that tier bills a month.
+func owned_upgrades() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
 	for id: String in UpgradeDefs.ORDER:
 		var tier: int = _paid_tier(id)
 		if tier > 0:
-			out.append("%s %s" % [UpgradeDefs.name_of(id), roman(tier)])
+			out.append({"id": id, "tier": tier, "max": UpgradeDefs.tier_count(id),
+				"fee": UpgradeDefs.monthly_of(id, tier)})
+	return out
+
+
+#Every upgrade the guild owns with its tier numeral, in table order.
+func owned_lines() -> Array[String]:
+	var out: Array[String] = []
+	for row: Dictionary in owned_upgrades():
+		out.append("%s %s" % [UpgradeDefs.name_of(String(row["id"])), roman(int(row["tier"]))])
 	return out
 
 
@@ -517,13 +544,6 @@ func _cascade(id: String) -> void:
 		if tier_of(other) > 0 and not UpgradeDefs.requirement_met(other, _tiers):
 			_tiers[other] = 0
 			_cascade(other)
-
-
-#GameState.spend takes a ledger label only where the wave 2 money hooks are merged.
-func _pay(amount: int, reason: String, label: String) -> bool:
-	if GameState.has_method("charge"):
-		return bool(GameState.call("spend", amount, reason, label))
-	return GameState.spend(amount, reason)
 
 
 #The billing day starts a new cycle, so nothing is prepaid any more.

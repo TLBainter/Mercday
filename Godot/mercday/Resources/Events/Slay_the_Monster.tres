@@ -17,3 +17,4 @@ possible_locations = Array[String](["Aerdis", "Aldurstein", "Miliim", "Zukei", "
 enemy = "Mercs"
 enemy_counter = "1"
 map_rule = "Location"
+fail_ends_contract = false

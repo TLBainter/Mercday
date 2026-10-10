@@ -1,10 +1,13 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/RelationshipCard.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercPortrait.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodMeter.tscn" id="3"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="4"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="6"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_RelationshipCard.tres" id="7"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_MoodMeter.tres" id="8"]
 
 [node name="RelationshipCard" type="PanelContainer"]
 size_flags_horizontal = 3
@@ -59,3 +62,12 @@ clip_text = true
 visible = false
 theme_type_variation = &"SmallLabel"
 clip_text = true
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("6")
+hint = ExtResource("7")
+
+[node name="HelpTarget" type="Node" parent="Rows"]
+script = ExtResource("6")
+hint = ExtResource("8")
+target = NodePath("../Meter")

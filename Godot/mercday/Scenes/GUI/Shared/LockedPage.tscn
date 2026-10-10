@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Shared/LockedPage.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LockPanel.tscn" id="2"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="3"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_LockedPage.tres" id="4"]
 
 [node name="LockedPage" type="Control"]
 mouse_filter = 2
@@ -20,30 +23,8 @@ theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 14
 
-[node name="Rows" type="VBoxContainer" parent="Panel/Pad"]
-theme_override_constants/separation = 10
+[node name="Lock" parent="Panel/Pad" instance=ExtResource("2")]
 
-[node name="IconRow" type="HBoxContainer" parent="Panel/Pad/Rows"]
-alignment = 1
-
-[node name="LockIcon" type="TextureRect" parent="Panel/Pad/Rows/IconRow"]
-custom_minimum_size = Vector2(48, 54)
-
-[node name="Line1" type="Label" parent="Panel/Pad/Rows"]
-horizontal_alignment = 1
-autowrap_mode = 3
-text = "This feature of Mercday is not available on your plan!"
-
-[node name="Line2" type="Label" parent="Panel/Pad/Rows"]
-horizontal_alignment = 1
-autowrap_mode = 3
-text = "Upgrade to Mercday Pro to view this feature."
-
-[node name="Buttons" type="HBoxContainer" parent="Panel/Pad/Rows"]
-alignment = 1
-theme_override_constants/separation = 12
-
-[node name="TakeMeThere" type="Button" parent="Panel/Pad/Rows/Buttons"]
-custom_minimum_size = Vector2(160, 34)
-theme_type_variation = &"ButtonGo"
-text = "Take Me There"
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("3")
+hint = ExtResource("4")

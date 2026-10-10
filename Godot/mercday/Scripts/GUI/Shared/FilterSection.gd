@@ -8,12 +8,13 @@ signal value_changed(key: StringName, value: Variant)
 signal take_me_there(target: Dictionary)
 
 const TITLE_SIZE: int = 9
-const TITLE_COLOR: Color = Color("#9cc6ef")
-const TITLE_LOCKED: Color = Color("#5e7699")
+const TITLE_COLOR: Color = GuiColors.SKY
+const TITLE_LOCKED: Color = GuiColors.MUTED
 const VALUE_SIZE: int = 11
-const VALUE_COLOR: Color = Color("#f2b33d")
+const VALUE_COLOR: Color = GuiColors.AMBER
 const LOCK_HEIGHT: float = 30.0
 const LOCK_FONT_SIZE: int = 9
+const BAND_HEIGHT: float = 16.0
 const MODS_BOX_HEIGHT: float = 260.0
 const MODS_COLUMNS: int = 2
 const MODS_GAP: int = 8
@@ -22,8 +23,9 @@ const ROW_GAP: int = 6
 const PICK_ONE_NOTE: String = ", pick 1"
 const STRIP_PREFIXES: Array[String] = ["Min ", "Avoid "]
 const STYLE_MODS_BOX: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/filter_mods_box.tres")
-const FONT_TITLE: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_VALUE: Font = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
+const STYLE_BAND: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/filter_tile_stat.tres")
+const FONT_TITLE: Font = GuiStyle.SILK
+const FONT_VALUE: Font = GuiStyle.SILK_BOLD
 const CHIPS_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/ChipRow.tscn")
 const TILE_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/ModuleTile.tscn")
 const STARS_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/StarRangePicker.tscn")
@@ -40,6 +42,12 @@ const PIXEL_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/PixelSlider.ts
 		star_scale = maxi(1, value)
 		if _stars != null:
 			_stars.star_scale = star_scale
+
+#True when the section is a sub-module of a group: its title sits on a band over the body.
+var banded: bool = false:
+	set(value):
+		banded = value
+		_apply_band()
 
 @onready var title_label: Label = $Title
 @onready var lock: FeatureLock = $Lock
@@ -63,6 +71,8 @@ func _ready() -> void:
 	title_label.add_theme_font_override(&"font", FONT_TITLE)
 	title_label.add_theme_font_size_override(&"font_size", TITLE_SIZE)
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if banded:
+		_apply_band()
 	lock.take_me_there.connect(_on_take_me_there)
 	if not _def.is_empty():
 		_build()
@@ -179,6 +189,19 @@ func _build() -> void:
 	_push_value()
 
 
+func _apply_band() -> void:
+	if title_label == null:
+		return
+	if banded:
+		title_label.add_theme_stylebox_override(&"normal", STYLE_BAND)
+		title_label.custom_minimum_size.y = BAND_HEIGHT
+		title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	else:
+		title_label.remove_theme_stylebox_override(&"normal")
+		title_label.custom_minimum_size.y = 0.0
+		title_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+
+
 func _title() -> String:
 	var text: String = String(_def.get("label", ""))
 	if kind() == TraitFilterDefs.KIND_ONE or (kind() == TraitFilterDefs.KIND_MODS and _single()):
@@ -200,16 +223,8 @@ func _feature() -> String:
 
 
 func _apply_lock() -> void:
-	var upgrade_id: String = String(_def.get("upgrade_id", ""))
-	lock.feature = _feature()
-	lock.upgrade = UpgradeDefs.name_of(upgrade_id) if upgrade_id != "" else ""
-	lock.upgrade_id = upgrade_id
-	lock.tier = maxi(1, int(_def.get("upgrade_tier", 1)))
-	lock.tiers = maxi(1, int(_def.get("upgrade_tiers", 1)))
-	lock.entitlement = String(_def.get("lock", ""))
-	lock.entitlement_tier = maxi(1, int(_def.get("lock_tier", 1)))
+	lock.apply_props(_lock_props(_def, _feature()))
 	lock.required_plan = SubscriptionManager.Plan.ENTERPRISE
-	lock.verb = lock_verb
 	lock.label = "Locked"
 	lock.height = LOCK_HEIGHT
 	lock.font_size = LOCK_FONT_SIZE
@@ -325,19 +340,24 @@ func _row_lock_props() -> Array[Dictionary]:
 				continue
 			if not TraitFilterDefs.locked(lock_row, _ents):
 				continue
-			var upgrade_id: String = String(lock_row.get("upgrade_id", ""))
-			props = {
-				"feature": "%s %s" % [row_name, _feature()],
-				"entitlement": String(lock_row.get("lock", "")),
-				"entitlement_tier": maxi(1, int(lock_row.get("lock_tier", 1))),
-				"upgrade": UpgradeDefs.name_of(upgrade_id) if upgrade_id != "" else "",
-				"upgrade_id": upgrade_id,
-				"tier": maxi(1, int(lock_row.get("upgrade_tier", 1))),
-				"tiers": maxi(1, int(lock_row.get("upgrade_tiers", 1))),
-				"verb": lock_verb,
-			}
+			props = _lock_props(lock_row, "%s %s" % [row_name, _feature()])
 		out.append(props)
 	return out
+
+
+#The FeatureLock props of a def or a row lock entry.
+func _lock_props(src: Dictionary, feature_text: String) -> Dictionary:
+	var upgrade_id: String = String(src.get("upgrade_id", ""))
+	return {
+		"feature": feature_text,
+		"entitlement": String(src.get("lock", "")),
+		"entitlement_tier": maxi(1, int(src.get("lock_tier", 1))),
+		"upgrade": UpgradeDefs.display_name(upgrade_id),
+		"upgrade_id": upgrade_id,
+		"tier": maxi(1, int(src.get("upgrade_tier", 1))),
+		"tiers": UpgradeDefs.display_tiers(upgrade_id),
+		"verb": lock_verb,
+	}
 
 
 func _build_dual() -> void:
@@ -345,6 +365,8 @@ func _build_dual() -> void:
 	_dual.min_value = float(_def.get("min", 0.0))
 	_dual.max_value = float(_def.get("max", 0.0))
 	_dual.step = float(_def.get("step", 1.0))
+	if String(_def.get("curve", "")) == TraitFilterDefs.CURVE_SALARY:
+		_dual.curve = SalaryCurve.new()
 	body.add_child(_dual)
 	_dual.range_changed.connect(_on_pair_changed)
 	_build_value_row(true)
@@ -376,9 +398,7 @@ func _value_label(align: HorizontalAlignment) -> Label:
 	label.name = "Low" if align == HORIZONTAL_ALIGNMENT_LEFT else "High"
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.horizontal_alignment = align
-	label.add_theme_font_override(&"font", FONT_VALUE)
-	label.add_theme_font_size_override(&"font_size", VALUE_SIZE)
-	label.add_theme_color_override(&"font_color", VALUE_COLOR)
+	GuiStyle.paint(label, FONT_VALUE, VALUE_SIZE, VALUE_COLOR)
 	return label
 
 
@@ -435,9 +455,7 @@ func _mark_tiles() -> void:
 
 
 func _clear_body() -> void:
-	for child: Node in body.get_children():
-		body.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(body)
 	_chips = null
 	_stars = null
 	_dual = null

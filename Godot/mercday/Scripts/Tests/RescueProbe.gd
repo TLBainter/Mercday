@@ -4,7 +4,6 @@ class_name RescueProbe
 #Run: godot --headless --path . -- --rescue-probe --probe-levels=1,9,19,29,40 --probe-n=1000
 
 const DEFAULT_LEVELS: Array[int] = [1, 9, 19, 29, 40]
-const CREW := "Bandit Leader, Bandit Melee, Bandit Ranged"
 const COUNT_FORMULA := "max(2, party.merc_count * difficulty_factor)"
 const PARTY_SIZE := 4
 const PROGRESS_STEP := 100
@@ -83,12 +82,13 @@ static func _new_acc() -> Dictionary:
 
 
 static func _new_mode() -> Dictionary:
-	return {"n": 0, "success": 0, "stealthy": 0, "with_combat": 0, "failed": 0, "alarms": 0,
-		"exits": 0, "freed": 0, "rounds": 0, "enemies": 0, "picks": 0, "pick_fails": 0,
-		"reasons": {}, "party_dead": 0, "party_exits": 0, "abandoned": 0, "go": 0, "stay": 0,
-		"gate_runs": 0, "escort_turns": 0, "withdraw_turns": 0, "fall_back_turns": 0, "hopeless": 0,
-		"shelter_turns": 0, "hide_turns": 0, "door_opens": 0, "aborted": 0, "detours": 0,
-		"ambushes": 0, "block_wait_turns": 0, "captive_acted": 0, "samples": []}
+	var row: Dictionary = {"n": 0, "stealthy": 0, "with_combat": 0, "failed": 0, "reasons": {},
+		"samples": []}
+	for key: String in SUM_KEYS:
+		row[key] = 0
+	for key: String in FLAG_KEYS:
+		row[key] = 0
+	return row
 
 
 static func _band_row(acc: Dictionary, band: int, mode: String) -> Dictionary:
@@ -130,17 +130,12 @@ static func _count(row: Dictionary, ro: Dictionary) -> void:
 #One rescue battle; {} when the dungeon carried no cell block or the teams failed to build.
 static func _trial(level: int, index: int, mode: String) -> Dictionary:
 	TestFixtures.reset_generator_rolls()
-	MercGenerator.forced_level = level
-	var party: Array[MercenaryData] = []
 	var base := index * (PARTY_SIZE + 1)
-	for i: int in range(PARTY_SIZE):
-		var merc: MercenaryData = MercGenerator.generate(base + i)
-		if merc != null:
-			party.append(merc)
-	var captive: MercenaryData = MercGenerator.generate(base + PARTY_SIZE)
-	MercGenerator.forced_level = -1
-	if party.is_empty() or captive == null:
+	var party: Array[MercenaryData] = RescueTests.leveled_party(level, PARTY_SIZE, base)
+	var held: Array[MercenaryData] = RescueTests.leveled_party(level, 1, base + PARTY_SIZE)
+	if party.is_empty() or held.is_empty():
 		return {}
+	var captive: MercenaryData = held[0]
 	var d: float = ContractGenerator.roll_difficulty()
 	var enemies: Array[MercenaryData] = _captors(party, d)
 	if enemies.is_empty():
@@ -154,14 +149,8 @@ static func _trial(level: int, index: int, mode: String) -> Dictionary:
 		DataManager.get_random_area("Dungeon"))
 	if field == null:
 		return {}
-	var side_a: Array[MercenaryData] = []
-	side_a.assign(party)
-	side_a.append(captive)
-	var side_b: Array[MercenaryData] = []
-	side_b.assign(enemies)
-	var state: BattleState = BattleState.create(side_a, side_b, field)
+	var state: BattleState = RescueTests.rescue_state(party, captive, enemies, field, mode, d)
 	state.flee_enabled = false
-	RescueSetup.attach(state, captive, mode, d)
 	if not RescueSystem.is_active(state):
 		return {}
 	await AutoBattle.run_battle(state, Callable(), "Rescue")
@@ -178,7 +167,7 @@ static func _captors(party: Array[MercenaryData], d: float) -> Array[MercenaryDa
 		_event_row = ContractLibrary.event(RescueSystem.EVENT_NAME)
 		_event_read = true
 	var req := OpponentRequest.new()
-	req.source = CREW
+	req.source = RescueTests.CREW
 	req.count_formula = COUNT_FORMULA
 	if _event_row != null:
 		if _event_row.enemy != "":

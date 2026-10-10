@@ -2,6 +2,7 @@ class_name TurnOrderSystem
 
 #Random rank assigned per sort so the comparator stays a strict weak ordering.
 static var _rank: Dictionary = {}
+const _TIEBREAK_KEYS: Array[String] = ["speed", "dexterity", "max_dexterity", "luck"]
 
 
 #Tiebreakers: Speed -> Dexterity -> Max Dexterity -> Luck -> random rank.
@@ -18,24 +19,15 @@ static func sort_initiative(mercs: Array[MercenaryData]) -> Array[MercenaryData]
 
 
 static func _cmp(a: MercenaryData, b: MercenaryData) -> bool:
-	var a_speed := float(a.stats.get("speed", 0))
-	var b_speed := float(b.stats.get("speed", 0))
-	if not is_equal_approx(a_speed, b_speed):
-		return a_speed > b_speed
-
-	var a_dex := float(a.stats.get("dexterity", 0))
-	var b_dex := float(b.stats.get("dexterity", 0))
-	if not is_equal_approx(a_dex, b_dex):
-		return a_dex > b_dex
-
-	var a_max_dex := float(a.max_stats.get("max_dexterity", 0))
-	var b_max_dex := float(b.max_stats.get("max_dexterity", 0))
-	if not is_equal_approx(a_max_dex, b_max_dex):
-		return a_max_dex > b_max_dex
-
-	var a_luck := float(a.stats.get("luck", 0))
-	var b_luck := float(b.stats.get("luck", 0))
-	if not is_equal_approx(a_luck, b_luck):
-		return a_luck > b_luck
-
+	for key: String in _TIEBREAK_KEYS:
+		var a_val := float(_tiebreak_stat(a, key))
+		var b_val := float(_tiebreak_stat(b, key))
+		if not is_equal_approx(a_val, b_val):
+			return a_val > b_val
 	return int(_rank.get(a, 0)) < int(_rank.get(b, 0))
+
+
+static func _tiebreak_stat(merc: MercenaryData, key: String) -> Variant:
+	if key == "max_dexterity":
+		return merc.max_stats.get(key, 0)
+	return merc.stats.get(key, 0)

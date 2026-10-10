@@ -112,7 +112,6 @@ static func on_battle_end(state: BattleState, lines: Array[String]) -> void:
 	rescue["result"] = result
 	rescue["cleared"] = cleared
 	rescue["success"] = success
-	rescue["wiped"] = wiped
 	rescue["party_dead"] = _party_dead(state)
 	rescue["captive_alive"] = alive
 	rescue["resolved"] = true

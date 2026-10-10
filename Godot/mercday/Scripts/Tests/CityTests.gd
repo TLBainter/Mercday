@@ -47,6 +47,7 @@ static func run() -> bool:
 	CityGenTests.run_cases(res)
 	CityFillTests.run_cases(res, CityGenTests.maps())
 	CityBattleTests.run_cases(res)
+	SpawnHarnessTests.run_cases(res)
 	JumpTableTests.run_cases(res)
 	SpeedEquivTests.run_cases(res)
 	#Breaks the cached Small map on purpose, so it runs after every case that reads it.
@@ -298,18 +299,15 @@ static func _case_reach(res: Dictionary, city: Dictionary) -> void:
 		if door.x < 0:
 			no_start.append("%d %s" % [id, String(rec["name"])])
 			continue
-		var dist: Dictionary = DungeonGenerator._walk_dist(map, door + BuildingLayouts.inward(String(rec["front"])), true)
-		var orphans: int = 0
-		var owned: int = 0
+		var start: Vector3i = door + BuildingLayouts.inward(String(rec["front"]))
+		var owned: Array[Vector3i] = []
 		for ck: Variant in map.footprint_cells.keys():
 			var c: Vector3i = ck as Vector3i
-			if map.building_at(Vector2i(c.x, c.y)) != id:
-				continue
-			owned += 1
-			if DungeonGenerator._passable(map, c, true) and not dist.has(c):
-				orphans += 1
+			if map.building_at(Vector2i(c.x, c.y)) == id:
+				owned.append(c)
+		var orphans: int = GenFixtures.orphan_count(map, start, owned)
 		if orphans > 0:
-			cut_off.append("%d %d of %d cell(s)" % [id, orphans, owned])
+			cut_off.append("%d %d of %d cell(s)" % [id, orphans, owned.size()])
 	TestFixtures.check(res, "every stamped building keeps its front door", no_start.is_empty(),
 		TestFixtures.detail(no_start, map.buildings.size(), "building(s)"))
 	TestFixtures.check(res, "every open footprint cell reaches its own entrance", cut_off.is_empty(),
@@ -492,7 +490,8 @@ static func _case_drop(res: Dictionary, city: Dictionary) -> void:
 		if from.z == best.z:
 			sources += 1
 		var from2 := Vector2i(from.x, from.y)
-		var from_e: float = map.cell_base_elevation(from2, from.z) if map.is_roof_footing(from2, from.z) 			else map.floor_elevation_at(from2, from.z)
+		var from_e: float = map.cell_base_elevation(from2, from.z) \
+				if map.is_roof_footing(from2, from.z) else map.floor_elevation_at(from2, from.z)
 		for item: Variant in (map.drop_links[dk] as Array):
 			var link: Dictionary = item as Dictionary
 			links += 1
@@ -508,11 +507,7 @@ static func _case_drop(res: Dictionary, city: Dictionary) -> void:
 
 
 static func _case_single(res: Dictionary) -> void:
-	seed(SINGLE_SEED)
-	var ctx := GenerationContext.new()
-	ctx.building_front = "W"
-	var f: BattlefieldArea = BattlefieldArea.generate_random(null, ctx, "Interior",
-		DataManager.get_area_by_name("Inn"))
+	var f: BattlefieldArea = GenFixtures.building_field("Inn", "W", SINGLE_SEED)
 	TestFixtures.check(res, "a single building map keeps no building record but roofs its cells",
 		f.buildings.is_empty() and f.building_id_at.is_empty() and f.building_planes.is_empty()
 		and not f.roof_elevations.is_empty(),

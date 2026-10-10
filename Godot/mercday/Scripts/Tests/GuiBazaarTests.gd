@@ -42,13 +42,15 @@ static func run(host: Node) -> bool:
 	await _case_checkout(res, host, viewer)
 	await _case_orders(res, host, viewer)
 	await _case_badges(res, host, viewer)
-	await _case_fix_round3(res, host, viewer)
+	await _case_input_formats(res, host, viewer)
 	await _case_bevel_sweep(res, host, viewer)
+	await _case_fit(res, host, viewer)
 	viewer.queue_free()
 	await host.get_tree().process_frame
+	await _case_reopen_bazaar(res, host)
 	CampaignClock.minutes = clock
 	GameState.bank_notes = bank
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	BazaarManager.reset()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	return TestFixtures.summarize(res, "GUI BAZAAR")
@@ -61,7 +63,7 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	BazaarManager.reset()
 
@@ -76,23 +78,12 @@ static func _reset(viewer: BazaarViewer) -> void:
 	_fresh()
 	_full()
 	viewer.open_tab(BazaarViewer.TAB_KEYS[0])
-	viewer.orders_page().filter = BazaarManager.ORDER_FILTERS[0]
-	viewer.shop_page().pick_sort(BazaarManager.SORTS[0])
-	viewer.shop_page().clear_filters()
-	viewer.checkout_dialog().close()
-	viewer.placed_dialog().close()
+	viewer.orders.filter = BazaarManager.ORDER_FILTERS[0]
+	viewer.shop.pick_sort(BazaarManager.SORTS[0])
+	viewer.shop.clear_filters()
+	viewer.checkout.close()
+	viewer.placed.close()
 	viewer.refresh()
-
-
-static func _fund(amount: int) -> void:
-	GameState.refund(amount)
-
-
-#Crosses day boundaries without running the contract machinery: the clock moves and the day
-#signal fires, which is all the Bazaar listens for.
-static func _advance_days(n: int) -> void:
-	CampaignClock.advance(n * CampaignClock.MINUTES_PER_DAY)
-	GameState.day_changed.emit(GameState.day())
 
 
 static func _item_named(item_name: String) -> BazaarItemData:
@@ -100,6 +91,22 @@ static func _item_named(item_name: String) -> BazaarItemData:
 		if found.name == item_name:
 			return found
 	return null
+
+
+#True when every item the Shop page lists passes the test.
+static func _all_shown(shop: ShopPage, test: Callable) -> bool:
+	for entry: BazaarItemData in shop.results():
+		if not test.call(entry):
+			return false
+	return true
+
+
+#True when no neighbouring pair of rows is out of order, with breaks naming a bad pair.
+static func _ordered(rows: Array[BazaarItemData], breaks: Callable) -> bool:
+	for i: int in range(rows.size() - 1):
+		if breaks.call(rows[i], rows[i + 1]):
+			return false
+	return true
 
 
 static func _rarity_count(index: int) -> int:
@@ -124,45 +131,67 @@ static func _price_count(department: String, low: int, high: int) -> int:
 	return count
 
 
-#Case 1: the tab row, the pages under it and the delivery dot on the Orders tab.
+#The tab row, the pages under it and the delivery dot on the Orders tab.
 static func _case_tabs(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the three tab keys read shop, cart and orders",
 		BazaarViewer.TAB_KEYS == [&"shop", &"cart", &"orders"], str(BazaarViewer.TAB_KEYS))
 	TestFixtures.check(res, "the viewer opens on the Shop tab with the other pages hidden",
-		viewer.current_tab() == &"shop" and viewer.shop_page().visible
-		and not viewer.cart_page().visible and not viewer.orders_page().visible,
+		viewer.current_tab() == &"shop" and viewer.shop.visible
+		and not viewer.cart.visible and not viewer.orders.visible,
 		"tab %s" % viewer.current_tab())
-	TestFixtures.check(res, "the tab row is built in the prototype order, Orders first",
-		viewer.tab_row.get_child_count() == 3 and viewer.tab_row.get_child(0) == viewer.orders_tab
-		and viewer.tab_row.get_child(2) == viewer.shop_tab,
-		"%d tabs" % viewer.tab_row.get_child_count())
-	TestFixtures.check(res, "every tab carries its label and its page index",
-		viewer.shop_tab.label == "Shop" and viewer.cart_tab.label == "Cart"
-		and viewer.orders_tab.label == "Orders" and viewer.shop_tab.index == 0
-		and viewer.cart_tab.index == 1 and viewer.orders_tab.index == 2,
-		"%s, %s, %s" % [viewer.shop_tab.label, viewer.cart_tab.label, viewer.orders_tab.label])
+	var shop_tab: TabButton = viewer.tab_button(&"shop")
+	var cart_tab: TabButton = viewer.tab_button(&"cart")
+	var orders_tab: TabButton = viewer.tab_button(&"orders")
+	var order: Array[String] = []
+	for child: Node in viewer.tab_strip.get_children():
+		order.append((child as TabButton).label)
+	TestFixtures.check(res, "the tab row reads Shop, Orders, Cart from the left",
+		order == ["Shop", "Orders", "Cart"] and viewer.tab_strip.get_child(0) == shop_tab
+		and viewer.tab_strip.get_child(1) == orders_tab
+		and viewer.tab_strip.get_child(2) == cart_tab, str(order))
+	var wrong: Array[String] = []
+	for child: Node in viewer.tab_strip.get_children():
+		var tab: TabButton = child as TabButton
+		tab.tab_pressed.emit(tab.index)
+		await host.get_tree().process_frame
+		var page: Control = viewer.shop
+		if tab == orders_tab:
+			page = viewer.orders
+		elif tab == cart_tab:
+			page = viewer.cart
+		if not page.visible or viewer.tab_button(viewer.current_tab()) != tab:
+			wrong.append(tab.label)
+	TestFixtures.check(res, "each tab in the row opens its own page",
+		wrong.is_empty(), str(wrong))
+	viewer.open_tab(&"shop")
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "every tab carries its label and its place in the row",
+		shop_tab.label == "Shop" and cart_tab.label == "Cart"
+		and orders_tab.label == "Orders" and shop_tab.index == 0
+		and orders_tab.index == 1 and cart_tab.index == 2,
+		"%s, %s, %s" % [shop_tab.label, cart_tab.label, orders_tab.label])
 	TestFixtures.check(res, "every tab wears its own bazaar icon",
-		viewer.shop_tab.icon_id == "shop" and viewer.cart_tab.icon_id == "cart"
-		and viewer.orders_tab.icon_id == "parcel"
-		and viewer.shop_tab.icon_rect.texture != null
-		and viewer.cart_tab.icon_rect.texture != null
-		and viewer.orders_tab.icon_rect.texture != null
-		and viewer.shop_tab.icon_rect.custom_minimum_size == Vector2(32, 32),
-		"shop %s cart %s orders %s" % [viewer.shop_tab.icon_id, viewer.cart_tab.icon_id,
-			viewer.orders_tab.icon_id])
+		shop_tab.icon_id == "shop" and cart_tab.icon_id == "cart"
+		and orders_tab.icon_id == "parcel"
+		and shop_tab.icon_rect.texture != null
+		and cart_tab.icon_rect.texture != null
+		and orders_tab.icon_rect.texture != null
+		and shop_tab.icon_rect.custom_minimum_size == Vector2(32, 32),
+		"shop %s cart %s orders %s" % [shop_tab.icon_id, cart_tab.icon_id,
+			orders_tab.icon_id])
 	TestFixtures.check(res, "the active flag sits on the open tab alone",
-		viewer.shop_tab.active and not viewer.cart_tab.active and not viewer.orders_tab.active,
-		"shop %s, cart %s" % [viewer.shop_tab.active, viewer.cart_tab.active])
+		shop_tab.active and not cart_tab.active and not orders_tab.active,
+		"shop %s, cart %s" % [shop_tab.active, cart_tab.active])
 	var seen: Array[StringName] = []
 	var on_tab := func(key: StringName) -> void: seen.append(key)
 	viewer.tab_changed.connect(on_tab)
 	viewer.press_tab(&"cart")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "pressing the Cart tab swaps the page and reports the move once",
-		viewer.current_tab() == &"cart" and viewer.cart_page().visible
-		and not viewer.shop_page().visible and seen.size() == 1 and seen[0] == &"cart",
+		viewer.current_tab() == &"cart" and viewer.cart.visible
+		and not viewer.shop.visible and seen.size() == 1 and seen[0] == &"cart",
 		"tab %s, %d reports" % [viewer.current_tab(), seen.size()])
 	viewer.press_tab(&"cart")
 	TestFixtures.check(res, "pressing the tab already open reports nothing",
@@ -175,44 +204,44 @@ static func _case_tabs(res: Dictionary, host: Node, viewer: BazaarViewer) -> voi
 	await host.get_tree().process_frame
 	viewer.tab_changed.disconnect(on_tab)
 	TestFixtures.check(res, "pressing the Orders tab shows the orders page",
-		viewer.current_tab() == &"orders" and viewer.orders_page().visible
-		and viewer.orders_tab.active and seen.size() == 2,
+		viewer.current_tab() == &"orders" and viewer.orders.visible
+		and orders_tab.active and seen.size() == 2,
 		"tab %s" % viewer.current_tab())
-	TestFixtures.check(res, "tab_for maps each key onto its own button",
-		viewer.tab_for(&"shop") == viewer.shop_tab and viewer.tab_for(&"cart") == viewer.cart_tab
-		and viewer.tab_for(&"orders") == viewer.orders_tab, "mapped")
+	TestFixtures.check(res, "each key maps onto the tab named after it",
+		shop_tab.name == "shop" and cart_tab.name == "cart"
+		and orders_tab.name == "orders", "mapped")
 	viewer.press_tab(&"shop")
-	_fund(RICH)
+	GameState.refund(RICH)
 	var cheap: BazaarItemData = _item_named("Ration 1")
 	BazaarManager.set_qty(cheap.id, 1)
 	BazaarManager.place_order()
 	await host.get_tree().process_frame
-	viewer.placed_dialog().close()
+	viewer.placed.close()
 	TestFixtures.check(res, "an order in transit leaves the Orders tab without a dot",
-		not viewer.orders_tab.dot, "dot %s" % viewer.orders_tab.dot)
-	_advance_days(FAST_DAYS)
+		not orders_tab.dot, "dot %s" % orders_tab.dot)
+	GuiManagerTests.advance_days(FAST_DAYS)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a delivered order puts the dot on the Orders tab",
-		viewer.orders_tab.dot and BazaarManager.has_unseen_delivery(),
-		"dot %s" % viewer.orders_tab.dot)
+		orders_tab.dot and BazaarManager.has_unseen_delivery(),
+		"dot %s" % orders_tab.dot)
 	viewer.press_tab(&"orders")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "opening the Orders tab clears the delivery dot",
-		not viewer.orders_tab.dot and not BazaarManager.has_unseen_delivery(),
-		"dot %s" % viewer.orders_tab.dot)
+		not orders_tab.dot and not BazaarManager.has_unseen_delivery(),
+		"dot %s" % orders_tab.dot)
 
 
-#Case 2: the locked page over the content, with the copy and the target of the HUD lock.
+#The locked page over the content, with the copy and the target of the HUD lock.
 static func _case_lock(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the bazaar entitlement leaves the locked page hidden",
-		BazaarManager.unlocked() and not viewer.locked_page().visible,
-		"lock %s" % viewer.locked_page().visible)
-	SubscriptionManager.reset()
+		BazaarManager.unlocked() and not viewer.lock.visible,
+		"lock %s" % viewer.lock.visible)
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.PRO, {})
 	await host.get_tree().process_frame
-	var lock: LockedPage = viewer.locked_page()
+	var lock: LockedPage = viewer.lock
 	TestFixtures.check(res, "a plan below Enterprise covers the content with the locked page",
 		not BazaarManager.unlocked() and lock.visible, "lock %s" % lock.visible)
 	TestFixtures.check(res, "the locked page names the plan the Bazaar needs",
@@ -222,7 +251,7 @@ static func _case_lock(res: Dictionary, host: Node, viewer: BazaarViewer) -> voi
 	TestFixtures.check(res, "take me there sends a plan guild to the Plans page",
 		str(plan_target.get("tab", "")) == "plans" and not plan_target.has("upgrade"),
 		str(plan_target))
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "Enterprise without the upgrade still shows the locked page",
@@ -241,11 +270,11 @@ static func _case_lock(res: Dictionary, host: Node, viewer: BazaarViewer) -> voi
 		BazaarManager.unlocked() and not lock.visible, "lock %s" % lock.visible)
 
 
-#Case 3: the department, subtype and price filters of the Shop page and the breadcrumb over them.
+#The department, subtype and price filters of the Shop page and the breadcrumb over them.
 static func _case_filters(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
 	await host.get_tree().process_frame
-	var shop: ShopPage = viewer.shop_page()
+	var shop: ShopPage = viewer.shop
 	var panel: FilterPanel = shop.filter_panel()
 	TestFixtures.check(res, "the Shop opens on the whole catalog",
 		shop.card_count() == CATALOG_ITEMS and shop.result_text() == "140 results"
@@ -271,10 +300,8 @@ static func _case_filters(res: Dictionary, host: Node, viewer: BazaarViewer) -> 
 		"'%s'" % panel.head_for("type_head").text)
 	shop.toggle_subtype("Swords")
 	await host.get_tree().process_frame
-	var only_swords: bool = true
-	for entry: BazaarItemData in shop.results():
-		if entry.subtype != "Swords":
-			only_swords = false
+	var only_swords: bool = _all_shown(shop,
+		func(entry: BazaarItemData) -> bool: return entry.subtype == "Swords")
 	TestFixtures.check(res, "a subtype check narrows to that subtype alone",
 		shop.card_count() == SUBTYPE_ITEMS and only_swords
 		and shop.breadcrumb_text() == "Weapons > Swords",
@@ -286,10 +313,8 @@ static func _case_filters(res: Dictionary, host: Node, viewer: BazaarViewer) -> 
 		"%d cards" % shop.card_count())
 	shop.pick_price(&"u50")
 	await host.get_tree().process_frame
-	var under_fifty: bool = true
-	for entry: BazaarItemData in shop.results():
-		if entry.price >= 50:
-			under_fifty = false
+	var under_fifty: bool = _all_shown(shop,
+		func(entry: BazaarItemData) -> bool: return entry.price < 50)
 	var cheap_count: int = _price_count("weapons", -1, 49)
 	TestFixtures.check(res, "the Under 50 preset keeps the weapons under fifty notes",
 		under_fifty and shop.card_count() == cheap_count
@@ -297,20 +322,16 @@ static func _case_filters(res: Dictionary, host: Node, viewer: BazaarViewer) -> 
 		"%d cards of %d" % [shop.card_count(), cheap_count])
 	shop.set_custom_price(100, 200)
 	await host.get_tree().process_frame
-	var in_range: bool = true
-	for entry: BazaarItemData in shop.results():
-		if entry.price < 100 or entry.price > 200:
-			in_range = false
+	var in_range: bool = _all_shown(shop,
+		func(entry: BazaarItemData) -> bool: return entry.price >= 100 and entry.price <= 200)
 	var band_count: int = _price_count("weapons", 100, 200)
 	TestFixtures.check(res, "a custom range beats the preset still on the panel",
 		in_range and shop.card_count() == band_count and panel.custom_active(),
 		"%d cards of %d" % [shop.card_count(), band_count])
 	shop.set_custom_price(-1, 40)
 	await host.get_tree().process_frame
-	var under_forty: bool = true
-	for entry: BazaarItemData in shop.results():
-		if entry.price > 40:
-			under_forty = false
+	var under_forty: bool = _all_shown(shop,
+		func(entry: BazaarItemData) -> bool: return entry.price <= 40)
 	var low_count: int = _price_count("weapons", -1, 40)
 	TestFixtures.check(res, "a custom range with an open low end reads as a ceiling",
 		under_forty and shop.card_count() == low_count,
@@ -335,12 +356,12 @@ static func _case_filters(res: Dictionary, host: Node, viewer: BazaarViewer) -> 
 		"%d cards" % shop.card_count())
 
 
-#Case 4: the rarity rows, the Better Items locks over them and the cap on what may be bought.
+#The rarity rows, the Better Items locks over them and the cap on what may be bought.
 static func _case_rarity(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
 	SubscriptionManager.set_entitlements({"bazaarRarity": 0})
 	await host.get_tree().process_frame
-	var shop: ShopPage = viewer.shop_page()
+	var shop: ShopPage = viewer.shop
 	var panel: FilterPanel = shop.filter_panel()
 	TestFixtures.check(res, "tier zero Better Items locks every rarity over Ordinary",
 		panel.lock_for(0) == null and panel.lock_for(1) != null and panel.lock_for(4) != null,
@@ -371,10 +392,8 @@ static func _case_rarity(res: Dictionary, host: Node, viewer: BazaarViewer) -> v
 		and shop.card_count() == CATALOG_ITEMS, "%d cards" % shop.card_count())
 	shop.toggle_rarity(ALL_RARITY)
 	await host.get_tree().process_frame
-	var only_top: bool = true
-	for entry: BazaarItemData in shop.results():
-		if entry.rarity != ALL_RARITY:
-			only_top = false
+	var only_top: bool = _all_shown(shop,
+		func(entry: BazaarItemData) -> bool: return entry.rarity == ALL_RARITY)
 	TestFixtures.check(res, "checking a rarity keeps that rarity alone",
 		only_top and shop.card_count() == _rarity_count(ALL_RARITY),
 		"%d cards of %d" % [shop.card_count(), _rarity_count(ALL_RARITY)])
@@ -385,11 +404,11 @@ static func _case_rarity(res: Dictionary, host: Node, viewer: BazaarViewer) -> v
 		"%d cards" % shop.card_count())
 
 
-#Case 5: the search field, the empty grid and the way a search clears.
+#The search field, the empty grid and the way a search clears.
 static func _case_search(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
 	await host.get_tree().process_frame
-	var shop: ShopPage = viewer.shop_page()
+	var shop: ShopPage = viewer.shop
 	shop.set_search("Sword")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a search on a name narrows the grid to it",
@@ -432,7 +451,7 @@ static func _case_search(res: Dictionary, host: Node, viewer: BazaarViewer) -> v
 		shop.search_text() == "" and shop.search_field().text == ""
 		and shop.card_count() == CATALOG_ITEMS,
 		"'%s', %d cards" % [shop.search_text(), shop.card_count()])
-	var want_glass: ImageTexture = Icons.tinted("magnifier", Color("#0a0f1c"), 2, true)
+	var want_glass: ImageTexture = Icons.tinted("magnifier", GuiColors.INK, 2, true)
 	var field_box: PanelContainer = shop._search_button.get_parent().get_parent() as PanelContainer
 	TestFixtures.check(res, "the search row wears the sheet, not a font X",
 		shop._search_button.icon == want_glass
@@ -448,56 +467,46 @@ static func _case_search(res: Dictionary, host: Node, viewer: BazaarViewer) -> v
 			field_box.get_combined_minimum_size()])
 
 
-#Case 6: every sort of the Shop page and the dropdown that names it.
+#Every sort of the Shop page and the dropdown that names it.
 static func _case_sort(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
 	await host.get_tree().process_frame
-	var shop: ShopPage = viewer.shop_page()
+	var shop: ShopPage = viewer.shop
 	TestFixtures.check(res, "the Shop opens on the Featured sort",
 		shop.sort_key() == &"featured" and shop.sort_dropdown().selected == &"featured",
 		"sort %s" % shop.sort_key())
 	var rows: Array[BazaarItemData] = shop.results()
-	var by_rank: bool = true
-	for i: int in range(rows.size() - 1):
-		if rows[i].featured_rank > rows[i + 1].featured_rank:
-			by_rank = false
+	var by_rank: bool = _ordered(rows,
+		func(a: BazaarItemData, c: BazaarItemData) -> bool: return a.featured_rank > c.featured_rank)
 	TestFixtures.check(res, "the Featured sort reads in the seeded shuffle order",
 		by_rank and rows.size() == CATALOG_ITEMS, "%d rows" % rows.size())
 	shop.pick_sort(&"price_asc")
 	await host.get_tree().process_frame
 	rows = shop.results()
-	var rising: bool = true
-	for i: int in range(rows.size() - 1):
-		if rows[i].price > rows[i + 1].price:
-			rising = false
+	var rising: bool = _ordered(rows,
+		func(a: BazaarItemData, c: BazaarItemData) -> bool: return a.price > c.price)
 	TestFixtures.check(res, "Price: Low to High reads cheapest first",
 		rising and shop.sort_key() == &"price_asc",
 		"%d to %d" % [rows[0].price, rows[rows.size() - 1].price])
 	shop.pick_sort(&"price_desc")
 	await host.get_tree().process_frame
 	rows = shop.results()
-	var falling: bool = true
-	for i: int in range(rows.size() - 1):
-		if rows[i].price < rows[i + 1].price:
-			falling = false
+	var falling: bool = _ordered(rows,
+		func(a: BazaarItemData, c: BazaarItemData) -> bool: return a.price < c.price)
 	TestFixtures.check(res, "Price: High to Low reads dearest first",
 		falling, "%d to %d" % [rows[0].price, rows[rows.size() - 1].price])
 	shop.pick_sort(&"rarity")
 	await host.get_tree().process_frame
 	rows = shop.results()
-	var by_rarity: bool = true
-	for i: int in range(rows.size() - 1):
-		if rows[i].rarity < rows[i + 1].rarity:
-			by_rarity = false
+	var by_rarity: bool = _ordered(rows,
+		func(a: BazaarItemData, c: BazaarItemData) -> bool: return a.rarity < c.rarity)
 	TestFixtures.check(res, "Rarity: Highest First reads the rarest first",
 		by_rarity and rows[0].rarity == ALL_RARITY, "first rarity %d" % rows[0].rarity)
 	shop.pick_sort(&"name")
 	await host.get_tree().process_frame
 	rows = shop.results()
-	var by_name: bool = true
-	for i: int in range(rows.size() - 1):
-		if rows[i].name.naturalnocasecmp_to(rows[i + 1].name) > 0:
-			by_name = false
+	var by_name: bool = _ordered(rows,
+		func(a: BazaarItemData, c: BazaarItemData) -> bool: return a.name.naturalnocasecmp_to(c.name) > 0)
 	TestFixtures.check(res, "Name: A to Z reads alphabetically",
 		by_name, "first '%s'" % rows[0].name)
 	TestFixtures.check(res, "the sort dropdown follows the pick without opening its popup",
@@ -511,11 +520,11 @@ static func _case_sort(res: Dictionary, host: Node, viewer: BazaarViewer) -> voi
 		"%d rows" % shop.sort_dropdown().options.size())
 
 
-#Case 7: the item cards, the Add to Cart button and the stepper that takes a line out again.
+#The item cards, the Add to Cart button and the stepper that takes a line out again.
 static func _case_cards(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
-	_fund(RICH)
-	var shop: ShopPage = viewer.shop_page()
+	GameState.refund(RICH)
+	var shop: ShopPage = viewer.shop
 	shop.pick_department(&"weapons")
 	shop.toggle_subtype("Swords")
 	await host.get_tree().process_frame
@@ -565,16 +574,16 @@ static func _case_cards(res: Dictionary, host: Node, viewer: BazaarViewer) -> vo
 		BazaarManager.cart_ids().size() == 2 and BazaarManager.cart_count() == 2,
 		"%d lines" % BazaarManager.cart_ids().size())
 	TestFixtures.check(res, "the cart page follows the cards without being opened",
-		viewer.cart_page().row_count() == 2, "%d rows" % viewer.cart_page().row_count())
+		viewer.cart.row_count() == 2, "%d rows" % viewer.cart.row_count())
 
 
-#Case 8: the cart page, its rows and the order summary beside them.
+#The cart page, its rows and the order summary beside them.
 static func _case_cart(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
-	_fund(RICH)
+	GameState.refund(RICH)
 	viewer.press_tab(&"cart")
 	await host.get_tree().process_frame
-	var page: CartPage = viewer.cart_page()
+	var page: CartPage = viewer.cart
 	var summary: OrderSummary = page.summary()
 	TestFixtures.check(res, "an empty cart shows its empty state and no rows",
 		page.row_count() == 0 and page.count_text() == "0 items"
@@ -600,15 +609,15 @@ static func _case_cart(res: Dictionary, host: Node, viewer: BazaarViewer) -> voi
 		"%d notes" % page.row_for(sword.id).line_total())
 	TestFixtures.check(res, "the summary counts the items and totals the cart",
 		summary.items_caption() == "Items (3)"
-		and summary.row_text(&"total") == NotesLabel.format_amount(total),
+		and summary.row_text(&"total") == TransactionData.grouped(total),
 		"'%s', '%s'" % [summary.items_caption(), summary.row_text(&"total")])
 	TestFixtures.check(res, "the summary calls delivery free and names the arrival day",
 		summary.row_text(&"delivery") == "Free"
 		and summary.row_text(&"arrives") == BazaarUi.eta_text(FAST_DAYS, GameState.day()),
 		"'%s'" % summary.row_text(&"arrives"))
 	TestFixtures.check(res, "the summary reads the bank and the notes left after the buy",
-		summary.row_text(&"notes") == NotesLabel.format_amount(GameState.bank_notes)
-		and summary.row_text(&"after") == NotesLabel.format_amount(GameState.bank_notes - total),
+		summary.row_text(&"notes") == TransactionData.grouped(GameState.bank_notes)
+		and summary.row_text(&"after") == TransactionData.grouped(GameState.bank_notes - total),
 		"'%s'" % summary.row_text(&"after"))
 	TestFixtures.check(res, "an affordable cart opens checkout with no reason under it",
 		not summary.checkout_button().disabled and summary.reason_text() == "",
@@ -617,7 +626,7 @@ static func _case_cart(res: Dictionary, host: Node, viewer: BazaarViewer) -> voi
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the plus of a row stacks the line and retotals the summary",
 		page.row_for(sword.id).stepper().value == 3
-		and summary.row_text(&"total") == NotesLabel.format_amount(sword.price * 3 + bomb.price),
+		and summary.row_text(&"total") == TransactionData.grouped(sword.price * 3 + bomb.price),
 		"'%s'" % summary.row_text(&"total"))
 	page.row_for(bomb.id).press_remove()
 	await host.get_tree().process_frame
@@ -629,10 +638,8 @@ static func _case_cart(res: Dictionary, host: Node, viewer: BazaarViewer) -> voi
 	GameState.bank_notes = 0
 	page.refresh()
 	await host.get_tree().process_frame
-	var short: int = BazaarManager.cart_total()
-	TestFixtures.check(res, "a cart over the bank closes checkout and names the notes needed",
-		summary.checkout_button().disabled
-		and summary.reason_text() == "Not enough notes. Remove items or earn %d more." % short,
+	TestFixtures.check(res, "a cart over the bank closes checkout and prints no line under it",
+		summary.checkout_button().disabled and summary.reason_text() == "",
 		"'%s'" % summary.reason_text())
 	GameState.bank_notes = bank
 	BazaarManager.clear_cart()
@@ -646,18 +653,18 @@ static func _case_cart(res: Dictionary, host: Node, viewer: BazaarViewer) -> voi
 		viewer.current_tab() == &"shop", "tab %s" % viewer.current_tab())
 
 
-#Case 9: the checkout dialog, the one spend behind it and the order placed dialog after it.
+#The checkout dialog, the one spend behind it and the order placed dialog after it.
 static func _case_checkout(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
-	_fund(RICH)
+	GameState.refund(RICH)
 	viewer.press_tab(&"cart")
 	await host.get_tree().process_frame
-	var dialog: CheckoutDialog = viewer.checkout_dialog()
-	var placed: OrderPlacedDialog = viewer.placed_dialog()
+	var dialog: CheckoutDialog = viewer.checkout
+	var placed: OrderPlacedDialog = viewer.placed
 	TestFixtures.check(res, "both order dialogs start closed",
 		not dialog.is_open() and not placed.is_open(),
 		"checkout %s, placed %s" % [dialog.is_open(), placed.is_open()])
-	viewer.cart_page().press_checkout()
+	viewer.cart.press_checkout()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "an empty cart cannot open the checkout dialog",
 		not dialog.is_open(), "open %s" % dialog.is_open())
@@ -668,7 +675,7 @@ static func _case_checkout(res: Dictionary, host: Node, viewer: BazaarViewer) ->
 	await host.get_tree().process_frame
 	var total: int = BazaarManager.cart_total()
 	var bank: int = GameState.bank_notes
-	viewer.cart_page().press_checkout()
+	viewer.cart.press_checkout()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "a filled cart opens the checkout dialog on its lines",
 		dialog.is_open() and dialog.line_count() == 2, "%d lines" % dialog.line_count())
@@ -676,14 +683,14 @@ static func _case_checkout(res: Dictionary, host: Node, viewer: BazaarViewer) ->
 		dialog.arrival_text() == BazaarUi.eta_text(FAST_DAYS, GameState.day()),
 		"'%s'" % dialog.arrival_text())
 	TestFixtures.check(res, "the dialog offers Cancel and Place Order",
-		dialog.cancel_button().text == "Cancel" and dialog.place_button().text == "Place Order"
-		and not dialog.place_button().disabled, "'%s'" % dialog.place_button().text)
+		dialog.cancel_button.text == "Cancel" and dialog.confirm_button.text == "Place Order"
+		and not dialog.confirm_button.disabled, "'%s'" % dialog.confirm_button.text)
 	dialog.press_cancel()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "Cancel closes the dialog and leaves the cart alone",
 		not dialog.is_open() and BazaarManager.cart_count() == 3
 		and GameState.bank_notes == bank, "%d in the cart" % BazaarManager.cart_count())
-	viewer.cart_page().press_checkout()
+	viewer.cart.press_checkout()
 	await host.get_tree().process_frame
 	var logged: Array[String] = []
 	var on_logged := func(delta: int, reason: String, label: String) -> void:
@@ -709,17 +716,17 @@ static func _case_checkout(res: Dictionary, host: Node, viewer: BazaarViewer) ->
 		placed.message_text() == "Order #1001 will arrive %s (2-Day delivery)."
 		% GuiDates.day_text(order.placed_day + order.days), "'%s'" % placed.message_text())
 	TestFixtures.check(res, "the placed dialog offers Keep Shopping and View Orders",
-		placed.keep_button().text == "Keep Shopping" and placed.view_button().text == "View Orders",
-		"'%s'" % placed.view_button().text)
-	placed.press_keep()
+		placed.cancel_button.text == "Keep Shopping"
+		and placed.confirm_button.text == "View Orders", "'%s'" % placed.confirm_button.text)
+	placed.press_cancel()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "Keep Shopping closes the dialog on the Shop tab",
 		not placed.is_open() and viewer.current_tab() == &"shop",
 		"tab %s" % viewer.current_tab())
-	_fund(RICH)
+	GameState.refund(RICH)
 	BazaarManager.set_qty(sword.id, 1)
 	viewer.press_tab(&"cart")
-	viewer.cart_page().press_checkout()
+	viewer.cart.press_checkout()
 	await host.get_tree().process_frame
 	dialog.press_place()
 	await host.get_tree().process_frame
@@ -731,23 +738,23 @@ static func _case_checkout(res: Dictionary, host: Node, viewer: BazaarViewer) ->
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "View Orders opens the Orders tab on the All filter",
 		not placed.is_open() and viewer.current_tab() == &"orders"
-		and viewer.orders_page().filter == &"all", "tab %s" % viewer.current_tab())
+		and viewer.orders.filter == &"all", "tab %s" % viewer.current_tab())
 	dialog.press_place()
 	TestFixtures.check(res, "a closed dialog cannot place an order",
 		BazaarManager.orders.size() == 2, "%d orders" % BazaarManager.orders.size())
 
 
-#Case 10: the Orders page, its three filters and the progress of one order to its arrival.
+#The Orders page, its three filters and the progress of one order to its arrival.
 static func _case_orders(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
-	_fund(RICH)
+	GameState.refund(RICH)
 	var sword: BazaarItemData = _item_named("Sword 1")
 	BazaarManager.set_qty(sword.id, 2)
 	var order: OrderData = BazaarManager.place_order()
-	viewer.placed_dialog().close()
+	viewer.placed.close()
 	viewer.press_tab(&"orders")
 	await host.get_tree().process_frame
-	var page: OrdersPage = viewer.orders_page()
+	var page: OrdersPage = viewer.orders
 	var card: OrderCard = page.card_for(order.id)
 	TestFixtures.check(res, "the Orders page holds one card per order",
 		page.card_count() == 1 and card != null and not page.empty_visible(),
@@ -773,13 +780,13 @@ static func _case_orders(res: Dictionary, host: Node, viewer: BazaarViewer) -> v
 	TestFixtures.check(res, "the In Transit filter holds the order that has not landed",
 		page.card_count() == 1 and page.first_card().order_id() == order.id,
 		"%d cards" % page.card_count())
-	_advance_days(1)
+	GuiManagerTests.advance_days(1)
 	await host.get_tree().process_frame
 	card = page.card_for(order.id)
 	TestFixtures.check(res, "a day of the two day delivery fills half the progress bar",
 		card.filled_cells() == 10 and card.sub_text() == "1 day left - Day 1 of 2",
 		"%d cells, '%s'" % [card.filled_cells(), card.sub_text()])
-	_advance_days(1)
+	GuiManagerTests.advance_days(1)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the arrival day drops the order out of In Transit",
 		page.card_count() == 0 and page.button_text(&"transit") == "In Transit (0)"
@@ -795,10 +802,10 @@ static func _case_orders(res: Dictionary, host: Node, viewer: BazaarViewer) -> v
 	TestFixtures.check(res, "a delivered card titles itself with the day it landed",
 		card.title_text() == "Delivered %s" % GuiDates.day_text(order.placed_day + order.days),
 		"'%s'" % card.title_text())
-	_fund(RICH)
+	GameState.refund(RICH)
 	BazaarManager.set_qty(sword.id, 1)
 	var second: OrderData = BazaarManager.place_order()
-	viewer.placed_dialog().close()
+	viewer.placed.close()
 	page.pick_filter(&"all")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the All filter lists every order, newest first",
@@ -820,67 +827,69 @@ static func _case_orders(res: Dictionary, host: Node, viewer: BazaarViewer) -> v
 		and page.button_text(&"all") == "All (0)", "%d cards" % page.card_count())
 
 
-#Case 11: the Cart and Orders tab badges, their shared colour and the dot's priority over them.
-#GX4A-01: README C2 line 212, Cart = item count, Orders = in-transit count, both orange #f28c28.
+#The Cart and Orders tab badges, their shared colour and the dot's priority over them.
+#Cart shows the item count and Orders the in-transit count, both orange #f28c28.
 static func _case_badges(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
-	_fund(RICH)
+	var cart_tab: TabButton = viewer.tab_button(&"cart")
+	var orders_tab: TabButton = viewer.tab_button(&"orders")
+	GameState.refund(RICH)
 	TestFixtures.check(res, "an empty cart and no orders show no badge on either tab",
-		viewer.cart_tab.badge == 0 and viewer.orders_tab.badge == 0,
-		"cart %d, orders %d" % [viewer.cart_tab.badge, viewer.orders_tab.badge])
+		cart_tab.badge == 0 and orders_tab.badge == 0,
+		"cart %d, orders %d" % [cart_tab.badge, orders_tab.badge])
 	var sword: BazaarItemData = _item_named("Sword 1")
 	var bomb: BazaarItemData = _item_named("Bomb 1")
 	BazaarManager.set_qty(sword.id, 1)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "one item in the cart puts a 1 on the Cart tab badge",
-		viewer.cart_tab.badge == 1, "badge %d" % viewer.cart_tab.badge)
+		cart_tab.badge == 1, "badge %d" % cart_tab.badge)
 	BazaarManager.set_qty(sword.id, 3)
 	BazaarManager.set_qty(bomb.id, 1)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the Cart badge sums every line's quantity, not the row count",
-		viewer.cart_tab.badge == 4, "badge %d" % viewer.cart_tab.badge)
-	TestFixtures.check(res, "both tab badges read the same README orange",
-		viewer.cart_tab.badge_color == BazaarViewer.BADGE_COLOR
-		and viewer.orders_tab.badge_color == BazaarViewer.BADGE_COLOR,
-		"cart %s" % viewer.cart_tab.badge_color)
+		cart_tab.badge == 4, "badge %d" % cart_tab.badge)
+	TestFixtures.check(res, "both tab badges read the same badge orange",
+		cart_tab.badge_color == GuiColors.ORANGE
+		and orders_tab.badge_color == GuiColors.ORANGE,
+		"cart %s" % cart_tab.badge_color)
 	BazaarManager.clear_cart()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "clearing the cart drops the Cart badge back to none",
-		viewer.cart_tab.badge == 0, "badge %d" % viewer.cart_tab.badge)
+		cart_tab.badge == 0, "badge %d" % cart_tab.badge)
 	BazaarManager.set_qty(sword.id, 1)
 	BazaarManager.place_order()
-	viewer.placed_dialog().close()
+	viewer.placed.close()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "one order in transit puts a 1 on the Orders tab badge",
-		viewer.orders_tab.badge == 1, "badge %d" % viewer.orders_tab.badge)
-	_advance_days(1)
+		orders_tab.badge == 1, "badge %d" % orders_tab.badge)
+	GuiManagerTests.advance_days(1)
 	await host.get_tree().process_frame
-	_fund(RICH)
+	GameState.refund(RICH)
 	BazaarManager.set_qty(bomb.id, 1)
 	BazaarManager.place_order()
-	viewer.placed_dialog().close()
+	viewer.placed.close()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the Orders badge counts every order still in transit, not just one",
-		viewer.orders_tab.badge == 2, "badge %d" % viewer.orders_tab.badge)
-	_advance_days(1)
+		orders_tab.badge == 2, "badge %d" % orders_tab.badge)
+	GuiManagerTests.advance_days(1)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "the arrival of the older order drops the Orders badge by one",
-		viewer.orders_tab.badge == 1, "badge %d" % viewer.orders_tab.badge)
+		orders_tab.badge == 1, "badge %d" % orders_tab.badge)
 	TestFixtures.check(res, "the dot from that arrival hides the badge though the count holds",
-		viewer.orders_tab.dot and not viewer.orders_tab.badge_panel.visible,
-		"dot %s, panel %s" % [viewer.orders_tab.dot, viewer.orders_tab.badge_panel.visible])
+		orders_tab.dot and not orders_tab.badge_panel.visible,
+		"dot %s, panel %s" % [orders_tab.dot, orders_tab.badge_panel.visible])
 	viewer.press_tab(&"orders")
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "opening Orders clears the dot and lets the badge panel show again",
-		not viewer.orders_tab.dot and viewer.orders_tab.badge_panel.visible
-		and viewer.orders_tab.badge == 1,
-		"dot %s, panel %s" % [viewer.orders_tab.dot, viewer.orders_tab.badge_panel.visible])
+		not orders_tab.dot and orders_tab.badge_panel.visible
+		and orders_tab.badge == 1,
+		"dot %s, panel %s" % [orders_tab.dot, orders_tab.badge_panel.visible])
 
 
-#Case 12: fix round 3, GX3A-01 comma prices, GX3A-03 digit only fields, GX3A-05 empty note tint.
-static func _case_fix_round3(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
+#Comma prices, digit only fields and the empty note tint.
+static func _case_input_formats(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
-	_fund(RICH)
+	GameState.refund(RICH)
 	var cheap: BazaarItemData = null
 	var costly: BazaarItemData = null
 	for entry: BazaarItemData in BazaarManager.catalog:
@@ -890,7 +899,7 @@ static func _case_fix_round3(res: Dictionary, host: Node, viewer: BazaarViewer) 
 			cheap = entry
 	viewer.press_tab(&"cart")
 	await host.get_tree().process_frame
-	var page: CartPage = viewer.cart_page()
+	var page: CartPage = viewer.cart
 	BazaarManager.set_qty(cheap.id, 1)
 	BazaarManager.set_qty(costly.id, 1)
 	await host.get_tree().process_frame
@@ -898,12 +907,12 @@ static func _case_fix_round3(res: Dictionary, host: Node, viewer: BazaarViewer) 
 		page.row_for(cheap.id).each_text() == "%d each" % cheap.price,
 		"'%s'" % page.row_for(cheap.id).each_text())
 	TestFixtures.check(res, "a cart row of a thousand or more reads the price grouped",
-		page.row_for(costly.id).each_text() == "%s each" % NotesLabel.format_amount(costly.price),
+		page.row_for(costly.id).each_text() == "%s each" % TransactionData.grouped(costly.price),
 		"'%s'" % page.row_for(costly.id).each_text())
 	BazaarManager.clear_cart()
 	viewer.press_tab(&"shop")
 	await host.get_tree().process_frame
-	var panel: FilterPanel = viewer.shop_page().filter_panel()
+	var panel: FilterPanel = viewer.shop.filter_panel()
 	panel.type_field("min", "12a3")
 	TestFixtures.check(res, "a letter typed among digits in the Min box is dropped",
 		panel.field_text("min") == "123", "'%s'" % panel.field_text("min"))
@@ -917,58 +926,160 @@ static func _case_fix_round3(res: Dictionary, host: Node, viewer: BazaarViewer) 
 	TestFixtures.check(res, "the caret moves back by the letters dropped before it",
 		panel.field_text("min") == "12" and panel.field_caret("min") == 2,
 		"'%s' at %d" % [panel.field_text("min"), panel.field_caret("min")])
-	TestFixtures.check(res, "the Shop empty note reads in BazaarUi.SKY",
-		viewer.shop_page().empty_note_color() == BazaarUi.SKY,
-		str(viewer.shop_page().empty_note_color()))
+	TestFixtures.check(res, "the Shop empty note reads in GuiColors.SKY",
+		viewer.shop.empty_note_color() == GuiColors.SKY,
+		str(viewer.shop.empty_note_color()))
 	viewer.press_tab(&"cart")
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "the Cart empty note reads in BazaarUi.SKY",
-		page.empty_note_color() == BazaarUi.SKY, str(page.empty_note_color()))
+	TestFixtures.check(res, "the Cart empty note reads in GuiColors.SKY",
+		page.empty_note_color() == GuiColors.SKY, str(page.empty_note_color()))
 	viewer.press_tab(&"orders")
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "the Orders empty note reads in BazaarUi.SKY",
-		viewer.orders_page().empty_note_color() == BazaarUi.SKY,
-		str(viewer.orders_page().empty_note_color()))
+	TestFixtures.check(res, "the Orders empty note reads in GuiColors.SKY",
+		viewer.orders.empty_note_color() == GuiColors.SKY,
+		str(viewer.orders.empty_note_color()))
 
 
-#Item 11 (F6H): every Bazaar action button is the core BevelButton scene with its kind kept.
+#Every Bazaar action button is the core BevelButton scene with its kind kept.
 static func _case_bevel_sweep(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
 	_reset(viewer)
-	_fund(RICH)
+	GameState.refund(RICH)
 	await host.get_tree().process_frame
-	var add_bevel: BevelButton = viewer.shop_page().first_card().add_button() as BevelButton
+	var add_bevel: BevelButton = viewer.shop.first_card().add_button() as BevelButton
 	TestFixtures.check(res, "the shop card Add to Cart button is an orange BevelButton",
-		add_bevel != null and add_bevel.kind == &"orange" and add_bevel.text == "Add to Cart",
+		GuiKitTests.is_bevel(add_bevel, &"orange", "Add to Cart"),
 		str(add_bevel))
-	var picked_bevel: BevelButton = viewer.orders_page().button_for(
+	var picked_bevel: BevelButton = viewer.orders.button_for(
 		BazaarManager.ORDER_FILTERS[0]) as BevelButton
 	TestFixtures.check(res, "the picked Orders filter button shades orange as a BevelButton",
-		picked_bevel != null and picked_bevel.kind == &"orange", str(picked_bevel))
-	var other_bevel: BevelButton = viewer.orders_page().button_for(
+		GuiKitTests.is_bevel(picked_bevel, &"orange"), str(picked_bevel))
+	var other_bevel: BevelButton = viewer.orders.button_for(
 		BazaarManager.ORDER_FILTERS[1]) as BevelButton
 	TestFixtures.check(res, "an unpicked Orders filter button shades neutral as a BevelButton",
-		other_bevel != null and other_bevel.kind == &"neutral", str(other_bevel))
+		GuiKitTests.is_bevel(other_bevel, &"neutral"), str(other_bevel))
 	var sword: BazaarItemData = _item_named("Sword 1")
 	BazaarManager.set_qty(sword.id, 1)
 	viewer.press_tab(&"cart")
 	await host.get_tree().process_frame
-	var checkout_bevel: BevelButton = viewer.cart_page().summary().checkout_button() as BevelButton
+	var checkout_bevel: BevelButton = viewer.cart.summary().checkout_button() as BevelButton
 	TestFixtures.check(res, "the cart Checkout button is a go BevelButton",
-		checkout_bevel != null and checkout_bevel.kind == &"go"
-		and checkout_bevel.text == "Proceed to Checkout", str(checkout_bevel))
-	viewer.cart_page().press_checkout()
+		GuiKitTests.is_bevel(checkout_bevel, &"go", "Proceed to Checkout"), str(checkout_bevel))
+	viewer.cart.press_checkout()
 	await host.get_tree().process_frame
-	var dialog: CheckoutDialog = viewer.checkout_dialog()
-	var cancel_bevel: BevelButton = dialog.cancel_button() as BevelButton
-	var place_bevel: BevelButton = dialog.place_button() as BevelButton
+	var dialog: CheckoutDialog = viewer.checkout
+	var cancel_bevel: BevelButton = dialog.cancel_button
+	var place_bevel: BevelButton = dialog.confirm_button
 	TestFixtures.check(res, "the checkout dialog buttons are neutral Cancel and go Place Order",
-		cancel_bevel != null and cancel_bevel.kind == &"neutral"
-		and place_bevel != null and place_bevel.kind == &"go", "%s %s" % [cancel_bevel, place_bevel])
+		GuiKitTests.is_bevel(cancel_bevel, &"neutral")
+		and GuiKitTests.is_bevel(place_bevel, &"go"), "%s %s" % [cancel_bevel, place_bevel])
 	dialog.press_place()
 	await host.get_tree().process_frame
-	var placed: OrderPlacedDialog = viewer.placed_dialog()
-	var keep_bevel: BevelButton = placed.keep_button() as BevelButton
-	var view_bevel: BevelButton = placed.view_button() as BevelButton
+	var placed: OrderPlacedDialog = viewer.placed
+	var keep_bevel: BevelButton = placed.cancel_button
+	var view_bevel: BevelButton = placed.confirm_button
 	TestFixtures.check(res, "the order placed dialog buttons are neutral Keep and go View",
-		keep_bevel != null and keep_bevel.kind == &"neutral"
-		and view_bevel != null and view_bevel.kind == &"go", "%s %s" % [keep_bevel, view_bevel])
+		GuiKitTests.is_bevel(keep_bevel, &"neutral")
+		and GuiKitTests.is_bevel(view_bevel, &"go"), "%s %s" % [keep_bevel, view_bevel])
+
+
+#Every tab on the 1280 x 644 band: fits, stays on the canvas and keeps the tab row off the X.
+static func _case_fit(res: Dictionary, host: Node, viewer: BazaarViewer) -> void:
+	_reset(viewer)
+	GuiAdsTests.fit_band(viewer)
+	var pages: Array[Control] = [viewer.shop, viewer.cart, viewer.orders]
+	for i: int in range(BazaarViewer.TAB_KEYS.size()):
+		viewer.open_tab(BazaarViewer.TAB_KEYS[i])
+		await host.get_tree().process_frame
+		await host.get_tree().process_frame
+		GuiAdsTests.check_fit(res, "Bazaar %s" % BazaarViewer.TAB_KEYS[i], viewer, pages[i], [viewer.tab_strip])
+
+
+#Designer rule 2026-10-04: the picks reset once the Bazaar window is fully closed.
+static func _case_reopen_bazaar(res: Dictionary, host: Node) -> void:
+	_fresh()
+	_full()
+	GameState.refund(RICH)
+	var sword: BazaarItemData = _item_named("Sword 1")
+	BazaarManager.set_qty(sword.id, 2)
+	BazaarManager.place_order()
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
+	await host.get_tree().process_frame
+	var first: BazaarViewer = await GuiClickDTests._press_tile(host, hud, &"bazaar") as BazaarViewer
+	if first == null:
+		TestFixtures.check(res, "reopen: the Bazaar tile opens the Bazaar window", false, "no viewer")
+		await GuiClickDTests._drop(host, hud)
+		_fresh()
+		return
+	var shop: ShopPage = first.shop
+	var panel: FilterPanel = shop.filter_panel()
+	var tab0: StringName = first.current_tab()
+	var query0: Dictionary = shop.query()
+	var drop0: StringName = shop.sort_dropdown().selected
+	var min0: String = panel.field_text("min")
+	var max0: String = panel.field_text("max")
+	var box0: String = shop.search_field().text
+	var cards0: int = shop.card_count()
+	var lead0: int = shop.first_card().item_id() if shop.first_card() != null else -1
+	var orders0: StringName = first.orders.filter
+	var order_cards0: int = first.orders.card_count()
+	shop.pick_sort(&"price_desc")
+	await host.get_tree().process_frame
+	var lead_moved: int = shop.first_card().item_id() if shop.first_card() != null else -1
+	shop.pick_department(&"weapons")
+	shop.toggle_subtype("Swords")
+	shop.pick_price(&"u50")
+	panel.type_field("min", "1")
+	panel.type_field("max", "500")
+	panel._on_go_pressed()
+	shop.toggle_rarity(0)
+	shop.set_search("Sword")
+	first.press_tab(&"orders")
+	first.orders.pick_filter(&"delivered")
+	await host.get_tree().process_frame
+	var query1: Dictionary = shop.query()
+	var types1: Array = query1["subtypes"] as Array
+	var tiers1: Array = query1["rarities"] as Array
+	TestFixtures.check(res, "reopen: the Bazaar picks under test moved off their first values",
+		query1 != query0 and query1["department"] != query0["department"]
+		and query1["search"] != query0["search"] and query1["sort"] != query0["sort"]
+		and types1.size() == 1 and types1.has("Swords") and tiers1.size() == 1 and tiers1.has(0)
+		and query1["price_preset"] != query0["price_preset"] and query1["price_custom"] != query0["price_custom"]
+		and panel.custom_active() and lead_moved != lead0 and first.current_tab() == &"orders"
+		and first.orders.filter == &"delivered" and first.orders.card_count() != order_cards0,
+		"query %s, lead %d to %d, tab %s, orders %s %d" % [str(query1), lead0, lead_moved,
+		first.current_tab(), first.orders.filter, first.orders.card_count()])
+	hud.popup().close()
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "reopen: closing the Bazaar window frees its content",
+		not is_instance_valid(first), "content still alive")
+	var again: BazaarViewer = await GuiClickDTests._press_tile(host, hud, &"bazaar") as BazaarViewer
+	if again == null:
+		TestFixtures.check(res, "reopen: the Bazaar tile opens the window again", false, "no viewer")
+		await GuiClickDTests._drop(host, hud)
+		_fresh()
+		return
+	var shop2: ShopPage = again.shop
+	var panel2: FilterPanel = shop2.filter_panel()
+	var lead2: int = shop2.first_card().item_id() if shop2.first_card() != null else -1
+	TestFixtures.check(res, "reopen: the Bazaar opens again on its first tab",
+		again.current_tab() == tab0, "%s against %s" % [again.current_tab(), tab0])
+	TestFixtures.check(res, "reopen: the Shop filters, search and sort read their first values",
+		shop2.query() == query0 and not panel2.custom_active(),
+		"%s against %s" % [str(shop2.query()), str(query0)])
+	TestFixtures.check(res, "reopen: the panel holds no type or rarity pick and its first price preset",
+		panel2.subtypes.is_empty() and panel2.rarities.is_empty() and panel2.price_preset == query0["price_preset"],
+		"types %s rarities %s preset %s" % [str(panel2.subtypes), str(panel2.rarities), panel2.price_preset])
+	TestFixtures.check(res, "reopen: the price fields, search box and sort dropdown read their first values",
+		panel2.field_text("min") == min0 and panel2.field_text("max") == max0
+		and shop2.search_field().text == box0 and shop2.sort_dropdown().selected == drop0,
+		"min '%s' max '%s' box '%s' sort %s" % [panel2.field_text("min"), panel2.field_text("max"),
+		shop2.search_field().text, shop2.sort_dropdown().selected])
+	TestFixtures.check(res, "reopen: the Shop shows its first card count and lead card",
+		shop2.card_count() == cards0 and lead2 == lead0,
+		"%d cards lead %d against %d lead %d" % [shop2.card_count(), lead2, cards0, lead0])
+	TestFixtures.check(res, "reopen: the Orders filter and its list read their first values",
+		again.orders.filter == orders0 and again.orders.card_count() == order_cards0,
+		"%s %d against %s %d" % [again.orders.filter, again.orders.card_count(), orders0, order_cards0])
+	await GuiClickDTests._drop(host, hud)
+	_fresh()

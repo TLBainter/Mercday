@@ -5,15 +5,18 @@ class_name NotificationItem extends PanelContainer
 
 signal item_pressed(data: NotificationData)
 signal mark_read_pressed(data: NotificationData)
+#UiSfx hooks the row through these; only an unread row clicks and hovers.
+signal pressed
+signal sfx_hovered
 
-const BG_IDLE: Color = Color("#0e1628")
-const BG_HOVER: Color = Color("#15223d")
-const RING_IDLE: Color = Color("#1f3560")
-const RING_HOVER: Color = Color("#f28c28")
-const STRIPE_FILL: Color = Color("#1f3560")
-const STRIPE_BACK: Color = Color("#0e1628")
-const ICON_RING: Color = Color("#3b6fb6")
-const LOAN_GLYPH: Color = Color("#f2b33d")
+const BG_IDLE: Color = GuiColors.ROW_FILL
+const BG_HOVER: Color = GuiColors.ROW_HOVER
+const RING_IDLE: Color = GuiColors.BLUE_LO
+const RING_HOVER: Color = GuiColors.ORANGE
+const STRIPE_FILL: Color = GuiColors.BLUE_LO
+const STRIPE_BACK: Color = GuiColors.ROW_FILL
+const ICON_RING: Color = GuiColors.BLUE_HI
+const LOAN_GLYPH: Color = GuiColors.AMBER
 const READ_OPACITY: float = 0.55
 const RING_WIDTH: int = 2
 const PAD: int = 8
@@ -22,9 +25,9 @@ const MARK_SCALE: int = 2
 const GLYPH_SCALE: int = 4
 const BODY_INDEX: int = 2
 
-const CONTRACT_BODY: String = "res://Scenes/GUI/Notifications/ContractCompletedBody.tscn"
-const LOAN_BODY: String = "res://Scenes/GUI/Notifications/LoanOfferBody.tscn"
-const STOCK_BODY: String = "res://Scenes/GUI/Notifications/StockMoveBody.tscn"
+const CONTRACT_BODY: PackedScene = preload("res://Scenes/GUI/Notifications/ContractCompletedBody.tscn")
+const LOAN_BODY: PackedScene = preload("res://Scenes/GUI/Notifications/LoanOfferBody.tscn")
+const STOCK_BODY: PackedScene = preload("res://Scenes/GUI/Notifications/StockMoveBody.tscn")
 
 @export var stripes_path: NodePath = ^"Row/IconBox/Stripes"
 @export var icon_ring_path: NodePath = ^"Row/IconBox/Ring"
@@ -58,7 +61,8 @@ func _ready() -> void:
 	_footer = get_node_or_null(footer_path) as NotificationFooter
 	_mark = get_node_or_null(mark_button_path) as Button
 	if _stripes != null:
-		_stripes.texture = NotifyGlyphs.stripes(STRIPE_FILL, STRIPE_BACK)
+		_stripes.texture = GuiGlyphs.hatch(STRIPE_FILL, STRIPE_BACK, NotifyGlyphs.STRIPE_BAND,
+			Vector2i(NotifyGlyphs.STRIPE_TILE, NotifyGlyphs.STRIPE_TILE))
 	if _ring != null:
 		_ring.add_theme_stylebox_override("panel", _ring_box())
 	if _mark != null:
@@ -143,6 +147,7 @@ func hovered() -> bool:
 func press() -> void:
 	if _row == null or _row.read:
 		return
+	pressed.emit()
 	item_pressed.emit(_row)
 
 
@@ -164,6 +169,8 @@ func _gui_input(event: InputEvent) -> void:
 
 func _on_enter() -> void:
 	set_hovered(true)
+	if _row != null and not _row.read:
+		sfx_hovered.emit()
 
 
 func _on_exit() -> void:
@@ -205,7 +212,7 @@ func _panel_box() -> StyleBoxFlat:
 
 func _ring_box() -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
-	box.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	box.bg_color = GuiColors.CLEAR
 	box.border_color = ICON_RING
 	box.set_border_width_all(RING_WIDTH)
 	box.set_corner_radius_all(0)
@@ -219,54 +226,55 @@ func _build_body() -> void:
 		_col.remove_child(_body)
 		_body.queue_free()
 		_body = null
-	var path: String = _body_path()
-	if path == "" or not ResourceLoader.exists(path):
-		return
-	var scene: PackedScene = load(path) as PackedScene
+	var scene: PackedScene = _body_scene()
 	if scene == null:
 		return
 	_body = scene.instantiate() as Control
-	if _body == null:
-		return
 	_col.add_child(_body)
 	_col.move_child(_body, BODY_INDEX)
 
 
-func _body_path() -> String:
+func _body_scene() -> PackedScene:
 	if _row == null:
-		return ""
+		return null
 	match _row.type:
 		NotificationData.TYPE_CONTRACT_COMPLETED, NotificationData.TYPE_CONTRACT_FAILED:
+			return CONTRACT_BODY
+		NotificationData.TYPE_EXPIRY_WARNING, NotificationData.TYPE_EXPIRED:
 			return CONTRACT_BODY
 		NotificationData.TYPE_LOAN_OFFER:
 			return LOAN_BODY
 		NotificationData.TYPE_STOCK_MOVE:
 			return STOCK_BODY
-	return ""
+	return null
 
 
 func _fill_icon() -> void:
 	if _center == null:
 		return
-	for child: Node in _center.get_children():
-		_center.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(_center)
 	var tex: Texture2D = _icon_texture()
 	if tex == null:
 		return
 	_center.add_child(NotifyGlyphs.shadowed(tex, NotifyGlyphs.SHADOW_STEP, _icon_tint()))
 
 
-#The atlas art of the row type: the alert cell for a contract, the note for a loan and the two
-#separate trend arrows for a stock move, which take their colour from _icon_tint.
+#The atlas art of the row type: the alert cell for a contract, the orange scroll for new postings, the
+#note for a loan and the two separate trend arrows for a stock move, which take their colour from _icon_tint.
 func _icon_texture() -> Texture2D:
 	if _row == null:
 		return null
 	match _row.type:
 		NotificationData.TYPE_CONTRACT_COMPLETED, NotificationData.TYPE_CONTRACT_FAILED:
 			return Icons.baked("alert", MARK_SCALE, Icons.MODE_PLAIN)
+		NotificationData.TYPE_EXPIRY_WARNING:
+			return Icons.baked("alert", MARK_SCALE, Icons.MODE_PLAIN)
+		NotificationData.TYPE_EXPIRED:
+			return Icons.baked("scroll", MARK_SCALE, Icons.MODE_GRAY, true)
+		NotificationData.TYPE_NEW_POSTINGS:
+			return Icons.tinted("scroll", NotificationData.TITLE_CONTRACT, MARK_SCALE, true)
 		NotificationData.TYPE_LOAN_OFFER:
-			return Icons.tinted("note", LOAN_GLYPH, GLYPH_SCALE, true)
+			return CrewGlyphs.note(LOAN_GLYPH, GLYPH_SCALE)
 		NotificationData.TYPE_STOCK_MOVE:
 			var id: String = "trend_up" if _row.rising() else "trend_down"
 			return Icons.baked(id, GLYPH_SCALE, Icons.MODE_GRAY, true)

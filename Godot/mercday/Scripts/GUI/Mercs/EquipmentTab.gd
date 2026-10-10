@@ -1,7 +1,9 @@
-class_name EquipmentTab extends ScrollContainer
+class_name EquipmentTab extends MarginContainer
 
 #Worn, container and carried gear in three named sections with the weight bar under them. A row
 #with a named slot lands in that slot; everything else falls into the carried grid in order.
+
+const SLOT_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/EquipSlot.tscn")
 
 const WORN_SLOTS: Array[String] = ["Primary Hand", "Secondary Hand", "Armor", "Cloak", "Headwear",
 	"Gloves", "Belt", "Shoes"]
@@ -24,6 +26,9 @@ var dropped: int = 0
 
 
 func _ready() -> void:
+	_spawn_slots(worn_grid, WORN_SLOTS.size())
+	_spawn_slots(container_grid, CONTAINER_SLOTS.size())
+	_spawn_slots(carried_grid, CARRIED_SLOTS)
 	_name_slots()
 
 
@@ -90,10 +95,16 @@ func _slots_of(grid: GridContainer) -> Array[EquipSlot]:
 	var out: Array[EquipSlot] = []
 	if not is_node_ready():
 		return out
-	for child: Node in grid.get_children():
-		if child is EquipSlot:
-			out.append(child as EquipSlot)
+	out.assign(GuiNodes.children_of(grid, EquipSlot))
 	return out
+
+
+func _spawn_slots(grid: GridContainer, count: int) -> void:
+	for i: int in count:
+		var slot: EquipSlot = SLOT_SCENE.instantiate() as EquipSlot
+		slot.name = "Slot%d" % (i + 1)
+		slot.size_flags_horizontal = SIZE_EXPAND_FILL
+		grid.add_child(slot)
 
 
 func _name_slots() -> void:

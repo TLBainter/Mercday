@@ -171,7 +171,7 @@ static func append_city_objects(field: BattlefieldArea, lines: Array[String]) ->
 		var mark: String = _city_obj_glyph(String(obs.get("city", "")), blocking)
 		for oy: int in range(anchor.y, anchor.y + maxi(1, int(obs.get("ph", 1)))):
 			for ox: int in range(anchor.x, anchor.x + maxi(1, int(obs.get("pw", 1)))):
-				if ox < 0 or oy < 0 or ox >= field.width or oy >= field.length:
+				if not field.in_bounds_xy(ox, oy):
 					continue
 				marks[oy * field.width + ox] = mark
 	var centres: Dictionary = {}

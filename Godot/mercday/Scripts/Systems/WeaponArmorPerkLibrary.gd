@@ -1,11 +1,5 @@
 class_name WeaponArmorPerkLibrary
 
-#Tokens that are permanent stat/grant effects applied immediately on acquisition.
-#All others are conditional; stored and queried at runtime.
-const PERMANENT_PREFIXES: PackedStringArray = [
-	"stat:", "grant:", "immune:", "protected:", "susceptible:",
-]
-
 #Tokens that mark a perk as a combat action (not a passive).
 const ACTION_PREFIXES: PackedStringArray = ["action:", "reactive_action:"]
 
@@ -20,10 +14,6 @@ const HEAVY_ARMOR_TYPES: PackedStringArray = ["Heavy", "Bulky"]
 
 #Weapon tiers that own a Makeshift perk row; Firearm has none.
 const MAKESHIFT_TIERS: PackedStringArray = ["Basic", "Great", "Specialized"]
-
-#True while resolve_deferred_grants re-runs a parked grant, so it is never parked twice.
-static var _resolving_deferred: bool = false
-
 
 #A weapon perk is active only when the merc owns it and holds a weapon of the type it belongs to.
 #A makeshift weapon carries no perk of its own; only the row a spent ReP activated acts.
@@ -105,37 +95,6 @@ static func owned_for_key(owned: Array[TraitData], key: String) -> Array[TraitDa
 	return result
 
 
-#The one place a weapon perk is added; returns the sheet detail, or "" when nothing was added.
-static func grant_weapon_perk(merc: MercenaryData, perk: TraitData, source: String = "") -> String:
-	if merc == null or perk == null:
-		return ""
-	for held: TraitData in merc.weapon_perks:
-		if held != null and held.trait_name == perk.trait_name:
-			return ""
-	merc.weapon_perks.append(perk)
-	return _grant_detail("weapon", perk, source)
-
-
-#The one place an armor perk is added; its permanent tokens apply once, here.
-static func grant_armor_perk(merc: MercenaryData, perk: TraitData, source: String = "") -> String:
-	if merc == null or perk == null:
-		return ""
-	for held: TraitData in merc.armor_perks:
-		if held != null and held.trait_name == perk.trait_name:
-			return ""
-	merc.armor_perks.append(perk)
-	_apply_permanent_tokens(merc, perk)
-	return _grant_detail("armor", perk, source)
-
-
-#"<kind> <gear key> perk <name>", the shape the level-up log already prints.
-static func _grant_detail(kind: String, perk: TraitData, source: String) -> String:
-	var detail: String = "%s %s perk %s" % [kind, perk.gear_key, perk_display_name(perk)]
-	if source != "":
-		detail += " (%s)" % source
-	return detail
-
-
 #Weapon perk names carry their gear key ahead of a "|"; armor perk names do not.
 static func perk_display_name(perk: TraitData) -> String:
 	if perk == null:
@@ -143,27 +102,6 @@ static func perk_display_name(perk: TraitData) -> String:
 	if perk.trait_name.contains("|"):
 		return perk.trait_name.get_slice("|", 1)
 	return perk.trait_name
-
-
-#Stat and circumstance grants on an armor perk cell act the moment the perk is gained.
-static func _apply_permanent_tokens(merc: MercenaryData, perk: TraitData) -> void:
-	if perk.effect_dsl == "" or perk.effect_dsl.begins_with("SPECIAL:"):
-		return
-	var is_permanent: bool = false
-	for token: String in perk.effect_dsl.split("|"):
-		var t: String = token.strip_edges()
-		for prefix: String in PERMANENT_PREFIXES:
-			if t.begins_with(prefix):
-				is_permanent = true
-				break
-		if is_permanent:
-			break
-	if not is_permanent:
-		return
-	if merc.stats_baseline.is_empty():
-		StatCalculator.prime(merc)
-	TraitDSL.apply_dsl_to_merc(merc, perk.effect_dsl, perk.trait_name)
-	StatCalculator.refresh(merc)
 
 
 static func has_armor_perk_active(merc: MercenaryData, token: String) -> bool:
@@ -180,6 +118,18 @@ static func has_weapon_perk_prefix(merc: MercenaryData, prefix: String) -> bool:
 			if token.strip_edges().begins_with(prefix):
 				return true
 	return false
+
+
+#Sum of the third ":" field over the weapon passives whose token starts with prefix.
+static func sum_passive_int(merc: MercenaryData, prefix: String) -> int:
+	var total := 0
+	for perk: TraitData in get_weapon_passive_perks(merc):
+		if not perk.effect_dsl.begins_with(prefix):
+			continue
+		var parts := perk.effect_dsl.split(":")
+		if parts.size() >= 3:
+			total += int(parts[2])
+	return total
 
 
 static func has_weapon_passive(merc: MercenaryData, key: String) -> bool:
@@ -220,25 +170,15 @@ static func get_two_handed_damage_bonus(merc: MercenaryData, is_thrown: bool = f
 	if is_thrown:
 		prefixes.append("weapon_two_handed:thrown_damage:")
 	var bonus := 0
-	for perk: TraitData in get_weapon_passive_perks(merc):
-		for prefix: String in prefixes:
-			if not perk.effect_dsl.begins_with(prefix):
-				continue
-			var parts := perk.effect_dsl.split(":")
-			if parts.size() >= 3:
-				bonus += int(parts[2])
+	for prefix: String in prefixes:
+		bonus += sum_passive_int(merc, prefix)
 	return bonus
 
 
 static func get_effective_melee_range(merc: MercenaryData) -> int:
 	if not merc.equipped_weapon:
 		return 1
-	var base: int = merc.equipped_weapon.melee_range
-	for perk: TraitData in get_weapon_passive_perks(merc):
-		if perk.effect_dsl.begins_with("weapon_stat:melee_range:"):
-			var parts := perk.effect_dsl.split(":")
-			if parts.size() >= 3:
-				base += int(parts[2])
+	var base: int = merc.equipped_weapon.melee_range + sum_passive_int(merc, "weapon_stat:melee_range:")
 	var temp_bonus: int = merc.active_states.get("weapon_stat_melee_range_bonus", 0)
 	return base + temp_bonus
 
@@ -280,32 +220,6 @@ static func _collect_weapon_keys(weapon: WeaponData, keys: Array[String]) -> voi
 		keys.append(makeshift_key)
 
 
-#True when the grant was parked: generation applies trait cells before any gear is equipped.
-static func defer_gear_grant(merc: MercenaryData, dsl: String, source: String) -> bool:
-	if merc == null or _resolving_deferred or merc.gear_grants_resolved:
-		return false
-	if merc.equipped_weapon != null or merc.offhand_weapon != null or merc.equipped_armor != null:
-		return false
-	merc.deferred_gear_grants.append({"dsl": dsl, "source": source})
-	return true
-
-
-#Re-runs every parked grant now that the merc carries gear; the pools filter to what is held.
-static func resolve_deferred_grants(merc: MercenaryData) -> void:
-	if merc == null:
-		return
-	merc.gear_grants_resolved = true
-	if merc.deferred_gear_grants.is_empty():
-		return
-	var pending: Array[Dictionary] = merc.deferred_gear_grants.duplicate()
-	merc.deferred_gear_grants.clear()
-	_resolving_deferred = true
-	for entry: Dictionary in pending:
-		TraitDSL.apply_dsl_to_merc(merc, str(entry.get("dsl", "")), str(entry.get("source", "")))
-	_resolving_deferred = false
-	merc.deferred_gear_grants.clear()
-
-
 #Recomputes the stat sheet when a drawn-weapon bonus (pace, jump) can have changed.
 static func refresh_held_bonuses(merc: MercenaryData) -> void:
 	if merc == null:
@@ -314,17 +228,6 @@ static func refresh_held_bonuses(merc: MercenaryData) -> void:
 		if perk.effect_dsl.contains("weapon_passive:pace:") or perk.effect_dsl.contains("weapon_passive:jump:"):
 			StatCalculator.refresh(merc)
 			return
-
-
-#A grant with no row for any held gear is dropped; the encounter log and the sheet both record it.
-static func log_grant_skipped(merc: MercenaryData, token: String) -> void:
-	if merc == null:
-		return
-	var line: String = "PERK GRANT SKIPPED: %s %s (no held gear)" % [merc.merc_name, token]
-	if EncounterLogger.is_active():
-		EncounterLogger.log_verbose(line)
-	merc.level_up_log.append({"level": int(merc.stats.get("level", 0)), "tier": "Gear",
-		"option": "perk_grant_skipped", "detail": line})
 
 
 #EP every spend costs extra while the armor is worn, unless a perk ignores that armor's cost.
@@ -441,25 +344,23 @@ static func melee_reach(attacker: MercenaryData) -> int:
 
 #Halberd Extension: the decision counts one extra pace while the EP for it is still spendable.
 static func _perk_reach_bonus(attacker: MercenaryData) -> int:
-	if attacker.active_states.has("weapon_stat_melee_range_bonus"):
-		return 0
 	var weapon: WeaponData = attacker.equipped_weapon
 	if weapon == null or weapon.is_ranged:
 		return 0
-	if not has_weapon_passive(attacker, "weapon_stat:melee_range:+1"):
-		return 0
-	var cost := CombatApplicator.state_ep_cost(attacker, 1, "reaction", 0)
-	return 1 if cost > 0 and ExcessPool.available_ep(attacker) >= cost else 0
+	return 1 if _ep_gated_passive(attacker, "weapon_stat_melee_range_bonus", "weapon_stat:melee_range:+1") else 0
 
 
 #Spear Launcher: the decision counts the +10 band while the EP for it is still spendable.
 static func perk_throw_bonus(attacker: MercenaryData) -> int:
-	if attacker.active_states.has("thrown_extended_range_bonus"):
-		return 0
-	if not has_weapon_passive(attacker, "weapon_stat:thrown_extended_range:+10"):
-		return 0
+	return 10 if _ep_gated_passive(attacker, "thrown_extended_range_bonus", "weapon_stat:thrown_extended_range:+10") else 0
+
+
+#True while the bonus flag is not yet set, the passive is held and the 1 EP it costs is still spendable.
+static func _ep_gated_passive(attacker: MercenaryData, flag: String, token: String) -> bool:
+	if attacker.active_states.has(flag) or not has_weapon_passive(attacker, token):
+		return false
 	var cost := CombatApplicator.state_ep_cost(attacker, 1, "reaction", 0)
-	return 10 if cost > 0 and ExcessPool.available_ep(attacker) >= cost else 0
+	return cost > 0 and ExcessPool.available_ep(attacker) >= cost
 
 
 #A Protean weapon can change grip mid-fight: the misc property or the Multigrip passive.
@@ -491,130 +392,27 @@ static func held_one_handed_by_perk(merc: MercenaryData, weapon: WeaponData) -> 
 	return has_weapon_passive(merc, "weapon_passive:one_handed:allowed")
 
 
-#Weapon library rows; filter matches a trait_category or part of a weapon type key.
-#Action rows are drawable too: choosing a weapon perk may pick either kind.
-static func _weapon_perk_pool(filter: String) -> Array[TraitData]:
-	var pool: Array[TraitData] = []
-	for key: String in DataManager.weapon_trait_library:
-		var key_match: bool = filter == "" or filter == "any" or key.to_lower().contains(filter)
-		for entry: Variant in (DataManager.weapon_trait_library[key] as Array):
-			var td: TraitData = entry as TraitData
-			if td == null:
-				continue
-			if not key_match and td.trait_category.to_lower() != filter:
-				continue
-			pool.append(td)
-	return pool
+#Harness: every combatant gains N weapon perks and 1 armor perk for the gear it holds
+static var force_perk_load: int = 0
 
 
-#Perk rows of the armor library, whose keys are the armor types Light, Medium, Heavy and Bulky.
-static func _armor_perk_pool(filter: String) -> Array[TraitData]:
-	var pool: Array[TraitData] = []
-	for key: String in DataManager.armor_trait_library:
-		if filter != "" and filter != "any" and key.to_lower() != filter:
-			continue
-		for entry: Variant in (DataManager.armor_trait_library[key] as Array):
-			var td: TraitData = entry as TraitData
-			if td == null or td.trait_type != "Perk":
-				continue
-			pool.append(td)
-	return pool
-
-
-#Perk rows tagged into a named group by Traits.tsv column 11 or derived from Weapons.tsv.
-static func _perk_group_pool(group: String) -> Array[TraitData]:
-	var pool: Array[TraitData] = []
-	var key: String = DataManager.normalize_perk_group(group)
-	if key == "":
-		return pool
-	for entry: Variant in (DataManager.perk_group_library.get(key, []) as Array):
-		var td: TraitData = entry as TraitData
-		if td == null or td.trait_type != "Perk":
-			continue
-		pool.append(td)
-	return pool
-
-
-#Draws count group perks the merc lacks, routes each by trait_source and applies its own cell.
-#Weapon and Armor members draw only from gear the merc holds; with no gear yet the token waits.
-static func grant_random_group_perks(merc: MercenaryData, group: String, count: int, token: String,
-		source_name: String = "") -> void:
-	var pool: Array[TraitData] = _perk_group_pool(group)
-	if pool.is_empty():
-		TraitDSL.warn_token_once(token, "has no perk group members")
-		return
-	if _pool_needs_gear(pool) and WeaponArmorPerkLibrary.defer_gear_grant(merc, token, source_name):
-		return
-	var held: Dictionary = {}
-	var sources: Array = [merc.weapon_perks, merc.armor_perks, merc.perks, merc.drawbacks, merc.descriptors]
-	for source: Variant in sources:
-		for entry: Variant in (source as Array):
-			var held_td: TraitData = entry as TraitData
-			if held_td:
-				held[held_td.trait_name] = true
-	var gear_keys: Dictionary = WeaponArmorPerkLibrary.held_gear_keys(merc)
-	var weapon_keys: Array = gear_keys["weapon"]
-	var armor_keys: Array = gear_keys["armor"]
-	var choices: Array[TraitData] = []
-	for td: TraitData in pool:
-		if held.has(td.trait_name):
-			continue
-		if td.trait_source == "Weapon" and not weapon_keys.has(td.gear_key):
-			continue
-		if td.trait_source == "Armor" and not armor_keys.has(td.gear_key):
-			continue
-		choices.append(td)
-	if choices.is_empty():
-		WeaponArmorPerkLibrary.log_grant_skipped(merc, token)
-		return
-	choices.shuffle()
-	for i: int in range(mini(count, choices.size())):
-		var drawn: TraitData = choices[i]
-		match drawn.trait_source:
-			"Weapon":
-				WeaponArmorPerkLibrary.grant_weapon_perk(merc, drawn, source_name)
-				TraitDSL.apply_dsl_to_merc(merc, drawn.effect_dsl, drawn.trait_name)
-			"Armor":
-				WeaponArmorPerkLibrary.grant_armor_perk(merc, drawn, source_name)
-			_:
-				MercGenerator.assign_trait(merc, drawn)
-				TraitDSL.apply_dsl_to_merc(merc, drawn.effect_dsl, drawn.trait_name)
-		merc.group_perk_cells_applied[drawn.trait_name] = true
-
-
-static func _pool_needs_gear(pool: Array[TraitData]) -> bool:
-	for td: TraitData in pool:
-		if td.trait_source == "Weapon" or td.trait_source == "Armor":
-			return true
-	return false
-
-
-#Weapon and armor perk grants draw only from held gear; with no gear yet the token waits.
-static func grant_gear_perks(merc: MercenaryData, kind: String, filter: String, count: int,
-		token: String, source_name: String = "") -> void:
-	var pool: Array[TraitData] = _weapon_perk_pool(filter) if kind == "weapon" else _armor_perk_pool(filter)
-	if pool.is_empty():
-		TraitDSL.warn_token_once(token, "has no perk left to draw")
-		return
-	if WeaponArmorPerkLibrary.defer_gear_grant(merc, token, source_name):
-		return
-	var owned: Array[TraitData] = merc.weapon_perks if kind == "weapon" else merc.armor_perks
-	var keys: Array = WeaponArmorPerkLibrary.held_gear_keys(merc)[kind]
-	var held: Dictionary = {}
-	for td: TraitData in owned:
+#Harness only: fills a combatant with perks for the gear it already holds, once per merc.
+static func load_gear_perks(merc: MercenaryData, count: int) -> Array[String]:
+	var details: Array[String] = []
+	if merc == null or count <= 0 or merc.has_meta("perk_load_done"):
+		return details
+	merc.set_meta("perk_load_done", true)
+	var keys: Dictionary = held_gear_keys(merc)
+	var before_w: int = merc.weapon_perks.size()
+	var before_a: int = merc.armor_perks.size()
+	if not (keys["weapon"] as Array).is_empty():
+		PerkGrants.grant_gear_perks(merc, "weapon", "", count, "harness:perk_load", "harness")
+	if not (keys["armor"] as Array).is_empty():
+		PerkGrants.grant_gear_perks(merc, "armor", "", 1, "harness:perk_load", "harness")
+	for td: TraitData in merc.weapon_perks.slice(before_w):
 		if td != null:
-			held[td.trait_name] = true
-	var choices: Array[TraitData] = []
-	for td: TraitData in pool:
-		if td == null or held.has(td.trait_name) or not keys.has(td.gear_key):
-			continue
-		choices.append(td)
-	if choices.is_empty():
-		WeaponArmorPerkLibrary.log_grant_skipped(merc, token)
-		return
-	choices.shuffle()
-	for i: int in range(mini(count, choices.size())):
-		if kind == "weapon":
-			WeaponArmorPerkLibrary.grant_weapon_perk(merc, choices[i], source_name)
-		else:
-			WeaponArmorPerkLibrary.grant_armor_perk(merc, choices[i], source_name)
+			details.append("weapon %s perk %s" % [td.gear_key, perk_display_name(td)])
+	for td: TraitData in merc.armor_perks.slice(before_a):
+		if td != null:
+			details.append("armor %s perk %s" % [td.gear_key, perk_display_name(td)])
+	return details

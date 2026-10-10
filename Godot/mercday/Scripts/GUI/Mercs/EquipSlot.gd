@@ -4,17 +4,17 @@ class_name EquipSlot extends PanelContainer
 #slot carries the blue bottom edge the Containers column uses.
 
 const EMPTY_TEXT: String = "Empty"
-const EMPTY_COLOR: Color = Color("#5e7699")
-const FILLED_COLOR: Color = Color("#f3ead7")
+const EMPTY_COLOR: Color = GuiColors.MUTED
+const FILLED_COLOR: Color = GuiColors.CREAM
 const CARRIED_CAPTION: String = "Carried"
-const PANEL_FILL: Color = Color("#0e1628")
-const EDGE_COLOR: Color = Color("#2b4f8a")
+const PANEL_FILL: Color = GuiColors.ROW_FILL
+const EDGE_COLOR: Color = GuiColors.BLUE
 const EDGE_PX: int = 3
-const ICON_FILL: Color = Color("#1f3560")
-const ICON_RING: Color = Color("#3b6fb6")
-const EMPTY_FILL: Color = Color("#0a0f1c")
-const EMPTY_RING: Color = Color("#1f3560")
-const HATCH_COLOR: Color = Color("#2b4f8a")
+const ICON_FILL: Color = GuiColors.BLUE_LO
+const ICON_RING: Color = GuiColors.BLUE_HI
+const EMPTY_FILL: Color = GuiColors.INK
+const EMPTY_RING: Color = GuiColors.BLUE_LO
+const HATCH_COLOR: Color = GuiColors.BLUE
 const HATCH_ALPHA: float = 0.5
 const HATCH_STEP: float = 4.0
 const RING_PX: float = 2.0
@@ -42,11 +42,6 @@ func _ready() -> void:
 	_refresh()
 
 
-func set_slot(new_slot: String, new_item: String) -> void:
-	caption = new_slot
-	item_name = new_item
-
-
 func is_filled() -> bool:
 	return item_name != ""
 
@@ -66,14 +61,10 @@ func _refresh() -> void:
 
 
 static func slot_box(with_edge: bool) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = PANEL_FILL
-	box.border_color = EDGE_COLOR
+	var box: StyleBoxFlat = GuiStyle.flat(PANEL_FILL, 0, EDGE_COLOR, 6.0)
 	box.border_width_bottom = EDGE_PX if with_edge else 0
 	box.content_margin_left = 8.0
-	box.content_margin_top = 6.0
 	box.content_margin_right = 8.0
-	box.content_margin_bottom = 6.0
 	return box
 
 

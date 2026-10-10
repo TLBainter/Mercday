@@ -3,8 +3,8 @@ extends Node
 #One tick behind every glow in the GUI: no screen runs its own looping tween. One cycle is 1.6 s,
 #rising over the first 14 percent, back to nothing by 50 percent, then flat until the cycle ends.
 #A whole-item glow (a complete category icon, a met requirement module, a maxed tier icon) sets
-#its brightness to 1 + g * 0.8. A left to right sweep (the chunks of a maxed tier bar) sets chunk
-#i to 1 + sweep[i] * 0.9, so each chunk runs STEP seconds behind the one before it.
+#its brightness through glow_of. A left to right sweep (the chunks of a maxed tier bar) sets chunk
+#i through sweep_of, so each chunk runs STEP seconds behind the one before it.
 #One-shot effects (a reject shake, a tier up or down flash) stay one-off tweens.
 
 signal pulse(g: float, sweep: PackedFloat32Array)
@@ -14,8 +14,10 @@ const STEP := 0.14
 const CHUNKS := 8
 #Cycle fractions: the rise ends at RISE, the fall ends at REST.
 const RISE := 0.14
-const FALL := 0.36
+const FALL := REST - RISE
 const REST := 0.5
+const GLOW_GAIN := 0.8
+const SWEEP_GAIN := 0.9
 
 var g: float = 0.0
 var sweep: PackedFloat32Array = PackedFloat32Array()
@@ -40,6 +42,7 @@ func phase() -> float:
 	return _time / CYCLE
 
 
+#Test hook.
 func set_running(on: bool) -> void:
 	running = on
 
@@ -47,6 +50,18 @@ func set_running(on: bool) -> void:
 func reset() -> void:
 	_time = 0.0
 	_publish()
+
+
+#Brightness of a whole-item glow at pulse value g.
+func glow_of(value: float) -> float:
+	return 1.0 + value * GLOW_GAIN
+
+
+#Brightness of sweep chunk i; flat when no sweep has been published.
+func sweep_of(values: PackedFloat32Array, i: int) -> float:
+	if values.is_empty():
+		return 1.0
+	return 1.0 + values[i % values.size()] * SWEEP_GAIN
 
 
 #The pulse shape at a cycle fraction. Held on the singleton so no caller reaches it statically.

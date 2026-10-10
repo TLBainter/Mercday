@@ -9,23 +9,18 @@ signal finished(entry_id: int)
 const ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Results/ResultRow.tscn")
 const BOLD: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
 const PANEL_BEVEL: float = 4.0
-const BEVEL_HI: Color = Color("#28447a")
-const BEVEL_LO: Color = Color("#111c33")
+const BEVEL_HI: Color = GuiColors.EDGE_HI
+const BEVEL_LO: Color = GuiColors.EDGE_LO
 const SHADOW_OFFSET: Vector2 = Vector2(10.0, 10.0)
 const SHADOW_GROW: float = 4.0
 const DIM_ALPHA: float = 0.6
 const NOTE_SIZE: Vector2 = Vector2(14.0, 18.0)
-const NOTE_BEVEL: float = 2.0
 const NOTE_RING: float = 2.0
-const NOTE_COLOR: Color = Color("#f28c28")
-const NOTE_HI: Color = Color("#ffb266")
-const NOTE_LO: Color = Color("#b85a12")
-const NOTE_INK: Color = Color("#0a0f1c")
 const CONTINUE_BEVEL: float = 3.0
-const GREEN_FILL: Color = Color("#6cc36a")
-const GREEN_HI: Color = Color("#9be29a")
-const GREEN_LO: Color = Color("#3f8a3e")
-const GREEN_FG: Color = Color("#0a0f1c")
+const GREEN_FILL: Color = GuiColors.GREEN
+const GREEN_HI: Color = GuiColors.GREEN_HI
+const GREEN_LO: Color = GuiColors.GREEN_LO
+const GREEN_FG: Color = GuiColors.INK
 const DISABLED_ALPHA: float = 0.4
 const WAIT_TIP: String = "Tallying results..."
 const TITLE_SPACING: int = 1
@@ -37,7 +32,7 @@ const CLOSE_INSET: float = 10.0
 @onready var dock_slot: Control = $Center/Panel/Body/Header/Left/DockSlot
 @onready var title_label: Label = $Center/Panel/Body/Header/Left/Title
 @onready var name_label: Label = $Center/Panel/Body/Header/Left/Name
-@onready var stars: DifficultyStars = $Center/Panel/Body/Header/Left/Stars
+@onready var stars: Stars = $Center/Panel/Body/Header/Left/Stars
 @onready var notes_box: NotesEarned = $Center/Panel/Body/Header/Notes
 @onready var rows_box: VBoxContainer = $Center/Panel/Body/Rows
 @onready var continue_button: BevelButton = $Center/Panel/Body/Foot/Continue
@@ -52,13 +47,18 @@ var _rows: Array[ResultRow] = []
 var _clock: float = 0.0
 var _running: bool = false
 var _flew: bool = false
+var _sounded: bool = false
+#The money cue plays on the first open of a result only; a reopened result flies in silence.
+var _cue_fly: bool = false
 var _done: bool = false
 var _blue: bool = false
 var _styled: bool = false
 
 
 func _ready() -> void:
+	add_child(TimeHold.new())
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	backdrop.color = GuiColors.BACKDROP
 	var spaced: FontVariation = BOLD.duplicate() as FontVariation
 	spaced.spacing_glyph = TITLE_SPACING
 	title_label.add_theme_font_override("font", spaced)
@@ -73,17 +73,19 @@ func _ready() -> void:
 	_apply()
 
 
-#Opens one result: the clock restarts at zero and runs.
+#Opens one result: the clock opens where the timeline says, at zero or at the verdict, and runs.
 func show_result(data: ContractResultData) -> void:
 	_result = data
-	_clock = 0.0
+	_clock = ResultsTimeline.start_time(data)
 	_flew = false
+	_sounded = false
+	_cue_fly = data != null and GameState.is_unclaimed(data.entry_id)
 	_done = false
 	_running = data != null
 	if data != null:
 		name_label.text = data.name
 		name_label.tooltip_text = data.name
-		stars.rating = data.difficulty
+		stars.value = data.difficulty
 		verdict.set_result(data)
 		notes_box.set_result(data)
 	_build_rows()
@@ -180,17 +182,7 @@ func _build_rows() -> void:
 
 
 func _view_of(member: ResultMemberData) -> MercView:
-	if member == null:
-		return null
-	for view: MercView in GameState.roster:
-		if view != null and view.uid == member.uid:
-			return view
-	var merc: MercenaryData = GameState.merc_by_uid(member.uid)
-	if merc == null:
-		return null
-	var state: Dictionary = GameState.merc_status(merc)
-	return MercView.from_merc(merc, int(state["status"]), float(state["hours_left"]),
-			GameState.employment_months(merc))
+	return member.merc_view() if member != null else null
 
 
 func _apply() -> void:
@@ -206,6 +198,9 @@ func _apply() -> void:
 	dim.visible = dim_op > 0.0
 	dim.color = Color(dim.color.r, dim.color.g, dim.color.b, DIM_ALPHA * dim_op)
 	verdict.apply_time(t, overlay.size / 2.0, _dock_rect())
+	if not _sounded and _result != null and t >= ResultsTimeline.VERDICT_IN:
+		_sounded = true
+		GameSfx.play_result(_result)
 	var ready_now: bool = is_finished()
 	_style_continue(_result != null and _result.failed and ResultsTimeline.told(t))
 	continue_button.disabled = not ready_now
@@ -216,7 +211,7 @@ func _apply() -> void:
 	_place_shadow()
 	if not _flew and _result != null and t >= ResultsTimeline.end_time(_result):
 		_flew = true
-		GameState.fly_money(_result.fly_amount())
+		GameState.fly_money(_result.fly_amount(), _cue_fly)
 	note_layer.queue_redraw()
 	panel.queue_redraw()
 
@@ -253,14 +248,8 @@ func _place_shadow() -> void:
 func _on_panel_draw() -> void:
 	var rect := Rect2(Vector2.ZERO, panel.size)
 	var accent: Color = ResultsTimeline.accent_color(_result, _clock)
-	panel.draw_rect(Rect2(rect.position.x, -PANEL_BEVEL, rect.size.x, PANEL_BEVEL), accent)
-	panel.draw_rect(Rect2(rect.position.x, rect.end.y, rect.size.x, PANEL_BEVEL), accent)
-	panel.draw_rect(Rect2(-PANEL_BEVEL, rect.position.y, PANEL_BEVEL, rect.size.y), accent)
-	panel.draw_rect(Rect2(rect.end.x, rect.position.y, PANEL_BEVEL, rect.size.y), accent)
-	panel.draw_rect(Rect2(0.0, 0.0, rect.size.x, PANEL_BEVEL), BEVEL_HI)
-	panel.draw_rect(Rect2(0.0, 0.0, PANEL_BEVEL, rect.size.y), BEVEL_HI)
-	panel.draw_rect(Rect2(0.0, rect.size.y - PANEL_BEVEL, rect.size.x, PANEL_BEVEL), BEVEL_LO)
-	panel.draw_rect(Rect2(rect.size.x - PANEL_BEVEL, 0.0, PANEL_BEVEL, rect.size.y), BEVEL_LO)
+	BevelButton.paint_ring(panel, rect, accent, PANEL_BEVEL)
+	BevelButton.paint_edges(panel, rect, BEVEL_HI, BEVEL_LO, PANEL_BEVEL)
 
 
 #The bonus notes in flight, from the Notes Earned box to the pay cell of every living member.
@@ -276,22 +265,9 @@ func _on_notes_draw() -> void:
 		if row == null:
 			continue
 		var to: Vector2 = _local(row.pay_anchor())
-		var point: Vector2 = ResultsTimeline.note_point(from, to, float(note["progress"]))
-		_draw_note(point - NOTE_SIZE / 2.0)
-
-
-func _draw_note(origin: Vector2) -> void:
-	var rect := Rect2(origin, NOTE_SIZE)
-	note_layer.draw_rect(rect.grow(NOTE_RING), NOTE_INK)
-	note_layer.draw_rect(rect, NOTE_COLOR)
-	note_layer.draw_rect(Rect2(rect.position, Vector2(rect.size.x, NOTE_BEVEL)), NOTE_HI)
-	note_layer.draw_rect(Rect2(rect.position, Vector2(NOTE_BEVEL, rect.size.y)), NOTE_HI)
-	note_layer.draw_rect(Rect2(rect.position.x, rect.end.y - NOTE_BEVEL, rect.size.x,
-			NOTE_BEVEL), NOTE_LO)
-	note_layer.draw_rect(Rect2(rect.end.x - NOTE_BEVEL, rect.position.y, NOTE_BEVEL,
-			rect.size.y), NOTE_LO)
-	Icons.draw(note_layer, "note", origin + ((NOTE_SIZE - Vector2(5.0, 9.0)) / 2.0).floor(), 1,
-		NOTE_INK, true)
+		var point: Vector2 = NoteIcon.arc_point(from, to, float(note["progress"]),
+			ResultsTimeline.NOTE_ARC_PX)
+		NoteIcon.draw_tile(note_layer, Rect2(point - NOTE_SIZE / 2.0, NOTE_SIZE), true, NOTE_RING)
 
 
 func _local(point: Vector2) -> Vector2:

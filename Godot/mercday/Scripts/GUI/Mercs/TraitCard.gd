@@ -1,14 +1,12 @@
-class_name TraitCard extends Button
+class_name TraitCard extends BevelButton
 
 #One card of a trait grid: the trait name over its category, on a panel with a coloured bottom edge.
 #The list panel owns the selection, so a press only reports the index back.
 
-const BG_COLOR: Color = Color("#0e1628")
-const HOVER_COLOR: Color = Color("#15223d")
-const EDGE_PX: int = 4
-const ACTIVE_PX: int = 3
+const BG_COLOR: Color = GuiColors.ROW_FILL
+const HOVER_COLOR: Color = GuiColors.ROW_HOVER
 const MIN_HEIGHT: float = 74.0
-const PAD_Y: float = 20.0
+const ROWS_PAD_Y: float = 20.0
 
 signal card_selected(index: int)
 
@@ -25,7 +23,7 @@ signal card_selected(index: int)
 	set(value):
 		active = value
 		_refresh()
-@export var accent: Color = Color("#f28c28"):
+@export var accent: Color = GuiColors.ORANGE:
 	set(value):
 		accent = value
 		_refresh()
@@ -35,7 +33,21 @@ signal card_selected(index: int)
 @onready var category_label: Label = $Rows/Category
 
 
+func _init() -> void:
+	pressed_fill = HOVER_COLOR
+	click_move = ButtonFx.ClickMove.NONE
+	click_shade = ButtonFx.ClickShade.FLASH
+	hover_move = ButtonFx.HoverMove.NONE
+	hover_shade = ButtonFx.HoverShade.LIGHTEN
+	stay_move = ButtonFx.StayMove.NONE
+	stay_shade = ButtonFx.StayShade.NONE
+	active_move = ButtonFx.HoverMove.NONE
+	active_shade = ButtonFx.HoverShade.RING
+	_paint_accent()
+
+
 func _ready() -> void:
+	super()
 	pressed.connect(_on_pressed)
 	rows.minimum_size_changed.connect(_fit_height)
 	_refresh()
@@ -53,31 +65,22 @@ func _refresh() -> void:
 	name_label.text = trait_name
 	category_label.text = category.to_upper()
 	category_label.add_theme_color_override("font_color", accent)
-	add_theme_stylebox_override("normal", _box(BG_COLOR))
-	add_theme_stylebox_override("hover", _box(HOVER_COLOR))
-	add_theme_stylebox_override("pressed", _box(HOVER_COLOR))
-	add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	_paint_accent()
 	_fit_height()
 
 
 func _fit_height() -> void:
-	custom_minimum_size.y = maxf(MIN_HEIGHT, rows.get_combined_minimum_size().y + PAD_Y)
+	custom_minimum_size.y = maxf(MIN_HEIGHT, rows.get_combined_minimum_size().y + ROWS_PAD_Y)
 
 
-func _box(bg: Color) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = bg
-	box.border_color = accent
-	box.border_width_bottom = EDGE_PX
-	if active:
-		box.border_width_left = ACTIVE_PX
-		box.border_width_top = ACTIVE_PX
-		box.border_width_right = ACTIVE_PX
-	box.content_margin_left = 12.0
-	box.content_margin_top = 10.0
-	box.content_margin_right = 12.0
-	box.content_margin_bottom = 10.0
-	return box
+func fx_active() -> bool:
+	return super() or active
+
+
+#The accent runs along the low band; an active card rings itself in it on both bands.
+func _paint_accent() -> void:
+	var top: Color = accent if active else BG_COLOR.lightened(0.18)
+	set_colors(BG_COLOR, top, accent, text_color)
 
 
 func _on_pressed() -> void:

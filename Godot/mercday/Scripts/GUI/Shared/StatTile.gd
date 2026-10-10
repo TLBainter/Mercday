@@ -4,10 +4,10 @@ class_name StatTile extends PanelContainer
 #row hidden when empty. compact swaps to the tighter padding, drops the sub row and shrinks the
 #value row, matching the payroll tile spec.
 
-const FONT_LABEL: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_SUB: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const STYLE_NORMAL: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/kit_stat_tile.tres")
-const STYLE_COMPACT: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/kit_stat_tile_compact.tres")
+const FONT_LABEL: FontVariation = GuiStyle.SILK
+const FONT_SUB: FontVariation = GuiStyle.BODY
+const STYLE_NORMAL: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/dark_box.tres")
+const STYLE_COMPACT: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/dark_box_compact.tres")
 
 @export var label: String = "":
 	set(value):
@@ -21,7 +21,7 @@ const STYLE_COMPACT: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/ki
 	set(value):
 		value_text = value
 		_refresh()
-@export var value_color: Color = Color("#f3ead7"):
+@export var value_color: Color = GuiColors.CREAM:
 	set(value):
 		value_color = value
 		_refresh()
@@ -54,9 +54,7 @@ func _refresh() -> void:
 	add_theme_stylebox_override("panel", STYLE_COMPACT if compact else STYLE_NORMAL)
 	rows.add_theme_constant_override("separation", 4 if compact else 6)
 	label_text.text = label
-	label_text.add_theme_color_override("font_color", Color("#9cc6ef"))
-	label_text.add_theme_font_override("font", FONT_LABEL)
-	label_text.add_theme_font_size_override("font_size", 9)
+	GuiStyle.paint(label_text, FONT_LABEL, 9, GuiColors.SKY)
 	value_row.amount = amount
 	value_row.text_override = value_text
 	value_row.value_color = value_color
@@ -66,9 +64,7 @@ func _refresh() -> void:
 	value_row.glyph_scale = 2
 	sub_text.text = sub
 	sub_text.visible = sub != "" and not compact
-	sub_text.add_theme_color_override("font_color", Color("#8a97ad"))
-	sub_text.add_theme_font_override("font", FONT_SUB)
-	sub_text.add_theme_font_size_override("font_size", 12)
+	GuiStyle.paint(sub_text, FONT_SUB, 12, GuiColors.DIM_TEXT)
 
 
 #Fills the tile from a row dictionary; every key is optional and keeps the current value.

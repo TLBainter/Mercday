@@ -16,13 +16,7 @@ const START_ORIGIN := Vector2(800.0, 230.0)
 const START_STEP := Vector2(14.0, 12.0)
 const START_COLUMNS: int = 4
 const COUNTER_POINT := Vector2(64.0, 660.0)
-const TILE_COLOR := Color("#f28c28")
-const TILE_HI := Color("#ffb266")
-const TILE_LO := Color("#b85a12")
-const TILE_RING := Color("#0a0f1c")
-const BEVEL_PX: float = 2.0
 const RING_PX: float = 2.0
-const GLYPH_SIZE := Vector2(5.0, 9.0)
 
 var _amount: int = 0
 var _time: float = 0.0
@@ -109,9 +103,7 @@ func note_position(index: int) -> Vector2:
 		var swap: Vector2 = from
 		from = to
 		to = swap
-	var pos: Vector2 = from + (to - from) * p
-	pos.y -= ARC_HEIGHT * sin(PI * p)
-	return pos
+	return NoteIcon.arc_point(from, to, p, ARC_HEIGHT)
 
 
 func note_positions() -> Array[Vector2]:
@@ -154,18 +146,4 @@ func _draw() -> void:
 	for i in NOTE_COUNT:
 		if note_opacity(i) <= 0.0:
 			continue
-		_draw_note(note_position(i))
-
-
-func _draw_note(at: Vector2) -> void:
-	var box := Rect2(at - NOTE_SIZE * 0.5, NOTE_SIZE)
-	var ring := Vector2(RING_PX, RING_PX)
-	draw_rect(Rect2(box.position - ring, box.size + ring * 2.0), TILE_RING)
-	draw_rect(box, TILE_COLOR)
-	draw_rect(Rect2(box.position, Vector2(box.size.x, BEVEL_PX)), TILE_HI)
-	draw_rect(Rect2(box.position, Vector2(BEVEL_PX, box.size.y)), TILE_HI)
-	var low := box.position + Vector2(0.0, box.size.y - BEVEL_PX)
-	draw_rect(Rect2(low, Vector2(box.size.x, BEVEL_PX)), TILE_LO)
-	var right := box.position + Vector2(box.size.x - BEVEL_PX, 0.0)
-	draw_rect(Rect2(right, Vector2(BEVEL_PX, box.size.y)), TILE_LO)
-	Icons.draw(self, "note", box.position + (box.size - GLYPH_SIZE) * 0.5, 1, TILE_RING, true)
+		NoteIcon.draw_tile(self, Rect2(note_position(i) - NOTE_SIZE * 0.5, NOTE_SIZE), true, RING_PX)

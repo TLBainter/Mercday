@@ -1,4 +1,4 @@
-class_name SubscriptionViewer extends Control
+class_name SubscriptionViewer extends TabbedViewer
 
 #The My Mercday window: the Plans tab beside the Customize tab, the page under them and the plan
 #switch modal over both. Without Enterprise the Customize tab wears the lock and its page shows the
@@ -14,32 +14,25 @@ const PLANS_TITLE: String = "Mercday Plans"
 const CUSTOMIZE_TITLE: String = "Customize"
 const CUSTOMIZE_LOCKED_TITLE: String = "Customize (Mercday Enterprise only)"
 
-@onready var tab_row: HBoxContainer = $Margin/Rows/TabRowPad/TabRow
-@onready var plans_tab: TabButton = $Margin/Rows/TabRowPad/TabRow/PlansTab
-@onready var customize_tab: TabButton = $Margin/Rows/TabRowPad/TabRow/CustomizeTab
 @onready var page_panel: PanelContainer = $Margin/Rows/PagePanel
 @onready var plans: PlansPage = $Margin/Rows/PagePanel/PagePad/Pages/PlansPage
 @onready var customize: CustomizePage = $Margin/Rows/PagePanel/PagePad/Pages/CustomizePage
 @onready var switch_dialog: PlanSwitchDialog = $Dialog
+@onready var _pages: Dictionary = {PLANS_TAB: plans, CUSTOMIZE_TAB: customize}
 
-var _tab: StringName = PLANS_TAB
 var _pending_upgrade: String = ""
 var _pending_tier: int = 1
 
 
 func _ready() -> void:
-	for tab: TabButton in [plans_tab, customize_tab]:
-		tab.tab_pressed.connect(_on_tab_pressed)
+	super()
+	GuiStyle.pad_panel(page_panel, -1.0)
 	plans.switch_requested.connect(_on_switch_requested)
 	plans.customize_requested.connect(_on_customize_requested)
 	customize.plans_requested.connect(_on_plans_requested)
 	switch_dialog.confirmed.connect(_on_switch_confirmed)
 	SubscriptionManager.changed.connect(_apply)
 	_apply()
-
-
-func current_tab() -> StringName:
-	return _tab
 
 
 func plans_page() -> PlansPage:
@@ -61,19 +54,9 @@ func tab_title(key: StringName) -> String:
 	return PLANS_TITLE
 
 
-func tab_for(key: StringName) -> TabButton:
-	return customize_tab if key == CUSTOMIZE_TAB else plans_tab
-
-
 func open_tab(key: StringName) -> void:
-	if not TAB_KEYS.has(key):
-		return
-	if _tab == key:
-		_apply()
-		return
-	_tab = key
-	_apply()
-	tab_changed.emit(_tab)
+	if TAB_KEYS.has(key):
+		_open_tab(key)
 
 
 #The HUD hands over a target from a lock: the Plans tab, or one upgrade of the Customize tree.
@@ -97,18 +80,27 @@ func refresh() -> void:
 	customize.refresh()
 
 
+func _open_tab(key: StringName) -> void:
+	var moved: bool = current_tab() != key
+	super(key)
+	if moved:
+		tab_changed.emit(key)
+
+
+func _show_tab(_key: StringName) -> void:
+	_apply()
+
+
 func _apply() -> void:
 	if not is_node_ready():
 		return
-	plans_tab.active = _tab == PLANS_TAB
-	customize_tab.active = _tab == CUSTOMIZE_TAB
-	customize_tab.locked = customize.is_locked()
-	plans_tab.description = PLANS_TITLE
-	customize_tab.description = tab_title(CUSTOMIZE_TAB)
-	plans_tab.tooltip_text = tab_title(PLANS_TAB)
-	customize_tab.tooltip_text = tab_title(CUSTOMIZE_TAB)
-	plans.visible = _tab == PLANS_TAB
-	customize.visible = _tab == CUSTOMIZE_TAB
+	tab_strip.set_locked(CUSTOMIZE_TAB, customize.is_locked())
+	for key: StringName in TAB_KEYS:
+		var tab: TabButton = tab_button(key)
+		tab.description = tab_title(key)
+		tab.tooltip_text = tab_title(key)
+	for key: StringName in _pages:
+		(_pages[key] as Control).visible = key == current_tab()
 
 
 #The tree needs one frame in the tree before it can bring an upgrade into view.
@@ -121,19 +113,13 @@ func _flush_pending() -> void:
 	customize.focus_upgrade(id, tier)
 
 
-func _on_tab_pressed(index: int) -> void:
-	if index < 0 or index >= TAB_KEYS.size():
-		return
-	open_tab(TAB_KEYS[index])
-
-
 func _on_switch_requested(plan: int) -> void:
 	switch_dialog.open_for(plan)
 
 
-func _on_switch_confirmed(plan: int) -> void:
+func _on_switch_confirmed() -> void:
 	refresh()
-	plan_switched.emit(plan)
+	plan_switched.emit(switch_dialog.target_plan())
 
 
 func _on_customize_requested() -> void:

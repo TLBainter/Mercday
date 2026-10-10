@@ -7,9 +7,9 @@ class_name RecommendedList extends VBoxContainer
 const MODULE_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/TraditionModule.tscn")
 const CHIP_SCENE: PackedScene = preload("res://Scenes/GUI/Mercs/SlotChip.tscn")
 
-@onready var caption_label: Label = $Caption
-@onready var scroll: ScrollContainer = $Scroll
-@onready var rows: VBoxContainer = $Scroll/Pad/Rows
+@onready var head: SectionHead = $Head
+@onready var scroll: PaddedScroll = $Scroll
+@onready var rows: VBoxContainer = $Scroll/Pad/Items
 @onready var empty_label: Label = $Empty
 
 var caption: String = ""
@@ -70,10 +70,8 @@ func names() -> Array[String]:
 func _refresh() -> void:
 	if not is_node_ready():
 		return
-	caption_label.text = caption
-	for child: Node in rows.get_children():
-		rows.remove_child(child)
-		child.queue_free()
+	head.caption = caption
+	GuiNodes.clear(rows)
 	for entry: BonusEntry in entries:
 		if entry == null:
 			continue

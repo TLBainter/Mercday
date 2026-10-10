@@ -11,11 +11,12 @@ static func shove(
 		state: BattleState,
 		enhancements: int) -> Array[String]:
 	var lines: Array[String] = []
-	var atk_def := {
+	var contest_def := {
 		"stat_keys": ["dexterity", "vigor"],
 		"formula": "melee_accuracy",
-		"enhancements": enhancements,
 	}
+	var atk_def := contest_def.duplicate()
+	atk_def["enhancements"] = enhancements
 	var atk_result := CheckSystem.make_check(shover, atk_def)
 	var shover_successes: int = atk_result["successes"]
 	var shover_crit: bool = bool(atk_result.get("critical", false))
@@ -24,11 +25,7 @@ static func shove(
 	if _should_accept_shove(shoved, shover, state):
 		lines.append("  %s doesn't resist the shove!" % BattleState.colored_name(shoved, state))
 	else:
-		var def_def := {
-			"stat_keys": ["dexterity", "vigor"],
-			"formula": "melee_accuracy",
-		}
-		var def_result := CheckSystem.make_check(shoved, def_def)
+		var def_result := CheckSystem.make_check(shoved, contest_def)
 		shoved_successes = def_result["successes"]
 		shoved_crit = bool(def_result.get("critical", false))
 	lines.append("  %s shoves %s! [Shover: %d | Shoved: %d successes]" % [
@@ -83,14 +80,21 @@ static func lateral_move(mover: MercenaryData, target: MercenaryData, paces: int
 	if moved <= 0:
 		lines.append("  %s cannot be moved!" % BattleState.colored_name(target, state))
 		return lines
-	var current: Vector2i = push["cell"]
+	lines.append_array(_apply_push(target, old_pos, push["cell"], floor_num, moved, "shifted", state))
+	return lines
+
+
+#Puts the pushed merc on its new cell, resolves a fall, logs the move and fires the shove reactions.
+static func _apply_push(target: MercenaryData, old_pos: Vector2i, current: Vector2i, floor_num: int,
+		moved: int, verb: String, state: BattleState) -> Array[String]:
+	var lines: Array[String] = []
 	state.set_pos3(target, Vector3i(current.x, current.y, floor_num))
 	target.aim_active = false
 	var drop := state.battlefield.surface_height(old_pos) - state.battlefield.surface_height(current)
 	if drop >= 1.0:
-		lines.append_array(CombatApplicator.resolve_fall(target, int(floor(drop)), state))
-	lines.append("  %s is shifted %d Pace%s!  ([color=orange]%d,%d -> %d,%d[/color])" % [
-		BattleState.colored_name(target, state), moved, "s" if moved != 1 else "",
+		lines.append_array(FallResolver.resolve_fall(target, int(floor(drop)), state))
+	lines.append("  %s is %s %d Pace%s!  ([color=orange]%d,%d -> %d,%d[/color])" % [
+		BattleState.colored_name(target, state), verb, moved, "s" if moved != 1 else "",
 		old_pos.x, old_pos.y, current.x, current.y])
 	lines.append_array(WeaponReactiveSystem.fire_shove_seen(target, state))
 	return lines
@@ -186,7 +190,7 @@ static func forcible_move(
 	var lines: Array[String] = []
 	if ConstStates.has_state(shoved, ConstStates.CLIMBING):
 		lines.append("  %s is knocked off the wall!" % BattleState.colored_name(shoved, state))
-		lines.append_array(CombatApplicator.fall_from_wall(shoved, state))
+		lines.append_array(FallResolver.fall_from_wall(shoved, state))
 		return lines
 	if state.battlefield == null:
 		lines.append("  %s is forcibly moved %d Pace%s." % [
@@ -205,20 +209,12 @@ static func forcible_move(
 			BattleState.colored_name(shoved, state), paces_failed])
 		lines.append_array(CombatApplicator.apply_damage(shover, shoved, paces_failed, "Strike", state))
 	if paces_moved > 0:
-		state.set_pos3(shoved, Vector3i(current.x, current.y, floor_num))
-		shoved.aim_active = false
-		var terrain_drop := state.battlefield.surface_height(old_pos) - state.battlefield.surface_height(current)
-		if terrain_drop >= 1.0:
-			lines.append_array(CombatApplicator.resolve_fall(shoved, int(floor(terrain_drop)), state))
-		lines.append("  %s is pushed %d Pace%s!  ([color=orange]%d,%d -> %d,%d[/color])" % [
-			BattleState.colored_name(shoved, state), paces_moved, "s" if paces_moved != 1 else "",
-			old_pos.x, old_pos.y, current.x, current.y])
-		lines.append_array(WeaponReactiveSystem.fire_shove_seen(shoved, state))
+		lines.append_array(_apply_push(shoved, old_pos, current, floor_num, paces_moved, "pushed", state))
 	else:
 		lines.append("  %s cannot be moved!" % BattleState.colored_name(shoved, state))
 	if paces_moved >= ConstStates.knockdown_size(shoved):
 		if not ConstStates.has_state(shoved, ConstStates.DEPOSED):
-			if ConstStates.apply_state(shoved, ConstStates.DEPOSED, null, "", "engine:shove"):
+			if StateCascade.apply_state(shoved, ConstStates.DEPOSED, null, "", "engine:shove"):
 				lines.append("  %s is knocked down and [b]Deposed[/b]!" % BattleState.colored_name(shoved, state))
 			else:
 				lines.append("  %s is immune to Deposed!" % BattleState.colored_name(shoved, state))

@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=39 format=3]
+[gd_resource type="Theme" load_steps=40 format=3]
 
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="SilkscreenRegular"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="SilkscreenBold"]
@@ -6,7 +6,6 @@
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyMedium.tres" id="PixelifyMedium"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifySemiBold.tres" id="PixelifySemiBold"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/PanelRaised.tres" id="PanelRaised"]
-[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/PanelRaisedActive.tres" id="PanelRaisedActive"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/PanelInset.tres" id="PanelInset"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/PanelDeepInset.tres" id="PanelDeepInset"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/ButtonBlueNormal.tres" id="ButtonBlueNormal"]
@@ -26,7 +25,7 @@
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/ScrollTrackH.tres" id="ScrollTrackH"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/ScrollGrabber.tres" id="ScrollGrabber"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/ScrollGrabberHover.tres" id="ScrollGrabberHover"]
-[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/BackdropDim.tres" id="BackdropDim"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/BackdropDim.tres" id="BackdropDim"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/ButtonDangerHover.tres" id="ButtonDangerHover"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/ButtonDangerPressed.tres" id="ButtonDangerPressed"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/ButtonGoHover.tres" id="ButtonGoHover"]
@@ -37,6 +36,8 @@
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/ButtonOrangePressed.tres" id="ButtonOrangePressed"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/TabActive.tres" id="TabActive"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/TabIdle.tres" id="TabIdle"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/confirm_box.tres" id="ConfirmFrame"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/page_content.tres" id="PageFrame"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_tabfocus"]
 
@@ -81,6 +82,7 @@ ItemList/styles/selected_focus = ExtResource("ListItemSelected")
 ItemList/styles/hovered = ExtResource("ListItem")
 
 TooltipPanel/styles/panel = ExtResource("TooltipFrame")
+TooltipLabel/base_type = &"Label"
 TooltipLabel/fonts/font = ExtResource("PixelifyRegular")
 TooltipLabel/font_sizes/font_size = 12
 TooltipLabel/colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
@@ -223,6 +225,36 @@ ListSecondaryLabel/fonts/font = ExtResource("PixelifySemiBold")
 ListSecondaryLabel/font_sizes/font_size = 12
 ListSecondaryLabel/colors/font_color = Color(0.541176, 0.592157, 0.678431, 1)
 
+CaptionLabel/base_type = &"Label"
+CaptionLabel/fonts/font = ExtResource("SilkscreenRegular")
+CaptionLabel/font_sizes/font_size = 10
+CaptionLabel/colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+
+KeySmall/base_type = &"Label"
+KeySmall/fonts/font = ExtResource("SilkscreenRegular")
+KeySmall/font_sizes/font_size = 9
+KeySmall/colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
+
+ValueLabel/base_type = &"Label"
+ValueLabel/fonts/font = ExtResource("PixelifyRegular")
+ValueLabel/font_sizes/font_size = 15
+ValueLabel/colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+
+StrongLabel/base_type = &"Label"
+StrongLabel/fonts/font = ExtResource("SilkscreenBold")
+StrongLabel/font_sizes/font_size = 12
+StrongLabel/colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+
+HeadingLabel/base_type = &"Label"
+HeadingLabel/fonts/font = ExtResource("SilkscreenBold")
+HeadingLabel/font_sizes/font_size = 14
+HeadingLabel/colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
+
+SectionLabel/base_type = &"Label"
+SectionLabel/fonts/font = ExtResource("SilkscreenRegular")
+SectionLabel/font_sizes/font_size = 12
+SectionLabel/colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
+
 InsetPanel/base_type = &"PanelContainer"
 InsetPanel/styles/panel = ExtResource("PanelInset")
 
@@ -231,9 +263,6 @@ RaisedPanel/styles/panel = ExtResource("PanelRaised")
 
 DeepInsetPanel/base_type = &"PanelContainer"
 DeepInsetPanel/styles/panel = ExtResource("PanelDeepInset")
-
-ActivePanel/base_type = &"Panel"
-ActivePanel/styles/panel = ExtResource("PanelRaisedActive")
 
 SubWindowPanel/base_type = &"Panel"
 SubWindowPanel/styles/panel = ExtResource("SubWindowFrame")
@@ -244,5 +273,14 @@ BackdropPanel/styles/panel = ExtResource("BackdropDim")
 PopupBox/base_type = &"PanelContainer"
 PopupBox/styles/panel = ExtResource("PopupFrame")
 
+DropPanel/base_type = &"PanelContainer"
+DropPanel/styles/panel = ExtResource("PopupFrame")
+
 TooltipBox/base_type = &"PanelContainer"
 TooltipBox/styles/panel = ExtResource("TooltipFrame")
+
+ConfirmBox/base_type = &"PanelContainer"
+ConfirmBox/styles/panel = ExtResource("ConfirmFrame")
+
+PageContent/base_type = &"PanelContainer"
+PageContent/styles/panel = ExtResource("PageFrame")

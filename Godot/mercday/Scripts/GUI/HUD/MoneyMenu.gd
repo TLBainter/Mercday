@@ -4,9 +4,9 @@ class_name MoneyMenu extends HBoxContainer
 #set_tint is the MoneyFly hook: the counter tints while a fly runs and clears when it ends.
 #IDLE_COLOR is the BigNumber theme colour, so clearing the tint leaves the palette cream.
 
-const LOSS_COLOR := Color("#e8583f")
-const GAIN_COLOR := Color("#6cc36a")
-const IDLE_COLOR := Color("#f3ead7")
+const LOSS_COLOR: Color = GuiColors.RED
+const GAIN_COLOR: Color = GuiColors.GREEN
+const IDLE_COLOR: Color = GuiColors.CREAM
 
 var _tint: Color = IDLE_COLOR
 
@@ -32,6 +32,16 @@ func _on_roster_changed() -> void:
 func _refresh() -> void:
 	amount_label.text = "%d" % GameState.bank_notes
 	expenses_label.text = "- %d expenses" % GameState.month_expenses()
+	if _tint == IDLE_COLOR:
+		_show_sign()
+
+
+#A balance below zero reads red; at zero or above the label keeps the theme cream.
+func _show_sign() -> void:
+	if GameState.bank_notes < 0:
+		amount_label.add_theme_color_override("font_color", LOSS_COLOR)
+	else:
+		amount_label.remove_theme_color_override("font_color")
 
 
 func text() -> String:
@@ -53,7 +63,7 @@ func clear_tint() -> void:
 	_tint = IDLE_COLOR
 	if amount_label == null:
 		return
-	amount_label.remove_theme_color_override("font_color")
+	_show_sign()
 
 
 func tint() -> Color:

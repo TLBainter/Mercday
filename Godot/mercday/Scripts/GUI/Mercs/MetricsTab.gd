@@ -5,7 +5,7 @@ class_name MetricsTab extends PanelContainer
 
 const METRICS_SCENE: String = "res://Scenes/GUI/Metrics/MetricsViewer.tscn"
 const PLACEHOLDER_TEXT: String = "Metrics viewer not available"
-const EMBED_SIZE: Vector2 = Vector2(680, 520)
+const EMBED_SIZE: Vector2 = Vector2(664, 520)
 const PREVIEW_DAYS: int = 462
 const PREVIEW_MIN_DAYS: int = 30
 
@@ -27,10 +27,15 @@ func set_view(new_view: MercView) -> void:
 	set_uid(new_view.uid if new_view != null else 0)
 
 
+#A merc change re-locks the live embed, so its picks hold until the Merc window is fully closed.
 func set_uid(uid: int) -> void:
 	if uid == merc_uid and _embed != null:
 		return
 	merc_uid = uid
+	if _embed != null and _embed.has_method("lock_to_merc"):
+		_seed_preview()
+		_embed.call("lock_to_merc", merc_uid)
+		return
 	_build()
 
 
@@ -49,9 +54,7 @@ func seeded_preview() -> bool:
 func _build() -> void:
 	if not is_node_ready():
 		return
-	for child: Node in holder.get_children():
-		holder.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(holder)
 	_seed_preview()
 	_embed = _make_embed()
 	holder.add_child(_embed)
@@ -65,7 +68,7 @@ func _build() -> void:
 func _seed_preview() -> void:
 	if merc_uid <= 0:
 		return
-	var uids: Array[int] = _roster_uids()
+	var uids: Array[int] = GameState.roster_uids()
 	if uids.is_empty():
 		return
 	if MetricsHistory.using_preview():
@@ -75,14 +78,6 @@ func _seed_preview() -> void:
 		return
 	MetricsHistory.seed_preview(PREVIEW_DAYS, uids)
 	_preview_uids = uids.duplicate()
-
-
-static func _roster_uids() -> Array[int]:
-	var out: Array[int] = []
-	for row: MercView in GameState.roster:
-		if row != null:
-			out.append(row.uid)
-	return out
 
 
 func _make_embed() -> Control:

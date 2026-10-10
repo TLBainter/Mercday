@@ -1,4 +1,4 @@
-class_name ReviewDialog extends Control
+class_name ReviewDialog extends ModalDialog
 
 #The Review modal for one fine or one captured merc: the crew on the case, the facts, what is owed
 #now, the contract behind it and the location's opinion of the guild. Paying goes through
@@ -6,19 +6,14 @@ class_name ReviewDialog extends Control
 
 signal paid(kind: StringName, id: int)
 signal odd_job_pressed(kind: StringName, id: int)
-signal closed
 
 const CREW_SCENE: PackedScene = preload("res://Scenes/GUI/Legal/LegalCrewModule.tscn")
 const JOB_SCENE: PackedScene = preload("res://Scenes/GUI/Legal/JobProgress.tscn")
 const LOCK_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/FeatureLock.tscn")
 const MOOD_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MoodMeter.tscn")
-const STARS_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/DifficultyStars.tscn")
 
-const BOX_WIDTH: int = 880
 const SIDE_WIDTH: int = 310
 const MAIN_GAP: int = 16
-#The close art sits CLOSE_INSET in from the box corner, 30 px of art past a 3 px outline ring.
-const CLOSE_INSET: float = 10.0
 const ACTION_HEIGHT: int = 40
 const LOCK_FONT: int = 11
 const JOB_CELLS: int = 12
@@ -44,7 +39,6 @@ const CONTRACT_HEAD: String = "Contract"
 const OPINION_HEAD: String = "Relationship"
 const NO_CONTRACT_TEXT: String = "No contract on record."
 const VIEW_CONTRACT_TEXT: String = "View Contract"
-const SHORT_TEXT: String = "Not enough notes."
 const RENEGOTIATE_CAPTION: String = "Renegotiating"
 const BREAKOUT_CAPTION: String = "Break out underway"
 const FINE_CONFIRM_TITLE: String = "Pay this fine?"
@@ -59,9 +53,6 @@ const LAST_ISSUE_TEXT: String = "This clears your last open issue in %s, restori
 var target_kind: StringName = LegalManager.TARGET_FINE
 var target_id: int = -1
 
-var box: PanelContainer = null
-var kicker_label: Label = null
-var title_label: Label = null
 var crew: LegalCrewModule = null
 var facts_box: VBoxContainer = null
 var money_box: VBoxContainer = null
@@ -70,16 +61,14 @@ var actions: HBoxContainer = null
 var pay_button: Button = null
 var odd_button: Button = null
 var odd_lock: FeatureLock = null
-var short_label: Label = null
 var paid_label: Label = null
 var contract_name: Label = null
-var contract_stars: DifficultyStars = null
+var contract_stars: Stars = null
 var contract_reward: NotesLabel = null
 var contract_link: Button = null
 var contract_empty: Label = null
 var mood: MoodMeter = null
 var mood_lock: FeatureLock = null
-var close_button: Button = null
 
 var confirm: ConfirmDialog = null
 
@@ -87,20 +76,10 @@ var _facts: Array[Dictionary] = []
 var _money: Array[Dictionary] = []
 var _pending_pay: bool = false
 
-#The backdrop and the centring frame ModalFrame keeps over the whole viewport.
-var _backdrop: ColorRect = null
-var _centre: CenterContainer = null
-
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	visible = false
+	super()
 	_build()
-	ModalFrame.fit(self, _backdrop, _centre)
-
-
-func _exit_tree() -> void:
-	GuiFrameStack.remove(self)
 
 
 func set_confirm(dialog: ConfirmDialog) -> void:
@@ -132,19 +111,6 @@ func open_capture(id: int) -> void:
 	_open()
 
 
-func close() -> void:
-	if not visible:
-		return
-	visible = false
-	GuiFrameStack.remove(self)
-	closed.emit()
-
-
-func press_close() -> void:
-	if close_button != null and close_button.visible:
-		close_button.pressed.emit()
-
-
 func press_pay() -> void:
 	if pay_button != null and pay_button.visible and not pay_button.disabled:
 		pay_button.pressed.emit()
@@ -171,14 +137,6 @@ func fine_entry() -> FineData:
 
 func capture_entry() -> CaptureData:
 	return null if is_fine() else LegalManager.capture(target_id)
-
-
-func kicker_text() -> String:
-	return kicker_label.text if kicker_label != null else ""
-
-
-func title_text() -> String:
-	return title_label.text if title_label != null else ""
 
 
 func fact_count() -> int:
@@ -254,73 +212,41 @@ func contract_entry_id() -> int:
 
 
 func contract_view() -> ContractView:
-	var wanted: int = contract_entry_id()
-	if wanted < 0:
-		return null
-	for view: ContractView in GameState.contracts:
-		if view.entry_id == wanted:
-			return view
-	return null
+	return GameState.contract_view(contract_entry_id())
 
 
 func crew_module() -> LegalCrewModule:
 	return crew
 
 
-func close_visible() -> bool:
-	return close_button != null and close_button.visible
-
-
 func _open() -> void:
-	_build()
 	_refresh()
-	visible = true
-	ModalFrame.fit(self, _backdrop, _centre)
-	GuiFrameStack.push(self)
+	present()
 
 
+#The body rows go between the head and the hidden button row the base keeps last.
 func _build() -> void:
-	if box != null:
-		return
-	_backdrop = LegalStyle.backdrop()
-	add_child(_backdrop)
-	_centre = CenterContainer.new()
-	_centre.name = "Centre"
-	_centre.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_centre)
-	box = PanelContainer.new()
-	box.name = "Box"
-	box.custom_minimum_size = Vector2(BOX_WIDTH, 0)
-	box.add_theme_stylebox_override(&"panel", LegalStyle.dialog_style())
-	_centre.add_child(box)
-	var rows: VBoxContainer = LegalStyle.vbox(10)
-	rows.name = "Rows"
-	box.add_child(rows)
-	kicker_label = LegalStyle.text("", 12, LegalStyle.SKY)
-	rows.add_child(kicker_label)
-	title_label = LegalStyle.pixel("", 18, LegalStyle.CREAM, true)
-	rows.add_child(title_label)
-	rows.add_child(LegalStyle.divider(LegalStyle.BLUE, 2))
-	var main: HBoxContainer = LegalStyle.hbox(MAIN_GAP)
+	rows.add_child(LegalStyle.divider(GuiColors.BLUE_LO, 2))
+	var main: HBoxContainer = GuiStyle.hbox(MAIN_GAP)
 	main.name = "Main"
 	main.add_child(_left_column())
 	main.add_child(_right_column())
 	rows.add_child(main)
-	_add_close()
+	rows.move_child(button_row, rows.get_child_count() - 1)
 
 
 func _left_column() -> VBoxContainer:
-	var left: VBoxContainer = LegalStyle.vbox(10)
+	var left: VBoxContainer = GuiStyle.vbox(10)
 	left.name = "Left"
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	crew = CREW_SCENE.instantiate() as LegalCrewModule
 	crew.name = "Crew"
 	left.add_child(crew)
-	facts_box = LegalStyle.vbox(4)
+	facts_box = GuiStyle.vbox(4)
 	facts_box.name = "Facts"
 	left.add_child(facts_box)
-	left.add_child(LegalStyle.divider(LegalStyle.BLUE, 2))
-	money_box = LegalStyle.vbox(4)
+	left.add_child(LegalStyle.divider(GuiColors.BLUE_LO, 2))
+	money_box = GuiStyle.vbox(4)
 	money_box.name = "Money"
 	left.add_child(money_box)
 	job_bar = JOB_SCENE.instantiate() as JobProgress
@@ -328,23 +254,20 @@ func _left_column() -> VBoxContainer:
 	job_bar.cells = JOB_CELLS
 	left.add_child(job_bar)
 	left.add_child(_action_row())
-	short_label = LegalStyle.text(SHORT_TEXT, 11, LegalStyle.RED)
-	short_label.name = "Short"
-	left.add_child(short_label)
-	paid_label = LegalStyle.pixel("", 12, LegalStyle.GREEN, true)
+	paid_label = GuiStyle.label("", GuiStyle.SILK_BOLD, 12, GuiColors.GREEN)
 	paid_label.name = "Paid"
 	left.add_child(paid_label)
 	return left
 
 
 func _action_row() -> HBoxContainer:
-	actions = LegalStyle.hbox(10)
+	actions = GuiStyle.hbox(10)
 	actions.name = "Actions"
 	var odd_holder: Control = Control.new()
 	odd_holder.name = "OddHolder"
 	odd_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	odd_holder.custom_minimum_size = Vector2(0, ACTION_HEIGHT)
-	odd_button = LegalStyle.button(RENEGOTIATE_TEXT, &"ButtonOrange", ACTION_HEIGHT)
+	odd_button = LegalStyle.button(RENEGOTIATE_TEXT, &"orange", ACTION_HEIGHT)
 	odd_button.name = "OddJob"
 	odd_button.set_anchors_preset(Control.PRESET_FULL_RECT)
 	odd_button.pressed.connect(_on_odd_job)
@@ -364,7 +287,7 @@ func _action_row() -> HBoxContainer:
 	odd_lock.font_size = LOCK_FONT
 	odd_holder.add_child(odd_lock)
 	actions.add_child(odd_holder)
-	pay_button = LegalStyle.button(PAY_FINE_TEXT, &"ButtonGo", ACTION_HEIGHT)
+	pay_button = LegalStyle.button(PAY_FINE_TEXT, &"go", ACTION_HEIGHT)
 	pay_button.name = "Pay"
 	pay_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pay_button.pressed.connect(_on_pay)
@@ -373,29 +296,29 @@ func _action_row() -> HBoxContainer:
 
 
 func _right_column() -> VBoxContainer:
-	var right: VBoxContainer = LegalStyle.vbox(10)
+	var right: VBoxContainer = GuiStyle.vbox(10)
 	right.name = "Right"
 	right.custom_minimum_size = Vector2(SIDE_WIDTH, 0)
 	right.size_flags_horizontal = Control.SIZE_SHRINK_END
 	right.add_child(LegalStyle.head(CONTRACT_HEAD))
-	contract_name = LegalStyle.pixel("", 12, LegalStyle.CREAM, true)
+	contract_name = GuiStyle.label("", GuiStyle.SILK_BOLD, 12, GuiColors.CREAM)
 	contract_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(contract_name)
-	contract_stars = STARS_SCENE.instantiate() as DifficultyStars
+	contract_stars = Stars.new()
 	contract_stars.name = "Stars"
-	contract_stars.star_size = 2
+	contract_stars.star_px = 2
 	right.add_child(contract_stars)
-	contract_reward = LegalStyle.notes(0, 13, LegalStyle.CREAM)
+	contract_reward = GuiStyle.notes(0, 13, GuiColors.CREAM)
 	contract_reward.prefix = "Reward "
 	right.add_child(contract_reward)
-	contract_link = LegalStyle.button(VIEW_CONTRACT_TEXT, &"ButtonNeutral", 30)
+	contract_link = LegalStyle.button(VIEW_CONTRACT_TEXT, &"neutral", 30)
 	contract_link.name = "ViewContract"
 	contract_link.pressed.connect(_on_view_contract)
 	right.add_child(contract_link)
-	contract_empty = LegalStyle.text(NO_CONTRACT_TEXT, 11, LegalStyle.MUTED)
+	contract_empty = GuiStyle.label(NO_CONTRACT_TEXT, GuiStyle.BODY, 11, GuiColors.MUTED)
 	contract_empty.name = "NoContract"
 	right.add_child(contract_empty)
-	right.add_child(LegalStyle.divider(LegalStyle.BLUE, 2))
+	right.add_child(LegalStyle.divider(GuiColors.BLUE_LO, 2))
 	right.add_child(LegalStyle.head(OPINION_HEAD))
 	mood = MOOD_SCENE.instantiate() as MoodMeter
 	mood.name = "Mood"
@@ -413,30 +336,7 @@ func _right_column() -> VBoxContainer:
 	return right
 
 
-func _add_close() -> void:
-	var overlay := Control.new()
-	overlay.name = "Overlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	close_button = CloseX.make(CloseX.SCALE_WINDOW)
-	close_button.name = "CloseX"
-	close_button.tooltip_text = "Close"
-	close_button.pressed.connect(close)
-	overlay.add_child(close_button)
-	add_child(overlay)
-	_place_close()
-
-
-func _place_close() -> void:
-	if close_button == null or box == null:
-		return
-	close_button.global_position = box.global_position + Vector2(
-		box.size.x - CLOSE_INSET - 30.0 - 3.0, CLOSE_INSET - 3.0)
-
-
 func _refresh() -> void:
-	if box == null:
-		return
 	_write_head()
 	_write_crew()
 	_write_facts()
@@ -445,18 +345,17 @@ func _refresh() -> void:
 	_write_actions()
 	_write_contract()
 	_write_opinion()
-	_place_close()
 
 
 #The kicker names the crime; the title names the place for a fine and the merc for a capture.
 func _write_head() -> void:
 	var lead: String = FINE_KICKER if is_fine() else CAPTURE_KICKER
-	kicker_label.text = lead + LegalManager.LABEL_JOIN + _crime()
+	kicker = lead + LegalManager.LABEL_JOIN + _crime()
 	if is_fine():
-		title_label.text = LegalStyle.location_name(_where())
+		title = LegalStyle.location_name(_where())
 		return
 	var c: CaptureData = capture_entry()
-	title_label.text = LegalStyle.merc_name(c.merc_uid) if c != null else ""
+	title = LegalStyle.merc_name(c.merc_uid) if c != null else ""
 
 
 func _crime() -> String:
@@ -468,22 +367,20 @@ func _crime() -> String:
 
 
 func _write_crew() -> void:
-	var rows: Array[Dictionary] = []
+	var members: Array[Dictionary] = []
 	var f: FineData = fine_entry()
 	if f != null:
 		for uid: int in f.mercs:
-			rows.append({"uid": uid, "role": CREW_ROLE})
+			members.append({"uid": uid, "role": CREW_ROLE})
 	var c: CaptureData = capture_entry()
 	if c != null:
-		rows.append({"uid": c.merc_uid, "role": HELD_ROLE})
-	crew.set_members(rows)
+		members.append({"uid": c.merc_uid, "role": HELD_ROLE})
+	crew.set_members(members)
 
 
 func _write_facts() -> void:
 	_facts = _fact_rows()
-	for child: Node in facts_box.get_children():
-		facts_box.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(facts_box)
 	for row: Dictionary in _facts:
 		facts_box.add_child(_fact_line(row))
 
@@ -494,45 +391,43 @@ func _fact_rows() -> Array[Dictionary]:
 	var f: FineData = fine_entry()
 	if f != null:
 		out.append({"label": "Where", "value": LegalStyle.location_name(f.location_id),
-			"tint": LegalStyle.CREAM})
+			"tint": GuiColors.CREAM})
 		out.append({"label": "Issued", "value": GuiDates.day_text(f.day_issued),
-			"tint": LegalStyle.CREAM})
+			"tint": GuiColors.CREAM})
 		out.append({"label": "Due", "value": GuiDates.day_text(f.day_due),
-			"tint": LegalStyle.CREAM})
+			"tint": GuiColors.CREAM})
 		var late: int = maxi(0, today - f.day_due)
 		out.append({"label": "Past Due", "value": GuiDates.days_text(late),
-			"tint": LegalStyle.RED if late > 0 else LegalStyle.CREAM})
+			"tint": GuiColors.RED if late > 0 else GuiColors.CREAM})
 		return out
 	var c: CaptureData = capture_entry()
 	if c == null:
 		return out
 	out.append({"label": "Held At", "value": LegalStyle.location_name(c.location_id),
-		"tint": LegalStyle.CREAM})
+		"tint": GuiColors.CREAM})
 	out.append({"label": "Captured", "value": GuiDates.day_text(c.day_captured),
-		"tint": LegalStyle.CREAM})
+		"tint": GuiColors.CREAM})
 	out.append({"label": "Time Served", "value": GuiDates.days_text(c.served(today)),
-		"tint": LegalStyle.CREAM})
+		"tint": GuiColors.CREAM})
 	out.append({"label": "Time Remaining", "value": "%s of %s" % [
 		GuiDates.days_text(c.remaining(today)), GuiDates.days_text(c.sentence_days)],
-		"tint": LegalStyle.AMBER})
+		"tint": GuiColors.AMBER})
 	return out
 
 
 func _fact_line(row: Dictionary) -> HBoxContainer:
-	var line: HBoxContainer = LegalStyle.hbox(8)
-	var label: Label = LegalStyle.text(str(row.get("label", "")), 12, LegalStyle.SKY)
+	var line: HBoxContainer = GuiStyle.hbox(8)
+	var label: Label = GuiStyle.label(str(row.get("label", "")), GuiStyle.BODY, 12, GuiColors.SKY)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(label)
-	var tint: Color = row.get("tint", LegalStyle.CREAM) as Color
-	line.add_child(LegalStyle.pixel(str(row.get("value", "")), 11, tint, true))
+	var tint: Color = row.get("tint", GuiColors.CREAM) as Color
+	line.add_child(GuiStyle.label(str(row.get("value", "")), GuiStyle.SILK_BOLD, 11, tint))
 	return line
 
 
 func _write_money() -> void:
 	_money = _money_rows()
-	for child: Node in money_box.get_children():
-		money_box.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(money_box)
 	for i: int in range(_money.size()):
 		money_box.add_child(_money_line(_money[i], i == _money.size() - 1))
 
@@ -559,15 +454,19 @@ func _money_rows() -> Array[Dictionary]:
 
 
 func _money_line(row: Dictionary, total: bool) -> HBoxContainer:
-	var line: HBoxContainer = LegalStyle.hbox(8)
-	var tint: Color = LegalStyle.ORANGE if total else LegalStyle.SKY
+	var line: HBoxContainer = GuiStyle.hbox(8)
+	var amount: int = int(row.get("amount", 0))
+	var short: bool = total and not GameState.can_afford(amount)
+	var tint: Color = (GuiColors.RED if short else GuiColors.CREAM) if total else GuiColors.SKY
 	var font_size: int = 12 if total else 11
-	var label: Label = LegalStyle.pixel(str(row.get("label", "")), font_size, tint, total)
+	var label: Label = GuiStyle.label(str(row.get("label", "")),
+		GuiStyle.SILK_BOLD if total else GuiStyle.SILK, font_size, tint)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(label)
-	var value: int = int(row.get("amount", 0))
-	line.add_child(LegalStyle.notes(value, 15 if total else 12,
-		LegalStyle.ORANGE if total else LegalStyle.CREAM, total))
+	var value: NotesLabel = GuiStyle.notes(amount, 15 if total else 12,
+		GuiColors.RED if short else GuiColors.CREAM)
+	value.bold = total
+	line.add_child(value)
 	return line
 
 
@@ -597,7 +496,6 @@ func _write_actions() -> void:
 	var locked: bool = odd_lock.locked()
 	odd_button.visible = not locked
 	odd_lock.visible = locked
-	short_label.visible = not settled and not afford
 	paid_label.visible = settled
 	if settled:
 		paid_label.text = "Paid on %s" % GuiDates.day_text(f.day_paid)
@@ -614,7 +512,7 @@ func _write_contract() -> void:
 	if not known:
 		return
 	contract_name.text = view.name
-	contract_stars.rating = view.difficulty
+	contract_stars.value = view.difficulty
 	contract_reward.amount = view.reward
 
 
@@ -642,7 +540,7 @@ func _on_pay() -> void:
 		return
 	_pending_pay = true
 	var what: String = "fine" if is_fine() else "bail"
-	var amount: String = NotesLabel.format_amount(total_due())
+	var amount: String = TransactionData.grouped(total_due())
 	confirm.ask_rich(_confirm_title(), "Pay the %s of %s notes now?" % [what, amount],
 		PAY_CTA % amount, _rich_rows(), ConfirmDialog.Kind.GO)
 
@@ -734,15 +632,8 @@ func _on_cancelled() -> void:
 
 
 func _on_confirm_shown() -> void:
-	if close_button != null:
-		close_button.visible = false
+	close_button.visible = false
 
 
 func _on_confirm_hidden() -> void:
-	if close_button != null:
-		close_button.visible = true
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if GuiFrameStack.consume_escape(self, event):
-		close()
+	close_button.visible = true

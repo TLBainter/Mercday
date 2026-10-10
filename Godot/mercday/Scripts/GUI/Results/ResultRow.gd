@@ -5,12 +5,12 @@ class_name ResultRow extends PanelContainer
 
 const PORTRAIT_PX: float = 48.0
 const PORTRAIT_RING: float = 2.0
-const PORTRAIT_RING_COLOR: Color = Color("#3b6fb6")
+const PORTRAIT_RING_COLOR: Color = GuiColors.BLUE_HI
 const STRIPE_PX: float = 4.0
-const STRIPE_A: Color = Color("#1f3560")
-const STRIPE_B: Color = Color("#0e1628")
-const BAR_TRACK: Color = Color("#0a0f1c")
-const BAR_RING: Color = Color("#1f3560")
+const STRIPE_A: Color = GuiColors.BLUE_LO
+const STRIPE_B: Color = GuiColors.ROW_FILL
+const BAR_TRACK: Color = GuiColors.INK
+const BAR_RING: Color = GuiColors.BLUE_LO
 const BAR_RING_PX: float = 2.0
 const XP_SEGMENT: float = 16.0
 const XP_SEGMENT_GAP: float = 2.0
@@ -20,14 +20,14 @@ const XP_HI_PX: float = 3.0
 const RES_HI_PX: float = 2.0
 const RES_LO: Color = Color(0.0, 0.0, 0.0, 0.3)
 const LEVEL_BEVEL: float = 2.0
-const LEVEL_HI: Color = Color("#ffb266")
-const LEVEL_LO: Color = Color("#b85a12")
+const LEVEL_HI: Color = GuiColors.ORANGE_HI
+const LEVEL_LO: Color = GuiColors.ORANGE_LO
 const MVP_HI: Color = Color("#fff08a")
 const MVP_LO: Color = Color("#b89a1a")
 const MVP_BEVEL: float = 2.0
-const HP_COLOR: Color = Color("#e8583f")
-const EP_COLOR: Color = Color("#6cc36a")
-const MP_COLOR: Color = Color("#5aa6e8")
+const HP_COLOR: Color = GuiColors.RED
+const EP_COLOR: Color = GuiColors.GREEN
+const MP_COLOR: Color = GuiColors.LIGHT_BLUE
 const ROLE_JOIN: String = " - "
 const BAR_KEYS: Array[String] = ["HP", "EP", "MP"]
 
@@ -124,25 +124,35 @@ func apply_time(t: float) -> void:
 	var pay_color: Color = ResultsTimeline.pay_color(_member, _index, t, _failed)
 	pay_label.text = ResultsTimeline.pay_text(_member, _index, t, _failed)
 	pay_label.add_theme_color_override("font_color", pay_color)
-	pay_glyph.texture = ResultsGlyphs.note(pay_color)
+	pay_glyph.texture = CrewGlyphs.note(pay_color)
 	_ring = ResultsTimeline.ring_color(_member, t, _failed)
 	_style.border_color = _ring
 	_apply_filter(t)
 	var shown: bool = ResultsTimeline.fates_on(t) and fate_overlay.texture != null
 	fate_overlay.visible = shown
+	var badge_on: bool = _badge_on()
+	if portrait.show_badge != badge_on:
+		portrait.show_badge = badge_on
 	if shown:
 		var pop: float = ResultsTimeline.fate_scale(t)
 		fate_overlay.scale = Vector2(pop, pop)
 	mvp_label.visible = ResultsTimeline.mvp_on(_member, t, _failed)
 	for row: Dictionary in _bars:
-		var key: String = String(row["key"])
-		var value: float = ResultsTimeline.bar_value(_before(key), _current(key), t)
-		row["fill"] = clampf(value / maxf(1.0, float(_maximum(key))), 0.0, 1.0)
-		(row["value"] as Label).text = "%d/%d" % [int(round(value)), _maximum(key)]
+		var stats: Vector3i = _stats(String(row["key"]))
+		var value: float = ResultsTimeline.bar_value(stats.z, stats.x, t)
+		row["fill"] = clampf(value / maxf(1.0, float(stats.y)), 0.0, 1.0)
+		(row["value"] as Label).text = "%d/%d" % [int(round(value)), stats.y]
 		(row["bar"] as Control).queue_redraw()
 	xp_bar.queue_redraw()
 	level_label.queue_redraw()
 	plate.queue_redraw()
+
+
+#A row with a fate overlay shows no badge.
+func _badge_on() -> bool:
+	if _member == null:
+		return true
+	return fate_overlay.texture == null
 
 
 #The centre of the pay cell in global coordinates: the flying notes land here.
@@ -188,6 +198,10 @@ func mvp_shown() -> bool:
 
 func overlay_shown() -> bool:
 	return fate_overlay.visible
+
+
+func badge_id() -> String:
+	return portrait.badge_id()
 
 
 func portrait_shown() -> bool:
@@ -246,34 +260,14 @@ func _collect_bars() -> void:
 		bar.draw.connect(_on_res_draw.bind(row))
 
 
-func _current(key: String) -> int:
+#Now, max and the value before the contract for one bar, read off the member fields named after
+#its key (HP reads hp and hp_before).
+func _stats(key: String) -> Vector3i:
 	if _member == null:
-		return 0
-	if key == "HP":
-		return _member.hp.x
-	if key == "EP":
-		return _member.ep.x
-	return _member.mp.x
-
-
-func _maximum(key: String) -> int:
-	if _member == null:
-		return 0
-	if key == "HP":
-		return _member.hp.y
-	if key == "EP":
-		return _member.ep.y
-	return _member.mp.y
-
-
-func _before(key: String) -> int:
-	if _member == null:
-		return 0
-	if key == "HP":
-		return _member.hp_before
-	if key == "EP":
-		return _member.ep_before
-	return _member.mp_before
+		return Vector3i.ZERO
+	var field: String = key.to_lower()
+	var pool: Vector2i = _member.get(field)
+	return Vector3i(pool.x, pool.y, int(_member.get(field + "_before")))
 
 
 func _on_portrait_draw() -> void:
@@ -289,7 +283,8 @@ func _on_portrait_draw() -> void:
 		])
 		plate.draw_colored_polygon(points, STRIPE_A)
 		offset += STRIPE_PX * 2.0
-	_frame(plate, Rect2(0.0, 0.0, side, side), PORTRAIT_RING, PORTRAIT_RING_COLOR)
+	BevelButton.paint_edges(plate, Rect2(0.0, 0.0, side, side), PORTRAIT_RING_COLOR,
+		PORTRAIT_RING_COLOR, PORTRAIT_RING)
 
 
 func _on_xp_draw() -> void:
@@ -298,16 +293,16 @@ func _on_xp_draw() -> void:
 	var width: float = rect.size.x * clampf(_fill, 0.0, 1.0)
 	if width > 0.0:
 		xp_bar.draw_rect(Rect2(0.0, 0.0, width, rect.size.y), _fill_color)
-		xp_bar.draw_rect(Rect2(0.0, 0.0, width, XP_HI_PX), XP_HI)
-		xp_bar.draw_rect(Rect2(0.0, rect.size.y - XP_HI_PX, width, XP_HI_PX), XP_LO)
+		BevelButton.paint_edges(xp_bar, Rect2(0.0, 0.0, width, rect.size.y), XP_HI, XP_LO, XP_HI_PX,
+			BevelButton.BEVEL_TOP | BevelButton.BEVEL_BOTTOM)
 	var x: float = XP_SEGMENT - XP_SEGMENT_GAP
 	while x < rect.size.x:
 		xp_bar.draw_rect(Rect2(x, 0.0, XP_SEGMENT_GAP, rect.size.y), BAR_TRACK)
 		x += XP_SEGMENT
-	_frame(xp_bar, rect, BAR_RING_PX, BAR_RING)
-	_outside(xp_bar, rect, BAR_RING_PX, BAR_TRACK)
+	BevelButton.paint_edges(xp_bar, rect, BAR_RING, BAR_RING, BAR_RING_PX)
+	BevelButton.paint_ring(xp_bar, rect, BAR_TRACK, BAR_RING_PX)
 	if _glow:
-		_outside(xp_bar, rect, BAR_RING_PX, MVP_HI)
+		BevelButton.paint_ring(xp_bar, rect, MVP_HI, BAR_RING_PX)
 
 
 func _on_res_draw(row: Dictionary) -> void:
@@ -317,40 +312,18 @@ func _on_res_draw(row: Dictionary) -> void:
 	var width: float = rect.size.x * clampf(float(row["fill"]), 0.0, 1.0)
 	if width > 0.0:
 		bar.draw_rect(Rect2(0.0, 0.0, width, rect.size.y), row["color"] as Color)
-		bar.draw_rect(Rect2(0.0, 0.0, width, RES_HI_PX), XP_HI)
-		bar.draw_rect(Rect2(0.0, rect.size.y - RES_HI_PX, width, RES_HI_PX), RES_LO)
-	_frame(bar, rect, BAR_RING_PX, BAR_RING)
+		BevelButton.paint_edges(bar, Rect2(0.0, 0.0, width, rect.size.y), XP_HI, RES_LO, RES_HI_PX,
+			BevelButton.BEVEL_TOP | BevelButton.BEVEL_BOTTOM)
+	BevelButton.paint_edges(bar, rect, BAR_RING, BAR_RING, BAR_RING_PX)
 
 
 func _on_level_draw() -> void:
 	var rect := Rect2(Vector2.ZERO, level_label.size)
-	level_label.draw_rect(Rect2(0.0, 0.0, rect.size.x, LEVEL_BEVEL), LEVEL_HI)
-	level_label.draw_rect(Rect2(0.0, 0.0, LEVEL_BEVEL, rect.size.y), LEVEL_HI)
-	level_label.draw_rect(Rect2(0.0, rect.size.y - LEVEL_BEVEL, rect.size.x, LEVEL_BEVEL),
-			LEVEL_LO)
-	level_label.draw_rect(Rect2(rect.size.x - LEVEL_BEVEL, 0.0, LEVEL_BEVEL, rect.size.y),
-			LEVEL_LO)
+	BevelButton.paint_edges(level_label, rect, LEVEL_HI, LEVEL_LO, LEVEL_BEVEL)
 	if _glow:
-		_outside(level_label, rect, LEVEL_BEVEL, MVP_HI)
+		BevelButton.paint_ring(level_label, rect, MVP_HI, LEVEL_BEVEL)
 
 
 func _on_mvp_draw() -> void:
 	var rect := Rect2(Vector2.ZERO, mvp_label.size)
-	mvp_label.draw_rect(Rect2(0.0, 0.0, rect.size.x, MVP_BEVEL), MVP_HI)
-	mvp_label.draw_rect(Rect2(0.0, 0.0, MVP_BEVEL, rect.size.y), MVP_HI)
-	mvp_label.draw_rect(Rect2(0.0, rect.size.y - MVP_BEVEL, rect.size.x, MVP_BEVEL), MVP_LO)
-	mvp_label.draw_rect(Rect2(rect.size.x - MVP_BEVEL, 0.0, MVP_BEVEL, rect.size.y), MVP_LO)
-
-
-func _frame(item: CanvasItem, rect: Rect2, thick: float, color: Color) -> void:
-	item.draw_rect(Rect2(rect.position.x, rect.position.y, rect.size.x, thick), color)
-	item.draw_rect(Rect2(rect.position.x, rect.end.y - thick, rect.size.x, thick), color)
-	item.draw_rect(Rect2(rect.position.x, rect.position.y, thick, rect.size.y), color)
-	item.draw_rect(Rect2(rect.end.x - thick, rect.position.y, thick, rect.size.y), color)
-
-
-func _outside(item: CanvasItem, rect: Rect2, thick: float, color: Color) -> void:
-	item.draw_rect(Rect2(rect.position.x, rect.position.y - thick, rect.size.x, thick), color)
-	item.draw_rect(Rect2(rect.position.x, rect.end.y, rect.size.x, thick), color)
-	item.draw_rect(Rect2(rect.position.x - thick, rect.position.y, thick, rect.size.y), color)
-	item.draw_rect(Rect2(rect.end.x, rect.position.y, thick, rect.size.y), color)
+	BevelButton.paint_edges(mvp_label, rect, MVP_HI, MVP_LO, MVP_BEVEL)

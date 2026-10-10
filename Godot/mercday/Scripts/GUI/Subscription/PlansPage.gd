@@ -50,14 +50,6 @@ func _build_cards() -> void:
 		entry.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		cards_box.add_child(entry)
 		entry.plan_id = String(key)
-		entry.switch_requested.connect(_on_card_switch)
-		entry.customize_requested.connect(_on_card_customize)
+		entry.switch_requested.connect(switch_requested.emit)
+		entry.customize_requested.connect(customize_requested.emit)
 		_cards.append(entry)
-
-
-func _on_card_switch(plan: int) -> void:
-	switch_requested.emit(plan)
-
-
-func _on_card_customize() -> void:
-	customize_requested.emit()

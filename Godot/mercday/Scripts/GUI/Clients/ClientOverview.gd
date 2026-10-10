@@ -9,23 +9,20 @@ signal stock_pressed(company_id: int)
 signal take_me_there(target: Dictionary)
 
 const STAT_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/StatTile.tscn")
-const STARS_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/DifficultyStars.tscn")
-const FACE_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MoodFace.tscn")
+const MOOD_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/MoodMeter.tscn")
 const ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Clients/ClientRecentRow.tscn")
 const CELL_STYLE: StyleBoxFlat = preload("res://Resources/GUI/Theme/Styles/client_stat_cell.tres")
-const LABEL_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const DASH_FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
+const LABEL_FONT: FontVariation = GuiStyle.SILK
+const DASH_FONT: FontVariation = GuiStyle.BODY
 const OUTLINE_PX: float = 4.0
 const BEVEL_PX: float = 4.0
-const BEVEL_HI: Color = Color("#28447a")
-const BEVEL_LO: Color = Color("#111c33")
-const MUTED: Color = Color("#9cc6ef")
-const CREAM: Color = Color("#f3ead7")
-const GREEN: Color = Color("#6cc36a")
-const RED: Color = Color("#e8583f")
-const YELLOW: Color = Color("#f2d33d")
-const FACE_PX: int = 96
-const FACE_BAND: int = 6
+const BEVEL_HI: Color = GuiColors.EDGE_HI
+const BEVEL_LO: Color = GuiColors.EDGE_LO
+const MUTED: Color = GuiColors.SKY
+const CREAM: Color = GuiColors.CREAM
+const GREEN: Color = GuiColors.GREEN
+const RED: Color = GuiColors.RED
+const YELLOW: Color = GuiColors.RAMP_YELLOW
 const FACE_SCALE: int = 2
 const CELL_HEIGHT: int = 45
 const GRID_HEIGHT: int = 98
@@ -51,15 +48,15 @@ var client: ClientData = null
 
 var _tiles: Array[StatTile] = []
 var _faces: Array[MoodFace] = []
+var _meter: MoodMeter = null
 var _rows: Array[ClientRecentRow] = []
-var _stars: DifficultyStars = null
+var _stars: Stars = null
 var _dash: Label = null
 var _prices: PackedFloat32Array = PackedFloat32Array()
 var _company: int = -1
 
 @onready var empty_label: Label = $Rows/Empty
 @onready var body: VBoxContainer = $Rows/Body
-@onready var face: TextureRect = $Rows/Body/Header/FaceHolder/Fill
 @onready var name_label: Label = $Rows/Body/Header/Names/ClientName
 @onready var kind_label: Label = $Rows/Body/Header/Names/KindLine
 @onready var where_label: Label = $Rows/Body/Header/Names/Where
@@ -75,11 +72,10 @@ var _company: int = -1
 
 
 func _ready() -> void:
-	face.texture = ClientGlyphs.hatch(FACE_PX, FACE_BAND)
 	_build_stats()
 	_build_faces()
-	if not lock_button.take_me_there.is_connected(_on_take_me_there):
-		lock_button.take_me_there.connect(_on_take_me_there)
+	if not lock_button.take_me_there.is_connected(take_me_there.emit):
+		lock_button.take_me_there.connect(take_me_there.emit)
 	if not chart.pressed.is_connected(_on_chart_pressed):
 		chart.pressed.connect(_on_chart_pressed)
 	if not SubscriptionManager.changed.is_connected(_on_plan_changed):
@@ -143,7 +139,7 @@ func recent_rows() -> Array[ClientRecentRow]:
 	return out
 
 
-func stars() -> DifficultyStars:
+func stars() -> Stars:
 	return _stars
 
 
@@ -206,14 +202,7 @@ static func relationship_line(value: int) -> String:
 
 
 func _draw() -> void:
-	var left: float = OUTLINE_PX
-	var top: float = OUTLINE_PX
-	var right: float = size.x - OUTLINE_PX
-	var bottom: float = size.y - OUTLINE_PX
-	draw_rect(Rect2(left, top, right - left, BEVEL_PX), BEVEL_HI)
-	draw_rect(Rect2(left, top, BEVEL_PX, bottom - top), BEVEL_HI)
-	draw_rect(Rect2(left, bottom - BEVEL_PX, right - left, BEVEL_PX), BEVEL_LO)
-	draw_rect(Rect2(right - BEVEL_PX, top, BEVEL_PX, bottom - top), BEVEL_LO)
+	BevelButton.paint_edges(self, Rect2(Vector2.ZERO, size).grow(-OUTLINE_PX), BEVEL_HI, BEVEL_LO, BEVEL_PX)
 
 
 func _build_stats() -> void:
@@ -244,9 +233,9 @@ func _build_stats() -> void:
 	caption.add_theme_font_size_override(&"font_size", CELL_LABEL_SIZE)
 	caption.add_theme_color_override(&"font_color", MUTED)
 	box.add_child(caption)
-	_stars = STARS_SCENE.instantiate()
+	_stars = Stars.new()
 	box.add_child(_stars)
-	_stars.star_size = STAR_SIZE
+	_stars.star_px = STAR_SIZE
 	_stars.empty_color = Icons.UNUSED_STAR_CLIENT
 	_dash = Label.new()
 	_dash.text = DASH_TEXT
@@ -267,15 +256,16 @@ func _cell() -> PanelContainer:
 
 
 func _build_faces() -> void:
-	for i: int in range(REL_MAX - REL_MIN + 1):
-		var moodface: MoodFace = FACE_SCENE.instantiate()
-		faces_row.add_child(moodface)
-		moodface.guild = true
-		moodface.opinion = i + REL_MIN
-		moodface.pixel_scale = FACE_SCALE
-		moodface.filled = false
+	_meter = MOOD_SCENE.instantiate()
+	_meter.guild = true
+	_meter.min_opinion = REL_MIN
+	_meter.max_opinion = REL_MAX
+	_meter.pixel_scale = FACE_SCALE
+	_meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	faces_row.add_child(_meter)
+	_faces = _meter.faces
+	for moodface: MoodFace in _faces:
 		moodface.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_faces.append(moodface)
 
 
 func _render() -> void:
@@ -305,10 +295,9 @@ func _render_relationship() -> void:
 	var value: int = clampi(client.relationship, REL_MIN, REL_MAX)
 	rel_value.text = relationship_line(value)
 	rel_value.add_theme_color_override(&"font_color", MoodFace.GUILD_COLORS[value - REL_MIN])
+	_meter.opinion = value
 	for i: int in _faces.size():
-		var seat: int = i + REL_MIN
-		_faces[i].filled = seat == value
-		_faces[i].tooltip_text = relationship_line(seat)
+		_faces[i].tooltip_text = relationship_line(i + REL_MIN)
 
 
 func _render_stats() -> void:
@@ -320,7 +309,7 @@ func _render_stats() -> void:
 	if _stars != null:
 		_stars.visible = shown
 		if shown:
-			_stars.rating = roundf(client.avg_difficulty * 2.0) / 2.0
+			_stars.value = GuiTypes.snap_half(client.avg_difficulty)
 	if _dash != null:
 		_dash.visible = not shown
 
@@ -377,10 +366,6 @@ func _on_row_pressed(entry_id: int) -> void:
 func _on_chart_pressed() -> void:
 	if chart.company_id >= 0:
 		stock_pressed.emit(chart.company_id)
-
-
-func _on_take_me_there(target: Dictionary) -> void:
-	take_me_there.emit(target)
 
 
 func _on_plan_changed() -> void:

@@ -33,7 +33,7 @@ const STATE_VALUES: Dictionary = {
 const SKIP_TOKENS: Array[String] = ["once_per_combat", "two_handed"]
 
 
-#D1: what one swing is worth against this target once the defence it can raise is taken off.
+#What one swing is worth against this target once the defence it can raise is taken off.
 static func expected_damage(merc: MercenaryData, target: MercenaryData, weapon: WeaponData = null,
 		enhancements: int = 0, flaws: int = 0, state: BattleState = null) -> float:
 	if merc == null:
@@ -58,34 +58,27 @@ static func attack_check_def(merc: MercenaryData, target: MercenaryData, weapon:
 	if merc == null:
 		return {}
 	var is_ranged: bool = weapon != null and weapon.is_ranged
-	var stat_keys: Array[String] = AttackSystem.attack_stat_keys(weapon)
-	var circumstances: Array[String] = []
-	for key: String in stat_keys:
-		circumstances.append(AttackSystem.attack_circumstance(key))
 	var total_flaws := flaws
 	if state != null and state.battlefield != null and target != null:
 		total_flaws += AttackSystem.compute_attack_flaws(merc, target, state)
-	return {
-		"stat_keys": stat_keys,
-		"circumstances": circumstances,
-		"knowledges": [],
-		"tools": [],
-		"formula": "ranged_accuracy" if is_ranged else "melee_accuracy",
-		"enhancements": enhancements + AttackSystem.get_weapon_enhance_bonus(merc),
-		"flaws": total_flaws,
-		"flat_threshold_bonus": WeaponArmorPerkLibrary.attack_threshold_bonus(merc),
-		"weapon": weapon,
-	}
+	return AttackSystem.attack_check_def(weapon, false, is_ranged, enhancements + AttackSystem.get_weapon_enhance_bonus(merc),
+		total_flaws, WeaponArmorPerkLibrary.attack_threshold_bonus(merc))
+
+
+#Core dice plus weapon dice, then the formula's flat bonus, as a two-entry list.
+static func damage_dice(merc: MercenaryData, weapon: WeaponData, flaws: int) -> Array[float]:
+	var core := maxi(0, AttackSystem.attack_pool_size(merc, weapon) - flaws)
+	var parsed := AttackSystem.parse_damage_formula(weapon.damage_formula_1 if weapon != null else "")
+	var dice := 0 if bool(parsed["is_todo"]) else int(parsed["num_dice"])
+	return [float(core) + float(dice), float(parsed["flat_bonus"])]
 
 
 #Core dice plus weapon dice plus the flat bonus, before the accuracy is applied.
 static func raw_damage(merc: MercenaryData, weapon: WeaponData, flaws: int = 0) -> float:
 	if merc == null:
 		return 0.0
-	var core := maxi(0, AttackSystem.attack_pool_size(merc, weapon) - flaws)
-	var parsed := AttackSystem._parse_damage_formula(weapon.damage_formula_1 if weapon != null else "")
-	var dice := 0 if bool(parsed["is_todo"]) else int(parsed["num_dice"])
-	return float(core) + float(dice) + float(parsed["flat_bonus"])
+	var parts := damage_dice(merc, weapon, flaws)
+	return parts[0] + parts[1]
 
 
 #Mean Defend successes the target would land, armor dice included.
@@ -128,7 +121,7 @@ static func weapon_die_distribution(weapon: WeaponData, threshold: float) -> Dic
 	var out := {"pmf": [1.0] as Array[float], "flat": 0}
 	if weapon == null:
 		return out
-	var parsed := AttackSystem._parse_damage_formula(weapon.damage_formula_1)
+	var parsed := AttackSystem.parse_damage_formula(weapon.damage_formula_1)
 	out["flat"] = int(parsed["flat_bonus"])
 	if bool(parsed["is_todo"]):
 		return out
@@ -138,7 +131,7 @@ static func weapon_die_distribution(weapon: WeaponData, threshold: float) -> Dic
 	return out
 
 
-#D2: what putting this state on this target is worth, scaled by the threat the target poses.
+#What putting this state on this target is worth, scaled by the threat the target poses.
 static func state_value(state_name: String, target: MercenaryData, merc: MercenaryData = null,
 		state: BattleState = null) -> float:
 	var base := float(STATE_VALUES.get(state_name, 0.0))
@@ -154,7 +147,7 @@ static func threat_of(target: MercenaryData, merc: MercenaryData, state: BattleS
 	return expected_damage(target, merc, target.equipped_weapon, 0, 0, state)
 
 
-#D3: what taking this target off the field is worth.
+#What taking this target off the field is worth.
 static func kill_value(target: MercenaryData, state: BattleState) -> float:
 	if target == null:
 		return 0.0
@@ -200,7 +193,7 @@ static func parse_action(perk: TraitData) -> Dictionary:
 	return out
 
 
-#D4: the worth of one perk action, its costs and its worth per AP.
+#The worth of one perk action, its costs and its worth per AP.
 static func action_score(merc: MercenaryData, perk: TraitData, target: MercenaryData,
 		state: BattleState) -> Dictionary:
 	var info := parse_action(perk)
@@ -222,7 +215,7 @@ static func action_score(merc: MercenaryData, perk: TraitData, target: Mercenary
 	return out
 
 
-#D4: the action is only taken while its worth per AP beats what a plain attack buys with the same AP.
+#The action is only taken while its worth per AP beats what a plain attack buys with the same AP.
 static func beats_attack(merc: MercenaryData, scored: Dictionary, target: MercenaryData,
 		state: BattleState, enhancements: int = 0, ap_reduction: int = 0) -> bool:
 	if merc == null or scored.is_empty():
@@ -245,7 +238,6 @@ static func _affordable(merc: MercenaryData, state: BattleState, info: Dictionar
 	return ExcessPool.available_ep(merc) >= ep_need
 
 
-#Everything past AP, EP and ReP that an action row needs before it can be taken.
 #A target the merc can see; a state without positions hides nothing.
 static func sees_target(merc: MercenaryData, target: MercenaryData, state: BattleState) -> bool:
 	if target == null:
@@ -255,6 +247,7 @@ static func sees_target(merc: MercenaryData, target: MercenaryData, state: Battl
 	return LineOfSight.check(state, merc, target)["visible"] as bool
 
 
+#Everything past AP, EP and ReP that an action row needs before it can be taken.
 static func _feasible(merc: MercenaryData, perk: TraitData, info: Dictionary,
 		target: MercenaryData, state: BattleState) -> bool:
 	var dsl := perk.effect_dsl
@@ -293,7 +286,7 @@ static func _feasible(merc: MercenaryData, perk: TraitData, info: Dictionary,
 			return rampage_ep(merc) >= 1
 		"move_to_target":
 			return target != null and state.battlefield != null \
-				and WeaponReactiveSystem._pull_destination(merc, target, 3, state) != WeaponReactiveSystem.NO_CELL
+				and WeaponReactiveSystem.pull_destination(merc, target, 3, state) != WeaponReactiveSystem.NO_CELL
 		"attack_up_to_3":
 			return seen and merc.ammo_loaded > 0
 		"15_bullets_min":
@@ -313,8 +306,8 @@ static func effect_value(merc: MercenaryData, perk: TraitData, info: Dictionary,
 		target: MercenaryData, state: BattleState) -> float:
 	var dsl := perk.effect_dsl
 	if dsl.contains("wile_check:"):
-		var spec := ActionDispatcher._wile_spec(info["parts"] as PackedStringArray)
-		var crowd := ActionDispatcher._wile_targets(merc, spec, state)
+		var spec := PerkActionExecutor.wile_spec(info["parts"] as PackedStringArray)
+		var crowd := PerkActionExecutor.wile_targets(merc, spec, state)
 		var worth := 0.0
 		for enemy: MercenaryData in crowd:
 			worth += state_value(ConstStates.TERRIFIED, enemy, merc, state) * TERROR_ODDS
@@ -457,7 +450,7 @@ static func burst_targets(merc: MercenaryData, target: MercenaryData,
 	return picked
 
 
-#D5: a reaction is refused when it gains nothing or when it would leave the reserve short.
+#A reaction is refused when it gains nothing or when it would leave the reserve short.
 static func reaction_worth(merc: MercenaryData, perk: TraitData, ctx: Dictionary) -> Dictionary:
 	var out: Dictionary = {"ok": true, "reason": ""}
 	if merc == null:
@@ -504,7 +497,7 @@ static func reaction_gain(merc: MercenaryData, perk: TraitData, target: Mercenar
 	return 1.0
 
 
-#D6: Longbow Quick-Shot only pays when two more attacks fit inside the AP it leaves.
+#Longbow Quick-Shot only pays when two more attacks fit inside the AP it leaves.
 static func quick_shot_worth(merc: MercenaryData, state: BattleState, reduction: int,
 		cost: int) -> bool:
 	if merc == null or state == null:
@@ -515,7 +508,7 @@ static func quick_shot_worth(merc: MercenaryData, state: BattleState, reduction:
 	return merc.current_ap + merc.excess_ap >= attack_cost * 2
 
 
-#D6: Artillery Suppress only pays when the shell catches 2 or more enemies.
+#Artillery Suppress only pays when the shell catches 2 or more enemies.
 static func suppress_worth(merc: MercenaryData, target: MercenaryData, state: BattleState) -> bool:
 	if merc == null or target == null or state == null or state.battlefield == null:
 		return false
@@ -532,7 +525,7 @@ static func suppress_worth(merc: MercenaryData, target: MercenaryData, state: Ba
 	return caught >= 2
 
 
-#D6: Auto-Pistol Spray spends bullets only when 2 or more can go into the shot.
+#Auto-Pistol Spray spends bullets only when 2 or more can go into the shot.
 static func spray_bullets(merc: MercenaryData) -> int:
 	if merc == null:
 		return 0
@@ -545,7 +538,7 @@ static func spray_bullets(merc: MercenaryData) -> int:
 	return extra
 
 
-#D6: Great Axe Rampage spends what the reserve can spare, at most 3 EP.
+#Great Axe Rampage spends what the reserve can spare, at most 3 EP.
 static func rampage_ep(merc: MercenaryData) -> int:
 	if merc == null:
 		return 0
@@ -557,14 +550,14 @@ static func rampage_ep(merc: MercenaryData) -> int:
 	return mini(3, int(float(ExcessPool.available_ep(merc) - EP_RESERVE) / float(cost)))
 
 
-#D6: Auto-Rifle Wild-Shot spends at most 5 extra bullets and never the last one.
+#Auto-Rifle Wild-Shot spends at most 5 extra bullets and never the last one.
 static func wild_shot_bullets(merc: MercenaryData) -> int:
 	if merc == null:
 		return 0
 	return maxi(0, mini(merc.ammo_loaded - 1, 5))
 
 
-#W9: the perk a makeshift weapon borrows: an enhancer first, then a damage row, then any row.
+#The perk a makeshift weapon borrows: an enhancer first, then a damage row, then any row.
 static func pick_makeshift_perk(merc: MercenaryData, weapon: WeaponData) -> TraitData:
 	if merc == null or weapon == null:
 		return null

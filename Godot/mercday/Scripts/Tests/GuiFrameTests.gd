@@ -5,6 +5,7 @@ class_name GuiFrameTests
 
 const SUBWINDOW_SCENE := "res://Scenes/GUI/Shared/SubWindow.tscn"
 const CONFIRM_SCENE := "res://Scenes/GUI/Shared/ConfirmDialog.tscn"
+const MODAL_SCENE := "res://Scenes/GUI/Shared/ModalDialog.tscn"
 const SLOT_TOOLTIP_SCENE := "res://Scenes/GUI/Shared/SlotTooltip.tscn"
 const SORT_BUTTON_SCENE := "res://Scenes/GUI/Shared/SortButton.tscn"
 const SORT_DIR_TOGGLE_SCENE := "res://Scenes/GUI/Shared/SortDirToggle.tscn"
@@ -32,12 +33,21 @@ static func run(host: Node) -> bool:
 	await _case_sort_dir_toggle(res, host)
 	await _case_filter_sort_button(res, host)
 	await _case_filter_button(res, host)
+	await _case_close_pin(res, host)
+	await _case_permit_frame(res, host)
+	await _case_upgrade_tier_frame(res, host)
+	await _case_salary_frame(res, host)
+	await _case_feature_lock_frame(res, host)
+	await _case_crew_picker_frame(res, host)
+	await _case_coach_frame(res, host)
+	await _case_odd_job_frame(res, host)
+	await _case_confirm_frame(res, host)
+	await _case_plan_switch_frame(res, host)
 	return TestFixtures.summarize(res, "GUI FRAME")
 
 
 static func _case_sub_window(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	GuiFrameStack.bottom_reserve = 0.0
+	reset_frames()
 	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
 	host.add_child(win)
 	await host.get_tree().process_frame
@@ -48,24 +58,7 @@ static func _case_sub_window(res: Dictionary, host: Node) -> void:
 		"top_level %s size %s expected %s" % [win.top_level, win.size, view.size])
 	var holder: Control = win.holder
 	var frame: Control = win.frame
-	TestFixtures.check(res, "the holder draws the canvas 1:1",
-		holder.scale.is_equal_approx(Vector2.ONE)
-			and holder.size.is_equal_approx(Vector2(1280, 720))
-			and holder.position.is_equal_approx(Vector2.ZERO),
-		"scale %s size %s pos %s" % [holder.scale, holder.size, holder.position])
-	var expected_frame_pos: Vector2 = holder.position - Vector2(4, 4)
-	var expected_frame_size: Vector2 = holder.size + Vector2(8, 8)
-	TestFixtures.check(res, "the frame wraps the holder with a 4px margin",
-		frame.position.is_equal_approx(expected_frame_pos)
-			and frame.size.is_equal_approx(expected_frame_size),
-		"frame %s/%s expected %s/%s" % [frame.position, frame.size, expected_frame_pos,
-			expected_frame_size])
-	TestFixtures.check(res, "the close X sits inside the frame at top 10 right 10",
-		win.close_x.position.is_equal_approx(Vector2(1237, 7))
-			and win.close_x.size.is_equal_approx(Vector2(36, 36))
-			and win.close_x.icon == CloseX.icon(3) and win.close_x.text == "",
-		"pos %s size %s icon %s text %s" % [win.close_x.position, win.close_x.size,
-			win.close_x.icon, win.close_x.text])
+	check_frame_layout(res, win, Rect2(0.0, 0.0, 1280.0, 720.0))
 	GuiFrameStack.bottom_reserve = 76.0
 	win._layout()
 	await host.get_tree().process_frame
@@ -73,7 +66,7 @@ static func _case_sub_window(res: Dictionary, host: Node) -> void:
 		holder.size.is_equal_approx(Vector2(1280, 644))
 			and holder.position.is_equal_approx(Vector2.ZERO)
 			and win.close_x.position.is_equal_approx(Vector2(1237, 7))
-			and frame.size.is_equal_approx(Vector2(1288, 652)),
+			and frame.size.is_equal_approx(Vector2(1280, 644)),
 		"holder %s/%s close %s frame %s" % [holder.size, holder.position,
 			win.close_x.position, frame.size])
 	win.frame_h = 600.0
@@ -86,11 +79,7 @@ static func _case_sub_window(res: Dictionary, host: Node) -> void:
 	GuiFrameStack.bottom_reserve = 0.0
 	win._layout()
 
-	var content_root := Control.new()
-	content_root.name = "Content"
-	var packed := PackedScene.new()
-	packed.pack(content_root)
-	content_root.queue_free()
+	var packed: PackedScene = empty_scene()
 
 	win.open(packed, Callable(), 988.0)
 	await host.get_tree().process_frame
@@ -140,13 +129,46 @@ static func _case_sub_window(res: Dictionary, host: Node) -> void:
 	win.queue_free()
 
 
-static func _empty_scene() -> PackedScene:
+static func empty_scene() -> PackedScene:
 	var root := Control.new()
 	root.name = "Content"
 	var packed := PackedScene.new()
 	packed.pack(root)
 	root.queue_free()
 	return packed
+
+
+static func reset_frames() -> void:
+	GuiFrameStack.clear()
+	GuiFrameStack.bottom_reserve = 0.0
+
+
+#The layout contract SubWindow and ViewerPopup share: a 1:1 holder at want, a frame equal to it, the X on its corner.
+static func check_frame_layout(res: Dictionary, shell: Node, want: Rect2) -> void:
+	var holder: Control = shell.get(&"holder") as Control
+	var frame: Control = shell.get(&"frame") as Control
+	var close_x: Button = shell.get(&"close_x") as Button
+	TestFixtures.check(res, "the holder draws the canvas 1:1",
+		holder.scale.is_equal_approx(Vector2.ONE) and holder.size.is_equal_approx(want.size)
+			and holder.position.is_equal_approx(want.position),
+		"scale %s size %s pos %s" % [holder.scale, holder.size, holder.position])
+	TestFixtures.check(res, "the frame rect equals the holder canvas rect",
+		frame.position.is_equal_approx(holder.position) and frame.size.is_equal_approx(holder.size),
+		"frame %s/%s expected %s/%s" % [frame.position, frame.size, holder.position, holder.size])
+	TestFixtures.check(res, "the close X sits inside the frame at top 10 right 10",
+		close_x.position.is_equal_approx(Vector2(want.end.x - 43.0, 7.0))
+			and close_x.size.is_equal_approx(Vector2(36, 36))
+			and close_x.icon == CloseX.icon(3) and close_x.text == "",
+		"pos %s size %s icon %s text %s" % [close_x.position, close_x.size, close_x.icon, close_x.text])
+
+
+static func mount_confirm(host: Node) -> ConfirmDialog:
+	reset_frames()
+	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
+	host.add_child(dlg)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	return dlg
 
 
 static func _left_click() -> InputEventMouseButton:
@@ -171,7 +193,7 @@ static func _case_frame_stack(res: Dictionary, host: Node) -> void:
 	host.add_child(dlg)
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	win.open(_empty_scene())
+	win.open(empty_scene())
 	dlg.ask("Stop?", "Stop the run?")
 	TestFixtures.check(res, "the dialog stacks above the open window",
 		GuiFrameStack.top() == dlg and GuiFrameStack.depth() == 2,
@@ -187,11 +209,11 @@ static func _case_frame_stack(res: Dictionary, host: Node) -> void:
 		not win.visible and GuiFrameStack.depth() == 0,
 		"window %s depth %d" % [win.visible, GuiFrameStack.depth()])
 
-	win.open(_empty_scene())
+	win.open(empty_scene())
 	var inner: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
 	win.holder.add_child(inner)
 	await host.get_tree().process_frame
-	inner.open(_empty_scene())
+	inner.open(empty_scene())
 	_push_escape(host)
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "escape closes the nested window before the outer one",
@@ -218,7 +240,7 @@ static func _case_frame_stack_freed(res: Dictionary, host: Node) -> void:
 	host.add_child(win)
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	win.open(_empty_scene())
+	win.open(empty_scene())
 	var lost := Control.new()
 	host.add_child(lost)
 	await host.get_tree().process_frame
@@ -244,7 +266,7 @@ static func _case_backdrop(res: Dictionary, host: Node) -> void:
 	host.add_child(dlg)
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	win.open(_empty_scene())
+	win.open(empty_scene())
 	var closed_fired: Array[bool] = [false]
 	win.closed.connect(func() -> void: closed_fired[0] = true)
 	win.backdrop.gui_input.emit(_left_click())
@@ -273,7 +295,7 @@ static func _case_bottom_band(res: Dictionary, host: Node) -> void:
 	host.add_child(win)
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	win.open(_empty_scene())
+	win.open(empty_scene())
 	var view: Vector2 = host.get_viewport().get_visible_rect().size
 	var win_backdrop_bottom: float = win.backdrop.position.y + win.backdrop.size.y
 	var win_scanline_bottom: float = win.scanline.position.y + win.scanline.size.y
@@ -356,52 +378,45 @@ static func _case_bottom_band(res: Dictionary, host: Node) -> void:
 		"reserve %.1f bar %.1f" % [GuiFrameStack.bottom_reserve, hud.bottom_bar.custom_minimum_size.y])
 	hud.queue_free()
 
-	GuiFrameStack.bottom_reserve = 0.0
-	GuiFrameStack.clear()
+	reset_frames()
 
 
 static func _case_viewport_resize(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	GuiFrameStack.bottom_reserve = 0.0
+	reset_frames()
 	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
 	host.add_child(win)
 	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
 	host.add_child(dlg)
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	win.open(_empty_scene())
+	win.open(empty_scene())
 	dlg.ask("Stop?", "Stop the run?")
 	var view: Viewport = host.get_viewport()
 	var win_hooked: bool = view.size_changed.is_connected(Callable(win, "_on_viewport_resized"))
 	var dlg_hooked: bool = view.size_changed.is_connected(Callable(dlg, "_on_viewport_resized"))
 	TestFixtures.check(res, "the window and the dialog listen for a viewport resize",
 		win_hooked and dlg_hooked, "window %s dialog %s" % [win_hooked, dlg_hooked])
-	var game_window: Window = host.get_window()
-	var old_scale: Vector2i = game_window.content_scale_size
 	var rect_before: Vector2 = view.get_visible_rect().size
 	var frame_before: Vector2 = win.frame.position
 	var box_before: Vector2 = dlg.box.position
-	game_window.content_scale_size = Vector2i(1024, 600)
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
-	var rect_after: Vector2 = view.get_visible_rect().size
-	var moved: bool = not win.frame.position.is_equal_approx(frame_before)
-	if not dlg.box.position.is_equal_approx(box_before):
-		moved = true
-	TestFixtures.check(res, "a resize relayouts the frame and recentres the dialog box",
-		moved, "rect %s to %s frame %s to %s box %s to %s" % [rect_before, rect_after,
-			frame_before, win.frame.position, box_before, dlg.box.position])
-	var moved_box: Vector2 = win.content_size()
-	var moved_art: float = float(CloseX.ART * CloseX.SCALE_WINDOW)
-	var moved_rim: float = float(CloseX.SCALE_WINDOW)
-	var moved_expected: Vector2 = win.holder.position + Vector2(
-		moved_box.x - SubWindow.CLOSE_INSET - moved_art - moved_rim,
-		SubWindow.CLOSE_INSET - moved_rim)
-	TestFixtures.check(res, "the close X follows the content corner after a resize",
-		win.close_x.position.distance_to(moved_expected) <= 1.0,
-		"position %s expected %s" % [win.close_x.position, moved_expected])
-	game_window.content_scale_size = old_scale
-	await host.get_tree().process_frame
+	var after_resize := func() -> void:
+		var rect_after: Vector2 = view.get_visible_rect().size
+		var moved: bool = not win.frame.position.is_equal_approx(frame_before)
+		if not dlg.box.position.is_equal_approx(box_before):
+			moved = true
+		TestFixtures.check(res, "a resize relayouts the frame and recentres the dialog box",
+			moved, "rect %s to %s frame %s to %s box %s to %s" % [rect_before, rect_after,
+				frame_before, win.frame.position, box_before, dlg.box.position])
+		var moved_box: Vector2 = win.content_size()
+		var moved_art: float = float(CloseX.ART * CloseX.SCALE_WINDOW)
+		var moved_rim: float = float(CloseX.SCALE_WINDOW)
+		var moved_expected: Vector2 = win.holder.position + Vector2(
+			moved_box.x - SubWindow.CLOSE_INSET - moved_art - moved_rim,
+			SubWindow.CLOSE_INSET - moved_rim)
+		TestFixtures.check(res, "the close X follows the content corner after a resize",
+			win.close_x.position.distance_to(moved_expected) <= 1.0,
+			"position %s expected %s" % [win.close_x.position, moved_expected])
+	await _with_view_size(host, Vector2i(1024, 600), after_resize)
 	dlg.press(0)
 	win.close()
 	dlg.queue_free()
@@ -409,12 +424,7 @@ static func _case_viewport_resize(res: Dictionary, host: Node) -> void:
 
 
 static func _case_confirm_dialog(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	GuiFrameStack.bottom_reserve = 0.0
-	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
-	host.add_child(dlg)
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	var dlg: ConfirmDialog = await mount_confirm(host)
 	dlg.ask("Reject?", "Reject this contract?")
 	TestFixtures.check(res, "ask shows the pair of buttons",
 		dlg.visible and dlg.button_count() == 2,
@@ -456,11 +466,7 @@ static func _border_text(style: StyleBoxFlat) -> String:
 
 
 static func _case_dialog_severity(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
-	host.add_child(dlg)
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	var dlg: ConfirmDialog = await mount_confirm(host)
 	dlg.ask("Reject?", "Reject this contract?")
 	var style: StyleBoxFlat = dlg.box.get_theme_stylebox(&"panel") as StyleBoxFlat
 	TestFixtures.check(res, "the default ask keeps the orange border",
@@ -488,11 +494,7 @@ static func _case_dialog_severity(res: Dictionary, host: Node) -> void:
 
 
 static func _case_dialog_recap(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
-	host.add_child(dlg)
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	var dlg: ConfirmDialog = await mount_confirm(host)
 	var team: Array[Dictionary] = [{"name": "Rook", "role": "Leader"},
 		{"name": "Wren", "role": "Scout"}]
 	var stats: Array[Dictionary] = [{"label": "ODDS", "value": "72%", "color": Color("#6cc36a")},
@@ -622,12 +624,11 @@ static func _case_sort_dir_toggle(res: Dictionary, host: Node) -> void:
 		seen == [false, true] and toggle_btn.descending
 			and toggle_btn.fill_color() == Color("#f28c28"),
 		"seen %s fill %s" % [str(seen), str(toggle_btn.fill_color())])
-	var box: StyleBoxFlat = toggle_btn.get_theme_stylebox("normal") as StyleBoxFlat
-	TestFixtures.check(res, "the toggle wears its own box with a 3 px black outline",
-		box != null and box.bg_color == Color("#f28c28") and box.border_color == Color("#0a0f1c")
-			and box.border_width_left == 3,
-		"box %s edge %s" % [str(box.bg_color) if box != null else "none",
-			str(box.border_color) if box != null else "none"])
+	TestFixtures.check(res, "the toggle paints the orange palette on its bevel while descending",
+		toggle_btn.fill == Color("#f28c28") and toggle_btn.hi == Color("#ffb266")
+			and toggle_btn.lo == Color("#b85a12") and toggle_btn.text_color == Color("#0a0f1c"),
+		"fill %s hi %s lo %s text %s" % [str(toggle_btn.fill), str(toggle_btn.hi), str(toggle_btn.lo),
+			str(toggle_btn.text_color)])
 	TestFixtures.check(res, "the lit arrow reads dark while descending and cream while ascending",
 		Color(down["lit"]) == Color("#0a0f1c") and Color(up["lit"]) == Color("#f3ead7")
 			and Color(down["dim"]) == Color("#7a4a1a") and Color(up["dim"]) == Color("#5e7699"),
@@ -689,8 +690,7 @@ static func _case_filter_button(res: Dictionary, host: Node) -> void:
 
 #The z ladder: every open frame gets its own rung above the HUD popups, capped under MoneyFly.
 static func _case_z_ladder(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	GuiFrameStack.bottom_reserve = 0.0
+	reset_frames()
 	TestFixtures.check(res, "the ladder starts at 100, climbs 10 a rung and caps at 190",
 		GuiFrameStack.z_for(0) == 100 and GuiFrameStack.z_for(1) == 110
 			and GuiFrameStack.z_for(3) == 130 and GuiFrameStack.z_for(9) == 190
@@ -780,8 +780,7 @@ static func _case_consume_escape(res: Dictionary, host: Node) -> void:
 
 #ModalFrame.fit lifts a dialog off the scaled canvas and onto the viewport band.
 static func _case_modal_fit(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	GuiFrameStack.bottom_reserve = 0.0
+	reset_frames()
 	var frame := Control.new()
 	frame.name = "Modal"
 	var back := ColorRect.new()
@@ -823,59 +822,52 @@ static func _case_modal_fit(res: Dictionary, host: Node) -> void:
 		host.get_viewport().size_changed.is_connected(Callable(hook, "_on_resized")),
 		"the viewport hook is missing")
 	GuiFrameStack.bottom_reserve = 76.0
-	var game_window: Window = host.get_window()
-	var old_scale: Vector2i = game_window.content_scale_size
-	game_window.content_scale_size = Vector2i(1024, 600)
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
-	var grown: Vector2 = host.get_viewport().get_visible_rect().size
-	TestFixtures.check(res, "a resize refits the frame to the new viewport",
-		frame.size.is_equal_approx(grown), "frame %s view %s" % [frame.size, grown])
-	game_window.content_scale_size = old_scale
-	await host.get_tree().process_frame
+	var refit := func() -> void:
+		var grown: Vector2 = host.get_viewport().get_visible_rect().size
+		TestFixtures.check(res, "a resize refits the frame to the new viewport",
+			frame.size.is_equal_approx(grown), "frame %s view %s" % [frame.size, grown])
+	await _with_view_size(host, Vector2i(1024, 600), refit)
 	frame.queue_free()
-	GuiFrameStack.bottom_reserve = 0.0
-	GuiFrameStack.clear()
+	reset_frames()
 
 
-#A Loans window over an open SubWindow: it fits the viewport, takes its own rung and answers Esc
+#A modal window over an open SubWindow: it fits the viewport, takes its own rung and answers Esc
 #alone while the frames under it stay open.
 static func _case_loan_modal_frame(res: Dictionary, host: Node) -> void:
-	GuiFrameStack.clear()
-	GuiFrameStack.bottom_reserve = 0.0
+	reset_frames()
 	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
 	host.add_child(win)
-	var modal := LoanModal.new()
-	modal.name = "LoanShell"
+	var modal: ModalDialog = (load(MODAL_SCENE) as PackedScene).instantiate()
+	modal.name = "ModalShell"
 	host.add_child(modal)
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	win.open(_empty_scene())
-	modal.open_window()
+	win.open(empty_scene())
+	modal.present()
 	await host.get_tree().process_frame
 	var view: Vector2 = host.get_viewport().get_visible_rect().size
-	TestFixtures.check(res, "a Loans window covers the viewport, not the scaled canvas",
+	TestFixtures.check(res, "a modal window covers the viewport, not the scaled canvas",
 		modal.top_level and modal.size.is_equal_approx(view),
 		"top_level %s size %s view %s" % [modal.top_level, modal.size, view])
-	TestFixtures.check(res, "a Loans window over an open window draws above the HUD popups",
+	TestFixtures.check(res, "a modal window over an open window draws above the HUD popups",
 		GuiFrameStack.top() == modal and modal.z_index > 100 and win.z_index < modal.z_index,
 		"top %s modal z %d window z %d" % [GuiFrameStack.top(), modal.z_index, win.z_index])
-	var box: PanelContainer = modal.frame_box()
+	var box: PanelContainer = modal.box
 	var band: float = GuiFrameStack.band_height(view.y)
 	var centre_x: float = box.global_position.x + box.size.x / 2.0
 	var centre_y: float = box.global_position.y + box.size.y / 2.0
-	TestFixtures.check(res, "the Loans window centres on the viewport band",
+	TestFixtures.check(res, "the modal window centres on the viewport band",
 		absf(centre_x - view.x / 2.0) <= 1.0 and absf(centre_y - band / 2.0) <= 1.0,
 		"centre %.1f/%.1f expected %.1f/%.1f" % [centre_x, centre_y, view.x / 2.0, band / 2.0])
 	modal.set_dimmed(true)
-	TestFixtures.check(res, "a Loans window dims while a confirm of its own sits over it",
+	TestFixtures.check(res, "a modal window dims while a confirm of its own sits over it",
 		modal.dimmed(), "the window did not dim")
 	modal.set_dimmed(false)
 	var dlg: ConfirmDialog = (load(CONFIRM_SCENE) as PackedScene).instantiate()
 	host.add_child(dlg)
 	await host.get_tree().process_frame
 	dlg.ask("Stop?", "Stop the run?")
-	TestFixtures.check(res, "a confirm over a Loans window takes the rung above it",
+	TestFixtures.check(res, "a confirm over a modal window takes the rung above it",
 		GuiFrameStack.top() == dlg and dlg.z_index > modal.z_index,
 		"top %s dialog z %d modal z %d" % [GuiFrameStack.top(), dlg.z_index, modal.z_index])
 	_push_escape(host)
@@ -885,7 +877,7 @@ static func _case_loan_modal_frame(res: Dictionary, host: Node) -> void:
 		"dialog %s modal %s window %s" % [dlg.visible, modal.visible, win.visible])
 	_push_escape(host)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "the second escape closes the Loans window alone",
+	TestFixtures.check(res, "the second escape closes the modal window alone",
 		not modal.visible and not modal.is_open() and win.visible
 			and GuiFrameStack.top() == win,
 		"modal %s window %s top %s" % [modal.visible, win.visible, GuiFrameStack.top()])
@@ -898,3 +890,342 @@ static func _case_loan_modal_frame(res: Dictionary, host: Node) -> void:
 	modal.queue_free()
 	win.queue_free()
 	GuiFrameStack.clear()
+
+const BAR_RESERVE: float = 76.0
+#The X of a dialog sits no further than CORNER_PX in from the top right corner of its box.
+const CORNER_PX: float = 12.0
+const PERMIT_SCENE := "res://Scenes/GUI/Legal/PermitRequestDialog.tscn"
+const TIER_SCENE := "res://Scenes/GUI/Subscription/UpgradeTierDialog.tscn"
+const SALARY_SCENE := "res://Scenes/GUI/Mercs/SalaryDialog.tscn"
+const BENEFIT_SCENE := "res://Scenes/GUI/Finance/Payroll/BenefitDialog.tscn"
+const VACATION_SCENE := "res://Scenes/GUI/Finance/Payroll/VacationDialog.tscn"
+const LOCK_SCENE := "res://Scenes/GUI/Shared/FeatureLockDialog.tscn"
+const CREW_PICKER_SCENE := "res://Scenes/GUI/Shared/MercPicker.tscn"
+const COACH_SCENE := "res://Scenes/GUI/Mercs/CoachDialog.tscn"
+const ODD_JOB_SCENE := "res://Scenes/GUI/Shared/OddJobWindow.tscn"
+const PLAN_SWITCH_SCENE := "res://Scenes/GUI/Subscription/PlanSwitchDialog.tscn"
+#A window short enough that the plan switch box has to give up part of its set height.
+const SHORT_VIEW: Vector2i = Vector2i(1280, 560)
+
+
+static func _band(host: Node) -> Rect2:
+	var view: Vector2 = host.get_viewport().get_visible_rect().size
+	return Rect2(Vector2.ZERO, Vector2(view.x, GuiFrameStack.band_height(view.y)))
+
+
+static func _settle(host: Node) -> void:
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+
+
+#The first frame fault of one dialog box, or "" when the box is sound: in the band, no scroll
+#around it, every shown child inside it, and the X (when closer is set) on its top right corner.
+static func _frame_miss(box: Control, closer: Button, band: Rect2) -> String:
+	var rect: Rect2 = box.get_global_rect()
+	if not band.grow(0.5).encloses(rect):
+		return "box %s outside band %s" % [str(rect), str(band)]
+	var up: Node = box.get_parent()
+	while up != null:
+		if up is ScrollContainer:
+			return "the whole box scrolls inside %s" % up.name
+		up = up.get_parent()
+	var out: String = _outside(box, box, rect.grow(0.5))
+	if out != "":
+		return out
+	if closer == null:
+		return ""
+	if not box.is_ancestor_of(closer):
+		return "the X %s is not inside the box" % closer.name
+	if not closer.is_visible_in_tree():
+		return "the X is hidden"
+	var x_rect: Rect2 = closer.get_global_rect()
+	var gap_x: float = rect.end.x - x_rect.end.x
+	var gap_y: float = x_rect.position.y - rect.position.y
+	if gap_x < -0.5 or gap_y < -0.5 or gap_x > CORNER_PX or gap_y > CORNER_PX:
+		return "the X %s is %.1f/%.1f px off the corner of %s" % [str(x_rect), gap_x, gap_y, str(rect)]
+	return ""
+
+
+#A scroll or clipping child may hold more than it shows, so the walk stops at its own rect.
+static func _outside(box: Control, node: Node, rect: Rect2) -> String:
+	for kid: Node in node.get_children():
+		var part: Control = kid as Control
+		if part == null or not part.visible or part.top_level:
+			continue
+		if not rect.encloses(part.get_global_rect()):
+			return "%s %s outside the box %s" % [str(box.get_path_to(part)), str(part.get_global_rect()),
+				str(rect)]
+		if part is ScrollContainer or part.clip_contents:
+			continue
+		var deeper: String = _outside(box, part, rect)
+		if deeper != "":
+			return deeper
+	return ""
+
+
+static func _spawn(host: Node, path: String) -> Control:
+	var made: Control = (load(path) as PackedScene).instantiate() as Control
+	host.add_child(made)
+	await host.get_tree().process_frame
+	return made
+
+
+static func _drop(made: Node, was: float) -> void:
+	made.queue_free()
+	GuiFrameStack.clear()
+	GuiFrameStack.bottom_reserve = was
+
+
+#Runs body, awaited, after the window content scale changes to size and settles, then restores the scale.
+static func _with_view_size(host: Node, size: Vector2i, body: Callable) -> void:
+	var game_window: Window = host.get_window()
+	var old_scale: Vector2i = game_window.content_scale_size
+	game_window.content_scale_size = size
+	await _settle(host)
+	await body.call()
+	game_window.content_scale_size = old_scale
+	await host.get_tree().process_frame
+
+
+static func _cancel(dlg: Control) -> void:
+	dlg.call(&"press_cancel")
+
+
+#Opens one dialog inside the band and checks its box fits, with its X on the corner when with_x is set.
+static func _check_fits(res: Dictionary, host: Node, label: String, path: String, open: Callable,
+		shut: Callable = Callable(), with_x: bool = true, ready: bool = true) -> void:
+	var was: float = GuiFrameStack.bottom_reserve
+	GuiFrameStack.bottom_reserve = BAR_RESERVE
+	var dlg: Control = await _spawn(host, path)
+	open.call(dlg)
+	await _settle(host)
+	var closer: Button = (dlg.get(&"close_button") as Button) if with_x else null
+	var miss: String = _frame_miss(dlg.get(&"box") as Control, closer, _band(host))
+	TestFixtures.check(res, label, ready and dlg.visible and miss == "", miss)
+	if shut.is_valid():
+		shut.call(dlg)
+	_drop(dlg, was)
+
+
+#CloseX.pin puts the X on the outer top right corner of a box and keeps it there.
+static func _case_close_pin(res: Dictionary, host: Node) -> void:
+	var holder := Control.new()
+	host.add_child(holder)
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.content_margin_left = 10.0
+	style.content_margin_top = 14.0
+	style.content_margin_right = 18.0
+	style.content_margin_bottom = 10.0
+	panel.add_theme_stylebox_override(&"panel", style)
+	var body := Label.new()
+	body.text = "Body"
+	panel.add_child(body)
+	holder.add_child(panel)
+	panel.position = Vector2(100.0, 50.0)
+	panel.size = Vector2(300.0, 200.0)
+	var shut: Button = CloseX.make(CloseX.SCALE_WINDOW)
+	holder.add_child(shut)
+	CloseX.pin(shut, panel, CloseX.SCALE_WINDOW, 7.0)
+	await _settle(host)
+	var got: Rect2 = shut.get_global_rect()
+	var want: Rect2 = Rect2(Vector2(100.0 + 300.0 - 7.0 - 36.0, 50.0 + 7.0), Vector2(36.0, 36.0))
+	TestFixtures.check(res, "a pinned X sits inset px in from the outer top right corner of its box",
+		panel.is_ancestor_of(shut) and got.position.distance_to(want.position) <= 0.5
+			and got.size.is_equal_approx(want.size)
+			and panel.get_child(panel.get_child_count() - 1).name == CloseX.OVERLAY,
+		"x %s expected %s" % [str(got), str(want)])
+	panel.size = Vector2(420.0, 260.0)
+	panel.position = Vector2(20.0, 30.0)
+	await _settle(host)
+	got = shut.get_global_rect()
+	want.position = Vector2(20.0 + 420.0 - 7.0 - 36.0, 30.0 + 7.0)
+	TestFixtures.check(res, "a pinned X follows its box when the box moves and grows",
+		got.position.distance_to(want.position) <= 0.5, "x %s expected %s" % [str(got), str(want)])
+	holder.queue_free()
+
+
+#The Legal > Permits > Request X sits on the corner of the dialog box.
+static func _case_permit_frame(res: Dictionary, host: Node) -> void:
+	GameState.start_new_game()
+	await _check_fits(res, host, "the permit request box sits in the band with its X on the corner",
+		PERMIT_SCENE, func(dlg: Control) -> void: (dlg as PermitRequestDialog).open(1))
+
+
+#Every upgrade opens a whole 400x400 popover in the band, with an X.
+static func _case_upgrade_tier_frame(res: Dictionary, host: Node) -> void:
+	var was: float = GuiFrameStack.bottom_reserve
+	GuiFrameStack.bottom_reserve = BAR_RESERVE
+	GameState.start_new_game()
+	var dlg: UpgradeTierDialog = await _spawn(host, TIER_SCENE) as UpgradeTierDialog
+	var band: Rect2 = _band(host)
+	var miss: String = ""
+	var spots: Array[Vector2] = [Vector2(100.0, 100.0), Vector2(1100.0, 500.0), Vector2(-50.0, -50.0),
+		Vector2(900.0, 640.0)]
+	for id: String in UpgradeDefs.ORDER:
+		for at: Vector2 in spots:
+			dlg.open_for(id, at)
+			await _settle(host)
+			var why: String = ""
+			if not dlg.size.is_equal_approx(UpgradeTierDialog.BOX):
+				why = "size %s" % str(dlg.size)
+			if why == "":
+				why = _frame_miss(dlg, dlg.close_button(), band)
+			if why != "" and miss == "":
+				miss = "%s at %s: %s" % [id, str(at), why]
+			dlg.close()
+		if miss != "":
+			break
+	TestFixtures.check(res, "every upgrade popover stays 400x400 inside the band with the X shown",
+		miss == "", miss)
+	dlg.open_for("seats", Vector2(100.0, 100.0))
+	await _settle(host)
+	dlg.close_button().pressed.emit()
+	TestFixtures.check(res, "the popover X closes it",
+		not dlg.visible and GuiFrameStack.top() != dlg, "visible %s" % dlg.visible)
+	_drop(dlg, was)
+
+
+#The wage, bonus and holiday dialogs hold their steppers and X.
+static func _case_salary_frame(res: Dictionary, host: Node) -> void:
+	GameState.start_new_game()
+	var notes: int = GameState.bank_notes
+	GameState.bank_notes = 99999999
+	var open_salary := func(dlg: Control) -> void:
+		var probe_view := MercView.new()
+		probe_view.uid = 1
+		probe_view.name = "Probe"
+		probe_view.monthly_salary = 99999999
+		(dlg as SalaryDialog).open_for(probe_view)
+		(dlg as SalaryDialog).step(3)
+	await _check_fits(res, host, "the salary box holds its stepper and X at the largest wage",
+		SALARY_SCENE, open_salary, _cancel)
+	GameState.bank_notes = notes
+	var open_bonus := func(dlg: Control) -> void:
+		var bonus: BenefitDialog = dlg as BenefitDialog
+		bonus.open_for("profit")
+		bonus.stepper().set_value_silent(bonus.stepper().max_value)
+	await _check_fits(res, host, "the benefit box holds its stepper and X", BENEFIT_SCENE, open_bonus, _cancel)
+	await _check_fits(res, host, "the vacation box holds its five steppers and X", VACATION_SCENE,
+		func(dlg: Control) -> void: (dlg as VacationDialog).open(), _cancel)
+
+
+#The feature lock X is part of its box.
+static func _case_feature_lock_frame(res: Dictionary, host: Node) -> void:
+	var open_lock := func(dlg: Control) -> void:
+		(dlg as FeatureLockDialog).open({"feature": "Customize", "upgrade": "Seats", "upgrade_id": "seats",
+			"tier": 2, "tiers": 4})
+	await _check_fits(res, host, "the feature lock box sits in the band with its X on the corner",
+		LOCK_SCENE, open_lock)
+
+
+#The merc picker X is part of its box.
+static func _case_crew_picker_frame(res: Dictionary, host: Node) -> void:
+	await _check_fits(res, host, "the merc picker box sits in the band with its X on the corner",
+		CREW_PICKER_SCENE, func(dlg: Control) -> void: (dlg as MercPicker).open_for(1, [], false))
+
+
+#The coach dialog X is part of its box.
+static func _case_coach_frame(res: Dictionary, host: Node) -> void:
+	GameState.start_new_game()
+	var first: MercView = GameState.roster[0] if not GameState.roster.is_empty() else null
+	await _check_fits(res, host, "the coach box sits in the band with its X on the corner", COACH_SCENE,
+		func(dlg: Control) -> void: (dlg as CoachDialog).open_for(first), Callable(), true, first != null)
+
+
+#The odd job window box sits in the band and holds its crew row.
+static func _case_odd_job_frame(res: Dictionary, host: Node) -> void:
+	var odds_fn := func(team: Array[int]) -> int:
+		return 0 if team.is_empty() else 50
+	var open_window := func(dlg: Control) -> void:
+		(dlg as OddJobWindow).open({
+			"title": "Renegotiate the Fine",
+			"facts": [{"label": "Fine", "value": "500"}, {"label": "Days Left", "value": "3"}],
+			"max_mercs": 3,
+			"candidates": [{"id": 401, "name": "Ash", "fit": 4.0}, {"id": 402, "name": "Bell", "fit": 3.0}],
+			"default_pay": 40,
+			"money": 1000,
+			"odds": odds_fn,
+			"send_label": "Send",
+		})
+	await _check_fits(res, host, "the odd job box sits in the band and holds its rows", ODD_JOB_SCENE,
+		open_window, _cancel, false)
+
+
+#A confirm with a long message still fits the band.
+static func _case_confirm_frame(res: Dictionary, host: Node) -> void:
+	var ask_long := func(dlg: Control) -> void:
+		(dlg as ConfirmDialog).ask("Stop the run?", "Stopping now ends the contract early. ".repeat(12))
+	await _check_fits(res, host, "a long confirm box sits in the band and holds its text", CONFIRM_SCENE,
+		ask_long, func(dlg: Control) -> void: (dlg as ConfirmDialog).press(0), false)
+
+
+#The height the plan switch box takes while its upgrade list shows: the set height held to the band less the gap.
+static func _plan_box_h(host: Node) -> float:
+	return minf(PlanSwitchDialog.BOX_H, _band(host).size.y - PlanSwitchDialog.BAND_GAP)
+
+
+#The plan switch box keeps to the band whatever it lists, in a tall window and in a short one.
+static func _case_plan_switch_frame(res: Dictionary, host: Node) -> void:
+	GameState.start_new_game()
+	var board: Array[ContractView] = GameState.contracts.duplicate()
+	var saved: ContractBoard = GameState.board
+	GuiSubsTests._set_live_board(GuiSubsTests.FULL_BOARD)
+	SubscriptionManager.max_out()
+	var cards: Array[int] = []
+	var heads: Array[String] = []
+	var to_free := func(dlg: Control) -> void:
+		(dlg as PlanSwitchDialog).open_for(SubscriptionManager.Plan.FREE)
+	var to_pro := func(dlg: Control) -> void:
+		(dlg as PlanSwitchDialog).open_for(SubscriptionManager.Plan.PRO)
+	var count_cards := func(dlg: Control) -> void:
+		cards.append((dlg as PlanSwitchDialog).module_count())
+		heads.append_array((dlg as PlanSwitchDialog).sections())
+	await _check_fits(res, host, "the plan switch box holds its heads and the whole upgrade list in the band",
+		PLAN_SWITCH_SCENE, to_free, count_cards, false)
+	var free_cap: int = UpgradeDefs.plan_max_contracts(SubscriptionManager.Plan.FREE, 0)
+	var lead: String = "%d postings are over the Free cap of %d" % [GuiSubsTests.FULL_BOARD - free_cap, free_cap]
+	TestFixtures.check(res, "the box under test shows the Free head for the postings over the cap",
+		not heads.is_empty() and heads[0].begins_with(lead), "heads %s" % [heads])
+	TestFixtures.check(res, "the box under test lists every upgrade of the table",
+		cards == [UpgradeDefs.ORDER.size()], "cards %s" % [cards])
+	SubscriptionManager.set_state(SubscriptionManager.Plan.FREE, {})
+	await _check_fits(res, host, "the plan switch box sits in the band for an upgrade", PLAN_SWITCH_SCENE,
+		to_pro, Callable(), false)
+	SubscriptionManager.set_state(SubscriptionManager.Plan.PRO, {})
+	await _check_fits(res, host, "the plan switch box sits in the band for a downgrade from Pro",
+		PLAN_SWITCH_SCENE, to_free, Callable(), false)
+	SubscriptionManager.max_out()
+	var was: float = GuiFrameStack.bottom_reserve
+	GuiFrameStack.bottom_reserve = BAR_RESERVE
+	var live: PlanSwitchDialog = await _spawn(host, PLAN_SWITCH_SCENE) as PlanSwitchDialog
+	to_free.call(live)
+	await _settle(host)
+	var tall_h: float = live.box.size.y
+	var seen: Dictionary = {}
+	var shrink := func() -> void:
+		seen["want"] = _plan_box_h(host)
+		seen["box"] = live.box.size.y
+		seen["miss"] = _frame_miss(live.box, null, _band(host))
+	await _with_view_size(host, SHORT_VIEW, shrink)
+	await _settle(host)
+	var back_h: float = live.box.size.y
+	_drop(live, was)
+	var short_want: float = float(seen.get("want", 0.0))
+	TestFixtures.check(res, "the plan switch box takes its set height in the normal window",
+		is_equal_approx(tall_h, PlanSwitchDialog.BOX_H), "box %f set %f" % [tall_h, PlanSwitchDialog.BOX_H])
+	TestFixtures.check(res, "the short window leaves the box less than its set height to take",
+		short_want > 0.0 and short_want < PlanSwitchDialog.BOX_H,
+		"cap %f set %f" % [short_want, PlanSwitchDialog.BOX_H])
+	TestFixtures.check(res, "a short window shortens the plan switch box to the band less its gap",
+		is_equal_approx(float(seen.get("box", 0.0)), short_want) and String(seen.get("miss", "unread")) == "",
+		"box %s cap %f miss %s" % [seen.get("box"), short_want, seen.get("miss")])
+	TestFixtures.check(res, "the plan switch box takes its set height again when the window grows back",
+		is_equal_approx(back_h, PlanSwitchDialog.BOX_H), "box %f set %f" % [back_h, PlanSwitchDialog.BOX_H])
+	var fresh := func() -> void:
+		await _check_fits(res, host, "a plan switch box opened in a short window sits in the band",
+			PLAN_SWITCH_SCENE, to_free, Callable(), false)
+	await _with_view_size(host, SHORT_VIEW, fresh)
+	GameState.contracts = board
+	GameState.board = saved
+	SubscriptionManager.max_out()

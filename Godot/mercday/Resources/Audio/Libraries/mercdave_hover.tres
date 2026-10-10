@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Hovers/MercDave Hovers/ESM_BG_Cinematic_FX_ui_notification_one_shot_menu_digital_pause_vintage_ghost_01.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Hovers/MercDave Hovers/ESM_BG_Cinematic_FX_ui_notification_one_shot_menu_digital_pause_vintage_ghost_02.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Hovers/MercDave Hovers/ESM_BG_Cinematic_FX_ui_notification_one_shot_menu_digital_pause_vintage_ghost_03.wav" id="4_s3"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Hovers/MercDave Hovers/ESM_BG_Cinematic_FX_ui_notification_one_shot_menu_digital_pause_vintage_ghost_04.wav" id="5_s4"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3"), ExtResource("5_s4")])

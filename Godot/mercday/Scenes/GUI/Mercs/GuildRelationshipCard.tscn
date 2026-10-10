@@ -1,9 +1,12 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/GuildRelationshipCard.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodFace.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MoodMeter.tscn" id="2"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="3"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="5"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_GuildRelationshipCard.tres" id="6"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_MoodMeter.tres" id="7"]
 
 [node name="GuildRelationshipCard" type="PanelContainer"]
 script = ExtResource("1")
@@ -35,82 +38,25 @@ theme_override_fonts/font = ExtResource("4")
 text = "GUILD OPINION"
 
 [node name="Value" type="Label" parent="Row/Names"]
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_font_sizes/font_size = 10
-theme_override_fonts/font = ExtResource("4")
+theme_type_variation = &"CaptionLabel"
 text = "+0"
 
 [node name="Spacer" type="Control" parent="Row"]
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Faces" type="HBoxContainer" parent="Row"]
+[node name="Faces" parent="Row" instance=ExtResource("2")]
+layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_override_constants/separation = 6
-
-[node name="Face0" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
 guild = true
-opinion = -5
-pixel_scale = 2
 
-[node name="Face1" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = -4
-pixel_scale = 2
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("5")
+hint = ExtResource("6")
 
-[node name="Face2" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = -3
-pixel_scale = 2
-
-[node name="Face3" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = -2
-pixel_scale = 2
-
-[node name="Face4" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = -1
-pixel_scale = 2
-
-[node name="Face5" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = 0
-pixel_scale = 2
-
-[node name="Face6" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = 1
-pixel_scale = 2
-
-[node name="Face7" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = 2
-pixel_scale = 2
-
-[node name="Face8" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = 3
-pixel_scale = 2
-
-[node name="Face9" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = 4
-pixel_scale = 2
-
-[node name="Face10" parent="Row/Faces" instance=ExtResource("2")]
-layout_mode = 2
-guild = true
-opinion = 5
-pixel_scale = 2
+[node name="HelpTarget" type="Node" parent="Row"]
+script = ExtResource("5")
+hint = ExtResource("7")
+target = NodePath("../Faces")

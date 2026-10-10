@@ -1,65 +1,48 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=10 format=3]
 
-[ext_resource type="Script" path="res://Scripts/GUI/Mercs/MercList.gd" id="1"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortButton.tscn" id="2"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortDirToggle.tscn" id="3"]
-[ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="4"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/ListPanel.tscn" id="1"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercs/MercList.gd" id="2"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortButton.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/SortDirToggle.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/FilterButton.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/HireButton.tscn" id="6"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="7"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_MercList.tres" id="8"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_MercStatusFilter.tres" id="9"]
 
-[node name="MercList" type="PanelContainer"]
+[node name="MercList" instance=ExtResource("1")]
 custom_minimum_size = Vector2(272, 0)
-theme_type_variation = &"RaisedPanel"
-script = ExtResource("1")
+script = ExtResource("2")
 
-[node name="Rows" type="VBoxContainer" parent="."]
-theme_override_constants/separation = 12
+[node name="Head" parent="Pad/Rows"]
+caption = "Mercs"
+count_text = "0/0"
 
-[node name="Head" type="HBoxContainer" parent="Rows"]
-theme_override_constants/separation = 6
-
-[node name="Title" type="Label" parent="Rows/Head"]
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
-theme_override_fonts/font = ExtResource("4")
-theme_override_font_sizes/font_size = 13
-text = "Mercs"
-
-[node name="Count" type="Label" parent="Rows/Head"]
-size_flags_vertical = 4
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("4")
-theme_override_font_sizes/font_size = 11
-text = "0/0"
-horizontal_alignment = 2
-
-[node name="SortRow" type="HBoxContainer" parent="Rows"]
-theme_override_constants/separation = 8
-
-[node name="Sort" parent="Rows/SortRow" instance=ExtResource("2")]
+[node name="Sort" parent="Pad/Rows/Tools" instance=ExtResource("3")]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 26)
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 10
 
-[node name="Dir" parent="Rows/SortRow" instance=ExtResource("3")]
+[node name="Dir" parent="Pad/Rows/Tools" instance=ExtResource("4")]
 layout_mode = 2
 custom_minimum_size = Vector2(40, 26)
 
-[node name="Filter" parent="Rows/SortRow" instance=ExtResource("5")]
+[node name="Filter" parent="Pad/Rows/Tools" instance=ExtResource("5")]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 26)
 
-[node name="Scroll" type="ScrollContainer" parent="Rows"]
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
+[node name="Scroll" parent="Pad/Rows"]
+separation = 1
 
-[node name="Pad" type="MarginContainer" parent="Rows/Scroll"]
-size_flags_horizontal = 3
-theme_override_constants/margin_left = 0
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 0
-theme_override_constants/margin_bottom = 14
+[node name="Hire" parent="Pad/Rows" instance=ExtResource("6")]
+layout_mode = 2
 
-[node name="Items" type="VBoxContainer" parent="Rows/Scroll/Pad"]
-size_flags_horizontal = 3
-theme_override_constants/separation = 1
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("7")
+hint = ExtResource("8")
+
+[node name="HelpTarget" type="Node" parent="Pad/Rows/Tools/Filter"]
+script = ExtResource("7")
+hint = ExtResource("9")
+target = NodePath("../Menu")

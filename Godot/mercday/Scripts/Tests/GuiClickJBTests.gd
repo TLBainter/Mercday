@@ -8,20 +8,22 @@ extends RefCounted
 #real screens through the helpers they expose, because a click never reaches a button headless.
 
 const PROMO_SCENE: PackedScene = preload("res://Scenes/GUI/Promotions/PromotionsViewer.tscn")
-const HUD_SCENE: String = "res://Scenes/GUI/HUD/GameHUD.tscn"
 const BANK: int = 20000
 
-#README J9: nine job ads, eight shown while Show Concluded is off, seven with Show Infinite off.
-const JOB_TOTAL: int = 9
-const SHOWN_DEFAULT: int = 8
-const SHOWN_NO_INFINITE: int = 7
-const TEXT_DEFAULT: String = "8 of 9 shown"
-const TEXT_ALL: String = "9 of 9 shown"
-const TEXT_NO_INFINITE: String = "7 of 9 shown"
-const CONCLUDED_ID: int = 8
-const INFINITE_IDS: Array[int] = [3, 9]
-const FIXED_ID: int = 1
-const WOM_ID: int = 7
+#README J9 on GuiAdsTests.lay_board: six job ads, five shown while Show Concluded is off, five with Show
+#Concluded on and Show Infinite off.
+const JOB_TOTAL: int = 6
+const SHOWN_DEFAULT: int = 5
+const SHOWN_NO_INFINITE: int = 5
+const TEXT_DEFAULT: String = "5 of 6 shown"
+const TEXT_ALL: String = "6 of 6 shown"
+const TEXT_NO_INFINITE: String = "5 of 6 shown"
+const CONCLUDED_ID: int = GuiAdsTests.CONCLUDED_ID
+const INFINITE_IDS: Array[int] = [GuiAdsTests.INFINITE_ID]
+const FIXED_ID: int = GuiAdsTests.FIXED_ID
+const WOM_ID: int = GuiAdsTests.WOM_ID
+#Two job ads the board launched on the same day.
+const TIE_IDS: Array[int] = [4, GuiAdsTests.WOM_ID]
 const LABEL_ACTIVE: String = "Active"
 const LABEL_CUSTOM: String = "Custom"
 const RING_PLAIN: Color = Color("#3b6fb6")
@@ -43,10 +45,12 @@ const WOM_NOTE: String = "not refunded"
 const END_CTA_PLAIN: String = "End Campaign"
 const TOAST_TAIL: String = "notes refunded."
 
-#README J11 and I4: campaign 1 sent one of the eight applicants.
-const VIA_ID: int = 1
-const VIA_TEXT: String = "1 of 8 applicants shown"
-const APPLICANT_TOTAL: int = 8
+#README J11 and I4: the ten day Radio ad of the board has drawn two of the applicants.
+const VIA_ID: int = 4
+const VIA_COUNT: int = 2
+#The View Applicants window held to that campaign heads with its name and counts its applicants alone.
+const VIA_TITLE: String = "Applicants: %s"
+const VIA_TEXT: String = "2 applicants"
 const FROM_KEY: String = "from"
 
 #README I2 and I5: both contract rows read one title and wear the alert mark.
@@ -86,8 +90,10 @@ const CONTINUE_BLUE: Color = Color("#2b4f8a")
 const CONTINUE_GREEN: Color = Color("#6cc36a")
 const FATE_ORDER: Array[int] = [ResultMemberData.Fate.ALIVE, ResultMemberData.Fate.DEAD,
 	ResultMemberData.Fate.CAPTURED, ResultMemberData.Fate.ALIVE]
+#The preview results send the first four of the roster out.
+const PREVIEW_CREW: int = 4
 
-#GX4D-R07: Contract Viewer.dc.html line 829 (the pending glyph, ASCII as three dots) and line 390
+#Contract Viewer.dc.html line 829 (the pending glyph, ASCII as three dots) and line 390
 #(the MVP ring and badge gold), read here instead of ResultsTimeline's own constants.
 const PENDING_GLYPH: String = "..."
 const MVP_GOLD: Color = Color("#f2d33d")
@@ -107,23 +113,28 @@ static func run(host: Node) -> bool:
 	GuiFrameStack.clear()
 	NotificationCenter.reset()
 	BenefitsManager.reset()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	CampaignClock.reset()
 	return TestFixtures.summarize(res, "GUI CLICK JB")
 
 
-#A new game with the seeded campaigns, the seeded applicants and a bank no price gate can trip.
-static func _fresh() -> void:
+#A new game with no campaigns and a bank no price gate can trip; board true launches GuiAdsTests.lay_board.
+static func _fresh(board: bool = false) -> void:
 	TestFixtures.reset_generator_rolls()
 	seed(7)
+	TestFixtures.fix_applicant_seed()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
 	SubscriptionManager.set_entitlements(_full_ent())
 	LegalManager.reset()
+	LegalManager.permits[GuiPromoTests.SECOND_PERMIT] = {"ops": true, "tele": true}
+	LegalManager.permits_changed.emit()
 	PromotionsManager.reset()
+	if board:
+		GuiAdsTests.lay_board()
 	NotificationCenter.reset()
 	BenefitsManager.reset()
 	GameState.bank_notes = BANK
@@ -138,15 +149,6 @@ static func _promo(host: Node) -> PromotionsViewer:
 	var viewer: PromotionsViewer = PROMO_SCENE.instantiate() as PromotionsViewer
 	host.add_child(viewer)
 	return viewer
-
-
-static func _hud(host: Node) -> GameHUD:
-	var scene: PackedScene = load(HUD_SCENE)
-	var hud: GameHUD = scene.instantiate() as GameHUD
-	hud.autostart = false
-	host.add_child(hud)
-	hud.wire_for_test()
-	return hud
 
 
 static func _ring_of(viewer: PromotionsViewer) -> Color:
@@ -165,7 +167,7 @@ static func _shown_ids(viewer: PromotionsViewer) -> Array[int]:
 	return out
 
 
-#GX4D-R02: the value read straight off the campaign row for one sort key, the way the card would
+#The value read straight off the campaign row for one sort key, the way the card would
 #print it or a count taken straight from the row; never PromotionsManager.campaign_sort_value or
 #campaigns_sorted, since those are the ordering code under test.
 static func _row_sort_value(campaign: CampaignData, key: StringName, today: int) -> float:
@@ -184,8 +186,8 @@ static func _row_sort_value(campaign: CampaignData, key: StringName, today: int)
 	return float(campaign.day_started)
 
 
-#True when the shown order agrees with the sort value read off the campaign row.
-static func _ordered(ids: Array[int], key: StringName, ascending: bool) -> bool:
+#True when no adjacent pair of shown campaigns makes the violation test return true.
+static func _pairs_pass(ids: Array[int], key: StringName, violates: Callable) -> bool:
 	var today: int = GameState.day()
 	for i: int in range(1, ids.size()):
 		var before: CampaignData = PromotionsManager.campaign_of(ids[i - 1])
@@ -194,37 +196,23 @@ static func _ordered(ids: Array[int], key: StringName, ascending: bool) -> bool:
 			return false
 		var left: float = _row_sort_value(before, key, today)
 		var right: float = _row_sort_value(after, key, today)
-		if is_equal_approx(left, right):
-			continue
-		if ascending and left > right:
-			return false
-		if not ascending and left < right:
+		if violates.call(before, after, left, right):
 			return false
 	return true
+
+
+#True when the shown order agrees with the sort value read off the campaign row.
+static func _ordered(ids: Array[int], key: StringName, ascending: bool) -> bool:
+	var violates: Callable = func(_before: CampaignData, _after: CampaignData, left: float, right: float) -> bool:
+		return not is_equal_approx(left, right) and (left > right if ascending else left < right)
+	return _pairs_pass(ids, key, violates)
 
 
 #True when every pair of campaigns that sort the same leaves the newer id in front.
 static func _ties_newest_first(ids: Array[int], key: StringName) -> bool:
-	var today: int = GameState.day()
-	for i: int in range(1, ids.size()):
-		var before: CampaignData = PromotionsManager.campaign_of(ids[i - 1])
-		var after: CampaignData = PromotionsManager.campaign_of(ids[i])
-		if before == null or after == null:
-			return false
-		var left: float = _row_sort_value(before, key, today)
-		var right: float = _row_sort_value(after, key, today)
-		if is_equal_approx(left, right) and before.id < after.id:
-			return false
-	return true
-
-
-static func _same_set(left: Array[int], right: Array[int]) -> bool:
-	if left.size() != right.size():
-		return false
-	for value: int in left:
-		if not right.has(value):
-			return false
-	return true
+	var violates: Callable = func(before: CampaignData, after: CampaignData, left: float, right: float) -> bool:
+		return is_equal_approx(left, right) and before.id < after.id
+	return _pairs_pass(ids, key, violates)
 
 
 static func _view_of(entry_id: int) -> ContractView:
@@ -272,8 +260,8 @@ static func _dock_rect(panel_node: ContractResults) -> Rect2:
 
 #The XP a living merc takes on this contract when nothing went wrong.
 static func _full_xp(result: ContractResultData) -> int:
-	var per: float = result.difficulty * float(GameState.RESULT_XP_PER_DIFF)
-	return GameState.RESULT_XP_BASE + int(round(per))
+	var per: float = result.difficulty * float(ResultsPreview.XP_PER_DIFF)
+	return ResultsPreview.XP_BASE + int(round(per))
 
 
 #True when every drawn pixel of the texture carries the same tone in all three channels.
@@ -293,18 +281,18 @@ static func _is_grey(tex: Texture2D) -> bool:
 	return true
 
 
-#README J9: "Job Ads: 8 of 9 shown; Show Concluded -> 9 (Campaign 8 grayed); Show Infinite off
-#-> 7." The three counts stack: Show Concluded stays on while Show Infinite goes off.
+#README J9 on the launched board: 5 of 6 shown; Show Concluded -> 6 (Campaign 1 grayed); Show Infinite off
+#-> 5. The three counts stack: Show Concluded stays on while Show Infinite goes off.
 static func _case_j09_counts(res: Dictionary, host: Node) -> void:
-	_fresh()
+	_fresh(true)
 	var viewer: PromotionsViewer = _promo(host)
 	await host.get_tree().process_frame
 	viewer.open_tab(PromotionsViewer.JOB_KEY)
 	await host.get_tree().process_frame
 	var list_node: CampaignList = viewer.campaign_list()
-	TestFixtures.check(res, "J9 the Job Ads tab lists 8 of the 9 seeded campaigns",
+	TestFixtures.check(res, "J9 the Job Ads tab lists 5 of the 6 launched campaigns",
 		viewer.card_count() == SHOWN_DEFAULT, "cards %d" % viewer.card_count())
-	TestFixtures.check(res, "J9 the header reads 8 of 9 shown",
+	TestFixtures.check(res, "J9 the header reads 5 of 6 shown",
 		viewer.shown_text() == TEXT_DEFAULT, viewer.shown_text())
 	TestFixtures.check(res, "J9 the concluded campaign is out of the default list",
 		list_node.card_for(CONCLUDED_ID) == null, str(_shown_ids(viewer)))
@@ -314,16 +302,16 @@ static func _case_j09_counts(res: Dictionary, host: Node) -> void:
 		_ring_of(viewer).is_equal_approx(RING_PLAIN), str(_ring_of(viewer)))
 	viewer.toolbar().press_row(true)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "J9 Show Concluded lifts the list to all nine campaigns",
+	TestFixtures.check(res, "J9 Show Concluded lifts the list to all six campaigns",
 		viewer.card_count() == JOB_TOTAL, "cards %d" % viewer.card_count())
-	TestFixtures.check(res, "J9 the header reads 9 of 9 shown with Show Concluded on",
+	TestFixtures.check(res, "J9 the header reads 6 of 6 shown with Show Concluded on",
 		viewer.shown_text() == TEXT_ALL, viewer.shown_text())
 	TestFixtures.check(res, "J9 the filter button reads Custom once a filter is moved",
 		viewer.toolbar().filter_text() == LABEL_CUSTOM, viewer.toolbar().filter_text())
 	TestFixtures.check(res, "J9 the filter button wears the orange ring once a filter is moved",
 		_ring_of(viewer).is_equal_approx(RING_CUSTOM), str(_ring_of(viewer)))
 	var done_card: CampaignCard = list_node.card_for(CONCLUDED_ID)
-	TestFixtures.check(res, "J9 Campaign 8 joins the list and reads as concluded",
+	TestFixtures.check(res, "J9 Campaign 1 joins the list and reads as concluded",
 		done_card != null and done_card.is_concluded(), "card %s" % str(done_card != null))
 	if done_card != null:
 		var tint: Color = done_card.name_label.get_theme_color(&"font_color")
@@ -347,27 +335,25 @@ static func _case_j09_counts(res: Dictionary, host: Node) -> void:
 			done_card.has_view(), "view %s" % str(done_card.has_view()))
 	viewer.toolbar().press_row(false)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "J9 Show Infinite off leaves seven campaigns",
+	TestFixtures.check(res, "J9 Show Infinite off leaves five campaigns",
 		viewer.card_count() == SHOWN_NO_INFINITE, "cards %d" % viewer.card_count())
-	TestFixtures.check(res, "J9 the header reads 7 of 9 shown with Show Infinite off",
+	TestFixtures.check(res, "J9 the header reads 5 of 6 shown with Show Infinite off",
 		viewer.shown_text() == TEXT_NO_INFINITE, viewer.shown_text())
 	var kept: Array[int] = _shown_ids(viewer)
-	TestFixtures.check(res, "J9 Show Infinite off drops both infinite campaigns",
-		not kept.has(INFINITE_IDS[0]) and not kept.has(INFINITE_IDS[1]), str(kept))
+	TestFixtures.check(res, "J9 Show Infinite off drops the infinite campaign",
+		not kept.has(INFINITE_IDS[0]) and kept.has(CONCLUDED_ID), str(kept))
 	viewer.set_filter(AdsToolbar.DEFAULT_CONCLUDED, AdsToolbar.DEFAULT_INFINITE)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "J9 the defaults come back to eight cards and the Active button",
+	TestFixtures.check(res, "J9 the defaults come back to five cards and the Active button",
 		viewer.card_count() == SHOWN_DEFAULT and viewer.toolbar().filter_text() == LABEL_ACTIVE,
 		"%d %s" % [viewer.card_count(), viewer.toolbar().filter_text()])
-	GuiFrameStack.clear()
-	viewer.queue_free()
-	await host.get_tree().process_frame
+	await _close(host, viewer)
 
 
 #README J9: "Every sort works both directions." The order is read against the value the campaign
-#row itself carries for that key (GX4D-R02), so the case never copies an order out of the code.
+#row itself carries for that key, so the case never copies an order out of the code.
 static func _case_j09_sorts(res: Dictionary, host: Node) -> void:
-	_fresh()
+	_fresh(true)
 	var viewer: PromotionsViewer = _promo(host)
 	await host.get_tree().process_frame
 	viewer.open_tab(PromotionsViewer.JOB_KEY)
@@ -388,8 +374,8 @@ static func _case_j09_sorts(res: Dictionary, host: Node) -> void:
 		TestFixtures.check(res, "J9 the sort %s runs the cards the other way" % caption,
 			second_up != first_up and _ordered(second_ids, key, second_up),
 			"%s %s" % [str(second_up), str(second_ids)])
-		TestFixtures.check(res, "J9 the sort %s keeps the same eight cards" % caption,
-			_same_set(first_ids, second_ids) and first_ids.size() == SHOWN_DEFAULT,
+		TestFixtures.check(res, "J9 the sort %s keeps the same five cards" % caption,
+			GuiClickHTests.same_set(first_ids, second_ids) and first_ids.size() == SHOWN_DEFAULT,
 			"%d %d" % [first_ids.size(), second_ids.size()])
 		TestFixtures.check(res, "J9 the sort %s turns the list around" % caption,
 			first_ids != second_ids, str(second_ids))
@@ -398,34 +384,24 @@ static func _case_j09_sorts(res: Dictionary, host: Node) -> void:
 			"%s %s" % [str(first_ids), str(second_ids)])
 		viewer.toggle_direction()
 		await host.get_tree().process_frame
-	#GX4D-R02: no seeded pair shares a start day, so one is forced here and undone after. FIXED_ID
-	#takes WOM_ID's later start day (never WOM_ID taking the older one, which would run past its
-	#own seeded days and drop it from the default list as concluded).
-	var tie_a: CampaignData = PromotionsManager.campaign_of(FIXED_ID)
-	var tie_b: CampaignData = PromotionsManager.campaign_of(WOM_ID)
-	if tie_a != null and tie_b != null:
-		var tie_a_started: int = tie_a.day_started
-		var tie_b_started: int = tie_b.day_started
-		tie_a.day_started = tie_b_started
+	var tie_a: CampaignData = PromotionsManager.campaign_of(TIE_IDS[0])
+	var tie_b: CampaignData = PromotionsManager.campaign_of(TIE_IDS[1])
+	if tie_a != null and tie_b != null and tie_a.day_started == tie_b.day_started:
 		viewer.pick_sort(&"start")
 		await host.get_tree().process_frame
 		var tie_ids: Array[int] = _shown_ids(viewer)
-		TestFixtures.check(res, "J9 a forced Start Date tie still gives it to the newer campaign",
-			tie_ids.has(tie_a.id) and tie_ids.has(tie_b.id) and _ties_newest_first(tie_ids, &"start"),
-			str(tie_ids))
-		tie_a.day_started = tie_a_started
-		tie_b.day_started = tie_b_started
+		TestFixtures.check(res, "J9 a Start Date tie between two ads launched on one day goes to the newer",
+			tie_ids.has(tie_a.id) and tie_ids.has(tie_b.id) and _ties_newest_first(tie_ids, &"start")
+			and tie_ids.find(tie_b.id) < tie_ids.find(tie_a.id), str(tie_ids))
 	else:
 		TestFixtures.check(res, "J9 setup: the Start Date tie campaigns exist",
 			false, "%s %s" % [str(tie_a != null), str(tie_b != null)])
-	GuiFrameStack.clear()
-	viewer.queue_free()
-	await host.get_tree().process_frame
+	await _close(host, viewer)
 
 
 #README J10: "End Campaign (underlined): refund = unused days; Word of Mouth no refund."
 static func _case_j10_end(res: Dictionary, host: Node) -> void:
-	_fresh()
+	_fresh(true)
 	var viewer: PromotionsViewer = _promo(host)
 	await host.get_tree().process_frame
 	viewer.open_tab(PromotionsViewer.JOB_KEY)
@@ -434,9 +410,7 @@ static func _case_j10_end(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J10 the live campaign card carries an End Campaign button",
 		card != null and card.has_end(), "card %s" % str(card != null))
 	if card == null:
-		GuiFrameStack.clear()
-		viewer.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, viewer)
 		return
 	TestFixtures.check(res, "J10 End Campaign is a text button that is always underlined",
 		card.end_button.underline == LinkButton.UNDERLINE_MODE_ALWAYS,
@@ -449,11 +423,11 @@ static func _case_j10_end(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J10 the End Campaign underline stands clear of the caption",
 		card.end_button.get_theme_constant(&"underline_spacing") == END_OFFSET,
 		"gap %d" % card.end_button.get_theme_constant(&"underline_spacing"))
-	#GX4D-R04: the name read off the card itself, before End removes it from the board.
+	#The name read off the card itself, before End removes it from the board.
 	var card_name: String = card.name_label.text
 	var campaign: CampaignData = PromotionsManager.campaign_of(FIXED_ID)
 	var today: int = GameState.day()
-	#GX4D-R01: the days left computed from the row's own days and start day, not
+	#The days left computed from the row's own days and start day, not
 	#campaign.unused_days(), which is the code under test.
 	var unused: int = maxi(0, campaign.days - maxi(0, today - campaign.day_started))
 	var refund: int = campaign.budget_remaining(today)
@@ -510,76 +484,96 @@ static func _case_j10_end(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J10 a campaign that already ran out cannot be ended",
 		not bool(PromotionsManager.end_preview(CONCLUDED_ID).get("ok", true)),
 		str(PromotionsManager.end_preview(CONCLUDED_ID)))
-	#GX4D-R06: README line 494, the day price times the days left in the paid month, computed
-	#from the seeded row's per_day and start day rather than campaign.unused_days().
+	#README line 494, the day price times the days left to the next calendar bill day, computed
+	#from the row's per_day and next bill date rather than campaign.unused_days().
 	var infinite_campaign: CampaignData = PromotionsManager.campaign_of(INFINITE_IDS[0])
-	var infinite_used: int = maxi(0, today - infinite_campaign.day_started)
-	var infinite_left: int = CampaignTypeDefs.BILL_DAYS - infinite_used % CampaignTypeDefs.BILL_DAYS
+	var bill_date: Dictionary = TrynnCalendar.date_of(
+		infinite_campaign.next_bill_day * TrynnCalendar.MINUTES_PER_DAY)
+	var infinite_left: int = infinite_campaign.next_bill_day - today
+	var month_days: int = int(TrynnCalendar.MONTHS[int(TrynnCalendar.date_of(
+		today * TrynnCalendar.MINUTES_PER_DAY)["month"])]["days"])
 	var infinite_refund: int = infinite_campaign.per_day * infinite_left
+	TestFixtures.check(res, "J10 an infinite campaign's paid month runs to its calendar bill day",
+		FinanceManager.BILL_DAY_CHOICES.has(infinite_campaign.bill_day)
+		and int(bill_date["day"]) == infinite_campaign.bill_day
+		and infinite_left > 0 and infinite_left <= month_days,
+		"bill day %d, %d left of %d" % [infinite_campaign.bill_day, infinite_left, month_days])
 	var infinite: Dictionary = PromotionsManager.end_preview(INFINITE_IDS[0])
 	var infinite_body: String = viewer.end_body(infinite)
 	TestFixtures.check(res, "J10 an infinite campaign refunds the rest of the month it is paid for",
 		infinite_body.contains(PromotionsViewer.MONTH_TAIL) and infinite_refund > 0
 		and infinite_body.replace(",", "").contains(str(infinite_refund)),
 		infinite_body)
-	GuiFrameStack.clear()
-	viewer.queue_free()
-	await host.get_tree().process_frame
+	await _close(host, viewer)
 
 
-#README J11: "View Applicants -> Finance > Hiring filtered to that campaign."
+#README J11, as the View Applicants window changed it: the Hiring page held to that campaign opens over My Promotions.
 static func _case_j11_applicants(res: Dictionary, host: Node) -> void:
-	_fresh()
-	var hud: GameHUD = _hud(host)
+	_fresh(true)
+	var applicant_total: int = PromotionsManager.applicants.size()
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var promo: PromotionsViewer = hud.open_viewer(&"promotions") as PromotionsViewer
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "J11 the HUD opens My Promotions", promo != null,
 		"opened %s" % str(promo != null))
 	if promo == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
 	promo.open_tab(PromotionsViewer.JOB_KEY)
 	await host.get_tree().process_frame
 	promo.press_view(VIA_ID)
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	var finance: FinanceViewer = hud.popup().current() as FinanceViewer
-	TestFixtures.check(res, "J11 View Applicants swaps the window over to My Finance",
-		finance != null, "finance %s" % str(finance != null))
+	TestFixtures.check(res, "J11 View Applicants leaves My Promotions in the HUD window",
+		hud.popup().current() == promo, "current %s" % str(hud.popup().current()))
+	var window: ViewerPopup = promo.popup()
+	var finance: FinanceViewer = null
+	if window != null:
+		finance = window.current() as FinanceViewer
+	TestFixtures.check(res, "J11 View Applicants opens a Hiring only window over My Promotions",
+		finance != null and finance.hiring_only and GuiFrameStack.top() == window,
+		"finance %s, top %s" % [str(finance != null), str(GuiFrameStack.top())])
 	if finance == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
-	TestFixtures.check(res, "J11 My Finance comes up on the Hiring tab",
+	TestFixtures.check(res, "J11 the window comes up on the Hiring tab",
 		finance.current_tab() == FinanceViewer.HIRING_KEY, str(finance.current_tab()))
 	var hiring: HiringTab = finance.page(FinanceViewer.HIRING_KEY) as HiringTab
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "J11 the Hiring page is built", hiring != null,
 		"page %s" % str(hiring != null))
 	if hiring == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
 	var raw: Variant = hiring.filter_panel().value_of(FROM_KEY)
 	var via: Array = []
 	if raw is Array:
 		via = raw
-	TestFixtures.check(res, "J11 the Applied Via filter holds that campaign alone",
-		via.size() == 1 and int(via[0]) == VIA_ID, str(via))
+	TestFixtures.check(res, "J11 the page is held to that campaign and the Applied Via filter stays empty",
+		hiring.fixed_campaign == VIA_ID and via.is_empty(), "%d, %s" % [hiring.fixed_campaign, str(via)])
+	TestFixtures.check(res, "J11 the window offers no filters", not hiring.filter_column().visible,
+		"column shown %s" % str(hiring.filter_column().visible))
 	TestFixtures.check(res, "J11 only the applicants of that campaign are listed",
-		hiring.shown_count() == 1 and hiring.total_count() == APPLICANT_TOTAL,
-		"%d %d" % [hiring.shown_count(), hiring.total_count()])
-	TestFixtures.check(res, "J11 the header reads 1 of 8 applicants shown",
-		hiring.count_text() == VIA_TEXT, hiring.count_text())
-	var ids: Array[int] = hiring.card_ids()
-	var listed: ApplicantData = null if ids.is_empty() else PromotionsManager.applicant_of(ids[0])
-	TestFixtures.check(res, "J11 the one listed applicant came from that campaign",
-		listed != null and listed.campaign_id == VIA_ID,
-		"%s" % ("none" if listed == null else str(listed.campaign_id)))
-	TestFixtures.check(res, "J11 the stored filter is handed over once",
+		hiring.shown_count() == VIA_COUNT and hiring.total_count() == applicant_total
+		and applicant_total > VIA_COUNT, "%d %d of %d" % [hiring.shown_count(), hiring.total_count(), applicant_total])
+	var head: String = VIA_TITLE % PromotionsManager.campaign_name(VIA_ID)
+	TestFixtures.check(res, "J11 the header names the campaign and reads 2 applicants",
+		hiring.title_label().text == head and hiring.count_text() == VIA_TEXT,
+		"%s, %s" % [hiring.title_label().text, hiring.count_text()])
+	var from: Array[int] = []
+	for id: int in hiring.card_ids():
+		var listed: ApplicantData = PromotionsManager.applicant_of(id)
+		from.append(-1 if listed == null else listed.campaign_id)
+	TestFixtures.check(res, "J11 every listed applicant came from that campaign",
+		from.size() == VIA_COUNT and from.count(VIA_ID) == VIA_COUNT, str(from))
+	TestFixtures.check(res, "J11 the window leaves no hire filter behind for My Finance",
 		GameState.hire_filter.is_empty(), str(GameState.hire_filter))
+	window.close()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "J11 closing the window goes back to My Promotions",
+		promo.popup() == null and hud.popup().current() == promo and GuiFrameStack.top() == hud.popup(),
+		"window %s, current %s" % [str(promo.popup()), str(hud.popup().current())])
 	hud.popup().close()
 	await host.get_tree().process_frame
 	var again: FinanceViewer = hud.open_viewer(&"finance") as FinanceViewer
@@ -598,30 +592,28 @@ static func _case_j11_applicants(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J11 a second visit to Hiring opens with no campaign filter",
 		second != null and back_via.is_empty(), str(back_via))
 	TestFixtures.check(res, "J11 a second visit to Hiring lists every applicant again",
-		second != null and second.shown_count() == APPLICANT_TOTAL,
+		second != null and second.shown_count() == applicant_total,
+
 		"%d" % (0 if second == null else second.shown_count()))
-	GuiFrameStack.clear()
-	hud.queue_free()
-	await host.get_tree().process_frame
+	await _close(host, hud)
 
 
 #README J12: "HUD bell: both contract notifications read "Contract Complete" with "!"."
 static func _case_j12_bell(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var ids: Array[int] = GameState.seed_results_preview()
+	var ids: Array[int] = ResultsPreview.seed_results()
 	TestFixtures.check(res, "J12 the game seeds one finished contract and one failed one",
 		ids.size() == 2 and GameState.has_result(ids[0]) and GameState.has_result(ids[1]),
 		str(ids))
 	if ids.size() != 2:
 		return
-	var hud: GameHUD = _hud(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var bell: NotificationBell = hud.bell() as NotificationBell
 	TestFixtures.check(res, "J12 the HUD carries a notification bell", bell != null,
 		"bell %s" % str(bell != null))
 	if bell == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
 	var won: NotificationData = NotificationCenter.latest(NotificationData.TYPE_CONTRACT_COMPLETED,
 		ids[0])
@@ -630,8 +622,7 @@ static func _case_j12_bell(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J12 both finished contracts leave a row in the bell",
 		won != null and lost != null, "%s %s" % [str(won != null), str(lost != null)])
 	if won == null or lost == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
 	bell.open_panel()
 	await host.get_tree().process_frame
@@ -688,18 +679,15 @@ static func _case_j12_bell(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J12 the row that was pressed counts as read",
 		NotificationCenter.unread_count() == unread - 1,
 		"%d %d" % [NotificationCenter.unread_count(), unread])
-	GuiFrameStack.clear()
-	hud.queue_free()
-	await host.get_tree().process_frame
-	#GX4D-R05: pressing the completed row opens its own results too, from a fresh bell panel.
-	var hud2: GameHUD = _hud(host)
+	await _close(host, hud)
+	#Pressing the completed row opens its own results too, from a fresh bell panel.
+	var hud2: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var bell2: NotificationBell = hud2.bell() as NotificationBell
 	TestFixtures.check(res, "J12 a fresh bell panel still carries the completed contract's row",
 		bell2 != null, "bell %s" % str(bell2 != null))
 	if bell2 == null:
-		hud2.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud2)
 		return
 	bell2.open_panel()
 	await host.get_tree().process_frame
@@ -723,31 +711,26 @@ static func _case_j12_bell(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J12 the completed row that was pressed counts as read",
 		NotificationCenter.unread_count() == won_unread - 1,
 		"%d %d" % [NotificationCenter.unread_count(), won_unread])
-	GuiFrameStack.clear()
-	hud2.queue_free()
-	await host.get_tree().process_frame
+	await _close(host, hud2)
 
 
-#README J12: "Contract list: unclaimed shows "Complete" + "!", no tooltip." README I5 adds that
-#it appears only under "Unclaimed Results".
+#README J12: "Contract list: unclaimed shows "Complete" + "!", no tooltip." It is filed under
+#"Unclaimed Results" and, since it reads Complete, the Completed option lists it as well.
 static func _case_j12_list(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var ids: Array[int] = GameState.seed_results_preview()
+	var ids: Array[int] = ResultsPreview.seed_results()
 	if ids.size() != 2:
 		TestFixtures.check(res, "J12 the game seeds the two finished contracts", false, str(ids))
 		return
-	var hud: GameHUD = _hud(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
-	var viewer: ContractViewer = hud.open_viewer(&"contracts") as ContractViewer
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	var viewer: ContractViewer = await _open_viewer(host, hud)
 	var view: ContractView = _view_of(ids[1])
 	TestFixtures.check(res, "J12 the failed contract is on the board and still unclaimed",
 		viewer != null and view != null and view.is_unclaimed(),
 		"%s" % str(view != null and view.is_unclaimed()))
 	if viewer == null or view == null:
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
 	TestFixtures.check(res, "J12 an unclaimed result reads Complete and gives nothing away",
 		view.shown_status_text() == UNCLAIMED_TEXT, view.shown_status_text())
@@ -774,11 +757,15 @@ static func _case_j12_list(res: Dictionary, host: Node) -> void:
 		"" if panel_row == null else panel_row.label)
 	var rules: Dictionary = viewer.list().filter_panel.filter().duplicate(true)
 	rules[ContractList.UNCLAIMED_KEY] = false
-	rules["show_completed"] = true
+	rules["show_completed"] = false
 	rules[FAILED_FILTER_KEY] = true
 	var without: Array[ContractView] = ContractList.filtered(GameState.contracts, rules)
-	TestFixtures.check(res, "J12 an unclaimed result stays out of Completed and Failed",
+	TestFixtures.check(res, "J12 an unclaimed result stays out of Failed with Unclaimed Results off",
 		not without.has(view), "listed %d" % without.size())
+	rules["show_completed"] = true
+	var completed: Array[ContractView] = ContractList.filtered(GameState.contracts, rules)
+	TestFixtures.check(res, "J12 an unclaimed result lists under Completed since it reads Complete",
+		completed.has(view), "listed %d" % completed.size())
 	viewer.detail().set_view(view)
 	await host.get_tree().process_frame
 	viewer.detail().reward_label.mouse_entered.emit()
@@ -789,42 +776,62 @@ static func _case_j12_list(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J12 the detail of an unclaimed result wears the bang mark too",
 		viewer.detail().status_mark().kind == StatusMark.Mark.BANG,
 		"%d" % viewer.detail().status_mark().kind)
+	await _close(host, hud)
+
+
+static func _close(host: Node, node: Node) -> void:
 	GuiFrameStack.clear()
-	hud.queue_free()
+	node.queue_free()
 	await host.get_tree().process_frame
 
 
-#Only the sign and the digits of a money label, so a case never copies the money format.
-static func _digits(text: String) -> String:
-	var out: String = ""
-	for ch: String in text:
-		if ch == "-" or (ch >= "0" and ch <= "9"):
-			out += ch
-	return out
+#Counts the rows wearing the MVP badge, or the gold MVP ring when by_ring is set.
+static func _mvp_count(panel: ContractResults, result: ContractResultData, by_ring: bool) -> int:
+	var count: int = 0
+	for i: int in result.members.size():
+		var row: ResultRow = panel.row_of(i)
+		if row == null:
+			continue
+		if by_ring and row.ring_color().is_equal_approx(MVP_GOLD):
+			count += 1
+		elif not by_ring and row.mvp_shown():
+			count += 1
+	return count
 
 
-#Opens the results of one seeded contract through the HUD and hands the panel back.
-static func _open_results(host: Node, hud: GameHUD, entry_id: int) -> ContractResults:
+static func _open_viewer(host: Node, hud: GameHUD) -> ContractViewer:
 	var viewer: ContractViewer = hud.open_viewer(&"contracts") as ContractViewer
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
-	if viewer == null:
-		return null
+	return viewer
+
+
+static func _show_results(host: Node, viewer: ContractViewer, entry_id: int) -> ContractResults:
 	viewer.select_entry(entry_id)
 	await host.get_tree().process_frame
 	await host.get_tree().process_frame
 	return viewer.window().current() as ContractResults
 
 
+#Opens the results of one seeded contract through the HUD and hands the panel back.
+static func _open_results(host: Node, hud: GameHUD, entry_id: int) -> ContractResults:
+	var viewer: ContractViewer = await _open_viewer(host, hud)
+	if viewer == null:
+		return null
+	return await _show_results(host, viewer, entry_id)
+
+
 #README J13: "Open Contract 15: bars -> fates (skull, bars) -> FAILURE slams, shrinks, docks
 #above "Contract Complete" -> XP -> Total Cost -168 -> notes leave HUD money -> Continue enables."
+#Decisions 51 and 55: a failure flies nothing, so the README notes step no longer applies.
 static func _case_j13_failure(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var ids: Array[int] = GameState.seed_results_preview()
+	TestFixtures.add_mercs(PREVIEW_CREW - GameState.mercs.size())
+	var ids: Array[int] = ResultsPreview.seed_results()
 	if ids.size() != 2:
 		TestFixtures.check(res, "J13 the game seeds the failed contract", false, str(ids))
 		return
-	var hud: GameHUD = _hud(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var panel: ContractResults = await _open_results(host, hud, ids[1])
 	var result: ContractResultData = GameState.result_of(ids[1])
@@ -832,14 +839,45 @@ static func _case_j13_failure(res: Dictionary, host: Node) -> void:
 		panel != null and result != null and result.failed,
 		"%s" % str(panel != null and result != null))
 	if panel == null or result == null:
-		GuiFrameStack.clear()
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
 	TestFixtures.check(res, "J13 the results panel is laid out", panel.overlay.size.x > 0.0,
 		str(panel.overlay.size))
 	TestFixtures.check(res, "J13 the failed contract sent four mercs out",
 		result.members.size() == 4, "members %d" % result.members.size())
+	_failure_bars(res, panel, result)
+	_failure_fates(res, panel, result)
+	_failure_verdict(res, panel, result)
+	_failure_xp(res, panel, result)
+	_failure_totals(res, panel, result)
+	var asked: Array[int] = []
+	var on_ask: Callable = func(amount: int) -> void: asked.append(amount)
+	GameState.money_fly_requested.connect(on_ask)
+	panel.set_time(ResultsTimeline.end_time(result))
+	await host.get_tree().process_frame
+	GameState.money_fly_requested.disconnect(on_ask)
+	var fly: MoneyFly = hud.money_fly()
+	TestFixtures.check(res, "J13 a failed contract flies no notes at all",
+		result.fly_amount() == 0 and asked.is_empty() and fly != null and not fly.is_flying(),
+		"fly %d, asked %s" % [result.fly_amount(), str(asked)])
+	var counter: MoneyMenu = null if fly == null else fly.counter()
+	TestFixtures.check(res, "J13 the money counter keeps its idle color",
+		counter != null and counter.tint().is_equal_approx(MoneyMenu.IDLE_COLOR),
+		"" if counter == null else str(counter.tint()))
+	TestFixtures.check(res, "J13 Continue is still dead when the tally ends with nothing to fly",
+		not panel.continue_ready(), "ready %s" % str(panel.continue_ready()))
+	panel.set_time(ResultsTimeline.total_time(result))
+	TestFixtures.check(res, "J13 Continue wakes up at the end of the tally",
+		panel.continue_ready() and panel.is_finished(), "ready %s" % str(panel.continue_ready()))
+	var style: Color = panel.continue_style()
+	TestFixtures.check(res, "J13 Continue is the shared BevelButton scene, blue after a failure",
+		panel.continue_button is BevelButton and style.is_equal_approx(CONTINUE_BLUE),
+		str(style))
+	await _close(host, hud)
+
+
+#The bars drain while the fates, the verdict and Continue stay held back.
+static func _failure_bars(res: Dictionary, panel: ContractResults, result: ContractResultData) -> void:
 	panel.set_time(0.0)
 	TestFixtures.check(res, "J13 the title gives nothing away before the verdict",
 		panel.title_label.text == NOTICE_TITLE and panel.title_color().is_equal_approx(TITLE_ORANGE),
@@ -859,6 +897,11 @@ static func _case_j13_failure(res: Dictionary, host: Node) -> void:
 		and not first.overlay_shown(), "" if first == null else first.status_text())
 	TestFixtures.check(res, "J13 the verdict is off screen while the bars run",
 		not panel.verdict_box().visible, "shown %s" % str(panel.verdict_box().visible))
+
+
+#The fates are told row by row, with the rings and overlays that follow them.
+static func _failure_fates(res: Dictionary, panel: ContractResults, result: ContractResultData) -> void:
+	var dead: ResultRow = panel.row_of(1)
 	panel.set_time(T_FATES + TICK)
 	TestFixtures.check(res, "J13 the crew comes back alive, deceased, captured and alive",
 		_fates_of(result) == FATE_ORDER, str(_fates_of(result)))
@@ -880,6 +923,10 @@ static func _case_j13_failure(res: Dictionary, host: Node) -> void:
 		"" if taken == null else str(taken.ring_color()))
 	TestFixtures.check(res, "J13 the verdict still waits while the fates are read",
 		not panel.verdict_box().visible, "shown %s" % str(panel.verdict_box().visible))
+
+
+#The verdict slams in, shrinks and docks above the title.
+static func _failure_verdict(res: Dictionary, panel: ContractResults, _result: ContractResultData) -> void:
 	panel.set_time(T_VERDICT - TICK)
 	TestFixtures.check(res, "J13 the verdict holds off until its moment",
 		not panel.verdict_box().visible, "shown %s" % str(panel.verdict_box().visible))
@@ -915,6 +962,10 @@ static func _case_j13_failure(res: Dictionary, host: Node) -> void:
 		panel.title_label.get_global_rect().position.y])
 	TestFixtures.check(res, "J13 the title takes the failure red once the verdict docks",
 		panel.title_color().is_equal_approx(FAILED_COLOR), str(panel.title_color()))
+
+
+#The XP each merc takes on a failure.
+static func _failure_xp(res: Dictionary, panel: ContractResults, result: ContractResultData) -> void:
 	panel.set_time(T_XP)
 	var full: int = _full_xp(result)
 	var owed: int = int(round(float(full) * float(FAIL_XP_PCT) / 100.0))
@@ -934,67 +985,41 @@ static func _case_j13_failure(res: Dictionary, host: Node) -> void:
 			TestFixtures.check(res, "J13 row %d leaves the XP column blank" % i,
 				row != null and row.xp_text() == BLANK_XP,
 				"" if row == null else row.xp_text())
+
+
+#The tally of a failure: nothing earned, the expenses owed, no bonus and no MVP.
+static func _failure_totals(res: Dictionary, panel: ContractResults, result: ContractResultData) -> void:
 	panel.set_time(ResultsTimeline.NET_END)
 	TestFixtures.check(res, "J13 the reward of a failed contract counts nothing",
-		_digits(panel.notes().reward_text()) == "0", panel.notes().reward_text())
+		GuiClickHTests.digits(panel.notes().reward_text(), true) == "0", panel.notes().reward_text())
 	TestFixtures.check(res, "J13 the tally is named Total Cost on a failure",
 		panel.notes().net_label_text() == COST_LABEL, panel.notes().net_label_text())
 	TestFixtures.check(res, "J13 the total cost is the expenses, owed and not earned",
-		_digits(panel.notes().net_text()) == "-%d" % result.expenses and result.expenses > 0,
+		GuiClickHTests.digits(panel.notes().net_text(), true) == "-%d" % result.expenses and result.expenses > 0,
 		"%s %d" % [panel.notes().net_text(), result.expenses])
 	TestFixtures.check(res, "J13 the total cost is written in the failure red",
 		panel.notes().net_color().is_equal_approx(FAILED_COLOR), str(panel.notes().net_color()))
 	TestFixtures.check(res, "J13 a failed contract pays no merc bonus",
 		not panel.notes().bonus_shown() and result.bonus() == 0, "%d" % result.bonus())
-	#GX4D-R03: README line 539 and DATA_DELTA.md line 242, no MVP on a failure.
-	var fail_badges: int = 0
-	var fail_gold_rings: int = 0
-	for i: int in result.members.size():
-		var row: ResultRow = panel.row_of(i)
-		if row == null:
-			continue
-		if row.mvp_shown():
-			fail_badges += 1
-		if row.ring_color().is_equal_approx(MVP_GOLD):
-			fail_gold_rings += 1
+	#README line 539 and DATA_DELTA.md line 242, no MVP on a failure.
+	var fail_badges: int = _mvp_count(panel, result, false)
+	var fail_gold_rings: int = _mvp_count(panel, result, true)
 	TestFixtures.check(res, "J13 a failed contract crowns no MVP",
 		fail_badges == 0, "badges %d" % fail_badges)
 	TestFixtures.check(res, "J13 no row of a failed contract wears the gold MVP ring",
 		fail_gold_rings == 0, "gold %d" % fail_gold_rings)
-	panel.set_time(ResultsTimeline.end_time(result))
-	await host.get_tree().process_frame
-	var fly: MoneyFly = hud.money_fly()
-	TestFixtures.check(res, "J13 the notes leave the HUD money counter",
-		fly != null and fly.is_flying() and fly.amount() == -result.expenses,
-		"%d" % (0 if fly == null else fly.amount()))
-	var counter: MoneyMenu = null if fly == null else fly.counter()
-	TestFixtures.check(res, "J13 the money counter turns to the losing red",
-		counter != null and counter.tint().is_equal_approx(FAILED_COLOR),
-		"" if counter == null else str(counter.tint()))
-	TestFixtures.check(res, "J13 Continue is still dead while the notes fly",
-		not panel.continue_ready(), "ready %s" % str(panel.continue_ready()))
-	panel.set_time(ResultsTimeline.total_time(result))
-	TestFixtures.check(res, "J13 Continue wakes up at the end of the tally",
-		panel.continue_ready() and panel.is_finished(), "ready %s" % str(panel.continue_ready()))
-	var style: Color = panel.continue_style()
-	TestFixtures.check(res, "J13 Continue is the shared BevelButton scene, blue after a failure",
-		panel.continue_button is BevelButton and style.is_equal_approx(CONTINUE_BLUE),
-		str(style))
-	GuiFrameStack.clear()
-	hud.queue_free()
-	await host.get_tree().process_frame
 
 
 #README J13: "Open Contract 12: same with SUCCESS!, MVP, bonus payout."
 static func _case_j13_success(res: Dictionary, host: Node) -> void:
 	_fresh()
 	BenefitsManager.set_benefit("contract", BONUS_PCT)
-	var ids: Array[int] = GameState.seed_results_preview()
+	var ids: Array[int] = ResultsPreview.seed_results()
 	if ids.size() != 2:
 		TestFixtures.check(res, "J13 the game seeds the finished contract", false, str(ids))
 		BenefitsManager.reset()
 		return
-	var hud: GameHUD = _hud(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
 	var panel: ContractResults = await _open_results(host, hud, ids[0])
 	var result: ContractResultData = GameState.result_of(ids[0])
@@ -1002,10 +1027,8 @@ static func _case_j13_success(res: Dictionary, host: Node) -> void:
 		panel != null and result != null and not result.failed,
 		"%s" % str(panel != null and result != null))
 	if panel == null or result == null:
-		GuiFrameStack.clear()
-		hud.queue_free()
+		await _close(host, hud)
 		BenefitsManager.reset()
-		await host.get_tree().process_frame
 		return
 	panel.set_time(T_FATES + TICK)
 	var lost: int = 0
@@ -1021,79 +1044,62 @@ static func _case_j13_success(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J13 the winning verdict is written in green",
 		box.verdict_color().is_equal_approx(SUCCESS_COLOR), str(box.verdict_color()))
 	panel.set_time(ResultsTimeline.TOLD + TICK)
-	var badges: int = 0
-	var gold: int = 0
-	for i: int in result.members.size():
-		var row: ResultRow = panel.row_of(i)
-		if row == null:
-			continue
-		if row.mvp_shown():
-			badges += 1
-		if row.ring_color().is_equal_approx(MVP_GOLD):
-			gold += 1
+	var badges: int = _mvp_count(panel, result, false)
+	var gold: int = _mvp_count(panel, result, true)
 	TestFixtures.check(res, "J13 one merc of the winning crew wears the MVP badge",
 		badges == 1, "badges %d" % badges)
 	TestFixtures.check(res, "J13 the MVP is the merc ringed in gold", gold == 1, "gold %d" % gold)
 	panel.set_time(ResultsTimeline.total_time(result))
-	TestFixtures.check(res, "J13 a won contract pays its mercs a bonus",
-		result.bonus() > 0 and result.bonus_pct == BONUS_PCT,
-		"%d %d" % [result.bonus(), result.bonus_pct])
+	TestFixtures.check(res, "J13 a won contract pays its mercs a bonus out of the reward",
+		result.bonus() > 0 and result.bonus_pct == BONUS_PCT
+			and result.bonus() == floori(result.reward * BONUS_PCT / 100.0),
+		"%d %d of %d" % [result.bonus(), result.bonus_pct, result.reward])
 	TestFixtures.check(res, "J13 the bonus payout shows in the money box",
 		panel.notes().bonus_shown()
-		and _digits(panel.notes().bonus_text()) == "-%d" % result.bonus(),
+		and GuiClickHTests.digits(panel.notes().bonus_text(), true) == "-%d" % result.bonus(),
 		panel.notes().bonus_text())
 	TestFixtures.check(res, "J13 the tally of a won contract is named Notes Earned",
 		panel.notes().net_label_text() == EARNED_LABEL, panel.notes().net_label_text())
 	TestFixtures.check(res, "J13 the notes earned are the reward less the expenses and the bonus",
-		_digits(panel.notes().net_text()) == str(result.guild_share()) and result.guild_share() > 0,
+		GuiClickHTests.digits(panel.notes().net_text(), true) == str(result.guild_share()) and result.guild_share() > 0,
 		"%s %d" % [panel.notes().net_text(), result.guild_share()])
 	TestFixtures.check(res, "J13 the notes earned are written in green",
 		panel.notes().net_color().is_equal_approx(SUCCESS_COLOR), str(panel.notes().net_color()))
 	var fly: MoneyFly = hud.money_fly()
-	TestFixtures.check(res, "J13 the guild share flies into the HUD money counter",
-		fly != null and fly.amount() == result.guild_share(),
-		"%d" % (0 if fly == null else fly.amount()))
+	TestFixtures.check(res, "J13 the reward less the bonus flies into the HUD money counter",
+		fly != null and fly.amount() == result.reward - result.bonus()
+			and fly.amount() == result.fly_amount(),
+		"%d of %d" % [0 if fly == null else fly.amount(), result.reward - result.bonus()])
 	var style: Color = panel.continue_style()
 	TestFixtures.check(res, "J13 Continue is the shared BevelButton scene, green after a win",
 		panel.continue_ready() and panel.continue_button is BevelButton
 		and style.is_equal_approx(CONTINUE_GREEN),
 		str(style))
-	GuiFrameStack.clear()
-	hud.queue_free()
+	await _close(host, hud)
 	BenefitsManager.reset()
-	await host.get_tree().process_frame
 
 
 #README J14: "After viewing: Contract 15 shows the red skull, "Failed", "Failed on", and the pay
 #tooltip."
 static func _case_j14_after(res: Dictionary, host: Node) -> void:
 	_fresh()
-	var ids: Array[int] = GameState.seed_results_preview()
+	var ids: Array[int] = ResultsPreview.seed_results()
 	if ids.size() != 2:
 		TestFixtures.check(res, "J14 the game seeds the failed contract", false, str(ids))
 		return
-	var hud: GameHUD = _hud(host)
+	var hud: GameHUD = GuiHudTests.spawn_hud(host)
 	await host.get_tree().process_frame
-	var viewer: ContractViewer = hud.open_viewer(&"contracts") as ContractViewer
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
+	var viewer: ContractViewer = await _open_viewer(host, hud)
 	TestFixtures.check(res, "J14 the Contract Viewer opens", viewer != null,
 		"viewer %s" % str(viewer != null))
 	if viewer == null:
-		GuiFrameStack.clear()
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
-	viewer.select_entry(ids[1])
-	await host.get_tree().process_frame
-	await host.get_tree().process_frame
-	var panel: ContractResults = viewer.window().current() as ContractResults
+	var panel: ContractResults = await _show_results(host, viewer, ids[1])
 	var result: ContractResultData = GameState.result_of(ids[1])
 	if panel == null or result == null:
 		TestFixtures.check(res, "J14 the results of the failed contract open", false, "no panel")
-		GuiFrameStack.clear()
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
 	panel.skip_to_end()
 	panel.press_continue()
@@ -1104,9 +1110,7 @@ static func _case_j14_after(res: Dictionary, host: Node) -> void:
 		view != null and not view.is_unclaimed() and not GameState.is_unclaimed(ids[1]),
 		"%s" % str(view != null and not view.is_unclaimed()))
 	if view == null:
-		GuiFrameStack.clear()
-		hud.queue_free()
-		await host.get_tree().process_frame
+		await _close(host, hud)
 		return
 	TestFixtures.check(res, "J14 the contract now reads Failed",
 		view.shown_status_text() == FAILED_TEXT, view.shown_status_text())
@@ -1116,7 +1120,7 @@ static func _case_j14_after(res: Dictionary, host: Node) -> void:
 		view.shown_mark() == StatusMark.Mark.FAILED, "%d" % view.shown_mark())
 	TestFixtures.check(res, "J14 the failed contract leaves the Unclaimed Results shelf",
 		ContractList.filter_key(view) == FAILED_FILTER_KEY, ContractList.filter_key(view))
-	#GX4D-01: the claim keeps the posting on the board; its own Failed option turns on for it.
+	#The claim keeps the posting on the board; its own Failed option turns on for it.
 	TestFixtures.check(res,
 		"J14 a settled failure stays on the board with its own Failed option now on",
 		_row_of(viewer.list(), ids[1]) != null and viewer.list().filter_panel.show_failed,
@@ -1156,9 +1160,7 @@ static func _case_j14_after(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "J14 the reward now opens the pay results tooltip",
 		tip.visible and tip.is_results(), "shown %s" % str(tip.visible))
 	TestFixtures.check(res, "J14 the tooltip shows the forfeited reward as nothing",
-		_digits(tip.reward_label.text) == "0", tip.reward_label.text)
+		GuiClickHTests.digits(tip.reward_label.text, true) == "0", tip.reward_label.text)
 	TestFixtures.check(res, "J14 the tooltip shows the expenses the guild carried",
-		_digits(tip.expenses_label.text) == "-%d" % result.expenses, tip.expenses_label.text)
-	GuiFrameStack.clear()
-	hud.queue_free()
-	await host.get_tree().process_frame
+		GuiClickHTests.digits(tip.expenses_label.text, true) == "-%d" % result.expenses, tip.expenses_label.text)
+	await _close(host, hud)

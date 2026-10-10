@@ -1,6 +1,9 @@
 class_name RangedThreatFacet extends DecisionFacet
 
-@export var invert: bool = false
+#Applies invert inside evaluate, where the flip is not 1.0 - raw.
+func score(merc: MercenaryData, ctx: Dictionary) -> float:
+	return evaluate(merc, ctx)
+
 
 func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var state: BattleState = ctx.get("state")
@@ -14,7 +17,7 @@ func evaluate(merc: MercenaryData, ctx: Dictionary) -> float:
 	var threat: float = 0.0
 	for e: MercenaryData in ranged_enemies:
 		var d := float(maxi(1, state.distance_2d(merc, e)))
-		threat += maxf(0.25, 1.0 / d)  # floor ensures distant enemies still register
+		threat += maxf(0.25, 1.0 / d)  #floor ensures distant enemies still register
 
 	var recently_targeted: bool = false
 	var last_round: int = state.last_ranged_targeted_round.get(merc, -99) as int

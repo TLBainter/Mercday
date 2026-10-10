@@ -3,9 +3,10 @@ class_name NotificationFooter extends HBoxContainer
 #The bottom line of a notification item: the game date and time on the left, the urgency name on
 #the right in the urgency colour. Both texts come from NotificationData so one source spells them.
 
-const WHEN_COLOR: Color = Color("#8a97ad")
+const WHEN_COLOR: Color = GuiColors.DIM_TEXT
 
 @export var when_label_path: NodePath = ^"WhenLabel"
+@export var spacer_path: NodePath = ^"Spacer"
 @export var urgency_label_path: NodePath = ^"UrgencyLabel"
 
 var _when: Label = null
@@ -16,6 +17,10 @@ var _row: NotificationData = null
 func _ready() -> void:
 	_when = get_node_or_null(when_label_path) as Label
 	_urgency = get_node_or_null(urgency_label_path) as Label
+	#A STOP spacer inside the row would drop its hover and replay it on the way back.
+	var spacer: Control = get_node_or_null(spacer_path) as Control
+	if spacer != null:
+		spacer.mouse_filter = MOUSE_FILTER_IGNORE
 	_refresh()
 
 

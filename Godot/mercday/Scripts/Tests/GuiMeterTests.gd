@@ -3,7 +3,6 @@ class_name GuiMeterTests
 #The ten S1B GUI atoms: statics and instanced scene behaviour.
 #Run: godot --headless --path . -- --gui-meter-tests
 
-const DIFFICULTY_STARS_SCENE := "res://Scenes/GUI/Shared/DifficultyStars.tscn"
 const NOTE_ICON_SCENE := "res://Scenes/GUI/Shared/NoteIcon.tscn"
 const TRADITION_SIGIL_SCENE := "res://Scenes/GUI/Shared/TraditionSigil.tscn"
 const MERC_STATUS_STRIP_SCENE := "res://Scenes/GUI/Shared/MercStatusStrip.tscn"
@@ -35,30 +34,32 @@ static func _near(a: float, b: float, eps: float = 0.001) -> bool:
 
 
 static func _case_difficulty_stars(res: Dictionary, host: Node) -> void:
-	TestFixtures.check(res, "DifficultyStars full_count(3.5)", DifficultyStars.full_count(3.5) == 3,
-		str(DifficultyStars.full_count(3.5)))
-	TestFixtures.check(res, "DifficultyStars has_half(3.5)", DifficultyStars.has_half(3.5) == true,
-		str(DifficultyStars.has_half(3.5)))
-	TestFixtures.check(res, "DifficultyStars has_half(3.0)", DifficultyStars.has_half(3.0) == false,
-		str(DifficultyStars.has_half(3.0)))
-	var node: DifficultyStars = load(DIFFICULTY_STARS_SCENE).instantiate()
+	TestFixtures.check(res, "Stars colour snaps 3.4 to the 3.5 half step",
+		Stars.color_of(3.4, Stars.DIFFICULTY, true) == Icons.star_color(3.5, false),
+		str(Stars.color_of(3.4, Stars.DIFFICULTY, true)))
+	TestFixtures.check(res, "Stars colour snaps 3.74 down to 3.5",
+		Stars.color_of(3.74, Stars.DIFFICULTY, true) == Icons.star_color(3.5, false),
+		str(Stars.color_of(3.74, Stars.DIFFICULTY, true)))
+	TestFixtures.check(res, "Stars colour without snapping reads the raw value",
+		Stars.color_of(3.0, Stars.DIFFICULTY, false) == Icons.star_color(3.0, false),
+		str(Stars.color_of(3.0, Stars.DIFFICULTY, false)))
+	var node := Stars.new()
 	host.add_child(node)
 	await host.get_tree().process_frame
-	node.star_size = 2
-	node.rating = 3.5
+	node.star_px = 2
+	node.value = 3.5
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "DifficultyStars min size", node.custom_minimum_size == Vector2(176, 32),
+	TestFixtures.check(res, "Stars min size", node.custom_minimum_size == Vector2(176, 32),
 		str(node.custom_minimum_size))
-	TestFixtures.check(res, "DifficultyStars tooltip", node.tooltip_text == "3.5", node.tooltip_text)
-	TestFixtures.check(res, "DifficultyStars empty colour is the unused star blue",
+	TestFixtures.check(res, "Stars tooltip", node.tooltip_text == "3.5", node.tooltip_text)
+	TestFixtures.check(res, "Stars empty colour is the unused star blue",
 		node.empty_color == Icons.UNUSED_STAR, str(node.empty_color))
-	TestFixtures.check(res, "DifficultyStars difficulty ramp reads the Icons ramp",
-		DifficultyStars.color_for(3.5, DifficultyStars.Ramp.DIFFICULTY)
-			== Icons.star_color(3.5, false),
-		str(DifficultyStars.color_for(3.5, DifficultyStars.Ramp.DIFFICULTY)))
-	TestFixtures.check(res, "DifficultyStars match ramp reads the positive Icons ramp",
-		DifficultyStars.color_for(3.5, DifficultyStars.Ramp.MATCH) == Icons.star_color(3.5, true),
-		str(DifficultyStars.color_for(3.5, DifficultyStars.Ramp.MATCH)))
+	TestFixtures.check(res, "Stars difficulty ramp reads the Icons ramp",
+		Stars.color_of(3.5, Stars.DIFFICULTY, false) == Icons.star_color(3.5, false),
+		str(Stars.color_of(3.5, Stars.DIFFICULTY, false)))
+	TestFixtures.check(res, "Stars match ramp reads the positive Icons ramp",
+		Stars.color_of(3.5, Stars.MATCH, false) == Icons.star_color(3.5, true),
+		str(Stars.color_of(3.5, Stars.MATCH, false)))
 	node.queue_free()
 
 
@@ -101,16 +102,11 @@ static func _case_tradition_sigil(res: Dictionary, host: Node) -> void:
 
 
 static func _case_merc_status_strip(res: Dictionary, host: Node) -> void:
-	TestFixtures.check(res, "MercStatusStrip time_text(45)", MercStatusStrip.time_text(45) == "45m",
-		MercStatusStrip.time_text(45))
-	TestFixtures.check(res, "MercStatusStrip time_text(60)", MercStatusStrip.time_text(60) == "1h",
-		MercStatusStrip.time_text(60))
-	TestFixtures.check(res, "MercStatusStrip time_text(150)", MercStatusStrip.time_text(150) == "2h 30m",
-		MercStatusStrip.time_text(150))
-	TestFixtures.check(res, "MercStatusStrip time_text(1440)", MercStatusStrip.time_text(1440) == "1d",
-		MercStatusStrip.time_text(1440))
-	TestFixtures.check(res, "MercStatusStrip time_text(1500)", MercStatusStrip.time_text(1500) == "1d 1h",
-		MercStatusStrip.time_text(1500))
+	var times: Array[Array] = [[45, "45m"], [60, "1h"], [150, "2h 30m"], [1440, "1d"], [1500, "1d 1h"]]
+	for row: Array in times:
+		var minutes: int = row[0]
+		var text: String = MercStatusStrip.time_text(minutes)
+		TestFixtures.check(res, "MercStatusStrip time_text(%d)" % minutes, text == row[1], text)
 	TestFixtures.check(res, "MercStatusStrip color_for(AVAILABLE)",
 		MercStatusStrip.color_for(GuiTypes.MercStatus.AVAILABLE) == Color("#6cc36a"), "")
 	TestFixtures.check(res, "MercStatusStrip color_for(RESTING)",
@@ -119,7 +115,6 @@ static func _case_merc_status_strip(res: Dictionary, host: Node) -> void:
 	host.add_child(node)
 	await host.get_tree().process_frame
 	node.status = GuiTypes.MercStatus.AVAILABLE
-	node.time_left_minutes = 0
 	await host.get_tree().process_frame
 	var base_name: String = String(GuiTypes.MERC_STATUS_NAMES.get(GuiTypes.MercStatus.AVAILABLE, ""))
 	TestFixtures.check(res, "MercStatusStrip text with no time", node.text == base_name, node.text)
@@ -136,24 +131,25 @@ static func _case_merc_status_strip(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the plain strip keeps its text and drops the band",
 		node.text == base_name and not node.has_theme_stylebox_override("normal"),
 		"text '%s' override %s" % [node.text, node.has_theme_stylebox_override("normal")])
-	node.time_left_minutes = 90
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "MercStatusStrip text with time",
-		node.text == "%s 1h 30m" % base_name, node.text)
 	node.queue_free()
+	var tag: Label = Label.new()
+	host.add_child(tag)
+	MercStatusStrip.dress_time_tag(tag, 0)
+	TestFixtures.check(res, "the time tag hides at zero minutes", not tag.visible, str(tag.visible))
+	MercStatusStrip.dress_time_tag(tag, 90)
+	TestFixtures.check(res, "the time tag reads the time left on its own band, right aligned",
+		tag.visible and tag.text == "1h 30m" and tag.has_theme_stylebox_override("normal")
+			and tag.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT,
+		"text '%s' visible %s" % [tag.text, tag.visible])
+	tag.queue_free()
 
 
 static func _case_success_meter(res: Dictionary, host: Node) -> void:
-	TestFixtures.check(res, "SuccessMeter filled_cells(0)", SuccessMeter.filled_cells(0) == 0,
-		str(SuccessMeter.filled_cells(0)))
-	TestFixtures.check(res, "SuccessMeter filled_cells(52)", SuccessMeter.filled_cells(52) == 10,
-		str(SuccessMeter.filled_cells(52)))
-	TestFixtures.check(res, "SuccessMeter filled_cells(53)", SuccessMeter.filled_cells(53) == 11,
-		str(SuccessMeter.filled_cells(53)))
-	TestFixtures.check(res, "SuccessMeter filled_cells(100)", SuccessMeter.filled_cells(100) == 20,
-		str(SuccessMeter.filled_cells(100)))
-	TestFixtures.check(res, "SuccessMeter filled_cells(140)", SuccessMeter.filled_cells(140) == 20,
-		str(SuccessMeter.filled_cells(140)))
+	var cells: Array[Array] = [[0, 0], [52, 10], [53, 11], [100, 20], [140, 20]]
+	for row: Array in cells:
+		var odds: int = row[0]
+		var filled: int = SuccessMeter.filled_cells(odds)
+		TestFixtures.check(res, "SuccessMeter filled_cells(%d)" % odds, filled == row[1], str(filled))
 	var node: SuccessMeter = load(SUCCESS_METER_SCENE).instantiate()
 	host.add_child(node)
 	await host.get_tree().process_frame
@@ -295,11 +291,11 @@ static func _case_weight_bar(res: Dictionary, host: Node) -> void:
 
 
 static func _case_merc_count(res: Dictionary, host: Node) -> void:
-	TestFixtures.check(res, "MercCount color_at(0,2,4)", MercCount.color_at(0, 2, 4) == Color("#f28c28"), "")
-	TestFixtures.check(res, "MercCount color_at(1,2,4)", MercCount.color_at(1, 2, 4) == Color("#f28c28"), "")
-	TestFixtures.check(res, "MercCount color_at(2,2,4)", MercCount.color_at(2, 2, 4) == Color("#f3ead7"), "")
-	TestFixtures.check(res, "MercCount color_at(3,2,4)", MercCount.color_at(3, 2, 4) == Color("#f3ead7"), "")
-	TestFixtures.check(res, "MercCount color_at(4,2,4)", MercCount.color_at(4, 2, 4) == Color("#3b6fb6"), "")
+	var tones: Array[Array] = [[0, "#f28c28"], [1, "#f28c28"], [2, "#f3ead7"], [3, "#f3ead7"], [4, "#3b6fb6"]]
+	for row: Array in tones:
+		var index: int = row[0]
+		TestFixtures.check(res, "MercCount color_at(%d,2,4)" % index,
+			MercCount.color_at(index, 2, 4) == Color(row[1]), "")
 	var node: MercCount = load(MERC_COUNT_SCENE).instantiate()
 	host.add_child(node)
 	await host.get_tree().process_frame

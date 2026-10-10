@@ -48,9 +48,7 @@ static func set_level_from_xp(merc: MercenaryData) -> int:
 	var target: int = level_for(merc.xp)
 	if target == current_level(merc):
 		return target
-	StatCalculator.prime(merc)
-	merc.stats["level"] = float(target)
-	StatCalculator.refresh(merc)
+	_write_level(merc, target)
 	return target
 
 
@@ -63,13 +61,18 @@ static func resolve_level_ups(merc: MercenaryData) -> Array[String]:
 	var cur: int = current_level(merc)
 	while cur < target:
 		cur += 1
-		StatCalculator.prime(merc)
-		merc.stats["level"] = float(cur)
-		StatCalculator.refresh(merc)
+		_write_level(merc, cur)
 		lines.append("LEVEL UP: %s is now level %d (%d xp)" % [merc.merc_name, cur, merc.xp])
 		lines.append_array(LifepathProgression.on_level_up(merc))
 		lines.append_array(LevelUpSystem.on_level(merc, cur))
 	return lines
+
+
+#Primes the stats, writes the level and refreshes everything derived from it.
+static func _write_level(merc: MercenaryData, level: int) -> void:
+	StatCalculator.prime(merc)
+	merc.stats["level"] = float(level)
+	StatCalculator.refresh(merc)
 
 
 #`dealt` is attacker -> {target -> total damage} for the whole encounter.

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SoundLibrary" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Resources/SoundLibrary.gd" id="1_script"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Equip/ESM_Empire_Game_Menu_User_Interface_UI_Back_1_Scrape_Rock_Stone.wav" id="2_s1"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Equip/ESM_Empire_Game_Menu_User_Interface_UI_Cancel_3_Stone_Rock_Metal_Hit_1.wav" id="3_s2"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Equip/ESM_Empire_Game_Menu_User_Interface_UI_Inventory_Placement_Ore_Metal_Item_Slot_1.wav" id="4_s3"]
+[ext_resource type="AudioStreamWAV" path="res://Sound/SFX/UX/Equip/ESM_Empire_Game_Menu_User_Interface_UI_Old_Ancient_Tab_Click_Textured_Organic_1.wav" id="5_s4"]
+
+[resource]
+script = ExtResource("1_script")
+sounds = Array[AudioStream]([ExtResource("2_s1"), ExtResource("3_s2"), ExtResource("4_s3"), ExtResource("5_s4")])

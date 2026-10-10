@@ -15,8 +15,9 @@ const DOWN_FILL: Color = Color("#f28c28")
 const DOWN_TIP: String = "Highest to lowest"
 const UP_FILL: Color = Color("#2b4f8a")
 const UP_TIP: String = "Lowest to highest"
-const EDGE_COLOR: Color = Color("#0a0f1c")
-const EDGE_PX: int = 3
+#The bevel palette of each direction: fill, hi, lo and the lit arrow colour.
+const DOWN_PALETTE: Array[Color] = [DOWN_FILL, Color("#ffb266"), Color("#b85a12"), Color("#0a0f1c")]
+const UP_PALETTE: Array[Color] = [UP_FILL, Color("#3b6fb6"), Color("#1f3560"), Color("#f3ead7")]
 const DIRECTION_WORDS: Array[String] = ["dir", "direction", "asc", "desc"]
 
 const CONTRACT_VIEWER: PackedScene = preload("res://Scenes/GUI/Contracts/ContractViewer.tscn")
@@ -24,29 +25,22 @@ const MERC_VIEWER: PackedScene = preload("res://Scenes/GUI/Mercs/MercViewer.tscn
 const CLIENT_VIEWER: PackedScene = preload("res://Scenes/GUI/Clients/ClientViewer.tscn")
 const LOANS_TAB: PackedScene = preload("res://Scenes/GUI/Finance/Loans/LoansTab.tscn")
 const PAYROLL_TAB: PackedScene = preload("res://Scenes/GUI/Finance/Payroll/PayrollTab.tscn")
-const HIRING_TAB: PackedScene = preload("res://Scenes/GUI/Finance/Hiring/HiringTab.tscn")
 const PROMO_VIEWER: PackedScene = preload("res://Scenes/GUI/Promotions/PromotionsViewer.tscn")
-const HIRING_PAGE_SIZE: Vector2 = Vector2(1280.0, 720.0)
 #Clients: ClientRegistry._before pins a client that never had a contract (recency < 0) to the
 #tail of the list in both directions, so a recency of -1 is excluded before the flip check
 #compares key values; see _open_clients.
 const CLIENTS_SENTINEL: int = -1
+#Dispatch: the two start mercs tie on fit stars, so the list runs on a roster of ten whose stars differ.
+const DISPATCH_ROSTER: int = 10
 
 
 static func run(host: Node) -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
-	await _case_contracts(res, host)
-	await _case_dispatch(res, host)
-	await _case_merc(res, host)
-	await _case_clients(res, host)
-	await _case_loans(res, host)
-	await _case_payroll(res, host)
-	await _case_hiring(res, host)
-	await _case_promotions(res, host)
+	await _case_lists(res, host)
 	await _case_all_toggles(res, host)
 	await _case_row_hover(res, host)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	LegalManager.reset()
 	PromotionsManager.reset()
 	FinanceManager.reset()
@@ -62,6 +56,14 @@ static func _fresh() -> void:
 	seed(7)
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
+
+
+#The start posts one contract, too few to sort or to give two clients a history, so the board is topped
+#up to its target on Enterprise the way the 8:00 refill does.
+static func _fill_board() -> void:
+	SubscriptionManager.max_out()
+	GameState.board.refill(CampaignClock.now(), SubscriptionManager.max_contracts())
+	GameState.refresh_views()
 
 
 #True when every value of the array equals the first one.
@@ -106,16 +108,14 @@ static func _distinct_count(values: Array) -> int:
 	return seen.size()
 
 
-#True when a normal stylebox paints exactly the literal fill, edge color and edge width.
-static func _stylebox_ok(box: StyleBoxFlat, fill: Color) -> bool:
-	return box != null and box.bg_color == fill and box.border_color == EDGE_COLOR \
-		and box.border_width_left == EDGE_PX and box.border_width_top == EDGE_PX \
-		and box.border_width_right == EDGE_PX and box.border_width_bottom == EDGE_PX
+#The four colours a toggle's bevel body paints with: fill, hi, lo and the lit arrow colour.
+static func _palette_of(toggle: SortDirToggle) -> Array[Color]:
+	return [toggle.fill, toggle.hi, toggle.lo, toggle.text_color]
 
 
-static func _all_styleboxes_ok(boxes: Array, fill: Color) -> bool:
-	for box: StyleBoxFlat in boxes:
-		if not _stylebox_ok(box as StyleBoxFlat, fill):
+static func _all_palettes_ok(palettes: Array, want: Array[Color]) -> bool:
+	for colors: Array in palettes:
+		if colors != want:
 			return false
 	return true
 
@@ -139,12 +139,9 @@ static func _looks_like_direction(button: Button) -> bool:
 #exactly one and it is the shared one.
 static func _count_direction_controls(node: Node) -> int:
 	var total: int = 0
-	if node is SortDirToggle:
-		total += 1
-	elif node is Button and _looks_like_direction(node as Button):
-		total += 1
-	for child: Node in node.get_children():
-		total += _count_direction_controls(child)
+	for button: Node in GuiAcceptTests._collect(node, Button):
+		if button is SortDirToggle or _looks_like_direction(button as Button):
+			total += 1
 	return total
 
 
@@ -203,6 +200,7 @@ static func _verify_toggle(res: Dictionary, label: String, data: Dictionary) -> 
 
 static func _open_contracts(host: Node) -> Dictionary:
 	_fresh()
+	_fill_board()
 	var viewer: ContractViewer = CONTRACT_VIEWER.instantiate() as ContractViewer
 	host.add_child(viewer)
 	await host.get_tree().process_frame
@@ -220,10 +218,6 @@ static func _open_contracts(host: Node) -> Dictionary:
 		"screen": viewer}
 
 
-static func _close_contracts(screen: Node) -> void:
-	screen.queue_free()
-
-
 static func _first_open_id(viewer: ContractViewer) -> int:
 	for view: ContractView in viewer.list().listed():
 		if view.status == GuiTypes.ContractStatus.AVAILABLE:
@@ -233,6 +227,8 @@ static func _first_open_id(viewer: ContractViewer) -> int:
 
 static func _open_dispatch(host: Node) -> Dictionary:
 	_fresh()
+	_fill_board()
+	TestFixtures.add_mercs(DISPATCH_ROSTER - GameState.mercs.size())
 	var viewer: ContractViewer = CONTRACT_VIEWER.instantiate() as ContractViewer
 	host.add_child(viewer)
 	await host.get_tree().process_frame
@@ -250,8 +246,8 @@ static func _open_dispatch(host: Node) -> Dictionary:
 		return {"toggle": null, "root": viewer, "order": func() -> Array: return [],
 			"keys": func() -> Array: return [], "screen": viewer}
 	var order: Callable = func() -> Array: return roster.shown_uids()
-	#Sort.BEST ranks by an internal, non-public score; DispatchRosterItem.stars_value() is the
-	#public value built from that same score (DispatchLogic.to_stars), so it moves with it.
+	#Sort.BEST ranks by the solo net; DispatchRosterItem.stars_value() is MatchScore.stars of that
+	#same net, and stars never fall as the net rises, so the keys move with it.
 	var keys: Callable = func() -> Array:
 		var out: Array = []
 		var uids: Array = roster.shown_uids()
@@ -261,10 +257,6 @@ static func _open_dispatch(host: Node) -> Dictionary:
 		return out
 	return {"toggle": roster.dir_toggle, "root": roster, "order": order, "keys": keys,
 		"screen": viewer}
-
-
-static func _close_dispatch(screen: Node) -> void:
-	screen.queue_free()
 
 
 static func _open_merc(host: Node) -> Dictionary:
@@ -296,12 +288,9 @@ static func _open_merc(host: Node) -> Dictionary:
 		"screen": screen}
 
 
-static func _close_merc(screen: Node) -> void:
-	screen.queue_free()
-
-
 static func _open_clients(host: Node) -> Dictionary:
 	_fresh()
+	_fill_board()
 	var screen: ClientViewer = CLIENT_VIEWER.instantiate() as ClientViewer
 	host.add_child(screen)
 	await host.get_tree().process_frame
@@ -338,13 +327,10 @@ static func _open_clients(host: Node) -> Dictionary:
 		"sentinel": CLIENTS_SENTINEL, "screen": screen}
 
 
-static func _close_clients(screen: Node) -> void:
-	screen.queue_free()
-
-
 static func _open_loans(host: Node) -> Dictionary:
 	_fresh()
 	FinanceManager.reset()
+	GuiLoanTests._seed_fixture()
 	var tab: LoansTab = LOANS_TAB.instantiate() as LoansTab
 	host.add_child(tab)
 	await host.get_tree().process_frame
@@ -369,7 +355,7 @@ static func _close_loans(screen: Node) -> void:
 static func _open_payroll(host: Node) -> Dictionary:
 	_fresh()
 	BenefitsManager.reset()
-	SubscriptionManager.reset()
+	SubscriptionManager.max_out()
 	var page: PayrollTab = PAYROLL_TAB.instantiate() as PayrollTab
 	host.add_child(page)
 	await host.get_tree().process_frame
@@ -394,27 +380,11 @@ static func _open_payroll(host: Node) -> Dictionary:
 static func _close_payroll(screen: Node) -> void:
 	screen.queue_free()
 	BenefitsManager.reset()
-	SubscriptionManager.reset()
-
-
-static func _hiring_ent() -> Dictionary:
-	return {"promotions": true, "oddJobs": 2, "adDirect": true, "adRadio": true,
-		"adSponsor": true, "maxPromoDays": 30, "jobPostings": true, "guildPromo": true}
+	SubscriptionManager.max_out()
 
 
 static func _open_hiring(host: Node) -> Dictionary:
-	_fresh()
-	SubscriptionManager.reset()
-	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
-	SubscriptionManager.set_entitlements(_hiring_ent())
-	LegalManager.reset()
-	PromotionsManager.reset()
-	var page: HiringTab = HIRING_TAB.instantiate() as HiringTab
-	page.custom_minimum_size = HIRING_PAGE_SIZE
-	host.add_child(page)
-	page.size = HIRING_PAGE_SIZE
-	for _i: int in 3:
-		await host.get_tree().process_frame
+	var page: HiringTab = await GuiHiringTests._open(host, GuiAdsTests._full_ent())
 	var order: Callable = func() -> Array: return page.card_ids()
 	#The default sort is &"fit" (HiringTab._sort); ApplicantData.fit is public and is the exact
 	#field applicants_filtered()'s comparator reads for that key.
@@ -430,18 +400,18 @@ static func _open_hiring(host: Node) -> Dictionary:
 
 static func _close_hiring(screen: Node) -> void:
 	screen.queue_free()
-	SubscriptionManager.reset()
+	_reset_promo_state()
+
+
+static func _reset_promo_state() -> void:
+	SubscriptionManager.max_out()
 	LegalManager.reset()
 	PromotionsManager.reset()
 
 
 static func _open_promotions(host: Node) -> Dictionary:
-	_fresh()
-	SubscriptionManager.reset()
-	SubscriptionManager.set_state(SubscriptionManager.Plan.ENTERPRISE, {})
-	SubscriptionManager.set_entitlements(_hiring_ent())
-	LegalManager.reset()
-	PromotionsManager.reset()
+	GuiHiringTests._fresh(GuiAdsTests._full_ent())
+	_launch_later_ad()
 	var viewer: PromotionsViewer = PROMO_VIEWER.instantiate() as PromotionsViewer
 	host.add_child(viewer)
 	await host.get_tree().process_frame
@@ -465,140 +435,98 @@ static func _open_promotions(host: Node) -> Dictionary:
 		"screen": viewer}
 
 
+#The board's job ads all start on one day, so one more launched today gives the start sort two values.
+static func _launch_later_ad() -> void:
+	var bank: int = GameState.bank_notes
+	GameState.bank_notes = GuiHiringTests.RICH
+	if TestFixtures.launch_campaign({"type": &"flyers", "days": GuiHiringTests.BOARD_DAYS}) == null:
+		push_error("_launch_later_ad could not launch a Flyers job ad")
+	GameState.bank_notes = bank
+
+
 static func _close_promotions(screen: Node) -> void:
 	GuiFrameStack.clear()
 	screen.queue_free()
-	SubscriptionManager.reset()
-	LegalManager.reset()
-	PromotionsManager.reset()
+	_reset_promo_state()
 
 
-static func _case_contracts(res: Dictionary, host: Node) -> void:
-	var data: Dictionary = await _open_contracts(host)
-	await _verify_toggle(res, "Contracts", data)
-	_close_contracts(data["screen"] as Node)
+#The eight lists in screen order. A list without a "close" entry is closed by freeing its screen.
+static func _lists() -> Array[Dictionary]:
+	return [
+		{"label": "Contracts", "open": _open_contracts},
+		{"label": "Dispatch", "open": _open_dispatch},
+		{"label": "Merc roster", "open": _open_merc},
+		{"label": "Clients", "open": _open_clients},
+		{"label": "Finance Loans", "open": _open_loans, "close": _close_loans},
+		{"label": "Finance Payroll", "open": _open_payroll, "close": _close_payroll},
+		{"label": "Hiring", "open": _open_hiring, "close": _close_hiring},
+		{"label": "Promotions", "open": _open_promotions, "close": _close_promotions},
+	]
 
 
-static func _case_dispatch(res: Dictionary, host: Node) -> void:
-	var data: Dictionary = await _open_dispatch(host)
-	if data["toggle"] == null:
-		TestFixtures.check(res, "Dispatch opens a dispatch window to read its toggle", false,
-			"no open contract to accept")
-		_close_dispatch(data["screen"] as Node)
-		return
-	await _verify_toggle(res, "Dispatch", data)
-	_close_dispatch(data["screen"] as Node)
+static func _close_list(list: Dictionary, data: Dictionary) -> void:
+	var screen: Node = data["screen"] as Node
+	if list.has("close"):
+		(list["close"] as Callable).call(screen)
+	else:
+		screen.queue_free()
 
 
-static func _case_merc(res: Dictionary, host: Node) -> void:
-	var data: Dictionary = await _open_merc(host)
-	await _verify_toggle(res, "Merc roster", data)
-	_close_merc(data["screen"] as Node)
+static func _case_lists(res: Dictionary, host: Node) -> void:
+	for list: Dictionary in _lists():
+		var data: Dictionary = await (list["open"] as Callable).call(host)
+		await _verify_toggle(res, list["label"] as String, data)
+		_close_list(list, data)
 
 
-static func _case_clients(res: Dictionary, host: Node) -> void:
-	var data: Dictionary = await _open_clients(host)
-	await _verify_toggle(res, "Clients", data)
-	_close_clients(data["screen"] as Node)
-
-
-static func _case_loans(res: Dictionary, host: Node) -> void:
-	var data: Dictionary = await _open_loans(host)
-	await _verify_toggle(res, "Finance Loans", data)
-	_close_loans(data["screen"] as Node)
-
-
-static func _case_payroll(res: Dictionary, host: Node) -> void:
-	var data: Dictionary = await _open_payroll(host)
-	await _verify_toggle(res, "Finance Payroll", data)
-	_close_payroll(data["screen"] as Node)
-
-
-static func _case_hiring(res: Dictionary, host: Node) -> void:
-	var data: Dictionary = await _open_hiring(host)
-	await _verify_toggle(res, "Hiring", data)
-	_close_hiring(data["screen"] as Node)
-
-
-static func _case_promotions(res: Dictionary, host: Node) -> void:
-	var data: Dictionary = await _open_promotions(host)
-	await _verify_toggle(res, "Promotions", data)
-	_close_promotions(data["screen"] as Node)
-
-
-#Reads the script, the scene path, the size and both looks of one toggle into the parallel
-#arrays, plus the raw normal stylebox of each look so the cross-list case can check the paint
-#independently of fill_color() (which reads the same LOOKS table _refresh() paints from).
-#min_sizes holds custom_minimum_size and sizes holds the actual rendered size, so a row that
-#stretches the toggle past its minimum still fails the cross-list size check.
-static func _collect_look(data: Dictionary, scripts: Array, scene_paths: Array, min_sizes: Array,
-		sizes: Array, down_fills: Array, down_tips: Array, up_fills: Array, up_tips: Array,
-		down_boxes: Array, up_boxes: Array) -> void:
-	var toggle: SortDirToggle = data["toggle"] as SortDirToggle
-	scripts.append(toggle.get_script())
-	scene_paths.append(toggle.scene_file_path)
-	min_sizes.append(toggle.custom_minimum_size)
-	sizes.append(toggle.size)
+#One toggle's script, scene, sizes and both looks, plus the bevel palette of each look so the
+#cross-list case checks the paint against literals independently of fill_color().
+#min_size is custom_minimum_size and size the rendered size, so a stretched row still fails.
+static func _look_of(toggle: SortDirToggle) -> Dictionary:
+	var look: Dictionary = {"script": toggle.get_script(), "scene": toggle.scene_file_path,
+		"min_size": toggle.custom_minimum_size, "size": toggle.size}
 	toggle.descending = true
-	down_fills.append(toggle.fill_color())
-	down_tips.append(toggle.tooltip_text)
-	down_boxes.append(toggle.get_theme_stylebox("normal") as StyleBoxFlat)
+	look["down_fill"] = toggle.fill_color()
+	look["down_tip"] = toggle.tooltip_text
+	look["down_pal"] = _palette_of(toggle)
 	toggle.descending = false
-	up_fills.append(toggle.fill_color())
-	up_tips.append(toggle.tooltip_text)
-	up_boxes.append(toggle.get_theme_stylebox("normal") as StyleBoxFlat)
+	look["up_fill"] = toggle.fill_color()
+	look["up_tip"] = toggle.tooltip_text
+	look["up_pal"] = _palette_of(toggle)
+	return look
+
+
+static func _column(looks: Array[Dictionary], key: String) -> Array:
+	var out: Array = []
+	for look: Dictionary in looks:
+		out.append(look[key])
+	return out
 
 
 #Part J step 15, the last case: the eight direction toggles compared with each other. Every
 #aggregate check is guarded by size() == 8 so a screen that failed to hand back a toggle cannot
 #make _all_equal() pass vacuously on a short or empty array.
 static func _case_all_toggles(res: Dictionary, host: Node) -> void:
-	var scripts: Array = []
-	var scene_paths: Array = []
-	var min_sizes: Array = []
-	var sizes: Array = []
-	var down_fills: Array = []
-	var down_tips: Array = []
-	var up_fills: Array = []
-	var up_tips: Array = []
-	var down_boxes: Array = []
-	var up_boxes: Array = []
-	var d0: Dictionary = await _open_contracts(host)
-	_collect_look(d0, scripts, scene_paths, min_sizes, sizes, down_fills, down_tips, up_fills,
-		up_tips, down_boxes, up_boxes)
-	_close_contracts(d0["screen"] as Node)
-	var d1: Dictionary = await _open_dispatch(host)
-	if d1["toggle"] != null:
-		_collect_look(d1, scripts, scene_paths, min_sizes, sizes, down_fills, down_tips, up_fills,
-			up_tips, down_boxes, up_boxes)
-	else:
-		TestFixtures.check(res, "Dispatch has a direction toggle to compare with the rest", false,
-			"no open contract to accept")
-	_close_dispatch(d1["screen"] as Node)
-	var d2: Dictionary = await _open_merc(host)
-	_collect_look(d2, scripts, scene_paths, min_sizes, sizes, down_fills, down_tips, up_fills,
-		up_tips, down_boxes, up_boxes)
-	_close_merc(d2["screen"] as Node)
-	var d3: Dictionary = await _open_clients(host)
-	_collect_look(d3, scripts, scene_paths, min_sizes, sizes, down_fills, down_tips, up_fills,
-		up_tips, down_boxes, up_boxes)
-	_close_clients(d3["screen"] as Node)
-	var d4: Dictionary = await _open_loans(host)
-	_collect_look(d4, scripts, scene_paths, min_sizes, sizes, down_fills, down_tips, up_fills,
-		up_tips, down_boxes, up_boxes)
-	_close_loans(d4["screen"] as Node)
-	var d5: Dictionary = await _open_payroll(host)
-	_collect_look(d5, scripts, scene_paths, min_sizes, sizes, down_fills, down_tips, up_fills,
-		up_tips, down_boxes, up_boxes)
-	_close_payroll(d5["screen"] as Node)
-	var d6: Dictionary = await _open_hiring(host)
-	_collect_look(d6, scripts, scene_paths, min_sizes, sizes, down_fills, down_tips, up_fills,
-		up_tips, down_boxes, up_boxes)
-	_close_hiring(d6["screen"] as Node)
-	var d7: Dictionary = await _open_promotions(host)
-	_collect_look(d7, scripts, scene_paths, min_sizes, sizes, down_fills, down_tips, up_fills,
-		up_tips, down_boxes, up_boxes)
-	_close_promotions(d7["screen"] as Node)
+	var looks: Array[Dictionary] = []
+	for list: Dictionary in _lists():
+		var data: Dictionary = await (list["open"] as Callable).call(host)
+		var toggle: SortDirToggle = data["toggle"] as SortDirToggle
+		if toggle != null:
+			looks.append(_look_of(toggle))
+		else:
+			TestFixtures.check(res, "%s has a direction toggle to compare with the rest"
+				% list["label"], false, "toggle is null")
+		_close_list(list, data)
+	var scripts: Array = _column(looks, "script")
+	var scene_paths: Array = _column(looks, "scene")
+	var min_sizes: Array = _column(looks, "min_size")
+	var sizes: Array = _column(looks, "size")
+	var down_fills: Array = _column(looks, "down_fill")
+	var down_tips: Array = _column(looks, "down_tip")
+	var up_fills: Array = _column(looks, "up_fill")
+	var up_tips: Array = _column(looks, "up_tip")
+	var down_pals: Array = _column(looks, "down_pal")
+	var up_pals: Array = _column(looks, "up_pal")
 	TestFixtures.check(res, "the eight direction toggles share the same script",
 		scripts.size() == 8 and _all_equal(scripts), "%d scripts" % scripts.size())
 	TestFixtures.check(res, "the eight direction toggles share the same scene path",
@@ -613,15 +541,15 @@ static func _case_all_toggles(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "the eight direction toggles wear the same ascending look",
 		up_fills.size() == 8 and _all_equal(up_fills) and _all_equal(up_tips),
 		"%s %s" % [up_fills, up_tips])
-	TestFixtures.check(res, "the eight direction toggles paint the literal descending stylebox",
-		down_boxes.size() == 8 and _all_styleboxes_ok(down_boxes, DOWN_FILL),
-		"fills %s" % [down_boxes.map(func(b: StyleBoxFlat) -> Color: return b.bg_color if b != null else Color.BLACK)])
-	TestFixtures.check(res, "the eight direction toggles paint the literal ascending stylebox",
-		up_boxes.size() == 8 and _all_styleboxes_ok(up_boxes, UP_FILL),
-		"fills %s" % [up_boxes.map(func(b: StyleBoxFlat) -> Color: return b.bg_color if b != null else Color.BLACK)])
+	TestFixtures.check(res, "the eight direction toggles paint the literal descending palette",
+		down_pals.size() == 8 and _all_palettes_ok(down_pals, DOWN_PALETTE),
+		"palettes %s" % [down_pals])
+	TestFixtures.check(res, "the eight direction toggles paint the literal ascending palette",
+		up_pals.size() == 8 and _all_palettes_ok(up_pals, UP_PALETTE),
+		"palettes %s" % [up_pals])
 
 
-#Item 13: a hovered sort row darkens and turns its label orange instead of losing its background.
+#A hovered sort row darkens and turns its label orange instead of losing its background.
 static func _case_row_hover(res: Dictionary, host: Node) -> void:
 	var plain := Button.new()
 	var picked := Button.new()

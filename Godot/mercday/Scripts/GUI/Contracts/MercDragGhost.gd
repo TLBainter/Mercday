@@ -7,8 +7,7 @@ class_name MercDragGhost extends Control
 
 const GHOST_ALPHA: float = 0.9
 const ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Contracts/DispatchRosterItem.tscn")
-const BOX_BG: Color = Color("#1a2b4d")
-const BOX_RING: Color = Color("#3b6fb6")
+const BOX_RING: Color = GuiColors.BLUE_HI
 const BOX_RING_WIDTH: int = 2
 
 var _row: DispatchRosterItem = null
@@ -26,7 +25,7 @@ static func build(view: MercView, stars: float, row_size: Vector2, grab: Vector2
 	var wanted := Vector2(maxf(row_size.x, carried.custom_minimum_size.x),
 		maxf(row_size.y, carried.custom_minimum_size.y))
 	ghost._row = carried
-	ghost._box = _make_box()
+	ghost._box = GuiStyle.flat(GuiColors.BOX_BG, BOX_RING_WIDTH, BOX_RING, 0.0)
 	ghost.custom_minimum_size = wanted
 	ghost.add_child(carried)
 	carried.set_merc(view, stars, false)
@@ -34,6 +33,12 @@ static func build(view: MercView, stars: float, row_size: Vector2, grab: Vector2
 	carried.size = wanted
 	carried.position = -Vector2(clampf(grab.x, 0.0, wanted.x), clampf(grab.y, 0.0, wanted.y))
 	return ghost
+
+
+#The ghost waits on the viewport: set_drag_preview is only legal once a drag is under way.
+static func attach(source: Control, view: MercView, stars: float, row_size: Vector2, grab: Vector2) -> void:
+	if source.is_inside_tree() and source.get_viewport().gui_is_dragging():
+		source.set_drag_preview(build(view, stars, row_size, grab))
 
 
 func row() -> DispatchRosterItem:
@@ -49,18 +54,3 @@ func _draw() -> void:
 	if _row == null or _box == null:
 		return
 	draw_style_box(_box, Rect2(_row.position, _row.size))
-
-
-static func _make_box() -> StyleBoxFlat:
-	var panel := StyleBoxFlat.new()
-	panel.bg_color = BOX_BG
-	panel.border_color = BOX_RING
-	panel.border_width_left = BOX_RING_WIDTH
-	panel.border_width_top = BOX_RING_WIDTH
-	panel.border_width_right = BOX_RING_WIDTH
-	panel.border_width_bottom = BOX_RING_WIDTH
-	panel.content_margin_left = 0.0
-	panel.content_margin_top = 0.0
-	panel.content_margin_right = 0.0
-	panel.content_margin_bottom = 0.0
-	return panel

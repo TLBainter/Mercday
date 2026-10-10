@@ -1,10 +1,10 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/ContractDetail.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LevelBadge.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/MercCount.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/ActiveCrew.tscn" id="4"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/DifficultyStars.tscn" id="5"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/Stars.gd" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NoteIcon.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/StatCard.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Contracts/RecommendedList.tscn" id="8"]
@@ -16,6 +16,11 @@
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres" id="14"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres" id="15"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/StatusMark.tscn" id="16"]
+[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/InfoField.tscn" id="17"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/dark_caption.tres" id="18"]
+[ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/invest_widget.tres" id="19"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="20"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_ContractDetail.tres" id="21"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_band"]
 bg_color = Color(0.039216, 0.058824, 0.109804, 0.780392)
@@ -24,26 +29,12 @@ content_margin_top = 0.0
 content_margin_right = 4.0
 content_margin_bottom = 0.0
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_caption"]
-bg_color = Color(0.054902, 0.086275, 0.156863, 1)
-content_margin_left = 6.0
-content_margin_top = 3.0
-content_margin_right = 6.0
-content_margin_bottom = 3.0
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_issuer"]
 bg_color = Color(0.054902, 0.086275, 0.156863, 1)
 content_margin_left = 10.0
 content_margin_top = 4.0
 content_margin_right = 10.0
 content_margin_bottom = 4.0
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_desc"]
-bg_color = Color(0.054902, 0.086275, 0.156863, 1)
-content_margin_left = 14.0
-content_margin_top = 12.0
-content_margin_right = 14.0
-content_margin_bottom = 12.0
 
 [node name="ContractDetail" type="PanelContainer"]
 theme_type_variation = &"RaisedPanel"
@@ -98,13 +89,11 @@ offset_top = -26.0
 offset_right = -4.0
 offset_bottom = -4.0
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_caption")
+theme_override_styles/panel = ExtResource("18")
 
 [node name="Text" type="Label" parent="Body/Header/Image/Caption"]
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("14")
-theme_override_font_sizes/font_size = 10
+theme_type_variation = &"CaptionLabel"
 clip_text = true
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -133,9 +122,6 @@ theme_override_constants/separation = 6
 [node name="Name" type="Label" parent="Body/Header/Names"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.949020, 0.549020, 0.156863, 1)
-theme_override_colors/font_shadow_color = Color(0.039216, 0.058824, 0.109804, 1)
-theme_override_constants/shadow_offset_x = 2
-theme_override_constants/shadow_offset_y = 2
 theme_override_fonts/font = ExtResource("13")
 theme_override_font_sizes/font_size = 22
 autowrap_mode = 3
@@ -155,9 +141,10 @@ theme_override_fonts/font = ExtResource("15")
 theme_override_font_sizes/font_size = 12
 clip_text = true
 
-[node name="Meta" type="HBoxContainer" parent="Body/Header/Names"]
+[node name="Meta" type="HFlowContainer" parent="Body/Header/Names"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 6
 
 [node name="Level" parent="Body/Header/Names/Meta" instance=ExtResource("2")]
 layout_mode = 2
@@ -179,7 +166,7 @@ size_flags_vertical = 4
 visible = false
 layout_mode = 2
 size_flags_vertical = 4
-theme_override_constants/margin_left = 14
+theme_override_constants/margin_left = 6
 
 [node name="Crew" parent="Body/Header/Names/Meta/CrewWrap" instance=ExtResource("4")]
 layout_mode = 2
@@ -188,53 +175,25 @@ layout_mode = 2
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="IssuerBox" type="PanelContainer" parent="Body/Header/Names/Issuer"]
+[node name="IssuerBox" parent="Body/Header/Names/Issuer" instance=ExtResource("17")]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_issuer")
+caption = "CONTRACT ISSUER"
+value = "Unknown"
+caption_variation = &"KeySmall"
+value_variation = &"ValueLabel"
+clip_value = true
 
-[node name="Rows" type="VBoxContainer" parent="Body/Header/Names/Issuer/IssuerBox"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="Caption" type="Label" parent="Body/Header/Names/Issuer/IssuerBox/Rows"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("14")
-theme_override_font_sizes/font_size = 9
-text = "CONTRACT ISSUER"
-
-[node name="Value" type="Label" parent="Body/Header/Names/Issuer/IssuerBox/Rows"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
-theme_override_fonts/font = ExtResource("15")
-theme_override_font_sizes/font_size = 15
-clip_text = true
-text = "Unknown"
-
-[node name="TypeBox" type="PanelContainer" parent="Body/Header/Names/Issuer"]
+[node name="TypeBox" parent="Body/Header/Names/Issuer" instance=ExtResource("17")]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_issuer")
-
-[node name="Rows" type="VBoxContainer" parent="Body/Header/Names/Issuer/TypeBox"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="Caption" type="Label" parent="Body/Header/Names/Issuer/TypeBox/Rows"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("14")
-theme_override_font_sizes/font_size = 9
-text = "ISSUER TYPE"
-
-[node name="Value" type="Label" parent="Body/Header/Names/Issuer/TypeBox/Rows"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
-theme_override_fonts/font = ExtResource("15")
-theme_override_font_sizes/font_size = 15
-clip_text = true
-text = "Issuer Type 1"
+caption = "ISSUER TYPE"
+value = "Issuer Type 1"
+caption_variation = &"KeySmall"
+value_variation = &"ValueLabel"
+clip_value = true
 
 [node name="Right" type="VBoxContainer" parent="Body/Header"]
 layout_mode = 2
@@ -242,9 +201,10 @@ size_flags_horizontal = 8
 size_flags_vertical = 0
 theme_override_constants/separation = 8
 
-[node name="Stars" parent="Body/Header/Right" instance=ExtResource("5")]
+[node name="Stars" type="Control" parent="Body/Header/Right"]
 layout_mode = 2
-star_size = 2
+script = ExtResource("5")
+star_px = 2
 
 [node name="Pay" type="HBoxContainer" parent="Body/Header/Right"]
 layout_mode = 2
@@ -265,9 +225,14 @@ theme_override_fonts/font = ExtResource("13")
 theme_override_font_sizes/font_size = 26
 text = "0"
 
+[node name="CloseGap" type="Control" parent="Body/Header"]
+layout_mode = 2
+custom_minimum_size = Vector2(10, 0)
+mouse_filter = 2
+
 [node name="DescriptionBox" type="PanelContainer" parent="Body"]
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_desc")
+theme_override_styles/panel = ExtResource("19")
 
 [node name="Rows" type="VBoxContainer" parent="Body/DescriptionBox"]
 layout_mode = 2
@@ -275,16 +240,12 @@ theme_override_constants/separation = 6
 
 [node name="Caption" type="Label" parent="Body/DescriptionBox/Rows"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.611765, 0.776471, 0.937255, 1)
-theme_override_fonts/font = ExtResource("14")
-theme_override_font_sizes/font_size = 9
+theme_type_variation = &"KeySmall"
 text = "DESCRIPTION"
 
 [node name="Description" type="Label" parent="Body/DescriptionBox/Rows"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.952941, 0.917647, 0.843137, 1)
-theme_override_fonts/font = ExtResource("15")
-theme_override_font_sizes/font_size = 15
+theme_type_variation = &"ValueLabel"
 autowrap_mode = 3
 max_lines_visible = 3
 
@@ -330,3 +291,7 @@ layout_mode = 2
 
 [node name="PayoutTip" parent="." instance=ExtResource("11")]
 layout_mode = 2
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("20")
+hint = ExtResource("21")

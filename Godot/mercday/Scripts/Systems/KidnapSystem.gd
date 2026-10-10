@@ -22,11 +22,9 @@ static func reset() -> void:
 
 
 static func _d100() -> int:
-	if not forced_rolls.is_empty():
-		return forced_rolls.pop_front()
-	if force_every:
+	if force_every and forced_rolls.is_empty():
 		return 1
-	return randi_range(1, 100)
+	return Dice.d100(forced_rolls)
 
 
 static func is_humanoid(merc: MercenaryData) -> bool:
@@ -64,10 +62,7 @@ static func team_flee_average(state: BattleState, team_index: int) -> float:
 	var team: Array = state.teams[team_index]
 	var total := 0.0
 	var count := 0
-	for m: Variant in team:
-		if not (m is MercenaryData):
-			continue
-		var merc := m as MercenaryData
+	for merc: MercenaryData in team:
 		if not BattleState._is_alive(merc) or state.escaped.has(merc) or not is_humanoid(merc):
 			continue
 		if ConstStates.is_immune(merc, ConstStates.TERRIFIED):
@@ -96,18 +91,6 @@ static func edge_closeness(merc: MercenaryData, state: BattleState) -> float:
 	return clampf(1.0 - float(paces) / denominator, 0.0, 1.0)
 
 
-#The Grapple action roll: a vigor luck roll carrying the Power circumstance.
-static func grapple_def() -> Dictionary:
-	return {
-		"stat_keys": ["vigor"],
-		"circumstances": [ConstCircumstances.POWER_VIGOR],
-		"knowledges": [],
-		"tools": [],
-		"formula": "luck",
-		"flat_threshold_bonus": 0.0,
-	}
-
-
 #Chance a Grapple lands: the attacker check times the target failing the Grappled Resist.
 static func grapple_estimate(attacker: MercenaryData, target: MercenaryData, state: BattleState) -> float:
 	if attacker == null or target == null:
@@ -124,7 +107,7 @@ static func grapple_estimate(attacker: MercenaryData, target: MercenaryData, sta
 	var resist := 0.0
 	if not spec.is_empty():
 		resist = StateInfliction.resist_chance(target, spec, ConstStates.GRAPPLED)
-	var lands := CheckSystem.expected_success_chance(attacker, grapple_def(), 1)
+	var lands := CheckSystem.expected_success_chance(attacker, SpecialActionSystem.grapple_def(), 1)
 	return clampf(lands * (1.0 - resist), 0.0, 1.0)
 
 
@@ -225,13 +208,13 @@ static func run_turn(merc: MercenaryData, state: BattleState, lines: Array[Strin
 		lines.append("  KIDNAP FLEE: %s carries %s toward the edge (%d/%d paces)" % [
 				merc.merc_name, captive.merc_name, merc.flee_escape_paces,
 				_CONFIG.kidnap_escape_paces])
-		FleeSystem.run_turn(merc, state, lines, enhancements)
+		FleeMover.run_turn(merc, state, lines, enhancements)
 		return
 	var target: MercenaryData = state.kidnap_pending_target
 	if target == null or not BattleState._is_alive(target) \
 			or state.distance_to(merc, target) > _CONFIG.kidnap_reach_paces:
 		give_up(merc, state, lines, "out of reach")
-		FleeSystem.run_turn(merc, state, lines, enhancements)
+		FleeMover.run_turn(merc, state, lines, enhancements)
 		return
 	if state.distance_to(merc, target) > 1:
 		lines.append_array(MovementExecutor.run_move_arm(merc, {"type": "move", "action_name": "Move Close",
@@ -250,7 +233,7 @@ static func run_turn(merc: MercenaryData, state: BattleState, lines: Array[Strin
 		register(merc, target, state)
 		state.kidnap_pending = null
 		state.kidnap_pending_target = null
-		FleeSystem.run_turn(merc, state, lines, enhancements)
+		FleeMover.run_turn(merc, state, lines, enhancements)
 		return
 	give_up(merc, state, lines, "grapple failed")
 
@@ -271,7 +254,7 @@ static func register(captor: MercenaryData, target: MercenaryData, state: Battle
 	if captor == null or target == null or state == null:
 		return
 	state.kidnap_captor[captor] = target
-	captor.active_states[DRAG_KEY] = maxi(1, int(target.stats.get("size", 1)))
+	captor.active_states[DRAG_KEY] = target.unit_size()
 	kidnaps_total += 1
 
 
@@ -346,10 +329,7 @@ static func force_team_flee(state: BattleState, captor: MercenaryData, lines: Ar
 		return
 	var team: Array = state.teams[index]
 	var allies := 0
-	for m: Variant in team:
-		if not (m is MercenaryData):
-			continue
-		var other := m as MercenaryData
+	for other: MercenaryData in team:
 		if not BattleState._is_alive(other):
 			continue
 		other.flee_intent = true
@@ -402,10 +382,6 @@ static func take_captive(run: ContractRun, merc: MercenaryData, captor_name: Str
 	var contract_type: String = run.contract.contract_type if run.contract != null else ""
 	var place: String = run.location.location_name if run.location != null else ""
 	MercPool.add_captive(merc, contract_type, place, CampaignClock.stamp(), crew, crew_source)
-	var gone: Array[MercenaryData] = [merc]
-	run.remove_kidnapped(gone)
-	out.append_array(StateCampaign.expire_campaign_states(merc, CampaignClock.now()))
-	TraitRuntime.revert_scope(merc, TraitRuntime.SCOPE_CONTRACT)
-	BeauSystem.roster.erase(merc)
+	out.append_array(run.depart(merc, run.kidnapped))
 	out.append("KIDNAPPED: %s taken by %s" % [merc.merc_name, captor_name])
 	return out

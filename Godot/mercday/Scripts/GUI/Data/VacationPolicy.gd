@@ -28,8 +28,6 @@ const LEN_MAX: Dictionary = {"days": 60, "weeks": 12}
 const GAP_MAX: Dictionary = {"weeks": 52, "months": 24}
 const UNIT_WORDS: Dictionary = {"days": "Day", "weeks": "Week", "months": "Month",
 	"years": "Year"}
-#The game calendar runs ten months to a year, so a year of service is ten months here.
-const MONTHS_PER_YEAR: int = 10
 
 var start: int = DEFAULT_START
 var add_days: int = DEFAULT_ADD_DAYS
@@ -97,6 +95,23 @@ func gap_max() -> int:
 	return int(GAP_MAX.get(gap_unit, 24))
 
 
+#Calendar lengths the vacation rules read: a week is 10 days, a month 33.
+static func week_days() -> int:
+	return TrynnCalendar.WEEKDAYS.size()
+
+
+static func month_days() -> int:
+	return int(TrynnCalendar.DAYS_PER_YEAR / float(TrynnCalendar.MONTHS.size()))
+
+
+func max_len_days() -> int:
+	return max_len * (week_days() if max_unit == "weeks" else 1)
+
+
+func gap_days() -> int:
+	return gap * (month_days() if gap_unit == "months" else week_days())
+
+
 func duplicate_policy() -> VacationPolicy:
 	return VacationPolicy.from_dict(to_dict())
 
@@ -105,15 +120,11 @@ func duplicate_policy() -> VacationPolicy:
 func served(months: int) -> int:
 	if unit == "months":
 		return maxi(0, months)
-	return int(maxi(0, months) / float(MONTHS_PER_YEAR))
+	return int(maxi(0, months) / float(TrynnCalendar.MONTHS.size()))
 
 
 func days_max(months: int) -> int:
 	return start + add_days * int(served(months) / float(maxi(1, every)))
-
-
-static func plural(n: int, word: String) -> String:
-	return str(n) + " " + word + ("" if n == 1 else "s")
 
 
 static func unit_word(key: String) -> String:
@@ -124,18 +135,18 @@ static func unit_word(key: String) -> String:
 func accrual_text() -> String:
 	if add_days <= 0:
 		return "None"
-	var period: String = unit_word(unit) if every == 1 else plural(every, unit_word(unit))
-	return "+" + plural(add_days, "Day") + " / " + period
+	var period: String = unit_word(unit) if every == 1 else GuiDates.plural(every, unit_word(unit))
+	return "+" + GuiDates.plural(add_days, "Day") + " / " + period
 
 
 func rows() -> Array[Dictionary]:
 	return [
-		{"key": "start", "label": "Starting", "value_text": plural(start, "Day")},
+		{"key": "start", "label": "Starting", "value_text": GuiDates.plural(start, "Day")},
 		{"key": "earned", "label": "Earned", "value_text": accrual_text()},
 		{"key": "max_len", "label": "Max Length",
-			"value_text": plural(max_len, unit_word(max_unit))},
-		{"key": "max_at", "label": "Simultaneous", "value_text": plural(max_at, "Merc")},
-		{"key": "gap", "label": "Min Gap", "value_text": plural(gap, unit_word(gap_unit))},
+			"value_text": GuiDates.plural(max_len, unit_word(max_unit))},
+		{"key": "max_at", "label": "Simultaneous", "value_text": GuiDates.plural(max_at, "Merc")},
+		{"key": "gap", "label": "Min Gap", "value_text": GuiDates.plural(gap, unit_word(gap_unit))},
 		{"key": "approval", "label": "Approval",
 			"value_text": "Required" if approval else "Not Required"},
 	]

@@ -1,7 +1,8 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionData" format=3 uid="uid://d2e1t5ou60h7u"]
 
-[ext_resource type="Script" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
-[ext_resource type="Script" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
+[ext_resource type="Script" uid="uid://rmd4uedu2bvv" path="res://Scripts/Resources/DecisionFacet.gd" id="1_j8krv"]
+[ext_resource type="Script" uid="uid://dqwnhh4oorllj" path="res://Scripts/Resources/ActionData.gd" id="ActionData"]
+[ext_resource type="Script" uid="uid://dbowr7u5ueeyf" path="res://Scripts/Resources/DecisionData.gd" id="DecisionData"]
 
 [sub_resource type="Resource" id="decision"]
 script = ExtResource("DecisionData")
@@ -14,6 +15,4 @@ ep_cost = 1
 priority = 15
 is_reactive = true
 trigger = "merc_falls"
-execution_type = "special"
-target_mode = "none"
 decision = SubResource("decision")

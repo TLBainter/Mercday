@@ -33,18 +33,12 @@ static func run(host: Node, count: int) -> void:
 	var total: int = deck.size()
 	for i: int in range(total):
 		TestFixtures.reset_generator_rolls()
-		CampaignKnowledge.clear()
-		MercPool.clear()
-		FleeSystem.reset()
+		ContractFixtures.reset_party_state()
 		var size: int = randi_range(PARTY_MIN, PARTY_MAX)
-		var team: Array[MercenaryData] = []
-		for j: int in range(size):
-			team.append(HarnessRoster.roster_merc(j))
+		var team: Array[MercenaryData] = ContractFixtures.roster_team(size)
 		if BattleHarness.betrayal_fresh:
 			BetrayalSystem.reset()
 		HarnessRoster.force_unsavory(team)
-		BeauSystem.set_roster(team)
-		GuildRoster.set_roster(team)
 		var contract: ContractData = ContractGenerator.generate(ContractLibrary.config().default_contract_type)
 		if contract == null:
 			skipped += 1
@@ -57,20 +51,15 @@ static func run(host: Node, count: int) -> void:
 				EVENT_NAME, records.size()])
 			host.get_tree().quit()
 			return
-		#run.team is erased as mercs die, so the damage walk reads a copy of the deployed party.
-		var deployed: Array[MercenaryData] = team.duplicate()
-		var contract_run: ContractRun = ContractRun.new()
-		contract_run.contract = contract
-		contract_run.team = team
-		contract_run.location = places[randi() % places.size()]
-		contract_run.line_fn = _line_fn()
+		var contract_run: ContractRun = ContractFixtures.contract_run(contract, team,
+			places[randi() % places.size()], _line_fn())
 		_embold = 0
 		var outcome: Dictionary = await EventRunner.run(event, contract_run)
 		if int(outcome.get("enemy_count", 0)) <= 0:
 			no_battle += 1
 			print("AMBUSH %s/%d SKIPPED: no enemy crew was fielded" % [TestFixtures.index(i, total), total])
 			continue
-		var record: Dictionary = _measure(outcome, deployed, size, deck[i])
+		var record: Dictionary = _measure(outcome, team, size, deck[i])
 		record["departed"] = contract_run.departed.size()
 		records.append(record)
 		print(_event_line(i, total, record, outcome))
@@ -118,12 +107,7 @@ static func _measure(outcome: Dictionary, deployed: Array[MercenaryData], party:
 	for enemy: MercenaryData in enemies:
 		if enemy != null and enemy != leader:
 			others.append(enemy)
-	var crew_mean: float = -1.0
-	if not others.is_empty():
-		var levels: float = 0.0
-		for enemy: MercenaryData in others:
-			levels += float(enemy.stats.get("level", 0.0))
-		crew_mean = levels / float(others.size())
+	var crew_mean: float = BatchReport.level_mean(others)
 	var leader_level: float = -1.0
 	if leader != null:
 		leader_level = float(leader.stats.get("level", 0.0))
@@ -233,7 +217,7 @@ static func print_report(records: Array[Dictionary], skipped: int, no_battle: in
 		print("AMBUSH BATCH: no event completed")
 		return
 	print(_row(HEADINGS))
-	print(_rule())
+	print(BatchReport.rule(WIDTHS, ROW_FMT))
 	for difficulty: float in TestFixtures.difficulties(records):
 		print(_row(_stats_row("%.1f" % difficulty, TestFixtures.at_difficulty(records, difficulty))))
 	print(_row(_stats_row("ALL", records)))
@@ -339,13 +323,6 @@ static func _print_aura(records: Array[Dictionary]) -> void:
 
 static func _row(cells: Array) -> String:
 	return ROW_FMT % cells
-
-
-static func _rule() -> String:
-	var cells: Array = []
-	for width: int in WIDTHS:
-		cells.append("-".repeat(width))
-	return _row(cells)
 
 
 #Only the events that fielded a leader can report one dying.

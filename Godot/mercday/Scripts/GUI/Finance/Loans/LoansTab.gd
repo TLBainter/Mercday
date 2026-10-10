@@ -1,4 +1,4 @@
-class_name LoansTab extends Control
+class_name LoansTab extends FinancePage
 
 #The Loans page of the Finance viewer: the Active, Pending and Closed views, the sort and filter
 #toolbar, the loan list and the request button. Every window of the page hangs off the modal host.
@@ -23,11 +23,15 @@ const PAYOFF_TITLE: String = "Pay off this loan?"
 const PAYOFF_BODY: String = "Pay %s notes now to close your loan with %s. Remaining interest is waived."
 const PAYOFF_YES: String = "Pay Off"
 const PAYOFF_NO: String = "Cancel"
-const HOST_GROUP: StringName = &"finance_modal_host"
-const HOST_CHILD: String = "ModalLayer"
-const CONFIRM_SCENE: String = "res://Scenes/GUI/Shared/ConfirmDialog.tscn"
-const DROPDOWN_SCENE: String = "res://Scenes/GUI/Shared/OptionDropdown.tscn"
+const CONFIRM_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/ConfirmDialog.tscn")
+const DROPDOWN_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/OptionDropdown.tscn")
 const SORT_DIR_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/SortDirToggle.tscn")
+const CARD_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Loans/LoanCard.tscn")
+const WINDOW_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Loans/LoanRequestWindow.tscn")
+const REQUEST_CONFIRM_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Loans/LoanRequestConfirm.tscn")
+const OFFER_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Loans/LoanOfferDialog.tscn")
+const ACCEPT_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Loans/LoanAcceptConfirm.tscn")
+const FILTER_SCENE: PackedScene = preload("res://Scenes/GUI/Finance/Loans/LoanFilterPopup.tscn")
 #Measured inward from the top right corner of the view button, so the dot never leaves it.
 const DOT_OFFSET: Vector2 = Vector2(2.0, 2.0)
 const VIEW_DEFS: Array[Dictionary] = [
@@ -47,7 +51,6 @@ var _caps: Dictionary = {}
 var _rows: Array[Dictionary] = []
 var _views: Array[Dictionary] = []
 var _cards: Array[LoanCard] = []
-var _dirty: bool = false
 var _toolbar: HBoxContainer = null
 var _sort_drop: OptionDropdown = null
 var _dir: SortDirToggle = null
@@ -76,7 +79,7 @@ func _notification(what: int) -> void:
 
 
 func _ready() -> void:
-	var col: VBoxContainer = LoanStyle.vbox(PAGE_GAP)
+	var col: VBoxContainer = GuiStyle.vbox(PAGE_GAP)
 	col.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(col)
 	_toolbar = _toolbar_row()
@@ -86,20 +89,17 @@ func _ready() -> void:
 	col.add_child(_footer_row())
 	_build_popups()
 	_build_modals()
-	FinanceManager.offers_changed.connect(refresh)
-	FinanceManager.loans_changed.connect(refresh)
-	FinanceManager.requests_changed.connect(refresh)
+	FinanceManager.offers_changed.connect(mark_dirty)
+	FinanceManager.loans_changed.connect(mark_dirty)
+	FinanceManager.requests_changed.connect(mark_dirty)
 	GameState.money_changed.connect(_on_money_changed)
-	NotificationCenter.changed.connect(refresh)
+	NotificationCenter.changed.connect(mark_dirty)
 	visibility_changed.connect(_on_visibility_changed)
-	refresh()
+	mark_dirty()
 
 
-#Reads FinanceManager again and writes the whole page; a hidden page only marks itself dirty.
-func refresh() -> void:
-	if not is_visible_in_tree():
-		_dirty = true
-		return
+#Reads FinanceManager again and writes the whole page.
+func _refresh() -> void:
 	_dirty = false
 	var all: Dictionary = LoanRows.sets(_show_requests, _show_expired)
 	_view = LoanRows.view_for(_view, all)
@@ -111,16 +111,6 @@ func refresh() -> void:
 	_write_toolbar()
 	_write_cards(base.size())
 	_filter_popup.set_state(_show_requests, _show_expired, _ranges, _caps)
-
-
-func dirty() -> bool:
-	return _dirty
-
-
-#GX3D calls this when the Loans tab opens; a page marked dirty while hidden writes itself now.
-func page_shown() -> void:
-	if _dirty:
-		refresh()
 
 
 func view() -> StringName:
@@ -135,7 +125,7 @@ func press_view(key: StringName) -> void:
 			return
 	_view = key
 	_close_popups()
-	refresh()
+	mark_dirty()
 
 
 func view_count(key: StringName) -> int:
@@ -211,7 +201,7 @@ func pick_sort(index: int) -> void:
 	if _sort_drop != null and _sort_drop.is_node_ready():
 		_sort_drop.close_popup()
 		_sort_drop.select(StringName(_sort_key), false)
-	refresh()
+	mark_dirty()
 
 
 func descending() -> bool:
@@ -254,7 +244,7 @@ func show_requests() -> bool:
 
 func set_show_requests(on: bool) -> void:
 	_show_requests = on
-	refresh()
+	mark_dirty()
 
 
 func show_expired() -> bool:
@@ -263,7 +253,7 @@ func show_expired() -> bool:
 
 func set_show_expired(on: bool) -> void:
 	_show_expired = on
-	refresh()
+	mark_dirty()
 
 
 func ranges() -> Dictionary:
@@ -284,14 +274,14 @@ func set_filter(key: String, low: float, high: float) -> void:
 		else:
 			top = bottom
 	_ranges[key] = Vector2(bottom, top)
-	refresh()
+	mark_dirty()
 
 
 func reset_filters() -> void:
 	_ranges.clear()
 	_show_requests = true
 	_show_expired = true
-	refresh()
+	mark_dirty()
 
 
 func card_count() -> int:
@@ -325,7 +315,7 @@ func request_button() -> Button:
 
 func press_request() -> void:
 	_close_popups()
-	_window.open_window()
+	_window.present()
 
 
 func request_window() -> LoanRequestWindow:
@@ -360,7 +350,7 @@ func open_offer(offer_id: int) -> void:
 		NotificationCenter.read_offer(offer_id)
 		FinanceManager.mark_offer_seen(offer_id)
 		_offer.open_for(offer_id)
-	refresh()
+	mark_dirty()
 
 
 func _on_dismiss_pressed(offer_id: int) -> void:
@@ -373,7 +363,7 @@ func ask_payoff(loan_id: int) -> void:
 		return
 	_payoff_id = loan_id
 	var amount: int = FinanceManager.payoff_amount(loan_id)
-	_payoff.ask(PAYOFF_TITLE, PAYOFF_BODY % [NotesLabel.format_amount(amount), loan.lender],
+	_payoff.ask(PAYOFF_TITLE, PAYOFF_BODY % [TransactionData.grouped(amount), loan.lender],
 		PAYOFF_YES, PAYOFF_NO, ConfirmDialog.Severity.GREEN)
 
 
@@ -382,16 +372,12 @@ func payoff_id() -> int:
 
 
 func _toolbar_row() -> HBoxContainer:
-	var line: HBoxContainer = LoanStyle.hbox(TOOLBAR_GAP)
+	var line: HBoxContainer = GuiStyle.hbox(TOOLBAR_GAP)
 	for def: Dictionary in VIEW_DEFS:
 		line.add_child(_view_button_node(def))
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	line.add_child(spacer)
-	var pick: OptionDropdown = _sort_drop_node()
-	if pick != null:
-		_sort_drop = pick
-		line.add_child(pick)
+	line.add_child(GuiStyle.spacer())
+	_sort_drop = _sort_drop_node()
+	line.add_child(_sort_drop)
 	_dir = SORT_DIR_SCENE.instantiate() as SortDirToggle
 	_dir.descending = _descending
 	_dir.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -403,18 +389,18 @@ func _toolbar_row() -> HBoxContainer:
 
 func _view_button_node(def: Dictionary) -> Button:
 	var key: StringName = StringName(def["key"])
-	var button: Button = LoanStyle.button("", LoanStyle.BLUE2, LoanStyle.CREAM, VIEW_HEIGHT)
-	button.custom_minimum_size = Vector2(VIEW_WIDTH, VIEW_HEIGHT)
+	var button: Button = LoanStyle.button("", GuiColors.BLUE, GuiColors.CREAM, VIEW_HEIGHT)
+	(button as BevelButton).min_size = Vector2(VIEW_WIDTH, VIEW_HEIGHT)
 	button.pressed.connect(press_view.bind(key))
-	var line: HBoxContainer = LoanStyle.hbox(TOOLBAR_GAP)
+	var line: HBoxContainer = GuiStyle.hbox(TOOLBAR_GAP)
 	line.set_anchors_preset(Control.PRESET_FULL_RECT)
 	line.offset_left = VIEW_PAD
 	line.offset_right = -VIEW_PAD
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var label: Label = LoanStyle.text(String(def["label"]), 11, LoanStyle.CREAM)
+	var label: Label = GuiStyle.label(String(def["label"]), GuiStyle.SILK, 11, GuiColors.CREAM)
 	line.add_child(label)
-	var count: Label = LoanStyle.text("0", 9, LoanStyle.CREAM)
+	var count: Label = GuiStyle.label("0", GuiStyle.SILK, 9, GuiColors.CREAM)
 	count.modulate = Color(1.0, 1.0, 1.0, 0.75)
 	line.add_child(count)
 	button.add_child(line)
@@ -426,14 +412,7 @@ func _view_button_node(def: Dictionary) -> Button:
 
 
 func _sort_drop_node() -> OptionDropdown:
-	if not ResourceLoader.exists(DROPDOWN_SCENE):
-		return null
-	var scene: PackedScene = load(DROPDOWN_SCENE) as PackedScene
-	if scene == null:
-		return null
-	var pick: OptionDropdown = scene.instantiate() as OptionDropdown
-	if pick == null:
-		return null
+	var pick: OptionDropdown = DROPDOWN_SCENE.instantiate() as OptionDropdown
 	pick.custom_minimum_size = Vector2(SORT_BUTTON_WIDTH, TOOL_HEIGHT)
 	pick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pick.set_options(_sort_options())
@@ -460,24 +439,24 @@ func _wire_sort() -> void:
 
 
 func _filter_button_node() -> Button:
-	_filter_button = LoanStyle.button("", LoanStyle.BLUE2, LoanStyle.CREAM, TOOL_HEIGHT)
-	_filter_button.custom_minimum_size = Vector2(FILTER_WIDTH, TOOL_HEIGHT)
+	_filter_button = LoanStyle.button("", GuiColors.BLUE, GuiColors.CREAM, TOOL_HEIGHT)
+	(_filter_button as BevelButton).min_size = Vector2(FILTER_WIDTH, TOOL_HEIGHT)
 	_filter_button.pressed.connect(press_filter)
-	var line: HBoxContainer = LoanStyle.hbox(6)
+	var line: HBoxContainer = GuiStyle.hbox(6)
 	line.set_anchors_preset(Control.PRESET_FULL_RECT)
 	line.offset_left = 8.0
 	line.offset_right = -8.0
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_filter_label = LoanStyle.text(FILTER_TEXT, 10, LoanStyle.CREAM)
+	_filter_label = GuiStyle.label(FILTER_TEXT, GuiStyle.SILK, 10, GuiColors.CREAM)
 	line.add_child(_filter_label)
 	_filter_button.add_child(line)
 	return _filter_button
 
 
 func _list_box() -> PanelContainer:
-	var style: StyleBoxFlat = LoanStyle.padded(LoanStyle.NAVY2, 12, 16, 18, 12)
-	style.border_color = LoanStyle.BLUE
+	var style: StyleBoxFlat = LoanStyle.padded(GuiColors.ROW_HOVER, 12, 16, 18, 12)
+	style.border_color = GuiColors.BLUE_LO
 	style.set_border_width_all(3)
 	var shell := PanelContainer.new()
 	shell.add_theme_stylebox_override("panel", style)
@@ -486,12 +465,12 @@ func _list_box() -> PanelContainer:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_list = LoanStyle.vbox(LIST_GAP)
+	_list = GuiStyle.vbox(LIST_GAP)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_list)
 	shell.add_child(scroll)
-	_empty = LoanStyle.panel(LoanStyle.NAVY, 16, 16)
-	_empty_label = LoanStyle.body("", 14, LoanStyle.SKY)
+	_empty = LoanStyle.panel(GuiColors.ROW_FILL, 16, 16)
+	_empty_label = GuiStyle.label("", GuiStyle.BODY, 14, GuiColors.SKY)
 	_empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_empty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_empty.add_child(_empty_label)
@@ -500,11 +479,9 @@ func _list_box() -> PanelContainer:
 
 
 func _footer_row() -> HBoxContainer:
-	var line: HBoxContainer = LoanStyle.hbox(TOOLBAR_GAP)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	line.add_child(spacer)
-	_request_button = LoanStyle.button(REQUEST_TEXT, LoanStyle.ORANGE, LoanStyle.INK,
+	var line: HBoxContainer = GuiStyle.hbox(TOOLBAR_GAP)
+	line.add_child(GuiStyle.spacer())
+	_request_button = LoanStyle.button(REQUEST_TEXT, GuiColors.ORANGE, GuiColors.INK,
 		FOOTER_HEIGHT)
 	_request_button.pressed.connect(press_request)
 	line.add_child(_request_button)
@@ -512,7 +489,7 @@ func _footer_row() -> HBoxContainer:
 
 
 func _build_popups() -> void:
-	_filter_popup = LoanFilterPopup.new()
+	_filter_popup = FILTER_SCENE.instantiate() as LoanFilterPopup
 	_filter_popup.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_filter_popup.offset_left = -(LoanFilterPopup.WIDTH + FILTER_RIGHT)
 	_filter_popup.offset_right = -FILTER_RIGHT
@@ -527,51 +504,24 @@ func _build_popups() -> void:
 
 
 func _build_modals() -> void:
-	var host: Node = _modal_host()
-	_window = LoanRequestWindow.new()
+	var host: Node = modal_host()
+	_window = WINDOW_SCENE.instantiate() as LoanRequestWindow
 	host.add_child(_window)
-	_confirm = LoanRequestConfirm.new()
+	_confirm = REQUEST_CONFIRM_SCENE.instantiate() as LoanRequestConfirm
 	host.add_child(_confirm)
-	_offer = LoanOfferDialog.new()
+	_offer = OFFER_SCENE.instantiate() as LoanOfferDialog
 	host.add_child(_offer)
-	_accept = LoanAcceptConfirm.new()
+	_accept = ACCEPT_SCENE.instantiate() as LoanAcceptConfirm
 	host.add_child(_accept)
-	_payoff = _confirm_dialog()
+	_payoff = CONFIRM_SCENE.instantiate() as ConfirmDialog
 	host.add_child(_payoff)
 	_window.confirm_asked.connect(_on_confirm_asked)
-	_confirm.send_pressed.connect(_on_send_pressed)
+	_confirm.confirmed.connect(_on_request_confirmed)
 	_confirm.closed.connect(_on_confirm_closed)
 	_offer.accept_asked.connect(_on_accept_asked)
 	_accept.confirmed.connect(_on_accept_confirmed)
 	_accept.closed.connect(_on_accept_closed)
 	_payoff.confirmed.connect(_on_payoff_confirmed)
-
-
-func _confirm_dialog() -> ConfirmDialog:
-	if ResourceLoader.exists(CONFIRM_SCENE):
-		var scene: PackedScene = load(CONFIRM_SCENE) as PackedScene
-		if scene != null:
-			return scene.instantiate() as ConfirmDialog
-	return ConfirmDialog.new()
-
-
-#The nearest ancestor that owns a ModalLayer in the finance host group; the page itself otherwise.
-func _modal_host() -> Node:
-	var node: Node = get_parent()
-	while node != null:
-		var layer: Node = node.get_node_or_null(HOST_CHILD)
-		if layer != null and layer.is_in_group(HOST_GROUP):
-			return layer
-		node = node.get_parent()
-	return self
-
-
-func _new_card() -> LoanCard:
-	if ResourceLoader.exists(LoanCard.SCENE_PATH):
-		var scene: PackedScene = load(LoanCard.SCENE_PATH) as PackedScene
-		if scene != null:
-			return scene.instantiate() as LoanCard
-	return LoanCard.new()
 
 
 func _write_views(all: Dictionary) -> void:
@@ -586,9 +536,10 @@ func _write_views(all: Dictionary) -> void:
 		(row["tally"] as Label).text = "%d" % count
 		var button: Button = row["button"] as Button
 		var label: Label = row["label"] as Label
-		var bg: Color = LoanStyle.ORANGE if chosen else LoanStyle.BLUE2
-		var fg: Color = LoanStyle.INK if chosen else LoanStyle.CREAM
-		_paint(button, bg)
+		var bg: Color = GuiColors.ORANGE if chosen else GuiColors.BLUE
+		var fg: Color = GuiColors.INK if chosen else GuiColors.CREAM
+		LoanStyle.shade(button as BevelButton, bg, fg)
+		(button as BevelButton).disabled_solid = true
 		label.add_theme_color_override("font_color", fg)
 		(row["tally"] as Label).add_theme_color_override("font_color", fg)
 		button.disabled = not live
@@ -608,19 +559,7 @@ func _any_unread(rows: Array) -> bool:
 func _write_toolbar() -> void:
 	_sync_sort()
 	var active: bool = filters_active()
-	_paint(_filter_button, LoanStyle.ORANGE if active else LoanStyle.BLUE2)
-	_filter_label.add_theme_color_override("font_color",
-		LoanStyle.INK if active else LoanStyle.CREAM)
-
-
-func _paint(button: Button, bg: Color) -> void:
-	button.add_theme_stylebox_override("normal", LoanStyle.padded(bg, 10, 4, 10, 4))
-	button.add_theme_stylebox_override("hover",
-		LoanStyle.padded(bg.lightened(0.12), 10, 4, 10, 4))
-	button.add_theme_stylebox_override("pressed",
-		LoanStyle.padded(bg.darkened(0.15), 10, 4, 10, 4))
-	button.add_theme_stylebox_override("disabled", LoanStyle.padded(bg, 10, 4, 10, 4))
-	button.add_theme_stylebox_override("focus", LoanStyle.flat(LoanStyle.CLEAR))
+	_filter_label.add_theme_color_override("font_color", GuiColors.INK if active else GuiColors.CREAM)
 
 
 func _write_cards(base_rows: int) -> void:
@@ -629,7 +568,7 @@ func _write_cards(base_rows: int) -> void:
 		node.queue_free()
 	_cards.clear()
 	for row: Dictionary in _rows:
-		var node: LoanCard = _new_card()
+		var node: LoanCard = CARD_SCENE.instantiate() as LoanCard
 		node.set_row(row)
 		node.review_pressed.connect(open_offer)
 		node.pay_off_pressed.connect(ask_payoff)
@@ -661,14 +600,9 @@ func _modals() -> Array[Node]:
 
 func _close_modals() -> void:
 	for node: Node in _modals():
-		var modal: LoanModal = node as LoanModal
-		if modal != null:
-			modal.close_window()
-			continue
-		var dialog: ConfirmDialog = node as ConfirmDialog
-		if dialog != null and dialog.visible:
-			dialog.hide()
-			GuiFrameStack.remove(dialog)
+		var modal: GuiModal = node as GuiModal
+		if modal != null and modal.is_open():
+			modal.close()
 
 
 func _free_modals() -> void:
@@ -706,7 +640,7 @@ func _on_sort_selected(key: StringName) -> void:
 	if not LoanRows.SORT_KEYS.has(picked) or picked == _sort_key:
 		return
 	_sort_key = picked
-	refresh()
+	mark_dirty()
 
 
 #The atom can be opened by its own button, so the filter popup steps aside here too.
@@ -717,16 +651,11 @@ func _on_sort_opening() -> void:
 
 func _on_direction_changed(down: bool) -> void:
 	_descending = down
-	refresh()
+	mark_dirty()
 
 
 func _on_money_changed(_notes: int) -> void:
-	refresh()
-
-
-func _on_visibility_changed() -> void:
-	if _dirty and is_visible_in_tree():
-		refresh()
+	mark_dirty()
 
 
 func _on_confirm_asked(snap: Dictionary) -> void:
@@ -734,11 +663,11 @@ func _on_confirm_asked(snap: Dictionary) -> void:
 	_confirm.open_for(snap)
 
 
-func _on_send_pressed() -> void:
-	_confirm.close_window()
-	_window.set_dimmed(false)
-	_window.send_request()
-	refresh()
+#A confirm closes before it signals, so its closed handler has already cleared the dim under it.
+func _on_request_confirmed() -> void:
+	if not _window.send_request():
+		UiSfx.reject_press(_confirm.confirm_button)
+	mark_dirty()
 
 
 func _on_confirm_closed() -> void:
@@ -750,11 +679,9 @@ func _on_accept_asked(offer_id: int) -> void:
 	_accept.open_for(offer_id)
 
 
-func _on_accept_confirmed(_offer_id: int) -> void:
-	_accept.close_window()
-	_offer.dim_for_confirm(false)
-	_offer.accept_now()
-	refresh()
+func _on_accept_confirmed() -> void:
+	_offer.accept_now(_accept.confirm_button)
+	mark_dirty()
 
 
 func _on_accept_closed() -> void:
@@ -764,6 +691,7 @@ func _on_accept_closed() -> void:
 func _on_payoff_confirmed() -> void:
 	if _payoff_id < 0:
 		return
-	FinanceManager.pay_off(_payoff_id)
+	if not FinanceManager.pay_off(_payoff_id):
+		UiSfx.reject_press(_payoff.confirm_button)
 	_payoff_id = -1
-	refresh()
+	mark_dirty()

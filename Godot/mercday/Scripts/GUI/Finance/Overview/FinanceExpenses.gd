@@ -4,12 +4,10 @@ extends PanelContainer
 #The Monthly Expenses box of the Overview: one row per line FinanceLedger.expense_breakdown()
 #returns, each with its bar of twenty cells. The ledger decides how many cells are lit and which
 #rows exist, so the Ads row shows up here as soon as the ledger lists it. Each row is a single
-#line; its description text no longer pushes the bar out of line, it shows as a hover tooltip.
+#line; its description text no longer pushes the bar out of line, it shows as a hover tooltip,
+#under the row's line items when the ledger lists any.
 
-const FONT_SILK: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenRegular.tres")
-const FONT_TEXT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/PixelifyRegular.tres")
-const NOTES_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/NotesLabel.tscn")
-const BAR_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/CellBar.tscn")
+const ROW_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/ValueRow.tscn")
 const TIP_SCENE: PackedScene = preload("res://Scenes/GUI/Shared/TooltipPanel.tscn")
 
 const TITLE: String = "Monthly Expenses"
@@ -23,11 +21,6 @@ const COLUMN_GAP: int = 10
 const BAR_CELLS: int = 20
 const BAR_HEIGHT: int = 12
 const BAR_GAP: int = 2
-const ORANGE: Color = Color("#f28c28")
-const CREAM: Color = Color("#f3ead7")
-const MUTED: Color = Color("#5e7699")
-const RED: Color = Color("#e8583f")
-const EMPTY_CELL: Color = Color("#1f3560")
 
 @onready var title: Label = $Pad/Rows/Title
 @onready var list: VBoxContainer = $Pad/Rows/List
@@ -39,9 +32,7 @@ var _tip: TooltipPanel = null
 
 func _ready() -> void:
 	title.text = TITLE
-	title.add_theme_color_override("font_color", ORANGE)
-	title.add_theme_font_override("font", FONT_SILK)
-	title.add_theme_font_size_override("font_size", TITLE_SIZE)
+	GuiStyle.paint(title, GuiStyle.SILK, TITLE_SIZE, GuiColors.ORANGE)
 	_tip = TIP_SCENE.instantiate() as TooltipPanel
 	get_tree().root.add_child(_tip)
 	refresh()
@@ -93,10 +84,18 @@ func row_sub(key: String) -> String:
 	return String(row["sub"])
 
 
+#The tooltip lines of one row as the ledger listed them; empty when the key is not listed.
+func row_lines(key: String) -> Array:
+	var row: Dictionary = _rows.get(key, {}) as Dictionary
+	if row.is_empty():
+		return []
+	return (row["lines"] as Array).duplicate(true)
+
+
 func row_color(key: String) -> Color:
 	var row: Dictionary = _rows.get(key, {}) as Dictionary
 	if row.is_empty():
-		return CREAM
+		return GuiColors.CREAM
 	return (row["notes"] as NotesLabel).value_color
 
 
@@ -124,9 +123,7 @@ func tooltip() -> TooltipPanel:
 func refresh() -> void:
 	if not is_node_ready():
 		return
-	for child: Node in list.get_children():
-		list.remove_child(child)
-		child.queue_free()
+	GuiNodes.clear(list)
 	_rows.clear()
 	_order.clear()
 	var rows: Array[Dictionary] = FinanceLedger.expense_breakdown()
@@ -137,53 +134,45 @@ func refresh() -> void:
 
 
 func _make_row(row: Dictionary) -> Dictionary:
-	var line := HBoxContainer.new()
+	var line: ValueRow = ROW_SCENE.instantiate() as ValueRow
 	line.mouse_filter = Control.MOUSE_FILTER_STOP
 	line.add_theme_constant_override("separation", COLUMN_GAP)
-	var label := Label.new()
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.custom_minimum_size = Vector2(LABEL_WIDTH, 0.0)
-	label.clip_text = true
-	label.text = String(row["label"])
-	label.add_theme_color_override("font_color", CREAM)
-	label.add_theme_font_override("font", FONT_TEXT)
-	label.add_theme_font_size_override("font_size", LABEL_SIZE)
-	line.add_child(label)
-	var bar: CellBar = BAR_SCENE.instantiate()
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(bar)
-	bar.cells = BAR_CELLS
-	bar.cell_height = BAR_HEIGHT
-	bar.gap = BAR_GAP
-	bar.fill_color = RED
-	bar.empty_color = EMPTY_CELL
-	bar.filled = clampi(int(row.get("cells", 0)), 0, BAR_CELLS)
-	var tail := HBoxContainer.new()
-	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tail.custom_minimum_size = Vector2(AMOUNT_WIDTH, 0.0)
-	tail.alignment = BoxContainer.ALIGNMENT_END
-	line.add_child(tail)
-	var notes: NotesLabel = NOTES_SCENE.instantiate()
-	tail.add_child(notes)
-	notes.bold = false
-	notes.font_size = AMOUNT_SIZE
-	notes.glyph_scale = AMOUNT_GLYPH
-	notes.value_color = RED
-	notes.amount = int(row["amount"])
+	line.caption = String(row["label"])
+	line.caption_variation = &""
+	line.caption_width = LABEL_WIDTH
+	line.value_width = AMOUNT_WIDTH
+	line.use_notes = true
+	line.notes = int(row["amount"])
+	line.value_color = GuiColors.RED
+	line.bar_cells = BAR_CELLS
+	line.bar_filled = int(row.get("cells", 0))
+	line.bar_color = GuiColors.RED
+	line.bar_empty = GuiColors.BLUE_LO
+	list.add_child(line)
+	GuiStyle.paint(line.caption_label, GuiStyle.BODY, LABEL_SIZE, GuiColors.CREAM)
+	line.bar().cell_height = BAR_HEIGHT
+	line.bar().gap = BAR_GAP
+	line.notes_label.bold = false
+	line.notes_label.font_size = AMOUNT_SIZE
+	line.notes_label.glyph_scale = AMOUNT_GLYPH
 	var sub_text: String = String(row["sub"])
 	var title_text: String = String(row["label"])
-	line.mouse_entered.connect(_on_row_hover.bind(line, title_text, sub_text))
+	var items: Array = (row.get("lines", []) as Array).duplicate(true)
+	line.mouse_entered.connect(_on_row_hover.bind(line, title_text, sub_text, items))
 	line.mouse_exited.connect(_on_row_exit)
-	list.add_child(line)
-	return {"line": line, "label": label, "bar": bar, "notes": notes, "sub": sub_text}
+	return {"line": line, "label": line.caption_label, "bar": line.bar(), "notes": line.notes_label,
+		"sub": sub_text, "lines": items}
 
 
-#Shows the tooltip for one row; a row whose sub text is empty shows no tooltip.
-func _on_row_hover(line: Control, title_text: String, sub_text: String) -> void:
-	if sub_text == "":
-		return
-	_tip.set_text(title_text, sub_text)
+#Shows the tooltip for one row: its lines over the sub text, or the sub text alone. A row with
+#neither shows no tooltip.
+func _on_row_hover(line: Control, title_text: String, sub_text: String, items: Array = []) -> void:
+	if items.is_empty():
+		if sub_text == "":
+			return
+		_tip.set_text(title_text, sub_text)
+	else:
+		_tip.set_lines(title_text, items, sub_text)
 	_tip.show_at(line)
 
 

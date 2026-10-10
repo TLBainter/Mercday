@@ -1,9 +1,8 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Bazaar/BazaarViewer.gd" id="1"]
 [ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
-[ext_resource type="StyleBox" path="res://Resources/GUI/Theme/Styles/bazaar_content.tres" id="3"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/TabButton.tscn" id="4"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/TabStrip.gd" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Bazaar/ShopPage.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Bazaar/CartPage.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Bazaar/OrdersPage.tscn" id="7"]
@@ -17,6 +16,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource("2")
 script = ExtResource("1")
+tab_strip_path = NodePath("Margin/Rows/TabRowPad/TabRow")
+default_tab = &"shop"
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -38,41 +39,27 @@ theme_override_constants/separation = 0
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/margin_left = 4
-theme_override_constants/margin_right = 4
+theme_override_constants/margin_right = 42
 
 [node name="TabRow" type="HBoxContainer" parent="Margin/Rows/TabRowPad"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
-
-[node name="OrdersTab" parent="Margin/Rows/TabRowPad/TabRow" instance=ExtResource("4")]
-layout_mode = 2
-label = "Orders"
-description = "Your orders"
-index = 2
-
-[node name="CartTab" parent="Margin/Rows/TabRowPad/TabRow" instance=ExtResource("4")]
-layout_mode = 2
-label = "Cart"
-description = "Your cart"
-index = 1
-
-[node name="ShopTab" parent="Margin/Rows/TabRowPad/TabRow" instance=ExtResource("4")]
-layout_mode = 2
-label = "Shop"
-description = "Shop the Bazaar"
-index = 0
-active = true
+script = ExtResource("4")
+keys = Array[StringName]([&"shop", &"orders", &"cart"])
+labels = Array[String](["Shop", "Orders", "Cart"])
+tips = Array[String](["Shop the Bazaar", "Your orders", "Your cart"])
+icon_ids = Array[String](["shop", "parcel", "cart"])
 
 [node name="PagePanel" type="PanelContainer" parent="Margin/Rows"]
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
-theme_override_styles/panel = ExtResource("3")
+theme_type_variation = &"PageContent"
 
 [node name="Pages" type="Control" parent="Margin/Rows/PagePanel"]
-custom_minimum_size = Vector2(0, 560)
+custom_minimum_size = Vector2(0, 544)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3

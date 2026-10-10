@@ -1,8 +1,10 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Promotions/CampaignCard.gd" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/StatTile.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/CellBar.tscn" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="4"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_CampaignCard.tres" id="5"]
 
 [node name="CampaignCard" type="PanelContainer"]
 custom_minimum_size = Vector2(330, 0)
@@ -97,3 +99,7 @@ alignment = 1
 
 [node name="End" type="LinkButton" parent="Rows/Actions"]
 layout_mode = 2
+
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("4")
+hint = ExtResource("5")

@@ -7,10 +7,14 @@ class_name SalaryTests
 
 static func run() -> bool:
 	var res: Dictionary = {"pass": 0, "fail": 0}
+	ContractResourceBuilder.build_all()
 	_case_rank(res)
 	_case_rarity_score(res)
 	_case_need_score(res)
 	_case_asking_salary(res)
+	_case_ask_table(res)
+	_case_ask_stamp(res)
+	_case_tank(res)
 	_case_hire(res)
 	_case_debit(res)
 	_case_opinion(res)
@@ -21,6 +25,7 @@ static func run() -> bool:
 	_case_request_pin(res)
 	_case_monster(res)
 	_case_header(res)
+	HirePoolTests.add_cases(res)
 	_reset()
 	return TestFixtures.summarize(res, "SALARY")
 
@@ -186,8 +191,8 @@ static func _case_asking_salary(res: Dictionary) -> void:
 	var none: Array[MercenaryData] = []
 	var rarity: int = SalarySystem.rarity_score(merc)
 	var need: int = SalarySystem.need_score(merc, none)
-	var want: int = 4 + 2 * rarity + 2 * need
-	TestFixtures.check(res, "the asking salary is level plus twice rarity plus twice need",
+	var want: int = 2 * 4 + 2 * rarity + 2 * need
+	TestFixtures.check(res, "the asking salary is twice level plus twice rarity plus twice need",
 		SalarySystem.asking_salary(merc, none) == want,
 		"salary %d, expected %d (level 4, rarity %d, need %d)"
 		% [SalarySystem.asking_salary(merc, none), want, rarity, need])
@@ -199,6 +204,69 @@ static func _case_asking_salary(res: Dictionary) -> void:
 		SalarySystem.asking_salary(cheap, mates) == 1,
 		"salary %d with rarity %d and need %d" % [SalarySystem.asking_salary(cheap, mates),
 		SalarySystem.rarity_score(cheap), SalarySystem.need_score(cheap, mates)])
+
+
+static func _case_ask_table(res: Dictionary) -> void:
+	_reset()
+	var none: Array[MercenaryData] = []
+	var bad: Array[String] = []
+	for row: Array in [[1, 10], [10, 28], [20, 48], [30, 68], [40, 88]]:
+		var merc: MercenaryData = _merc("Ask %d" % int(row[0]), int(row[0]))
+		merc.tradition = _tradition("Warrior")
+		merc.ancestry = _ancestry("Ordin", "Ordinary")
+		merc.heritage = _heritage("Lowborn")
+		var got: int = SalarySystem.asking_salary(merc, none)
+		if got != int(row[1]) or SalarySystem.rarity_score(merc) != -1 or SalarySystem.need_score(merc, none) != 5:
+			bad.append("level %d asks %d, wanted %d" % [int(row[0]), got, int(row[1])])
+	TestFixtures.check(res, "ask: rarity -1 and need 5 ask 10, 28, 48, 68, 88 at level 1, 10, 20, 30, 40",
+		bad.is_empty(), TestFixtures.detail(bad, 5, "levels"))
+	var poor: MercenaryData = _merc("Ask Floor", 0)
+	poor.ancestry = _ancestry("Ordin", "Ordinary")
+	var twin: MercenaryData = _merc("Ask Twin", 0)
+	twin.ancestry = _ancestry("Ordin", "Ordinary")
+	var mates: Array[MercenaryData] = [twin]
+	TestFixtures.check(res, "ask: a level 0 merc with rarity -1 and no need asks the floor of 1",
+		SalarySystem.asking_salary(poor, mates) == 1, "ask %d" % SalarySystem.asking_salary(poor, mates))
+
+
+static func _case_ask_stamp(res: Dictionary) -> void:
+	_reset()
+	var merc: MercenaryData = MercGenerator.generate()
+	var solo: int = SalarySystem.asking_salary(merc, [] as Array[MercenaryData])
+	TestFixtures.check(res, "ask: a generated merc carries its solo ask",
+		merc.salary_ask == solo and merc.salary_ask >= 1, "salary_ask %d, solo %d" % [merc.salary_ask, solo])
+	TestFixtures.check(res, "ask: generation leaves the monthly salary unset",
+		merc.monthly_salary == 0, "salary %d" % merc.monthly_salary)
+
+
+static func _case_tank(res: Dictionary) -> void:
+	_reset()
+	var rows: Array[Array] = [[100, 150, 0], [100, 90, 0], [100, 1, 3], [100, 0, -2]]
+	var bad: Array[String] = []
+	for row: Array in rows:
+		var after: int = SalarySystem.opinion_after(int(row[0]), int(row[1]), int(row[2]))
+		var shift: int = PayrollLogic.opinion_shift(int(row[0]), int(row[1]), int(row[2]))
+		if after != int(row[2]) + shift:
+			bad.append("%d to %d from %d: after %d, shift %d" % [int(row[0]), int(row[1]), int(row[2]), after, shift])
+	TestFixtures.check(res, "tank: opinion_after equals the payroll preview for a raise, a cut and a tank",
+		bad.is_empty(), TestFixtures.detail(bad, rows.size(), "changes"))
+	TestFixtures.check(res, "tank: a raise steps up, a cut steps down and a cut to one note bottoms out",
+		SalarySystem.opinion_after(100, 150, 0) == 3 and SalarySystem.opinion_after(100, 90, 0) == -3
+		and SalarySystem.opinion_after(100, 1, 3) == SalarySystem.OPINION_MIN,
+		"%d %d %d" % [SalarySystem.opinion_after(100, 150, 0), SalarySystem.opinion_after(100, 90, 0),
+		SalarySystem.opinion_after(100, 1, 3)])
+	var merc: MercenaryData = _merc("Tank", 1)
+	merc.monthly_salary = 100
+	merc.guild_opinion = 3
+	var previewed: int = 3 + PayrollLogic.opinion_shift(100, SalarySystem.TANK_SALARY, 3)
+	var got: int = SalarySystem.apply_salary_change(merc, SalarySystem.TANK_SALARY)
+	TestFixtures.check(res, "tank: a committed cut to one note leaves the previewed opinion",
+		got == previewed and merc.guild_opinion == previewed and previewed == SalarySystem.OPINION_MIN,
+		"committed %d, previewed %d" % [merc.guild_opinion, previewed])
+	TestFixtures.check(res, "tank: the payroll aliases read the salary system constants",
+		PayrollLogic.TANK_SALARY == SalarySystem.TANK_SALARY
+		and is_equal_approx(PayrollLogic.FIRE_DROP_SHARE, SalarySystem.FIRE_DROP_SHARE),
+		"%d %.2f" % [PayrollLogic.TANK_SALARY, PayrollLogic.FIRE_DROP_SHARE])
 
 
 static func _case_hire(res: Dictionary) -> void:
@@ -420,24 +488,10 @@ static func _case_generate(res: Dictionary) -> void:
 	var want_bent: float = ContractGenerator.snap_half(clampf(
 		2.5 * ContractGenerator.difficulty_multiplier(0.75),
 		ContractGenerator.MIN_DIFFICULTY, ContractGenerator.MAX_DIFFICULTY))
-	var bent: int = 0
-	for _i: int in range(20):
-		var c: ContractData = ContractLibrary.contract_type("Military")
-		c.difficulty = 2.5
-		c.contract_level = 3
-		ContractGenerator.apply_difficulty(c, 4.0)
-		if is_equal_approx(c.difficulty, want_bent):
-			bent += 1
+	var bent: int = _apply_count(3, want_bent)
 	TestFixtures.check(res, "an authored difficulty takes the level multiplier", bent == 20,
 		"%d of 20 read %.2f" % [bent, want_bent])
-	var kept: int = 0
-	for _i: int in range(20):
-		var c: ContractData = ContractLibrary.contract_type("Military")
-		c.difficulty = 2.5
-		c.contract_level = 4
-		ContractGenerator.apply_difficulty(c, 4.0)
-		if is_equal_approx(c.difficulty, 2.5):
-			kept += 1
+	var kept: int = _apply_count(4, 2.5)
 	TestFixtures.check(res, "an authored difficulty at the guild level is unchanged", kept == 20,
 		"%d of 20 kept 2.5" % kept)
 	var rolled: ContractData = ContractLibrary.contract_type("Military")
@@ -448,6 +502,19 @@ static func _case_generate(res: Dictionary) -> void:
 		and rolled.difficulty * 2.0 == floorf(rolled.difficulty * 2.0),
 		"difficulty %.2f" % rolled.difficulty)
 	_reset()
+
+
+#Of 20 Military rows authored at difficulty 2.5 and this level, how many read want after a guild level 4 pass.
+static func _apply_count(contract_level: int, want: float) -> int:
+	var hits: int = 0
+	for _i: int in range(20):
+		var c: ContractData = ContractLibrary.contract_type("Military")
+		c.difficulty = 2.5
+		c.contract_level = contract_level
+		ContractGenerator.apply_difficulty(c, 4.0)
+		if is_equal_approx(c.difficulty, want):
+			hits += 1
+	return hits
 
 
 static func _case_request_pin(res: Dictionary) -> void:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Mercs/MercViewer.gd" id="1"]
 [ext_resource type="Theme" path="res://Resources/GUI/Theme/guild_theme.tres" id="2"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/SalaryDialog.tscn" id="6"]
 [ext_resource type="StyleBoxFlat" path="res://Resources/GUI/Theme/Styles/PanelContent.tres" id="7"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Mercs/CoachDialog.tscn" id="8"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/TabStrip.gd" id="9"]
 
 [node name="MercViewer" type="Control"]
 custom_minimum_size = Vector2(1280, 644)
@@ -16,6 +17,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 theme = ExtResource("2")
 script = ExtResource("1")
+tab_strip_path = NodePath("Margin/Columns/Content/TabsWrap/Tabs")
 
 [node name="Margin" type="MarginContainer" parent="."]
 anchors_preset = 15
@@ -47,12 +49,17 @@ theme_override_constants/separation = 0
 [node name="TabsWrap" type="MarginContainer" parent="Margin/Columns/Content"]
 theme_override_constants/margin_left = 4
 theme_override_constants/margin_top = 0
-theme_override_constants/margin_right = 4
+theme_override_constants/margin_right = 42
 theme_override_constants/margin_bottom = 0
 
 [node name="Tabs" type="HBoxContainer" parent="Margin/Columns/Content/TabsWrap"]
 custom_minimum_size = Vector2(0, 44)
 theme_override_constants/separation = 8
+script = ExtResource("9")
+keys = Array[StringName]([&"overview", &"equipment", &"relationships", &"actions", &"perks", &"drawbacks", &"skills", &"metrics"])
+labels = Array[String](["Overview", "Equipment", "Relationships", "Actions", "Perks", "Drawbacks", "Skills", "Metrics"])
+tips = Array[String](["Core stats, level, lifepath, knowledges, and tools.", "Worn gear, containers, and carried items.", "This mercs opinion of the guild and their coworkers.", "Turn and reactive actions, with their AP costs.", "Beneficial traits and where they came from.", "Negative traits and where they came from.", "Learned skills and the skill trees they come from.", "History graphs for this merc: salary, level, contracts, and more."])
+icon_ids = Array[String](["eye", "backpack", "smiley", "fist", "arrow_up_green", "arrow_down_red", "tree", "metrics"])
 
 [node name="Body" type="PanelContainer" parent="Margin/Columns/Content"]
 size_flags_vertical = 3

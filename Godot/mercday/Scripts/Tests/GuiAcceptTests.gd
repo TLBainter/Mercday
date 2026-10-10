@@ -8,15 +8,24 @@ extends RefCounted
 #notes-spending actions README E5 names and watches the bank.
 
 const HUD_SCENE: String = "res://Scenes/GUI/HUD/GameHUD.tscn"
-const DISPATCH_SCENE: String = "res://Scenes/GUI/Contracts/DispatchWindow.tscn"
 const CONTENT_SIZE: Vector2 = Vector2(1280.0, 720.0)
 #ICON_SHEET_UPDATE.md:77: a HUD window band is 1280 x 644 above the 76 px bottom bar.
 const BAND_SIZE: Vector2 = Vector2(1280.0, 644.0)
 const FIT_SLACK: float = 1.0
+#ICON_SHEET_UPDATE.md:79 and F7_common pinned interface 1: a 4 px #f28c28 border inside the canvas.
+const BORDER_COLOR: Color = Color("#f28c28")
+const BORDER_PX: int = 4
+const SUBWINDOW_SCENE: String = "res://Scenes/GUI/Shared/SubWindow.tscn"
+const POPUP_SCENE: String = "res://Scenes/GUI/Shared/ViewerPopup.tscn"
+const FLAT_TEXT_DIRS: Array[String] = ["res://Scenes/GUI/Mercs", "res://Scripts/GUI/Mercs",
+	"res://Scenes/GUI/Contracts", "res://Scripts/GUI/Contracts", "res://Scenes/GUI/Clients",
+	"res://Scripts/GUI/Clients", "res://Scenes/GUI/Metrics", "res://Scripts/GUI/Metrics"]
+const TEXT_EFFECTS: Array[String] = ["font_shadow_color", "shadow_offset_x", "shadow_offset_y",
+	"shadow_outline_size", "outline_size", "font_outline_color"]
 const RICH: int = 400000
 
 #A4 dot design values of Notification Dot.dc.html, read beside their own source line, never
-#copied from the game's consts (GX4F-R05).
+#copied from the game's consts.
 const DOT_RED: Color = Color("#e8583f")             #Notification Dot.dc.html:28
 const DOT_OUTLINE: Color = Color("#0a0f1c")         #Notification Dot.dc.html:32
 const DOT_PX: Vector2 = Vector2(16.0, 16.0)         #Notification Dot.dc.html:21 and :33 (8 cells of 2 px)
@@ -38,33 +47,34 @@ const VIEW_SCENES: Array[String] = [
 	"res://Scenes/GUI/Metrics/MetricsViewer.tscn",
 ]
 
-#The seeded rows LegalManager holds: fine 1 is unpaid, capture 1 holds a merc.
+#The rows GuiLegalTests._lay_legal files: fine 1 is unpaid, capture 1 holds a merc.
 const FINE_ID: int = 1
 const CAPTURE_ID: int = 1
 const PERMIT_LOC: int = 1
 
 #Every list that may scroll, keyed by the script of the nearest scripted node above the
 #container, with how many ScrollContainer nodes that owner may hold. A container under a
-#script not in this list, or one more than its row allows, is reported the same way
-#(GX4F-R03): the allow list names the container, not the page.
-#Ground per group, never one sentence for all of them (GX4F-R08):
+#script not in this list, or one more than its row allows, is reported the same way:
+#the allow list names the container, not the page.
+#Ground per group, never one sentence for all of them:
 #- No trailing comment: scrolled before this package (commit 4998e35, the first GUI pass).
 #- "RUNBOOK.md:38": the permit slider, the fines and bailout lists, the campaign list,
 #the filter list, the applicant grid, the Contract Type / Location boxes and the pickers.
 #- "README C2": the Bazaar shop, cart and orders lists.
-#- A prototype line: GX4F-01/02/03, the wave 4 GX4F review notes, 2026-09-28: the prototype
-#is the base spec and it scrolls every one of these (overflow-y auto). Each line was checked
-#against the .dc.html file, not copied from the finding; LoanRequestWindow.gd:677 disagrees
-#with the review's own 777, which names a different block (the Send a Merc picker).
+#- A prototype line: the prototype is the base spec and it scrolls every one of these
+#(overflow-y auto). Each line was checked against the .dc.html file; LoanRequestWindow.gd:677
+#is the Send a Merc picker.
+const DROP_PANEL_SCRIPT: String = "res://Scripts/GUI/Shared/DropPanel.gd"
 const SCROLL_OWNERS: Dictionary = {
 	"res://Scripts/GUI/Contracts/ContractList.gd": 1,
 	"res://Scripts/GUI/Contracts/DispatchRoster.gd": 1,
 	"res://Scripts/GUI/Contracts/RecommendedList.gd": 1,
-	"res://Scripts/GUI/Contracts/MercPicker.gd": 1,
+	"res://Scripts/GUI/Shared/MercPicker.gd": 1,
+	"res://Scripts/GUI/Shared/PaddedScroll.gd": 1,
 	"res://Scripts/GUI/Contracts/TeamSlot.gd": 1,
 	"res://Scripts/GUI/Mercs/MercList.gd": 1,
-	"res://Scripts/GUI/Mercs/OverviewTab.gd": 2,
-	"res://Scripts/GUI/Mercs/EquipmentTab.gd": 1,
+	"res://Scripts/GUI/Mercs/OverviewTab.gd": 1,
+	"res://Scripts/GUI/Mercs/EquipmentTab.gd": 0,
 	"res://Scripts/GUI/Mercs/ActionsTab.gd": 2,
 	"res://Scripts/GUI/Mercs/RelationshipsTab.gd": 1,
 	"res://Scripts/GUI/Mercs/TraitListPanel.gd": 1,
@@ -79,7 +89,6 @@ const SCROLL_OWNERS: Dictionary = {
 	"res://Scripts/GUI/Promotions/CampaignList.gd": 1,          #RUNBOOK.md:38
 	"res://Scripts/GUI/Shared/FilterSection.gd": 1,             #RUNBOOK.md:38
 	"res://Scripts/GUI/Shared/TraitFilterPanel.gd": 1,          #RUNBOOK.md:38
-	"res://Scripts/GUI/Shared/CrewMercPicker.gd": 1,            #RUNBOOK.md:38
 	"res://Scripts/GUI/Clients/ClientFilterButton.gd": 1,       #RUNBOOK.md:38
 	"res://Scripts/GUI/Finance/Hiring/HiringTab.gd": 1,         #RUNBOOK.md:38
 	"res://Scripts/GUI/Bazaar/ShopPage.gd": 1,                  #README C2
@@ -96,6 +105,8 @@ const SCROLL_OWNERS: Dictionary = {
 	"res://Scripts/GUI/Finance/Loans/LoanRequestWindow.gd": 1,  #Finance Viewer.dc.html:677
 	"res://Scripts/GUI/Finance/Loans/LoanAcceptConfirm.gd": 1,  #Finance Viewer.dc.html:805
 	"res://Scripts/GUI/Finance/Overview/FinanceProjection.gd": 1, #quick fix item 1, 2026-09-28
+	"res://Scripts/GUI/Subscription/PlanSwitchDialog.gd": 1,    #downgrade upgrade loss list
+	"res://Scripts/GUI/Finance/Invest/InvestChart.gd": 1,       #hover tip event rows
 }
 
 #Locks a host hides together with the control they stand for, so a hidden lock that reads locked
@@ -123,11 +134,14 @@ static func run(host: Node) -> bool:
 	await _case_a2_scroll_report(res, host)
 	await _case_a2_fit(res, host)
 	await _case_a2_hud(res, host)
+	await _case_a6_window_border(res, host)
+	await _case_a6_popup_border(res, host)
+	_case_a6_flat_text(res)
 	await _case_a3_locks(res, host)
 	await _case_a4_dots(res, host)
 	await _case_a5_permit(res, host)
-	await _case_a5_fine(res, host)
-	await _case_a5_bail(res, host)
+	await _case_a5_review(res, host, LegalManager.TARGET_FINE, FINE_ID, "pay fine")
+	await _case_a5_review(res, host, LegalManager.TARGET_CAPTURE, CAPTURE_ID, "pay bail")
 	await _case_a5_hire(res, host)
 	await _case_a5_reject(res, host)
 	await _case_a5_campaign(res, host)
@@ -139,9 +153,11 @@ static func run(host: Node) -> bool:
 static func _fresh() -> void:
 	TestFixtures.reset_generator_rolls()
 	seed(7)
+	TestFixtures.fix_applicant_seed()
 	GameState.set_speed(ClockRunner.Speed.PAUSE)
 	GameState.start_new_game()
-	SubscriptionManager.reset()
+	PromotionsManager.reset()
+	SubscriptionManager.max_out()
 	GuiFrameStack.clear()
 
 
@@ -176,55 +192,37 @@ static func _kids(node: Node) -> int:
 	return total
 
 
-static func _walk_scrolls(node: Node, out: Array[ScrollContainer]) -> void:
-	if node is ScrollContainer:
-		out.append(node as ScrollContainer)
-	for child: Node in node.get_children():
-		_walk_scrolls(child, out)
+#Every node at or under the root that is an instance of the kind, in tree order.
+static func _collect(root: Node, kind: Variant) -> Array[Node]:
+	var out: Array[Node] = []
+	if is_instance_of(root, kind):
+		out.append(root)
+	for child: Node in root.get_children():
+		out.append_array(_collect(child, kind))
+	return out
 
 
 static func _scrolls(root: Node) -> Array[ScrollContainer]:
 	var out: Array[ScrollContainer] = []
-	_walk_scrolls(root, out)
+	out.assign(_collect(root, ScrollContainer))
 	return out
-
-
-static func _walk_locks(node: Node, out: Array[FeatureLock]) -> void:
-	if node is FeatureLock:
-		out.append(node as FeatureLock)
-	for child: Node in node.get_children():
-		_walk_locks(child, out)
 
 
 static func _locks(root: Node) -> Array[FeatureLock]:
 	var out: Array[FeatureLock] = []
-	_walk_locks(root, out)
+	out.assign(_collect(root, FeatureLock))
 	return out
-
-
-static func _walk_pages(node: Node, out: Array[LockedPage]) -> void:
-	if node is LockedPage:
-		out.append(node as LockedPage)
-	for child: Node in node.get_children():
-		_walk_pages(child, out)
 
 
 static func _locked_pages(root: Node) -> Array[LockedPage]:
 	var out: Array[LockedPage] = []
-	_walk_pages(root, out)
+	out.assign(_collect(root, LockedPage))
 	return out
-
-
-static func _walk_dots(node: Node, out: Array[NotificationDot]) -> void:
-	if node is NotificationDot:
-		out.append(node as NotificationDot)
-	for child: Node in node.get_children():
-		_walk_dots(child, out)
 
 
 static func _dots(root: Node) -> Array[NotificationDot]:
 	var out: Array[NotificationDot] = []
-	_walk_dots(root, out)
+	out.assign(_collect(root, NotificationDot))
 	return out
 
 
@@ -238,12 +236,13 @@ static func _text_nodes(node: Node) -> int:
 	return total
 
 
-#The nearest node at or above the container that carries a script, or null when none does.
+#The nearest node at or above the container that carries a script, or null when none does. A bare
+#DropPanel (the old PopupPanel menu, D3c) is skipped, so its list stays owned by the button around it.
 static func _owner_node_of(node: Node) -> Node:
 	var walk: Node = node
 	while walk != null:
 		var scr: Script = walk.get_script() as Script
-		if scr != null and scr.resource_path != "":
+		if scr != null and scr.resource_path != "" and scr.resource_path != DROP_PANEL_SCRIPT:
 			return walk
 		walk = walk.get_parent()
 	return null
@@ -311,7 +310,7 @@ static func _snap_text(before: Dictionary, after: Dictionary) -> String:
 #because no row names that owner or because that owner NODE's own count of containers is
 #already spent. The count is kept per owner instance, not per owner script, so a component
 #used more than once on a screen (TraitListPanel per merc, TeamSlot per slot) is not summed
-#across its copies (GX4F-R03).
+#across its copies.
 static func _scroll_report(root: Node, name_text: String) -> PackedStringArray:
 	var bad: PackedStringArray = PackedStringArray()
 	var seen: Dictionary = {}
@@ -329,36 +328,48 @@ static func _scroll_report(root: Node, name_text: String) -> PackedStringArray:
 	return bad
 
 
+#Spawns one A1 screen from VIEW_SCENES and checks it stands in the tree; null when it never spawned.
+static func _a1_open(res: Dictionary, host: Node, scene_index: int, name_text: String) -> Control:
+	var view: Control = _spawn(host, VIEW_SCENES[scene_index])
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "A1 %s opens alone as the first screen" % name_text,
+		view != null and view.is_inside_tree(), "node %s" % view)
+	return view
+
+
+#Checks the open touched no manager since the snapshot, then frees the screen.
+static func _a1_close(res: Dictionary, name_text: String, view: Node, before: Dictionary) -> void:
+	TestFixtures.check(res, "A1 %s touches no manager" % name_text,
+		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
+	_drop(view)
+
+
 #A1. Every viewer opens alone, as the first screen of a fresh game, with no other screen before
 #it and no manager touched by the open.
 static func _case_a1_contracts(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var before: Dictionary = _snapshot()
-	var view: ContractViewer = _spawn(host, VIEW_SCENES[1]) as ContractViewer
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 contracts opens alone as the first screen",
-		view != null and view.is_inside_tree(), "node %s" % view)
+	var view: ContractViewer = (await _a1_open(res, host, 1, "contracts")) as ContractViewer
 	if view == null:
 		return
 	var rows: int = view.list().row_count() if view.list() != null else -1
-	TestFixtures.check(res, "A1 contracts lists the seeded board",
-		rows == int(before["contracts"]),
-		"rows %d of %d seeded" % [rows, int(before["contracts"])])
+	var open_rows: int = 0
+	for posting: ContractView in GameState.contracts:
+		if not ContractListItem.is_closed(posting):
+			open_rows += 1
+	TestFixtures.check(res, "A1 contracts lists the seeded board's open postings",
+		rows == open_rows and open_rows > 0,
+		"rows %d of %d open, %d seeded" % [rows, open_rows, int(before["contracts"])])
 	TestFixtures.check(res, "A1 contracts builds its detail pane",
 		view.detail() != null and _kids(view.detail()) > 0,
 		"children %d" % _kids(view.detail()))
-	TestFixtures.check(res, "A1 contracts touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(view)
+	_a1_close(res, "contracts", view, before)
 
 
 static func _case_a1_mercs(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var before: Dictionary = _snapshot()
-	var view: MercViewer = _spawn(host, VIEW_SCENES[0]) as MercViewer
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 mercs opens alone as the first screen",
-		view != null and view.is_inside_tree(), "node %s" % view)
+	var view: MercViewer = (await _a1_open(res, host, 0, "mercs")) as MercViewer
 	if view == null:
 		return
 	TestFixtures.check(res, "A1 mercs lists the seeded roster",
@@ -370,18 +381,13 @@ static func _case_a1_mercs(res: Dictionary, host: Node) -> void:
 		var page: Control = view.page(i)
 		TestFixtures.check(res, "A1 mercs tab %s builds its page" % MercViewer.TAB_NAMES[i],
 			page != null and _kids(page) > 0, "children %d" % _kids(page))
-	TestFixtures.check(res, "A1 mercs touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(view)
+	_a1_close(res, "mercs", view, before)
 
 
 static func _case_a1_metrics(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var before: Dictionary = _snapshot()
-	var view: MetricsViewer = _spawn(host, VIEW_SCENES[8]) as MetricsViewer
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 metrics opens alone as the first screen",
-		view != null and view.is_inside_tree(), "node %s" % view)
+	var view: MetricsViewer = (await _a1_open(res, host, 8, "metrics")) as MetricsViewer
 	if view == null:
 		return
 	TestFixtures.check(res, "A1 metrics builds its metric list",
@@ -389,18 +395,13 @@ static func _case_a1_metrics(res: Dictionary, host: Node) -> void:
 		"children %d" % _kids(view.metric_list))
 	TestFixtures.check(res, "A1 metrics builds its chart",
 		view.chart != null and view.chart.is_inside_tree(), "chart %s" % view.chart)
-	TestFixtures.check(res, "A1 metrics touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(view)
+	_a1_close(res, "metrics", view, before)
 
 
 static func _case_a1_mercday(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var before: Dictionary = _snapshot()
-	var view: SubscriptionViewer = _spawn(host, VIEW_SCENES[4]) as SubscriptionViewer
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 mercday opens alone as the first screen",
-		view != null and view.is_inside_tree(), "node %s" % view)
+	var view: SubscriptionViewer = (await _a1_open(res, host, 4, "mercday")) as SubscriptionViewer
 	if view == null:
 		return
 	for key: StringName in SubscriptionViewer.TAB_KEYS:
@@ -411,50 +412,40 @@ static func _case_a1_mercday(res: Dictionary, host: Node) -> void:
 			page = view.plans_page()
 		TestFixtures.check(res, "A1 mercday tab %s builds its page" % key,
 			page != null and _kids(page) > 0, "children %d" % _kids(page))
-	TestFixtures.check(res, "A1 mercday touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(view)
+	_a1_close(res, "mercday", view, before)
 
 
 static func _case_a1_bazaar(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var before: Dictionary = _snapshot()
-	var view: BazaarViewer = _spawn(host, VIEW_SCENES[7]) as BazaarViewer
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 bazaar opens alone as the first screen",
-		view != null and view.is_inside_tree(), "node %s" % view)
+	var view: BazaarViewer = (await _a1_open(res, host, 7, "bazaar")) as BazaarViewer
 	if view == null:
 		return
 	TestFixtures.check(res, "A1 bazaar shows no locked page at full entitlement",
-		view.locked_page() == null or not view.locked_page().visible,
-		"locked page %s" % view.locked_page())
+		view.lock == null or not view.lock.visible,
+		"locked page %s" % view.lock)
 	for key: StringName in BazaarViewer.TAB_KEYS:
 		view.open_tab(key)
 		await host.get_tree().process_frame
-		var page: Control = view.shop_page()
+		var page: Control = view.shop
 		if key == BazaarViewer.TAB_KEYS[1]:
-			page = view.cart_page()
+			page = view.cart
 		elif key == BazaarViewer.TAB_KEYS[2]:
-			page = view.orders_page()
+			page = view.orders
 		TestFixtures.check(res, "A1 bazaar tab %s builds its page" % key,
 			page != null and _kids(page) > 0, "children %d" % _kids(page))
 	view.open_tab(BazaarViewer.TAB_KEYS[0])
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "A1 bazaar shop lists the seeded stock",
-		BazaarManager.catalog.size() > 0 and view.shop_page().card_count() > 0,
-		"catalog %d cards %d" % [BazaarManager.catalog.size(), view.shop_page().card_count()])
-	TestFixtures.check(res, "A1 bazaar touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(view)
+		BazaarManager.catalog.size() > 0 and view.shop.card_count() > 0,
+		"catalog %d cards %d" % [BazaarManager.catalog.size(), view.shop.card_count()])
+	_a1_close(res, "bazaar", view, before)
 
 
 static func _case_a1_legal(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var before: Dictionary = _snapshot()
-	var view: LegalViewer = _spawn(host, VIEW_SCENES[6]) as LegalViewer
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 legal opens alone as the first screen",
-		view != null and view.is_inside_tree(), "node %s" % view)
+	var view: LegalViewer = (await _a1_open(res, host, 6, "legal")) as LegalViewer
 	if view == null:
 		return
 	for key: StringName in LegalViewer.TAB_KEYS:
@@ -472,18 +463,14 @@ static func _case_a1_legal(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "A1 legal permits lists a card per location",
 		view.permits_page().card_count() == LegalManager.LOCATIONS.size(),
 		"cards %d of %d" % [view.permits_page().card_count(), LegalManager.LOCATIONS.size()])
-	TestFixtures.check(res, "A1 legal touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(view)
+	_a1_close(res, "legal", view, before)
 
 
 static func _case_a1_promotions(res: Dictionary, host: Node) -> void:
 	_fresh()
+	GuiHiringTests._lay_board()
 	var before: Dictionary = _snapshot()
-	var view: PromotionsViewer = _spawn(host, VIEW_SCENES[3]) as PromotionsViewer
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 promotions opens alone as the first screen",
-		view != null and view.is_inside_tree(), "node %s" % view)
+	var view: PromotionsViewer = (await _a1_open(res, host, 3, "promotions")) as PromotionsViewer
 	if view == null:
 		return
 	for key: StringName in [PromotionsViewer.JOB_KEY, PromotionsViewer.PROMO_KEY]:
@@ -496,20 +483,16 @@ static func _case_a1_promotions(res: Dictionary, host: Node) -> void:
 			not view.lock_shown(), "lock shown %s" % view.lock_shown())
 	view.open_tab(PromotionsViewer.JOB_KEY)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 promotions job lists the seeded campaigns",
+	TestFixtures.check(res, "A1 promotions job lists the board's job ads",
 		view.card_count() > 0, "cards %d" % view.card_count())
-	TestFixtures.check(res, "A1 promotions touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(view)
+	_a1_close(res, "promotions", view, before)
 
 
 static func _case_a1_finance(res: Dictionary, host: Node) -> void:
 	_fresh()
+	GuiHiringTests._lay_board()
 	var before: Dictionary = _snapshot()
-	var view: FinanceViewer = _spawn(host, VIEW_SCENES[5]) as FinanceViewer
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 finance opens alone as the first screen",
-		view != null and view.is_inside_tree(), "node %s" % view)
+	var view: FinanceViewer = (await _a1_open(res, host, 5, "finance")) as FinanceViewer
 	if view == null:
 		return
 	for key: StringName in FinanceViewer.TAB_KEYS:
@@ -524,21 +507,16 @@ static func _case_a1_finance(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 	var hiring: HiringTab = view.page(FinanceViewer.HIRING_KEY) as HiringTab
 	var cards: int = hiring.card_ids().size() if hiring != null else -1
-	TestFixtures.check(res, "A1 finance hiring lists the seeded applicants",
+	TestFixtures.check(res, "A1 finance hiring lists the board's applicants",
 		cards == int(before["applicants"]),
 		"cards %d of %d" % [cards, int(before["applicants"])])
-	TestFixtures.check(res, "A1 finance touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(view)
+	_a1_close(res, "finance", view, before)
 
 
 static func _case_a1_clients(res: Dictionary, host: Node) -> void:
 	_fresh()
 	var before: Dictionary = _snapshot()
-	var view: ClientViewer = _spawn(host, VIEW_SCENES[2]) as ClientViewer
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A1 clients opens alone as the first screen",
-		view != null and view.is_inside_tree(), "node %s" % view)
+	var view: ClientViewer = (await _a1_open(res, host, 2, "clients")) as ClientViewer
 	if view == null:
 		return
 	for kind: StringName in ClientRegistry.KINDS:
@@ -546,16 +524,14 @@ static func _case_a1_clients(res: Dictionary, host: Node) -> void:
 		await host.get_tree().process_frame
 		var listed: int = view.list.rows().size()
 		#Client Viewer.dc.html:233, "only clients who have sent you contracts": the list is the
-		#offered subset, not the raw registry (GX4F-R04).
+		#offered subset, not the raw registry.
 		var held: int = view.registry().total(kind)
 		TestFixtures.check(res, "A1 clients tab %s lists the offered clients" % kind,
 			listed == held, "listed %d of %d" % [listed, held])
 		TestFixtures.check(res, "A1 clients tab %s builds its overview" % kind,
 			view.overview != null and _kids(view.overview) > 0,
 			"children %d" % _kids(view.overview))
-	TestFixtures.check(res, "A1 clients touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(view)
+	_a1_close(res, "clients", view, before)
 
 
 static func _case_a1_dispatch(res: Dictionary, host: Node) -> void:
@@ -567,11 +543,7 @@ static func _case_a1_dispatch(res: Dictionary, host: Node) -> void:
 	if not has_board:
 		return
 	var entry: ContractView = GameState.contracts[0]
-	var scene: PackedScene = load(DISPATCH_SCENE) as PackedScene
-	var win: DispatchWindow = scene.instantiate() as DispatchWindow
-	win.contract = entry
-	host.add_child(win)
-	await host.get_tree().process_frame
+	var win: DispatchWindow = await GuiContractTests._spawn_window(entry, host)
 	TestFixtures.check(res, "A1 dispatch opens over the contract viewer",
 		win.is_inside_tree(), "in tree %s" % win.is_inside_tree())
 	TestFixtures.check(res, "A1 dispatch builds its roster panel",
@@ -579,9 +551,7 @@ static func _case_a1_dispatch(res: Dictionary, host: Node) -> void:
 		"children %d" % _kids(win.roster_panel()))
 	TestFixtures.check(res, "A1 dispatch builds its team slots",
 		win.slot_at(0) != null, "slot %s" % win.slot_at(0))
-	TestFixtures.check(res, "A1 dispatch touches no manager",
-		_snap_text(before, _snapshot()) == "no change", _snap_text(before, _snapshot()))
-	_drop(win)
+	_a1_close(res, "dispatch", win, before)
 
 
 static func _spawn_hud(host: Node) -> GameHUD:
@@ -668,11 +638,7 @@ static func _case_a2_scrolls(res: Dictionary, host: Node) -> void:
 	if not has_board:
 		return
 	var entry: ContractView = GameState.contracts[0]
-	var scene: PackedScene = load(DISPATCH_SCENE) as PackedScene
-	var win: DispatchWindow = scene.instantiate() as DispatchWindow
-	win.contract = entry
-	host.add_child(win)
-	await host.get_tree().process_frame
+	var win: DispatchWindow = await GuiContractTests._spawn_window(entry, host)
 	var win_bad: PackedStringArray = _scroll_report(win, "dispatch")
 	TestFixtures.check(res, "A2 dispatch scrolls only in a list the docs name",
 		win_bad.is_empty(), "; ".join(win_bad))
@@ -681,7 +647,7 @@ static func _case_a2_scrolls(res: Dictionary, host: Node) -> void:
 
 
 #A2. Proves _scroll_report flags an owner absent from SCROLL_OWNERS and an owner whose
-#ScrollContainer count exceeds its row (GX4F-R03). The probe root carries a real script loaded
+#ScrollContainer count exceeds its row. The probe root carries a real script loaded
 #from disk, so its resource_path is not empty, but it is never added to the tree: no _ready()
 #fires and no scene game file is created.
 static func _case_a2_scroll_report(res: Dictionary, host: Node) -> void:
@@ -696,7 +662,7 @@ static func _case_a2_scroll_report(res: Dictionary, host: Node) -> void:
 		"; ".join(unlisted_bad))
 	unlisted_root.free()
 
-	var over_script: Script = load("res://Scripts/GUI/Shared/CrewMercPicker.gd") as Script
+	var over_script: Script = load("res://Scripts/GUI/Shared/MercPicker.gd") as Script
 	var over_root: Control = Control.new()
 	over_root.set_script(over_script)
 	over_root.add_child(ScrollContainer.new())
@@ -744,13 +710,225 @@ static func _case_a2_hud(res: Dictionary, host: Node) -> void:
 	await host.get_tree().process_frame
 
 
+#The close X rect of a window canvas of this width, in canvas coordinates (SubWindow._layout).
+static func close_x_rect(width: float) -> Rect2:
+	var art: float = float(CloseX.ART * CloseX.SCALE_WINDOW)
+	var outline: float = float(CloseX.SCALE_WINDOW)
+	return Rect2(Vector2(width - SubWindow.CLOSE_INSET - art - outline,
+		SubWindow.CLOSE_INSET - outline), CloseX.size(CloseX.SCALE_WINDOW))
+
+
+#Pinned interface 3, read by the viewer suites: a page asks for no more than the canvas and no
+#control ends outside it. The viewer root pins custom_minimum_size to the canvas, so the page is
+#measured on the layout containers under it as well. A scrolled list is allowed to overflow, so
+#the walk stops at a ScrollContainer, and a top_level node lays out on its own.
+static func fit_report(view: Control) -> PackedStringArray:
+	var bad: PackedStringArray = PackedStringArray()
+	var canvas: Rect2 = Rect2(view.global_position, BAND_SIZE)
+	_fit_min(view, bad)
+	for child: Node in view.get_children():
+		if child is Container:
+			_fit_min(child as Control, bad)
+	_fit_walk(view, canvas, bad)
+	return bad
+
+
+static func _fit_min(box: Control, bad: PackedStringArray) -> void:
+	if not box.visible:
+		return
+	var want: Vector2 = box.get_combined_minimum_size()
+	if want.x > BAND_SIZE.x + FIT_SLACK or want.y > BAND_SIZE.y + FIT_SLACK:
+		bad.append("%s asks for %s via %s" % [box.name, want,
+			widest_chain(box, want.x > BAND_SIZE.x + FIT_SLACK)])
+
+
+#The chain of the children asking for the most width (or height) under a box, so a fit failure
+#names the control that drives the overflow.
+static func widest_chain(box: Control, by_width: bool) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	var node: Control = box
+	while node != null:
+		var next: Control = null
+		var most: float = -1.0
+		for child: Node in node.get_children():
+			var sub: Control = child as Control
+			if sub == null or not sub.visible or sub.top_level:
+				continue
+			var want: Vector2 = sub.get_combined_minimum_size()
+			var ask: float = want.x if by_width else want.y
+			if ask > most:
+				most = ask
+				next = sub
+		if next == null:
+			break
+		parts.append("%s %d" % [next.name, int(most)])
+		node = next
+	return " > ".join(parts)
+
+
+static func _fit_walk(node: Node, canvas: Rect2, bad: PackedStringArray) -> void:
+	for child: Node in node.get_children():
+		var box: Control = child as Control
+		if box == null or not box.visible or box.top_level:
+			continue
+		if not canvas.grow(FIT_SLACK).encloses(box.get_global_rect()):
+			bad.append("%s ends outside the canvas at %s" % [box.name, box.get_global_rect()])
+		elif not (box is ScrollContainer):
+			_fit_walk(box, canvas, bad)
+
+
+#Pinned interfaces 2 and 3 for a viewer sized to the 1280 x 644 band at the top left of the screen.
+static func window_report(view: Control) -> PackedStringArray:
+	var bad: PackedStringArray = fit_report(view)
+	var x_rect: Rect2 = close_x_rect(BAND_SIZE.x)
+	x_rect.position += view.global_position
+	bad.append_array(close_clear_report(view, x_rect))
+	return bad
+
+
+#Pinned interface 2, read by the viewer suites: no text, icon or button of the viewer lies under
+#the close X. Panels and layout boxes may run under it; what they hold may not.
+static func close_clear_report(root: Control, x_rect: Rect2) -> PackedStringArray:
+	var bad: PackedStringArray = PackedStringArray()
+	_close_walk(root, x_rect, bad)
+	return bad
+
+
+static func _close_walk(node: Node, x_rect: Rect2, bad: PackedStringArray) -> void:
+	for child: Node in node.get_children():
+		var box: Control = child as Control
+		if box == null or not box.visible or box.top_level:
+			continue
+		var rect: Rect2 = box.get_global_rect()
+		if not rect.intersects(x_rect):
+			continue
+		if box is Container or box is Panel or box is ColorRect:
+			_close_walk(box, x_rect, bad)
+		elif _blank_spacer(box):
+			continue
+		else:
+			bad.append("%s lies under the close X at %s" % [box.name, rect])
+
+
+#A plain Control with no script and no children draws nothing and takes no click.
+static func _blank_spacer(box: Control) -> bool:
+	return (box.get_class() == "Control" and box.get_script() == null
+		and box.get_child_count() == 0 and box.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+
+
+#A6. The orange border lies inside the canvas edge, over the content and under the close X, so
+#every side of it is on screen at 1280 x 720 with the bottom bar reserved.
+static func _border_report(root: Control, holder: Control, frame: Control, border: Panel,
+		close_x: Control) -> PackedStringArray:
+	var bad: PackedStringArray = PackedStringArray()
+	var canvas: Rect2 = Rect2(holder.position, holder.size)
+	if not (frame.position.is_equal_approx(canvas.position)
+			and frame.size.is_equal_approx(canvas.size)):
+		bad.append("frame %s/%s is not the canvas %s" % [frame.position, frame.size, canvas])
+	if not (border.position.is_equal_approx(canvas.position)
+			and border.size.is_equal_approx(canvas.size)):
+		bad.append("border %s/%s is not the canvas %s" % [border.position, border.size, canvas])
+	var style: StyleBoxFlat = border.get_theme_stylebox("panel") as StyleBoxFlat
+	if style == null:
+		bad.append("the border carries no StyleBoxFlat")
+	else:
+		if style.draw_center:
+			bad.append("the border style draws its centre over the content")
+		for side: int in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+			if style.get_border_width(side) != BORDER_PX:
+				bad.append("border width %d on side %d" % [style.get_border_width(side), side])
+		if style.border_color.to_html(false) != BORDER_COLOR.to_html(false):
+			bad.append("border colour %s" % style.border_color)
+	if border.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		bad.append("the border eats the mouse (filter %d)" % border.mouse_filter)
+	if border.get_index() < holder.get_index() or border.get_index() > close_x.get_index():
+		bad.append("the border is not drawn between the content and the close X")
+	var screen: Rect2 = Rect2(Vector2.ZERO, root.size)
+	if not screen.grow(FIT_SLACK).encloses(Rect2(border.position, border.size)):
+		bad.append("the border leaves the screen %s" % screen)
+	var x_rect: Rect2 = Rect2(close_x.position, close_x.size)
+	if not canvas.grow(FIT_SLACK).encloses(x_rect):
+		bad.append("the close X %s is outside the canvas" % x_rect)
+	var want: Vector2 = canvas.position + close_x_rect(canvas.size.x).position
+	if not close_x.position.is_equal_approx(want):
+		bad.append("the close X sits at %s, not %s" % [close_x.position, want])
+	return bad
+
+
+static func _case_a6_window_border(res: Dictionary, host: Node) -> void:
+	_fresh()
+	GuiFrameStack.bottom_reserve = 76.0
+	var win: SubWindow = (load(SUBWINDOW_SCENE) as PackedScene).instantiate()
+	host.add_child(win)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	win._layout()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "A6 the sub window canvas stays 1280 x 644",
+		win.holder.size.is_equal_approx(BAND_SIZE), "holder %s" % win.holder.size)
+	var bad: PackedStringArray = _border_report(win, win.holder, win.frame, win.border, win.close_x)
+	TestFixtures.check(res, "A6 the sub window border sits inside the canvas under the close X",
+		bad.is_empty(), "; ".join(bad))
+	GuiFrameStack.bottom_reserve = 0.0
+	_drop(win)
+	await host.get_tree().process_frame
+
+
+static func _case_a6_popup_border(res: Dictionary, host: Node) -> void:
+	_fresh()
+	GuiFrameStack.bottom_reserve = 76.0
+	var popup: ViewerPopup = (load(POPUP_SCENE) as PackedScene).instantiate()
+	popup.content_width = float(ViewerPopup.MERC["width"])
+	host.add_child(popup)
+	await host.get_tree().process_frame
+	await host.get_tree().process_frame
+	popup._layout()
+	await host.get_tree().process_frame
+	TestFixtures.check(res, "A6 a narrow popup keeps its own 988 wide canvas",
+		popup.holder.size.is_equal_approx(Vector2(988.0, BAND_SIZE.y)),
+		"holder %s" % popup.holder.size)
+	var bad: PackedStringArray = _border_report(popup, popup.holder, popup.frame, popup.border,
+		popup.close_x)
+	TestFixtures.check(res, "A6 the popup border sits inside its box under the close X",
+		bad.is_empty(), "; ".join(bad))
+	GuiFrameStack.bottom_reserve = 0.0
+	_drop(popup)
+	await host.get_tree().process_frame
+
+
+#A6. No label or button in the merc, contract, client or metrics screens draws a text shadow
+#or outline, neither from a scene override nor from a script override.
+static func _case_a6_flat_text(res: Dictionary) -> void:
+	var bad: PackedStringArray = []
+	var read: int = 0
+	for dir: String in FLAT_TEXT_DIRS:
+		for file: String in DirAccess.get_files_at(dir):
+			if not (file.ends_with(".tscn") or file.ends_with(".gd")):
+				continue
+			var body: String = FileAccess.get_file_as_string(dir.path_join(file))
+			read += 1
+			for effect: String in TEXT_EFFECTS:
+				if (body.contains("/" + effect + " =")
+						or body.contains("_override(\"" + effect + "\"")):
+					bad.append("%s %s" % [file, effect])
+	TestFixtures.check(res, "A6 the screen text draws flat with no shadow or outline",
+		read > 0 and bad.is_empty(), "read %d; %s" % [read, "; ".join(bad)])
+
+
+#The text effect overrides one control carries; empty when its text draws flat.
+static func text_effect_report(ctrl: Control) -> PackedStringArray:
+	var bad: PackedStringArray = []
+	for effect: String in TEXT_EFFECTS:
+		if ctrl.has_theme_color_override(effect) or ctrl.has_theme_constant_override(effect):
+			bad.append(effect)
+	return bad
+
+
 static func _dialog_under(node: Node) -> FeatureLockDialog:
 	for child: Node in node.get_children():
-		if child is FeatureLockDialog:
-			return child as FeatureLockDialog
-		var deeper: FeatureLockDialog = _dialog_under(child)
-		if deeper != null:
-			return deeper
+		var found: Array[Node] = _collect(child, FeatureLockDialog)
+		if not found.is_empty():
+			return found[0] as FeatureLockDialog
 	return null
 
 
@@ -820,7 +998,7 @@ static func _case_a3_locks(res: Dictionary, host: Node) -> void:
 
 static func _check_dot(res: Dictionary, dot: NotificationDot, where: String) -> void:
 	#The scene note of HANDOFF\reference_html\Game HUD.dc.html line 613 names NotificationDot.tscn
-	#as the one shared dot of the bell, the menu buttons and the list items (GX4F-R01, not taken).
+	#as the one shared dot of the bell, the menu buttons and the list items.
 	TestFixtures.check(res, "A4 dot is the shared scene: %s" % where,
 		dot.scene_file_path == NotificationDot.SCENE_PATH,
 		"scene %s" % ("(built in code)" if dot.scene_file_path == "" else dot.scene_file_path))
@@ -834,7 +1012,7 @@ static func _check_dot(res: Dictionary, dot: NotificationDot, where: String) -> 
 		"size %s modulate %s self %s" % [dot.custom_minimum_size, dot.modulate,
 		dot.self_modulate])
 	#Design values of Notification Dot.dc.html, read as suite consts beside their own source
-	#line, never a const of the game (GX4F-R05).
+	#line, never a const of the game.
 	var color_variant: Variant = dot.get("color")
 	var has_color: bool = color_variant is Color
 	var color_val: Color = color_variant if has_color else Color()
@@ -905,68 +1083,44 @@ static func _case_a5_permit(res: Dictionary, host: Node) -> void:
 		view.request_dialog().visible, "visible %s" % view.request_dialog().visible)
 	view.request_dialog().press_permit(LegalManager.PERMIT_OPS)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "A5 permit request confirms before it spends",
-		view.confirm().visible, "confirm visible %s" % view.confirm().visible)
-	TestFixtures.check(res, "A5 permit request leaves the bank alone until confirm",
-		GameState.bank_notes == before, "bank %d of %d" % [GameState.bank_notes, before])
-	view.confirm().press(view.confirm().button_count() - 1)
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A5 permit request spends once confirm is pressed",
-		GameState.bank_notes < before, "bank %d of %d" % [GameState.bank_notes, before])
+	await _check_confirm_spend(res, host, view, before, "permit request")
 	_drop(view)
 	await host.get_tree().process_frame
 
 
-static func _case_a5_fine(res: Dictionary, host: Node) -> void:
+#A5 for a review dialog: pays the fine or capture row named by the target kind and id.
+static func _case_a5_review(res: Dictionary, host: Node, target: String, id: int,
+		label: String) -> void:
 	_fresh()
+	GuiLegalTests._lay_legal()
 	GameState.bank_notes = RICH
 	var view: LegalViewer = _spawn(host, VIEW_SCENES[6]) as LegalViewer
 	await host.get_tree().process_frame
-	view.open_review(LegalManager.TARGET_FINE, FINE_ID)
+	view.open_review(target, id)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "A5 pay fine opens the review dialog",
+	TestFixtures.check(res, "A5 %s opens the review dialog" % label,
 		view.review_dialog().visible and view.review_dialog().pay_enabled(),
 		"visible %s enabled %s" % [view.review_dialog().visible,
 		view.review_dialog().pay_enabled()])
 	var before: int = GameState.bank_notes
 	view.review_dialog().press_pay()
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "A5 pay fine confirms before it spends",
-		view.confirm().visible, "confirm visible %s" % view.confirm().visible)
-	TestFixtures.check(res, "A5 pay fine leaves the bank alone until confirm",
-		GameState.bank_notes == before, "bank %d of %d" % [GameState.bank_notes, before])
-	view.confirm().press(view.confirm().button_count() - 1)
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A5 pay fine spends once confirm is pressed",
-		GameState.bank_notes < before, "bank %d of %d" % [GameState.bank_notes, before])
+	await _check_confirm_spend(res, host, view, before, label)
 	_drop(view)
 	await host.get_tree().process_frame
 
 
-static func _case_a5_bail(res: Dictionary, host: Node) -> void:
-	_fresh()
-	GameState.bank_notes = RICH
-	var view: LegalViewer = _spawn(host, VIEW_SCENES[6]) as LegalViewer
-	await host.get_tree().process_frame
-	view.open_review(LegalManager.TARGET_CAPTURE, CAPTURE_ID)
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A5 pay bail opens the review dialog",
-		view.review_dialog().visible and view.review_dialog().pay_enabled(),
-		"visible %s enabled %s" % [view.review_dialog().visible,
-		view.review_dialog().pay_enabled()])
-	var before: int = GameState.bank_notes
-	view.review_dialog().press_pay()
-	await host.get_tree().process_frame
-	TestFixtures.check(res, "A5 pay bail confirms before it spends",
+#The shared tail of the A5 spend cases: the confirm shows first, the bank holds, then confirm spends.
+static func _check_confirm_spend(res: Dictionary, host: Node, view: LegalViewer, before: int,
+		label: String) -> void:
+	TestFixtures.check(res, "A5 %s confirms before it spends" % label,
 		view.confirm().visible, "confirm visible %s" % view.confirm().visible)
-	TestFixtures.check(res, "A5 pay bail leaves the bank alone until confirm",
+	TestFixtures.check(res, "A5 %s leaves the bank alone until confirm" % label,
 		GameState.bank_notes == before, "bank %d of %d" % [GameState.bank_notes, before])
 	view.confirm().press(view.confirm().button_count() - 1)
 	await host.get_tree().process_frame
-	TestFixtures.check(res, "A5 pay bail spends once confirm is pressed",
+	TestFixtures.check(res, "A5 %s spends once confirm is pressed" % label,
 		GameState.bank_notes < before, "bank %d of %d" % [GameState.bank_notes, before])
-	_drop(view)
-	await host.get_tree().process_frame
 
 
 static func _hiring_tab(host: Node, view: FinanceViewer) -> HiringTab:
@@ -977,6 +1131,7 @@ static func _hiring_tab(host: Node, view: FinanceViewer) -> HiringTab:
 
 static func _case_a5_hire(res: Dictionary, host: Node) -> void:
 	_fresh()
+	GuiHiringTests._lay_board()
 	GameState.bank_notes = RICH
 	var view: FinanceViewer = _spawn(host, VIEW_SCENES[5]) as FinanceViewer
 	await host.get_tree().process_frame
@@ -997,6 +1152,7 @@ static func _case_a5_hire(res: Dictionary, host: Node) -> void:
 		_drop(view)
 		return
 	var before: int = GameState.mercs.size()
+	var stored: MercenaryData = PromotionsManager.merc_of(PromotionsManager.applicant_of(picked))
 	tab.offer_dialog().press_action()
 	await host.get_tree().process_frame
 	TestFixtures.check(res, "A5 hire confirms before it spends",
@@ -1008,12 +1164,17 @@ static func _case_a5_hire(res: Dictionary, host: Node) -> void:
 	TestFixtures.check(res, "A5 hire adds the merc once confirm is pressed",
 		GameState.mercs.size() == before + 1,
 		"roster %d of %d" % [GameState.mercs.size(), before])
+	TestFixtures.check(res, "A5 hire signs on the merc rolled when the applicant appeared",
+		stored != null and GameState.mercs.has(stored)
+		and PromotionsManager.last_hired_uid == stored.merc_uid,
+		"stored %s hired uid %d" % [str(stored != null), PromotionsManager.last_hired_uid])
 	_drop(view)
 	await host.get_tree().process_frame
 
 
 static func _case_a5_reject(res: Dictionary, host: Node) -> void:
 	_fresh()
+	GuiHiringTests._lay_board()
 	var view: FinanceViewer = _spawn(host, VIEW_SCENES[5]) as FinanceViewer
 	await host.get_tree().process_frame
 	var tab: HiringTab = await _hiring_tab(host, view)
@@ -1042,6 +1203,7 @@ static func _case_a5_reject(res: Dictionary, host: Node) -> void:
 
 static func _case_a5_campaign(res: Dictionary, host: Node) -> void:
 	_fresh()
+	GuiHiringTests._lay_board()
 	var view: PromotionsViewer = _spawn(host, VIEW_SCENES[3]) as PromotionsViewer
 	await host.get_tree().process_frame
 	view.open_tab(PromotionsViewer.JOB_KEY)

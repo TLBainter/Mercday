@@ -1,14 +1,16 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/ContractListItem.gd" id="1"]
 [ext_resource type="Script" path="res://Scripts/GUI/Contracts/ContractImageBox.gd" id="2"]
-[ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/DifficultyStars.tscn" id="3"]
+[ext_resource type="Script" path="res://Scripts/GUI/Shared/Stars.gd" id="3"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/StatusMark.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/UrgencyPulse.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/LevelBadge.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://Scenes/GUI/Shared/NoteIcon.tscn" id="7"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/PixelifyMedium.tres" id="8"]
 [ext_resource type="FontVariation" path="res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres" id="9"]
+[ext_resource type="Script" path="res://Scripts/GUI/Mercdave/HelpTarget.gd" id="10"]
+[ext_resource type="Resource" path="res://Resources/Mercdave/Hints/scene_ContractListItem.tres" id="11"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_strip"]
 bg_color = Color(0.039216, 0.058824, 0.109804, 0.780392)
@@ -53,6 +55,21 @@ horizontal_alignment = 1
 vertical_alignment = 1
 text = "Available"
 
+[node name="Mark" parent="Row/Image" instance=ExtResource("4")]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
 [node name="Pulse" parent="Row/Image" instance=ExtResource("5")]
 layout_mode = 1
 anchors_preset = 15
@@ -81,10 +98,11 @@ clip_text = true
 text_overrun_behavior = 3
 text = "Contract"
 
-[node name="Stars" parent="Row/Text" instance=ExtResource("3")]
+[node name="Stars" type="Control" parent="Row/Text"]
 layout_mode = 2
 mouse_filter = 2
-star_size = 1
+script = ExtResource("3")
+star_px = 1
 
 [node name="Line" type="HBoxContainer" parent="Row/Text"]
 mouse_filter = 2
@@ -110,13 +128,7 @@ mouse_filter = 2
 size_flags_vertical = 4
 size_mode = 1
 
-[node name="Mark" parent="." instance=ExtResource("4")]
-layout_mode = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -36.0
-offset_top = 4.0
-offset_right = -4.0
-offset_bottom = 36.0
-mouse_filter = 2
+[node name="HelpTarget" type="Node" parent="."]
+script = ExtResource("10")
+hint = ExtResource("11")
 

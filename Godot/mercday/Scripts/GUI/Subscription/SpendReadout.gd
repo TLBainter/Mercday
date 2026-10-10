@@ -4,17 +4,12 @@ class_name SpendReadout extends HBoxContainer
 #against the income those bills come out of. Cream while there is room, orange from nine tenths
 #of the income on, red once the bills are over it. The full sentence sits in the tooltip.
 
-const CREAM: Color = Color("#f3ead7")
-const ORANGE: Color = Color("#f28c28")
-const RED: Color = Color("#e8583f")
+const CREAM: Color = GuiColors.CREAM
+const ORANGE: Color = GuiColors.ORANGE
+const RED: Color = GuiColors.RED
 const WARN_SHARE: float = 0.9
-const FONT: FontVariation = preload("res://Resources/GUI/Theme/Fonts/SilkscreenBold.tres")
-const FONT_SIZE: int = 18
-const SUFFIX: String = "/month"
 
-@onready var amount: Label = $Amount
-@onready var glyph: NoteIcon = $Glyph
-@onready var per: Label = $Per
+@onready var notes: NotesLabel = $Notes
 
 var _base: int = 0
 var _addon: int = 0
@@ -23,10 +18,6 @@ var _income: int = 0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
-	per.text = SUFFIX
-	for label: Label in [amount, per]:
-		label.add_theme_font_override(&"font", FONT)
-		label.add_theme_font_size_override(&"font_size", FONT_SIZE)
 	SubscriptionManager.changed.connect(refresh)
 	GameState.roster_changed.connect(refresh)
 	GameState.money_changed.connect(_on_money_changed)
@@ -77,12 +68,9 @@ func refresh() -> void:
 	_base = SubscriptionManager.service_fee()
 	_addon = SubscriptionManager.upgrade_fee()
 	_income = SubscriptionManager.budget_available()
-	amount.text = text_value()
-	var color: Color = tint()
-	amount.add_theme_color_override(&"font_color", color)
-	per.add_theme_color_override(&"font_color", color)
+	notes.text_override = text_value()
+	notes.value_color = tint()
 	tooltip_text = tooltip_value()
-	glyph.tooltip_text = tooltip_value()
 
 
 func _on_money_changed(_bank_notes: int) -> void:
